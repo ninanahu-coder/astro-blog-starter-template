@@ -150,6 +150,46 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
   border:1px solid rgba(227,168,62,.35);border-radius:4px;padding:10px 18px;text-align:center;
   display:flex;justify-content:space-between;gap:24px;font-size:13.5px}
 .funnel .f b{font-family:var(--mono);color:var(--gold);font-weight:500}
+/* ===== 手机竖屏：滚动阅读模式 ===== */
+@media screen and (max-width:700px) and (orientation:portrait){
+  body{overflow:auto}
+  #stage{position:static;display:block;width:auto!important;height:auto!important}
+  #deck{width:auto;height:auto;transform:none!important}
+  .slide{position:relative;inset:auto;display:flex!important;width:100%;height:auto;
+    padding:26px 18px 20px;border:none;border-bottom:1px solid var(--line)}
+  .secmark{position:static;display:block;margin-bottom:8px}
+  .eyebrow{margin-bottom:10px}
+  h1{font-size:30px}
+  h2.t{font-size:21px}
+  .sub{font-size:14px}
+  .body{gap:14px;justify-content:flex-start}
+  .cols,.c2,.c3,.c4,.c23,.c32{grid-template-columns:1fr;gap:12px}
+  .card{padding:15px 15px}
+  .kpi{font-size:26px}
+  .big-serif{font-size:17px}
+  ul.list{gap:9px}
+  ul.list li{font-size:13.5px}
+  table.tbl{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table.tbl th,table.tbl td{min-width:108px;font-size:12px;padding:8px}
+  .flow{flex-direction:column}
+  .flow .arr{transform:rotate(90deg);justify-content:center;padding:2px 0}
+  .tline{flex-direction:column;gap:8px}
+  .layer{grid-template-columns:1fr;gap:6px}
+  .layer .ln{justify-content:flex-start;text-align:left}
+  .toc{grid-template-columns:1fr}
+  .bars{height:170px;gap:14px;padding:0}
+  .bar .v{font-size:12px}
+  .hrow{grid-template-columns:1fr 56px;font-size:12px;gap:8px}
+  .hrow .lab{grid-column:1/-1}
+  .hrow .val{font-size:11px}
+  .funnel .f{font-size:12px;gap:10px;padding:8px 10px}
+  .foot{position:static;margin-top:16px;display:flex;justify-content:space-between}
+  .cover{min-height:78vh;justify-content:space-between}
+  .cover .meta{flex-wrap:wrap;gap:10px 18px}
+  .hint,#ctr,#prog{display:none}
+  .src{font-size:10.5px}
+  .note{font-size:11px}
+}
 @page{size:1280px 720px;margin:0}
 @media print{
   body{overflow:visible;background:#fff;margin:0}
@@ -165,7 +205,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 <body>
 <div id="prog"></div>
 <div id="ctr"></div>
-<div id="rotate">📱 横屏观看更清晰 · 左右滑动翻页 · 双指可缩放</div>
+<div id="rotate">📱 竖屏：上下滚动阅读 · 横屏：幻灯片模式</div>
 <div id="stage"><div id="deck">
 
 <!-- ============ 01 封面 ============ -->
@@ -1162,9 +1202,12 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
   var deck=document.getElementById('deck'),prog=document.getElementById('prog'),
       ctr=document.getElementById('ctr'),stage=document.getElementById('stage'),
       rot=document.getElementById('rotate'),vv=window.visualViewport;
+  var mq=matchMedia('(max-width:700px) and (orientation:portrait)');
+  function mob(){return mq.matches}
   function vw(){return vv?vv.width:innerWidth}
   function vh(){return vv?vv.height:innerHeight}
   function fit(){
+    if(mob()){stage.style.height='';stage.style.width='';deck.style.transform='';return}
     stage.style.height=vh()+'px';stage.style.width=vw()+'px';
     var s=Math.min(vw()/1300,vh()/740);deck.style.transform='scale('+s+')';}
   function show(k){i=Math.max(0,Math.min(n-1,k));
@@ -1176,6 +1219,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     else if(e.key==='ArrowLeft'||e.key==='PageUp')show(i-1);
     else if(e.key==='Home')show(0);else if(e.key==='End')show(n-1);});
   addEventListener('click',function(e){
+    if(mob())return;
     if(e.target.closest('a'))return;
     if(Date.now()-lastSwipe<500)return;
     if(vv&&vv.scale>1.05)return; /* zoomed in: taps shouldn't flip pages */
@@ -1185,13 +1229,14 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     if(e.touches.length!==1){tx=null;return}
     tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
   addEventListener('touchend',function(e){
-    if(tx===null)return;
+    if(tx===null||mob())return;
     if(vv&&vv.scale>1.05){tx=null;return}
     var dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
     if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)){lastSwipe=Date.now();show(dx<0?i+1:i-1)}
     tx=null;},{passive:true});
   addEventListener('resize',fit);
   addEventListener('orientationchange',function(){setTimeout(fit,300)});
+  mq.addEventListener&&mq.addEventListener('change',function(){fit();show(i)});
   if(vv){vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit)}
   if(rot)setTimeout(function(){rot.style.opacity='0';setTimeout(function(){rot.remove()},500)},6000);
   var m=location.hash.match(/#\/(\d+)/);fit();show(m?+m[1]-1:0);
