@@ -8,9 +8,11 @@
 ```
 openclaw/agents/property/
 ├── SOUL.md                        # 人格、能力、数据纪律、合规红线
-├── AGENTS.md                      # 工作流手册（/suburb、现金流、周报、报告解读）
+├── AGENTS.md                      # 工作流手册（数据管线三层架构 + 六个工作流）
 ├── skills/
-│   └── property-cashflow/SKILL.md # 现金流与负扣税计算公式（含自检示例）
+│   ├── suburb-research/SKILL.md   # 数据源分层 + 指标×来源对照 + 珀斯特殊口径
+│   ├── property-cashflow/SKILL.md # 现金流与负扣税公式（含自检示例）
+│   └── due-diligence/SKILL.md     # 购房尽调三级 checklist（WA 口径）
 └── README.md                      # 本文件
 ```
 
@@ -46,11 +48,20 @@ openclaw/agents/property/
 ```
 
 4. **周报定时任务**（OpenClaw cron / 或系统 cron 调 CLI）：
-   每周一 08:00 AWST 触发 prompt：`执行 AGENTS.md 第 3 节：生成上周珀斯拍卖与挂牌简报并推送`
+   每周一 08:00 AWST 触发 prompt：`执行 AGENTS.md 第 3 节：生成珀斯市场周报并推送`
 5. **重启网关**，给 bot 发三条验收消息：
    - `/suburb Willetton` → 应返回带来源的画像表
    - `帮我算：75 万，首付两成，利率 6.1%，周租 650，税率 37%` → 应返回 ≈ −$133/周（公式自检值）
    - 发一段英文合同截图 → 应返回 🔴🟡🟢 三段式摘要
+
+## 数据源配置（可选增强）
+
+- 零配置即可用：ABS API（免 key）、RBA CSV、REIWA / SQM / Cotality / PropTrack 免费页与月报、
+  onthehouse 物业估值（低频引用 + 署名）
+- 建议申请 **Domain 官方 API** 免费档（developer.domain.com.au）→ key 写进 workspace 环境，
+  启用挂盘与成交端点
+- 实现参考（GitHub）：`bpalmer4/readabs`（Python 接 ABS）、`fsingletonthorn/domain-public-api-client`
+  （Domain API 客户端）；爬虫类项目仅借鉴数据模型，**不部署**（realestate.com.au ToS 禁爬）
 
 ## 成本与风控
 
