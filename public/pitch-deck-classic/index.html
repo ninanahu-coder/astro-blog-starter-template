@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>盈扬工作室 YNG LAB · 投资人企划书（演讲·稳健版）</title>
+<style>
+:root{
+  --bg:#060A14;
+  --ink:#0A101E;
+  --panel:#111A2E;
+  --panel2:#0D1526;
+  --line:rgba(233,236,245,.13);
+  --text:#E9ECF5;
+  --muted:#96A0BA;
+  --dim:#6B7590;
+  --gold:#E3A83E;
+  --gold-soft:rgba(227,168,62,.14);
+  --teal:#43BFA0;
+  --red:#E06070;
+  --serif:"Songti SC","Noto Serif SC","STSong",Georgia,serif;
+  --sans:"PingFang SC","Noto Sans SC","Microsoft YaHei","Hiragino Sans GB",-apple-system,sans-serif;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden;
+  -webkit-text-size-adjust:100%;text-size-adjust:100%;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact}
+#stage{position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;
+  display:flex;align-items:center;justify-content:center}
+#rotate{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:10;
+  background:var(--panel);border:1px solid rgba(227,168,62,.5);border-radius:6px;
+  padding:9px 16px;font-size:13px;color:var(--text);display:none;white-space:nowrap;
+  box-shadow:0 4px 18px rgba(0,0,0,.5);transition:opacity .4s}
+@media (orientation:portrait) and (max-width:600px){#rotate{display:block}}
+#deck{width:1280px;height:720px;position:relative;transform-origin:center center;flex:none}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;padding:64px 84px 58px;
+  background:
+    radial-gradient(900px 500px at 85% -10%,rgba(227,168,62,.06),transparent 60%),
+    radial-gradient(700px 500px at -10% 110%,rgba(67,191,160,.05),transparent 60%),
+    var(--ink);
+  border:1px solid var(--line)}
+.slide.active{display:flex}
+/* chrome */
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;color:var(--gold);
+  text-transform:uppercase;display:flex;gap:14px;align-items:baseline;margin-bottom:18px}
+.eyebrow .no{color:var(--dim)}
+.foot{position:absolute;left:84px;right:84px;bottom:22px;display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.12em}
+h1{font-family:var(--serif);font-weight:600;font-size:58px;line-height:1.18;text-wrap:balance}
+h2.t{font-family:var(--serif);font-weight:600;font-size:40px;line-height:1.2;margin-bottom:10px;text-wrap:balance}
+.sub{color:var(--muted);font-size:17px;line-height:1.65;max-width:44em}
+em.g{color:var(--gold);font-style:normal}
+em.tl{color:var(--teal);font-style:normal}
+.body{flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px;min-height:0}
+/* layout helpers */
+.cols{display:grid;gap:18px}
+.c2{grid-template-columns:1fr 1fr}.c3{grid-template-columns:1fr 1fr 1fr}
+.c4{grid-template-columns:repeat(4,1fr)}.c23{grid-template-columns:2fr 3fr}.c32{grid-template-columns:3fr 2fr}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px}
+.card h3{font-size:16px;margin-bottom:8px;color:var(--text);font-weight:600}
+.card p,.card li{font-size:13.5px;color:var(--muted);line-height:1.6}
+.card.hl{border-color:rgba(227,168,62,.45);background:linear-gradient(180deg,var(--gold-soft),var(--panel))}
+.kpi{font-family:var(--mono);font-size:40px;color:var(--gold);font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi small{font-size:15px;color:var(--muted);font-family:var(--sans)}
+.kcap{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+ul.list{list-style:none;display:flex;flex-direction:column;gap:12px}
+ul.list li{padding-left:20px;position:relative;font-size:15.5px;color:var(--text);line-height:1.6}
+ul.list li::before{content:"";position:absolute;left:0;top:.62em;width:8px;height:2px;background:var(--gold)}
+ul.list li span{color:var(--muted)}
+.tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--teal);
+  border:1px solid rgba(67,191,160,.4);border-radius:3px;padding:3px 8px;margin-right:6px}
+.tag.gd{color:var(--gold);border-color:rgba(227,168,62,.4)}
+.tag.rd{color:var(--red);border-color:rgba(224,96,112,.4)}
+.src{font-size:11.5px;color:var(--dim);margin-top:14px;line-height:1.5}
+.note{font-size:12px;color:var(--gold);border:1px dashed rgba(227,168,62,.4);border-radius:4px;
+  padding:8px 12px;display:inline-block}
+/* tables */
+table.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+table.tbl th{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;color:var(--gold);
+  text-align:left;padding:10px 12px;border-bottom:1px solid rgba(227,168,62,.35);font-weight:500}
+table.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);color:var(--muted);line-height:1.55;vertical-align:top}
+table.tbl td:first-child{color:var(--text);font-weight:500}
+table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
+/* bar chart */
+.bars{display:flex;align-items:flex-end;gap:34px;height:250px;padding:0 10px}
+.bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:10px;height:100%}
+.bar .v{font-family:var(--mono);color:var(--gold);font-size:16px}
+.bar .b{width:100%;background:linear-gradient(180deg,rgba(227,168,62,.85),rgba(227,168,62,.25));
+  border-radius:3px 3px 0 0}
+.bar .b.tl{background:linear-gradient(180deg,rgba(67,191,160,.85),rgba(67,191,160,.2))}
+.bar .l{font-size:12.5px;color:var(--muted);font-family:var(--mono)}
+/* hbar */
+.hrow{display:grid;grid-template-columns:180px 1fr 90px;align-items:center;gap:14px;font-size:13.5px}
+.hrow .lab{color:var(--text)}
+.hrow .track{height:14px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.hrow .fill{height:100%;background:linear-gradient(90deg,rgba(227,168,62,.4),var(--gold));border-radius:2px}
+.hrow .fill.tl{background:linear-gradient(90deg,rgba(67,191,160,.35),var(--teal))}
+.hrow .val{font-family:var(--mono);color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+/* flow */
+.flow{display:flex;align-items:stretch;gap:0}
+.flow .step{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px 14px;text-align:center}
+.flow .step h4{font-size:14px;margin-bottom:6px}
+.flow .step p{font-size:12px;color:var(--muted);line-height:1.5}
+.flow .arr{display:flex;align-items:center;padding:0 8px;color:var(--gold);font-family:var(--mono);font-size:18px}
+/* stack diagram */
+.layer{display:grid;grid-template-columns:150px 1fr;gap:14px;align-items:stretch}
+.layer .ln{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;color:var(--gold);
+  display:flex;align-items:center;justify-content:flex-end;text-align:right}
+.layer .lc{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 16px;
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:6px 12px;
+  font-size:13px;color:var(--text)}
+.chip b{color:var(--gold);font-weight:600}
+.chip small{color:var(--muted);display:block;font-size:11px;margin-top:2px}
+/* toc */
+.toc{display:grid;grid-template-columns:1fr 1fr;gap:14px 40px}
+.toc .it{display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line);padding:12px 4px}
+.toc .it b{font-family:var(--mono);color:var(--gold);font-size:13px;font-weight:500}
+.toc .it span{font-size:16.5px}
+.toc .it small{margin-left:auto;font-family:var(--mono);color:var(--dim);font-size:11px}
+/* timeline */
+.tline{display:flex;gap:0;align-items:stretch}
+.tline .ph{flex:1;padding:14px 16px;border-left:2px solid var(--line);position:relative}
+.tline .ph::before{content:"";position:absolute;left:-6px;top:18px;width:10px;height:10px;border-radius:50%;
+  background:var(--gold);box-shadow:0 0 0 4px var(--gold-soft)}
+.tline .ph h4{font-size:14.5px;margin-bottom:6px}
+.tline .ph .w{font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:.12em;margin-bottom:6px}
+.tline .ph p{font-size:12.5px;color:var(--muted);line-height:1.55}
+/* checklist */
+.ck li::before{content:"✓";background:none;width:auto;height:auto;top:0;color:var(--teal);font-family:var(--mono)}
+.ck.todo li::before{content:"→";color:var(--gold)}
+/* cover */
+.cover{justify-content:space-between}
+.cover .brand{font-family:var(--mono);letter-spacing:.3em;color:var(--gold);font-size:14px}
+.cover .meta{display:flex;gap:34px;font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.08em}
+.rule{height:1px;background:linear-gradient(90deg,var(--gold),transparent);margin:26px 0}
+.hint{position:absolute;right:84px;bottom:52px;font-size:12px;color:var(--dim);font-family:var(--mono)}
+/* progress + counter */
+#prog{position:fixed;top:0;left:0;height:3px;background:var(--gold);z-index:9;transition:width .25s}
+#ctr{position:fixed;right:16px;bottom:12px;font-family:var(--mono);font-size:12px;color:var(--dim);z-index:9}
+.secmark{position:absolute;top:64px;right:84px;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.2em}
+.big-serif{font-family:var(--serif);font-size:30px;line-height:1.5;max-width:22em;text-wrap:balance}
+.big-serif em{color:var(--gold);font-style:normal}
+/* funnel */
+.funnel{display:flex;flex-direction:column;gap:10px;align-items:center}
+.funnel .f{background:linear-gradient(90deg,rgba(227,168,62,.25),rgba(227,168,62,.08));
+  border:1px solid rgba(227,168,62,.35);border-radius:4px;padding:10px 18px;text-align:center;
+  display:flex;justify-content:space-between;gap:24px;font-size:13.5px}
+.funnel .f b{font-family:var(--mono);color:var(--gold);font-weight:500}
+/* ===== 手机竖屏：滚动阅读模式 ===== */
+@media screen and (max-width:700px) and (orientation:portrait){
+  body{overflow:auto}
+  #stage{position:static;display:block;width:auto!important;height:auto!important}
+  #deck{width:auto;height:auto;transform:none!important}
+  .slide{position:relative;inset:auto;display:flex!important;width:100%;height:auto;
+    padding:26px 18px 20px;border:none;border-bottom:1px solid var(--line)}
+  .secmark{position:static;display:block;margin-bottom:8px}
+  .eyebrow{margin-bottom:10px}
+  h1{font-size:30px}
+  h2.t{font-size:21px}
+  .sub{font-size:14px}
+  .body{gap:14px;justify-content:flex-start}
+  .cols,.c2,.c3,.c4,.c23,.c32{grid-template-columns:1fr;gap:12px}
+  .card{padding:15px 15px}
+  .kpi{font-size:26px}
+  .big-serif{font-size:17px}
+  ul.list{gap:9px}
+  ul.list li{font-size:13.5px}
+  table.tbl{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table.tbl th,table.tbl td{min-width:108px;font-size:12px;padding:8px}
+  .flow{flex-direction:column}
+  .flow .arr{transform:rotate(90deg);justify-content:center;padding:2px 0}
+  .tline{flex-direction:column;gap:8px}
+  .layer{grid-template-columns:1fr;gap:6px}
+  .layer .ln{justify-content:flex-start;text-align:left}
+  .toc{grid-template-columns:1fr}
+  .bars{height:170px;gap:14px;padding:0}
+  .bar .v{font-size:12px}
+  .hrow{grid-template-columns:1fr 56px;font-size:12px;gap:8px}
+  .hrow .lab{grid-column:1/-1}
+  .hrow .val{font-size:11px}
+  .funnel .f{font-size:12px;gap:10px;padding:8px 10px}
+  .foot{position:static;margin-top:16px;display:flex;justify-content:space-between}
+  .cover{min-height:78vh;justify-content:space-between}
+  .cover .meta{flex-wrap:wrap;gap:10px 18px}
+  .hint,#ctr,#prog{display:none}
+  .src{font-size:10.5px}
+  .note{font-size:11px}
+}
+@page{size:1280px 720px;margin:0}
+@media print{
+  body{overflow:visible;background:#fff;margin:0}
+  #stage{position:static;display:block;width:auto!important;height:auto!important}
+  #rotate{display:none}
+  #deck{width:auto;height:auto;transform:none!important}
+  .slide{position:relative;display:flex!important;width:1280px;height:720px;page-break-after:always;margin:0;border:none}
+  .slide:last-child{page-break-after:auto}
+  #prog,#ctr,.hint{display:none}
+}
+</style>
+</head>
+<body>
+<div id="prog"></div>
+<div id="ctr"></div>
+<div id="rotate">📱 竖屏：上下滚动阅读 · 横屏：幻灯片模式</div>
+<div id="stage"><div id="deck">
+
+<section class="slide cover">
+  <div><div class="brand">YNG LAB · 盈扬工作室</div><div class="rule"></div></div>
+  <div>
+    <h1>一支不睡觉的<br>「AI 员工」团队</h1>
+    <p class="sub" style="margin-top:22px">演讲版 · 20–30 分钟 ｜ 用软件替代人力：帮企业获客 · 帮个人看懂市场 · 做贴身助理<br>立足西澳 Perth ｜ 100+ 天实盘验证<br>完整论证与全部数据来源见 97 页完整版附录。</p>
+  </div>
+  <div><div class="meta"><span>创始人 · Andy Yang</span><span>2026 年 7 月</span><span>机密 · 不构成投资建议</span></div></div>
+  <div class="hint">← → 方向键翻页 · Ctrl/Cmd+P 导出 PDF</div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>01 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">开场</div>
+  <div class="eyebrow"><span class="no">02</span><span>三十秒版本</span></div>
+  <h2 class="t">如果您只记住三件事</h2>
+  <div class="body"><div class="cols c3">
+      <div class="card hl"><div class="kpi" style="font-size:30px">已在运行</div><p style="margin-top:8px">不是 PPT 项目：电商、宠物网站、多个智能助手已实盘运行 100+ 天——1 个人管着一套「AI 员工」系统，干出 5–8 个人的活。</p></div>
+      <div class="card hl"><div class="kpi" style="font-size:30px">只赚眼前的钱</div><p style="margin-top:8px">本轮收入模型 100% 建立在已成熟的能力上（文本 + 图像）；视频、影视、物理 AI 全部是条件触发的增长期权，不烧生存现金。</p></div>
+      <div class="card hl"><div class="kpi" style="font-size:30px">$800k · 24–30 个月</div><p style="margin-top:8px">天使轮，六个月内见首批真实付费；基准情景下 3 年账面回报 3–5 倍（倒推论证，非承诺）。</p></div>
+    </div>
+    <p class="src">品牌：盈扬工作室 YNG LAB；Telegram 助手产品名「安澜」。本演讲版数据均有来源，详注见完整版。</p></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>02 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">开场</div>
+  <div class="eyebrow"><span class="no">03</span><span>实盘证据</span></div>
+  <h2 class="t">我们已经在运行什么</h2>
+  <div class="body"><div class="cols c3">
+      <div class="card"><span class="tag">运行中</span><h3 style="margin-top:10px">电商运营</h3><p>选品、文案、素材、客服全部由 Agent 流水线执行。</p></div>
+      <div class="card"><span class="tag">运行中</span><h3 style="margin-top:10px">宠物垂直网站</h3><p>建站 &lt;1 小时（实测），SEO 内容无人值守日更，流量变现闭环。</p></div>
+      <div class="card"><span class="tag">运行中</span><h3 style="margin-top:10px">智能助手集群</h3><p>行情提醒、每日简报、网店客服、私人助理多路并行，全年无休——六大服务中四个已有实盘原型。</p></div>
+    </div>
+    <div class="cols c4">
+      <div class="card"><div class="kpi">100+<small> 天</small></div><div class="kcap">全职实战</div></div>
+      <div class="card"><div class="kpi">1<small> 人</small></div><div class="kcap">监督全部系统</div></div>
+      <div class="card"><div class="kpi">5–8<small> 人</small></div><div class="kcap">相当于内容、运营、客服、分析各请一位员工的产出</div></div>
+      <div class="card"><div class="kpi">4<small> 库</small></div><div class="kcap">自建加密数据库 v1 运行中</div></div>
+    </div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>03 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">市场</div>
+  <div class="eyebrow"><span class="no">04</span><span>时机</span></div>
+  <h2 class="t">为什么是现在：三个拐点已同时到来</h2>
+  <div class="body"><div class="cols c3">
+      <div class="card"><div class="kpi">44.8%</div><div class="kcap">AI Agent 市场年复合增速，2030 年 471 亿美元（MarketsandMarkets）</div></div>
+      <div class="card"><div class="kpi">-90%+</div><div class="kcap">同等模型能力的推理价格两年降幅——成本每季度都在变好</div></div>
+      <div class="card"><div class="kpi">开源就绪</div><div class="kcap">OpenClaw / Hermes / MCP 把系统组装门槛降到个人级</div></div>
+    </div>
+    <ul class="list">
+      <li><b>窗口期 12–18 个月</b>：<span>能力、成本、生态三线交汇；先发者的数据与客户壁垒正在按月加厚。</span></li>
+    </ul></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>04 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">市场</div>
+  <div class="eyebrow"><span class="no">05</span><span>澳洲背书</span></div>
+  <h2 class="t">这条浪潮在澳洲已是真金白银</h2>
+  <div class="body"><div class="cols c3">
+      <div class="card"><h3>资本在进来</h3><p>Anthropic（Claude 母公司）在澳招标 <b style="color:var(--gold)">≥1.4GW</b> 算力（AFR 2026-07，尚未签约）；Microsoft A$250 亿、Amazon A$200 亿数据中心投资已官宣。</p></div>
+      <div class="card"><h3>收益已发生</h3><p>CBA 欺诈损失降逾 20%、75% 反欺诈规则由 Agent 生成；Rio Tinto 自动矿卡年省超 US$1 亿——AI 在澳洲已有审计级回报。</p></div>
+      <div class="card hl"><h3>我们的位置</h3><p>顶层资本买算力地产，我们在应用层把算力变成客户价值——同一条浪潮里最轻、回收最快的一段。</p></div>
+    </div>
+    <p class="src">来源：AFR（2026）；Microsoft / Amazon 官方（2025–26）；CBA / Rio Tinto 公开披露。</p></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>05 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">市场</div>
+  <div class="eyebrow"><span class="no">06</span><span>西澳站位</span></div>
+  <h2 class="t">为什么在西澳 Perth</h2>
+  <div class="body"><div class="cols c3">
+      <div class="card"><div class="kpi">0<small> 时差</small></div><div class="kcap">UTC+8 与北京/香港/新加坡全年零时差——亚洲交易时段全覆盖，无需夜班</div></div>
+      <div class="card"><div class="kpi">43.5%</div><div class="kcap">研发支出现金退税（R&amp;D Tax Incentive，营业额 &lt;A$2,000 万）——直接延长跑道</div></div>
+      <div class="card"><div class="kpi">200MW+</div><div class="kcap">CDC 正在 Perth 建 AI 数据中心园区；绿电占比屡创纪录——算力正在本地落位</div></div>
+    </div>
+    <ul class="list">
+      <li><b>加分项</b>：<span>Perth 是全球矿业远程运营之都（Rio/BHP 15 年先例）——B2B 客群与「Agent 值守物理资产」的信任语境现成。</span></li>
+    </ul></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>06 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">产品</div>
+  <div class="eyebrow"><span class="no">07</span><span>客户与痛点</span></div>
+  <h2 class="t">三类客户，三种付费理由</h2>
+  <div class="body"><table class="tbl">
+      <tr><th>客户</th><th>痛点</th><th>现有方案的缺陷</th><th>我们卖什么</th></tr>
+      <tr><td>中小企业主</td><td>获客越来越贵</td><td class="n">代运营贵且不透明</td><td class="y">引流网站工厂 + 素材包</td></tr>
+      <tr><td>活跃交易者</td><td>信息过载、反应不过来</td><td class="n">免费群噪音多；机构终端数万美元/年</td><td class="y">7×24 分析订阅</td></tr>
+      <tr><td>高净值个人</td><td>助手与研究需求高度私密</td><td class="n">云端工具数据外流风险</td><td class="y">私人助手「安澜」+ 私有化部署</td></tr>
+    </table>
+    <p class="big-serif">共同缺口：一个<em>买得起、随身达、数据可控</em>的智能服务层。</p></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>07 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">产品</div>
+  <div class="eyebrow"><span class="no">08</span><span>解决方案</span></div>
+  <h2 class="t">一个中枢，两条产品线，六个模块</h2>
+  <div class="body"><div class="cols c2">
+      <div class="card hl"><h3>获客线 · 帮客户赚钱</h3><p><span class="tag gd">A</span> 静态网站生成工厂（&lt;1 小时/站）<br><br><span class="tag gd">B</span> 资料与数据分析（合同/报表/研报）</p></div>
+      <div class="card hl"><h3>分析线 + 高端线 · 帮客户看清与省心</h3><p><span class="tag">C</span> 股市分析 &nbsp;<span class="tag">D</span> 加密分析 &nbsp;<span class="tag">E</span> 时事→宏观<br><br><span class="tag rd">F</span> 私人助手「安澜」+ 私有化部署</p></div>
+    </div>
+    <div class="card" style="text-align:center"><p><b style="color:var(--gold)">一套底座</b> ＝ 客户在 Telegram 一个对话框里下单 ＋ 多个 AI 引擎按任务分工（贵的干细活、便宜的干粗活）＋ <b style="color:var(--teal)">数据存自己的保险柜</b>（自建加密数据库）——每加一项服务，成本几乎不增加。</p></div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>08 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">产品</div>
+  <div class="eyebrow"><span class="no">09</span><span>系统架构</span></div>
+  <h2 class="t">五层架构：入口到交付的闭环</h2>
+  <div class="body"><div style="display:flex;flex-direction:column;gap:10px">
+    <div class="layer"><div class="ln">入口层</div><div class="lc"><span class="chip"><b>Telegram</b><small>bot · 频道 · 群组</small></span><span class="chip"><b>引流网站</b><small>表单 / 订阅</small></span></div></div>
+    <div class="layer"><div class="ln">编排层</div><div class="lc"><span class="chip"><b>OpenClaw</b><small>会话路由</small></span><span class="chip"><b>Hermes Agent</b><small>任务规划 · 7×24 监控</small></span></div></div>
+    <div class="layer"><div class="ln">模型层</div><div class="lc"><span class="chip"><b>Claude</b><small>深度分析</small></span><span class="chip"><b>Codex</b><small>代码与生成</small></span><span class="chip"><b>Hermes（本地）</b><small>隐私推理</small></span></div></div>
+    <div class="layer"><div class="ln">数据层</div><div class="lc"><span class="chip" style="border-color:rgba(67,191,160,.5)"><b style="color:var(--teal)">自建四库 · 加密 · 本地备份</b><small>客户 · 行情 · 新闻 · 知识</small></span></div></div>
+    <div class="layer"><div class="ln">交付层</div><div class="lc"><span class="chip"><b>简报</b></span><span class="chip"><b>警报</b></span><span class="chip"><b>网站</b></span><span class="chip"><b>报告</b></span><span class="chip"><b>回执</b></span></div></div>
+    </div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>09 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">产品</div>
+  <div class="eyebrow"><span class="no">10</span><span>入口即服务</span></div>
+  <h2 class="t">「安澜」在 Telegram 里长这样</h2>
+  <div class="body"><div class="cols c2">
+      <ul class="list">
+        <li><b>约 10 亿月活</b>：<span>目标客户已经在 Telegram 上。</span></li>
+        <li><b>零安装成本</b>：<span>加 bot 即开通，转化摩擦最小。</span></li>
+        <li><b>频道→私聊→群组</b>：<span>免费简报获客 → 付费订阅转化 → 社区留存。</span></li>
+      </ul>
+      <div class="card"><h3>实盘形态（可现场演示）</h3><p style="font-family:var(--mono);font-size:12.5px;line-height:2;color:var(--text)">
+<span style="color:var(--dim)">客户 ›</span> 分析一下今晚美联储决议的影响<br>
+<span style="color:var(--gold)">安澜 ›</span> ✓ 宏观简报已生成（美元/黄金/BTC 传导）<br>
+<span style="color:var(--dim)">客户 ›</span> 给我的建材生意做个获客落地页<br>
+<span style="color:var(--gold)">安澜 ›</span> ✓ 网站已部署，含 SEO 文案与询盘表单<br>
+<span style="color:var(--dim)">客户 ›</span> BTC 资金费率异常时提醒我<br>
+<span style="color:var(--gold)">安澜 ›</span> ✓ 监控已挂载，7×24 生效</p></div>
+    </div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>10 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">产品</div>
+  <div class="eyebrow"><span class="no">11</span><span>获客线 A+B</span></div>
+  <h2 class="t">获客线：客户的第一笔付费从这里来</h2>
+  <div class="body"><div class="cols c2">
+      <ul class="list">
+        <li><b>网站工厂</b>：<span>一句话到整站上线 &lt;1 小时（实测）；边缘托管 ≈$0–5/站/月；站群吃长尾搜索流量，线索直进 TG 与自建库。</span></li>
+        <li><b>资料分析</b>：<span>合同、报表、研报丢进 TG，10 分钟出结构化解读——按次付费的体验型入口，转化订阅。</span></li>
+        <li><b>双重角色</b>：<span>对外是产品（建站 + 月维护费），对内是我们自己的零成本获客引擎。</span></li>
+      </ul>
+      <div class="card"><h3>为什么客户买单</h3><p>低于代运营一半的成本、看得见的交付物（网站 + 线索）、停投不断流（自有流量资产）——中小企业主听得懂的三句话。</p></div>
+    </div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>11 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">产品</div>
+  <div class="eyebrow"><span class="no">12</span><span>分析线 C+D</span></div>
+  <h2 class="t">分析订阅：像订报纸一样订一位分析师</h2>
+  <div class="body"><div class="cols c2">
+      <ul class="list">
+        <li><b>股市为主</b>：<span>开盘前一份简报、持仓有动静就提醒、财报出来几分钟给出人话版解读——相当于请了一位只为您盯盘的研究员。</span></li>
+        <li><b>宏观为纲</b>：<span>央行议息、地缘冲突这类大事对汇率与资产的影响，讲清来龙去脉（下一页详述）。</span></li>
+        <li><b>数字资产为辅</b>：<span>对有此类需求的客户提供行情监控与风险提示——只做信息服务，我们自己不持仓、不参与交易。</span></li>
+        <li><b>合规边界</b>：<span>不荐股、不代客、不承诺收益，每份简报附风险提示。</span></li>
+      </ul>
+      <div class="card hl"><h3>定位一句话</h3><p>机构级信息终端一年收费数万美元，免费群里全是噪音——我们把中间这个空档，以普通人付得起的订阅价补上。<br><br><span class="tag">UTC+8</span> Perth 与亚洲股市交易时段零时差——盘中提醒是我们的正常上班时间。</p></div>
+    </div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>12 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">产品</div>
+  <div class="eyebrow"><span class="no">13</span><span>分析线 E</span></div>
+  <h2 class="t">时事 → 宏观引擎：波动本身就是付费理由</h2>
+  <div class="body"><div class="flow">
+      <div class="step"><h4>① 采集</h4><p>多语种新闻 / 央行公告 7×24</p></div><div class="arr">→</div>
+      <div class="step"><h4>② 分类</h4><p>货币政策 / 地缘 / 监管 / 产业</p></div><div class="arr">→</div>
+      <div class="step"><h4>③ 传导分析</h4><p>利率 → 汇率 → 大宗 → 股指 → 加密</p></div><div class="arr">→</div>
+      <div class="step"><h4>④ 分级推送</h4><p>红 / 黄 / 蓝三级直达 TG</p></div>
+    </div>
+    <div class="card"><h3>示例输出（议息夜）</h3><p>「美联储维持利率但点阵图转鹰 → 美元短线走强 → 非美货币与黄金承压 → 高贝塔风险资产流动性预期收紧 → 关注两日内美债收益率确认信号。」——附来源与历史类似情景对照。</p></div>
+    <ul class="list"><li><b>反脆弱</b>：<span>市场越动荡，本模块的订阅与留存越强。</span></li></ul></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>13 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">产品</div>
+  <div class="eyebrow"><span class="no">14</span><span>高端线 F</span></div>
+  <h2 class="t">私人助手「安澜」＋ 自建数据库：信任的生意</h2>
+  <div class="body"><div class="cols c2">
+      <ul class="list">
+        <li><b>安澜做什么</b>：<span>日程、邮件摘要、研究委托、文件整理——全在 TG 完成；长期记忆存自建库，越用越懂主人。</span></li>
+        <li><b>三个可承诺的词</b>：<span><b>隐私</b>（数据不进第三方 SaaS）· <b>私密</b>（按客户隔离，敏感任务本地 Hermes 推理）· <b>稳定</b>（不受第三方改价/停服摆布）。</span></li>
+        <li><b>顶配选项</b>：<span>私有化部署——整套系统进客户自己的环境，数据物理隔离。</span></li>
+      </ul>
+      <div class="card hl"><h3>为什么这是客单价天花板</h3><p>「你的数据存在谁的服务器上」是高净值客户的第一个问题——自建数据库让这个问题变成我们的开场白，而不是丢单原因。</p></div>
+    </div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>14 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">产品</div>
+  <div class="eyebrow"><span class="no">15</span><span>自建 vs 云端</span></div>
+  <h2 class="t">与云端 SaaS 的正面对比</h2>
+  <div class="body"><table class="tbl">
+      <tr><th>维度</th><th>云端 SaaS / 通用 AI 工具</th><th>盈扬 · 自建数据库 + 本地推理</th></tr>
+      <tr><td>数据主权</td><td class="n">数据入驻他人平台</td><td class="y">自控环境，可交付客户自持</td></tr>
+      <tr><td>隐私承诺</td><td class="n">口头承诺，不可验证</td><td class="y">架构级：敏感数据可不出本地</td></tr>
+      <tr><td>稳定性</td><td class="n">受第三方改价 / 停服影响</td><td class="y">核心链路自持</td></tr>
+      <tr><td>高净值接受度</td><td class="n">常在数据问题上谈崩</td><td class="y">私有化选项直接消解顾虑</td></tr>
+    </table></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>15 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">产品</div>
+  <div class="eyebrow"><span class="no">16</span><span>产能</span></div>
+  <h2 class="t">产能是算力的函数，不是人数的函数</h2>
+  <div class="body"><div class="cols c2">
+      <table class="tbl">
+        <tr><th>产出项</th><th>实测能力</th></tr>
+        <tr><td>静态网站</td><td class="y">&lt;1 小时/站，可批量</td></tr>
+        <tr><td>SEO 内容</td><td class="y">多站每日自动更新，无人值守</td></tr>
+        <tr><td>分析简报</td><td class="y">分钟级生成，7×24 触发</td></tr>
+        <tr><td>bot 服务</td><td class="y">N 个并行，互不占人力</td></tr>
+        <tr><td>多模型路由</td><td class="y">综合推理成本降 50–70%（实测）</td></tr>
+      </table>
+      <ul class="list">
+        <li><b>诚实的瓶颈</b>：<span>目前上限是我一个人的监督精力——融资正是为了把「1 个人的作坊」复制成「3 个人的车间」。</span></li>
+        <li><b>吃自己的狗粮</b>：<span>卖给客户的系统就是我们每天运营实盘的系统。</span></li>
+      </ul>
+    </div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>16 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">商业</div>
+  <div class="eyebrow"><span class="no">17</span><span>商业模式</span></div>
+  <h2 class="t">三层收入：订阅打底，项目造血，高端定调</h2>
+  <div class="body"><div class="cols c3">
+      <div class="card"><span class="tag">层 1</span><h3 style="margin-top:10px">订阅</h3><p>TG 会员分析订阅——经常性收入与估值锚，毛利最高。</p></div>
+      <div class="card"><span class="tag gd">层 2</span><h3 style="margin-top:10px">项目</h3><p>建站工厂 + 素材包 + 按次分析——早期现金流与获客入口。</p></div>
+      <div class="card"><span class="tag rd">层 3</span><h3 style="margin-top:10px">高端</h3><p>私人助手年费 + 私有化部署——客单价天花板与信任壁垒。</p></div>
+    </div>
+    <ul class="list"><li><b>纪律</b>：<span>项目制收入始终覆盖固定成本底线——这条写进资金规划，是「不融下一轮也能活」的底气。</span></li></ul></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>17 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">商业</div>
+  <div class="eyebrow"><span class="no">18</span><span>收费模式</span></div>
+  <h2 class="t">收费模式（价格待种子客户付费测试后发布）</h2>
+  <div class="body"><table class="tbl">
+      <tr><th>产品</th><th>计费方式</th><th>定位</th></tr>
+      <tr><td>免费频道简报</td><td>免费</td><td>获客与信任入口</td></tr>
+      <tr><td>分析订阅（C/D/E + 警报）</td><td>月度 / 年度订阅</td><td>经常性收入基本盘</td></tr>
+      <tr><td>获客网站工厂</td><td>项目一次性 + 月维护</td><td>早期现金流</td></tr>
+      <tr><td>资料分析</td><td>按次付费</td><td>体验型转化</td></tr>
+      <tr><td>私人助手「安澜」</td><td>月费 / 年费</td><td>高信任高留存</td></tr>
+      <tr><td>私有化部署</td><td>一次性实施 + 年维保</td><td>稀缺供给</td></tr>
+    </table>
+    <p class="src">定价纪律：不载入未经市场验证的价格数字；前 100 名种子客户的真实付费数据决定正式价目表。</p></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>18 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">商业</div>
+  <div class="eyebrow"><span class="no">19</span><span>获客漏斗</span></div>
+  <h2 class="t">获客成本趋近于零的自有流量漏斗</h2>
+  <div class="body"><div class="cols c2">
+      <div class="funnel" style="justify-content:center">
+        <div class="f" style="width:100%"><span>内容站群 + SEO 长尾流量（Agent 自动维护）</span><b>触达</b></div>
+        <div class="f" style="width:74%"><span>Telegram 免费频道：每日简报</span><b>订阅</b></div>
+        <div class="f" style="width:50%"><span>付费订阅 / 建站项目</span><b>付费</b></div>
+        <div class="f" style="width:28%"><span>私人助手 / 私有化部署</span><b>高端</b></div>
+      </div>
+      <ul class="list">
+        <li><b>内容即广告</b>：<span>站群与频道由 Agent 生成维护，广告预算 ≈ 0。</span></li>
+        <li><b>产品即销售</b>：<span>免费简报本身展示分析质量。</span></li>
+        <li><b>波动即增长</b>：<span>每次大行情都是免费频道的涨粉高峰。</span></li>
+      </ul>
+    </div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>19 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">商业</div>
+  <div class="eyebrow"><span class="no">20</span><span>成本实测</span></div>
+  <h2 class="t">成本结构：不是假设，是运行记录</h2>
+  <div class="body"><div class="cols c2">
+      <table class="tbl">
+        <tr><th>实测项</th><th>结果</th></tr>
+        <tr><td>多模型路由 vs 单一旗舰 API</td><td class="y">成本降 50–70%（内部实测）</td></tr>
+        <tr><td>单站托管</td><td>≈ $0–5 / 月（账单实录）</td></tr>
+        <tr><td>图像素材</td><td>单图 &lt; $0.25（2026 年行价）</td></tr>
+        <tr><td>固定开支</td><td>无办公室、无广告、无冗余人力</td></tr>
+      </table>
+      <ul class="list">
+        <li><b>顺风</b>：<span>行业推理价格持续下降——同样订阅价，毛利逐季扩张。</span></li>
+        <li><b>政策</b>：<span>研发支出 43.5% 现金退税（澳洲 R&amp;D Tax Incentive）再放大跑道。</span></li>
+      </ul>
+    </div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>20 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">计划</div>
+  <div class="eyebrow"><span class="no">21</span><span>未来 6 个月 ★</span></div>
+  <h2 class="t">未来 6 个月：只做立刻能收钱的事</h2>
+  <div class="body"><table class="tbl">
+      <tr><th>项目</th><th>交付物</th><th>依托</th></tr>
+      <tr><td>订阅计费上线</td><td>TG 内支付 + 会员体系</td><td class="y">智能助手已运行</td></tr>
+      <tr><td>站群扩张</td><td>首批 20 个行业/财经站引流</td><td class="y">网站工厂已实测</td></tr>
+      <tr><td>分析订阅公测</td><td>三线简报付费墙</td><td class="y">模板已成型</td></tr>
+      <tr><td>电商素材服务包</td><td>产品图+文案+社媒月度包</td><td class="y">图像管线实盘在用</td></tr>
+      <tr><td>资料分析按次</td><td>文档深度解读服务</td><td class="y">文本管线已就绪</td></tr>
+      <tr><td>数据库 v2</td><td>权限 + 审计 + 自动备份</td><td class="y">v1 运行中</td></tr>
+    </table>
+    <p class="src">六项全部基于已验证能力——没有一项需要等待新技术成熟。</p></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>21 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">计划</div>
+  <div class="eyebrow"><span class="no">22</span><span>6 个月里程碑</span></div>
+  <h2 class="t">6 个月后向您汇报什么</h2>
+  <div class="body"><div class="cols c2">
+      <div class="card"><h3>必须达成 →</h3>
+        <ul class="list ck todo" style="margin-top:8px">
+          <li>首批真实付费客户（订阅 + 项目混合）</li>
+          <li>留存与转化基线成型，对外可披露</li>
+          <li>R&amp;D 退税与州补贴（NIIF）申请提交</li>
+          <li>金融信息服务合规意见书落地</li>
+          <li>关键招聘到位（工程 / 增长各一）</li>
+        </ul></div>
+      <div class="card hl"><h3>对赌自己</h3><p>每月一封投资人信，只报实际数：收入、成本、客户、留存。<br><br>若 6 个月未产生任何真实付费收入——创始人主动召集复盘会并提交调整方案，写进投后条款也可以。</p></div>
+    </div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>22 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">计划</div>
+  <div class="eyebrow"><span class="no">23</span><span>12 个月</span></div>
+  <h2 class="t">12 个月：抬客单，见平衡</h2>
+  <div class="body"><div class="cols c3">
+      <div class="card"><h3>私有化首单</h3><p>高端客户线索来自订阅池分层；交付流程已文档化。</p></div>
+      <div class="card"><h3>定价正式发布</h3><p>以真实付费数据定价，不拍脑袋。</p></div>
+      <div class="card"><h3>月度收支平衡在望</h3><p>目标：月收入覆盖运营成本；团队 3–4 人稳定运转。</p></div>
+    </div>
+    <ul class="list">
+      <li><b>同步启动（不占生存现金）</b>：<span>短视频素材流水线先在自有电商试产——AI 单条广告成本已被验证到传统的约 1/100（Kalshi 案例，$2,000 vs $250–500K）。</span></li>
+    </ul></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>23 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">计划</div>
+  <div class="eyebrow"><span class="no">24</span><span>增长期权</span></div>
+  <h2 class="t">中长期储备：不花钱的「第二手准备」</h2>
+  <div class="body"><table class="tbl">
+      <tr><th>方向</th><th>依据（已验证的外部事实）</th><th>进场条件</th></tr>
+      <tr><td>短视频 / AI 影视</td><td>中国 AI 短剧市场 189.8 亿元、+276%（2025）；成本为真人剧 1/50–1/10</td><td>角色一致性过商用线</td></tr>
+      <tr><td>产品设计服务</td><td>文本转 3D 已可生产使用；Fusion 已接入 Claude</td><td>先在自有电商试成</td></tr>
+      <tr><td>宠物智能用品（软硬结合）</td><td>机器人 VC 半年 $18.8B；人形均价两年降 72%</td><td>硬件成本 &lt; 客单可承受线</td></tr>
+    </table>
+    <ul class="list"><li><b>请放心的一句话</b>：<span>这一页不在本轮的收入模型里，也不花本轮的钱。列出来只为说明：今天的实盘业务在顺手为将来积累数据、客户和经验——机会成熟就接得住，不成熟就继续专心做眼前的生意。</span></li></ul>
+    <p class="src">完整论证（能力路线图 / 四座桥 / 浪潮数据）见 97 页完整版第 VII、VIII、XI 部分。</p></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>24 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">商业</div>
+  <div class="eyebrow"><span class="no">25</span><span>竞争与壁垒</span></div>
+  <h2 class="t">我们站在四类玩家的空隙里</h2>
+  <div class="body"><div class="cols c2">
+      <table class="tbl">
+        <tr><th>玩家</th><th>做不了的</th></tr>
+        <tr><td>通用 AI 助手</td><td class="n">无行业纵深、不主动值守</td></tr>
+        <tr><td>机构终端</td><td class="n">个人与小微付不起</td></tr>
+        <tr><td>建站 SaaS / 代运营</td><td class="n">无 AI 闭环、无后续服务</td></tr>
+        <tr><td>付费信号群</td><td class="n">黑箱喊单、信任易塌</td></tr>
+      </table>
+      <ul class="list">
+        <li><b>护城河 ①</b>：<span>100+ 天工作流 know-how（写在代码里）。</span></li>
+        <li><b>护城河 ②</b>：<span>私有数据资产随时间单调增长。</span></li>
+        <li><b>护城河 ③</b>：<span>开源+路由的成本结构优势。</span></li>
+        <li><b>护城河 ④</b>：<span>私人助手的记忆与切换成本。</span></li>
+      </ul>
+    </div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>25 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">执行</div>
+  <div class="eyebrow"><span class="no">26</span><span>团队</span></div>
+  <h2 class="t">AI 原生组织：1 位创始人 + 一支 Agent 编队</h2>
+  <div class="body"><div class="cols c2">
+      <ul class="list">
+        <li><b>创始人 · Andy Yang（全职）</b>：<span>100+ 天全栈实战——模型编排、bot 部署、数据库、实盘运营独立完成。</span></li>
+        <li><b>「AI 员工」编队（全年无休）</b>：<span>研究、开发、内容、监控各司其职——相当于 5–8 名员工的工作量，但不领工资、不请假。</span></li>
+        <li><b>融资后招聘（2–3 人）</b>：<span>增长运营、后端/数据工程、兼职合规顾问。</span></li>
+      </ul>
+      <div class="card hl"><h3>一人公司为什么是优势</h3><p>我们卖的产品就是「用 AI 替代人力」——公司本身就是最好的样板间。烧钱率极低：融资买增长与合规，不买工资单。关键人风险不回避：全部流程写成了文档和程序，加上代码与数据的第三方托管安排，融资后 90 天内建 2–3 人核心团队。</p></div>
+    </div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>26 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">执行</div>
+  <div class="eyebrow"><span class="no">27</span><span>风险与合规</span></div>
+  <h2 class="t">风险与合规：主动摊开讲</h2>
+  <div class="body"><table class="tbl">
+      <tr><th>风险</th><th>应对</th></tr>
+      <tr><td>上游模型依赖</td><td class="y">多模型路由 + 本地 Hermes 兜底，任一供应商数日可换</td></tr>
+      <tr><td>平台政策（Telegram）</td><td class="y">OpenClaw 原生多 IM 备份；客户关系沉淀在自建库</td></tr>
+      <tr><td>金融监管</td><td class="y">坚守信息服务边界（不荐股/不代客/不承诺收益）；按辖区白名单；合规意见书列入 6 个月里程碑</td></tr>
+      <tr><td>加密行业波动</td><td class="y">股市 + 宏观 + 获客多引擎；波动反而利好时事模块</td></tr>
+    </table>
+    <p class="src">数据保护：全程加密、最小化收集、客户数据不用于外部训练；对齐 GDPR 及澳洲隐私法要求。</p></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>27 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">融资</div>
+  <div class="eyebrow"><span class="no">28</span><span>The Ask</span></div>
+  <h2 class="t">本轮融资：$800k 天使轮</h2>
+  <div class="body"><div class="cols c2">
+      <div class="card hl"><h3>The Ask</h3>
+        <div class="kpi" style="margin:10px 0">$800k</div>
+        <p>SAFE 或可转债，估值与条款面议。<br><br>支撑 <b style="color:var(--gold)">24–30 个月</b>跑道；预计第 13–15 个月接近月度收支平衡（情景口径）。</p></div>
+      <div style="display:flex;flex-direction:column;gap:12px;justify-content:center">
+        <div class="hrow"><span class="lab">产品与工程（35%）</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="val">$280k</span></div>
+        <div class="hrow"><span class="lab">数据与算力（20%）</span><div class="track"><div class="fill" style="width:57%"></div></div><span class="val">$160k</span></div>
+        <div class="hrow"><span class="lab">增长与运营（20%）</span><div class="track"><div class="fill tl" style="width:57%"></div></div><span class="val">$160k</span></div>
+        <div class="hrow"><span class="lab">实体 AI 试点（15%）</span><div class="track"><div class="fill" style="width:43%"></div></div><span class="val">$120k</span></div>
+        <div class="hrow"><span class="lab">合规与储备（10%）</span><div class="track"><div class="fill tl" style="width:29%"></div></div><span class="val">$80k</span></div>
+      </div>
+    </div>
+    <p class="src">刻意不花的钱：付费广告（自有流量替代）、办公室（远程）、自研模型与硬件（只做应用与整合层）。</p></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>28 / 30</span></div>
+</section>
+
+<section class="slide">
+  <div class="secmark">融资</div>
+  <div class="eyebrow"><span class="no">29</span><span>回报分层</span></div>
+  <h2 class="t">回报分层：6 个月 / 1 年 / 3 年（基准情景）</h2>
+  <div class="body"><table class="tbl">
+      <tr><th>时点</th><th>里程碑</th><th>账面回报（示例区间）</th></tr>
+      <tr><td>第 6 个月</td><td>首批付费 + 留存基线</td><td>≈1×——回报是归零概率的实质下降</td></tr>
+      <tr><td>第 12 个月</td><td>覆盖运营成本 + ARR 基线</td><td class="y">≈1.5–2.5×（账面）</td></tr>
+      <tr><td>第 36 个月</td><td>ARR A$1–2M + 多引擎收入</td><td class="y">≈3–5×（保守区间）；上行尾部不设限</td></tr>
+    </table>
+    <ul class="list">
+      <li><b>推导依据</b>：<span>Carta seed→A 中位跳升 2.6× + AI 溢价 + 澳洲低估值起点；倒推所需 ARR 恰为 A 轮门槛口径（$1–2M）。</span></li>
+      <li><b>诚实声明</b>：<span>账面≠落袋（落袋via下轮转让/回购/分红）；天使投资 52% 退出亏损是行业事实——我们用「不融下一轮也能活」的结构对冲归零风险。全部为情景推演，非承诺。</span></li>
+    </ul></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>29 / 30</span></div>
+</section>
+
+<section class="slide cover">
+  <div><div class="brand">YNG LAB · 盈扬工作室</div><div class="rule"></div></div>
+  <div>
+    <h1>谢谢。<br>下一步：30 分钟现场演示。</h1>
+    <p class="sub" style="margin-top:22px">盈以守正，扬帆致远 — Steady gains, sails set far.<br><br>从一条 Telegram 消息开始：看引流网站上线、宏观简报生成、行情监控挂载的全过程。<br>完整论证与数据来源：97 页完整版随附。</p>
+  </div>
+  <div><div class="meta"><span>Andy Yang</span><span>teluoke@hotmail.com</span><span>0405 098 765</span><span>2026 年 7 月 · 机密</span></div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>30 / 30</span></div>
+</section>
+
+</div></div>
+<script>
+(function(){
+  var slides=[].slice.call(document.querySelectorAll('.slide')),n=slides.length,i=0,lastSwipe=0;
+  var deck=document.getElementById('deck'),prog=document.getElementById('prog'),
+      ctr=document.getElementById('ctr'),stage=document.getElementById('stage'),
+      rot=document.getElementById('rotate'),vv=window.visualViewport;
+  var mq=matchMedia('(max-width:700px) and (orientation:portrait)');
+  function mob(){return mq.matches}
+  function vw(){return vv?vv.width:innerWidth}
+  function vh(){return vv?vv.height:innerHeight}
+  function fit(){
+    if(mob()){stage.style.height='';stage.style.width='';deck.style.transform='';return}
+    stage.style.height=vh()+'px';stage.style.width=vw()+'px';
+    var s=Math.min(vw()/1300,vh()/740);deck.style.transform='scale('+s+')';}
+  function show(k){i=Math.max(0,Math.min(n-1,k));
+    slides.forEach(function(s,j){s.classList.toggle('active',j===i)});
+    prog.style.width=((i+1)/n*100)+'%';ctr.textContent=(i+1)+' / '+n;
+    location.hash='#/'+(i+1);}
+  addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' ')show(i+1);
+    else if(e.key==='ArrowLeft'||e.key==='PageUp')show(i-1);
+    else if(e.key==='Home')show(0);else if(e.key==='End')show(n-1);});
+  addEventListener('click',function(e){
+    if(mob())return;
+    if(e.target.closest('a'))return;
+    if(Date.now()-lastSwipe<500)return;
+    if(vv&&vv.scale>1.05)return; /* zoomed in: taps shouldn't flip pages */
+    show(e.clientX>innerWidth/2?i+1:i-1);});
+  var tx=null,ty=null;
+  addEventListener('touchstart',function(e){
+    if(e.touches.length!==1){tx=null;return}
+    tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+  addEventListener('touchend',function(e){
+    if(tx===null||mob())return;
+    if(vv&&vv.scale>1.05){tx=null;return}
+    var dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+    if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)){lastSwipe=Date.now();show(dx<0?i+1:i-1)}
+    tx=null;},{passive:true});
+  addEventListener('resize',fit);
+  addEventListener('orientationchange',function(){setTimeout(fit,300)});
+  mq.addEventListener&&mq.addEventListener('change',function(){fit();show(i)});
+  if(vv){vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit)}
+  if(rot)setTimeout(function(){rot.style.opacity='0';setTimeout(function(){rot.remove()},500)},6000);
+  var m=location.hash.match(/#\/(\d+)/);fit();show(m?+m[1]-1:0);
+})();
+</script>
+</body>
+</html>
