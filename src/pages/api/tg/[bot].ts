@@ -1,7 +1,7 @@
-// 盈扬 YNG LAB · Telegram 投资人演示 bot 网关
-// 三个演示 bot 共用此 webhook：/api/tg/anlan | /api/tg/analyst | /api/tg/leadgen
-// 全部内容为脚本化演示（零 LLM 成本、演示零翻车），每个演示对应 BP 中一条收入线。
-// 配置见 docs/telegram-demo-bots.md
+// 盈扬 YNG LAB · Telegram bot 网关
+// 共用此 webhook：/api/tg/anlan | /api/tg/analyst | /api/tg/leadgen | /api/tg/property
+// anlan/analyst/leadgen 为投资人演示 bot；property（安宅）为正式版客户产品。
+// 按钮卡片为脚本化内容，自由对话走 LLM。配置见 docs/telegram-demo-bots.md
 export const prerender = false;
 
 import type { APIRoute } from "astro";
@@ -12,7 +12,7 @@ const BOTS: Record<BotKey, { tokenVar: string; title: string }> = {
 	anlan: { tokenVar: "TG_TOKEN_ANLAN", title: "安澜 · 私人助手（演示）" },
 	analyst: { tokenVar: "TG_TOKEN_ANALYST", title: "盈扬 · 市场分析（演示）" },
 	leadgen: { tokenVar: "TG_TOKEN_LEADGEN", title: "盈扬 · 获客工厂（演示）" },
-	property: { tokenVar: "TG_TOKEN_PROPERTY", title: "安宅 · 澳洲房产研究（演示）" },
+	property: { tokenVar: "TG_TOKEN_PROPERTY", title: "安宅 · 澳洲房产研究" },
 };
 
 // 正式版自由对话：各 bot 的人格（精简版 SOUL）
@@ -22,6 +22,12 @@ const PERSONA: Record<BotKey, string> = {
 		"你擅长：suburb 分析方法、负扣税与现金流计算（假设参数要向用户确认）、WA 购房尽调流程、贷款结构常识。" +
 		"重要：你当前无法联网，涉及实时价格/最新数据时必须说明「以 REIWA、SQM、onthehouse 等来源的最新数据为准」，绝不编造具体现价。" +
 		"珀斯以私约为主，不使用拍卖清空率口径。" +
+		"找房请求（用户给出预算/区域/户型条件，或说「帮我找房」）：先一次问全需求画像——预算、目标区域、房型、卧/浴/车位、土地面积、" +
+		"结构（如双砖）、户型（单/双层、open plan 等）、学区与通勤等客观因素，以及主观偏好（朝向采光、翻新程度、街区安静等）。" +
+		"然后生成 realestate.com.au 官方深链查询组合（模仿其查询机制），URL 模板：" +
+		"https://www.realestate.com.au/buy/property-house-with-4-bedrooms-between-750000-850000-in-willetton,+wa+6155/list-1?keywords=double+brick,north+facing " +
+		"——按客户条件替换；多关键词逗号分隔、词内空格用 +；把 /buy/ 换成 /sold/ 可看同条件成交用于校准预算。" +
+		"能转成关键词的主观偏好放进 keywords，不能转的列成「看房核实清单」。你只生成链接，绝不编造具体房源或挂牌价。" +
 		"当用户聊到贷款、预批、转贷或利率方案，或回复「预约Jeff」时：告知我们有合作持牌信贷经纪 Jeff（Perth 本地、中英双语）可以内推——" +
 		"可直接联系 Jeff：0449 999 922（报「安宅推荐」），或留下称呼和手机号由 Jeff 24 小时内主动联系，首次咨询免费；你自己不提供信贷建议。",
 	anlan:
@@ -107,9 +113,9 @@ const MENUS: Record<BotKey, ReturnType<typeof kb>> = {
 		[["💼 了解盈扬 YNG LAB", "about"]],
 	]),
 	property: kb([
-		[["🏘 Suburb 速查演示", "suburb"], ["🧮 负扣税快算演示", "gearing"]],
-		[["📈 市场周报样例", "auction"], ["🏦 贷款结构三分钟", "loan"]],
-		[["🤝 贷款内推 · Broker Jeff", "jeff"]],
+		[["🏘 Suburb 速查", "suburb"], ["🔍 找房画像", "brief"]],
+		[["🧮 负扣税快算", "gearing"], ["📈 市场周报", "auction"]],
+		[["🏦 贷款结构三分钟", "loan"], ["🤝 贷款内推 · Broker Jeff", "jeff"]],
 		[["💼 了解盈扬 YNG LAB", "about"]],
 	]),
 };
@@ -128,10 +134,10 @@ const WELCOME: Record<BotKey, string> = {
 		"我们把「建站获客」做成流水线：<b>一句话生成整站、每件商品自己吃搜索流量、询盘 24 小时不漏接</b>。\n\n" +
 		"点按钮看一个网站当场诞生，或<b>直接打字咨询</b>你的行业 👇",
 	property:
-		"👋 您好，我是<b>安宅</b>——盈扬的澳洲房产投资研究助手（投资人演示版）。\n\n" +
-		"正式版帮华语投资人<b>看懂</b>澳洲房产：Suburb 数据画像、负扣税与现金流测算、每周拍卖简报、英文报告中文解读。\n\n" +
-		"点击按钮看演示，或<b>直接打字提问</b>（已开通对话）👇\n\n" +
-		"<i>⚠️ 演示数据；正式版每个数字标注来源与日期。不构成财务、信贷或税务建议。</i>",
+		"👋 您好，我是<b>安宅</b>——您的澳洲房产研究助手（珀斯 / 西澳）。\n\n" +
+		"我能帮您：<b>Suburb 数据画像 · 找房画像与关键词查询（直达 realestate.com.au）· 负扣税与现金流测算 · 英文报告中文解读</b>；聊到贷款可内推合作持牌经纪。\n\n" +
+		"点击下方按钮开始，或<b>直接打字提问</b> 👇\n\n" +
+		"<i>⚠️ 卡片内数字为样例示意；正式查询逐项标注来源与日期。不构成财务、信贷或税务建议。</i>",
 };
 
 function demoContent(bot: BotKey, action: string, origin: string): string | null {
@@ -203,21 +209,37 @@ function demoContent(bot: BotKey, action: string, origin: string): string | null
 	};
 	(C as any).property = {
 		suburb:
-			"🏘 <b>Suburb 速查 · 演示样例（Willetton WA 6155）</b>\n──────────────\n" +
+			"🏘 <b>Suburb 速查 · 样例（Willetton WA 6155）</b>\n──────────────\n" +
 			"中位房价（house）：A$92 万（12 个月 +6.8%）\n租金中位：$680/周 · 毛回报 3.8%\n空置率：0.6%（供不应求区间）\n去化天数：11 天（热区信号）\n学区：Willetton SHS——WA 公立前列，学区溢价明显\n一句话画像：家庭自住盘为主、租售两旺，适合稳健型持有\n\n" +
-			"<i>演示数据；正式版逐项标注 REIWA / CoreLogic 来源与日期。不构成财务建议。</i>",
+			"🔗 <b>realestate.com.au 官方页直达</b>：\n" +
+			"· 区域画像 www.realestate.com.au/neighbourhoods/willetton-6155-wa\n" +
+			"· 在售房源 www.realestate.com.au/buy/in-willetton,+wa+6155/list-1\n" +
+			"· 成交记录 www.realestate.com.au/sold/in-willetton,+wa+6155/list-1\n\n" +
+			"<i>数字为样例示意；正式查询逐项标注 REIWA / SQM / PropTrack 来源与日期，并自动附上对应区域的官方链接。对话中直接输入区名即可查询。不构成财务建议。</i>",
+		brief:
+			"🔍 <b>找房画像 · 样例</b>\n──────────────\n" +
+			"<b>① 需求画像</b>（对话一次问全）：\n" +
+			"预算 A$750k–850k · Willetton / Riverton · House 4房2卫2车\n" +
+			"双砖 · 单层 · 土地 ≥450㎡ · Willetton SHS 学区\n" +
+			"主观偏好：北向采光 · 近年翻新 · 街区安静\n\n" +
+			"<b>② 自动生成查询</b>（模仿 realestate.com.au 查询机制，点开即看）：\n" +
+			"1️⃣ 严格版：www.realestate.com.au/buy/property-house-with-4-bedrooms-between-750000-850000-in-willetton,+wa+6155/list-1?keywords=double+brick,north+facing\n" +
+			"2️⃣ 放宽版（扩到 Riverton、去掉翻新要求）\n" +
+			"3️⃣ 成交校准：同条件 /sold/ 近期成交——判断预算是否现实\n\n" +
+			"<b>③ 看房核实清单</b>（查询覆盖不了的主观项）：\n街区噪音 · 实际采光 · 动线与朝向 · 邻里状况\n\n" +
+			"<i>直接说「帮我找房」+ 您的条件，生成您自己的画像与查询组合。</i>",
 		gearing:
-			"🧮 <b>负扣税快算 · 演示样例</b>\n──────────────\n" +
+			"🧮 <b>负扣税快算 · 样例</b>\n──────────────\n" +
 			"输入：购入 A$75 万 · 首付 20% · 利率 6.1% · 周租 $650 · 边际税率 37%\n\n" +
 			"年租金收入（扣 2% 空置）：A$33.1k\n贷款利息（IO 口径）：A$36.6k\n持有成本（估）：A$7.5k\n税前缺口：−A$11.0k\n负扣税退税：+A$4.1k\n<b>税后真实现金流：≈ −$133/周</b>\n\n" +
-			"利率 +1% 情景：≈ −$217/周\n\n<i>演示口径（WA 印花税另计）；正式版按您的真实参数逐项计算。不构成税务建议，细节请咨询注册会计师。</i>",
+			"利率 +1% 情景：≈ −$217/周\n\n<i>样例口径（WA 印花税另计）；对话中给出您的真实参数即可逐项计算。不构成税务建议，细节请咨询注册会计师。</i>",
 		auction:
-			"📈 <b>珀斯市场周报 · 演示样例</b>\n──────────────\n" +
+			"📈 <b>珀斯市场周报 · 样例</b>\n──────────────\n" +
 			"（珀斯以私约为主，专业口径不用拍卖清空率——用三件套看热度）\n\n" +
 			"Selling days：中位 12 天（前月 14 天，去化加快）\n挂牌量：环比 −4%（供给收紧）\n空置率：0.7%（历史低位区间）\n成交中位价：A$81.2 万\n热度前三：Willetton（学区）· Baldivis（首置刚需）· Scarborough（海滨翻新盘）\n本周值得注意：RBA 维持利率，固定利率档下调 15bp\n\n" +
-			"<i>演示数据；正式版每周一 8:00 自动推送，逐项标注 REIWA / SQM / RBA / PropTrack 来源。</i>",
+			"<i>样例数据；订阅后每周一 8:00 自动推送，逐项标注 REIWA / SQM / RBA / PropTrack 来源。</i>",
 		loan:
-			"🏦 <b>贷款结构三分钟 · 演示</b>\n──────────────\n" +
+			"🏦 <b>贷款结构三分钟</b>\n──────────────\n" +
 			"· <b>IO vs P&amp;I</b>：只息还款现金流压力小、利息全额可抵扣；本息同还建立净值——投资房常用前者，自住房常用后者\n" +
 			"· <b>Offset 账户</b>：存款直接抵减计息本金，灵活性优于提前还款\n" +
 			"· <b>LVR 与 LMI</b>：首付低于两成要付贷款保险，通常得不偿失\n\n" +
@@ -239,7 +261,10 @@ function demoContent(bot: BotKey, action: string, origin: string): string | null
 		"立足西澳 Perth（UTC+8）· 100+ 天实盘验证\n" +
 		"一套 AI 员工编队：<b>获客 · 分析 · 私人助手 · 内容</b>\n\n" +
 		`📑 投资人企划书（50 页精华版）：\n${origin}/pitch-deck-50/\n\n` +
-		"📞 联系：AY · 0405 098 765\n\n<i>本 bot 为投资人演示版；正式产品按订阅开通。</i>";
+		"📞 联系：AY · 0405 098 765\n\n" +
+		(bot === "property"
+			? "<i>安宅已正式运行；产品矩阵其余模块按订阅开通。</i>"
+			: "<i>本 bot 为投资人演示版；正式产品按订阅开通。</i>");
 	if (action === "about") return about;
 	return C[bot]?.[action] ?? null;
 }

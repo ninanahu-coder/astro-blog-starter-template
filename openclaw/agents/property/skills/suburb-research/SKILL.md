@@ -45,6 +45,18 @@ description: 澳洲（重点西澳/珀斯）suburb 投资研究的数据源分�
 - **珀斯以私约（private treaty）为主**，Domain 每周拍卖清空率**不覆盖 Perth**——绝不给珀斯编造「清空率」；市场热度用 **selling days + 挂牌量变化 + 空置率** 三件套替代
 - WA 成交明细（Landgate Sales Evidence）为付费数据；免费层用 REIWA sold 口径并注明
 
+## realestate.com.au 深链自动附带（每次 suburb 输出必带）
+
+数据不爬 REA 页面（见禁用清单），但**每次区域查询的输出末尾自动拼接官方深链**，客户点开即达：
+
+- 区域画像：`https://www.realestate.com.au/neighbourhoods/<suburb>-<postcode>-wa`
+- 在售列表：`https://www.realestate.com.au/buy/in-<suburb>,+wa+<postcode>/list-1`
+- 成交记录：`https://www.realestate.com.au/sold/in-<suburb>,+wa+<postcode>/list-1`
+
+（`<suburb>` 小写、空格转 `+`；示例 Willetton 6155 → `.../neighbourhoods/willetton-6155-wa`）。
+物业级尽调时同样附 onthehouse 单址页链接。定位：深链是「自动连接 REA」的合规形态——
+链接引流到 REA 官方页，引用数字仍取自 PropTrack 月报等许可来源。
+
 ## 输出纪律
 
 1. 每个数字后随行标注：`（来源，数据截止 YYYY-MM）`
