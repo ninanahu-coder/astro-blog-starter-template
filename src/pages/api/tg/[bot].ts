@@ -517,7 +517,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 					text,
 					parse_mode: "HTML",
 					disable_web_page_preview: false,
-					reply_markup: kb([[["⬅️ 返回菜单", "menu"]]]),
+					reply_markup: kb([[["⬅️ 返回菜单", "menu"], ["💼 了解盈扬 YNG LAB", "about"]]]),
 				});
 			}
 			if (chatId && q.data === "menu") {
@@ -564,7 +564,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 							chat_id: chatId,
 							text: reply,
 							disable_web_page_preview: true,
-							reply_markup: kb([[["📋 功能菜单", "menu"]]]),
+							reply_markup: kb([[["📋 功能菜单", "menu"], ["💼 了解盈扬 YNG LAB", "about"]]]),
 						});
 						return new Response("ok");
 					}
@@ -577,7 +577,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 					await tg(token, "sendMessage", {
 						chat_id: chatId,
 						text: reply,
-						reply_markup: kb([[["📋 功能菜单", "menu"]]]),
+						reply_markup: kb([[["📋 功能菜单", "menu"], ["💼 了解盈扬 YNG LAB", "about"]]]),
 					});
 				} else {
 					await tg(token, "sendMessage", {
