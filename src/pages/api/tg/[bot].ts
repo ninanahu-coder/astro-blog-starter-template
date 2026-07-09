@@ -124,7 +124,7 @@ async function parseBrief(text: string, env: any): Promise<Brief | null> {
 	}
 }
 
-async function domainSearch(b: Brief, env: any): Promise<any[] | null> {
+async function domainSearch(b: Brief, apiKey: string): Promise<any[] | null> {
 	const body: any = { listingType: "Sale", pageSize: 5 };
 	if (b.propertyType) body.propertyTypes = [b.propertyType];
 	if (b.minBedrooms) body.minBedrooms = b.minBedrooms;
@@ -143,7 +143,7 @@ async function domainSearch(b: Brief, env: any): Promise<any[] | null> {
 		}));
 	const r = await fetch("https://api.domain.com.au/v1/listings/residential/_search", {
 		method: "POST",
-		headers: { "content-type": "application/json", "X-Api-Key": env.DOMAIN_API_KEY },
+		headers: { "content-type": "application/json", "X-Api-Key": apiKey },
 		body: JSON.stringify(body),
 	});
 	if (!r.ok) return null;
@@ -400,7 +400,7 @@ export const GET: APIRoute = async ({ params, locals }) => {
 		title: BOTS[bot].title,
 		token_configured: Boolean(env[BOTS[bot].tokenVar]),
 		...(bot === "property"
-			? { domain_api_configured: Boolean(env.DOMAIN_API_KEY) }
+			? { domain_api_configured: Boolean(env.DOMAIN_API_KEY), domain_api_via_url_supported: true }
 			: {}),
 	});
 };
@@ -467,15 +467,17 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 				});
 			} else {
 				// 安宅正式版：找房条件 → Domain API 实时房源查询
+				// key 优先取 Cloudflare Secret，其次取 setWebhook 时嵌在 URL 里的 ?dk= 参数
+				const domainKey = env.DOMAIN_API_KEY || reqUrl.searchParams.get("dk");
 				if (
 					bot === "property" &&
-					env.DOMAIN_API_KEY &&
+					domainKey &&
 					/找房|帮我找|想买|房源|睇楼|看房/.test(text)
 				) {
 					await tg(token, "sendChatAction", { chat_id: chatId, action: "typing" });
 					const brief = await parseBrief(text, env);
 					if (brief && (brief.suburbs?.length || brief.maxPrice || brief.minPrice)) {
-						const items = await domainSearch(brief, env).catch(() => null);
+						const items = await domainSearch(brief, domainKey).catch(() => null);
 						const reply = items?.length
 							? fmtListings(items, brief)
 							: "按当前条件暂时没有匹配房源（或数据源繁忙）。可以放宽预算或区域再说一次，也可以直接点开同条件检索页：\n" +
