@@ -8,6 +8,7 @@
 | 安澜 · 私人助手 | `/api/tg/anlan` | 高端线（私人助手/私有化） | 研究委托、合同摘要、隐私三承诺 |
 | 盈扬 · 市场分析 | `/api/tg/analyst` | 订阅线（股市/加密/宏观） | 早盘简报、议息传导、行情警报 |
 | 盈扬 · 获客工厂 | `/api/tg/leadgen` | 项目线（建站获客） | 一键建站（真实交付演示车行网站）、ROI 快算 |
+| 安宅 · 房产研究 | `/api/tg/property` | 分析线（房产垂直） | Suburb 速查、负扣税快算、拍卖周报、贷款小课 |
 
 ## 一次性配置（约 15 分钟）
 
@@ -22,6 +23,10 @@ Telegram 搜索 `@BotFather` → `/newbot`，依次创建（用户名被占用�
 每个创建完成后 BotFather 会给一个 **token**（形如 `1234567:ABC-DEF...`），记下来。
 
 可选优化：`/setdescription` 填一句简介；`/setuserpic` 上传 logo（企划书封面的金色圆环柱状图标截图即可）。
+
+> **免后台快捷方式**：不想进 Cloudflare 后台的话，可以把 token 直接嵌进 webhook URL：
+> `setWebhook?url=https://<HOST>/api/tg/<bot>%3Ftk%3D<TOKEN 且冒号编码为 %3A>`
+> 网关会优先读 Cloudflare Secret，读不到时使用 URL 里的 `tk` 参数。
 
 ### 第 2 步 · 在 Cloudflare 配置 token
 

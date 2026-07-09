@@ -6,12 +6,13 @@ export const prerender = false;
 
 import type { APIRoute } from "astro";
 
-type BotKey = "anlan" | "analyst" | "leadgen";
+type BotKey = "anlan" | "analyst" | "leadgen" | "property";
 
 const BOTS: Record<BotKey, { tokenVar: string; title: string }> = {
 	anlan: { tokenVar: "TG_TOKEN_ANLAN", title: "安澜 · 私人助手（演示）" },
 	analyst: { tokenVar: "TG_TOKEN_ANALYST", title: "盈扬 · 市场分析（演示）" },
 	leadgen: { tokenVar: "TG_TOKEN_LEADGEN", title: "盈扬 · 获客工厂（演示）" },
+	property: { tokenVar: "TG_TOKEN_PROPERTY", title: "安宅 · 澳洲房产研究（演示）" },
 };
 
 const DISCLAIMER =
@@ -41,6 +42,11 @@ const MENUS: Record<BotKey, ReturnType<typeof kb>> = {
 		[["🐾 宠物行业方案", "pet"], ["🧮 ROI 快算", "roi"]],
 		[["💼 了解盈扬 YNG LAB", "about"]],
 	]),
+	property: kb([
+		[["🏘 Suburb 速查演示", "suburb"], ["🧮 负扣税快算演示", "gearing"]],
+		[["🔨 拍卖周报样例", "auction"], ["🏦 贷款结构三分钟", "loan"]],
+		[["💼 了解盈扬 YNG LAB", "about"]],
+	]),
 };
 
 const WELCOME: Record<BotKey, string> = {
@@ -56,6 +62,11 @@ const WELCOME: Record<BotKey, string> = {
 		"👋 您好，这里是<b>盈扬获客工厂</b>（投资人演示版）。\n\n" +
 		"我们把「建站获客」做成流水线：<b>一句话生成整站、每件商品自己吃搜索流量、询盘 24 小时不漏接</b>。\n\n" +
 		"点击下方按钮，看一个网站当场诞生 👇",
+	property:
+		"👋 您好，我是<b>安宅</b>——盈扬的澳洲房产投资研究助手（投资人演示版）。\n\n" +
+		"正式版帮华语投资人<b>看懂</b>澳洲房产：Suburb 数据画像、负扣税与现金流测算、每周拍卖简报、英文报告中文解读。\n\n" +
+		"点击下方按钮体验 👇\n\n" +
+		"<i>⚠️ 演示数据；正式版每个数字标注来源与日期。不构成财务、信贷或税务建议。</i>",
 };
 
 function demoContent(bot: BotKey, action: string, origin: string): string | null {
@@ -125,6 +136,27 @@ function demoContent(bot: BotKey, action: string, origin: string): string | null
 				"<i>示例测算（非承诺）：上线后按实际曝光、询盘、成交数据按月校准——账算得过来，续费才可持续。</i>",
 		},
 	};
+	(C as any).property = {
+		suburb:
+			"🏘 <b>Suburb 速查 · 演示样例（Willetton WA 6155）</b>\n──────────────\n" +
+			"中位房价（house）：A$92 万（12 个月 +6.8%）\n租金中位：$680/周 · 毛回报 3.8%\n空置率：0.6%（供不应求区间）\n去化天数：11 天（热区信号）\n学区：Willetton SHS——WA 公立前列，学区溢价明显\n一句话画像：家庭自住盘为主、租售两旺，适合稳健型持有\n\n" +
+			"<i>演示数据；正式版逐项标注 REIWA / CoreLogic 来源与日期。不构成财务建议。</i>",
+		gearing:
+			"🧮 <b>负扣税快算 · 演示样例</b>\n──────────────\n" +
+			"输入：购入 A$75 万 · 首付 20% · 利率 6.1% · 周租 $650 · 边际税率 37%\n\n" +
+			"年租金收入（扣 2% 空置）：A$33.1k\n贷款利息（IO 口径）：A$36.6k\n持有成本（估）：A$7.5k\n税前缺口：−A$11.0k\n负扣税退税：+A$4.1k\n<b>税后真实现金流：≈ −$133/周</b>\n\n" +
+			"利率 +1% 情景：≈ −$217/周\n\n<i>演示口径（WA 印花税另计）；正式版按您的真实参数逐项计算。不构成税务建议，细节请咨询注册会计师。</i>",
+		auction:
+			"🔨 <b>珀斯拍卖周报 · 演示样例</b>\n──────────────\n" +
+			"上周清空率：71%（前周 68%，连续三周走强）\n成交中位价：A$81.2 万\n挂牌量：环比 −4%（供给收紧）\n热度前三：Willetton（学区）· Baldivis（首置刚需）· Scarborough（海滨翻新盘）\n本周值得注意：银行固定利率下调 15bp，观望盘或入场\n\n" +
+			"<i>演示数据；正式版每周一 8:00 自动推送，数据来自公开拍卖结果。</i>",
+		loan:
+			"🏦 <b>贷款结构三分钟 · 演示</b>\n──────────────\n" +
+			"· <b>IO vs P&amp;I</b>：只息还款现金流压力小、利息全额可抵扣；本息同还建立净值——投资房常用前者，自住房常用后者\n" +
+			"· <b>Offset 账户</b>：存款直接抵减计息本金，灵活性优于提前还款\n" +
+			"· <b>LVR 与 LMI</b>：首付低于两成要付贷款保险，通常得不偿失\n\n" +
+			"<i>常识性介绍，非信贷建议；具体方案请咨询持牌 broker。</i>",
+	};
 	const about =
 		"💼 <b>盈扬工作室 YNG LAB</b>\n──────────────\n" +
 		"立足西澳 Perth（UTC+8）· 100+ 天实盘验证\n" +
@@ -161,7 +193,9 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 	if (!cfg) return new Response("unknown bot", { status: 404 });
 
 	const env = (locals as any)?.runtime?.env ?? {};
-	const token = env[cfg.tokenVar];
+	const reqUrl = new URL(request.url);
+	// token 优先取 Cloudflare Secret；否则取 setWebhook 时嵌在 URL 里的 ?tk= 参数
+	const token = env[cfg.tokenVar] || reqUrl.searchParams.get("tk");
 	if (!token) return new Response("bot not configured", { status: 503 });
 
 	// 可选的 webhook 秘钥校验
@@ -170,7 +204,7 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 		return new Response("forbidden", { status: 403 });
 	}
 
-	const origin = new URL(request.url).origin;
+	const origin = reqUrl.origin;
 	let update: any;
 	try {
 		update = await request.json();
