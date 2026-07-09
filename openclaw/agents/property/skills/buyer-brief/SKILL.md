@@ -57,8 +57,25 @@ realestate.com.au 无公开 API（PropTrack 仅商业协议），实时房源走
 | 土地面积 | `minLandArea` |
 | 户型/结构关键词 | `keywords:["double brick","single storey",…]` |
 
-返回 top 5：地址 · 卧浴车 · 土地 · displayPrice · `domain.com.au/<listingSlug>` 链接；
-末尾仍附同条件 REA 深链交叉核对。查询失败或 0 结果 → 建议放宽最弱条件重查，并给纯链接兜底。
+返回 top 5–6：地址 · 卧浴车 · 土地 · displayPrice · 上架天数 · 设施 · `domain.com.au/<listingSlug>` 链接；
+末尾仍附同条件 REA 深链交叉核对。查询失败或 0 结果 → 自动放宽后重查，最后给纯链接兜底。
+
+## 搜索机制对齐 realestate.com.au（参数模型参考 GitHub）
+
+| REA 搜索行为 | 我们的实现 |
+|---|---|
+| 默认排序＝最新上架 | `sort:{sortKey:"DateListed",direction:"Descending"}`；可切 Price 升/降 |
+| Buy / Sold 频道 | `listingType: "Sale" / "Sold"`；REA 深链 `/buy/` ↔ `/sold/` |
+| Surrounding suburbs 开关 | `includeSurroundingSuburbs`（用户说「只看本区」→ false） |
+| 排除 under offer | REA 深链加 `misc=ex-under-contract`（API 侧无对应字段，深链承担） |
+| 设施筛选（泳池/空调…） | `propertyFeatures:["Pool","AirConditioning","SecureParking","Ensuite","Study"]` |
+| 无精确匹配→展示放宽结果 | 三级级联：严格 → 去关键词/设施 → 预算 ±10% + 含周边区，结果注明放宽级别 |
+
+**GitHub 参考（仅借鉴数据/参数模型，不部署）**：
+- `tomquirk/realestate-com-au-api`——REA 非官方接口封装；借鉴其 search 参数设计
+  （channel、surrounding_suburbs、exclude_under_contract、min/max bedrooms、sort、keywords）。
+  该项目为非官方且禁商用，REA ToS 禁第三方接口——**绝不部署**，只对齐参数语义
+- `fsingletonthorn/domain-public-api-client`——Domain 官方 API 客户端实现参考
 
 ## 第三步 · 输出模板
 

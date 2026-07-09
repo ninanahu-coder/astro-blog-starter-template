@@ -29,6 +29,7 @@ const PERSONA: Record<BotKey, string> = {
 		"——按客户条件替换；多关键词逗号分隔、词内空格用 +；把 /buy/ 换成 /sold/ 可看同条件成交用于校准预算。" +
 		"能转成关键词的主观偏好放进 keywords，不能转的列成「看房核实清单」。你只生成链接，绝不编造具体房源或挂牌价。" +
 		"系统已接入 Domain 官方房源 API：用户找房条件齐全（至少有区域或预算）时会自动返回实时房源列表——你的职责是把画像问全；查询失败时引导用户放宽条件或使用链接。" +
+		"搜索行为对齐 realestate：默认最新上架排序（可要求从便宜到贵等）、可看已成交（sold）、可排除已下 offer、可只看本区不含周边；无精确匹配时系统自动放宽（先去关键词再预算±10%+周边区）并注明。" +
 		"当用户聊到贷款、预批、转贷或利率方案，或回复「预约Jeff」时：告知我们有合作持牌信贷经纪 Jeff（Perth 本地、中英双语）可以内推——" +
 		"可直接联系 Jeff：0449 999 922（报「安宅推荐」），或留下称呼和手机号由 Jeff 24 小时内主动联系，首次咨询免费；你自己不提供信贷建议。",
 	anlan:
@@ -92,25 +93,39 @@ async function chat(bot: BotKey, userText: string, env: any): Promise<string | n
 // realestate.com.au 无公开 API（其数据接口 PropTrack 仅商用协议），
 // 实时房源走 Domain 官方 API（developer.domain.com.au 免费档，Secret: DOMAIN_API_KEY）；
 // 同条件 REA 深链随结果附带，供客户交叉核对。
+// 搜索参数模型对齐 realestate.com.au（参考 GitHub: tomquirk/realestate-com-au-api 的参数设计，
+// channel/surrounding/exclude-under-contract/sort——仅借鉴模型，不调用其非官方接口）
 type Brief = {
 	minPrice?: number | null;
 	maxPrice?: number | null;
 	suburbs?: { suburb: string; postCode?: string | null }[] | null;
 	propertyType?: string | null;
 	minBedrooms?: number | null;
+	maxBedrooms?: number | null;
 	minBathrooms?: number | null;
 	minCarspaces?: number | null;
 	minLandArea?: number | null;
 	keywords?: string[] | null;
+	features?: string[] | null;
+	channel?: "buy" | "sold" | null;
+	surrounding?: boolean | null;
+	excludeUnderOffer?: boolean | null;
+	sort?: "newest" | "price-asc" | "price-desc" | null;
 };
 
 const PARSE_SYS =
 	"你是澳洲找房需求解析器。把用户消息解析为 JSON，直接输出 JSON 本身，不要解释、不要代码块。" +
 	'结构：{"minPrice":数字或null,"maxPrice":数字或null,"suburbs":[{"suburb":"英文区名","postCode":"邮编或null"}]或null,' +
-	'"propertyType":"House|Townhouse|ApartmentUnitFlat|Villa|VacantLand"或null,"minBedrooms":数字或null,' +
-	'"minBathrooms":数字或null,"minCarspaces":数字或null,"minLandArea":数字或null,"keywords":["英文关键词"]或null}。' +
-	"金额换算为澳元整数（75万→750000，800k→800000）。户型/结构/朝向等要求转成英文关键词" +
-	"（如 双砖→double brick、单层→single storey、北向→north facing、翻新→renovated、泳池→pool、祖母房→granny flat）。" +
+	'"propertyType":"House|Townhouse|ApartmentUnitFlat|Villa|VacantLand"或null,"minBedrooms":数字或null,"maxBedrooms":数字或null,' +
+	'"minBathrooms":数字或null,"minCarspaces":数字或null,"minLandArea":数字或null,"keywords":["英文关键词"]或null,' +
+	'"features":["Pool|AirConditioning|SecureParking|Ensuite|Study 中的枚举"]或null,' +
+	'"channel":"buy"或"sold"或null,"surrounding":true/false或null,"excludeUnderOffer":true/false或null,' +
+	'"sort":"newest|price-asc|price-desc"或null}。' +
+	"规则：金额换算为澳元整数（75万→750000，800k→800000）；想看成交/已售记录→channel=sold，默认 buy；" +
+	"明确说「只看本区/不要周边」→surrounding=false，否则 null；说「不要已下 offer/under contract」→excludeUnderOffer=true；" +
+	"「从便宜到贵」→price-asc、「从贵到便宜」→price-desc、「最新上架」→newest；" +
+	"泳池/空调/车库/套间/书房这类设施进 features 枚举，其余户型/结构/朝向要求转英文关键词进 keywords" +
+	"（如 双砖→double brick、单层→single storey、北向→north facing、翻新→renovated、祖母房→granny flat）。" +
 	"未提及的字段用 null。";
 
 async function parseBrief(text: string, env: any): Promise<Brief | null> {
@@ -124,31 +139,62 @@ async function parseBrief(text: string, env: any): Promise<Brief | null> {
 	}
 }
 
-async function domainSearch(b: Brief, apiKey: string): Promise<any[] | null> {
-	const body: any = { listingType: "Sale", pageSize: 5 };
+// relax 级联模仿 REA 搜索行为：0=严格匹配 → 1=去掉关键词/设施 → 2=预算±10%+含周边区
+function searchBody(b: Brief, relax: 0 | 1 | 2): any {
+	const body: any = {
+		listingType: b.channel === "sold" ? "Sold" : "Sale",
+		pageSize: 6,
+		// REA 默认排序＝最新上架
+		sort:
+			b.sort === "price-asc"
+				? { sortKey: "Price", direction: "Ascending" }
+				: b.sort === "price-desc"
+					? { sortKey: "Price", direction: "Descending" }
+					: { sortKey: "DateListed", direction: "Descending" },
+	};
 	if (b.propertyType) body.propertyTypes = [b.propertyType];
 	if (b.minBedrooms) body.minBedrooms = b.minBedrooms;
+	if (b.maxBedrooms) body.maxBedrooms = b.maxBedrooms;
 	if (b.minBathrooms) body.minBathrooms = b.minBathrooms;
 	if (b.minCarspaces) body.minCarspaces = b.minCarspaces;
-	if (b.minPrice) body.minPrice = b.minPrice;
-	if (b.maxPrice) body.maxPrice = b.maxPrice;
 	if (b.minLandArea) body.minLandArea = b.minLandArea;
-	if (b.keywords?.length) body.keywords = b.keywords.slice(0, 5);
+	let min = b.minPrice, max = b.maxPrice;
+	if (relax === 2) {
+		if (min) min = Math.floor(min * 0.9);
+		if (max) max = Math.ceil(max * 1.1);
+	}
+	if (min) body.minPrice = min;
+	if (max) body.maxPrice = max;
+	if (relax === 0) {
+		if (b.keywords?.length) body.keywords = b.keywords.slice(0, 5);
+		if (b.features?.length) body.propertyFeatures = b.features.slice(0, 5);
+	}
 	if (b.suburbs?.length)
 		body.locations = b.suburbs.slice(0, 5).map((s) => ({
 			state: "WA",
 			suburb: s.suburb,
 			postCode: s.postCode || "",
-			includeSurroundingSuburbs: true,
+			includeSurroundingSuburbs: relax === 2 ? true : (b.surrounding ?? true),
 		}));
-	const r = await fetch("https://api.domain.com.au/v1/listings/residential/_search", {
-		method: "POST",
-		headers: { "content-type": "application/json", "X-Api-Key": apiKey },
-		body: JSON.stringify(body),
-	});
-	if (!r.ok) return null;
-	const d: any = await r.json();
-	return Array.isArray(d) ? d : null;
+	return body;
+}
+
+async function domainSearch(
+	b: Brief,
+	apiKey: string,
+): Promise<{ items: any[]; relax: 0 | 1 | 2 } | null> {
+	for (const relax of [0, 1, 2] as const) {
+		const r = await fetch("https://api.domain.com.au/v1/listings/residential/_search", {
+			method: "POST",
+			headers: { "content-type": "application/json", "X-Api-Key": apiKey },
+			body: JSON.stringify(searchBody(b, relax)),
+		});
+		if (!r.ok) return null;
+		const d: any = await r.json();
+		const items = Array.isArray(d) ? d.filter((x: any) => x?.listing) : [];
+		if (items.length) return { items, relax };
+	}
+	return { items: [], relax: 2 };
 }
 
 function reaLink(b: Brief): string {
@@ -156,6 +202,7 @@ function reaLink(b: Brief): string {
 	const loc = s
 		? `in-${s.suburb.toLowerCase().replace(/\s+/g, "+")},+wa${s.postCode ? `+${s.postCode}` : ""}`
 		: "in-perth+-+greater+region,+wa";
+	const channel = b.channel === "sold" ? "sold" : "buy";
 	const type =
 		b.propertyType === "House"
 			? "property-house-"
@@ -167,29 +214,40 @@ function reaLink(b: Brief): string {
 	const beds = b.minBedrooms ? `with-${b.minBedrooms}-bedrooms-` : "";
 	const price =
 		b.minPrice || b.maxPrice ? `between-${b.minPrice || 0}-${b.maxPrice || 5000000}-` : "";
-	const kw = b.keywords?.length
-		? `?keywords=${b.keywords.slice(0, 3).map((k) => k.replace(/\s+/g, "+")).join(",")}`
-		: "";
-	return `https://www.realestate.com.au/buy/${type}${beds}${price}${loc}/list-1${kw}`;
+	const q: string[] = [];
+	if (b.keywords?.length)
+		q.push(`keywords=${b.keywords.slice(0, 3).map((k) => k.replace(/\s+/g, "+")).join(",")}`);
+	if (b.excludeUnderOffer) q.push("misc=ex-under-contract");
+	return `https://www.realestate.com.au/${channel}/${type}${beds}${price}${loc}/list-1${q.length ? "?" + q.join("&") : ""}`;
 }
 
-function fmtListings(items: any[], b: Brief): string {
-	const rows = items
-		.filter((x) => x?.listing)
-		.slice(0, 5)
-		.map((x, i) => {
-			const l = x.listing;
-			const p = l.propertyDetails || {};
-			const land = p.landArea ? ` · 地 ${p.landArea}㎡` : "";
-			const price = l.priceDetails?.displayPrice || "价格面议";
-			const link = l.listingSlug ? `https://www.domain.com.au/${l.listingSlug}` : "";
-			return (
-				`${i + 1}️⃣ ${p.displayableAddress || p.suburb || ""}\n` +
-				`${p.bedrooms ?? "?"}房${p.bathrooms ?? "?"}卫${p.carspaces ?? "–"}车${land} · ${price}\n${link}`
-			);
-		});
+function daysAgo(iso?: string): string {
+	if (!iso) return "";
+	const d = Math.floor((Date.now() - Date.parse(iso)) / 86400000);
+	return isNaN(d) ? "" : d <= 0 ? " · 今天上架" : d === 1 ? " · 昨天上架" : ` · ${d} 天前上架`;
+}
+
+function fmtListings(items: any[], b: Brief, relax: 0 | 1 | 2): string {
+	const rows = items.slice(0, 6).map((x, i) => {
+		const l = x.listing;
+		const p = l.propertyDetails || {};
+		const land = p.landArea ? ` · 地 ${p.landArea}㎡` : "";
+		const price = l.priceDetails?.displayPrice || "价格面议";
+		const link = l.listingSlug ? `https://www.domain.com.au/${l.listingSlug}` : "";
+		const feat = p.features?.length ? `\n✨ ${p.features.slice(0, 4).join(" · ")}` : "";
+		return (
+			`${i + 1}️⃣ ${p.displayableAddress || p.suburb || ""}\n` +
+			`${p.bedrooms ?? "?"}房${p.bathrooms ?? "?"}卫${p.carspaces ?? "–"}车${land} · ${price}${daysAgo(l.dateListed)}${feat}\n${link}`
+		);
+	});
+	const note =
+		relax === 0
+			? "严格匹配 · 最新上架优先"
+			: relax === 1
+				? "无精确匹配，已自动放宽：暂去关键词/设施条件"
+				: "无精确匹配，已自动放宽：预算 ±10% + 含周边区";
 	return (
-		"🔍 实时房源匹配（Domain 官方 API）\n──────────────\n" +
+		`🔍 实时房源（${note}）\n──────────────\n` +
 		rows.join("\n\n") +
 		"\n\n🔗 同条件 realestate.com.au 交叉核对：\n" +
 		reaLink(b) +
@@ -477,10 +535,10 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 					await tg(token, "sendChatAction", { chat_id: chatId, action: "typing" });
 					const brief = await parseBrief(text, env);
 					if (brief && (brief.suburbs?.length || brief.maxPrice || brief.minPrice)) {
-						const items = await domainSearch(brief, domainKey).catch(() => null);
-						const reply = items?.length
-							? fmtListings(items, brief)
-							: "按当前条件暂时没有匹配房源（或数据源繁忙）。可以放宽预算或区域再说一次，也可以直接点开同条件检索页：\n" +
+						const res = await domainSearch(brief, domainKey).catch(() => null);
+						const reply = res?.items.length
+							? fmtListings(res.items, brief, res.relax)
+							: "按当前条件（含自动放宽两轮）暂时没有匹配房源，或数据源繁忙。可以换个区域或调整预算再说一次，也可以直接点开同条件检索页：\n" +
 								reaLink(brief) +
 								"\n\n⚠️ 信息服务，不构成购买建议。";
 						await tg(token, "sendMessage", {
