@@ -190,6 +190,8 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
   .src{font-size:10.5px}
   .note{font-size:11px}
 }
+.legend{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:12.5px;color:var(--muted)}
+.legend .sw{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:7px;vertical-align:-1px}
 .tech-grid{position:absolute;inset:0;pointer-events:none;
   background-image:linear-gradient(rgba(227,168,62,.055) 1px,transparent 1px),
     linear-gradient(90deg,rgba(227,168,62,.055) 1px,transparent 1px);
@@ -1750,11 +1752,31 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <tr><td>第 3 年</td><td>1,200 人 → A$78k/月</td><td>60 家 → A$8.9k/月</td><td>15 位 → A$18k/月</td><td class="y">≈A$105k/月</td><td class="y">A$2–3M</td></tr>
       <tr><td>第 5 年</td><td>3,500 人 → A$245k/月</td><td>150 家 → A$22k/月</td><td>40 位 → A$52k/月</td><td class="y">≈A$319k/月</td><td class="y">A$5–8M</td></tr>
     </table>
-    <ul class="list">
-      <li><b>客单价的锚</b>：<span>入门订阅 A$49/月——一杯咖啡周的价格换一位 7×24 的分析师；行业客户的 A$149/月维护费不到代运营的一半；安澜月费是人力助理的 1/5——每一档都让客户「算得过账」。</span></li>
-      <li><b>三页闭环</b>：<span>本页的 MRR 台阶 → 「预期收入」页的年度台阶 → 「A$100k 四个时点」页的回报倍数，同一套假设贯穿，尽调时可逐格核对。</span></li>
-      <li><b>口径</b>：<span>示例情景（非承诺）；客户数为达成预期收入所需规模的倒推值，增长依赖获客漏斗页的自有流量体系。</span></li>
-    </ul>
+    <div class="cols c32" style="align-items:center">
+      <svg width="100%" height="168" viewBox="0 0 560 168" preserveAspectRatio="xMidYMid meet">
+        <defs><linearGradient id="mrrg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#E3A83E" stop-opacity=".45"/><stop offset="100%" stop-color="#E3A83E" stop-opacity=".03"/>
+        </linearGradient></defs>
+        <line x1="36" y1="140" x2="540" y2="140" stroke="rgba(233,236,245,.2)"/>
+        <path d="M40,127 L200,115 L360,77 L520,30 L520,140 L40,140 Z" fill="url(#mrrg)"/>
+        <polyline points="40,127 200,115 360,77 520,30" fill="none" stroke="#E3A83E" stroke-width="2.5"/>
+        <circle cx="40" cy="127" r="4.5" fill="#43BFA0"/><circle cx="200" cy="115" r="4.5" fill="#E3A83E"/>
+        <circle cx="360" cy="77" r="4.5" fill="#E3A83E"/><circle cx="520" cy="30" r="5.5" fill="#E3A83E" stroke="#E9ECF5" stroke-width="1.5"/>
+        <text x="40" y="112" text-anchor="middle" fill="#96A0BA" font-size="12" font-family="monospace">4.5k</text>
+        <text x="200" y="100" text-anchor="middle" fill="#E9ECF5" font-size="12" font-family="monospace">16k</text>
+        <text x="360" y="62" text-anchor="middle" fill="#E9ECF5" font-size="12" font-family="monospace">105k</text>
+        <text x="520" y="16" text-anchor="middle" fill="#E3A83E" font-size="13" font-weight="700" font-family="monospace">A$319k/月</text>
+        <text x="40" y="158" text-anchor="middle" fill="#6B7590" font-size="11">6 个月</text>
+        <text x="200" y="158" text-anchor="middle" fill="#6B7590" font-size="11">1 年</text>
+        <text x="360" y="158" text-anchor="middle" fill="#6B7590" font-size="11">3 年</text>
+        <text x="520" y="158" text-anchor="middle" fill="#6B7590" font-size="11">5 年</text>
+      </svg>
+      <ul class="list">
+        <li><b>客单价的锚</b>：<span>A$49/月入门——一杯咖啡周的价格换一位 7×24 分析师；每一档都让客户算得过账。</span></li>
+        <li><b>三页闭环</b>：<span>MRR 台阶 → 预期收入台阶 → 回报倍数，同一套假设，尽调可逐格核对。</span></li>
+      </ul>
+    </div>
+    <p class="src">MRR 增长曲线为示例情景（√ 压缩刻度示意，非线性坐标）；客户数为倒推值，非承诺。</p>
   </div>
   <div class="foot"><span>YNG LAB · 盈扬</span><span>78 / 105</span></div>
 </section>
@@ -1812,14 +1834,34 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
   <div class="eyebrow"><span class="no">81</span><span>竞争格局</span></div>
   <h2 class="t">竞争格局：我们站在四类玩家的空隙里</h2>
   <div class="body">
-    <table class="tbl">
-      <tr><th>玩家类型</th><th>代表</th><th>强项</th><th>他们不做 / 做不好的</th></tr>
-      <tr><td>通用 AI 助手</td><td>ChatGPT、Claude 应用等</td><td>能力强、便宜</td><td class="n">无行业纵深、无私有数据层、不主动值守</td></tr>
-      <tr><td>金融资讯终端</td><td>Bloomberg、Wind 等</td><td>数据权威</td><td class="n">年费数万美元，个人与小微客户被排除在外</td></tr>
-      <tr><td>建站 / 营销 SaaS</td><td>Wix、代运营机构</td><td>规模化交付</td><td class="n">不懂 AI 获客闭环，无后续分析服务可卖</td></tr>
-      <tr><td>付费信号群 / KOL</td><td>各类 TG 信号群</td><td>已验证付费习惯</td><td class="n">黑箱喊单、无数据方法论、信任易崩塌</td></tr>
-      <tr><td style="color:var(--gold)">盈扬 YNG LAB</td><td>本项目</td><td class="y">垂直纵深 + IM 入口 + 数据私有化 + 全自动交付</td><td>规模与品牌尚在早期（本轮融资要解决的事）</td></tr>
-    </table>
+    <div class="cols c32" style="align-items:center">
+      <svg width="100%" height="300" viewBox="0 0 520 300" preserveAspectRatio="xMidYMid meet">
+        <rect x="20" y="14" width="480" height="252" rx="8" fill="rgba(17,26,46,.6)" stroke="rgba(233,236,245,.12)"/>
+        <line x1="260" y1="20" x2="260" y2="260" stroke="rgba(233,236,245,.15)" stroke-dasharray="4 4"/>
+        <line x1="26" y1="140" x2="494" y2="140" stroke="rgba(233,236,245,.15)" stroke-dasharray="4 4"/>
+        <text x="492" y="285" text-anchor="end" fill="#6B7590" font-size="12">行业纵深 ⟶</text>
+        <text x="30" y="34" fill="#6B7590" font-size="12">⟰ 价格可及（个人 / 小微付得起）</text>
+        <g font-size="13" fill="#96A0BA">
+          <circle cx="115" cy="70" r="7" fill="#5A6378"/><text x="115" y="94" text-anchor="middle">通用 AI 助手</text>
+          <circle cx="150" cy="212" r="7" fill="#5A6378"/><text x="150" y="236" text-anchor="middle">付费信号群*</text>
+          <circle cx="235" cy="160" r="7" fill="#5A6378"/><text x="235" y="184" text-anchor="middle">建站 SaaS / 代运营</text>
+          <circle cx="412" cy="226" r="7" fill="#5A6378"/><text x="412" y="250" text-anchor="middle">机构终端（Bloomberg 等）</text>
+        </g>
+        <g>
+          <circle cx="428" cy="66" r="13" fill="#E3A83E"/>
+          <text x="428" y="71" text-anchor="middle" fill="#0A101E" font-size="12" font-weight="800">盈</text>
+          <text x="428" y="44" text-anchor="middle" fill="#E3A83E" font-size="14" font-weight="700">盈扬 YNG LAB</text>
+        </g>
+      </svg>
+      <ul class="list">
+        <li><b>通用助手</b>：<span>便宜但无行业纵深、不主动值守。</span></li>
+        <li><b>机构终端</b>：<span>数据权威但年费数万美元。</span></li>
+        <li><b>建站 SaaS / 代运营</b>：<span>无 AI 闭环、无后续服务。</span></li>
+        <li><b>信号群*</b>：<span>价格可及但黑箱喊单，信任不可持续。</span></li>
+        <li><b>我们</b>：<span>行业纵深 × 个人可负担——右上象限目前的唯一玩家；短板是规模与品牌尚早（本轮融资要解决的事）。</span></li>
+      </ul>
+    </div>
+    <div class="legend"><span><i class="sw" style="background:#E3A83E"></i>盈扬 YNG LAB</span><span><i class="sw" style="background:#5A6378"></i>现有四类玩家</span></div>
   </div>
   <div class="foot"><span>YNG LAB · 盈扬</span><span>81 / 105</span></div>
 </section>
@@ -2243,13 +2285,31 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
   <div class="eyebrow"><span class="no">102</span><span>资金用途</span></div>
   <h2 class="t">$80 万的去向（按 24–30 个月规划）</h2>
   <div class="body">
-    <div style="display:flex;flex-direction:column;gap:14px">
-      <div class="hrow"><span class="lab">产品化与工程（35% · $280k）</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="val">35%</span></div>
-      <div class="hrow"><span class="lab">数据源与算力（20% · $160k）</span><div class="track"><div class="fill" style="width:57%"></div></div><span class="val">20%</span></div>
-      <div class="hrow"><span class="lab">增长与社区运营（20% · $160k）</span><div class="track"><div class="fill tl" style="width:57%"></div></div><span class="val">20%</span></div>
-      <div class="hrow"><span class="lab">实体 AI 试点：设备与伙伴集成（15% · $120k）</span><div class="track"><div class="fill" style="width:43%"></div></div><span class="val">15%</span></div>
-      <div class="hrow"><span class="lab">合规、法务与安全审计（7% · $56k）</span><div class="track"><div class="fill tl" style="width:20%"></div></div><span class="val">7%</span></div>
-      <div class="hrow"><span class="lab">储备金（3% · $24k）</span><div class="track"><div class="fill tl" style="width:9%"></div></div><span class="val">3%</span></div>
+    <div class="cols c32" style="align-items:center">
+      <div style="display:flex;justify-content:center">
+      <svg width="260" height="260" viewBox="0 0 200 200">
+        <g transform="rotate(-90 100 100)">
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#E3A83E" stroke-width="30" stroke-dasharray="153.9 285.9" stroke-dashoffset="0"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#C98F2E" stroke-width="30" stroke-dasharray="87.9 351.9" stroke-dashoffset="-153.9"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#43BFA0" stroke-width="30" stroke-dasharray="87.9 351.9" stroke-dashoffset="-241.8"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#2E8F78" stroke-width="30" stroke-dasharray="66 373.8" stroke-dashoffset="-329.7"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#8A93AD" stroke-width="30" stroke-dasharray="30.8 409" stroke-dashoffset="-395.7"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#5A6378" stroke-width="30" stroke-dasharray="13.2 426.6" stroke-dashoffset="-426.5"/>
+        </g>
+        <text x="100" y="95" text-anchor="middle" fill="#E9ECF5" font-size="24" font-weight="700" font-family="monospace">$800k</text>
+        <text x="100" y="116" text-anchor="middle" fill="#96A0BA" font-size="11">24–30 个月</text>
+      </svg>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="legend" style="flex-direction:column;gap:10px;font-size:13.5px">
+          <span><i class="sw" style="background:#E3A83E"></i><b style="color:var(--text)">产品化与工程 35%</b> · $280k——数据库 v2、私有化交付包、订阅计费、3–4 名关键招聘</span>
+          <span><i class="sw" style="background:#C98F2E"></i><b style="color:var(--text)">数据源与算力 20%</b> · $160k</span>
+          <span><i class="sw" style="background:#43BFA0"></i><b style="color:var(--text)">增长与社区运营 20%</b> · $160k</span>
+          <span><i class="sw" style="background:#2E8F78"></i><b style="color:var(--text)">实体 AI 试点 15%</b> · $120k——设备与伙伴集成</span>
+          <span><i class="sw" style="background:#8A93AD"></i><b style="color:var(--text)">合规与安全 7%</b> · $56k</span>
+          <span><i class="sw" style="background:#5A6378"></i><b style="color:var(--text)">储备金 3%</b> · $24k</span>
+        </div>
+      </div>
     </div>
     <div class="cols c2">
       <div class="card"><h3>工程 35% 与实体 AI 15% 花在哪</h3><p>工程：数据库 v2（权限 / 审计 / 备份自动化）、私有化交付标准包、订阅计费体系、3–4 名关键工程 / 增长招聘。实体 AI：试点设备采购、机器人 / IoT 平台集成开发、2–3 个标杆客户联合落地。</p></div>
