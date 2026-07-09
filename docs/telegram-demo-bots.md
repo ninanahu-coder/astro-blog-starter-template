@@ -1,7 +1,10 @@
 # 盈扬 YNG LAB · 投资人演示 Telegram Bot 配置指南
 
 三个演示 bot 共用一套已部署的 webhook 代码（`src/pages/api/tg/[bot].ts`），
-全部内容脚本化：零 LLM 成本、演示零翻车，每个演示对应企划书里的一条收入线。
+按钮演示脚本化（零翻车），**自由对话已开通（正式版）**：默认走 Cloudflare Workers AI
+（llama-3.3-70b，免 key、免费额度内零成本）；在 Cloudflare 配置 `ANTHROPIC_API_KEY` Secret 后
+自动升级为 Claude（可选 `ANTHROPIC_MODEL` 覆盖默认 haiku）。每个 bot 有独立人格与合规规则，
+均声明无法联网、不报实时行情。
 
 | bot | webhook 路径 | 对应收入线 | 演示亮点 |
 |---|---|---|---|
