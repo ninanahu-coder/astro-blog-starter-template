@@ -39,6 +39,11 @@ Settings → Variables and Secrets → 添加三个 **Secret**：
 - `TG_TOKEN_ANLAN` = 安澜的 token
 - `TG_TOKEN_ANALYST` = 市场分析的 token
 - `TG_TOKEN_LEADGEN` = 获客工厂的 token
+- `TG_TOKEN_PROPERTY` = 安宅的 token
+- `DOMAIN_API_KEY` = Domain 官方房源 API key（安宅「找房画像」实时房源查询用）——
+  developer.domain.com.au 免费注册 → 建 Project → 拿 API Key（免费档即可）。
+  说明：realestate.com.au **无公开 API**（其数据接口 PropTrack 仅签商业协议），
+  所以实时房源用 Domain 官方 API；REA 深链自动附在结果里供交叉核对。未配置此 key 时找房功能退化为纯链接模式。
 - （可选）`TG_WEBHOOK_SECRET` = 随便一串长随机字符，防伪造请求
 
 保存后 Redeploy 一次使其生效。

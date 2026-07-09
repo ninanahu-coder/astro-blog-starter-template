@@ -41,6 +41,25 @@ https://www.realestate.com.au/buy/property-<type>-with-<N>-bedrooms-between-<min
   ③ **成交校准版**（sold 口径，判断预算 vs 市场）
   ④ 可选：关键词替换版（如 renovated ↔ original condition 两种策略）
 
+## 第二步 B · 有 Domain API key 时：实时房源查询（优先于纯链接）
+
+realestate.com.au 无公开 API（PropTrack 仅商业协议），实时房源走 **Domain 官方 API**：
+`POST https://api.domain.com.au/v1/listings/residential/_search`（Header `X-Api-Key`）
+
+画像 → 请求体字段映射：
+
+| 画像字段 | API 字段 |
+|---|---|
+| 预算区间 | `minPrice` / `maxPrice` |
+| 目标 suburb | `locations:[{state:"WA",suburb,postCode,includeSurroundingSuburbs:true}]` |
+| 房型 | `propertyTypes:["House"\|"Townhouse"\|"ApartmentUnitFlat"\|"Villa"\|"VacantLand"]` |
+| 卧/浴/车 | `minBedrooms` / `minBathrooms` / `minCarspaces` |
+| 土地面积 | `minLandArea` |
+| 户型/结构关键词 | `keywords:["double brick","single storey",…]` |
+
+返回 top 5：地址 · 卧浴车 · 土地 · displayPrice · `domain.com.au/<listingSlug>` 链接；
+末尾仍附同条件 REA 深链交叉核对。查询失败或 0 结果 → 建议放宽最弱条件重查，并给纯链接兜底。
+
 ## 第三步 · 输出模板
 
 ① 需求画像表（客观逐行 + 主观清单；标明哪些进了查询、哪些留给看房）
