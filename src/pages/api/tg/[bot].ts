@@ -29,7 +29,7 @@ const PERSONA: Record<BotKey, string> = {
 		"——按客户条件替换；多关键词逗号分隔、词内空格用 +；把 /buy/ 换成 /sold/ 可看同条件成交用于校准预算。" +
 		"能转成关键词的主观偏好放进 keywords，不能转的列成「看房核实清单」。你只生成链接，绝不编造具体房源或挂牌价。" +
 		"系统已接入 Domain 官方房源 API：用户找房条件齐全（至少有区域或预算）时会自动返回实时房源列表——你的职责是把画像问全；查询失败时引导用户放宽条件或使用链接。" +
-		"搜索行为对齐 realestate：默认最新上架排序（可要求从便宜到贵等）、可看已成交（sold）、可排除已下 offer、可只看本区不含周边；无精确匹配时系统自动放宽（先去关键词再预算±10%+周边区）并注明。" +
+		"搜索为模糊搜索、核心维度是区/价格/户型（关键词只影响排序不做筛选），默认最新上架排序（可要求从便宜到贵等）、可看已成交（sold）、可排除已下 offer、可只看本区不含周边；精确匹配之外自动补充价格±10%/周边区的相近房源并以≈标注。中英文提问结果一致。" +
 		"当用户聊到贷款、预批、转贷或利率方案，或回复「预约Jeff」时：告知我们有合作持牌信贷经纪 Jeff（Perth 本地、中英双语）可以内推——" +
 		"可直接联系 Jeff：0449 999 922（报「安宅推荐」），或留下称呼和手机号由 Jeff 24 小时内主动联系，首次咨询免费；你自己不提供信贷建议。",
 	anlan:
@@ -126,7 +126,9 @@ const PARSE_SYS =
 	"「从便宜到贵」→price-asc、「从贵到便宜」→price-desc、「最新上架」→newest；" +
 	"泳池/空调/车库/套间/书房这类设施进 features 枚举，其余户型/结构/朝向要求转英文关键词进 keywords" +
 	"（如 双砖→double brick、单层→single storey、北向→north facing、翻新→renovated、祖母房→granny flat）。" +
-	"未提及的字段用 null。";
+	"用户可能用中文、英文或中英混合提问——同样的需求无论用哪种语言，输出的 JSON 必须完全一致。" +
+	"中文区名转官方英文 suburb 名（珀斯→Perth、南珀斯→South Perth、威乐顿→Willetton、坎宁顿→Cannington、曼杜拉→Mandurah）；" +
+	"suburb、keywords、features 永远输出英文。未提及的字段用 null。";
 
 async function parseBrief(text: string, env: any): Promise<Brief | null> {
 	const out = await llm(PARSE_SYS, text.slice(0, 600), env).catch(() => null);
@@ -139,8 +141,9 @@ async function parseBrief(text: string, env: any): Promise<Brief | null> {
 	}
 }
 
-// relax 级联模仿 REA 搜索行为：0=严格匹配 → 1=去掉关键词/设施 → 2=预算±10%+含周边区
-function searchBody(b: Brief, relax: 0 | 1 | 2): any {
+// 核心检索维度＝区 + 价格 + 户型（卧/浴/房型/土地）；关键词与设施不进筛选条件，只做排序参考
+// strict＝核心条件精确；fuzzy＝价格±10% + 含周边区
+function searchBody(b: Brief, mode: "strict" | "fuzzy"): any {
 	const body: any = {
 		listingType: b.channel === "sold" ? "Sold" : "Sale",
 		pageSize: 6,
@@ -159,42 +162,64 @@ function searchBody(b: Brief, relax: 0 | 1 | 2): any {
 	if (b.minCarspaces) body.minCarspaces = b.minCarspaces;
 	if (b.minLandArea) body.minLandArea = b.minLandArea;
 	let min = b.minPrice, max = b.maxPrice;
-	if (relax === 2) {
+	if (mode === "fuzzy") {
 		if (min) min = Math.floor(min * 0.9);
 		if (max) max = Math.ceil(max * 1.1);
 	}
 	if (min) body.minPrice = min;
 	if (max) body.maxPrice = max;
-	if (relax === 0) {
-		if (b.keywords?.length) body.keywords = b.keywords.slice(0, 5);
-		if (b.features?.length) body.propertyFeatures = b.features.slice(0, 5);
-	}
 	if (b.suburbs?.length)
 		body.locations = b.suburbs.slice(0, 5).map((s) => ({
 			state: "WA",
 			suburb: s.suburb,
 			postCode: s.postCode || "",
-			includeSurroundingSuburbs: relax === 2 ? true : (b.surrounding ?? true),
+			includeSurroundingSuburbs: mode === "fuzzy" ? true : (b.surrounding ?? true),
 		}));
 	return body;
 }
 
+async function runSearch(body: any, apiKey: string): Promise<any[]> {
+	const r = await fetch("https://api.domain.com.au/v1/listings/residential/_search", {
+		method: "POST",
+		headers: { "content-type": "application/json", "X-Api-Key": apiKey },
+		body: JSON.stringify(body),
+	});
+	if (!r.ok) return [];
+	const d: any = await r.json();
+	return Array.isArray(d) ? d.filter((x: any) => x?.listing) : [];
+}
+
+// 关键词/设施软评分：命中越多排越前，但绝不淘汰房源
+function softScore(l: any, b: Brief): number {
+	const feats: string[] = (l.propertyDetails?.features || []).map((f: string) =>
+		String(f).toLowerCase(),
+	);
+	const hay = ((l.headline || "") + " " + feats.join(" ")).toLowerCase();
+	let s = 0;
+	for (const k of b.keywords || []) if (k && hay.includes(k.toLowerCase())) s++;
+	for (const f of b.features || [])
+		if (f && feats.some((x) => x.includes(f.toLowerCase()))) s++;
+	return s;
+}
+
+// 模糊搜索（默认）：精确核心条件与放宽两路并行，精确结果排前、相近房源补足（去重），
+// 组内按关键词软评分排序
 async function domainSearch(
 	b: Brief,
 	apiKey: string,
-): Promise<{ items: any[]; relax: 0 | 1 | 2 } | null> {
-	for (const relax of [0, 1, 2] as const) {
-		const r = await fetch("https://api.domain.com.au/v1/listings/residential/_search", {
-			method: "POST",
-			headers: { "content-type": "application/json", "X-Api-Key": apiKey },
-			body: JSON.stringify(searchBody(b, relax)),
-		});
-		if (!r.ok) return null;
-		const d: any = await r.json();
-		const items = Array.isArray(d) ? d.filter((x: any) => x?.listing) : [];
-		if (items.length) return { items, relax };
-	}
-	return { items: [], relax: 2 };
+): Promise<{ items: { x: any; near: boolean }[] }> {
+	const [strict, fuzzy] = await Promise.all([
+		runSearch(searchBody(b, "strict"), apiKey),
+		runSearch(searchBody(b, "fuzzy"), apiKey),
+	]);
+	const rank = (arr: any[]) =>
+		arr.map((x) => ({ x, s: softScore(x.listing, b) })).sort((a, z) => z.s - a.s);
+	const seen = new Set(strict.map((x) => x.listing.id));
+	const items = [
+		...rank(strict).map(({ x }) => ({ x, near: false })),
+		...rank(fuzzy.filter((x) => !seen.has(x.listing.id))).map(({ x }) => ({ x, near: true })),
+	].slice(0, 6);
+	return { items };
 }
 
 function reaLink(b: Brief): string {
@@ -227,27 +252,22 @@ function daysAgo(iso?: string): string {
 	return isNaN(d) ? "" : d <= 0 ? " · 今天上架" : d === 1 ? " · 昨天上架" : ` · ${d} 天前上架`;
 }
 
-function fmtListings(items: any[], b: Brief, relax: 0 | 1 | 2): string {
-	const rows = items.slice(0, 6).map((x, i) => {
+function fmtListings(items: { x: any; near: boolean }[], b: Brief): string {
+	const rows = items.slice(0, 6).map(({ x, near }, i) => {
 		const l = x.listing;
 		const p = l.propertyDetails || {};
 		const land = p.landArea ? ` · 地 ${p.landArea}㎡` : "";
 		const price = l.priceDetails?.displayPrice || "价格面议";
 		const link = l.listingSlug ? `https://www.domain.com.au/${l.listingSlug}` : "";
 		const feat = p.features?.length ? `\n✨ ${p.features.slice(0, 4).join(" · ")}` : "";
+		const tag = near ? " ≈相近" : "";
 		return (
-			`${i + 1}️⃣ ${p.displayableAddress || p.suburb || ""}\n` +
+			`${i + 1}️⃣ ${p.displayableAddress || p.suburb || ""}${tag}\n` +
 			`${p.bedrooms ?? "?"}房${p.bathrooms ?? "?"}卫${p.carspaces ?? "–"}车${land} · ${price}${daysAgo(l.dateListed)}${feat}\n${link}`
 		);
 	});
-	const note =
-		relax === 0
-			? "严格匹配 · 最新上架优先"
-			: relax === 1
-				? "无精确匹配，已自动放宽：暂去关键词/设施条件"
-				: "无精确匹配，已自动放宽：预算 ±10% + 含周边区";
 	return (
-		`🔍 实时房源（${note}）\n──────────────\n` +
+		"🔍 实时房源 · 模糊搜索（按 区/价格/户型 匹配；关键词只影响排序；≈ 为价格±10%/周边区的相近推荐）\n──────────────\n" +
 		rows.join("\n\n") +
 		"\n\n🔗 同条件 realestate.com.au 交叉核对：\n" +
 		reaLink(b) +
@@ -530,15 +550,17 @@ export const POST: APIRoute = async ({ params, request, locals }) => {
 				if (
 					bot === "property" &&
 					domainKey &&
-					/找房|帮我找|想买|房源|睇楼|看房/.test(text)
+					/找房|帮我找|想买|房源|睇楼|看房|find.{0,20}(house|home|property|place)|look(ing)?\s+(for|to buy)|buy.{0,12}(house|home|property)|search.{0,12}propert/i.test(
+						text,
+					)
 				) {
 					await tg(token, "sendChatAction", { chat_id: chatId, action: "typing" });
 					const brief = await parseBrief(text, env);
 					if (brief && (brief.suburbs?.length || brief.maxPrice || brief.minPrice)) {
 						const res = await domainSearch(brief, domainKey).catch(() => null);
 						const reply = res?.items.length
-							? fmtListings(res.items, brief, res.relax)
-							: "按当前条件（含自动放宽两轮）暂时没有匹配房源，或数据源繁忙。可以换个区域或调整预算再说一次，也可以直接点开同条件检索页：\n" +
+							? fmtListings(res.items, brief)
+							: "按当前条件（含价格±10%和周边区的模糊匹配）暂时没有房源，或数据源繁忙。可以换个区域或调整预算再说一次，也可以直接点开同条件检索页：\n" +
 								reaLink(brief) +
 								"\n\n⚠️ 信息服务，不构成购买建议。";
 						await tg(token, "sendMessage", {

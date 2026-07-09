@@ -62,14 +62,18 @@ realestate.com.au 无公开 API（PropTrack 仅商业协议），实时房源走
 
 ## 搜索机制对齐 realestate.com.au（参数模型参考 GitHub）
 
+**总原则：模糊搜索默认开启；核心检索维度＝区 + 价格 + 户型（卧/浴/房型/土地）；
+关键词与设施不做筛选、只做排序参考——绝不因关键词太苛刻而搜不出房。中英文提问输出一致
+（中文区名规范化为英文 suburb 名）。**
+
 | REA 搜索行为 | 我们的实现 |
 |---|---|
 | 默认排序＝最新上架 | `sort:{sortKey:"DateListed",direction:"Descending"}`；可切 Price 升/降 |
 | Buy / Sold 频道 | `listingType: "Sale" / "Sold"`；REA 深链 `/buy/` ↔ `/sold/` |
 | Surrounding suburbs 开关 | `includeSurroundingSuburbs`（用户说「只看本区」→ false） |
 | 排除 under offer | REA 深链加 `misc=ex-under-contract`（API 侧无对应字段，深链承担） |
-| 设施筛选（泳池/空调…） | `propertyFeatures:["Pool","AirConditioning","SecureParking","Ensuite","Study"]` |
-| 无精确匹配→展示放宽结果 | 三级级联：严格 → 去关键词/设施 → 预算 ±10% + 含周边区，结果注明放宽级别 |
+| 关键词/设施 | 软评分排序（命中 headline/features 加分），并进 REA 深链 `keywords=`；不进 API 筛选 |
+| 模糊匹配 | 精确核心条件与「价格±10% + 周边区」两路并行，精确排前、相近补足并标 ≈ |
 
 **GitHub 参考（仅借鉴数据/参数模型，不部署）**：
 - `tomquirk/realestate-com-au-api`——REA 非官方接口封装；借鉴其 search 参数设计
