@@ -452,10 +452,7 @@ function demoContent(bot: BotKey, action: string, origin: string): string | null
 		"立足西澳 Perth（UTC+8）· 100+ 天实盘验证\n" +
 		"一套 AI 员工编队：<b>获客 · 分析 · 私人助手 · 内容</b>\n\n" +
 		`📑 投资人企划书（50 页精华版）：\n${origin}/pitch-deck-50/\n\n` +
-		"📞 联系：AY · 0405 098 765\n\n" +
-		(bot === "property"
-			? "<i>安宅已正式运行；产品矩阵其余模块按订阅开通。</i>"
-			: "<i>本 bot 为投资人演示版；正式产品按订阅开通。</i>");
+		"📞 联系：AY · 0405 098 765";
 	if (action === "about") return about;
 	return C[bot]?.[action] ?? null;
 }
