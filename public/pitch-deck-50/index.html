@@ -211,12 +211,24 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 <!-- ============ 01 封面 ============ -->
 <section class="slide cover">
   <div>
-    <div class="brand">YNG LAB · 盈扬工作室</div>
+    <div class="brand" style="display:flex;align-items:center;gap:16px;letter-spacing:0">
+      <svg width="48" height="48" viewBox="0 0 46 46" aria-label="YNG LAB logo">
+        <circle cx="23" cy="23" r="21" fill="none" stroke="#E3A83E" stroke-width="1.6" opacity=".85"/>
+        <rect x="12" y="26" width="5" height="8" rx="1" fill="#43BFA0"/>
+        <rect x="20.5" y="20" width="5" height="14" rx="1" fill="#E3A83E" opacity=".72"/>
+        <rect x="29" y="14" width="5" height="20" rx="1" fill="#E3A83E"/>
+        <path d="M28.5 13.5 L31.5 8.5 L34.5 13.5" fill="none" stroke="#E3A83E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span style="display:flex;flex-direction:column;gap:4px">
+        <b style="font-family:var(--mono);font-size:18px;letter-spacing:.3em;color:var(--gold);font-weight:600">YNG LAB</b>
+        <small style="font-size:11px;letter-spacing:.46em;color:var(--muted)">盈扬工作室</small>
+      </span>
+    </div>
     <div class="rule"></div>
   </div>
   <div>
-    <h1>Agent 原生的<br>智能分析与获客引擎</h1>
-    <p class="sub" style="margin-top:22px">立足西澳 Perth（UTC+8）· 以 Claude · Codex · OpenClaw · Hermes 为底座，历经 100+ 天实战验证——<br>为华语区中小企业与高净值个人提供「引流 · 分析 · 私人助手 · 内容」一体化 AI 服务。</p>
+    <h1>让曝光翻五倍，<br>让生意自己找上门。</h1>
+    <p class="sub" style="margin-top:22px">Agent 原生的智能获客与分析引擎 ｜ 立足西澳 Perth（UTC+8）｜ 100+ 天实盘验证<br>为中小企业与高净值个人提供「引流 · 分析 · 私人助手 · 内容」一体化 AI 服务——盈以守正，扬帆致远。</p>
   </div>
   <div>
     <div class="meta">
@@ -296,15 +308,15 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
   <div class="body">
     <div class="toc">
       <div class="it"><b>I</b><span>开篇与执行摘要</span><small>01 – 05</small></div>
-      <div class="it"><b>II</b><span>行业与时机</span><small>06 – 09</small></div>
-      <div class="it"><b>III</b><span>澳洲与西澳布局</span><small>10 – 14</small></div>
-      <div class="it"><b>IV</b><span>痛点与解决方案</span><small>15 – 17</small></div>
-      <div class="it"><b>V</b><span>产品矩阵</span><small>18 – 24</small></div>
-      <div class="it"><b>VI</b><span>实盘案例与产能</span><small>25 – 27</small></div>
-      <div class="it"><b>VII</b><span>能力路线图</span><small>28 – 31</small></div>
-      <div class="it"><b>VIII</b><span>虚拟 → 物理 AI</span><small>32</small></div>
-      <div class="it"><b>IX</b><span>分期项目</span><small>33 – 35</small></div>
-      <div class="it"><b>X</b><span>商业模式</span><small>36 – 38</small></div>
+      <div class="it"><b>II</b><span>行业与时机</span><small>06 – 07</small></div>
+      <div class="it"><b>III</b><span>澳洲与西澳布局</span><small>08 – 12</small></div>
+      <div class="it"><b>IV</b><span>痛点与解决方案</span><small>13 – 15</small></div>
+      <div class="it"><b>V</b><span>产品矩阵</span><small>16 – 22</small></div>
+      <div class="it"><b>VI</b><span>实盘案例：车行 · 表行 · 宠物</span><small>23 – 27</small></div>
+      <div class="it"><b>VII</b><span>能力路线图</span><small>28 – 30</small></div>
+      <div class="it"><b>VIII</b><span>虚拟 → 物理 AI</span><small>31</small></div>
+      <div class="it"><b>IX</b><span>分期项目</span><small>32 – 34</small></div>
+      <div class="it"><b>X</b><span>商业模式与预期收入</span><small>35 – 38</small></div>
       <div class="it"><b>XI</b><span>浪潮论证与回报</span><small>39 – 42</small></div>
       <div class="it"><b>XII</b><span>执行、团队与风险</span><small>43 – 46</small></div>
       <div class="it"><b>XIII</b><span>融资方案与愿景</span><small>47 – 50</small></div>
@@ -315,27 +327,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART I · 行业与时机</div>
-  <div class="eyebrow"><span class="no">06</span><span>行业背景</span></div>
-  <h2 class="t">范式转移：从「会聊天」到「能干活」</h2>
-  <div class="body">
-    <table class="tbl">
-      <tr><th>阶段</th><th>2023 · Chatbot</th><th>2024 · Copilot</th><th>2025–26 · Agent</th></tr>
-      <tr><td>交互形态</td><td>一问一答</td><td>人主导、AI 辅助</td><td class="y">AI 自主规划并执行多步任务</td></tr>
-      <tr><td>典型产出</td><td>文本回复</td><td>代码补全、草稿</td><td class="y">完整网站、分析报告、持续监控</td></tr>
-      <tr><td>商业形态</td><td>通用订阅</td><td>工具增值</td><td class="y">按结果付费的服务与解决方案</td></tr>
-      <tr><td>关键能力</td><td>语言理解</td><td>上下文理解</td><td class="y">工具调用 · 长程规划 · 记忆（数据库）</td></tr>
-    </table>
-    <p class="big-serif">我们的全部产品都建在第三阶段：<em>Agent 交付结果</em>，而非人再去操作工具。</p>
-  </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>06 / 50</span></div>
-</section>
-
-<!-- ============ 08 市场规模 ============ -->
-
-
-<section class="slide">
-  <div class="secmark">PART I · 行业与时机</div>
-  <div class="eyebrow"><span class="no">07</span><span>市场规模</span></div>
+  <div class="eyebrow"><span class="no">06</span><span>市场规模</span></div>
   <h2 class="t">AI Agent：未来五年增长最陡峭的赛道之一</h2>
   <div class="body">
     <div class="cols c32">
@@ -352,7 +344,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     </div>
     <p class="src">来源：MarketsandMarkets《AI Agents Market》(2024)；McKinsey《The economic potential of generative AI》(2023)。中间年份为按 CAGR 插值的估算。</p>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>07 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>06 / 50</span></div>
 </section>
 
 <!-- ============ 09 趋势1 ============ -->
@@ -360,27 +352,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART I · 行业与时机</div>
-  <div class="eyebrow"><span class="no">08</span><span>趋势三</span></div>
-  <h2 class="t">数据主权觉醒：客户开始为「不上云」付费</h2>
-  <div class="body">
-    <div class="cols c2">
-      <ul class="list">
-        <li><b>监管趋严</b>：<span>GDPR、各地数据出境与本地化法规持续加码，企业对第三方云端 AI 服务的合规审查越来越苛刻。</span></li>
-        <li><b>信任稀缺</b>：<span>高净值个人的持仓、交易偏好、商业往来属于最敏感数据——「你的数据存在谁的服务器上」成为成交前的第一个问题。</span></li>
-        <li><b>SaaS 疲劳</b>：<span>云端服务改价、限流、停服的案例反复发生；关键业务数据被锁在别人的产品里，是企业主的真实焦虑。</span></li>
-      </ul>
-      <div class="card hl"><h3>我们的回答</h3><p>自建加密数据库 + 可本地部署的 Hermes 推理：<br><br>· 客户资料、对话记忆、分析档案<em class="g">不出我们可控的环境</em><br>· 高端客户可选<em class="g">完全私有化部署</em>——数据不出客户自己的门<br>· 相对云端 SaaS，<em class="g">稳定、可控、可承诺</em></p></div>
-    </div>
-  </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>08 / 50</span></div>
-</section>
-
-<!-- ============ 12 趋势4 ============ -->
-
-
-<section class="slide">
-  <div class="secmark">PART I · 行业与时机</div>
-  <div class="eyebrow"><span class="no">09</span><span>时间窗口</span></div>
+  <div class="eyebrow"><span class="no">07</span><span>时间窗口</span></div>
   <h2 class="t">为什么是现在：四个拐点同时到来</h2>
   <div class="body">
     <div class="cols c2">
@@ -391,7 +363,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     </div>
     <p class="big-serif">窗口期 <em>12–18 个月</em>：现在融资加速，把先发的 know-how 变成数据与客户壁垒。</p>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>09 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>07 / 50</span></div>
 </section>
 
 <!-- ======== PART III 澳洲与西澳 ======== -->
@@ -399,7 +371,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART III · 澳洲与西澳</div>
-  <div class="eyebrow"><span class="no">10</span><span>标志性案例</span></div>
+  <div class="eyebrow"><span class="no">08</span><span>标志性案例</span></div>
   <h2 class="t">Anthropic（Claude 母公司）在澳招标 ≥1.4GW 算力</h2>
   <div class="body">
     <div class="cols c2">
@@ -412,14 +384,14 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     </div>
     <p class="src">来源：Australian Financial Review（2026-07，经多家媒体转引，尚未签约）；澳产业部 / Anthropic 官方（2026-04 MoU）；Firmus / Milbank / Kirkland &amp; Ellis 交易公告（2026-02）。</p>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>10 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>08 / 50</span></div>
 </section>
 
 
 
 <section class="slide">
   <div class="secmark">PART III · 澳洲与西澳</div>
-  <div class="eyebrow"><span class="no">11</span><span>已实现收益</span></div>
+  <div class="eyebrow"><span class="no">09</span><span>已实现收益</span></div>
   <h2 class="t">澳洲 AI 不是概念：已经赚到真金白银</h2>
   <div class="body">
     <table class="tbl">
@@ -434,14 +406,14 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <li><b>对投资人的含义</b>：<span>「AI 到底赚没赚到钱」在澳洲已有审计级答案——我们把同样的能力以订阅价格带给买不起企业级方案的中小企业与个人。</span></li>
     </ul>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>11 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>09 / 50</span></div>
 </section>
 
 
 
 <section class="slide">
   <div class="secmark">PART III · 澳洲与西澳</div>
-  <div class="eyebrow"><span class="no">12</span><span>为什么是西澳 ②</span></div>
+  <div class="eyebrow"><span class="no">10</span><span>为什么是西澳 ②</span></div>
   <h2 class="t">UTC+8：Perth 与北京、香港、新加坡零时差</h2>
   <div class="body">
     <div class="cols c2">
@@ -455,14 +427,14 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     </div>
     <p class="src">来源：timeanddate.com（2026）；WA 无夏令时为州法律现状。</p>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>12 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>10 / 50</span></div>
 </section>
 
 
 
 <section class="slide">
   <div class="secmark">PART III · 澳洲与西澳</div>
-  <div class="eyebrow"><span class="no">13</span><span>政策红利</span></div>
+  <div class="eyebrow"><span class="no">11</span><span>政策红利</span></div>
   <h2 class="t">政策红利：政府替早期公司分担研发成本</h2>
   <div class="body">
     <table class="tbl">
@@ -477,14 +449,14 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     </ul>
     <p class="src">来源：ATO / PwC Tax Summaries（2025–26）；WA Government（wa.gov.au，2025–26）。</p>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>13 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>11 / 50</span></div>
 </section>
 
 
 
 <section class="slide">
   <div class="secmark">PART III · 澳洲与西澳</div>
-  <div class="eyebrow"><span class="no">14</span><span>举证类推</span></div>
+  <div class="eyebrow"><span class="no">12</span><span>举证类推</span></div>
   <h2 class="t">同一条浪潮的四个层级：从我们脚下到全球</h2>
   <div class="body" style="gap:12px">
     <div class="layer"><div class="ln">第 0 层 · 本项目</div><div class="lc"><span class="chip"><b>Perth 实盘</b><small>电商 · 宠物网站 · TG bot 矩阵 · 站群（运行中，近零边际成本）</small></span></div></div>
@@ -494,7 +466,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     <p class="big-serif">每一层都是同一个判断的加码：<em>智能是新的基础设施</em>。资本在上游建电厂，我们在下游开灯——投资本项目买的是这条浪潮里最轻、最快回收的一段。</p>
     <p class="src">来源：本部分前述各页；Morgan Stanley / Goldman Sachs（2026，预测口径）。</p>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>14 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>12 / 50</span></div>
 </section>
 
 <!-- ============ 15 痛点全景 ============ -->
@@ -502,7 +474,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART IV · 痛点与方案</div>
-  <div class="eyebrow"><span class="no">15</span><span>客户痛点</span></div>
+  <div class="eyebrow"><span class="no">13</span><span>客户痛点</span></div>
   <h2 class="t">三类客户，三种痛，一个共同缺口</h2>
   <div class="body">
     <table class="tbl">
@@ -513,7 +485,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     </table>
     <p class="big-serif">共同缺口：一个<em>买得起、随身达、数据可控</em>的智能服务层。</p>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>15 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>13 / 50</span></div>
 </section>
 
 <!-- ============ 16 痛点深挖 ============ -->
@@ -521,7 +493,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART IV · 痛点与方案</div>
-  <div class="eyebrow"><span class="no">16</span><span>解决方案</span></div>
+  <div class="eyebrow"><span class="no">14</span><span>解决方案</span></div>
   <h2 class="t">一个中枢，两条产品线，六个模块</h2>
   <div class="body">
     <div class="cols c2">
@@ -540,7 +512,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     </div>
     <div class="card" style="text-align:center"><p><b style="color:var(--gold)">中枢</b> ＝ Telegram 入口（OpenClaw）＋ 多模型编排（Claude / Codex / Hermes）＋ <b style="color:var(--teal)">自建加密数据库</b> —— 六个模块共用同一套底座，边际成本递减。</p></div>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>16 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>14 / 50</span></div>
 </section>
 
 <!-- ============ 18 技术底座 ============ -->
@@ -548,7 +520,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART IV · 痛点与方案</div>
-  <div class="eyebrow"><span class="no">17</span><span>入口即服务</span></div>
+  <div class="eyebrow"><span class="no">15</span><span>入口即服务</span></div>
   <h2 class="t">OpenClaw × Telegram：「安澜」的最短交付路径</h2>
   <div class="body">
     <div class="cols c2">
@@ -567,7 +539,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 <span style="color:var(--gold)">安澜 ›</span> ✓ 监控已挂载，7×24 生效</p></div>
     </div>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>17 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>15 / 50</span></div>
 </section>
 
 <!-- ============ 21 产品总览 ============ -->
@@ -575,7 +547,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART V · 产品矩阵</div>
-  <div class="eyebrow"><span class="no">18</span><span>产品矩阵</span></div>
+  <div class="eyebrow"><span class="no">16</span><span>产品矩阵</span></div>
   <h2 class="t">六大模块：同一底座上的组合拳</h2>
   <div class="body">
     <div class="cols c3">
@@ -590,7 +562,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <li><b>组合逻辑</b>：<span>A 引流 → C/D/E 订阅变现 → F 与私有化部署收高客单。模块间互相导流，共享数据层，新增一个模块的边际成本趋近于零。</span></li>
     </ul>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>18 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>16 / 50</span></div>
 </section>
 
 <!-- ============ 22 模块A ============ -->
@@ -598,7 +570,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART V · 产品矩阵</div>
-  <div class="eyebrow"><span class="no">19</span><span>模块 A · 获客线</span></div>
+  <div class="eyebrow"><span class="no">17</span><span>模块 A · 获客线</span></div>
   <h2 class="t">静态网站生成工厂：把「建站获客」变成流水线</h2>
   <div class="body">
     <div class="cols c2">
@@ -611,7 +583,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <div class="card"><h3>双重角色</h3><p><b>① 对外是产品</b>——向中小企业按项目 + 月维护收费；<br><br><b>② 对内是获客引擎</b>——我们自己的财经内容站群为分析线订阅持续引流，广告预算 ≈ 0。<br><br><span class="tag gd">已验证</span> 从需求到上线 &lt; 1 小时（内部实测）。</p></div>
     </div>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>19 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>17 / 50</span></div>
 </section>
 
 <!-- ============ 23 模块A流程 ============ -->
@@ -619,7 +591,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART V · 产品矩阵</div>
-  <div class="eyebrow"><span class="no">20</span><span>模块 C · 分析线</span></div>
+  <div class="eyebrow"><span class="no">18</span><span>模块 C · 分析线</span></div>
   <h2 class="t">股市分析助手：机构级信息密度，订阅制价格</h2>
   <div class="body">
     <div class="cols c2">
@@ -633,7 +605,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <div style="height:12px"></div><h3>为什么客户付费</h3><p>同等信息密度的替代品是数万美元/年的机构终端；我们以个人可负担的订阅价格，交付其中对个人交易者最实用的部分。</p></div>
     </div>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>20 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>18 / 50</span></div>
 </section>
 
 <!-- ============ 26 模块D ============ -->
@@ -641,7 +613,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART V · 产品矩阵</div>
-  <div class="eyebrow"><span class="no">21</span><span>模块 D · 分析线</span></div>
+  <div class="eyebrow"><span class="no">19</span><span>模块 D · 分析线</span></div>
   <h2 class="t">加密市场分析：7×24 市场需要 7×24 的 Agent</h2>
   <div class="body">
     <div class="cols c2">
@@ -654,7 +626,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <div class="card"><h3>为什么这是最好的切入市场</h3><p>· 用户本来就活在 Telegram，转化路径为零<br>· 7×24 波动 = 人力不可替代 Agent 的场景<br>· 订阅付费习惯成熟（付费信号群已是既有市场）<br>· 我们以「数据 + 逻辑透明」区别于喊单群<br><br><span class="tag rd">合规</span> 高风险资产提示前置；按客户所在司法辖区限制服务范围（见「合规与安全」页）。</p></div>
     </div>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>21 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>19 / 50</span></div>
 </section>
 
 <!-- ============ 27 模块E ============ -->
@@ -662,7 +634,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART V · 产品矩阵</div>
-  <div class="eyebrow"><span class="no">22</span><span>模块 E · 分析线</span></div>
+  <div class="eyebrow"><span class="no">20</span><span>模块 E · 分析线</span></div>
   <h2 class="t">时事 → 宏观波动引擎：从新闻到资产价格的传导链</h2>
   <div class="body" style="gap:14px">
     <div class="flow">
@@ -676,7 +648,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <div class="card"><h3>核心价值</h3><p>客户要的不是「新闻更快」，而是<b style="color:var(--gold)">「波动之前先看懂传导」</b>。经济与货币的每一次波动都是一次付费理由——市场越动荡，本模块留存越高，天然反脆弱。</p></div>
     </div>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>22 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>20 / 50</span></div>
 </section>
 
 <!-- ============ 28 模块F ============ -->
@@ -684,7 +656,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART V · 产品矩阵</div>
-  <div class="eyebrow"><span class="no">23</span><span>模块 F · 高端线</span></div>
+  <div class="eyebrow"><span class="no">21</span><span>模块 F · 高端线</span></div>
   <h2 class="t">私人助手「安澜」：一个真正保密的随身参谋</h2>
   <div class="body">
     <div class="cols c2">
@@ -697,7 +669,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <div class="card hl"><h3>为什么放在高端线</h3><p>私人助手是<b>信任密度最高</b>的服务——也因此是客单价与转介绍率最高的产品。<br><br>· 目标客户：企业主、高净值个人、小型家办<br>· 交付形态：年费制 + 私有化部署一次性费用<br>· 获客来源：模块 A–E 用户中的高价值分层 + 转介绍<br><br><span class="tag gd">定位</span> 每一位私人助手客户，都是从订阅池里「长」出来的。</p></div>
     </div>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>23 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>21 / 50</span></div>
 </section>
 
 <!-- ============ 29 自建数据库 ============ -->
@@ -705,7 +677,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART V · 产品矩阵</div>
-  <div class="eyebrow"><span class="no">24</span><span>数据基础设施</span></div>
+  <div class="eyebrow"><span class="no">22</span><span>数据基础设施</span></div>
   <h2 class="t">自建数据库：隐私、私密、稳定——三个可承诺的词</h2>
   <div class="body">
     <div class="cols c3">
@@ -718,7 +690,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <li><b>不仅是卖点，也是资产</b>：<span>随服务积累的结构化数据（数据飞轮），是估值中最难被复制的部分。</span></li>
     </ul>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>24 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>22 / 50</span></div>
 </section>
 
 <!-- ============ 30 对比表 ============ -->
@@ -726,7 +698,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART VI · 实盘案例与产能</div>
-  <div class="eyebrow"><span class="no">25</span><span>实盘总览</span></div>
+  <div class="eyebrow"><span class="no">23</span><span>实盘总览</span></div>
   <h2 class="t">不止是原型：三类业务已在实盘运行</h2>
   <div class="body">
     <div class="cols c4">
@@ -741,14 +713,14 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <li><b>数据披露口径</b>：<span>本章为实际业务的定性呈现；流量、GMV、订阅等运营明细在尽调阶段按 NDA 提供原始后台数据。</span></li>
     </ul>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>25 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>23 / 50</span></div>
 </section>
 
 
 
 <section class="slide">
   <div class="secmark">PART VI · 实盘案例与产能</div>
-  <div class="eyebrow"><span class="no">26</span><span>案例 ①</span></div>
+  <div class="eyebrow"><span class="no">24</span><span>案例 ①</span></div>
   <h2 class="t">宠物站 × 电商：一条已经跑通的最小闭环</h2>
   <div class="body">
     <div class="flow">
@@ -761,6 +733,50 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     <div class="cols c2">
       <div class="card"><h3>这个案例证明了什么</h3><p>① 建站工厂的交付力（速度与质量）；② 内容自动化的可持续性（数月无人工干预）；③ 近零边际成本的流量资产模型——每一条都是「获客线」对外销售时的实证材料。</p></div>
       <div class="card hl"><h3>为什么宠物赛道值得深耕</h3><p>① <b>澳洲是全球最爱养宠的市场之一</b>：约七成家庭养宠、年支出超 A$330 亿（Animal Medicines Australia，2022）——中文站验证的打法正复制为澳洲英文版；<br>② 宠物经济天然通向<b style="color:var(--gold)">智能硬件</b>（喂食器、摄像头、健康监测）——「虚拟 → 物理 AI」路线的第一个落地场景。今天的内容站，是明天硬件的需求数据库与销售渠道。</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>24 / 50</span></div>
+</section>
+
+
+
+<section class="slide">
+  <div class="secmark">PART VI · 实盘案例与产能</div>
+  <div class="eyebrow"><span class="no">25</span><span>实例分析 · 车行</span></div>
+  <h2 class="t">车行：让每一台车，自己去找买家</h2>
+  <div class="body" style="gap:14px">
+    <table class="tbl">
+      <tr><th>指标</th><th>典型现状（Perth 中小车行）</th><th>12 个月目标</th><th>靠什么做到</th></tr>
+      <tr><td>线上曝光</td><td class="n">只靠平台挂车，搜索里几乎隐形</td><td class="y">×5–10</td><td>每台车一个专属页面吃长尾搜索（如「2019 CX-5 Perth 二手」）+ 行业内容站群</td></tr>
+      <tr><td>有效询盘</td><td class="n">电话与到店随缘，下班即失联</td><td class="y">×3–5</td><td>24 小时智能助手即时报价、留资，一条询价都不漏</td></tr>
+      <tr><td>跟进转化</td><td class="n">靠销售员记性</td><td class="y">颗粒归仓</td><td>线索自动评分 + 跟进序列，全部沉淀进客户库</td></tr>
+      <tr><td>销售额</td><td>基线</td><td class="y"><b>目标翻倍（×2）</b></td><td>曝光 × 询盘 × 转化三个环节同时抬升的乘法效应</td></tr>
+    </table>
+    <div class="cols c2">
+      <div class="card hl"><h3>我们赚什么</h3><p>建站项目费 + 月度维护费 + 素材包订阅；客户赚什么：多卖车、库存周转加快——账算得过来，续费才可持续。</p></div>
+      <div class="card"><h3>口径</h3><p>倍数为基于获客机制的<b>示例目标</b>（非承诺）；上线后以实际曝光、询盘与成交数据按月校准并向客户与投资人同步。</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>25 / 50</span></div>
+</section>
+
+
+
+<section class="slide">
+  <div class="secmark">PART VI · 实盘案例与产能</div>
+  <div class="eyebrow"><span class="no">26</span><span>实例分析 · 表行</span></div>
+  <h2 class="t">表行：每一块名表，都是一位高净值客户的入口</h2>
+  <div class="body" style="gap:14px">
+    <table class="tbl">
+      <tr><th>指标</th><th>典型现状（名表买卖）</th><th>12 个月目标</th><th>靠什么做到</th></tr>
+      <tr><td>线上曝光</td><td class="n">靠口碑与橱窗，线上近乎空白</td><td class="y">×5+</td><td>每款表一页 + 行情参考价内容（如「Perth 二手 Submariner 行情」）——买表人搜什么，我们就在什么词上</td></tr>
+      <tr><td>询价转化</td><td class="n">价格不透明，客户犹豫流失</td><td class="y">翻倍</td><td>公开行情参考价先建立信任，报价机器人即时响应</td></tr>
+      <tr><td>高净值名单</td><td class="n">成交即结束，客户资产闲置</td><td class="y">每单都留资</td><td>询价即入库——名表客户是私人助手「安澜」的天然目标客群</td></tr>
+      <tr><td>销售额</td><td>基线</td><td class="y"><b>目标翻倍（×2）</b>，高客单弹性更大</td><td>曝光 + 信任定价 + 名单复购三轮驱动</td></tr>
+    </table>
+    <div class="cols c2">
+      <div class="card hl"><h3>一鱼两吃</h3><p>第一层：表行付建站与月费；第二层：沉淀的高净值名单向私人助手与私有化部署导流——<b>一个行业客户，两条收入曲线</b>。</p></div>
+      <div class="card"><h3>口径</h3><p>示例目标（非承诺），机制同车行页；名单使用严格遵守隐私承诺与客户授权。</p></div>
     </div>
   </div>
   <div class="foot"><span>YNG LAB · 盈扬</span><span>26 / 50</span></div>
@@ -815,29 +831,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide">
   <div class="secmark">PART VII · 能力路线图</div>
-  <div class="eyebrow"><span class="no">29</span><span>技术现状</span></div>
-  <h2 class="t">视频生成 2026：单段成熟，分钟级在路上</h2>
-  <div class="body">
-    <table class="tbl">
-      <tr><th>模型</th><th>发布</th><th>单段能力</th><th>关键特性</th></tr>
-      <tr><td>Google Veo 3.1</td><td>2025-10</td><td>8 秒 / 段，1080p，链式延长可超 1 分钟</td><td>原生音频、参考图角色一致性、首尾帧控制</td></tr>
-      <tr><td>OpenAI Sora 2</td><td>2025-09</td><td>10–25 秒，1080p</td><td>原生音画同步；配套 App 不到 5 天破百万下载</td></tr>
-      <tr><td>Runway Gen-4.5</td><td>2025-12</td><td>5–10 秒高清</td><td>发布时登顶 Artificial Analysis 评测榜，物理与动作表现强</td></tr>
-      <tr><td>快手可灵 Kling 3.0</td><td>2026-02</td><td>3–15 秒 / 段，链式总长约 3 分钟</td><td>智能分镜（一键多镜头对话戏）、多语言原生音频</td></tr>
-    </table>
-    <ul class="list">
-      <li><b>行业共同现状</b>：<span>单段 8–25 秒的音画同步生成已成熟；分钟级内容靠「参考图锁定角色 + 链式拼接 + 人工剪辑」——恰好是小型工作室工作流的形状，而非大厂一键出片的形状。</span></li>
-    </ul>
-    <p class="src">来源：Google 官方博客（2025）；TechCrunch / CNBC（2025）；Runway Research（2025）；中文科技媒体报道（2026，Kling 规格待官方复核）。</p>
-  </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>29 / 50</span></div>
-</section>
-
-
-
-<section class="slide">
-  <div class="secmark">PART VII · 能力路线图</div>
-  <div class="eyebrow"><span class="no">30</span><span>中期切入 ①</span></div>
+  <div class="eyebrow"><span class="no">29</span><span>中期切入 ①</span></div>
   <h2 class="t">短视频营销流水线：成本差一百倍的生意</h2>
   <div class="body">
     <div class="cols c2">
@@ -851,14 +845,14 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     </div>
     <p class="src">来源：Business Insider / Yahoo Tech（2025，制作者自述）；中国网络视听协会《微短剧行业发展白皮书 2025》。</p>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>30 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>29 / 50</span></div>
 </section>
 
 
 
 <section class="slide">
   <div class="secmark">PART VII · 能力路线图</div>
-  <div class="eyebrow"><span class="no">31</span><span>局限与对冲</span></div>
+  <div class="eyebrow"><span class="no">30</span><span>局限与对冲</span></div>
   <h2 class="t">我们不假装技术无所不能</h2>
   <div class="body">
     <table class="tbl">
@@ -873,14 +867,14 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     </ul>
     <p class="src">来源：行业分析与 Kalshi 制作者自述（2025–26）；Forbes / Campaign 舆情统计（2025）。</p>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>31 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>30 / 50</span></div>
 </section>
 
 
 
 <section class="slide">
   <div class="secmark">PART VIII · 虚拟 → 物理 AI</div>
-  <div class="eyebrow"><span class="no">32</span><span>四座桥</span></div>
+  <div class="eyebrow"><span class="no">31</span><span>四座桥</span></div>
   <h2 class="t">今天的虚拟 AI，是物理 AI 的四座桥</h2>
   <div class="body">
     <div class="cols c2">
@@ -891,14 +885,14 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
     </div>
     <p class="big-serif">物理 AI 不是本项目的转型，是<em>现有资产的自然延伸</em>——四座桥今天就在施工，硬件成本曲线到位时直接通车。</p>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>32 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>31 / 50</span></div>
 </section>
 
 
 
 <section class="slide">
   <div class="secmark">PART IX · 分期项目与展望</div>
-  <div class="eyebrow"><span class="no">33</span><span>组合总览</span></div>
+  <div class="eyebrow"><span class="no">32</span><span>组合总览</span></div>
   <h2 class="t">前中后期项目组合：一张图看全</h2>
   <div class="body">
     <table class="tbl">
@@ -911,14 +905,14 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <li><b>组合逻辑</b>：<span>前期养现金流，中期抬客单价与经常性收入占比，后期开第二增长曲线——任何一期不达预期，前一期的现金流都还在。</span></li>
     </ul>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>33 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>32 / 50</span></div>
 </section>
 
 
 
 <section class="slide">
   <div class="secmark">PART IX · 分期项目与展望</div>
-  <div class="eyebrow"><span class="no">34</span><span>前期 · 项目</span></div>
+  <div class="eyebrow"><span class="no">33</span><span>前期 · 项目</span></div>
   <h2 class="t">6 个月内：只做立刻能收钱的事</h2>
   <div class="body">
     <table class="tbl">
@@ -931,14 +925,14 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <tr><td>数据库 v2</td><td>权限体系 + 审计日志 + 备份自动化</td><td>数据库 v1（运行中）</td></tr>
     </table>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>34 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>33 / 50</span></div>
 </section>
 
 
 
 <section class="slide">
   <div class="secmark">PART IX · 分期项目与展望</div>
-  <div class="eyebrow"><span class="no">35</span><span>前期 · 里程碑</span></div>
+  <div class="eyebrow"><span class="no">34</span><span>前期 · 里程碑</span></div>
   <h2 class="t">6 个月里程碑：每一项都可验证</h2>
   <div class="body">
     <div class="cols c2">
@@ -953,14 +947,14 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <div class="card"><h3>验证标准（对投资人）</h3><p>· 每月一封投资人信：实际收入、成本、客户数、留存——只报实际数<br>· 付费客户可访谈（尽调延续）<br>· 后台数据面板按 NDA 开放<br><br><span class="tag gd">对赌自己</span> 若 6 个月未产生任何真实付费收入，创始人主动召集投资人复盘会并提交调整方案——写进投后条款也可以。</p></div>
     </div>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>35 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>34 / 50</span></div>
 </section>
 
 
 
 <section class="slide">
   <div class="secmark">PART X · 商业模式</div>
-  <div class="eyebrow"><span class="no">36</span><span>商业模式</span></div>
+  <div class="eyebrow"><span class="no">35</span><span>商业模式</span></div>
   <h2 class="t">三层收入结构：订阅打底，项目造血，高端定调</h2>
   <div class="body">
     <div class="cols c3">
@@ -972,10 +966,36 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <li><b>结构设计意图</b>：<span>订阅提供可预测性、项目提供早期现金、高端提供利润率——三层共用同一套底座与数据层，收入叠加而成本次线性增长。</span></li>
     </ul>
   </div>
-  <div class="foot"><span>YNG LAB · 盈扬</span><span>36 / 50</span></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>35 / 50</span></div>
 </section>
 
 <!-- ============ 34 定价 ============ -->
+
+
+<section class="slide">
+  <div class="secmark">PART X · 商业模式</div>
+  <div class="eyebrow"><span class="no">36</span><span>预期收入</span></div>
+  <h2 class="t">预期收入：三年三级台阶（示例情景）</h2>
+  <div class="body" style="gap:14px">
+    <div class="cols c32">
+      <div class="bars" style="height:210px">
+        <div class="bar"><span class="v">A$15–30万</span><div class="b tl" style="height:14%"></div><span class="l">第 1 年 · 验证</span></div>
+        <div class="bar"><span class="v">A$80–120万</span><div class="b" style="height:45%"></div><span class="l">第 2 年 · 复制</span></div>
+        <div class="bar"><span class="v">A$200–300万</span><div class="b" style="height:100%"></div><span class="l">第 3 年 · 规模</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;justify-content:center">
+        <div class="card"><h3>第 1 年 · 钱从哪来</h3><p style="font-size:12.5px">行业获客客户 8–12 家（车行 / 表行 / 宠物模板，单客户年价值 A$8k–15k）+ 分析订阅公测 + 电商素材包。</p></div>
+        <div class="card"><h3>第 2 年 · 为什么能翻几倍</h3><p style="font-size:12.5px">行业模板复制到 20+ 客户；付费订阅 500+ 人；私有化部署首批 2–3 单拉高客单。</p></div>
+        <div class="card"><h3>第 3 年 · 与回报页咬合</h3><p style="font-size:12.5px">经常性收入进入 A$1–2M 区间——恰好是「A$100k 三个时点」页 3–5× 回报的触发条件。</p></div>
+      </div>
+    </div>
+    <ul class="list">
+      <li><b>口径</b>：<span>示例情景（非业绩承诺），与「基准对标」及回报页共用同一套倒推假设；每季度以实际收入、客户数与留存校准并披露。</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>36 / 50</span></div>
+</section>
+
 
 
 <section class="slide">
@@ -996,7 +1016,7 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
       <ul class="list">
         <li><b>成本随时间变好</b>：<span>行业推理价格持续下降，叠加多模型路由，同等服务的底层成本逐季走低。</span></li>
         <li><b>定价不拍脑袋</b>：<span>对外价格与转化率将由种子客户的真实付费数据确定后再正式发布。</span></li>
-        <li><b>预测的边界</b>：<span>商业模式部分不含收入预测；回报相关内容集中在「浪潮论证与回报」章节，且为倒推情景分析而非承诺。投后每季度披露实际数。</span></li>
+        <li><b>预测的边界</b>：<span>「预期收入」页与回报章节均为明确标注的倒推情景（非承诺），除此之外全部为实测与运行记录；投后每季度披露实际数。</span></li>
       </ul>
     </div>
   </div>
@@ -1265,7 +1285,19 @@ table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
 
 <section class="slide cover">
   <div>
-    <div class="brand">YNG LAB · 盈扬工作室</div>
+    <div class="brand" style="display:flex;align-items:center;gap:16px;letter-spacing:0">
+      <svg width="48" height="48" viewBox="0 0 46 46" aria-label="YNG LAB logo">
+        <circle cx="23" cy="23" r="21" fill="none" stroke="#E3A83E" stroke-width="1.6" opacity=".85"/>
+        <rect x="12" y="26" width="5" height="8" rx="1" fill="#43BFA0"/>
+        <rect x="20.5" y="20" width="5" height="14" rx="1" fill="#E3A83E" opacity=".72"/>
+        <rect x="29" y="14" width="5" height="20" rx="1" fill="#E3A83E"/>
+        <path d="M28.5 13.5 L31.5 8.5 L34.5 13.5" fill="none" stroke="#E3A83E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span style="display:flex;flex-direction:column;gap:4px">
+        <b style="font-family:var(--mono);font-size:18px;letter-spacing:.3em;color:var(--gold);font-weight:600">YNG LAB</b>
+        <small style="font-size:11px;letter-spacing:.46em;color:var(--muted)">盈扬工作室</small>
+      </span>
+    </div>
     <div class="rule"></div>
   </div>
   <div>
