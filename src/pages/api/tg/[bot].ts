@@ -456,7 +456,7 @@ function demoContent(bot: BotKey, action: string, origin: string): string | null
 		"立足西澳 Perth（UTC+8）· 100+ 天实盘验证\n" +
 		"一套 AI 员工编队：<b>获客 · 分析 · 私人助手 · 内容</b>\n\n" +
 		`📑 投资人企划书（50 页精华版）：\n${origin}/pitch-deck-50/\n\n` +
-		"📞 联系：AY · 0405 098 765\n📮 咨询邮箱：teluoke@hotmail.com";
+		"📞 AY · 0405 098 765 ｜ 📮 teluoke@hotmail.com";
 	if (action === "about") return about;
 	return C[bot]?.[action] ?? null;
 }
