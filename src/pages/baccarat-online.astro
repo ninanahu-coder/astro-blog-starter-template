@@ -1,0 +1,1366 @@
+---
+// 百家乐在线多人牌桌 — WebSocket 客户端，服务端（Durable Object）权威结算。
+// 虚拟筹码，仅供娱乐。
+const title = '百家乐 · 在线同桌';
+const description = '多人在线百家乐牌桌：同一副牌实时同步、下注互见、自动开局。虚拟筹码仅供娱乐。';
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+		/>
+		<meta name="theme-color" content="#0b3d2e" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/icons/baccarat-180.png" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+	</head>
+	<body>
+		<div id="app">
+			<header class="topbar">
+				<a class="back" href="/baccarat" aria-label="返回单机版">‹</a>
+				<div class="logo">🌐 在线同桌</div>
+				<span class="room-pill" id="room-pill"></span>
+				<div class="balance-box">
+					<span class="coin">🪙</span>
+					<strong id="balance">-</strong>
+				</div>
+			</header>
+
+			<div class="phasebar">
+				<div class="phasebar-fill" id="phase-fill"></div>
+				<span class="phasebar-text" id="phase-text">连接中…</span>
+			</div>
+
+			<section class="players-strip" id="players-strip"></section>
+
+			<section class="table">
+				<div class="table-info">
+					<span id="shoe-info">牌靴 —</span>
+					<span class="free-note">虚拟筹码 · 仅供娱乐</span>
+				</div>
+				<div class="hands">
+					<div class="hand" id="hand-banker">
+						<div class="hand-head">
+							<span class="tag tag-banker">庄</span>
+							<span class="pts" id="pts-banker"></span>
+						</div>
+						<div class="cards" id="cards-banker"></div>
+					</div>
+					<div class="vs">VS</div>
+					<div class="hand" id="hand-player">
+						<div class="hand-head">
+							<span class="tag tag-player">闲</span>
+							<span class="pts" id="pts-player"></span>
+						</div>
+						<div class="cards" id="cards-player"></div>
+					</div>
+				</div>
+				<div class="banner hidden" id="banner">
+					<div class="banner-title" id="banner-title"></div>
+					<div class="banner-sub" id="banner-sub"></div>
+				</div>
+				<div class="msg" id="msg">正在进入牌桌…</div>
+			</section>
+
+			<section class="road-wrap">
+				<div class="stats">
+					<span class="stat stat-banker">庄 <b id="stat-banker">0</b></span>
+					<span class="stat stat-player">闲 <b id="stat-player">0</b></span>
+					<span class="stat stat-tie">和 <b id="stat-tie">0</b></span>
+				</div>
+				<div class="road" id="road"></div>
+			</section>
+
+			<section class="bets">
+				<button class="spot spot-side" data-bet="ppair">
+					<span class="spot-name">闲对</span>
+					<span class="spot-odds">1:11</span>
+					<span class="spot-total" data-total="ppair"></span>
+					<span class="spot-amt" data-amt="ppair"></span>
+				</button>
+				<button class="spot spot-player" data-bet="player">
+					<span class="spot-name">闲</span>
+					<span class="spot-odds">1:1</span>
+					<span class="spot-total" data-total="player"></span>
+					<span class="spot-amt" data-amt="player"></span>
+				</button>
+				<button class="spot spot-tie" data-bet="tie">
+					<span class="spot-name">和</span>
+					<span class="spot-odds">1:8</span>
+					<span class="spot-total" data-total="tie"></span>
+					<span class="spot-amt" data-amt="tie"></span>
+				</button>
+				<button class="spot spot-banker" data-bet="banker">
+					<span class="spot-name">庄</span>
+					<span class="spot-odds">1:0.95</span>
+					<span class="spot-total" data-total="banker"></span>
+					<span class="spot-amt" data-amt="banker"></span>
+				</button>
+				<button class="spot spot-side" data-bet="bpair">
+					<span class="spot-name">庄对</span>
+					<span class="spot-odds">1:11</span>
+					<span class="spot-total" data-total="bpair"></span>
+					<span class="spot-amt" data-amt="bpair"></span>
+				</button>
+			</section>
+
+			<section class="chips" id="chips"></section>
+
+			<section class="actions">
+				<button class="btn btn-ghost" id="btn-clear">清除</button>
+				<button class="btn btn-ghost" id="btn-chat">聊天 <span class="chat-badge hidden" id="chat-badge"></span></button>
+				<button class="btn btn-gold hidden" id="btn-topup">补充筹码</button>
+			</section>
+		</div>
+
+		<!-- 入桌 -->
+		<div class="overlay" id="join">
+			<div class="sheet">
+				<div class="sheet-head"><span>进入牌桌</span></div>
+				<p class="sim-note">和朋友输入相同房间号即可同桌 · 虚拟筹码仅供娱乐 · 余额按房间保存</p>
+				<label class="field">
+					<span>昵称</span>
+					<input id="in-name" maxlength="8" placeholder="最多 8 个字符" />
+				</label>
+				<label class="field">
+					<span>房间号</span>
+					<input id="in-room" maxlength="8" placeholder="默认 LOBBY（公共大厅）" />
+				</label>
+				<button class="btn btn-gold btn-buy" id="btn-join">进入牌桌</button>
+			</div>
+		</div>
+
+		<!-- 聊天 -->
+		<div class="overlay hidden" id="chat">
+			<div class="sheet">
+				<div class="sheet-head">
+					<span>牌桌聊天</span>
+					<button class="x" data-close="chat" aria-label="关闭">×</button>
+				</div>
+				<div class="chat-list" id="chat-list"></div>
+				<div class="chat-row">
+					<input id="chat-input" maxlength="60" placeholder="说点什么…" />
+					<button class="btn-mini" id="chat-send">发送</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- 断线 -->
+		<div class="overlay hidden" id="reconnect">
+			<div class="sheet center">
+				<div class="result-icon">📡</div>
+				<div class="result-title">连接已断开</div>
+				<div class="result-sub" id="reconnect-sub">正在重新连接…</div>
+			</div>
+		</div>
+
+		<div class="toast" id="toast"></div>
+
+		<script>
+			// ---------- 常量 ----------
+			const CHIP_VALUES = [10, 50, 100, 500, 1000];
+			const CHIP_COLORS: Record<number, string> = {
+				10: '#3d9be9',
+				50: '#3cb878',
+				100: '#e14b4b',
+				500: '#9b59b6',
+				1000: '#e9b83d',
+			};
+			type Spot = 'ppair' | 'player' | 'tie' | 'banker' | 'bpair';
+			type Card = { rank: string; suit: string; v: number };
+
+			// ---------- 状态 ----------
+			let ws: WebSocket | null = null;
+			let joined = false;
+			let leaving = false;
+			let reconnectDelay = 1500;
+			let selectedChip = 100;
+			let balance = 0;
+			let myBets: Record<Spot, number> = { ppair: 0, player: 0, tie: 0, banker: 0, bpair: 0 };
+			let phase = 'idle';
+			let endsAt = 0;
+			let phaseDur = 1;
+			let clockOffset = 0; // serverNow - clientNow
+			let dealTimers: ReturnType<typeof setTimeout>[] = [];
+			let unread = 0;
+			let shoeNo = 0;
+			let lastNet: number | null = null; // settle 时服务端私发的本局净输赢
+			let curDeal: { p: Card[]; b: Card[] } | null = null; // 本局牌面（result 时兜底补全）
+
+			const pid = (() => {
+				let v = localStorage.getItem('baccarat_pid');
+				if (!v) {
+					v = Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) =>
+						b.toString(16).padStart(2, '0'),
+					).join('');
+					localStorage.setItem('baccarat_pid', v);
+				}
+				return v;
+			})();
+
+			// ---------- DOM ----------
+			const $ = (id: string) => document.getElementById(id)!;
+			const fmt = (n: number) => n.toLocaleString('zh-CN');
+			const clearBtn = $('btn-clear') as HTMLButtonElement;
+			const topupBtn = $('btn-topup') as HTMLButtonElement;
+
+			let toastTimer = 0;
+			function toast(text: string) {
+				const el = $('toast');
+				el.textContent = text;
+				el.classList.add('show');
+				clearTimeout(toastTimer);
+				toastTimer = window.setTimeout(() => el.classList.remove('show'), 2200);
+			}
+			function setMsg(text: string, cls = '') {
+				$('msg').textContent = text;
+				$('msg').className = 'msg' + (cls ? ' ' + cls : '');
+			}
+
+			// ---------- 渲染 ----------
+			function renderBalance() {
+				$('balance').textContent = fmt(balance);
+				topupBtn.classList.toggle('hidden', !(balance <= 0 && totalMyBet() === 0));
+			}
+			function totalMyBet() {
+				return myBets.ppair + myBets.player + myBets.tie + myBets.banker + myBets.bpair;
+			}
+			function renderMyBets() {
+				for (const key of Object.keys(myBets) as Spot[]) {
+					const el = document.querySelector<HTMLElement>(`[data-amt="${key}"]`)!;
+					el.textContent = myBets[key] > 0 ? fmt(myBets[key]) : '';
+					el.classList.toggle('on', myBets[key] > 0);
+				}
+				clearBtn.disabled = !(phase === 'bet' && totalMyBet() > 0);
+			}
+			function renderTotals(totals: Record<Spot, number>) {
+				for (const key of Object.keys(totals) as Spot[]) {
+					const el = document.querySelector<HTMLElement>(`[data-total="${key}"]`)!;
+					el.textContent = totals[key] > 0 ? `桌 ${fmt(totals[key])}` : '';
+				}
+			}
+			function renderPlayers(players: { name: string; balance: number; online: boolean; betting: boolean }[]) {
+				const strip = $('players-strip');
+				strip.innerHTML = '';
+				for (const p of players) {
+					const div = document.createElement('div');
+					div.className = 'pl' + (p.online ? '' : ' off') + (p.betting ? ' betting' : '');
+					div.innerHTML = `<span class="pl-name"></span><span class="pl-bal">${fmt(p.balance)}</span>`;
+					div.querySelector('.pl-name')!.textContent = p.name;
+					strip.appendChild(div);
+				}
+			}
+			function renderRoad(road: { r: string; pp: boolean; bp: boolean }[]) {
+				const roadEl = $('road');
+				roadEl.innerHTML = '';
+				for (const r of road) {
+					const cell = document.createElement('span');
+					cell.className = 'bead bead-' + r.r;
+					cell.textContent = r.r === 'B' ? '庄' : r.r === 'P' ? '闲' : '和';
+					if (r.bp) cell.appendChild(Object.assign(document.createElement('i'), { className: 'dot dot-b' }));
+					if (r.pp) cell.appendChild(Object.assign(document.createElement('i'), { className: 'dot dot-p' }));
+					roadEl.appendChild(cell);
+				}
+				roadEl.scrollLeft = roadEl.scrollWidth;
+				$('stat-banker').textContent = String(road.filter((h) => h.r === 'B').length);
+				$('stat-player').textContent = String(road.filter((h) => h.r === 'P').length);
+				$('stat-tie').textContent = String(road.filter((h) => h.r === 'T').length);
+			}
+			function renderShoe(left: number, no?: number) {
+				if (typeof no === 'number') shoeNo = no;
+				$('shoe-info').textContent = `第 ${shoeNo} 靴 · 剩 ${left} 张`;
+			}
+
+			function cardEl(card: Card) {
+				const div = document.createElement('div');
+				const red = card.suit === '♥' || card.suit === '♦';
+				div.className = 'card' + (red ? ' red' : '');
+				div.innerHTML = `<span class="corner">${card.rank}<br/>${card.suit}</span><span class="pip">${card.suit}</span>`;
+				return div;
+			}
+			function clearHands() {
+				$('cards-player').innerHTML = '';
+				$('cards-banker').innerHTML = '';
+				$('pts-player').textContent = '';
+				$('pts-banker').textContent = '';
+				$('hand-player').classList.remove('win');
+				$('hand-banker').classList.remove('win');
+				$('banner').classList.add('hidden');
+				document.querySelectorAll('.spot.won').forEach((s) => s.classList.remove('won'));
+			}
+			function clearDealTimers() {
+				dealTimers.forEach(clearTimeout);
+				dealTimers = [];
+			}
+			function putCard(side: 'player' | 'banker', card: Card, hand: Card[], upto: number) {
+				$(`cards-${side}`).appendChild(cardEl(card));
+				$(`pts-${side}`).textContent =
+					`${hand.slice(0, upto).reduce((s, c) => s + c.v, 0) % 10} 点`;
+			}
+			function renderHandsInstant(p: Card[], b: Card[]) {
+				clearHands();
+				p.forEach((c, i) => putCard('player', c, p, i + 1));
+				b.forEach((c, i) => putCard('banker', c, b, i + 1));
+			}
+			function animateDeal(p: Card[], b: Card[], stepMs: number) {
+				clearHands();
+				clearDealTimers();
+				// 顺序：闲庄闲庄，然后闲三、庄三
+				const seq: ['player' | 'banker', Card, Card[], number][] = [
+					['player', p[0], p, 1],
+					['banker', b[0], b, 1],
+					['player', p[1], p, 2],
+					['banker', b[1], b, 2],
+				];
+				if (p.length > 2) seq.push(['player', p[2], p, 3]);
+				if (b.length > 2) seq.push(['banker', b[2], b, 3]);
+				seq.forEach(([side, card, hand, upto], i) => {
+					dealTimers.push(setTimeout(() => putCard(side, card, hand, upto), i * stepMs));
+				});
+			}
+
+			function showBanner(outcome: string, pts: number, net: number | null) {
+				$('banner-title').textContent =
+					outcome === 'B' ? `庄赢 · ${pts} 点` : outcome === 'P' ? `闲赢 · ${pts} 点` : `和局 · ${pts} 点`;
+				$('banner-sub').textContent =
+					net === null ? '' : net > 0 ? `+${fmt(net)}` : net < 0 ? `-${fmt(-net)}` : '±0';
+				$('banner').className = 'banner banner-' + outcome;
+			}
+
+			// ---------- 倒计时 ----------
+			setInterval(() => {
+				const fill = $('phase-fill');
+				const text = $('phase-text');
+				const remain = Math.max(0, endsAt - (Date.now() + clockOffset));
+				const pct = phaseDur > 0 ? Math.min(100, (remain / phaseDur) * 100) : 0;
+				if (phase === 'bet') {
+					fill.style.width = pct + '%';
+					fill.className = 'phasebar-fill' + (remain < 5000 ? ' urgent' : '');
+					text.textContent = `请下注 · ${Math.ceil(remain / 1000)} 秒`;
+				} else if (phase === 'deal') {
+					fill.style.width = '100%';
+					fill.className = 'phasebar-fill dealing';
+					text.textContent = '发牌中…';
+				} else if (phase === 'settle') {
+					fill.style.width = '100%';
+					fill.className = 'phasebar-fill settling';
+					text.textContent = '开奖 · 下一局即将开始';
+				} else {
+					fill.style.width = '0%';
+					text.textContent = joined ? '等待玩家…' : '未连接';
+				}
+			}, 200);
+
+			function setPhase(ph: string, ends: number, now: number, dur?: number) {
+				phase = ph;
+				endsAt = ends;
+				clockOffset = now - Date.now();
+				phaseDur = Math.max(1, dur || ends - now);
+				renderMyBets();
+			}
+
+			// ---------- WebSocket ----------
+			let curRoom = '';
+			let curName = '';
+			function connect(room: string, name: string) {
+				curRoom = room;
+				curName = name;
+				const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+				const url = `${proto}://${location.host}/api/baccarat/ws?room=${encodeURIComponent(room)}&id=${pid}&name=${encodeURIComponent(name)}`;
+				ws = new WebSocket(url);
+				ws.addEventListener('open', () => {
+					reconnectDelay = 1500;
+					$('reconnect').classList.add('hidden');
+				});
+				ws.addEventListener('message', (e) => {
+					try {
+						onServer(JSON.parse(String(e.data)));
+					} catch {}
+				});
+				ws.addEventListener('close', () => {
+					if (leaving) return;
+					if (joined) {
+						$('reconnect').classList.remove('hidden');
+						$('reconnect-sub').textContent = `正在重新连接…`;
+					}
+					setTimeout(() => connect(room, name), reconnectDelay);
+					reconnectDelay = Math.min(10000, reconnectDelay * 1.6);
+				});
+			}
+			function sendMsg(data: unknown) {
+				if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(data));
+			}
+			setInterval(() => sendMsg({ t: 'ping' }), 20000);
+
+			function onServer(m: any) {
+				switch (m.t) {
+					case 'welcome': {
+						joined = true;
+						clearDealTimers(); // 重连时清理旧动画定时器，防止叠加重复牌
+						lastNet = null;
+						balance = m.you.balance;
+						myBets = m.you.bets;
+						setPhase(m.phase, m.endsAt, m.now, m.dur);
+						renderBalance();
+						renderMyBets();
+						renderTotals(m.totals);
+						renderPlayers(m.players);
+						renderRoad(m.road);
+						renderShoe(m.shoeLeft, m.shoeNo);
+						curDeal = m.deal ? { p: m.deal.p, b: m.deal.b } : null;
+						if (m.deal) {
+							renderHandsInstant(m.deal.p, m.deal.b);
+							if (m.phase === 'settle') {
+								showBanner(m.deal.outcome, m.deal.outcome === 'B' ? m.deal.bt : m.deal.pt, null);
+								$('banner').classList.remove('hidden');
+							}
+						} else {
+							clearHands();
+						}
+						setMsg(m.phase === 'bet' ? '点击下注区下注' : '');
+						break;
+					}
+					case 'phase': {
+						setPhase(m.phase, m.endsAt, m.now, m.dur);
+						if (m.phase === 'bet') {
+							clearHands();
+							clearDealTimers();
+							curDeal = null;
+							myBets = { ppair: 0, player: 0, tie: 0, banker: 0, bpair: 0 };
+							renderMyBets();
+							renderTotals(m.totals);
+							renderPlayers(m.players);
+							renderShoe(m.shoeLeft, m.shoeNo);
+							if (m.road) renderRoad(m.road); // 换靴时服务端附带空路单
+							setMsg('点击下注区下注');
+							renderBalance();
+						}
+						break;
+					}
+					case 'bets': {
+						renderTotals(m.totals);
+						renderPlayers(m.players);
+						break;
+					}
+					case 'you': {
+						balance = m.balance;
+						myBets = m.bets;
+						renderBalance();
+						renderMyBets();
+						if (typeof m.net === 'number') lastNet = m.net;
+						break;
+					}
+					case 'deal': {
+						setPhase('deal', m.endsAt, m.now);
+						curDeal = { p: m.p, b: m.b };
+						renderShoe(m.shoeLeft);
+						setMsg('');
+						animateDeal(m.p, m.b, m.stepMs);
+						break;
+					}
+					case 'result': {
+						setPhase('settle', m.endsAt, m.now);
+						clearDealTimers();
+						if (curDeal) renderHandsInstant(curDeal.p, curDeal.b); // 动画未播完时兜底补全牌面
+						showBanner(m.outcome, m.outcome === 'B' ? m.bt : m.pt, lastNet);
+						$('banner').classList.remove('hidden');
+						if (m.outcome === 'P') $('hand-player').classList.add('win');
+						if (m.outcome === 'B') $('hand-banker').classList.add('win');
+						const wonKeys: Spot[] = [];
+						if (m.outcome === 'P') wonKeys.push('player');
+						if (m.outcome === 'B') wonKeys.push('banker');
+						if (m.outcome === 'T') wonKeys.push('tie');
+						if (m.ppair) wonKeys.push('ppair');
+						if (m.bpair) wonKeys.push('bpair');
+						for (const k of wonKeys) document.querySelector(`[data-bet="${k}"]`)?.classList.add('won');
+						const extras = [m.ppair ? '闲对' : '', m.bpair ? '庄对' : ''].filter(Boolean).join(' · ');
+						setMsg(extras);
+						renderRoad(m.road);
+						renderPlayers(m.players);
+						renderShoe(m.shoeLeft, m.shoeNo);
+						lastNet = null;
+						break;
+					}
+					case 'players':
+						renderPlayers(m.players);
+						break;
+					case 'chat': {
+						addChatLine(m.name, m.text);
+						if ($('chat').classList.contains('hidden')) {
+							unread++;
+							const badge = $('chat-badge');
+							badge.textContent = String(unread);
+							badge.classList.remove('hidden');
+						}
+						break;
+					}
+					case 'err':
+						toast(m.msg);
+						break;
+				}
+			}
+			// ---------- 聊天 ----------
+			function addChatLine(name: string, text: string) {
+				const list = $('chat-list');
+				const div = document.createElement('div');
+				div.className = 'chat-line';
+				const b = document.createElement('b');
+				b.textContent = name + '：';
+				const span = document.createElement('span');
+				span.textContent = text;
+				div.append(b, span);
+				list.appendChild(div);
+				while (list.children.length > 50) list.removeChild(list.firstChild!);
+				list.scrollTop = list.scrollHeight;
+			}
+			$('btn-chat').addEventListener('click', () => {
+				$('chat').classList.remove('hidden');
+				unread = 0;
+				$('chat-badge').classList.add('hidden');
+				($('chat-input') as HTMLInputElement).focus();
+			});
+			function sendChat() {
+				const input = $('chat-input') as HTMLInputElement;
+				const text = input.value.trim();
+				if (!text) return;
+				sendMsg({ t: 'chat', text });
+				input.value = '';
+			}
+			$('chat-send').addEventListener('click', sendChat);
+			$('chat-input').addEventListener('keydown', (e) => {
+				if ((e as KeyboardEvent).key === 'Enter') sendChat();
+			});
+
+			// ---------- 下注操作 ----------
+			document.querySelectorAll<HTMLElement>('.spot').forEach((spot) => {
+				spot.addEventListener('click', () => {
+					if (phase !== 'bet') return toast('等待下一局下注');
+					if (selectedChip > balance) return toast('余额不足');
+					sendMsg({ t: 'bet', spot: spot.dataset.bet, amt: selectedChip });
+				});
+			});
+			clearBtn.addEventListener('click', () => sendMsg({ t: 'clear' }));
+			topupBtn.addEventListener('click', () => sendMsg({ t: 'topup' }));
+
+			function initChips() {
+				const chipsEl = $('chips');
+				for (const v of CHIP_VALUES) {
+					const btn = document.createElement('button');
+					btn.className = 'chip';
+					btn.style.setProperty('--chip-color', CHIP_COLORS[v]);
+					btn.innerHTML = `<span>${v >= 1000 ? `${v / 1000}K` : v}</span>`;
+					if (v === selectedChip) btn.classList.add('sel');
+					btn.addEventListener('click', () => {
+						selectedChip = v;
+						chipsEl.querySelectorAll('.chip').forEach((c) => c.classList.remove('sel'));
+						btn.classList.add('sel');
+					});
+					chipsEl.appendChild(btn);
+				}
+			}
+
+			// ---------- 入桌 ----------
+			document.querySelectorAll<HTMLElement>('[data-close]').forEach((btn) => {
+				btn.addEventListener('click', () => $(btn.dataset.close!).classList.add('hidden'));
+			});
+			$('btn-join').addEventListener('click', () => {
+				const name = ($('in-name') as HTMLInputElement).value.trim().slice(0, 8) || '玩家' + pid.slice(-4);
+				const room =
+					($('in-room') as HTMLInputElement).value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) ||
+					'LOBBY';
+				localStorage.setItem('baccarat_name', name);
+				localStorage.setItem('baccarat_room', room);
+				$('room-pill').textContent = room === 'LOBBY' ? '大厅' : '房 ' + room;
+				$('join').classList.add('hidden');
+				connect(room, name);
+			});
+
+			initChips();
+			($('in-name') as HTMLInputElement).value = localStorage.getItem('baccarat_name') || '';
+			($('in-room') as HTMLInputElement).value = localStorage.getItem('baccarat_room') || '';
+			window.addEventListener('beforeunload', () => {
+				leaving = true;
+				ws?.close();
+			});
+			// bfcache 恢复：beforeunload 已置 leaving，需要重新激活连接
+			window.addEventListener('pageshow', (e) => {
+				if ((e as PageTransitionEvent).persisted && leaving && curRoom) {
+					leaving = false;
+					if (!ws || ws.readyState >= WebSocket.CLOSING) connect(curRoom, curName);
+				}
+			});
+		</script>
+
+		<style is:global>
+			:root {
+				--gold: #e9c25f;
+				--gold-2: #f7dc8e;
+				--felt-1: #157a52;
+				--felt-2: #0b3d2e;
+				--bg-deep: #051d15;
+				--red: #d8404a;
+				--blue: #3d7be9;
+				--green: #2e9e5b;
+			}
+			* {
+				box-sizing: border-box;
+				-webkit-tap-highlight-color: transparent;
+			}
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				height: 100%;
+				background:
+					radial-gradient(1100px 550px at 50% -8%, #11553c 0%, #082b20 58%, var(--bg-deep) 100%)
+					fixed #082b20;
+				color: #f2ede0;
+				font-family:
+					-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+					sans-serif;
+				user-select: none;
+				-webkit-user-select: none;
+			}
+			button {
+				font-family: inherit;
+				border: none;
+				cursor: pointer;
+			}
+			input {
+				font-family: inherit;
+			}
+			.hidden {
+				display: none !important;
+			}
+
+			#app {
+				display: flex;
+				flex-direction: column;
+				min-height: 100dvh;
+				max-width: 560px;
+				margin: 0 auto;
+				padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+					env(safe-area-inset-left);
+			}
+			.topbar {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 10px 12px;
+			}
+			.back {
+				color: #cfe8dc;
+				text-decoration: none;
+				font-size: 26px;
+				line-height: 1;
+				padding: 0 4px;
+			}
+			.logo {
+				font-size: 17px;
+				font-weight: 800;
+				letter-spacing: 1px;
+				background: linear-gradient(var(--gold-2), #d9a62e);
+				-webkit-background-clip: text;
+				background-clip: text;
+				-webkit-text-fill-color: transparent;
+			}
+			.room-pill {
+				font-size: 11px;
+				font-weight: 700;
+				color: #b8d4c6;
+				background: rgba(255, 255, 255, 0.08);
+				border: 1px solid rgba(255, 255, 255, 0.16);
+				border-radius: 999px;
+				padding: 3px 10px;
+			}
+			.balance-box {
+				margin-left: auto;
+				background: rgba(0, 0, 0, 0.4);
+				border: 1px solid rgba(233, 194, 95, 0.55);
+				border-radius: 999px;
+				padding: 4px 12px;
+				display: flex;
+				align-items: center;
+				gap: 6px;
+			}
+			.balance-box .coin {
+				font-size: 13px;
+			}
+			.balance-box strong {
+				color: var(--gold);
+				font-size: 16px;
+				font-variant-numeric: tabular-nums;
+			}
+
+			/* 阶段进度条 */
+			.phasebar {
+				position: relative;
+				height: 26px;
+				margin: 0 10px 8px;
+				border-radius: 999px;
+				background: rgba(0, 0, 0, 0.35);
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				overflow: hidden;
+			}
+			.phasebar-fill {
+				position: absolute;
+				inset: 0 auto 0 0;
+				width: 0%;
+				background: linear-gradient(90deg, #2e9e5b, #43c878);
+				transition: width 0.2s linear;
+			}
+			.phasebar-fill.urgent {
+				background: linear-gradient(90deg, #c0392b, #e74c3c);
+			}
+			.phasebar-fill.dealing {
+				background: linear-gradient(90deg, #2a5cc0, #4a86ee);
+			}
+			.phasebar-fill.settling {
+				background: linear-gradient(90deg, #b8860b, #e9c25f);
+			}
+			.phasebar-text {
+				position: relative;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				height: 100%;
+				font-size: 12px;
+				font-weight: 800;
+				text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+			}
+
+			/* 玩家条 */
+			.players-strip {
+				display: flex;
+				gap: 6px;
+				overflow-x: auto;
+				padding: 0 10px 8px;
+				min-height: 40px;
+				scrollbar-width: none;
+			}
+			.pl {
+				flex-shrink: 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				background: rgba(255, 255, 255, 0.08);
+				border: 1px solid rgba(255, 255, 255, 0.16);
+				border-radius: 10px;
+				padding: 3px 10px;
+			}
+			.pl.betting {
+				border-color: var(--gold);
+				box-shadow: 0 0 8px rgba(233, 194, 95, 0.4);
+			}
+			.pl.off {
+				opacity: 0.45;
+			}
+			.pl-name {
+				font-size: 11px;
+				font-weight: 700;
+				max-width: 72px;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			.pl-bal {
+				font-size: 10px;
+				color: var(--gold-2);
+				font-variant-numeric: tabular-nums;
+			}
+
+			/* 牌桌（与单机版一致的核心样式） */
+			.table {
+				position: relative;
+				flex: 1;
+				min-height: 190px;
+				margin: 0 10px;
+				border-radius: 18px;
+				background: radial-gradient(ellipse at 50% 0%, var(--felt-1) 0%, var(--felt-2) 78%);
+				border: 2px solid rgba(233, 194, 95, 0.45);
+				box-shadow:
+					inset 0 0 46px rgba(0, 0, 0, 0.4),
+					0 8px 30px rgba(0, 0, 0, 0.35);
+				display: flex;
+				flex-direction: column;
+				padding: 8px 10px 10px;
+			}
+			.table::before {
+				content: '';
+				position: absolute;
+				inset: 5px;
+				border-radius: 13px;
+				border: 1px solid rgba(233, 194, 95, 0.22);
+				pointer-events: none;
+			}
+			.table-info {
+				display: flex;
+				justify-content: space-between;
+				font-size: 11px;
+				color: #9cc7b3;
+			}
+			.hands {
+				flex: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+			}
+			.hand {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 8px;
+				padding: 8px 4px;
+				border-radius: 12px;
+				border: 1px dashed transparent;
+				transition: all 0.3s;
+			}
+			.hand.win {
+				border-color: rgba(233, 194, 95, 0.85);
+				background: rgba(233, 194, 95, 0.09);
+			}
+			.hand-head {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				min-height: 24px;
+			}
+			.tag {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 25px;
+				height: 25px;
+				border-radius: 50%;
+				font-size: 13px;
+				font-weight: 700;
+				color: #fff;
+			}
+			.tag-banker {
+				background: linear-gradient(#e35560, #b32c37);
+			}
+			.tag-player {
+				background: linear-gradient(#5590f2, #2a5cc0);
+			}
+			.pts {
+				font-size: 13px;
+				color: #ffe9ad;
+				font-weight: 700;
+			}
+			.vs {
+				font-size: 12px;
+				color: rgba(255, 255, 255, 0.3);
+				font-weight: 800;
+			}
+			.cards {
+				display: flex;
+				gap: 5px;
+				min-height: 80px;
+				align-items: center;
+			}
+			.card {
+				width: 52px;
+				height: 76px;
+				border-radius: 7px;
+				background: linear-gradient(160deg, #ffffff 0%, #f4f2e7 100%);
+				color: #1c2333;
+				position: relative;
+				box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+				animation: deal-in 0.42s cubic-bezier(0.25, 0.9, 0.3, 1);
+			}
+			.card.red {
+				color: #cf2637;
+			}
+			.card .corner {
+				position: absolute;
+				top: 4px;
+				left: 5px;
+				font-size: 13px;
+				font-weight: 800;
+				line-height: 1.05;
+			}
+			.card .pip {
+				position: absolute;
+				right: 6px;
+				bottom: 2px;
+				font-size: 28px;
+			}
+			@keyframes deal-in {
+				0% {
+					transform: translate(130px, -100px) rotate(14deg);
+					opacity: 0;
+				}
+				55% {
+					opacity: 1;
+				}
+				100% {
+					transform: none;
+					opacity: 1;
+				}
+			}
+			.banner {
+				position: absolute;
+				left: 50%;
+				top: 25%;
+				transform: translate(-50%, -50%);
+				background: rgba(4, 18, 13, 0.9);
+				border: 2px solid var(--gold);
+				border-radius: 16px;
+				padding: 12px 30px;
+				text-align: center;
+				z-index: 5;
+				animation: pop 0.38s cubic-bezier(0.2, 1.5, 0.4, 1);
+				pointer-events: none;
+			}
+			@keyframes pop {
+				from {
+					transform: translate(-50%, -50%) scale(0.5);
+					opacity: 0;
+				}
+				to {
+					transform: translate(-50%, -50%) scale(1);
+					opacity: 1;
+				}
+			}
+			.banner-title {
+				font-size: 22px;
+				font-weight: 800;
+			}
+			.banner-B .banner-title {
+				color: #ff7d86;
+			}
+			.banner-P .banner-title {
+				color: #7fb2ff;
+			}
+			.banner-T .banner-title {
+				color: #67dd96;
+			}
+			.banner-sub {
+				margin-top: 3px;
+				font-size: 16px;
+				font-weight: 800;
+				color: var(--gold-2);
+			}
+			.msg {
+				text-align: center;
+				min-height: 22px;
+				font-size: 14px;
+				font-weight: 700;
+				color: #d9e8e0;
+			}
+
+			/* 路单 */
+			.road-wrap {
+				margin: 8px 10px 0;
+				background: rgba(255, 255, 255, 0.94);
+				border-radius: 12px;
+				padding: 6px 8px;
+				color: #333;
+			}
+			.stats {
+				display: flex;
+				gap: 14px;
+				font-size: 11px;
+				margin-bottom: 4px;
+			}
+			.stat-banker {
+				color: var(--red);
+			}
+			.stat-player {
+				color: var(--blue);
+			}
+			.stat-tie {
+				color: var(--green);
+			}
+			.road {
+				display: grid;
+				grid-auto-flow: column;
+				grid-template-rows: repeat(6, 17px);
+				gap: 2px;
+				overflow-x: auto;
+				min-height: 78px;
+				scrollbar-width: thin;
+			}
+			.bead {
+				position: relative;
+				width: 17px;
+				height: 17px;
+				border-radius: 50%;
+				color: #fff;
+				font-size: 10px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.bead-B {
+				background: var(--red);
+			}
+			.bead-P {
+				background: var(--blue);
+			}
+			.bead-T {
+				background: var(--green);
+			}
+			.dot {
+				position: absolute;
+				width: 5px;
+				height: 5px;
+				border-radius: 50%;
+				border: 1px solid #fff;
+			}
+			.dot-b {
+				top: -1px;
+				left: -1px;
+				background: var(--red);
+			}
+			.dot-p {
+				bottom: -1px;
+				right: -1px;
+				background: var(--blue);
+			}
+
+			/* 下注区（多一行桌面合计） */
+			.bets {
+				display: grid;
+				grid-template-columns: 1fr 1.25fr 1fr 1.25fr 1fr;
+				gap: 6px;
+				margin: 8px 10px 0;
+			}
+			.spot {
+				position: relative;
+				border-radius: 12px;
+				padding: 8px 2px 34px;
+				color: #fff;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 2px;
+				border: 1px solid rgba(255, 255, 255, 0.28);
+				transition: transform 0.08s;
+			}
+			.spot:active {
+				transform: scale(0.95);
+			}
+			.spot.won {
+				box-shadow:
+					0 0 0 2px var(--gold),
+					0 0 20px rgba(233, 194, 95, 0.75);
+			}
+			.spot-player {
+				background: linear-gradient(#4a86ee, #2a5cc0);
+			}
+			.spot-banker {
+				background: linear-gradient(#df4d58, #a72933);
+			}
+			.spot-tie {
+				background: linear-gradient(#35aa64, #1f7a43);
+			}
+			.spot-side {
+				background: linear-gradient(#5b6a80, #3d485b);
+			}
+			.spot-name {
+				font-size: 16px;
+				font-weight: 800;
+			}
+			.spot-odds {
+				font-size: 10px;
+				opacity: 0.9;
+			}
+			.spot-total {
+				position: absolute;
+				bottom: 20px;
+				font-size: 10px;
+				color: rgba(255, 255, 255, 0.85);
+				min-height: 13px;
+			}
+			.spot-amt {
+				position: absolute;
+				bottom: 4px;
+				font-size: 11px;
+				font-weight: 700;
+				color: #ffe9ad;
+				background: rgba(0, 0, 0, 0.4);
+				border-radius: 999px;
+				padding: 0 8px;
+				min-height: 15px;
+				opacity: 0;
+			}
+			.spot-amt.on {
+				opacity: 1;
+			}
+
+			/* 筹码 */
+			.chips {
+				display: flex;
+				justify-content: center;
+				gap: 10px;
+				margin: 10px 10px 0;
+			}
+			.chip {
+				position: relative;
+				width: 52px;
+				height: 52px;
+				border-radius: 50%;
+				background: radial-gradient(circle at 50% 40%, #fffdf5 0 34%, var(--chip-color) 35% 100%);
+				box-shadow: 0 4px 8px rgba(0, 0, 0, 0.45);
+				color: #23283b;
+				font-weight: 800;
+				font-size: 13px;
+				transition: transform 0.14s;
+			}
+			.chip::before {
+				content: '';
+				position: absolute;
+				inset: 0;
+				border-radius: 50%;
+				background: repeating-conic-gradient(
+					rgba(255, 255, 255, 0.95) 0 14deg,
+					transparent 14deg 30deg
+				);
+				-webkit-mask: radial-gradient(circle, transparent 0 64%, #000 65%);
+				mask: radial-gradient(circle, transparent 0 64%, #000 65%);
+			}
+			.chip span {
+				position: relative;
+				z-index: 1;
+			}
+			.chip.sel {
+				transform: translateY(-7px) scale(1.08);
+				box-shadow:
+					0 8px 14px rgba(0, 0, 0, 0.5),
+					0 0 0 3px var(--gold-2);
+			}
+
+			/* 操作 */
+			.actions {
+				display: flex;
+				gap: 10px;
+				padding: 12px 10px 14px;
+			}
+			.btn {
+				border-radius: 999px;
+				padding: 12px 0;
+				font-size: 15px;
+				font-weight: 800;
+				letter-spacing: 1px;
+			}
+			.btn:disabled {
+				opacity: 0.4;
+				cursor: default;
+			}
+			.btn-ghost {
+				flex: 1;
+				background: rgba(255, 255, 255, 0.1);
+				color: #e5efe9;
+				border: 1px solid rgba(255, 255, 255, 0.25);
+				position: relative;
+			}
+			.btn-gold {
+				flex: 1.4;
+				background: linear-gradient(#f6d47c, #dfa42c);
+				color: #4a3505;
+			}
+			.chat-badge {
+				position: absolute;
+				top: -4px;
+				right: 6px;
+				background: var(--red);
+				color: #fff;
+				border-radius: 999px;
+				font-size: 10px;
+				padding: 1px 6px;
+			}
+
+			/* 弹层 */
+			.overlay {
+				position: fixed;
+				inset: 0;
+				background: rgba(0, 0, 0, 0.62);
+				backdrop-filter: blur(3px);
+				-webkit-backdrop-filter: blur(3px);
+				display: flex;
+				align-items: flex-end;
+				justify-content: center;
+				z-index: 50;
+			}
+			.sheet {
+				width: 100%;
+				max-width: 560px;
+				background: linear-gradient(#10432f, #0a3023);
+				border: 1px solid rgba(233, 194, 95, 0.4);
+				border-bottom: none;
+				border-radius: 20px 20px 0 0;
+				padding: 16px 16px calc(18px + env(safe-area-inset-bottom));
+				max-height: 84dvh;
+				overflow-y: auto;
+				animation: slide-up 0.28s ease-out;
+			}
+			.sheet.center {
+				text-align: center;
+			}
+			@keyframes slide-up {
+				from {
+					transform: translateY(40px);
+					opacity: 0;
+				}
+				to {
+					transform: none;
+					opacity: 1;
+				}
+			}
+			.sheet-head {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				font-size: 17px;
+				font-weight: 800;
+				color: var(--gold-2);
+			}
+			.sheet-head .x {
+				background: rgba(255, 255, 255, 0.1);
+				color: #fff;
+				border-radius: 50%;
+				width: 28px;
+				height: 28px;
+				font-size: 17px;
+				line-height: 1;
+			}
+			.sim-note {
+				font-size: 11px;
+				color: #a9cbba;
+				background: rgba(0, 0, 0, 0.25);
+				border-radius: 8px;
+				padding: 7px 10px;
+				margin: 10px 0;
+				line-height: 1.5;
+			}
+			.field {
+				display: block;
+				margin-bottom: 12px;
+			}
+			.field span {
+				display: block;
+				font-size: 12px;
+				color: #9cc7b3;
+				margin-bottom: 5px;
+			}
+			.field input {
+				width: 100%;
+				background: rgba(0, 0, 0, 0.3);
+				border: 1px solid rgba(255, 255, 255, 0.2);
+				border-radius: 10px;
+				color: #f2ede0;
+				font-size: 15px;
+				padding: 11px 12px;
+				outline: none;
+			}
+			.field input:focus {
+				border-color: var(--gold);
+			}
+			.btn-buy {
+				width: 100%;
+			}
+			.result-icon {
+				font-size: 46px;
+				margin: 12px 0 6px;
+			}
+			.result-title {
+				font-size: 18px;
+				font-weight: 800;
+			}
+			.result-sub {
+				font-size: 12px;
+				color: #9cc7b3;
+				margin: 8px 0 16px;
+			}
+
+			/* 聊天 */
+			.chat-list {
+				min-height: 160px;
+				max-height: 40dvh;
+				overflow-y: auto;
+				margin: 10px 0;
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+			}
+			.chat-line {
+				font-size: 13px;
+				line-height: 1.5;
+				word-break: break-all;
+			}
+			.chat-line b {
+				color: var(--gold-2);
+				font-weight: 700;
+			}
+			.chat-row {
+				display: flex;
+				gap: 8px;
+			}
+			.chat-row input {
+				flex: 1;
+				background: rgba(0, 0, 0, 0.3);
+				border: 1px solid rgba(255, 255, 255, 0.2);
+				border-radius: 999px;
+				color: #f2ede0;
+				font-size: 14px;
+				padding: 9px 14px;
+				outline: none;
+			}
+			.btn-mini {
+				background: linear-gradient(#f6d47c, #dfa42c);
+				color: #4a3505;
+				font-weight: 800;
+				font-size: 13px;
+				border-radius: 999px;
+				padding: 8px 18px;
+			}
+
+			.toast {
+				position: fixed;
+				top: calc(14px + env(safe-area-inset-top));
+				left: 50%;
+				transform: translate(-50%, -16px);
+				background: rgba(4, 18, 13, 0.92);
+				border: 1px solid rgba(233, 194, 95, 0.6);
+				color: #ffe9ad;
+				font-size: 13px;
+				font-weight: 700;
+				border-radius: 999px;
+				padding: 9px 18px;
+				opacity: 0;
+				pointer-events: none;
+				transition:
+					opacity 0.25s,
+					transform 0.25s;
+				z-index: 99;
+				max-width: 86vw;
+			}
+			.toast.show {
+				opacity: 1;
+				transform: translate(-50%, 0);
+			}
+
+			@media (min-width: 561px) {
+				#app {
+					border-left: 1px solid rgba(255, 255, 255, 0.08);
+					border-right: 1px solid rgba(255, 255, 255, 0.08);
+				}
+				.overlay {
+					align-items: center;
+				}
+				.sheet {
+					border-radius: 20px;
+					border-bottom: 1px solid rgba(233, 194, 95, 0.4);
+				}
+			}
+		</style>
+	</body>
+</html>
