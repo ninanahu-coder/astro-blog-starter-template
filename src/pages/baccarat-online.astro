@@ -25,6 +25,7 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				<a class="back" href="/baccarat" aria-label="返回单机版">‹</a>
 				<div class="logo">🌐 在线同桌</div>
 				<span class="room-pill" id="room-pill"></span>
+				<button class="icon-btn" id="btn-sound" aria-label="音效开关">🔊</button>
 				<div class="balance-box">
 					<span class="coin">🪙</span>
 					<strong id="balance">-</strong>
@@ -72,8 +73,13 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 					<span class="stat stat-banker">庄 <b id="stat-banker">0</b></span>
 					<span class="stat stat-player">闲 <b id="stat-player">0</b></span>
 					<span class="stat stat-tie">和 <b id="stat-tie">0</b></span>
+					<span class="road-tabs">
+						<button class="road-tab" data-tab="bead">珠盘</button>
+						<button class="road-tab" data-tab="big">大路</button>
+					</span>
 				</div>
 				<div class="road" id="road"></div>
+				<div class="road bigroad hidden" id="bigroad"></div>
 			</section>
 
 			<section class="bets">
@@ -222,6 +228,103 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				$('msg').className = 'msg' + (cls ? ' ' + cls : '');
 			}
 
+			// ---------- 音效（WebAudio 合成，无音频文件） ----------
+			let soundOn = localStorage.getItem('baccarat_sound') !== '0';
+			let audioCtx: AudioContext | null = null;
+			function audio(): AudioContext | null {
+				try {
+					if (!audioCtx) {
+						const AC = window.AudioContext || (window as any).webkitAudioContext;
+						if (!AC) return null;
+						audioCtx = new AC();
+					}
+					if (audioCtx.state === 'suspended') audioCtx.resume();
+					return audioCtx;
+				} catch {
+					return null;
+				}
+			}
+			function tone(
+				type: OscillatorType,
+				freq: number,
+				dur: number,
+				vol: number,
+				freqEnd?: number,
+				delay = 0,
+			) {
+				if (!soundOn) return;
+				try {
+					const ctx = audio();
+					if (!ctx) return;
+					const t = ctx.currentTime + delay;
+					const osc = ctx.createOscillator();
+					const gain = ctx.createGain();
+					osc.type = type;
+					osc.frequency.setValueAtTime(freq, t);
+					if (typeof freqEnd === 'number') osc.frequency.linearRampToValueAtTime(freqEnd, t + dur);
+					gain.gain.setValueAtTime(vol, t);
+					gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+					osc.connect(gain);
+					gain.connect(ctx.destination);
+					osc.start(t);
+					osc.stop(t + dur + 0.02);
+				} catch {}
+			}
+			const sfx = {
+				// 选筹码
+				click: () => tone('square', 700, 0.03, 0.08),
+				// 下注被服务端确认
+				chip: () => tone('triangle', 520, 0.06, 0.1, 660),
+				// 发牌（白噪声 + 带通滤波，淡出）
+				swish: () => {
+					if (!soundOn) return;
+					try {
+						const ctx = audio();
+						if (!ctx) return;
+						const dur = 0.08;
+						const buf = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * dur), ctx.sampleRate);
+						const data = buf.getChannelData(0);
+						for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+						const src = ctx.createBufferSource();
+						src.buffer = buf;
+						const bp = ctx.createBiquadFilter();
+						bp.type = 'bandpass';
+						bp.frequency.value = 1800;
+						const gain = ctx.createGain();
+						const t = ctx.currentTime;
+						gain.gain.setValueAtTime(0.12, t);
+						gain.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+						src.connect(bp);
+						bp.connect(gain);
+						gain.connect(ctx.destination);
+						src.start(t);
+					} catch {}
+				},
+				// 赢：上行琶音
+				win: () => {
+					tone('sine', 523, 0.09, 0.1);
+					tone('sine', 659, 0.09, 0.1, undefined, 0.09);
+					tone('sine', 784, 0.09, 0.1, undefined, 0.18);
+				},
+				// 输：下行
+				lose: () => tone('sine', 392, 0.18, 0.06, 330),
+				// 倒计时最后 3 秒
+				tick: () => tone('sine', 1000, 0.04, 0.07),
+			};
+			// 首次用户手势时创建/恢复 AudioContext（移动端自动播放限制）
+			document.addEventListener('pointerdown', () => audio(), { once: true });
+			const soundBtn = $('btn-sound');
+			function renderSound() {
+				soundBtn.textContent = soundOn ? '🔊' : '🔇';
+			}
+			soundBtn.addEventListener('click', () => {
+				soundOn = !soundOn;
+				localStorage.setItem('baccarat_sound', soundOn ? '1' : '0');
+				renderSound();
+				if (soundOn) sfx.click();
+			});
+			renderSound();
+
 			// ---------- 渲染 ----------
 			function renderBalance() {
 				$('balance').textContent = fmt(balance);
@@ -255,7 +358,8 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 					strip.appendChild(div);
 				}
 			}
-			function renderRoad(road: { r: string; pp: boolean; bp: boolean }[]) {
+			type RoadHand = { r: string; pp: boolean; bp: boolean };
+			function renderRoad(road: RoadHand[]) {
 				const roadEl = $('road');
 				roadEl.innerHTML = '';
 				for (const r of road) {
@@ -271,6 +375,78 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				$('stat-player').textContent = String(road.filter((h) => h.r === 'P').length);
 				$('stat-tie').textContent = String(road.filter((h) => h.r === 'T').length);
 			}
+			// 大路：和不占格（附着上一格，斜线+计数）；同结果延续列向下，遇占用/触底右拐（龙尾）
+			function renderBigRoad(road: RoadHand[]) {
+				const el = $('bigroad');
+				el.innerHTML = '';
+				type BCell = { col: number; row: number; r: string; pp: boolean; bp: boolean; ties: number };
+				const cells: BCell[] = [];
+				const used = new Set<string>();
+				let pendingTies = 0; // 开局先出的和，附着到第一个 B/P 格
+				let lastR = '';
+				let row = 0;
+				let col = 0;
+				let maxCol = -1;
+				for (const h of road) {
+					if (h.r === 'T') {
+						if (cells.length) cells[cells.length - 1].ties++;
+						else pendingTies++;
+						continue;
+					}
+					if (h.r === lastR) {
+						// 延续当前列；行满或下方被占则向右形成龙尾
+						if (row < 5 && !used.has(`${col},${row + 1}`)) row++;
+						else col++;
+					} else {
+						col = maxCol + 1;
+						row = 0;
+						lastR = h.r;
+					}
+					used.add(`${col},${row}`);
+					if (col > maxCol) maxCol = col;
+					cells.push({ col, row, r: h.r, pp: h.pp, bp: h.bp, ties: pendingTies });
+					pendingTies = 0;
+				}
+				for (const c of cells) {
+					const cell = document.createElement('span');
+					cell.className = 'bcell bcell-' + c.r + (c.ties > 0 ? ' tie' : '');
+					cell.style.gridColumn = String(c.col + 1);
+					cell.style.gridRow = String(c.row + 1);
+					if (c.ties > 1) {
+						const n = document.createElement('i');
+						n.className = 'tie-n';
+						n.textContent = String(c.ties);
+						cell.appendChild(n);
+					}
+					if (c.bp) cell.appendChild(Object.assign(document.createElement('i'), { className: 'dot dot-b' }));
+					if (c.pp) cell.appendChild(Object.assign(document.createElement('i'), { className: 'dot dot-p' }));
+					el.appendChild(cell);
+				}
+				el.scrollLeft = el.scrollWidth;
+			}
+			function renderRoads(road: RoadHand[]) {
+				renderRoad(road);
+				renderBigRoad(road);
+			}
+			// 珠盘 / 大路 切换
+			let roadTab = localStorage.getItem('baccarat_road_tab') === 'big' ? 'big' : 'bead';
+			function applyRoadTab() {
+				$('road').classList.toggle('hidden', roadTab !== 'bead');
+				$('bigroad').classList.toggle('hidden', roadTab !== 'big');
+				document.querySelectorAll<HTMLElement>('.road-tab').forEach((b) => {
+					b.classList.toggle('sel', b.dataset.tab === roadTab);
+				});
+				const visible = roadTab === 'big' ? $('bigroad') : $('road');
+				visible.scrollLeft = visible.scrollWidth; // 隐藏时 scrollWidth 为 0，切回后补滚
+			}
+			document.querySelectorAll<HTMLElement>('.road-tab').forEach((b) => {
+				b.addEventListener('click', () => {
+					roadTab = b.dataset.tab === 'big' ? 'big' : 'bead';
+					localStorage.setItem('baccarat_road_tab', roadTab);
+					applyRoadTab();
+				});
+			});
+			applyRoadTab();
 			function renderShoe(left: number, no?: number) {
 				if (typeof no === 'number') shoeNo = no;
 				$('shoe-info').textContent = `第 ${shoeNo} 靴 · 剩 ${left} 张`;
@@ -297,15 +473,16 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				dealTimers.forEach(clearTimeout);
 				dealTimers = [];
 			}
-			function putCard(side: 'player' | 'banker', card: Card, hand: Card[], upto: number) {
+			function putCard(side: 'player' | 'banker', card: Card, hand: Card[], upto: number, quiet = false) {
 				$(`cards-${side}`).appendChild(cardEl(card));
 				$(`pts-${side}`).textContent =
 					`${hand.slice(0, upto).reduce((s, c) => s + c.v, 0) % 10} 点`;
+				if (!quiet) sfx.swish();
 			}
 			function renderHandsInstant(p: Card[], b: Card[]) {
 				clearHands();
-				p.forEach((c, i) => putCard('player', c, p, i + 1));
-				b.forEach((c, i) => putCard('banker', c, b, i + 1));
+				p.forEach((c, i) => putCard('player', c, p, i + 1, true));
+				b.forEach((c, i) => putCard('banker', c, b, i + 1, true));
 			}
 			function animateDeal(p: Card[], b: Card[], stepMs: number) {
 				clearHands();
@@ -333,6 +510,7 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			}
 
 			// ---------- 倒计时 ----------
+			let lastTickSec = 0; // 上次播 tick 的秒数，避免同一秒重复播
 			setInterval(() => {
 				const fill = $('phase-fill');
 				const text = $('phase-text');
@@ -341,7 +519,12 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				if (phase === 'bet') {
 					fill.style.width = pct + '%';
 					fill.className = 'phasebar-fill' + (remain < 5000 ? ' urgent' : '');
-					text.textContent = `请下注 · ${Math.ceil(remain / 1000)} 秒`;
+					const sec = Math.ceil(remain / 1000);
+					text.textContent = `请下注 · ${sec} 秒`;
+					if (remain > 0 && remain <= 3000 && sec !== lastTickSec) {
+						lastTickSec = sec;
+						sfx.tick();
+					}
 				} else if (phase === 'deal') {
 					fill.style.width = '100%';
 					fill.className = 'phasebar-fill dealing';
@@ -410,7 +593,7 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 						renderMyBets();
 						renderTotals(m.totals);
 						renderPlayers(m.players);
-						renderRoad(m.road);
+						renderRoads(m.road);
 						renderShoe(m.shoeLeft, m.shoeNo);
 						curDeal = m.deal ? { p: m.deal.p, b: m.deal.b } : null;
 						if (m.deal) {
@@ -436,7 +619,7 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 							renderTotals(m.totals);
 							renderPlayers(m.players);
 							renderShoe(m.shoeLeft, m.shoeNo);
-							if (m.road) renderRoad(m.road); // 换靴时服务端附带空路单
+							if (m.road) renderRoads(m.road); // 换靴时服务端附带空路单
 							setMsg('点击下注区下注');
 							renderBalance();
 						}
@@ -448,10 +631,17 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 						break;
 					}
 					case 'you': {
+						const prevTotal = totalMyBet();
 						balance = m.balance;
 						myBets = m.bets;
 						renderBalance();
 						renderMyBets();
+						if (phase === 'bet' && totalMyBet() > prevTotal) {
+							sfx.chip();
+							try {
+								navigator.vibrate?.(10);
+							} catch {}
+						}
 						if (typeof m.net === 'number') lastNet = m.net;
 						break;
 					}
@@ -480,9 +670,17 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 						for (const k of wonKeys) document.querySelector(`[data-bet="${k}"]`)?.classList.add('won');
 						const extras = [m.ppair ? '闲对' : '', m.bpair ? '庄对' : ''].filter(Boolean).join(' · ');
 						setMsg(extras);
-						renderRoad(m.road);
+						renderRoads(m.road);
 						renderPlayers(m.players);
 						renderShoe(m.shoeLeft, m.shoeNo);
+						if (lastNet !== null && lastNet > 0) {
+							sfx.win();
+							try {
+								navigator.vibrate?.([30, 50, 30]);
+							} catch {}
+						} else if (lastNet !== null && lastNet < 0) {
+							sfx.lose();
+						}
 						lastNet = null;
 						break;
 					}
@@ -559,6 +757,7 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 						selectedChip = v;
 						chipsEl.querySelectorAll('.chip').forEach((c) => c.classList.remove('sel'));
 						btn.classList.add('sel');
+						sfx.click();
 					});
 					chipsEl.appendChild(btn);
 				}
@@ -677,6 +876,14 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				border: 1px solid rgba(255, 255, 255, 0.16);
 				border-radius: 999px;
 				padding: 3px 10px;
+			}
+			.icon-btn {
+				background: rgba(255, 255, 255, 0.1);
+				border: 1px solid rgba(255, 255, 255, 0.2);
+				border-radius: 10px;
+				padding: 5px 9px;
+				font-size: 14px;
+				line-height: 1;
 			}
 			.balance-box {
 				margin-left: auto;
@@ -1024,6 +1231,62 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				bottom: -1px;
 				right: -1px;
 				background: var(--blue);
+			}
+			.road-tabs {
+				margin-left: auto;
+				display: flex;
+				align-items: center;
+				gap: 4px;
+			}
+			.road-tab {
+				font-size: 10px;
+				font-weight: 700;
+				padding: 2px 9px;
+				border-radius: 999px;
+				background: transparent;
+				border: 1px solid #c9c2ad;
+				color: #8a8672;
+			}
+			.road-tab.sel {
+				background: linear-gradient(#f6d47c, #dfa42c);
+				border-color: #c8922a;
+				color: #4a3505;
+			}
+			/* 大路：显式 gridColumn/gridRow 定位，空心圆环 */
+			.road.bigroad {
+				grid-auto-columns: 17px;
+			}
+			.bcell {
+				position: relative;
+				width: 17px;
+				height: 17px;
+				border-radius: 50%;
+				border: 2px solid transparent;
+			}
+			.bcell-B {
+				border-color: var(--red);
+			}
+			.bcell-P {
+				border-color: var(--blue);
+			}
+			.bcell.tie {
+				background: linear-gradient(
+					45deg,
+					transparent 42%,
+					var(--green) 42%,
+					var(--green) 58%,
+					transparent 58%
+				);
+			}
+			.tie-n {
+				position: absolute;
+				top: -6px;
+				right: -5px;
+				font-size: 8px;
+				font-style: normal;
+				font-weight: 800;
+				line-height: 1;
+				color: var(--green);
 			}
 
 			/* 下注区（多一行桌面合计） */

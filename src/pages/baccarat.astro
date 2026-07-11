@@ -30,6 +30,8 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				<a class="back" href="/" aria-label="返回首页">‹</a>
 				<div class="logo">♠ 百家乐</div>
 				<a class="icon-btn online-link" href="/baccarat-online" aria-label="在线同桌">🌐 在线</a>
+				<button class="icon-btn" id="btn-sound" aria-label="音效开关">🔊</button>
+				<button class="icon-btn" id="btn-stats" aria-label="我的战绩">📊</button>
 				<button class="icon-btn hidden" id="btn-install" aria-label="安装到手机">📲</button>
 				<div class="balance-box">
 					<span class="coin">🪙</span>
@@ -72,8 +74,13 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 					<span class="stat stat-banker">庄 <b id="stat-banker">0</b></span>
 					<span class="stat stat-player">闲 <b id="stat-player">0</b></span>
 					<span class="stat stat-tie">和 <b id="stat-tie">0</b></span>
+					<span class="road-tabs">
+						<button class="road-tab" data-tab="bead">珠盘</button>
+						<button class="road-tab" data-tab="big">大路</button>
+					</span>
 				</div>
 				<div class="road" id="road"></div>
+				<div class="road bigroad hidden" id="bigroad"></div>
 			</section>
 
 			<section class="bets">
@@ -208,6 +215,18 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 			</div>
 		</div>
 
+		<!-- 我的战绩 -->
+		<div class="overlay hidden" id="stats">
+			<div class="sheet">
+				<div class="sheet-head">
+					<span>我的战绩</span>
+					<button class="x" data-close="stats" aria-label="关闭">×</button>
+				</div>
+				<div class="stats-grid" id="stats-grid"></div>
+				<button class="btn btn-ghost btn-stats-reset" id="btn-stats-reset">重置战绩</button>
+			</div>
+		</div>
+
 		<div class="toast" id="toast"></div>
 
 		<script>
@@ -281,6 +300,155 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				if (lastBets) localStorage.setItem('baccarat_last_bets', JSON.stringify(lastBets));
 			}
 
+			// ---------- 音效（WebAudio 合成，无音频文件） ----------
+			let soundOn = localStorage.getItem('baccarat_sound') !== '0';
+			let audioCtx: AudioContext | null = null;
+			function getCtx(): AudioContext | null {
+				try {
+					if (!audioCtx) {
+						const AC = window.AudioContext || (window as any).webkitAudioContext;
+						if (!AC) return null;
+						audioCtx = new AC();
+					}
+					if (audioCtx.state === 'suspended') audioCtx.resume();
+					return audioCtx;
+				} catch {
+					return null;
+				}
+			}
+			function playNote(
+				ctx: AudioContext,
+				freq: number,
+				start: number,
+				dur: number,
+				type: OscillatorType,
+				vol: number,
+				endFreq?: number
+			) {
+				const o = ctx.createOscillator();
+				const g = ctx.createGain();
+				o.type = type;
+				o.frequency.setValueAtTime(freq, start);
+				if (endFreq !== undefined) o.frequency.linearRampToValueAtTime(endFreq, start + dur);
+				g.gain.setValueAtTime(vol, start);
+				g.gain.exponentialRampToValueAtTime(0.001, start + dur);
+				o.connect(g).connect(ctx.destination);
+				o.start(start);
+				o.stop(start + dur);
+			}
+			function sfxClick() {
+				if (!soundOn) return;
+				try {
+					const ctx = getCtx();
+					if (!ctx) return;
+					playNote(ctx, 700, ctx.currentTime, 0.03, 'square', 0.08);
+				} catch {}
+			}
+			function sfxChip() {
+				if (!soundOn) return;
+				try {
+					const ctx = getCtx();
+					if (!ctx) return;
+					playNote(ctx, 520, ctx.currentTime, 0.06, 'triangle', 0.1, 660);
+				} catch {}
+			}
+			function sfxSwish() {
+				if (!soundOn) return;
+				try {
+					const ctx = getCtx();
+					if (!ctx) return;
+					const t = ctx.currentTime;
+					const len = Math.floor(ctx.sampleRate * 0.08);
+					const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+					const data = buf.getChannelData(0);
+					for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+					const src = ctx.createBufferSource();
+					src.buffer = buf;
+					const bp = ctx.createBiquadFilter();
+					bp.type = 'bandpass';
+					bp.frequency.value = 1800;
+					const g = ctx.createGain();
+					g.gain.setValueAtTime(0.12, t);
+					g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+					src.connect(bp).connect(g).connect(ctx.destination);
+					src.start(t);
+				} catch {}
+			}
+			function sfxWin() {
+				if (!soundOn) return;
+				try {
+					const ctx = getCtx();
+					if (!ctx) return;
+					const t = ctx.currentTime;
+					[523, 659, 784].forEach((f, i) => playNote(ctx, f, t + i * 0.09, 0.09, 'sine', 0.1));
+				} catch {}
+			}
+			function sfxLose() {
+				if (!soundOn) return;
+				try {
+					const ctx = getCtx();
+					if (!ctx) return;
+					const t = ctx.currentTime;
+					playNote(ctx, 392, t, 0.12, 'sine', 0.06);
+					playNote(ctx, 330, t + 0.12, 0.16, 'sine', 0.06);
+				} catch {}
+			}
+
+			// ---------- 战绩统计 ----------
+			type GameStats = {
+				rounds: number;
+				win: number;
+				lose: number;
+				push: number;
+				net: number;
+				best: number;
+				worst: number;
+				curStreak: number;
+				bestStreak: number;
+			};
+			function emptyStats(): GameStats {
+				return {
+					rounds: 0,
+					win: 0,
+					lose: 0,
+					push: 0,
+					net: 0,
+					best: 0,
+					worst: 0,
+					curStreak: 0,
+					bestStreak: 0,
+				};
+			}
+			function loadStats(): GameStats {
+				try {
+					const s = JSON.parse(localStorage.getItem('baccarat_stats') || 'null');
+					if (s && typeof s === 'object') return { ...emptyStats(), ...s };
+				} catch {}
+				return emptyStats();
+			}
+			let gameStats = loadStats();
+			function saveStats() {
+				localStorage.setItem('baccarat_stats', JSON.stringify(gameStats));
+			}
+			function recordRound(net: number) {
+				gameStats.rounds++;
+				if (net > 0) {
+					gameStats.win++;
+					gameStats.curStreak++;
+					if (gameStats.curStreak > gameStats.bestStreak) gameStats.bestStreak = gameStats.curStreak;
+				} else if (net < 0) {
+					gameStats.lose++;
+					gameStats.curStreak = 0;
+				} else {
+					gameStats.push++;
+					gameStats.curStreak = 0;
+				}
+				gameStats.net += net;
+				if (net > gameStats.best) gameStats.best = net;
+				if (net < gameStats.worst) gameStats.worst = net;
+				saveStats();
+			}
+
 			// ---------- 牌靴 ----------
 			function newShoe() {
 				shoe = [];
@@ -297,7 +465,7 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				}
 				shoeNo++;
 				history = [];
-				renderRoad();
+				renderRoads();
 			}
 			function draw(): Card {
 				return shoe.pop()!;
@@ -311,6 +479,7 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 			const balanceEl = $('balance');
 			const msgEl = $('msg');
 			const roadEl = $('road');
+			const bigRoadEl = $('bigroad');
 			const dealBtn = $('btn-deal') as HTMLButtonElement;
 			const clearBtn = $('btn-clear') as HTMLButtonElement;
 			const rebetBtn = $('btn-rebet') as HTMLButtonElement;
@@ -404,6 +573,7 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 			}
 
 			async function dealCard(side: 'player' | 'banker', card: Card, hand: Card[]) {
+				sfxSwish();
 				$(`cards-${side}`).appendChild(cardEl(card));
 				$(`pts-${side}`).textContent = `${handTotal(hand)} 点`;
 				renderShoeInfo();
@@ -436,6 +606,81 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				$('stat-tie').textContent = String(history.filter((h) => h.r === 'T').length);
 			}
 
+			// ---------- 路单（大路） ----------
+			function renderBigRoad(hist: RoundResult[]) {
+				type BigCell = { r: 'B' | 'P'; col: number; row: number; ties: number; pp: boolean; bp: boolean };
+				const cells: BigCell[] = [];
+				const used = new Set<string>();
+				let last: BigCell | null = null; // 最近放置的 B/P 格（和局附着于此）
+				let cur = { row: 0, col: 0 }; // 放置光标
+				let curStartCol = -1; // 当前这条龙的起始列
+				let pendingTies = 0; // 开局先出的和，暂存计数
+
+				for (const h of hist) {
+					if (h.r === 'T') {
+						if (last) last.ties++;
+						else pendingTies++;
+						continue;
+					}
+					if (last && last.r === h.r) {
+						// 延续当前列：优先向下，被占或到底则向右（龙尾）
+						if (cur.row < 5 && !used.has(cur.col + ',' + (cur.row + 1))) {
+							cur = { row: cur.row + 1, col: cur.col };
+						} else {
+							cur = { row: cur.row, col: cur.col + 1 };
+						}
+					} else {
+						// 换边：开新列（上一条龙起始列 + 1），行 0 起步
+						let newCol = curStartCol + 1;
+						while (used.has(newCol + ',0')) newCol++;
+						cur = { row: 0, col: newCol };
+						curStartCol = newCol;
+					}
+					used.add(cur.col + ',' + cur.row);
+					const cell: BigCell = { r: h.r, col: cur.col, row: cur.row, ties: pendingTies, pp: h.pp, bp: h.bp };
+					pendingTies = 0;
+					cells.push(cell);
+					last = cell;
+				}
+
+				bigRoadEl.innerHTML = '';
+				let maxCol = 0;
+				for (const c of cells) maxCol = Math.max(maxCol, c.col);
+				bigRoadEl.style.gridTemplateColumns = `repeat(${maxCol + 1}, 17px)`;
+				for (const c of cells) {
+					const el = document.createElement('span');
+					el.className = 'bcell bcell-' + c.r + (c.ties > 0 ? ' has-tie' : '');
+					el.style.gridColumn = String(c.col + 1);
+					el.style.gridRow = String(c.row + 1);
+					if (c.ties > 1) {
+						const n = document.createElement('i');
+						n.className = 'tie-n';
+						n.textContent = String(c.ties);
+						el.appendChild(n);
+					}
+					if (c.bp) el.appendChild(Object.assign(document.createElement('i'), { className: 'dot dot-b' }));
+					if (c.pp) el.appendChild(Object.assign(document.createElement('i'), { className: 'dot dot-p' }));
+					bigRoadEl.appendChild(el);
+				}
+				bigRoadEl.scrollLeft = bigRoadEl.scrollWidth;
+			}
+
+			function renderRoads() {
+				renderRoad();
+				renderBigRoad(history);
+			}
+
+			let roadTab: 'bead' | 'big' = localStorage.getItem('baccarat_road_tab') === 'big' ? 'big' : 'bead';
+			function applyRoadTab() {
+				roadEl.classList.toggle('hidden', roadTab !== 'bead');
+				bigRoadEl.classList.toggle('hidden', roadTab !== 'big');
+				document.querySelectorAll<HTMLElement>('.road-tab').forEach((b) => {
+					b.classList.toggle('sel', b.dataset.tab === roadTab);
+				});
+				const el = roadTab === 'big' ? bigRoadEl : roadEl;
+				el.scrollLeft = el.scrollWidth;
+			}
+
 			// ---------- 下注 ----------
 			function placeBet(key: BetKey) {
 				if (state !== 'bet') return;
@@ -447,6 +692,8 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				clearWonSpots();
 				balance -= selectedChip;
 				bets[key] += selectedChip;
+				sfxChip();
+				navigator.vibrate?.(10);
 				renderBalance();
 				renderBets();
 				updateActions();
@@ -555,6 +802,13 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				const staked = totalBet();
 				const net = returned - staked;
 				balance += returned;
+				recordRound(net);
+				if (net > 0) {
+					sfxWin();
+					navigator.vibrate?.([30, 50, 30]);
+				} else if (net < 0) {
+					sfxLose();
+				}
 				lastBets = { ...bets };
 				bets = emptyBets();
 				history.push({ r: outcome, pp: ppair, bp: bpair });
@@ -582,7 +836,7 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				save();
 				renderBalance();
 				renderBets();
-				renderRoad();
+				renderRoads();
 				renderShoeInfo();
 
 				state = 'bet';
@@ -843,13 +1097,56 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 						selectedChip = v;
 						chipsEl.querySelectorAll('.chip').forEach((c) => c.classList.remove('sel'));
 						btn.classList.add('sel');
+						sfxClick();
 					});
 					chipsEl.appendChild(btn);
 				}
 			}
 
+			// ---------- 战绩面板 ----------
+			function renderStats() {
+				const s = gameStats;
+				const cell = (label: string, value: string, cls = '') =>
+					`<div class="stat-card"><span class="stat-label">${label}</span><b class="stat-value${cls ? ' ' + cls : ''}">${value}</b></div>`;
+				$('stats-grid').innerHTML =
+					cell('总局数', fmt(s.rounds)) +
+					cell('胜 / 负 / 和', `${fmt(s.win)} / ${fmt(s.lose)} / ${fmt(s.push)}`) +
+					cell('总净盈亏', (s.net > 0 ? '+' : '') + fmt(s.net), s.net > 0 ? 'pos' : s.net < 0 ? 'neg' : '') +
+					cell('单局最大赢', s.best > 0 ? '+' + fmt(s.best) : '0', s.best > 0 ? 'pos' : '') +
+					cell('单局最大输', s.worst < 0 ? fmt(s.worst) : '0', s.worst < 0 ? 'neg' : '') +
+					cell('最长连胜', fmt(s.bestStreak));
+			}
+
 			document.querySelectorAll<HTMLElement>('.spot').forEach((spot) => {
 				spot.addEventListener('click', () => placeBet(spot.dataset.bet as BetKey));
+			});
+			document.querySelectorAll<HTMLElement>('.road-tab').forEach((btn) => {
+				btn.addEventListener('click', () => {
+					roadTab = btn.dataset.tab === 'big' ? 'big' : 'bead';
+					localStorage.setItem('baccarat_road_tab', roadTab);
+					applyRoadTab();
+					sfxClick();
+				});
+			});
+			const soundBtn = $('btn-sound');
+			function renderSoundBtn() {
+				soundBtn.textContent = soundOn ? '🔊' : '🔇';
+			}
+			soundBtn.addEventListener('click', () => {
+				soundOn = !soundOn;
+				localStorage.setItem('baccarat_sound', soundOn ? '1' : '0');
+				renderSoundBtn();
+				sfxClick();
+			});
+			$('btn-stats').addEventListener('click', () => {
+				renderStats();
+				openOverlay('stats');
+			});
+			$('btn-stats-reset').addEventListener('click', () => {
+				gameStats = emptyStats();
+				saveStats();
+				renderStats();
+				toast('战绩已重置');
 			});
 			clearBtn.addEventListener('click', clearBets);
 			rebetBtn.addEventListener('click', rebet);
@@ -888,6 +1185,8 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 			initChips();
 			initStore();
 			newShoe();
+			applyRoadTab();
+			renderSoundBtn();
 			renderBalance(false);
 			renderBets();
 			renderShoeInfo();
@@ -947,8 +1246,8 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 			.topbar {
 				display: flex;
 				align-items: center;
-				gap: 8px;
-				padding: 10px 12px;
+				gap: 6px;
+				padding: 10px 10px;
 			}
 			.back {
 				color: #cfe8dc;
@@ -958,9 +1257,10 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				padding: 0 4px;
 			}
 			.logo {
-				font-size: 19px;
+				font-size: 17px;
 				font-weight: 800;
-				letter-spacing: 2px;
+				letter-spacing: 1px;
+				white-space: nowrap;
 				background: linear-gradient(var(--gold-2), #d9a62e);
 				-webkit-background-clip: text;
 				background-clip: text;
@@ -971,8 +1271,8 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				background: rgba(255, 255, 255, 0.1);
 				border: 1px solid rgba(255, 255, 255, 0.2);
 				border-radius: 10px;
-				font-size: 16px;
-				padding: 5px 9px;
+				font-size: 15px;
+				padding: 4px 7px;
 				color: #fff;
 			}
 			.online-link {
@@ -1286,6 +1586,65 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				bottom: -1px;
 				right: -1px;
 				background: var(--blue);
+			}
+			.road-tabs {
+				margin-left: auto;
+				display: flex;
+				gap: 4px;
+			}
+			.road-tab {
+				background: none;
+				border: none;
+				padding: 0 6px 3px;
+				font-size: 11px;
+				font-weight: 700;
+				color: #8a9a90;
+				border-bottom: 2px solid transparent;
+				line-height: 1.2;
+			}
+			.road-tab.sel {
+				color: #a67c1a;
+				border-bottom-color: var(--gold);
+			}
+
+			/* 大路 */
+			.road.bigroad {
+				grid-auto-flow: row;
+			}
+			.bcell {
+				position: relative;
+				width: 17px;
+				height: 17px;
+				border-radius: 50%;
+				border: 2px solid;
+			}
+			.bcell-B {
+				border-color: var(--red);
+			}
+			.bcell-P {
+				border-color: var(--blue);
+			}
+			.bcell.has-tie::after {
+				content: '';
+				position: absolute;
+				left: 50%;
+				top: 50%;
+				width: 15px;
+				height: 2px;
+				background: var(--green);
+				border-radius: 1px;
+				transform: translate(-50%, -50%) rotate(-45deg);
+			}
+			.tie-n {
+				position: absolute;
+				top: -6px;
+				right: -4px;
+				font-size: 8px;
+				font-style: normal;
+				font-weight: 800;
+				line-height: 1;
+				color: var(--green);
+				z-index: 1;
 			}
 
 			/* 下注区 */
@@ -1817,6 +2176,42 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				font-size: 10px;
 				color: #6f9483;
 				margin-top: 3px;
+			}
+
+			/* 我的战绩 */
+			.stats-grid {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 8px;
+				margin: 14px 0;
+			}
+			.stat-card {
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				background: rgba(255, 255, 255, 0.07);
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				border-radius: 12px;
+				padding: 10px 12px;
+			}
+			.stat-card .stat-label {
+				font-size: 11px;
+				color: #9cc7b3;
+			}
+			.stat-card .stat-value {
+				font-size: 18px;
+				font-weight: 800;
+				color: #f2ede0;
+				font-variant-numeric: tabular-nums;
+			}
+			.stat-card .stat-value.pos {
+				color: #67dd96;
+			}
+			.stat-card .stat-value.neg {
+				color: #ff8f8f;
+			}
+			.btn-stats-reset {
+				width: 100%;
 			}
 
 			@media (min-width: 561px) {
