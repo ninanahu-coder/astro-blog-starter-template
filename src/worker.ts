@@ -33,6 +33,7 @@ type RoadEntry = { r: 'B' | 'P' | 'T'; pp: boolean; bp: boolean };
 
 interface PlayerInfo {
 	name: string;
+	avatar: string;
 	balance: number;
 	conns: number;
 }
@@ -108,6 +109,7 @@ export class BaccaratTable {
 		const url = new URL(request.url);
 		const playerId = (url.searchParams.get('id') || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 32);
 		let name = (url.searchParams.get('name') || '').replace(/[<>&"'\s]/g, '').slice(0, 8);
+		const avatar = (url.searchParams.get('avatar') || '').replace(/[<>&"']/g, '').slice(0, 4) || '🙂';
 		if (!playerId) return new Response('missing id', { status: 400 });
 		if (!name) name = '玩家' + playerId.slice(-4);
 		if (this.sockets.size >= MAX_CONNS) return new Response('room full', { status: 503 });
@@ -116,7 +118,7 @@ export class BaccaratTable {
 		const client = pair[0];
 		const server = pair[1];
 		server.accept();
-		await this.addPlayer(server, playerId, name);
+		await this.addPlayer(server, playerId, name, avatar);
 		server.addEventListener('message', (e) => {
 			try {
 				this.onMessage(server, String((e as MessageEvent).data));
@@ -129,7 +131,7 @@ export class BaccaratTable {
 	}
 
 	// ---------- 玩家 ----------
-	private async addPlayer(ws: WebSocket, playerId: string, name: string) {
+	private async addPlayer(ws: WebSocket, playerId: string, name: string, avatar: string) {
 		let info = this.players.get(playerId);
 		if (!info) {
 			let balance = await this.ctx.storage.get<number>('bal:' + playerId);
@@ -137,10 +139,11 @@ export class BaccaratTable {
 				balance = START_BALANCE;
 				await this.ctx.storage.put('bal:' + playerId, balance);
 			}
-			info = { name, balance, conns: 0 };
+			info = { name, avatar, balance, conns: 0 };
 			this.players.set(playerId, info);
 		}
 		info.name = name;
+		info.avatar = avatar;
 		info.conns++;
 		this.sockets.set(ws, playerId);
 		this.lastSeen.set(ws, Date.now());
@@ -207,11 +210,13 @@ export class BaccaratTable {
 	}
 
 	private playerList() {
-		const list: { id: string; name: string; balance: number; online: boolean; betting: boolean }[] = [];
+		const list: { id: string; name: string; avatar: string; balance: number; online: boolean; betting: boolean }[] =
+			[];
 		for (const [pid, info] of this.players) {
 			list.push({
 				id: pid.slice(-6),
 				name: info.name,
+				avatar: info.avatar,
 				balance: info.balance,
 				online: info.conns > 0,
 				betting: betTotal(this.bets.get(pid) || emptyBets()) > 0,
@@ -307,7 +312,7 @@ export class BaccaratTable {
 					.slice(0, 60);
 				if (!text) return;
 				this.chatLast.set(pid, now);
-				this.broadcast({ t: 'chat', name: info.name, text });
+				this.broadcast({ t: 'chat', name: info.name, avatar: info.avatar, text });
 				break;
 			}
 		}

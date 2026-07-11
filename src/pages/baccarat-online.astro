@@ -25,6 +25,7 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				<a class="back" href="/baccarat" aria-label="返回单机版">‹</a>
 				<div class="logo">🌐 在线同桌</div>
 				<span class="room-pill" id="room-pill"></span>
+				<button class="icon-btn invite-btn hidden" id="btn-invite">＋邀请</button>
 				<button class="icon-btn" id="btn-sound" aria-label="音效开关">🔊</button>
 				<div class="balance-box">
 					<span class="coin">🪙</span>
@@ -124,19 +125,29 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			</section>
 		</div>
 
-		<!-- 入桌 -->
+		<!-- 登录 -->
 		<div class="overlay" id="join">
 			<div class="sheet">
-				<div class="sheet-head"><span>进入牌桌</span></div>
-				<p class="sim-note">和朋友输入相同房间号即可同桌 · 虚拟筹码仅供娱乐 · 余额按房间保存</p>
+				<div class="login-logo">
+					<div class="login-spade">♠</div>
+					<div class="login-title">百家乐 · 在线同桌</div>
+					<div class="login-sub">和微信好友同桌对战 · 虚拟筹码仅供娱乐</div>
+				</div>
+				<div class="field">
+					<span>选择头像</span>
+					<div class="avatar-grid" id="avatar-grid"></div>
+				</div>
 				<label class="field">
-					<span>昵称</span>
+					<span>你的昵称</span>
 					<input id="in-name" maxlength="8" placeholder="最多 8 个字符" />
 				</label>
-				<label class="field">
-					<span>房间号</span>
-					<input id="in-room" maxlength="8" placeholder="默认 LOBBY（公共大厅）" />
-				</label>
+				<div class="field">
+					<span>房间号（同房间号即同桌）</span>
+					<div class="room-row">
+						<input id="in-room" maxlength="8" placeholder="默认 LOBBY（公共大厅）" />
+						<button class="btn-mini" id="btn-random" type="button">随机</button>
+					</div>
+				</div>
 				<button class="btn btn-gold btn-buy" id="btn-join">进入牌桌</button>
 			</div>
 		</div>
@@ -152,6 +163,21 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				<div class="chat-row">
 					<input id="chat-input" maxlength="60" placeholder="说点什么…" />
 					<button class="btn-mini" id="chat-send">发送</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- 邀请好友（分享/剪贴板都不可用时的兜底） -->
+		<div class="overlay hidden" id="invite">
+			<div class="sheet">
+				<div class="sheet-head">
+					<span>邀请好友</span>
+					<button class="x" data-close="invite" aria-label="关闭">×</button>
+				</div>
+				<p class="sim-note">长按复制链接，发给微信好友，点开即同桌</p>
+				<div class="chat-row">
+					<input id="invite-link" readonly />
+					<button class="btn-mini" id="invite-copy">复制</button>
 				</div>
 			</div>
 		</div>
@@ -347,13 +373,16 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 					el.textContent = totals[key] > 0 ? `桌 ${fmt(totals[key])}` : '';
 				}
 			}
-			function renderPlayers(players: { name: string; balance: number; online: boolean; betting: boolean }[]) {
+			function renderPlayers(
+				players: { name: string; avatar?: string; balance: number; online: boolean; betting: boolean }[],
+			) {
 				const strip = $('players-strip');
 				strip.innerHTML = '';
 				for (const p of players) {
 					const div = document.createElement('div');
 					div.className = 'pl' + (p.online ? '' : ' off') + (p.betting ? ' betting' : '');
-					div.innerHTML = `<span class="pl-name"></span><span class="pl-bal">${fmt(p.balance)}</span>`;
+					div.innerHTML = `<span class="pl-ava"></span><span class="pl-main"><span class="pl-name"></span><span class="pl-bal">${fmt(p.balance)}</span></span>`;
+					div.querySelector('.pl-ava')!.textContent = p.avatar || '🙂';
 					div.querySelector('.pl-name')!.textContent = p.name;
 					strip.appendChild(div);
 				}
@@ -554,7 +583,7 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				curRoom = room;
 				curName = name;
 				const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-				const url = `${proto}://${location.host}/api/baccarat/ws?room=${encodeURIComponent(room)}&id=${pid}&name=${encodeURIComponent(name)}`;
+				const url = `${proto}://${location.host}/api/baccarat/ws?room=${encodeURIComponent(room)}&id=${pid}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`;
 				ws = new WebSocket(url);
 				ws.addEventListener('open', () => {
 					reconnectDelay = 1500;
@@ -584,6 +613,7 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				switch (m.t) {
 					case 'welcome': {
 						joined = true;
+						$('btn-invite').classList.remove('hidden'); // 入桌后才显示邀请按钮
 						clearDealTimers(); // 重连时清理旧动画定时器，防止叠加重复牌
 						lastNet = null;
 						balance = m.you.balance;
@@ -688,7 +718,7 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 						renderPlayers(m.players);
 						break;
 					case 'chat': {
-						addChatLine(m.name, m.text);
+						addChatLine(m.name, m.text, m.avatar);
 						if ($('chat').classList.contains('hidden')) {
 							unread++;
 							const badge = $('chat-badge');
@@ -703,15 +733,18 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				}
 			}
 			// ---------- 聊天 ----------
-			function addChatLine(name: string, text: string) {
+			function addChatLine(name: string, text: string, avatar?: string) {
 				const list = $('chat-list');
 				const div = document.createElement('div');
 				div.className = 'chat-line';
+				const ava = document.createElement('span');
+				ava.className = 'chat-ava';
+				ava.textContent = avatar || '🙂';
 				const b = document.createElement('b');
 				b.textContent = name + '：';
 				const span = document.createElement('span');
 				span.textContent = text;
-				div.append(b, span);
+				div.append(ava, b, span);
 				list.appendChild(div);
 				while (list.children.length > 50) list.removeChild(list.firstChild!);
 				list.scrollTop = list.scrollHeight;
@@ -763,25 +796,118 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				}
 			}
 
-			// ---------- 入桌 ----------
+			// ---------- 登录 / 入桌 ----------
+			const AVATARS = ['🐯', '🐼', '🦊', '🐰', '🐸', '🐵', '🦁', '🐨', '🐷', '🐮', '🐔', '🦄'];
+			let avatar = localStorage.getItem('baccarat_avatar') || '';
+			if (!AVATARS.includes(avatar)) {
+				avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
+				localStorage.setItem('baccarat_avatar', avatar); // 默认随机一个并立即持久化
+			}
+			function initAvatars() {
+				const grid = $('avatar-grid');
+				for (const a of AVATARS) {
+					const btn = document.createElement('button');
+					btn.type = 'button';
+					btn.className = 'avatar-btn' + (a === avatar ? ' sel' : '');
+					btn.textContent = a;
+					btn.addEventListener('click', () => {
+						avatar = a;
+						localStorage.setItem('baccarat_avatar', a);
+						grid.querySelectorAll('.avatar-btn').forEach((b) => b.classList.remove('sel'));
+						btn.classList.add('sel');
+						sfx.click();
+					});
+					grid.appendChild(btn);
+				}
+			}
+
 			document.querySelectorAll<HTMLElement>('[data-close]').forEach((btn) => {
 				btn.addEventListener('click', () => $(btn.dataset.close!).classList.add('hidden'));
 			});
-			$('btn-join').addEventListener('click', () => {
-				const name = ($('in-name') as HTMLInputElement).value.trim().slice(0, 8) || '玩家' + pid.slice(-4);
-				const room =
-					($('in-room') as HTMLInputElement).value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) ||
-					'LOBBY';
+			function enterTable(room: string, name: string) {
 				localStorage.setItem('baccarat_name', name);
 				localStorage.setItem('baccarat_room', room);
 				$('room-pill').textContent = room === 'LOBBY' ? '大厅' : '房 ' + room;
 				$('join').classList.add('hidden');
 				connect(room, name);
+			}
+			$('btn-join').addEventListener('click', () => {
+				const name = ($('in-name') as HTMLInputElement).value.trim().slice(0, 8) || '玩家' + pid.slice(-4);
+				const room =
+					($('in-room') as HTMLInputElement).value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) ||
+					'LOBBY';
+				enterTable(room, name);
+			});
+			// 随机生成 6 位大写字母数字房号
+			$('btn-random').addEventListener('click', () => {
+				const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+				let code = '';
+				for (const b of crypto.getRandomValues(new Uint8Array(6))) code += chars[b % chars.length];
+				($('in-room') as HTMLInputElement).value = code;
+				sfx.click();
+			});
+
+			// ---------- 邀请微信好友 ----------
+			function openInviteSheet(link: string) {
+				($('invite-link') as HTMLInputElement).value = link;
+				$('invite').classList.remove('hidden');
+			}
+			$('btn-invite').addEventListener('click', async () => {
+				if (!curRoom) return;
+				const link = location.origin + '/baccarat-online/?room=' + curRoom;
+				// 微信内置浏览器无 navigator.share（或行为怪异），直接走复制/弹层路径
+				const inWeChat = /MicroMessenger/i.test(navigator.userAgent);
+				if (!inWeChat && typeof navigator.share === 'function') {
+					try {
+						await navigator.share({ title: '百家乐同桌邀请', text: '点开链接和我同桌对战（虚拟筹码）', url: link });
+						return;
+					} catch (e) {
+						if ((e as DOMException)?.name === 'AbortError') return; // 用户取消分享，不算错误
+					}
+				}
+				try {
+					await navigator.clipboard.writeText(link);
+					toast('邀请链接已复制，去微信粘贴给好友');
+					return;
+				} catch {}
+				openInviteSheet(link);
+			});
+			$('invite-link').addEventListener('click', () => {
+				const el = $('invite-link') as HTMLInputElement;
+				el.select();
+				el.setSelectionRange(0, el.value.length);
+			});
+			$('invite-copy').addEventListener('click', () => {
+				const el = $('invite-link') as HTMLInputElement;
+				el.select();
+				el.setSelectionRange(0, el.value.length);
+				let ok = false;
+				try {
+					ok = document.execCommand('copy');
+				} catch {}
+				toast(ok ? '邀请链接已复制，去微信粘贴给好友' : '复制失败，请长按链接手动复制');
 			});
 
 			initChips();
+			initAvatars();
 			($('in-name') as HTMLInputElement).value = localStorage.getItem('baccarat_name') || '';
 			($('in-room') as HTMLInputElement).value = localStorage.getItem('baccarat_room') || '';
+
+			// URL 自动进房：好友邀请链接 ?room=XXX
+			const urlRoom = (new URLSearchParams(location.search).get('room') || '')
+				.toUpperCase()
+				.replace(/[^A-Z0-9]/g, '')
+				.slice(0, 8);
+			if (urlRoom) {
+				($('in-room') as HTMLInputElement).value = urlRoom;
+				const savedName = (localStorage.getItem('baccarat_name') || '').trim().slice(0, 8);
+				if (savedName) {
+					// 老玩家：跳过登录界面直接进好友房间
+					enterTable(urlRoom, savedName);
+					toast('已进入好友房间 ' + urlRoom);
+				}
+				// 新玩家：停在登录界面等填昵称，房号已预填
+			}
 			window.addEventListener('beforeunload', () => {
 				leaving = true;
 				ws?.close();
@@ -885,6 +1011,15 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				font-size: 14px;
 				line-height: 1;
 			}
+			.invite-btn {
+				background: linear-gradient(#f6d47c, #dfa42c);
+				border-color: rgba(233, 194, 95, 0.7);
+				color: #4a3505;
+				font-size: 12px;
+				font-weight: 800;
+				border-radius: 999px;
+				padding: 5px 10px;
+			}
 			.balance-box {
 				margin-left: auto;
 				background: rgba(0, 0, 0, 0.4);
@@ -953,12 +1088,22 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			.pl {
 				flex-shrink: 0;
 				display: flex;
-				flex-direction: column;
+				flex-direction: row;
 				align-items: center;
+				gap: 6px;
 				background: rgba(255, 255, 255, 0.08);
 				border: 1px solid rgba(255, 255, 255, 0.16);
 				border-radius: 10px;
-				padding: 3px 10px;
+				padding: 3px 10px 3px 7px;
+			}
+			.pl-ava {
+				font-size: 18px;
+				line-height: 1;
+			}
+			.pl-main {
+				display: flex;
+				flex-direction: column;
+				align-items: flex-start;
 			}
 			.pl.betting {
 				border-color: var(--gold);
@@ -1530,6 +1675,72 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			.btn-buy {
 				width: 100%;
 			}
+
+			/* 登录界面 */
+			.login-logo {
+				text-align: center;
+				padding: 8px 0 14px;
+			}
+			.login-spade {
+				font-size: 34px;
+				line-height: 1.1;
+				color: var(--gold);
+				text-shadow: 0 2px 10px rgba(233, 194, 95, 0.45);
+			}
+			.login-title {
+				margin-top: 2px;
+				font-size: 24px;
+				font-weight: 800;
+				letter-spacing: 2px;
+				background: linear-gradient(var(--gold-2), #d9a62e);
+				-webkit-background-clip: text;
+				background-clip: text;
+				-webkit-text-fill-color: transparent;
+			}
+			.login-sub {
+				margin-top: 5px;
+				font-size: 12px;
+				color: #9cc7b3;
+			}
+			.avatar-grid {
+				display: grid;
+				grid-template-columns: repeat(6, 1fr);
+				gap: 8px;
+				justify-items: center;
+			}
+			.avatar-btn {
+				width: 48px;
+				height: 48px;
+				border-radius: 50%;
+				background: rgba(255, 255, 255, 0.1);
+				border: 1px solid rgba(255, 255, 255, 0.18);
+				font-size: 24px;
+				line-height: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				transition:
+					transform 0.12s,
+					box-shadow 0.12s;
+			}
+			.avatar-btn.sel {
+				box-shadow: 0 0 0 3px var(--gold);
+				background: rgba(233, 194, 95, 0.2);
+				transform: scale(1.08);
+			}
+			.room-row {
+				display: flex;
+				gap: 8px;
+				align-items: stretch;
+			}
+			.room-row input {
+				flex: 1;
+				min-width: 0;
+			}
+			#invite-link {
+				font-size: 12px;
+				color: #ffe9ad;
+			}
 			.result-icon {
 				font-size: 46px;
 				margin: 12px 0 6px;
@@ -1562,6 +1773,9 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			.chat-line b {
 				color: var(--gold-2);
 				font-weight: 700;
+			}
+			.chat-ava {
+				margin-right: 4px;
 			}
 			.chat-row {
 				display: flex;
