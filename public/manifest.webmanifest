@@ -1,0 +1,22 @@
+{
+	"name": "百家乐",
+	"short_name": "百家乐",
+	"description": "移动端百家乐小游戏，虚拟筹码，仅供娱乐。",
+	"lang": "zh-CN",
+	"start_url": "/baccarat",
+	"scope": "/",
+	"display": "standalone",
+	"orientation": "portrait",
+	"background_color": "#082b20",
+	"theme_color": "#0b3d2e",
+	"icons": [
+		{ "src": "/icons/baccarat-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+		{ "src": "/icons/baccarat-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+		{
+			"src": "/icons/baccarat-maskable-512.png",
+			"sizes": "512x512",
+			"type": "image/png",
+			"purpose": "maskable"
+		}
+	]
+}

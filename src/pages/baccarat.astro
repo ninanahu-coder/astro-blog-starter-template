@@ -1,0 +1,1837 @@
+---
+// 百家乐手机游戏 — 自包含页面，虚拟筹码，纯娱乐用途。
+// 可作为 PWA 安装到安卓 / 苹果手机主屏幕；商店为模拟支付，无真实扣款。
+const title = '百家乐 · 手机小游戏';
+const description = '移动端百家乐小游戏：完整补牌规则、路单、筹码商店（模拟）与虚拟筹码下注，可安装到手机主屏幕。';
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+		/>
+		<meta name="theme-color" content="#0b3d2e" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="manifest" href="/manifest.webmanifest" />
+		<link rel="apple-touch-icon" href="/icons/baccarat-180.png" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-title" content="百家乐" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+	</head>
+	<body>
+		<div id="app">
+			<header class="topbar">
+				<a class="back" href="/" aria-label="返回首页">‹</a>
+				<div class="logo">♠ 百家乐</div>
+				<a class="icon-btn online-link" href="/baccarat-online" aria-label="在线同桌">🌐 在线</a>
+				<button class="icon-btn hidden" id="btn-install" aria-label="安装到手机">📲</button>
+				<div class="balance-box">
+					<span class="coin">🪙</span>
+					<strong id="balance">0</strong>
+					<button class="plus" id="btn-store" aria-label="打开筹码商店">＋</button>
+				</div>
+			</header>
+
+			<section class="table">
+				<div class="table-info">
+					<span id="shoe-info">牌靴 —</span>
+					<span class="free-note">虚拟筹码 · 仅供娱乐</span>
+				</div>
+				<div class="hands">
+					<div class="hand" id="hand-banker">
+						<div class="hand-head">
+							<span class="tag tag-banker">庄</span>
+							<span class="pts" id="pts-banker"></span>
+						</div>
+						<div class="cards" id="cards-banker"></div>
+					</div>
+					<div class="vs">VS</div>
+					<div class="hand" id="hand-player">
+						<div class="hand-head">
+							<span class="tag tag-player">闲</span>
+							<span class="pts" id="pts-player"></span>
+						</div>
+						<div class="cards" id="cards-player"></div>
+					</div>
+				</div>
+				<div class="banner hidden" id="banner">
+					<div class="banner-title" id="banner-title"></div>
+					<div class="banner-sub" id="banner-sub"></div>
+				</div>
+				<div class="msg" id="msg">请下注</div>
+			</section>
+
+			<section class="road-wrap">
+				<div class="stats">
+					<span class="stat stat-banker">庄 <b id="stat-banker">0</b></span>
+					<span class="stat stat-player">闲 <b id="stat-player">0</b></span>
+					<span class="stat stat-tie">和 <b id="stat-tie">0</b></span>
+				</div>
+				<div class="road" id="road"></div>
+			</section>
+
+			<section class="bets">
+				<button class="spot spot-side" data-bet="ppair">
+					<span class="spot-name">闲对</span>
+					<span class="spot-odds">1:11</span>
+					<span class="spot-amt" data-amt="ppair"></span>
+				</button>
+				<button class="spot spot-player" data-bet="player">
+					<span class="spot-name">闲</span>
+					<span class="spot-odds">1:1</span>
+					<span class="spot-amt" data-amt="player"></span>
+				</button>
+				<button class="spot spot-tie" data-bet="tie">
+					<span class="spot-name">和</span>
+					<span class="spot-odds">1:8</span>
+					<span class="spot-amt" data-amt="tie"></span>
+				</button>
+				<button class="spot spot-banker" data-bet="banker">
+					<span class="spot-name">庄</span>
+					<span class="spot-odds">1:0.95</span>
+					<span class="spot-amt" data-amt="banker"></span>
+				</button>
+				<button class="spot spot-side" data-bet="bpair">
+					<span class="spot-name">庄对</span>
+					<span class="spot-odds">1:11</span>
+					<span class="spot-amt" data-amt="bpair"></span>
+				</button>
+			</section>
+
+			<section class="chips" id="chips"></section>
+
+			<section class="actions">
+				<button class="btn btn-ghost" id="btn-clear">清除</button>
+				<button class="btn btn-ghost" id="btn-rebet">重复</button>
+				<button class="btn btn-gold" id="btn-deal" disabled>发牌</button>
+				<button class="btn btn-gold hidden" id="btn-broke">去商店补充</button>
+			</section>
+		</div>
+
+		<!-- 筹码商店（模拟支付） -->
+		<div class="overlay hidden" id="store">
+			<div class="sheet">
+				<div class="sheet-head">
+					<span>筹码商店</span>
+					<span class="head-actions">
+						<button class="link-btn" id="btn-orders">交易记录</button>
+						<button class="x" data-close="store" aria-label="关闭">×</button>
+					</span>
+				</div>
+				<p class="sim-note">⚠️ 模拟支付演示 · 不会产生任何真实扣款 · 虚拟筹码仅供娱乐、不可兑现</p>
+				<div class="bonus-row" id="daily-row">
+					<div class="bonus-info"><b>每日免费筹码</b><span>每天登录可领一次</span></div>
+					<button class="btn-mini" id="btn-daily">领取 +2,000</button>
+				</div>
+				<div class="bonus-row hidden" id="relief-row">
+					<div class="bonus-info"><b>破产救济金</b><span>余额为 0 时可领取</span></div>
+					<button class="btn-mini" id="btn-relief">领取 +5,000</button>
+				</div>
+				<div class="packs" id="packs"></div>
+				<div class="pay-methods" id="pay-methods">
+					<label class="pay"><input type="radio" name="pay" value="微信支付" checked /><span>💚 微信支付</span></label>
+					<label class="pay"><input type="radio" name="pay" value="支付宝" /><span>💙 支付宝</span></label>
+					<label class="pay"><input type="radio" name="pay" value="Apple Pay" /><span>🍎 Apple Pay</span></label>
+				</div>
+				<button class="btn btn-gold btn-buy" id="btn-buy" disabled>请先选择套餐</button>
+			</div>
+		</div>
+
+		<!-- iOS 安装指引 -->
+		<div class="overlay hidden" id="install-help">
+			<div class="sheet">
+				<div class="sheet-head">
+					<span>安装到 iPhone 主屏幕</span>
+					<button class="x" data-close="install-help" aria-label="关闭">×</button>
+				</div>
+				<ol class="steps">
+					<li>用 <b>Safari</b> 打开本页面</li>
+					<li>点击底部工具栏的 <b>分享按钮</b> <span class="kbd">⬆️</span></li>
+					<li>向下滑动，选择 <b>「添加到主屏幕」</b></li>
+					<li>点击右上角 <b>「添加」</b>，即可像 App 一样全屏运行</li>
+				</ol>
+				<p class="sim-note">安卓手机：用 Chrome 打开本页，点击顶部 📲 按钮或浏览器菜单中的「安装应用」。</p>
+			</div>
+		</div>
+
+		<!-- 模拟收银台（线下测试，无真实扣款） -->
+		<div class="overlay hidden" id="cashier">
+			<div class="sheet">
+				<div class="sheet-head">
+					<span>收银台 · 沙箱测试</span>
+					<button class="x" id="cashier-x" aria-label="取消订单">×</button>
+				</div>
+				<div id="cashier-pay">
+					<div class="order-card">
+						<div class="order-amount" id="order-amount">¥ 0.00</div>
+						<div class="order-row"><span>商品</span><b id="order-goods"></b></div>
+						<div class="order-row"><span>订单号</span><b id="order-id"></b></div>
+						<div class="order-row"><span>支付方式</span><b id="order-method"></b></div>
+						<div class="order-row"><span>环境</span><b class="sandbox-tag">沙箱测试 · 不产生扣款</b></div>
+					</div>
+					<div class="qr-box" id="qr-box">
+						<canvas id="qr-canvas" width="168" height="168"></canvas>
+						<span class="qr-note">模拟二维码 · 扫码无效 · 仅测试界面</span>
+					</div>
+					<p class="applepay-note hidden" id="applepay-note">🍎 模拟 Face ID / 双击侧边按钮确认</p>
+					<div class="cashier-actions">
+						<button class="btn btn-gold" id="pay-ok">模拟支付成功</button>
+						<div class="cashier-sub">
+							<button class="btn btn-ghost danger" id="pay-fail">模拟支付失败</button>
+							<button class="btn btn-ghost" id="pay-cancel">取消订单</button>
+						</div>
+					</div>
+				</div>
+				<div id="cashier-result" class="hidden">
+					<div class="result-icon" id="result-icon">✅</div>
+					<div class="result-title" id="result-title">支付成功</div>
+					<div class="result-sub" id="result-sub"></div>
+					<button class="btn btn-gold btn-buy" id="btn-done">完成</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- 交易记录（模拟） -->
+		<div class="overlay hidden" id="orders">
+			<div class="sheet">
+				<div class="sheet-head">
+					<span>交易记录 · 沙箱</span>
+					<button class="x" data-close="orders" aria-label="关闭">×</button>
+				</div>
+				<div class="orders-list" id="orders-list"></div>
+			</div>
+		</div>
+
+		<div class="toast" id="toast"></div>
+
+		<script>
+			// ---------- 常量 ----------
+			const SUITS = ['♠', '♥', '♦', '♣'];
+			const RANKS = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
+			const DECKS = 8; // 8 副牌一靴
+			const CUT_CARD = 30; // 剩余少于 30 张时换新靴
+			const START_BALANCE = 10000;
+			const CHIP_VALUES = [10, 50, 100, 500, 1000];
+			const CHIP_COLORS: Record<number, string> = {
+				10: '#3d9be9',
+				50: '#3cb878',
+				100: '#e14b4b',
+				500: '#9b59b6',
+				1000: '#e9b83d',
+			};
+			// 模拟商店套餐（无真实扣款）
+			const PACKS = [
+				{ price: 6, chips: 6000 },
+				{ price: 30, chips: 32000, tag: '+6%' },
+				{ price: 68, chips: 75000, tag: '+10%' },
+				{ price: 128, chips: 148000, tag: '+15%' },
+				{ price: 328, chips: 394000, tag: '+20%' },
+				{ price: 648, chips: 810000, tag: '+25%' },
+			];
+			const DAILY_BONUS = 2000;
+			const RELIEF_BONUS = 5000;
+
+			type Card = { rank: string; suit: string; v: number };
+			type BetKey = 'ppair' | 'player' | 'tie' | 'banker' | 'bpair';
+			type Bets = Record<BetKey, number>;
+			type RoundResult = { r: 'B' | 'P' | 'T'; pp: boolean; bp: boolean };
+
+			// ---------- 状态 ----------
+			let shoe: Card[] = [];
+			let shoeNo = 0;
+			let balance = loadBalance();
+			let bets: Bets = emptyBets();
+			let lastBets: Bets | null = loadLastBets();
+			let history: RoundResult[] = [];
+			let state: 'bet' | 'deal' = 'bet';
+			let selectedChip = 100;
+			let selectedPack = -1;
+
+			function emptyBets(): Bets {
+				return { ppair: 0, player: 0, tie: 0, banker: 0, bpair: 0 };
+			}
+			function totalBet(b: Bets = bets) {
+				return b.ppair + b.player + b.tie + b.banker + b.bpair;
+			}
+
+			// ---------- 存档 ----------
+			function loadBalance() {
+				const raw = localStorage.getItem('baccarat_balance');
+				const n = raw === null ? NaN : parseInt(raw, 10);
+				return Number.isFinite(n) && n >= 0 ? n : START_BALANCE;
+			}
+			function loadLastBets(): Bets | null {
+				try {
+					const raw = localStorage.getItem('baccarat_last_bets');
+					if (!raw) return null;
+					const b = JSON.parse(raw);
+					const keys: BetKey[] = ['ppair', 'player', 'tie', 'banker', 'bpair'];
+					if (keys.every((k) => Number.isFinite(b[k]) && b[k] >= 0)) return b;
+				} catch {}
+				return null;
+			}
+			function save() {
+				localStorage.setItem('baccarat_balance', String(balance));
+				if (lastBets) localStorage.setItem('baccarat_last_bets', JSON.stringify(lastBets));
+			}
+
+			// ---------- 牌靴 ----------
+			function newShoe() {
+				shoe = [];
+				for (let d = 0; d < DECKS; d++) {
+					for (const suit of SUITS) {
+						for (let i = 0; i < RANKS.length; i++) {
+							shoe.push({ rank: RANKS[i], suit, v: i + 1 <= 9 ? i + 1 : 0 });
+						}
+					}
+				}
+				for (let i = shoe.length - 1; i > 0; i--) {
+					const j = Math.floor(Math.random() * (i + 1));
+					[shoe[i], shoe[j]] = [shoe[j], shoe[i]];
+				}
+				shoeNo++;
+				history = [];
+				renderRoad();
+			}
+			function draw(): Card {
+				return shoe.pop()!;
+			}
+			function handTotal(hand: Card[]) {
+				return hand.reduce((s, c) => s + c.v, 0) % 10;
+			}
+
+			// ---------- DOM ----------
+			const $ = (id: string) => document.getElementById(id)!;
+			const balanceEl = $('balance');
+			const msgEl = $('msg');
+			const roadEl = $('road');
+			const dealBtn = $('btn-deal') as HTMLButtonElement;
+			const clearBtn = $('btn-clear') as HTMLButtonElement;
+			const rebetBtn = $('btn-rebet') as HTMLButtonElement;
+			const brokeBtn = $('btn-broke') as HTMLButtonElement;
+			const chipsEl = $('chips');
+			const bannerEl = $('banner');
+			const buyBtn = $('btn-buy') as HTMLButtonElement;
+
+			const fmt = (n: number) => n.toLocaleString('zh-CN');
+			const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+			// 余额滚动动画
+			let shownBalance = balance;
+			let balanceRaf = 0;
+			function renderBalance(animate = true) {
+				cancelAnimationFrame(balanceRaf);
+				if (!animate) {
+					shownBalance = balance;
+					balanceEl.textContent = fmt(balance);
+					return;
+				}
+				const from = shownBalance;
+				const to = balance;
+				const t0 = performance.now();
+				const dur = 450;
+				const step = (t: number) => {
+					const k = Math.min(1, (t - t0) / dur);
+					shownBalance = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3)));
+					balanceEl.textContent = fmt(shownBalance);
+					if (k < 1) balanceRaf = requestAnimationFrame(step);
+				};
+				balanceRaf = requestAnimationFrame(step);
+			}
+
+			function renderShoeInfo() {
+				$('shoe-info').textContent = `第 ${shoeNo} 靴 · 剩 ${shoe.length} 张`;
+			}
+			function setMsg(text: string, cls = '') {
+				msgEl.textContent = text;
+				msgEl.className = 'msg' + (cls ? ' ' + cls : '');
+			}
+
+			let toastTimer = 0;
+			function toast(text: string) {
+				const el = $('toast');
+				el.textContent = text;
+				el.classList.add('show');
+				clearTimeout(toastTimer);
+				toastTimer = window.setTimeout(() => el.classList.remove('show'), 2200);
+			}
+
+			function showBanner(outcome: 'B' | 'P' | 'T', pts: number, net: number) {
+				$('banner-title').textContent =
+					outcome === 'B' ? `庄赢 · ${pts} 点` : outcome === 'P' ? `闲赢 · ${pts} 点` : `和局 · ${pts} 点`;
+				$('banner-sub').textContent = net > 0 ? `+${fmt(net)}` : net < 0 ? `-${fmt(-net)}` : '±0';
+				bannerEl.className = 'banner banner-' + outcome;
+			}
+			function hideBanner() {
+				bannerEl.classList.add('hidden');
+			}
+
+			function renderBets() {
+				for (const key of Object.keys(bets) as BetKey[]) {
+					const el = document.querySelector<HTMLElement>(`[data-amt="${key}"]`)!;
+					el.textContent = bets[key] > 0 ? fmt(bets[key]) : '';
+					el.classList.toggle('on', bets[key] > 0);
+				}
+			}
+
+			function clearWonSpots() {
+				document.querySelectorAll('.spot.won').forEach((s) => s.classList.remove('won'));
+			}
+
+			function updateActions() {
+				const betting = state === 'bet';
+				dealBtn.disabled = !betting || totalBet() === 0;
+				clearBtn.disabled = !betting || totalBet() === 0;
+				rebetBtn.disabled =
+					!betting || totalBet() > 0 || !lastBets || totalBet(lastBets) === 0 || totalBet(lastBets) > balance;
+				const broke = betting && balance <= 0 && totalBet() === 0;
+				brokeBtn.classList.toggle('hidden', !broke);
+				dealBtn.classList.toggle('hidden', broke);
+			}
+
+			function cardEl(card: Card) {
+				const div = document.createElement('div');
+				const red = card.suit === '♥' || card.suit === '♦';
+				div.className = 'card' + (red ? ' red' : '');
+				div.innerHTML = `<span class="corner">${card.rank}<br/>${card.suit}</span><span class="pip">${card.suit}</span>`;
+				return div;
+			}
+
+			async function dealCard(side: 'player' | 'banker', card: Card, hand: Card[]) {
+				$(`cards-${side}`).appendChild(cardEl(card));
+				$(`pts-${side}`).textContent = `${handTotal(hand)} 点`;
+				renderShoeInfo();
+				await sleep(420);
+			}
+
+			function clearHands() {
+				$('cards-player').innerHTML = '';
+				$('cards-banker').innerHTML = '';
+				$('pts-player').textContent = '';
+				$('pts-banker').textContent = '';
+				$('hand-player').classList.remove('win');
+				$('hand-banker').classList.remove('win');
+			}
+
+			// ---------- 路单（珠盘路） ----------
+			function renderRoad() {
+				roadEl.innerHTML = '';
+				for (const r of history) {
+					const cell = document.createElement('span');
+					cell.className = 'bead bead-' + r.r;
+					cell.textContent = r.r === 'B' ? '庄' : r.r === 'P' ? '闲' : '和';
+					if (r.bp) cell.appendChild(Object.assign(document.createElement('i'), { className: 'dot dot-b' }));
+					if (r.pp) cell.appendChild(Object.assign(document.createElement('i'), { className: 'dot dot-p' }));
+					roadEl.appendChild(cell);
+				}
+				roadEl.scrollLeft = roadEl.scrollWidth;
+				$('stat-banker').textContent = String(history.filter((h) => h.r === 'B').length);
+				$('stat-player').textContent = String(history.filter((h) => h.r === 'P').length);
+				$('stat-tie').textContent = String(history.filter((h) => h.r === 'T').length);
+			}
+
+			// ---------- 下注 ----------
+			function placeBet(key: BetKey) {
+				if (state !== 'bet') return;
+				if (selectedChip > balance) {
+					setMsg('余额不足，点右上角 ＋ 补充', 'lose');
+					return;
+				}
+				hideBanner();
+				clearWonSpots();
+				balance -= selectedChip;
+				bets[key] += selectedChip;
+				renderBalance();
+				renderBets();
+				updateActions();
+				setMsg(`已下注 ${fmt(totalBet())}`);
+			}
+
+			function clearBets() {
+				if (state !== 'bet') return;
+				balance += totalBet();
+				bets = emptyBets();
+				renderBalance();
+				renderBets();
+				updateActions();
+				setMsg('请下注');
+			}
+
+			function rebet() {
+				if (state !== 'bet' || !lastBets || totalBet() > 0) return;
+				const need = totalBet(lastBets);
+				if (need === 0 || need > balance) return;
+				hideBanner();
+				clearWonSpots();
+				balance -= need;
+				bets = { ...lastBets };
+				renderBalance();
+				renderBets();
+				updateActions();
+				setMsg(`已下注 ${fmt(need)}`);
+			}
+
+			// ---------- 一局 ----------
+			async function playRound() {
+				if (state !== 'bet' || totalBet() === 0) return;
+				state = 'deal';
+				updateActions();
+				hideBanner();
+				clearWonSpots();
+
+				if (shoe.length < CUT_CARD) {
+					newShoe();
+					setMsg('洗牌，换新靴…');
+					await sleep(900);
+				}
+				clearHands();
+				setMsg('发牌中…');
+
+				const player: Card[] = [];
+				const banker: Card[] = [];
+
+				// 首四张：闲、庄、闲、庄
+				player.push(draw());
+				await dealCard('player', player[0], player);
+				banker.push(draw());
+				await dealCard('banker', banker[0], banker);
+				player.push(draw());
+				await dealCard('player', player[1], player);
+				banker.push(draw());
+				await dealCard('banker', banker[1], banker);
+
+				const pt0 = handTotal(player);
+				const bt0 = handTotal(banker);
+				const natural = pt0 >= 8 || bt0 >= 8;
+
+				// 补牌规则
+				if (!natural) {
+					let playerThird: Card | null = null;
+					if (pt0 <= 5) {
+						playerThird = draw();
+						player.push(playerThird);
+						await dealCard('player', playerThird, player);
+					}
+					const bt = handTotal(banker);
+					let bankerDraws: boolean;
+					if (!playerThird) {
+						bankerDraws = bt <= 5; // 闲家不补牌时，庄 0-5 补牌
+					} else {
+						const v = playerThird.v;
+						bankerDraws =
+							bt <= 2 ||
+							(bt === 3 && v !== 8) ||
+							(bt === 4 && v >= 2 && v <= 7) ||
+							(bt === 5 && v >= 4 && v <= 7) ||
+							(bt === 6 && (v === 6 || v === 7));
+					}
+					if (bankerDraws) {
+						const c = draw();
+						banker.push(c);
+						await dealCard('banker', c, banker);
+					}
+				}
+
+				// 结算
+				const pt = handTotal(player);
+				const bt = handTotal(banker);
+				const outcome: 'P' | 'B' | 'T' = pt > bt ? 'P' : bt > pt ? 'B' : 'T';
+				const ppair = player[0].rank === player[1].rank;
+				const bpair = banker[0].rank === banker[1].rank;
+
+				let returned = 0;
+				if (outcome === 'P') returned += bets.player * 2;
+				if (outcome === 'B') returned += bets.banker + Math.floor(bets.banker * 0.95);
+				if (outcome === 'T') returned += bets.tie * 9 + bets.player + bets.banker;
+				if (ppair) returned += bets.ppair * 12;
+				if (bpair) returned += bets.bpair * 12;
+
+				const staked = totalBet();
+				const net = returned - staked;
+				balance += returned;
+				lastBets = { ...bets };
+				bets = emptyBets();
+				history.push({ r: outcome, pp: ppair, bp: bpair });
+
+				if (outcome === 'P') $('hand-player').classList.add('win');
+				if (outcome === 'B') $('hand-banker').classList.add('win');
+
+				// 高亮获胜区域
+				const wonKeys: BetKey[] = [];
+				if (outcome === 'P') wonKeys.push('player');
+				if (outcome === 'B') wonKeys.push('banker');
+				if (outcome === 'T') wonKeys.push('tie');
+				if (ppair) wonKeys.push('ppair');
+				if (bpair) wonKeys.push('bpair');
+				for (const k of wonKeys) {
+					document.querySelector(`[data-bet="${k}"]`)?.classList.add('won');
+				}
+
+				showBanner(outcome, outcome === 'B' ? bt : pt, net);
+				const extras = [natural ? '例牌' : '', ppair ? '闲对' : '', bpair ? '庄对' : '']
+					.filter(Boolean)
+					.join(' · ');
+				setMsg(extras || ' ', net > 0 ? 'winmsg' : net < 0 ? 'lose' : '');
+
+				save();
+				renderBalance();
+				renderBets();
+				renderRoad();
+				renderShoeInfo();
+
+				state = 'bet';
+				updateActions();
+			}
+
+			// ---------- 商店（模拟支付，无真实扣款） ----------
+			function openOverlay(id: string) {
+				$(id).classList.remove('hidden');
+			}
+			function closeOverlay(id: string) {
+				$(id).classList.add('hidden');
+			}
+
+			function todayStr() {
+				const d = new Date();
+				return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+			}
+			function refreshStoreRows() {
+				const claimed = localStorage.getItem('baccarat_daily') === todayStr();
+				($('btn-daily') as HTMLButtonElement).disabled = claimed;
+				$('btn-daily').textContent = claimed ? '今日已领取' : `领取 +${fmt(DAILY_BONUS)}`;
+				$('relief-row').classList.toggle('hidden', balance > 0);
+			}
+			function refreshBuyBtn() {
+				if (selectedPack < 0) {
+					buyBtn.disabled = true;
+					buyBtn.textContent = '请先选择套餐';
+				} else {
+					buyBtn.disabled = false;
+					buyBtn.textContent = `去支付 ¥${PACKS[selectedPack].price}（模拟）`;
+				}
+			}
+			function initStore() {
+				const packsEl = $('packs');
+				PACKS.forEach((p, i) => {
+					const btn = document.createElement('button');
+					btn.className = 'pack';
+					btn.innerHTML =
+						`<span class="pack-chips">🪙 ${fmt(p.chips)}</span>` +
+						(p.tag ? `<span class="pack-tag">${p.tag}</span>` : '') +
+						`<span class="pack-price">¥${p.price}</span>`;
+					btn.addEventListener('click', () => {
+						selectedPack = i;
+						packsEl.querySelectorAll('.pack').forEach((el) => el.classList.remove('sel'));
+						btn.classList.add('sel');
+						refreshBuyBtn();
+					});
+					packsEl.appendChild(btn);
+				});
+				refreshBuyBtn();
+			}
+
+			// ---------- 模拟收银台（线下测试，无真实扣款） ----------
+			type Order = {
+				id: string;
+				time: string;
+				price: number;
+				chips: number;
+				method: string;
+				status: 'success' | 'failed' | 'canceled';
+			};
+			let pendingOrder: Omit<Order, 'status'> | null = null;
+
+			function loadOrders(): Order[] {
+				try {
+					const list = JSON.parse(localStorage.getItem('baccarat_orders') || '[]');
+					return Array.isArray(list) ? list : [];
+				} catch {
+					return [];
+				}
+			}
+			function recordOrder(status: Order['status']): Order | null {
+				if (!pendingOrder) return null;
+				const order: Order = { ...pendingOrder, status };
+				const list = loadOrders();
+				list.unshift(order);
+				localStorage.setItem('baccarat_orders', JSON.stringify(list.slice(0, 50)));
+				pendingOrder = null;
+				return order;
+			}
+
+			// 生成"长得像"二维码的占位图案（不编码任何内容，仅测试界面）
+			function drawMockQr(seed: string) {
+				const cv = $('qr-canvas') as HTMLCanvasElement;
+				const ctx = cv.getContext('2d');
+				if (!ctx) return;
+				const n = 21;
+				const s = cv.width / n;
+				let h = 0;
+				for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+				const rnd = () => {
+					h = (h * 1664525 + 1013904223) >>> 0;
+					return h / 2 ** 32;
+				};
+				ctx.fillStyle = '#fff';
+				ctx.fillRect(0, 0, cv.width, cv.height);
+				ctx.fillStyle = '#111';
+				for (let y = 0; y < n; y++) {
+					for (let x = 0; x < n; x++) {
+						const inFinder = (x < 8 && y < 8) || (x >= n - 8 && y < 8) || (x < 8 && y >= n - 8);
+						if (!inFinder && rnd() < 0.45) ctx.fillRect(x * s, y * s, s, s);
+					}
+				}
+				const finder = (fx: number, fy: number) => {
+					ctx.fillStyle = '#111';
+					ctx.fillRect(fx * s, fy * s, 7 * s, 7 * s);
+					ctx.fillStyle = '#fff';
+					ctx.fillRect((fx + 1) * s, (fy + 1) * s, 5 * s, 5 * s);
+					ctx.fillStyle = '#111';
+					ctx.fillRect((fx + 2) * s, (fy + 2) * s, 3 * s, 3 * s);
+				};
+				finder(0, 0);
+				finder(n - 7, 0);
+				finder(0, n - 7);
+			}
+
+			function openCashier() {
+				if (selectedPack < 0) return;
+				const pack = PACKS[selectedPack];
+				const method =
+					document.querySelector<HTMLInputElement>('input[name="pay"]:checked')?.value || '微信支付';
+				pendingOrder = {
+					id: 'BJL-' + Date.now().toString(36).toUpperCase() + '-' + Math.floor(100 + Math.random() * 900),
+					time: new Date().toLocaleString('zh-CN', { hour12: false }),
+					price: pack.price,
+					chips: pack.chips,
+					method,
+				};
+				$('order-amount').textContent = `¥ ${pack.price}.00`;
+				$('order-goods').textContent = `${fmt(pack.chips)} 筹码`;
+				$('order-id').textContent = pendingOrder.id;
+				$('order-method').textContent = method;
+				const isApple = method === 'Apple Pay';
+				$('qr-box').classList.toggle('hidden', isApple);
+				$('applepay-note').classList.toggle('hidden', !isApple);
+				if (!isApple) drawMockQr(pendingOrder.id + method);
+				$('cashier-pay').classList.remove('hidden');
+				$('cashier-result').classList.add('hidden');
+				openOverlay('cashier');
+			}
+
+			function showPayResult(order: Order) {
+				const ok = order.status === 'success';
+				$('result-icon').textContent = ok ? '✅' : '❌';
+				$('result-title').textContent = ok ? '支付成功（模拟）' : '支付失败（模拟）';
+				$('result-sub').textContent = ok
+					? `已到账 ${fmt(order.chips)} 筹码 · 订单 ${order.id}`
+					: `未扣款，可返回商店重试 · 订单 ${order.id}`;
+				$('cashier-pay').classList.add('hidden');
+				$('cashier-result').classList.remove('hidden');
+			}
+
+			function payOk() {
+				const order = recordOrder('success');
+				if (!order) return;
+				balance += order.chips;
+				save();
+				renderBalance();
+				updateActions();
+				refreshStoreRows();
+				showPayResult(order);
+			}
+			function payFail() {
+				const order = recordOrder('failed');
+				if (order) showPayResult(order);
+			}
+			function payCancel() {
+				if (pendingOrder) {
+					recordOrder('canceled');
+					toast('订单已取消（模拟）');
+				}
+				closeOverlay('cashier');
+			}
+
+			const STATUS_TEXT: Record<string, string> = {
+				success: '成功',
+				failed: '失败',
+				canceled: '已取消',
+			};
+			function renderOrders() {
+				const list = loadOrders();
+				const box = $('orders-list');
+				box.innerHTML = '';
+				if (!list.length) {
+					box.innerHTML = '<p class="orders-empty">暂无交易记录</p>';
+					return;
+				}
+				for (const o of list) {
+					const div = document.createElement('div');
+					div.className = 'order-item order-' + o.status;
+					div.innerHTML =
+						`<div class="oi-main"><b>🪙 ${fmt(o.chips)}</b><span class="oi-status">${STATUS_TEXT[o.status] || o.status}</span></div>` +
+						`<div class="oi-sub"><span>${o.method} · ¥${o.price}</span><span>${o.time}</span></div>` +
+						`<div class="oi-id">${o.id}</div>`;
+					box.appendChild(div);
+				}
+			}
+
+			function claimDaily() {
+				if (localStorage.getItem('baccarat_daily') === todayStr()) return;
+				localStorage.setItem('baccarat_daily', todayStr());
+				balance += DAILY_BONUS;
+				save();
+				renderBalance();
+				updateActions();
+				refreshStoreRows();
+				toast(`每日奖励到账 +${fmt(DAILY_BONUS)}`);
+			}
+			function claimRelief() {
+				if (balance > 0) return;
+				balance += RELIEF_BONUS;
+				save();
+				renderBalance();
+				updateActions();
+				refreshStoreRows();
+				toast(`救济金到账 +${fmt(RELIEF_BONUS)}`);
+			}
+
+			// ---------- PWA 安装 ----------
+			let deferredPrompt: any = null;
+			const installBtn = $('btn-install');
+			window.addEventListener('beforeinstallprompt', (e) => {
+				e.preventDefault();
+				deferredPrompt = e;
+				installBtn.classList.remove('hidden');
+			});
+			const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+			const isStandalone =
+				window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+			if (isIOS && !isStandalone) installBtn.classList.remove('hidden');
+			installBtn.addEventListener('click', async () => {
+				if (deferredPrompt) {
+					deferredPrompt.prompt();
+					await deferredPrompt.userChoice;
+					deferredPrompt = null;
+				} else {
+					openOverlay('install-help');
+				}
+			});
+			window.addEventListener('appinstalled', () => {
+				installBtn.classList.add('hidden');
+				toast('已安装到主屏幕');
+			});
+			if ('serviceWorker' in navigator) {
+				navigator.serviceWorker.register('/sw.js').catch(() => {});
+			}
+
+			// ---------- 初始化 ----------
+			function initChips() {
+				for (const v of CHIP_VALUES) {
+					const btn = document.createElement('button');
+					btn.className = 'chip';
+					btn.style.setProperty('--chip-color', CHIP_COLORS[v]);
+					btn.innerHTML = `<span>${v >= 1000 ? `${v / 1000}K` : v}</span>`;
+					if (v === selectedChip) btn.classList.add('sel');
+					btn.addEventListener('click', () => {
+						selectedChip = v;
+						chipsEl.querySelectorAll('.chip').forEach((c) => c.classList.remove('sel'));
+						btn.classList.add('sel');
+					});
+					chipsEl.appendChild(btn);
+				}
+			}
+
+			document.querySelectorAll<HTMLElement>('.spot').forEach((spot) => {
+				spot.addEventListener('click', () => placeBet(spot.dataset.bet as BetKey));
+			});
+			clearBtn.addEventListener('click', clearBets);
+			rebetBtn.addEventListener('click', rebet);
+			dealBtn.addEventListener('click', playRound);
+			$('btn-store').addEventListener('click', () => {
+				refreshStoreRows();
+				openOverlay('store');
+			});
+			brokeBtn.addEventListener('click', () => {
+				refreshStoreRows();
+				openOverlay('store');
+			});
+			buyBtn.addEventListener('click', openCashier);
+			$('pay-ok').addEventListener('click', payOk);
+			$('pay-fail').addEventListener('click', payFail);
+			$('pay-cancel').addEventListener('click', payCancel);
+			$('cashier-x').addEventListener('click', payCancel);
+			$('btn-done').addEventListener('click', () => closeOverlay('cashier'));
+			$('btn-orders').addEventListener('click', () => {
+				renderOrders();
+				openOverlay('orders');
+			});
+			$('btn-daily').addEventListener('click', claimDaily);
+			$('btn-relief').addEventListener('click', claimRelief);
+			document.querySelectorAll<HTMLElement>('[data-close]').forEach((btn) => {
+				btn.addEventListener('click', () => closeOverlay(btn.dataset.close!));
+			});
+			document.querySelectorAll<HTMLElement>('.overlay').forEach((ov) => {
+				ov.addEventListener('click', (e) => {
+					if (e.target !== ov) return;
+					if (ov.id === 'cashier') payCancel();
+					else ov.classList.add('hidden');
+				});
+			});
+
+			initChips();
+			initStore();
+			newShoe();
+			renderBalance(false);
+			renderBets();
+			renderShoeInfo();
+			updateActions();
+		</script>
+
+		<style is:global>
+			:root {
+				--gold: #e9c25f;
+				--gold-2: #f7dc8e;
+				--felt-1: #157a52;
+				--felt-2: #0b3d2e;
+				--bg-deep: #051d15;
+				--red: #d8404a;
+				--blue: #3d7be9;
+				--green: #2e9e5b;
+			}
+			* {
+				box-sizing: border-box;
+				-webkit-tap-highlight-color: transparent;
+			}
+			html,
+			body {
+				margin: 0;
+				padding: 0;
+				height: 100%;
+				background:
+					radial-gradient(1100px 550px at 50% -8%, #11553c 0%, #082b20 58%, var(--bg-deep) 100%)
+					fixed #082b20;
+				color: #f2ede0;
+				font-family:
+					-apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+					sans-serif;
+				user-select: none;
+				-webkit-user-select: none;
+			}
+			button {
+				font-family: inherit;
+				border: none;
+				cursor: pointer;
+			}
+			.hidden {
+				display: none !important;
+			}
+
+			#app {
+				display: flex;
+				flex-direction: column;
+				min-height: 100dvh;
+				max-width: 560px;
+				margin: 0 auto;
+				padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+					env(safe-area-inset-left);
+			}
+
+			/* 顶栏 */
+			.topbar {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 10px 12px;
+			}
+			.back {
+				color: #cfe8dc;
+				text-decoration: none;
+				font-size: 26px;
+				line-height: 1;
+				padding: 0 4px;
+			}
+			.logo {
+				font-size: 19px;
+				font-weight: 800;
+				letter-spacing: 2px;
+				background: linear-gradient(var(--gold-2), #d9a62e);
+				-webkit-background-clip: text;
+				background-clip: text;
+				-webkit-text-fill-color: transparent;
+				text-shadow: 0 2px 10px rgba(233, 194, 95, 0.25);
+			}
+			.icon-btn {
+				background: rgba(255, 255, 255, 0.1);
+				border: 1px solid rgba(255, 255, 255, 0.2);
+				border-radius: 10px;
+				font-size: 16px;
+				padding: 5px 9px;
+				color: #fff;
+			}
+			.online-link {
+				font-size: 12px;
+				font-weight: 700;
+				text-decoration: none;
+				display: inline-flex;
+				align-items: center;
+			}
+			.balance-box {
+				margin-left: auto;
+				background: rgba(0, 0, 0, 0.4);
+				border: 1px solid rgba(233, 194, 95, 0.55);
+				border-radius: 999px;
+				padding: 4px 5px 4px 12px;
+				display: flex;
+				align-items: center;
+				gap: 6px;
+				box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+			}
+			.balance-box .coin {
+				font-size: 13px;
+			}
+			.balance-box strong {
+				color: var(--gold);
+				font-size: 16px;
+				font-variant-numeric: tabular-nums;
+			}
+			.balance-box .plus {
+				width: 24px;
+				height: 24px;
+				border-radius: 50%;
+				background: linear-gradient(var(--gold-2), #dfa93a);
+				color: #4a3505;
+				font-size: 16px;
+				font-weight: 800;
+				line-height: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+			}
+
+			/* 牌桌 */
+			.table {
+				position: relative;
+				flex: 1;
+				min-height: 210px;
+				margin: 0 10px;
+				border-radius: 18px;
+				background: radial-gradient(ellipse at 50% 0%, var(--felt-1) 0%, var(--felt-2) 78%);
+				border: 2px solid rgba(233, 194, 95, 0.45);
+				box-shadow:
+					inset 0 0 46px rgba(0, 0, 0, 0.4),
+					0 8px 30px rgba(0, 0, 0, 0.35);
+				display: flex;
+				flex-direction: column;
+				padding: 8px 10px 10px;
+			}
+			.table::before {
+				content: '';
+				position: absolute;
+				inset: 5px;
+				border-radius: 13px;
+				border: 1px solid rgba(233, 194, 95, 0.22);
+				pointer-events: none;
+			}
+			.table-info {
+				display: flex;
+				justify-content: space-between;
+				font-size: 11px;
+				color: #9cc7b3;
+			}
+			.hands {
+				flex: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+			}
+			.hand {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 8px;
+				padding: 8px 4px;
+				border-radius: 12px;
+				border: 1px dashed transparent;
+				transition: all 0.3s;
+			}
+			.hand.win {
+				border-color: rgba(233, 194, 95, 0.85);
+				background: rgba(233, 194, 95, 0.09);
+				box-shadow: 0 0 22px rgba(233, 194, 95, 0.18);
+			}
+			.hand-head {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				min-height: 24px;
+			}
+			.tag {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 25px;
+				height: 25px;
+				border-radius: 50%;
+				font-size: 13px;
+				font-weight: 700;
+				color: #fff;
+				box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+			}
+			.tag-banker {
+				background: linear-gradient(#e35560, #b32c37);
+			}
+			.tag-player {
+				background: linear-gradient(#5590f2, #2a5cc0);
+			}
+			.pts {
+				font-size: 13px;
+				color: #ffe9ad;
+				font-weight: 700;
+			}
+			.vs {
+				font-size: 12px;
+				color: rgba(255, 255, 255, 0.3);
+				font-weight: 800;
+			}
+			.cards {
+				display: flex;
+				gap: 5px;
+				min-height: 80px;
+				align-items: center;
+			}
+			.card {
+				width: 52px;
+				height: 76px;
+				border-radius: 7px;
+				background: linear-gradient(160deg, #ffffff 0%, #f4f2e7 100%);
+				color: #1c2333;
+				position: relative;
+				box-shadow:
+					0 4px 10px rgba(0, 0, 0, 0.5),
+					inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+				animation: deal-in 0.42s cubic-bezier(0.25, 0.9, 0.3, 1);
+			}
+			.card.red {
+				color: #cf2637;
+			}
+			.card .corner {
+				position: absolute;
+				top: 4px;
+				left: 5px;
+				font-size: 13px;
+				font-weight: 800;
+				line-height: 1.05;
+			}
+			.card .pip {
+				position: absolute;
+				right: 6px;
+				bottom: 2px;
+				font-size: 28px;
+				text-shadow: 0 1px 0 rgba(0, 0, 0, 0.08);
+			}
+			@keyframes deal-in {
+				0% {
+					transform: translate(130px, -100px) rotate(14deg);
+					opacity: 0;
+				}
+				55% {
+					opacity: 1;
+				}
+				100% {
+					transform: none;
+					opacity: 1;
+				}
+			}
+
+			/* 结果横幅 */
+			.banner {
+				position: absolute;
+				left: 50%;
+				top: 25%;
+				transform: translate(-50%, -50%);
+				background: rgba(4, 18, 13, 0.9);
+				border: 2px solid var(--gold);
+				border-radius: 16px;
+				padding: 12px 30px;
+				text-align: center;
+				z-index: 5;
+				box-shadow: 0 12px 44px rgba(0, 0, 0, 0.65);
+				animation: pop 0.38s cubic-bezier(0.2, 1.5, 0.4, 1);
+				pointer-events: none;
+			}
+			@keyframes pop {
+				from {
+					transform: translate(-50%, -50%) scale(0.5);
+					opacity: 0;
+				}
+				to {
+					transform: translate(-50%, -50%) scale(1);
+					opacity: 1;
+				}
+			}
+			.banner-title {
+				font-size: 22px;
+				font-weight: 800;
+				letter-spacing: 1px;
+			}
+			.banner-B .banner-title {
+				color: #ff7d86;
+			}
+			.banner-P .banner-title {
+				color: #7fb2ff;
+			}
+			.banner-T .banner-title {
+				color: #67dd96;
+			}
+			.banner-sub {
+				margin-top: 3px;
+				font-size: 16px;
+				font-weight: 800;
+				color: var(--gold-2);
+			}
+
+			.msg {
+				text-align: center;
+				min-height: 24px;
+				font-size: 14px;
+				font-weight: 700;
+				color: #d9e8e0;
+			}
+			.msg.winmsg {
+				color: #ffd76a;
+			}
+			.msg.lose {
+				color: #ff8f8f;
+			}
+
+			/* 路单 */
+			.road-wrap {
+				margin: 8px 10px 0;
+				background: rgba(255, 255, 255, 0.94);
+				border-radius: 12px;
+				padding: 6px 8px;
+				color: #333;
+				box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+			}
+			.stats {
+				display: flex;
+				gap: 14px;
+				font-size: 11px;
+				margin-bottom: 4px;
+			}
+			.stat b {
+				font-size: 12px;
+			}
+			.stat-banker {
+				color: var(--red);
+			}
+			.stat-player {
+				color: var(--blue);
+			}
+			.stat-tie {
+				color: var(--green);
+			}
+			.road {
+				display: grid;
+				grid-auto-flow: column;
+				grid-template-rows: repeat(6, 17px);
+				gap: 2px;
+				overflow-x: auto;
+				min-height: 112px;
+				scrollbar-width: thin;
+			}
+			.bead {
+				position: relative;
+				width: 17px;
+				height: 17px;
+				border-radius: 50%;
+				color: #fff;
+				font-size: 10px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+			}
+			.bead-B {
+				background: var(--red);
+			}
+			.bead-P {
+				background: var(--blue);
+			}
+			.bead-T {
+				background: var(--green);
+			}
+			.dot {
+				position: absolute;
+				width: 5px;
+				height: 5px;
+				border-radius: 50%;
+				border: 1px solid #fff;
+			}
+			.dot-b {
+				top: -1px;
+				left: -1px;
+				background: var(--red);
+			}
+			.dot-p {
+				bottom: -1px;
+				right: -1px;
+				background: var(--blue);
+			}
+
+			/* 下注区 */
+			.bets {
+				display: grid;
+				grid-template-columns: 1fr 1.25fr 1fr 1.25fr 1fr;
+				gap: 6px;
+				margin: 8px 10px 0;
+			}
+			.spot {
+				position: relative;
+				border-radius: 12px;
+				padding: 10px 2px 22px;
+				color: #fff;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 2px;
+				border: 1px solid rgba(255, 255, 255, 0.28);
+				box-shadow:
+					inset 0 1px 0 rgba(255, 255, 255, 0.25),
+					0 3px 8px rgba(0, 0, 0, 0.3);
+				transition:
+					transform 0.08s,
+					box-shadow 0.2s;
+			}
+			.spot:active {
+				transform: scale(0.95);
+			}
+			.spot.won {
+				box-shadow:
+					0 0 0 2px var(--gold),
+					0 0 20px rgba(233, 194, 95, 0.75);
+				animation: won-pulse 0.9s ease 2;
+			}
+			@keyframes won-pulse {
+				50% {
+					box-shadow:
+						0 0 0 3px var(--gold-2),
+						0 0 30px rgba(233, 194, 95, 1);
+				}
+			}
+			.spot-player {
+				background: linear-gradient(#4a86ee, #2a5cc0);
+			}
+			.spot-banker {
+				background: linear-gradient(#df4d58, #a72933);
+			}
+			.spot-tie {
+				background: linear-gradient(#35aa64, #1f7a43);
+			}
+			.spot-side {
+				background: linear-gradient(#5b6a80, #3d485b);
+			}
+			.spot-name {
+				font-size: 16px;
+				font-weight: 800;
+				text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+			}
+			.spot-odds {
+				font-size: 10px;
+				opacity: 0.9;
+			}
+			.spot-amt {
+				position: absolute;
+				bottom: 4px;
+				font-size: 11px;
+				font-weight: 700;
+				color: #ffe9ad;
+				background: rgba(0, 0, 0, 0.4);
+				border-radius: 999px;
+				padding: 0 8px;
+				min-height: 15px;
+				opacity: 0;
+			}
+			.spot-amt.on {
+				opacity: 1;
+			}
+
+			/* 筹码 */
+			.chips {
+				display: flex;
+				justify-content: center;
+				gap: 10px;
+				margin: 12px 10px 0;
+			}
+			.chip {
+				position: relative;
+				width: 54px;
+				height: 54px;
+				border-radius: 50%;
+				background: radial-gradient(circle at 50% 40%, #fffdf5 0 34%, var(--chip-color) 35% 100%);
+				box-shadow:
+					0 4px 8px rgba(0, 0, 0, 0.45),
+					inset 0 -2px 4px rgba(0, 0, 0, 0.25);
+				color: #23283b;
+				font-weight: 800;
+				font-size: 13px;
+				transition:
+					transform 0.14s,
+					box-shadow 0.14s;
+			}
+			.chip::before {
+				content: '';
+				position: absolute;
+				inset: 0;
+				border-radius: 50%;
+				background: repeating-conic-gradient(
+					rgba(255, 255, 255, 0.95) 0 14deg,
+					transparent 14deg 30deg
+				);
+				-webkit-mask: radial-gradient(circle, transparent 0 64%, #000 65%);
+				mask: radial-gradient(circle, transparent 0 64%, #000 65%);
+			}
+			.chip span {
+				position: relative;
+				z-index: 1;
+			}
+			.chip.sel {
+				transform: translateY(-8px) scale(1.1);
+				box-shadow:
+					0 10px 16px rgba(0, 0, 0, 0.5),
+					0 0 0 3px var(--gold-2);
+			}
+
+			/* 操作按钮 */
+			.actions {
+				display: flex;
+				gap: 10px;
+				padding: 12px 10px 14px;
+			}
+			.btn {
+				border-radius: 999px;
+				padding: 13px 0;
+				font-size: 15px;
+				font-weight: 800;
+				letter-spacing: 2px;
+			}
+			.btn:disabled {
+				opacity: 0.4;
+				cursor: default;
+			}
+			.btn-ghost {
+				flex: 1;
+				background: rgba(255, 255, 255, 0.1);
+				color: #e5efe9;
+				border: 1px solid rgba(255, 255, 255, 0.25);
+			}
+			.btn-gold {
+				flex: 2;
+				background: linear-gradient(#f6d47c, #dfa42c);
+				color: #4a3505;
+				box-shadow:
+					0 5px 14px rgba(0, 0, 0, 0.4),
+					inset 0 1px 0 rgba(255, 255, 255, 0.6);
+			}
+			.btn-gold:active:not(:disabled) {
+				transform: scale(0.97);
+			}
+
+			/* 弹层 / 商店 */
+			.overlay {
+				position: fixed;
+				inset: 0;
+				background: rgba(0, 0, 0, 0.62);
+				backdrop-filter: blur(3px);
+				-webkit-backdrop-filter: blur(3px);
+				display: flex;
+				align-items: flex-end;
+				justify-content: center;
+				z-index: 50;
+			}
+			.sheet {
+				width: 100%;
+				max-width: 560px;
+				background: linear-gradient(#10432f, #0a3023);
+				border: 1px solid rgba(233, 194, 95, 0.4);
+				border-bottom: none;
+				border-radius: 20px 20px 0 0;
+				padding: 16px 16px calc(18px + env(safe-area-inset-bottom));
+				max-height: 84dvh;
+				overflow-y: auto;
+				animation: slide-up 0.28s ease-out;
+			}
+			@keyframes slide-up {
+				from {
+					transform: translateY(40px);
+					opacity: 0;
+				}
+				to {
+					transform: none;
+					opacity: 1;
+				}
+			}
+			.sheet-head {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				font-size: 17px;
+				font-weight: 800;
+				color: var(--gold-2);
+				letter-spacing: 1px;
+			}
+			.sheet-head .x {
+				background: rgba(255, 255, 255, 0.1);
+				color: #fff;
+				border-radius: 50%;
+				width: 28px;
+				height: 28px;
+				font-size: 17px;
+				line-height: 1;
+			}
+			.sim-note {
+				font-size: 11px;
+				color: #a9cbba;
+				background: rgba(0, 0, 0, 0.25);
+				border-radius: 8px;
+				padding: 7px 10px;
+				margin: 10px 0;
+				line-height: 1.5;
+			}
+			.bonus-row {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				background: rgba(255, 255, 255, 0.07);
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				border-radius: 12px;
+				padding: 10px 12px;
+				margin-bottom: 8px;
+			}
+			.bonus-info {
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+			}
+			.bonus-info b {
+				font-size: 14px;
+			}
+			.bonus-info span {
+				font-size: 11px;
+				color: #9cc7b3;
+			}
+			.btn-mini {
+				background: linear-gradient(#f6d47c, #dfa42c);
+				color: #4a3505;
+				font-weight: 800;
+				font-size: 12px;
+				border-radius: 999px;
+				padding: 7px 14px;
+				white-space: nowrap;
+			}
+			.btn-mini:disabled {
+				opacity: 0.45;
+			}
+			.packs {
+				display: grid;
+				grid-template-columns: repeat(3, 1fr);
+				gap: 8px;
+				margin: 10px 0;
+			}
+			.pack {
+				position: relative;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 6px;
+				background: rgba(255, 255, 255, 0.07);
+				border: 1.5px solid rgba(255, 255, 255, 0.16);
+				border-radius: 12px;
+				padding: 14px 4px 10px;
+				color: #f2ede0;
+				transition:
+					border-color 0.15s,
+					background 0.15s;
+			}
+			.pack.sel {
+				border-color: var(--gold);
+				background: rgba(233, 194, 95, 0.12);
+				box-shadow: 0 0 14px rgba(233, 194, 95, 0.35);
+			}
+			.pack-chips {
+				font-size: 13px;
+				font-weight: 800;
+				color: var(--gold-2);
+			}
+			.pack-tag {
+				position: absolute;
+				top: -7px;
+				right: -4px;
+				background: #d8404a;
+				color: #fff;
+				font-size: 10px;
+				font-weight: 700;
+				border-radius: 999px;
+				padding: 1px 7px;
+			}
+			.pack-price {
+				font-size: 13px;
+				font-weight: 700;
+				background: rgba(0, 0, 0, 0.3);
+				border-radius: 999px;
+				padding: 3px 12px;
+			}
+			.pay-methods {
+				display: flex;
+				gap: 8px;
+				margin-bottom: 12px;
+			}
+			.pay {
+				flex: 1;
+			}
+			.pay input {
+				display: none;
+			}
+			.pay span {
+				display: block;
+				text-align: center;
+				font-size: 12px;
+				font-weight: 700;
+				padding: 9px 2px;
+				border-radius: 10px;
+				background: rgba(255, 255, 255, 0.07);
+				border: 1.5px solid rgba(255, 255, 255, 0.16);
+			}
+			.pay input:checked + span {
+				border-color: var(--gold);
+				background: rgba(233, 194, 95, 0.12);
+			}
+			.btn-buy {
+				width: 100%;
+			}
+			.steps {
+				margin: 12px 0;
+				padding-left: 22px;
+				font-size: 14px;
+				line-height: 2.1;
+				color: #e5efe9;
+			}
+			.kbd {
+				background: rgba(255, 255, 255, 0.12);
+				border-radius: 6px;
+				padding: 1px 6px;
+			}
+
+			/* 轻提示 */
+			.toast {
+				position: fixed;
+				top: calc(14px + env(safe-area-inset-top));
+				left: 50%;
+				transform: translate(-50%, -16px);
+				background: rgba(4, 18, 13, 0.92);
+				border: 1px solid rgba(233, 194, 95, 0.6);
+				color: #ffe9ad;
+				font-size: 13px;
+				font-weight: 700;
+				border-radius: 999px;
+				padding: 9px 18px;
+				opacity: 0;
+				pointer-events: none;
+				transition:
+					opacity 0.25s,
+					transform 0.25s;
+				z-index: 99;
+				max-width: 86vw;
+			}
+			.toast.show {
+				opacity: 1;
+				transform: translate(-50%, 0);
+			}
+
+			/* 收银台（模拟） */
+			.order-card {
+				background: rgba(0, 0, 0, 0.25);
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				border-radius: 14px;
+				padding: 14px 14px 6px;
+				margin: 12px 0;
+			}
+			.order-amount {
+				text-align: center;
+				font-size: 30px;
+				font-weight: 800;
+				color: var(--gold-2);
+				margin-bottom: 10px;
+			}
+			.order-row {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				font-size: 12px;
+				padding: 7px 0;
+				border-top: 1px dashed rgba(255, 255, 255, 0.12);
+			}
+			.order-row span {
+				color: #9cc7b3;
+			}
+			.order-row b {
+				color: #f2ede0;
+				font-weight: 700;
+				max-width: 65%;
+				text-align: right;
+				word-break: break-all;
+			}
+			.sandbox-tag {
+				color: #67dd96 !important;
+			}
+			.qr-box {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 8px;
+				margin: 6px 0 12px;
+			}
+			.qr-box canvas {
+				background: #fff;
+				border-radius: 10px;
+				padding: 8px;
+				box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+			}
+			.qr-note {
+				font-size: 11px;
+				color: #9cc7b3;
+			}
+			.applepay-note {
+				text-align: center;
+				font-size: 14px;
+				font-weight: 700;
+				margin: 16px 0 20px;
+			}
+			.cashier-actions {
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+			}
+			.cashier-actions .btn-gold {
+				width: 100%;
+			}
+			.cashier-sub {
+				display: flex;
+				gap: 8px;
+			}
+			.cashier-sub .btn {
+				flex: 1;
+			}
+			.btn.danger {
+				color: #ff9a9a;
+				border-color: rgba(255, 120, 120, 0.4);
+			}
+			#cashier-result {
+				text-align: center;
+				padding: 8px 0 4px;
+			}
+			.result-icon {
+				font-size: 46px;
+				margin: 12px 0 6px;
+			}
+			.result-title {
+				font-size: 18px;
+				font-weight: 800;
+			}
+			.result-sub {
+				font-size: 12px;
+				color: #9cc7b3;
+				margin: 8px 0 16px;
+				line-height: 1.6;
+				word-break: break-all;
+			}
+
+			/* 交易记录 */
+			.head-actions {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}
+			.link-btn {
+				background: none;
+				color: #9cc7b3;
+				font-size: 12px;
+				text-decoration: underline;
+				font-weight: 400;
+			}
+			.orders-list {
+				margin-top: 10px;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				min-height: 120px;
+			}
+			.orders-empty {
+				text-align: center;
+				color: #9cc7b3;
+				font-size: 13px;
+				padding: 34px 0;
+			}
+			.order-item {
+				background: rgba(255, 255, 255, 0.06);
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				border-radius: 12px;
+				padding: 10px 12px;
+			}
+			.oi-main {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				font-size: 14px;
+			}
+			.oi-status {
+				font-weight: 800;
+				font-size: 12px;
+			}
+			.order-success .oi-status {
+				color: #67dd96;
+			}
+			.order-failed .oi-status {
+				color: #ff8f8f;
+			}
+			.order-canceled .oi-status {
+				color: #b9c6bf;
+			}
+			.oi-sub {
+				display: flex;
+				justify-content: space-between;
+				font-size: 11px;
+				color: #9cc7b3;
+				margin-top: 4px;
+			}
+			.oi-id {
+				font-size: 10px;
+				color: #6f9483;
+				margin-top: 3px;
+			}
+
+			@media (min-width: 561px) {
+				#app {
+					border-left: 1px solid rgba(255, 255, 255, 0.08);
+					border-right: 1px solid rgba(255, 255, 255, 0.08);
+				}
+				.overlay {
+					align-items: center;
+				}
+				.sheet {
+					border-radius: 20px;
+					border-bottom: 1px solid rgba(233, 194, 95, 0.4);
+				}
+			}
+		</style>
+	</body>
+</html>
