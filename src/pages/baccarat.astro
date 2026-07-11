@@ -118,7 +118,10 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 			<div class="sheet">
 				<div class="sheet-head">
 					<span>筹码商店</span>
-					<button class="x" data-close="store" aria-label="关闭">×</button>
+					<span class="head-actions">
+						<button class="link-btn" id="btn-orders">交易记录</button>
+						<button class="x" data-close="store" aria-label="关闭">×</button>
+					</span>
 				</div>
 				<p class="sim-note">⚠️ 模拟支付演示 · 不会产生任何真实扣款 · 虚拟筹码仅供娱乐、不可兑现</p>
 				<div class="bonus-row" id="daily-row">
@@ -153,6 +156,54 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 					<li>点击右上角 <b>「添加」</b>，即可像 App 一样全屏运行</li>
 				</ol>
 				<p class="sim-note">安卓手机：用 Chrome 打开本页，点击顶部 📲 按钮或浏览器菜单中的「安装应用」。</p>
+			</div>
+		</div>
+
+		<!-- 模拟收银台（线下测试，无真实扣款） -->
+		<div class="overlay hidden" id="cashier">
+			<div class="sheet">
+				<div class="sheet-head">
+					<span>收银台 · 沙箱测试</span>
+					<button class="x" id="cashier-x" aria-label="取消订单">×</button>
+				</div>
+				<div id="cashier-pay">
+					<div class="order-card">
+						<div class="order-amount" id="order-amount">¥ 0.00</div>
+						<div class="order-row"><span>商品</span><b id="order-goods"></b></div>
+						<div class="order-row"><span>订单号</span><b id="order-id"></b></div>
+						<div class="order-row"><span>支付方式</span><b id="order-method"></b></div>
+						<div class="order-row"><span>环境</span><b class="sandbox-tag">沙箱测试 · 不产生扣款</b></div>
+					</div>
+					<div class="qr-box" id="qr-box">
+						<canvas id="qr-canvas" width="168" height="168"></canvas>
+						<span class="qr-note">模拟二维码 · 扫码无效 · 仅测试界面</span>
+					</div>
+					<p class="applepay-note hidden" id="applepay-note">🍎 模拟 Face ID / 双击侧边按钮确认</p>
+					<div class="cashier-actions">
+						<button class="btn btn-gold" id="pay-ok">模拟支付成功</button>
+						<div class="cashier-sub">
+							<button class="btn btn-ghost danger" id="pay-fail">模拟支付失败</button>
+							<button class="btn btn-ghost" id="pay-cancel">取消订单</button>
+						</div>
+					</div>
+				</div>
+				<div id="cashier-result" class="hidden">
+					<div class="result-icon" id="result-icon">✅</div>
+					<div class="result-title" id="result-title">支付成功</div>
+					<div class="result-sub" id="result-sub"></div>
+					<button class="btn btn-gold btn-buy" id="btn-done">完成</button>
+				</div>
+			</div>
+		</div>
+
+		<!-- 交易记录（模拟） -->
+		<div class="overlay hidden" id="orders">
+			<div class="sheet">
+				<div class="sheet-head">
+					<span>交易记录 · 沙箱</span>
+					<button class="x" data-close="orders" aria-label="关闭">×</button>
+				</div>
+				<div class="orders-list" id="orders-list"></div>
 			</div>
 		</div>
 
@@ -561,7 +612,7 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 					buyBtn.textContent = '请先选择套餐';
 				} else {
 					buyBtn.disabled = false;
-					buyBtn.textContent = `模拟支付 ¥${PACKS[selectedPack].price}`;
+					buyBtn.textContent = `去支付 ¥${PACKS[selectedPack].price}（模拟）`;
 				}
 			}
 			function initStore() {
@@ -584,21 +635,150 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				refreshBuyBtn();
 			}
 
-			async function buyPack() {
+			// ---------- 模拟收银台（线下测试，无真实扣款） ----------
+			type Order = {
+				id: string;
+				time: string;
+				price: number;
+				chips: number;
+				method: string;
+				status: 'success' | 'failed' | 'canceled';
+			};
+			let pendingOrder: Omit<Order, 'status'> | null = null;
+
+			function loadOrders(): Order[] {
+				try {
+					const list = JSON.parse(localStorage.getItem('baccarat_orders') || '[]');
+					return Array.isArray(list) ? list : [];
+				} catch {
+					return [];
+				}
+			}
+			function recordOrder(status: Order['status']): Order | null {
+				if (!pendingOrder) return null;
+				const order: Order = { ...pendingOrder, status };
+				const list = loadOrders();
+				list.unshift(order);
+				localStorage.setItem('baccarat_orders', JSON.stringify(list.slice(0, 50)));
+				pendingOrder = null;
+				return order;
+			}
+
+			// 生成"长得像"二维码的占位图案（不编码任何内容，仅测试界面）
+			function drawMockQr(seed: string) {
+				const cv = $('qr-canvas') as HTMLCanvasElement;
+				const ctx = cv.getContext('2d');
+				if (!ctx) return;
+				const n = 21;
+				const s = cv.width / n;
+				let h = 0;
+				for (const ch of seed) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+				const rnd = () => {
+					h = (h * 1664525 + 1013904223) >>> 0;
+					return h / 2 ** 32;
+				};
+				ctx.fillStyle = '#fff';
+				ctx.fillRect(0, 0, cv.width, cv.height);
+				ctx.fillStyle = '#111';
+				for (let y = 0; y < n; y++) {
+					for (let x = 0; x < n; x++) {
+						const inFinder = (x < 8 && y < 8) || (x >= n - 8 && y < 8) || (x < 8 && y >= n - 8);
+						if (!inFinder && rnd() < 0.45) ctx.fillRect(x * s, y * s, s, s);
+					}
+				}
+				const finder = (fx: number, fy: number) => {
+					ctx.fillStyle = '#111';
+					ctx.fillRect(fx * s, fy * s, 7 * s, 7 * s);
+					ctx.fillStyle = '#fff';
+					ctx.fillRect((fx + 1) * s, (fy + 1) * s, 5 * s, 5 * s);
+					ctx.fillStyle = '#111';
+					ctx.fillRect((fx + 2) * s, (fy + 2) * s, 3 * s, 3 * s);
+				};
+				finder(0, 0);
+				finder(n - 7, 0);
+				finder(0, n - 7);
+			}
+
+			function openCashier() {
 				if (selectedPack < 0) return;
 				const pack = PACKS[selectedPack];
 				const method =
 					document.querySelector<HTMLInputElement>('input[name="pay"]:checked')?.value || '微信支付';
-				buyBtn.disabled = true;
-				buyBtn.textContent = `${method} 处理中…`;
-				await sleep(800);
-				balance += pack.chips;
+				pendingOrder = {
+					id: 'BJL-' + Date.now().toString(36).toUpperCase() + '-' + Math.floor(100 + Math.random() * 900),
+					time: new Date().toLocaleString('zh-CN', { hour12: false }),
+					price: pack.price,
+					chips: pack.chips,
+					method,
+				};
+				$('order-amount').textContent = `¥ ${pack.price}.00`;
+				$('order-goods').textContent = `${fmt(pack.chips)} 筹码`;
+				$('order-id').textContent = pendingOrder.id;
+				$('order-method').textContent = method;
+				const isApple = method === 'Apple Pay';
+				$('qr-box').classList.toggle('hidden', isApple);
+				$('applepay-note').classList.toggle('hidden', !isApple);
+				if (!isApple) drawMockQr(pendingOrder.id + method);
+				$('cashier-pay').classList.remove('hidden');
+				$('cashier-result').classList.add('hidden');
+				openOverlay('cashier');
+			}
+
+			function showPayResult(order: Order) {
+				const ok = order.status === 'success';
+				$('result-icon').textContent = ok ? '✅' : '❌';
+				$('result-title').textContent = ok ? '支付成功（模拟）' : '支付失败（模拟）';
+				$('result-sub').textContent = ok
+					? `已到账 ${fmt(order.chips)} 筹码 · 订单 ${order.id}`
+					: `未扣款，可返回商店重试 · 订单 ${order.id}`;
+				$('cashier-pay').classList.add('hidden');
+				$('cashier-result').classList.remove('hidden');
+			}
+
+			function payOk() {
+				const order = recordOrder('success');
+				if (!order) return;
+				balance += order.chips;
 				save();
 				renderBalance();
 				updateActions();
 				refreshStoreRows();
-				refreshBuyBtn();
-				toast(`支付成功（模拟）· 到账 ${fmt(pack.chips)} 筹码`);
+				showPayResult(order);
+			}
+			function payFail() {
+				const order = recordOrder('failed');
+				if (order) showPayResult(order);
+			}
+			function payCancel() {
+				if (pendingOrder) {
+					recordOrder('canceled');
+					toast('订单已取消（模拟）');
+				}
+				closeOverlay('cashier');
+			}
+
+			const STATUS_TEXT: Record<string, string> = {
+				success: '成功',
+				failed: '失败',
+				canceled: '已取消',
+			};
+			function renderOrders() {
+				const list = loadOrders();
+				const box = $('orders-list');
+				box.innerHTML = '';
+				if (!list.length) {
+					box.innerHTML = '<p class="orders-empty">暂无交易记录</p>';
+					return;
+				}
+				for (const o of list) {
+					const div = document.createElement('div');
+					div.className = 'order-item order-' + o.status;
+					div.innerHTML =
+						`<div class="oi-main"><b>🪙 ${fmt(o.chips)}</b><span class="oi-status">${STATUS_TEXT[o.status] || o.status}</span></div>` +
+						`<div class="oi-sub"><span>${o.method} · ¥${o.price}</span><span>${o.time}</span></div>` +
+						`<div class="oi-id">${o.id}</div>`;
+					box.appendChild(div);
+				}
 			}
 
 			function claimDaily() {
@@ -681,7 +861,16 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				refreshStoreRows();
 				openOverlay('store');
 			});
-			buyBtn.addEventListener('click', buyPack);
+			buyBtn.addEventListener('click', openCashier);
+			$('pay-ok').addEventListener('click', payOk);
+			$('pay-fail').addEventListener('click', payFail);
+			$('pay-cancel').addEventListener('click', payCancel);
+			$('cashier-x').addEventListener('click', payCancel);
+			$('btn-done').addEventListener('click', () => closeOverlay('cashier'));
+			$('btn-orders').addEventListener('click', () => {
+				renderOrders();
+				openOverlay('orders');
+			});
 			$('btn-daily').addEventListener('click', claimDaily);
 			$('btn-relief').addEventListener('click', claimRelief);
 			document.querySelectorAll<HTMLElement>('[data-close]').forEach((btn) => {
@@ -689,7 +878,9 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 			});
 			document.querySelectorAll<HTMLElement>('.overlay').forEach((ov) => {
 				ov.addEventListener('click', (e) => {
-					if (e.target === ov) ov.classList.add('hidden');
+					if (e.target !== ov) return;
+					if (ov.id === 'cashier') payCancel();
+					else ov.classList.add('hidden');
 				});
 			});
 
@@ -1456,6 +1647,168 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 			.toast.show {
 				opacity: 1;
 				transform: translate(-50%, 0);
+			}
+
+			/* 收银台（模拟） */
+			.order-card {
+				background: rgba(0, 0, 0, 0.25);
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				border-radius: 14px;
+				padding: 14px 14px 6px;
+				margin: 12px 0;
+			}
+			.order-amount {
+				text-align: center;
+				font-size: 30px;
+				font-weight: 800;
+				color: var(--gold-2);
+				margin-bottom: 10px;
+			}
+			.order-row {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				font-size: 12px;
+				padding: 7px 0;
+				border-top: 1px dashed rgba(255, 255, 255, 0.12);
+			}
+			.order-row span {
+				color: #9cc7b3;
+			}
+			.order-row b {
+				color: #f2ede0;
+				font-weight: 700;
+				max-width: 65%;
+				text-align: right;
+				word-break: break-all;
+			}
+			.sandbox-tag {
+				color: #67dd96 !important;
+			}
+			.qr-box {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 8px;
+				margin: 6px 0 12px;
+			}
+			.qr-box canvas {
+				background: #fff;
+				border-radius: 10px;
+				padding: 8px;
+				box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+			}
+			.qr-note {
+				font-size: 11px;
+				color: #9cc7b3;
+			}
+			.applepay-note {
+				text-align: center;
+				font-size: 14px;
+				font-weight: 700;
+				margin: 16px 0 20px;
+			}
+			.cashier-actions {
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+			}
+			.cashier-actions .btn-gold {
+				width: 100%;
+			}
+			.cashier-sub {
+				display: flex;
+				gap: 8px;
+			}
+			.cashier-sub .btn {
+				flex: 1;
+			}
+			.btn.danger {
+				color: #ff9a9a;
+				border-color: rgba(255, 120, 120, 0.4);
+			}
+			#cashier-result {
+				text-align: center;
+				padding: 8px 0 4px;
+			}
+			.result-icon {
+				font-size: 46px;
+				margin: 12px 0 6px;
+			}
+			.result-title {
+				font-size: 18px;
+				font-weight: 800;
+			}
+			.result-sub {
+				font-size: 12px;
+				color: #9cc7b3;
+				margin: 8px 0 16px;
+				line-height: 1.6;
+				word-break: break-all;
+			}
+
+			/* 交易记录 */
+			.head-actions {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}
+			.link-btn {
+				background: none;
+				color: #9cc7b3;
+				font-size: 12px;
+				text-decoration: underline;
+				font-weight: 400;
+			}
+			.orders-list {
+				margin-top: 10px;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				min-height: 120px;
+			}
+			.orders-empty {
+				text-align: center;
+				color: #9cc7b3;
+				font-size: 13px;
+				padding: 34px 0;
+			}
+			.order-item {
+				background: rgba(255, 255, 255, 0.06);
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				border-radius: 12px;
+				padding: 10px 12px;
+			}
+			.oi-main {
+				display: flex;
+				justify-content: space-between;
+				align-items: center;
+				font-size: 14px;
+			}
+			.oi-status {
+				font-weight: 800;
+				font-size: 12px;
+			}
+			.order-success .oi-status {
+				color: #67dd96;
+			}
+			.order-failed .oi-status {
+				color: #ff8f8f;
+			}
+			.order-canceled .oi-status {
+				color: #b9c6bf;
+			}
+			.oi-sub {
+				display: flex;
+				justify-content: space-between;
+				font-size: 11px;
+				color: #9cc7b3;
+				margin-top: 4px;
+			}
+			.oi-id {
+				font-size: 10px;
+				color: #6f9483;
+				margin-top: 3px;
 			}
 
 			@media (min-width: 561px) {
