@@ -25,6 +25,10 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				<a class="back" href="/baccarat" aria-label="返回单机版">‹</a>
 				<div class="logo">🌐 在线同桌</div>
 				<span class="room-pill" id="room-pill"></span>
+				<button class="icon-btn account-pill hidden" id="btn-account" aria-label="我的账号">
+					<span class="ap-ava" id="account-pill-ava">🙂</span>
+					<span class="ap-name" id="account-pill-name"></span>
+				</button>
 				<button class="icon-btn invite-btn hidden" id="btn-invite">＋邀请</button>
 				<button class="icon-btn" id="btn-sound" aria-label="音效开关">🔊</button>
 				<div class="balance-box">
@@ -125,22 +129,64 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			</section>
 		</div>
 
-		<!-- 登录 -->
+		<!-- 登录 / 注册 / 游客 -->
 		<div class="overlay" id="join">
-			<div class="sheet">
+			<div class="sheet login-sheet">
 				<div class="login-logo">
-					<div class="login-spade">♠</div>
-					<div class="login-title">百家乐 · 在线同桌</div>
-					<div class="login-sub">和微信好友同桌对战 · 虚拟筹码仅供娱乐</div>
+					<div class="login-badge"><span class="login-spade">♠</span></div>
+					<div class="login-title">百家乐</div>
+					<div class="login-sub-en">BACCARAT · 在线同桌</div>
+					<div class="login-sub">虚拟筹码 · 仅供娱乐</div>
 				</div>
-				<div class="field">
-					<span>选择头像</span>
-					<div class="avatar-grid" id="avatar-grid"></div>
+
+				<div class="seg" id="auth-seg">
+					<button class="seg-btn" data-mode="login" type="button">登录</button>
+					<button class="seg-btn" data-mode="register" type="button">注册</button>
+					<button class="seg-btn" data-mode="guest" type="button">游客试玩</button>
 				</div>
-				<label class="field">
-					<span>你的昵称</span>
-					<input id="in-name" maxlength="8" placeholder="最多 8 个字符" />
-				</label>
+
+				<div class="auth-form" id="form-login">
+					<label class="field">
+						<span>用户名</span>
+						<input id="login-user" maxlength="16" autocomplete="username" placeholder="你的用户名" />
+					</label>
+					<label class="field">
+						<span>密码</span>
+						<input id="login-pass" type="password" autocomplete="current-password" placeholder="你的密码" />
+					</label>
+				</div>
+
+				<div class="auth-form hidden" id="form-register">
+					<label class="field">
+						<span>用户名（2-16 字，中英文数字 _ -）</span>
+						<input id="reg-user" maxlength="16" autocomplete="username" placeholder="设置用户名" />
+					</label>
+					<label class="field">
+						<span>密码（至少 6 位）</span>
+						<input id="reg-pass" type="password" autocomplete="new-password" placeholder="设置密码" />
+					</label>
+					<label class="field">
+						<span>确认密码</span>
+						<input id="reg-pass2" type="password" autocomplete="new-password" placeholder="再输一次密码" />
+					</label>
+					<div class="field">
+						<span>选择头像</span>
+						<div class="avatar-grid"></div>
+					</div>
+					<p class="form-hint">暂不支持找回密码，请牢记用户名与密码</p>
+				</div>
+
+				<div class="auth-form hidden" id="form-guest">
+					<div class="field">
+						<span>选择头像</span>
+						<div class="avatar-grid"></div>
+					</div>
+					<label class="field">
+						<span>你的昵称</span>
+						<input id="in-name" maxlength="8" placeholder="最多 8 个字符" />
+					</label>
+				</div>
+
 				<div class="field">
 					<span>房间号（同房间号即同桌）</span>
 					<div class="room-row">
@@ -148,7 +194,31 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 						<button class="btn-mini" id="btn-random" type="button">随机</button>
 					</div>
 				</div>
-				<button class="btn btn-gold btn-buy" id="btn-join">进入牌桌</button>
+
+				<div class="form-err hidden" id="form-err"></div>
+
+				<button class="btn btn-gold btn-buy" id="btn-login">登录</button>
+				<button class="btn btn-gold btn-buy hidden" id="btn-register">注册并进入</button>
+				<button class="btn btn-gold btn-buy hidden" id="btn-join">进入牌桌</button>
+			</div>
+		</div>
+
+		<!-- 账号 -->
+		<div class="overlay hidden" id="account">
+			<div class="sheet">
+				<div class="sheet-head">
+					<span>我的账号</span>
+					<button class="x" data-close="account" aria-label="关闭">×</button>
+				</div>
+				<div class="account-card">
+					<span class="account-ava" id="account-ava">🙂</span>
+					<div class="account-info">
+						<b id="account-name"></b>
+						<span id="account-type"></span>
+					</div>
+				</div>
+				<div class="account-room" id="account-room"></div>
+				<button class="btn btn-gold btn-buy" id="btn-logout">退出登录</button>
 			</div>
 		</div>
 
@@ -583,24 +653,31 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				curRoom = room;
 				curName = name;
 				const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-				const url = `${proto}://${location.host}/api/baccarat/ws?room=${encodeURIComponent(room)}&id=${pid}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`;
-				ws = new WebSocket(url);
-				ws.addEventListener('open', () => {
+				const base = `${proto}://${location.host}/api/baccarat/ws?room=${encodeURIComponent(room)}`;
+				// 账号身份用 token 连接；游客沿用 id/name/avatar（断线重连保持当前身份模式）
+				const url = authToken
+					? `${base}&token=${encodeURIComponent(authToken)}`
+					: `${base}&id=${pid}&name=${encodeURIComponent(name)}&avatar=${encodeURIComponent(avatar)}`;
+				const sock = new WebSocket(url);
+				ws = sock;
+				sock.addEventListener('open', () => {
 					reconnectDelay = 1500;
 					$('reconnect').classList.add('hidden');
 				});
-				ws.addEventListener('message', (e) => {
+				sock.addEventListener('message', (e) => {
 					try {
 						onServer(JSON.parse(String(e.data)));
 					} catch {}
 				});
-				ws.addEventListener('close', () => {
-					if (leaving) return;
+				sock.addEventListener('close', () => {
+					if (leaving || ws !== sock) return; // 主动退出或已被新连接替换：不重连
 					if (joined) {
 						$('reconnect').classList.remove('hidden');
 						$('reconnect-sub').textContent = `正在重新连接…`;
 					}
-					setTimeout(() => connect(room, name), reconnectDelay);
+					setTimeout(() => {
+						if (!leaving && ws === sock) connect(room, name);
+					}, reconnectDelay);
 					reconnectDelay = Math.min(10000, reconnectDelay * 1.6);
 				});
 			}
@@ -796,47 +873,208 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				}
 			}
 
-			// ---------- 登录 / 入桌 ----------
+			// ---------- 登录 / 注册 / 游客 ----------
 			const AVATARS = ['🐯', '🐼', '🦊', '🐰', '🐸', '🐵', '🦁', '🐨', '🐷', '🐮', '🐔', '🦄'];
 			let avatar = localStorage.getItem('baccarat_avatar') || '';
 			if (!AVATARS.includes(avatar)) {
 				avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
 				localStorage.setItem('baccarat_avatar', avatar); // 默认随机一个并立即持久化
 			}
+			let authToken: string | null = null; // 非空 = 账号身份，null = 游客身份
+			let accountName = '';
+
+			function refreshAvatarSel() {
+				document
+					.querySelectorAll<HTMLElement>('.avatar-btn')
+					.forEach((b) => b.classList.toggle('sel', b.textContent === avatar));
+			}
 			function initAvatars() {
-				const grid = $('avatar-grid');
-				for (const a of AVATARS) {
-					const btn = document.createElement('button');
-					btn.type = 'button';
-					btn.className = 'avatar-btn' + (a === avatar ? ' sel' : '');
-					btn.textContent = a;
-					btn.addEventListener('click', () => {
-						avatar = a;
-						localStorage.setItem('baccarat_avatar', a);
-						grid.querySelectorAll('.avatar-btn').forEach((b) => b.classList.remove('sel'));
-						btn.classList.add('sel');
-						sfx.click();
-					});
-					grid.appendChild(btn);
-				}
+				// 注册表单与游客表单各有一个头像网格，选中状态全局同步
+				document.querySelectorAll<HTMLElement>('.avatar-grid').forEach((grid) => {
+					for (const a of AVATARS) {
+						const btn = document.createElement('button');
+						btn.type = 'button';
+						btn.className = 'avatar-btn' + (a === avatar ? ' sel' : '');
+						btn.textContent = a;
+						btn.addEventListener('click', () => {
+							avatar = a;
+							localStorage.setItem('baccarat_avatar', a);
+							refreshAvatarSel();
+							sfx.click();
+						});
+						grid.appendChild(btn);
+					}
+				});
 			}
 
 			document.querySelectorAll<HTMLElement>('[data-close]').forEach((btn) => {
 				btn.addEventListener('click', () => $(btn.dataset.close!).classList.add('hidden'));
 			});
+
+			// 登录 / 注册 / 游客 分段切换
+			type AuthMode = 'login' | 'register' | 'guest';
+			function setAuthMode(mode: AuthMode) {
+				document
+					.querySelectorAll<HTMLElement>('.seg-btn')
+					.forEach((b) => b.classList.toggle('sel', b.dataset.mode === mode));
+				$('form-login').classList.toggle('hidden', mode !== 'login');
+				$('form-register').classList.toggle('hidden', mode !== 'register');
+				$('form-guest').classList.toggle('hidden', mode !== 'guest');
+				$('btn-login').classList.toggle('hidden', mode !== 'login');
+				$('btn-register').classList.toggle('hidden', mode !== 'register');
+				$('btn-join').classList.toggle('hidden', mode !== 'guest');
+				hideFormErr();
+			}
+			document.querySelectorAll<HTMLElement>('.seg-btn').forEach((b) => {
+				b.addEventListener('click', () => {
+					setAuthMode((b.dataset.mode as AuthMode) || 'login');
+					sfx.click();
+				});
+			});
+
+			function showFormErr(msg: string) {
+				const el = $('form-err');
+				el.textContent = msg;
+				el.classList.remove('hidden');
+			}
+			function hideFormErr() {
+				$('form-err').classList.add('hidden');
+			}
+			async function authApi(body: Record<string, unknown>): Promise<any> {
+				const res = await fetch('/api/baccarat/auth', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify(body),
+				});
+				return res.json();
+			}
+			function saveAuth(r: { token: string; username: string; avatar?: string }) {
+				authToken = r.token;
+				accountName = r.username;
+				localStorage.setItem('baccarat_token', r.token);
+				localStorage.setItem('baccarat_user', r.username);
+				if (r.avatar) {
+					avatar = r.avatar;
+					localStorage.setItem('baccarat_avatar', r.avatar);
+					refreshAvatarSel();
+				}
+			}
+
+			function readRoom() {
+				return (
+					($('in-room') as HTMLInputElement).value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) ||
+					'LOBBY'
+				);
+			}
+			function renderAccountPill() {
+				$('account-pill-ava').textContent = avatar;
+				$('account-pill-name').textContent = authToken ? accountName : curName || '游客';
+				$('btn-account').classList.remove('hidden');
+			}
 			function enterTable(room: string, name: string) {
-				localStorage.setItem('baccarat_name', name);
+				if (!authToken) localStorage.setItem('baccarat_name', name); // 只有游客昵称写回本地
 				localStorage.setItem('baccarat_room', room);
 				$('room-pill').textContent = room === 'LOBBY' ? '大厅' : '房 ' + room;
 				$('join').classList.add('hidden');
 				connect(room, name);
+				renderAccountPill();
 			}
+
+			const loginBtn = $('btn-login') as HTMLButtonElement;
+			loginBtn.addEventListener('click', async () => {
+				hideFormErr();
+				const username = ($('login-user') as HTMLInputElement).value.trim();
+				const password = ($('login-pass') as HTMLInputElement).value;
+				if (!username || !password) return showFormErr('请输入用户名和密码');
+				loginBtn.disabled = true;
+				loginBtn.textContent = '请稍候…';
+				try {
+					const r = await authApi({ action: 'login', username, password });
+					if (r && r.ok) {
+						saveAuth(r);
+						enterTable(readRoom(), r.username);
+					} else showFormErr((r && r.msg) || '登录失败，请重试');
+				} catch {
+					showFormErr('网络异常，请稍后重试');
+				}
+				loginBtn.disabled = false;
+				loginBtn.textContent = '登录';
+			});
+			$('login-pass').addEventListener('keydown', (e) => {
+				if ((e as KeyboardEvent).key === 'Enter') loginBtn.click();
+			});
+
+			const regBtn = $('btn-register') as HTMLButtonElement;
+			regBtn.addEventListener('click', async () => {
+				hideFormErr();
+				const username = ($('reg-user') as HTMLInputElement).value.trim();
+				const password = ($('reg-pass') as HTMLInputElement).value;
+				const confirm = ($('reg-pass2') as HTMLInputElement).value;
+				if (!/^[\w一-龥-]{2,16}$/.test(username))
+					return showFormErr('用户名需 2-16 字，可用中英文、数字、_ 和 -');
+				if (password.length < 6) return showFormErr('密码至少 6 位');
+				if (password !== confirm) return showFormErr('两次输入的密码不一致');
+				regBtn.disabled = true;
+				regBtn.textContent = '请稍候…';
+				try {
+					const r = await authApi({ action: 'register', username, password, avatar });
+					if (r && r.ok) {
+						saveAuth(r);
+						enterTable(readRoom(), r.username);
+					} else showFormErr((r && r.msg) || '注册失败，请重试');
+				} catch {
+					showFormErr('网络异常，请稍后重试');
+				}
+				regBtn.disabled = false;
+				regBtn.textContent = '注册并进入';
+			});
+			$('reg-pass2').addEventListener('keydown', (e) => {
+				if ((e as KeyboardEvent).key === 'Enter') regBtn.click();
+			});
+
 			$('btn-join').addEventListener('click', () => {
+				hideFormErr();
 				const name = ($('in-name') as HTMLInputElement).value.trim().slice(0, 8) || '玩家' + pid.slice(-4);
-				const room =
-					($('in-room') as HTMLInputElement).value.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8) ||
-					'LOBBY';
-				enterTable(room, name);
+				authToken = null; // 游客试玩：本次以游客身份进桌（不动已存 token）
+				accountName = '';
+				enterTable(readRoom(), name);
+			});
+
+			// ---------- 账号弹层 / 退出登录 ----------
+			$('btn-account').addEventListener('click', () => {
+				$('account-ava').textContent = avatar;
+				$('account-name').textContent = authToken ? accountName : curName || '游客';
+				$('account-type').textContent = authToken ? '注册账号' : '游客';
+				$('account-room').textContent = curRoom
+					? '当前房间：' + (curRoom === 'LOBBY' ? '公共大厅' : curRoom)
+					: '未进入房间';
+				$('account').classList.remove('hidden');
+			});
+			$('btn-logout').addEventListener('click', () => {
+				localStorage.removeItem('baccarat_token');
+				authToken = null;
+				accountName = '';
+				// 主动断开：leaving 置位期间关闭，socket 换代校验兜底避免自动重连
+				leaving = true;
+				const sock = ws;
+				ws = null;
+				sock?.close();
+				leaving = false;
+				joined = false;
+				curRoom = '';
+				curName = '';
+				phase = 'idle';
+				clearDealTimers();
+				clearHands();
+				$('players-strip').innerHTML = '';
+				$('account').classList.add('hidden');
+				$('btn-account').classList.add('hidden');
+				$('btn-invite').classList.add('hidden');
+				$('room-pill').textContent = '';
+				$('reconnect').classList.add('hidden');
+				setMsg('正在进入牌桌…');
+				setAuthMode(localStorage.getItem('baccarat_user') ? 'login' : 'guest');
+				$('join').classList.remove('hidden');
 			});
 			// 随机生成 6 位大写字母数字房号
 			$('btn-random').addEventListener('click', () => {
@@ -890,24 +1128,55 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 
 			initChips();
 			initAvatars();
+			setAuthMode(localStorage.getItem('baccarat_user') ? 'login' : 'guest');
+			($('login-user') as HTMLInputElement).value = localStorage.getItem('baccarat_user') || '';
 			($('in-name') as HTMLInputElement).value = localStorage.getItem('baccarat_name') || '';
 			($('in-room') as HTMLInputElement).value = localStorage.getItem('baccarat_room') || '';
 
-			// URL 自动进房：好友邀请链接 ?room=XXX
+			// URL 自动进房：好友邀请链接 ?room=XXX（房号优先于本地记住的房间）
 			const urlRoom = (new URLSearchParams(location.search).get('room') || '')
 				.toUpperCase()
 				.replace(/[^A-Z0-9]/g, '')
 				.slice(0, 8);
-			if (urlRoom) {
-				($('in-room') as HTMLInputElement).value = urlRoom;
-				const savedName = (localStorage.getItem('baccarat_name') || '').trim().slice(0, 8);
-				if (savedName) {
-					// 老玩家：跳过登录界面直接进好友房间
-					enterTable(urlRoom, savedName);
-					toast('已进入好友房间 ' + urlRoom);
+			if (urlRoom) ($('in-room') as HTMLInputElement).value = urlRoom;
+
+			// 启动：有 token 先 verify，有效→自动以账号身份进房；无效→清 token 留在登录界面；
+			// 无 token 时沿用游客邀请链接自动进房逻辑。
+			(async () => {
+				const t = localStorage.getItem('baccarat_token');
+				if (t) {
+					try {
+						const r = await authApi({ action: 'verify', token: t });
+						if (r && r.ok) {
+							authToken = t;
+							accountName = r.username;
+							localStorage.setItem('baccarat_user', r.username);
+							($('login-user') as HTMLInputElement).value = r.username;
+							if (r.avatar) {
+								avatar = r.avatar;
+								localStorage.setItem('baccarat_avatar', r.avatar);
+								refreshAvatarSel();
+							}
+							enterTable(urlRoom || readRoom(), r.username);
+							if (urlRoom) toast('已进入好友房间 ' + urlRoom);
+							return;
+						}
+						localStorage.removeItem('baccarat_token'); // token 已失效：清除并显示登录界面
+					} catch {
+						// 网络异常：保留 token，先停在登录界面，用户可手动登录/游客进入
+					}
 				}
-				// 新玩家：停在登录界面等填昵称，房号已预填
-			}
+				if (urlRoom) {
+					const savedName = (localStorage.getItem('baccarat_name') || '').trim().slice(0, 8);
+					if (savedName) {
+						// 老玩家（游客）：跳过登录界面直接进好友房间
+						setAuthMode('guest');
+						enterTable(urlRoom, savedName);
+						toast('已进入好友房间 ' + urlRoom);
+					}
+					// 新玩家：停在登录界面（房号已预填），自选登录/注册/游客
+				}
+			})();
 			window.addEventListener('beforeunload', () => {
 				leaving = true;
 				ws?.close();
@@ -1038,6 +1307,33 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				font-size: 16px;
 				font-variant-numeric: tabular-nums;
 			}
+			/* 顶栏账号胶囊 */
+			.account-pill {
+				display: inline-flex;
+				align-items: center;
+				gap: 5px;
+				border-radius: 999px;
+				border-color: rgba(233, 194, 95, 0.5);
+				padding: 4px 10px 4px 7px;
+			}
+			.account-pill .ap-ava {
+				font-size: 15px;
+				line-height: 1;
+			}
+			.account-pill .ap-name {
+				font-size: 11px;
+				font-weight: 700;
+				color: #ffe9ad;
+				max-width: 64px;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			@media (max-width: 430px) {
+				.account-pill .ap-name {
+					max-width: 42px;
+				}
+			}
 
 			/* 阶段进度条 */
 			.phasebar {
@@ -1048,6 +1344,9 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				background: rgba(0, 0, 0, 0.35);
 				border: 1px solid rgba(255, 255, 255, 0.14);
 				overflow: hidden;
+				box-shadow:
+					inset 0 0 0 1px rgba(255, 255, 255, 0.07),
+					inset 0 1px 2px rgba(0, 0, 0, 0.35);
 			}
 			.phasebar-fill {
 				position: absolute;
@@ -1091,10 +1390,13 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				flex-direction: row;
 				align-items: center;
 				gap: 6px;
-				background: rgba(255, 255, 255, 0.08);
-				border: 1px solid rgba(255, 255, 255, 0.16);
+				background: rgba(255, 255, 255, 0.07);
+				border: 1px solid rgba(255, 255, 255, 0.22);
 				border-radius: 10px;
 				padding: 3px 10px 3px 7px;
+				backdrop-filter: blur(4px);
+				-webkit-backdrop-filter: blur(4px);
+				box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 			}
 			.pl-ava {
 				font-size: 18px;
@@ -1270,6 +1572,10 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				z-index: 5;
 				animation: pop 0.38s cubic-bezier(0.2, 1.5, 0.4, 1);
 				pointer-events: none;
+				box-shadow:
+					inset 0 1px 0 rgba(247, 220, 142, 0.55),
+					0 0 36px rgba(233, 194, 95, 0.38),
+					0 0 90px rgba(233, 194, 95, 0.16);
 			}
 			@keyframes pop {
 				from {
@@ -1535,6 +1841,17 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				-webkit-mask: radial-gradient(circle, transparent 0 64%, #000 65%);
 				mask: radial-gradient(circle, transparent 0 64%, #000 65%);
 			}
+			.chip::after {
+				content: '';
+				position: absolute;
+				left: 22%;
+				right: 22%;
+				top: 7%;
+				height: 26%;
+				border-radius: 50%;
+				background: rgba(255, 255, 255, 0.12);
+				pointer-events: none;
+			}
 			.chip span {
 				position: relative;
 				z-index: 1;
@@ -1574,6 +1891,29 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				flex: 1.4;
 				background: linear-gradient(#f6d47c, #dfa42c);
 				color: #4a3505;
+				box-shadow:
+					inset 0 1px 0 rgba(255, 246, 218, 0.75),
+					inset 0 -1px 0 rgba(122, 82, 12, 0.35),
+					0 2px 8px rgba(0, 0, 0, 0.3);
+				transition:
+					transform 0.12s,
+					filter 0.12s,
+					box-shadow 0.12s;
+			}
+			.btn-gold:hover {
+				filter: brightness(1.06);
+			}
+			.btn-gold:active {
+				transform: translateY(1px) scale(0.99);
+				filter: brightness(0.96);
+				box-shadow:
+					inset 0 1px 0 rgba(255, 246, 218, 0.4),
+					inset 0 -1px 0 rgba(122, 82, 12, 0.35),
+					0 1px 3px rgba(0, 0, 0, 0.3);
+			}
+			.btn-gold:disabled {
+				transform: none;
+				filter: none;
 			}
 			.chat-badge {
 				position: absolute;
@@ -1677,30 +2017,117 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			}
 
 			/* 登录界面 */
+			.login-sheet {
+				/* 金色双线：外层 1px 边框 + 内缩一圈细金线，中间留深色间隙 */
+				border: 1px solid rgba(233, 194, 95, 0.6);
+				border-bottom: none; /* 移动端贴底展示，桌面端媒体查询里补回 */
+				box-shadow:
+					inset 0 0 0 3px rgba(6, 30, 21, 0.9),
+					inset 0 0 0 4px rgba(233, 194, 95, 0.38),
+					0 -14px 44px rgba(0, 0, 0, 0.45);
+				/* 很淡的对角丝绒渐变叠在原底色上 */
+				background:
+					linear-gradient(
+						135deg,
+						rgba(233, 194, 95, 0.07) 0%,
+						rgba(233, 194, 95, 0.015) 34%,
+						transparent 52%,
+						rgba(9, 48, 34, 0.5) 76%,
+						rgba(233, 194, 95, 0.05) 100%
+					),
+					linear-gradient(#10432f, #0a3023);
+			}
 			.login-logo {
 				text-align: center;
-				padding: 8px 0 14px;
+				padding: 10px 0 16px;
+			}
+			.login-badge {
+				width: 58px;
+				height: 58px;
+				margin: 0 auto;
+				border-radius: 50%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border: 2px solid rgba(233, 194, 95, 0.75);
+				background: radial-gradient(circle at 50% 30%, rgba(233, 194, 95, 0.16), rgba(0, 0, 0, 0.3));
+				box-shadow:
+					0 0 18px rgba(233, 194, 95, 0.28),
+					inset 0 0 12px rgba(233, 194, 95, 0.15);
 			}
 			.login-spade {
-				font-size: 34px;
-				line-height: 1.1;
+				font-size: 28px;
+				line-height: 1;
 				color: var(--gold);
 				text-shadow: 0 2px 10px rgba(233, 194, 95, 0.45);
 			}
 			.login-title {
-				margin-top: 2px;
-				font-size: 24px;
+				margin-top: 8px;
+				font-size: 28px;
 				font-weight: 800;
-				letter-spacing: 2px;
+				letter-spacing: 6px;
+				text-indent: 6px;
 				background: linear-gradient(var(--gold-2), #d9a62e);
 				-webkit-background-clip: text;
 				background-clip: text;
 				-webkit-text-fill-color: transparent;
 			}
-			.login-sub {
+			.login-sub-en {
 				margin-top: 5px;
-				font-size: 12px;
+				font-size: 10px;
+				font-weight: 700;
+				letter-spacing: 4px;
+				text-indent: 4px;
+				text-transform: uppercase;
+				color: rgba(233, 194, 95, 0.72);
+			}
+			.login-sub {
+				margin-top: 4px;
+				font-size: 11px;
 				color: #9cc7b3;
+			}
+			/* 分段控件：登录 / 注册 / 游客试玩 */
+			.seg {
+				display: flex;
+				gap: 3px;
+				padding: 3px;
+				margin-bottom: 14px;
+				border-radius: 999px;
+				background: rgba(0, 0, 0, 0.35);
+				border: 1px solid rgba(233, 194, 95, 0.35);
+				box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.35);
+			}
+			.seg-btn {
+				flex: 1;
+				border-radius: 999px;
+				padding: 8px 0;
+				font-size: 13px;
+				font-weight: 700;
+				color: #b8d4c6;
+				background: transparent;
+				transition:
+					background 0.15s,
+					color 0.15s;
+			}
+			.seg-btn.sel {
+				background: linear-gradient(#f6d47c, #dfa42c);
+				color: #4a3505;
+				box-shadow:
+					inset 0 1px 0 rgba(255, 246, 218, 0.7),
+					0 1px 4px rgba(0, 0, 0, 0.35);
+			}
+			.form-err {
+				color: #ff98a0;
+				font-size: 12px;
+				font-weight: 700;
+				line-height: 1.5;
+				margin: 0 2px 10px;
+			}
+			.form-hint {
+				margin: 2px 0 12px;
+				font-size: 11px;
+				color: #8fb8a5;
+				text-align: center;
 			}
 			.avatar-grid {
 				display: grid;
@@ -1736,6 +2163,44 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			.room-row input {
 				flex: 1;
 				min-width: 0;
+			}
+			/* 账号弹层 */
+			.account-card {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				margin: 14px 0 10px;
+				padding: 12px 14px;
+				border-radius: 14px;
+				background: rgba(0, 0, 0, 0.25);
+				border: 1px solid rgba(233, 194, 95, 0.32);
+				box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+			}
+			.account-ava {
+				font-size: 38px;
+				line-height: 1;
+			}
+			.account-info {
+				display: flex;
+				flex-direction: column;
+				gap: 3px;
+				min-width: 0;
+			}
+			.account-info b {
+				font-size: 16px;
+				color: var(--gold-2);
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			.account-info span {
+				font-size: 11px;
+				color: #9cc7b3;
+			}
+			.account-room {
+				margin: 0 2px 14px;
+				font-size: 12px;
+				color: #b8d4c6;
 			}
 			#invite-link {
 				font-size: 12px;
@@ -1836,6 +2301,32 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				.sheet {
 					border-radius: 20px;
 					border-bottom: 1px solid rgba(233, 194, 95, 0.4);
+				}
+				.login-sheet {
+					border-bottom: 1px solid rgba(233, 194, 95, 0.6);
+				}
+			}
+
+			/* 减少动态效果偏好：禁用装饰性动画与过渡 */
+			@media (prefers-reduced-motion: reduce) {
+				.card,
+				.banner,
+				.sheet,
+				.toast {
+					animation: none;
+				}
+				.btn-gold,
+				.seg-btn,
+				.chip,
+				.avatar-btn,
+				.spot,
+				.hand,
+				.toast,
+				.phasebar-fill {
+					transition: none;
+				}
+				.btn-gold:active {
+					transform: none;
 				}
 			}
 		</style>
