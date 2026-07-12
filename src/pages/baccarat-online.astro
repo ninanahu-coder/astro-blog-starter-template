@@ -47,6 +47,7 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			<section class="table">
 				<div class="table-info">
 					<span id="shoe-info">牌靴 —</span>
+					<span class="streak-badge hidden" id="streak"></span>
 					<span class="free-note">虚拟筹码 · 仅供娱乐</span>
 				</div>
 				<div class="hands">
@@ -81,10 +82,25 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 					<span class="road-tabs">
 						<button class="road-tab" data-tab="bead">珠盘</button>
 						<button class="road-tab" data-tab="big">大路</button>
+						<button class="road-tab" data-tab="derived">下三路</button>
 					</span>
 				</div>
 				<div class="road" id="road"></div>
 				<div class="road bigroad hidden" id="bigroad"></div>
+				<div class="road derived hidden" id="derivedroad">
+					<div class="dr-sec">
+						<span class="dr-label">大眼仔</span>
+						<div class="dr-grid dr-eye" id="dr-eye"></div>
+					</div>
+					<div class="dr-sec">
+						<span class="dr-label">小路</span>
+						<div class="dr-grid dr-small" id="dr-small"></div>
+					</div>
+					<div class="dr-sec">
+						<span class="dr-label">曱甴路</span>
+						<div class="dr-grid dr-roach" id="dr-roach"></div>
+					</div>
+				</div>
 			</section>
 
 			<section class="bets">
@@ -252,6 +268,17 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			</div>
 		</div>
 
+		<!-- 房间排行榜 -->
+		<div class="overlay hidden" id="board">
+			<div class="sheet">
+				<div class="sheet-head">
+					<span>本桌排行</span>
+					<button class="x" data-close="board" aria-label="关闭">×</button>
+				</div>
+				<div class="board-list" id="board-list"></div>
+			</div>
+		</div>
+
 		<!-- 断线 -->
 		<div class="overlay hidden" id="reconnect">
 			<div class="sheet center">
@@ -275,6 +302,13 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			};
 			type Spot = 'ppair' | 'player' | 'tie' | 'banker' | 'bpair';
 			type Card = { rank: string; suit: string; v: number };
+			type PlayerInfo = {
+				name: string;
+				avatar?: string;
+				balance: number;
+				online: boolean;
+				betting: boolean;
+			};
 
 			// ---------- 状态 ----------
 			let ws: WebSocket | null = null;
@@ -293,6 +327,7 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			let shoeNo = 0;
 			let lastNet: number | null = null; // settle 时服务端私发的本局净输赢
 			let curDeal: { p: Card[]; b: Card[] } | null = null; // 本局牌面（result 时兜底补全）
+			let lastPlayers: PlayerInfo[] = []; // 最近一次收到的玩家列表（排行榜数据源）
 
 			const pid = (() => {
 				let v = localStorage.getItem('baccarat_pid');
@@ -443,9 +478,8 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 					el.textContent = totals[key] > 0 ? `桌 ${fmt(totals[key])}` : '';
 				}
 			}
-			function renderPlayers(
-				players: { name: string; avatar?: string; balance: number; online: boolean; betting: boolean }[],
-			) {
+			function renderPlayers(players: PlayerInfo[]) {
+				lastPlayers = players; // welcome/players/bets/phase/result 都经这里，排行榜数据随之更新
 				const strip = $('players-strip');
 				strip.innerHTML = '';
 				for (const p of players) {
@@ -456,7 +490,56 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 					div.querySelector('.pl-name')!.textContent = p.name;
 					strip.appendChild(div);
 				}
+				if (!$('board').classList.contains('hidden')) renderBoard(); // 弹层开着时实时刷新
 			}
+			// ---------- 房间排行榜 ----------
+			function renderBoard() {
+				const list = $('board-list');
+				list.innerHTML = '';
+				if (lastPlayers.length === 0) {
+					const empty = document.createElement('div');
+					empty.className = 'board-empty';
+					empty.textContent = '暂无玩家';
+					list.appendChild(empty);
+					return;
+				}
+				const sorted = [...lastPlayers].sort((a, b) => b.balance - a.balance);
+				const medals = ['🥇', '🥈', '🥉'];
+				sorted.forEach((p, i) => {
+					// 自己：昵称 + 头像与本机一致（游客与账号身份 curName 均为进桌昵称）
+					const isMe = p.name === curName && (p.avatar || '🙂') === avatar;
+					const row = document.createElement('div');
+					row.className = 'board-row' + (p.online ? '' : ' off') + (isMe ? ' me' : '');
+					const rank = document.createElement('span');
+					rank.className = 'board-rank' + (i < 3 ? ' medal' : '');
+					rank.textContent = i < 3 ? medals[i] : String(i + 1);
+					const ava = document.createElement('span');
+					ava.className = 'board-ava';
+					ava.textContent = p.avatar || '🙂';
+					const name = document.createElement('span');
+					name.className = 'board-name';
+					const nameText = document.createElement('b');
+					nameText.textContent = p.name;
+					name.appendChild(nameText);
+					if (p.betting)
+						name.appendChild(Object.assign(document.createElement('i'), { className: 'board-bet-dot' }));
+					if (!p.online) {
+						const off = document.createElement('i');
+						off.className = 'board-off';
+						off.textContent = '离线';
+						name.appendChild(off);
+					}
+					const bal = document.createElement('span');
+					bal.className = 'board-bal';
+					bal.textContent = fmt(p.balance);
+					row.append(rank, ava, name, bal);
+					list.appendChild(row);
+				});
+			}
+			$('players-strip').addEventListener('click', () => {
+				renderBoard();
+				$('board').classList.remove('hidden');
+			});
 			type RoadHand = { r: string; pp: boolean; bp: boolean };
 			function renderRoad(road: RoadHand[]) {
 				const roadEl = $('road');
@@ -523,24 +606,113 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				}
 				el.scrollLeft = el.scrollWidth;
 			}
+			// 下三路（大眼仔/小路/曱甴路）：基于大路列结构的标准衍生路
+			function bigRoadCols(road: RoadHand[]) {
+				const cols: { side: string; len: number }[] = [];
+				for (const e of road) {
+					if (e.r === 'T') continue;
+					const last = cols[cols.length - 1];
+					if (last && last.side === e.r) last.len++;
+					else cols.push({ side: e.r, len: 1 });
+				}
+				return cols;
+			}
+			function derivedRoad(road: RoadHand[], k: number) {
+				// k: 1=大眼仔 2=小路 3=曱甴路；true=红 false=蓝
+				const cols = bigRoadCols(road);
+				const out: boolean[] = [];
+				for (let c = 0; c < cols.length; c++) {
+					for (let m = 0; m < cols[c].len; m++) {
+						if (!(m === 0 ? c >= k + 1 : c >= k)) continue;
+						let red;
+						if (m === 0) red = cols[c - 1].len === cols[c - 1 - k].len;
+						else red = cols[c - k].len !== m;
+						out.push(red);
+					}
+				}
+				return out;
+			}
+			// 红蓝序列按大路规则堆叠：同色续列向下（最多 6 行，触底/占用右拐），变色开新列
+			function renderDerivedGrid(el: HTMLElement, seq: boolean[]) {
+				el.innerHTML = '';
+				const used = new Set<string>();
+				let last: boolean | null = null;
+				let row = 0;
+				let col = 0;
+				let maxCol = -1;
+				for (const red of seq) {
+					if (last === red) {
+						if (row < 5 && !used.has(`${col},${row + 1}`)) row++;
+						else col++;
+					} else {
+						col = maxCol + 1;
+						row = 0;
+						last = red;
+					}
+					used.add(`${col},${row}`);
+					if (col > maxCol) maxCol = col;
+					const cell = document.createElement('span');
+					cell.className = 'dcell ' + (red ? 'dc-r' : 'dc-b');
+					cell.style.gridColumn = String(col + 1);
+					cell.style.gridRow = String(row + 1);
+					el.appendChild(cell);
+				}
+				el.scrollLeft = el.scrollWidth;
+			}
+			function renderDerived(road: RoadHand[]) {
+				renderDerivedGrid($('dr-eye'), derivedRoad(road, 1));
+				renderDerivedGrid($('dr-small'), derivedRoad(road, 2));
+				renderDerivedGrid($('dr-roach'), derivedRoad(road, 3));
+			}
+			// 连胜徽章：忽略和局，从路单尾部数连续同边
+			function renderStreak(road: RoadHand[]) {
+				const el = $('streak');
+				let side = '';
+				let n = 0;
+				for (let i = road.length - 1; i >= 0; i--) {
+					const r = road[i].r;
+					if (r === 'T') continue;
+					if (!side) side = r;
+					if (r !== side) break;
+					n++;
+				}
+				if (!side || n < 3) {
+					el.className = 'streak-badge hidden';
+					return;
+				}
+				el.textContent = `${side === 'B' ? '庄' : '闲'} ${n} 连${n >= 5 ? ' 🔥' : ''}`;
+				el.className = 'streak-badge ' + (side === 'B' ? 'sb-b' : 'sb-p');
+			}
 			function renderRoads(road: RoadHand[]) {
 				renderRoad(road);
 				renderBigRoad(road);
+				renderDerived(road);
+				renderStreak(road);
 			}
-			// 珠盘 / 大路 切换
-			let roadTab = localStorage.getItem('baccarat_road_tab') === 'big' ? 'big' : 'bead';
+			// 珠盘 / 大路 / 下三路 切换
+			const savedRoadTab = localStorage.getItem('baccarat_road_tab');
+			let roadTab = savedRoadTab === 'big' || savedRoadTab === 'derived' ? savedRoadTab : 'bead';
 			function applyRoadTab() {
 				$('road').classList.toggle('hidden', roadTab !== 'bead');
 				$('bigroad').classList.toggle('hidden', roadTab !== 'big');
+				$('derivedroad').classList.toggle('hidden', roadTab !== 'derived');
 				document.querySelectorAll<HTMLElement>('.road-tab').forEach((b) => {
 					b.classList.toggle('sel', b.dataset.tab === roadTab);
 				});
-				const visible = roadTab === 'big' ? $('bigroad') : $('road');
-				visible.scrollLeft = visible.scrollWidth; // 隐藏时 scrollWidth 为 0，切回后补滚
+				// 隐藏时 scrollWidth 为 0，切回后补滚到最右
+				if (roadTab === 'derived') {
+					document
+						.querySelectorAll<HTMLElement>('#derivedroad .dr-grid')
+						.forEach((g) => (g.scrollLeft = g.scrollWidth));
+				} else {
+					const visible = roadTab === 'big' ? $('bigroad') : $('road');
+					visible.scrollLeft = visible.scrollWidth;
+				}
 			}
 			document.querySelectorAll<HTMLElement>('.road-tab').forEach((b) => {
 				b.addEventListener('click', () => {
-					roadTab = b.dataset.tab === 'big' ? 'big' : 'bead';
+					const t = b.dataset.tab;
+					roadTab = t === 'big' || t === 'derived' ? t : 'bead';
 					localStorage.setItem('baccarat_road_tab', roadTab);
 					applyRoadTab();
 				});
@@ -1066,7 +1238,9 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				phase = 'idle';
 				clearDealTimers();
 				clearHands();
+				lastPlayers = [];
 				$('players-strip').innerHTML = '';
+				$('board').classList.add('hidden');
 				$('account').classList.add('hidden');
 				$('btn-account').classList.add('hidden');
 				$('btn-invite').classList.add('hidden');
@@ -1383,6 +1557,7 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				padding: 0 10px 8px;
 				min-height: 40px;
 				scrollbar-width: none;
+				cursor: pointer; /* 整条可点：打开本桌排行 */
 			}
 			.pl {
 				flex-shrink: 0;
@@ -1454,9 +1629,28 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			}
 			.table-info {
 				display: flex;
+				align-items: center;
 				justify-content: space-between;
 				font-size: 11px;
 				color: #9cc7b3;
+			}
+			/* 连胜徽章：庄红 / 闲蓝小胶囊 */
+			.streak-badge {
+				font-size: 11px;
+				font-weight: 800;
+				line-height: 1.4;
+				color: #fff;
+				border-radius: 999px;
+				padding: 1px 9px;
+				white-space: nowrap;
+			}
+			.streak-badge.sb-b {
+				background: linear-gradient(#e35560, #b32c37);
+				box-shadow: 0 0 10px rgba(216, 64, 74, 0.65);
+			}
+			.streak-badge.sb-p {
+				background: linear-gradient(#5590f2, #2a5cc0);
+				box-shadow: 0 0 10px rgba(61, 123, 233, 0.65);
 			}
 			.hands {
 				flex: 1;
@@ -1738,6 +1932,80 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 				font-weight: 800;
 				line-height: 1;
 				color: var(--green);
+			}
+			/* 下三路：三个纵向小节（大眼仔/小路/曱甴路），各自横向滚动 */
+			.road.derived {
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+				min-height: 78px;
+			}
+			.dr-sec {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+			}
+			.dr-label {
+				flex-shrink: 0;
+				width: 38px;
+				font-size: 10px;
+				font-weight: 700;
+				color: #8a8672;
+			}
+			.dr-grid {
+				flex: 1;
+				display: grid;
+				grid-auto-flow: column;
+				grid-auto-columns: 14px;
+				grid-template-rows: repeat(6, 14px);
+				gap: 2px;
+				min-height: 94px;
+				overflow-x: auto;
+				scrollbar-width: none;
+			}
+			.dcell {
+				width: 14px;
+				height: 14px;
+			}
+			/* 大眼仔：空心环 */
+			.dr-eye .dcell {
+				border-radius: 50%;
+				border: 2px solid transparent;
+			}
+			.dr-eye .dcell.dc-r {
+				border-color: var(--red);
+			}
+			.dr-eye .dcell.dc-b {
+				border-color: var(--blue);
+			}
+			/* 小路：实心点 */
+			.dr-small .dcell {
+				border-radius: 50%;
+			}
+			.dr-small .dcell.dc-r {
+				background: var(--red);
+			}
+			.dr-small .dcell.dc-b {
+				background: var(--blue);
+			}
+			/* 曱甴路：45° 斜线 */
+			.dr-roach .dcell.dc-r {
+				background: linear-gradient(
+					45deg,
+					transparent 38%,
+					var(--red) 38%,
+					var(--red) 62%,
+					transparent 62%
+				);
+			}
+			.dr-roach .dcell.dc-b {
+				background: linear-gradient(
+					45deg,
+					transparent 38%,
+					var(--blue) 38%,
+					var(--blue) 62%,
+					transparent 62%
+				);
 			}
 
 			/* 下注区（多一行桌面合计） */
@@ -2205,6 +2473,94 @@ const description = '多人在线百家乐牌桌：同一副牌实时同步、�
 			#invite-link {
 				font-size: 12px;
 				color: #ffe9ad;
+			}
+			/* 房间排行榜 */
+			.board-list {
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				margin-top: 12px;
+				min-height: 120px;
+			}
+			.board-row {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				padding: 8px 12px;
+				border-radius: 12px;
+				background: rgba(0, 0, 0, 0.25);
+				border: 1px solid rgba(255, 255, 255, 0.14);
+				box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+			}
+			.board-row.me {
+				border-color: var(--gold);
+				box-shadow:
+					0 0 0 1px var(--gold),
+					0 0 12px rgba(233, 194, 95, 0.35);
+			}
+			.board-row.off {
+				opacity: 0.5;
+			}
+			.board-rank {
+				flex-shrink: 0;
+				width: 26px;
+				text-align: center;
+				font-size: 13px;
+				font-weight: 800;
+				color: #b8d4c6;
+				font-variant-numeric: tabular-nums;
+			}
+			.board-rank.medal {
+				font-size: 17px;
+			}
+			.board-ava {
+				flex-shrink: 0;
+				font-size: 22px;
+				line-height: 1;
+			}
+			.board-name {
+				flex: 1;
+				min-width: 0;
+				display: flex;
+				align-items: center;
+				gap: 6px;
+			}
+			.board-name b {
+				font-size: 13px;
+				font-weight: 700;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+			.board-bet-dot {
+				flex-shrink: 0;
+				width: 6px;
+				height: 6px;
+				border-radius: 50%;
+				background: var(--gold);
+				box-shadow: 0 0 6px rgba(233, 194, 95, 0.85);
+			}
+			.board-off {
+				flex-shrink: 0;
+				font-style: normal;
+				font-size: 10px;
+				color: #9cc7b3;
+				border: 1px solid rgba(255, 255, 255, 0.25);
+				border-radius: 999px;
+				padding: 0 6px;
+			}
+			.board-bal {
+				flex-shrink: 0;
+				font-size: 14px;
+				font-weight: 800;
+				color: var(--gold-2);
+				font-variant-numeric: tabular-nums;
+			}
+			.board-empty {
+				text-align: center;
+				font-size: 13px;
+				color: #9cc7b3;
+				padding: 34px 0;
 			}
 			.result-icon {
 				font-size: 46px;
