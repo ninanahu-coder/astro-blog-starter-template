@@ -42,6 +42,10 @@ Puppies **cannot regulate their own temperature until about 4 weeks of age** (Me
 | Days 7–10 | step down to **about 26.7°C** |
 | End of week 4 | **about 22.2°C** |
 
+![Warmth: heat covers only half the box; read the sleeping posture](/puppy-care/warmth-en.svg)
+
+*Heat covers only about half the box so puppies can move away — the sleeping posture tells you hot from cold at a glance.*
+
 - Healthy puppies sleep quietly in a pile; **spread far apart = too hot; piled tightly, crying, climbing onto the heat source = too cold**
 - A **core temperature below 35°C** causes the heart rate to drop, the suckle reflex to vanish and the gut to shut down — hypothermia, hypoglycaemia and dehydration compound each other into the classic **"fading puppy syndrome"**
 - **Never feed a chilled puppy**: hypothermia stops the gut, so milk sits and ferments → fatal reflux and aspiration. Rewarm **slowly** over 30–60 minutes first (wrapped against your body, or a warm-water bottle behind a towel; rewarming too fast worsens dehydration), and only feed once the puppy feels warm and has a suckle reflex
@@ -63,6 +67,10 @@ Puppies **cannot regulate their own temperature until about 4 weeks of age** (Me
 - Teat hole size: milk should drip slowly when the bottle is inverted; burp the puppy gently after each feed
 - Mixed formula keeps a maximum of 24 hours refrigerated; discard whatever is left in the bottle after a feed
 
+![Feeding position: on the belly with head up is right; feeding on the back causes choking](/puppy-care/feeding-en.svg)
+
+*Feed with the puppy on its belly, head slightly raised (like natural nursing); **never on its back** — milk goes straight into the airway.*
+
 **Hypoglycaemia prevention**: newborns have almost no glycogen reserve — liver glycogen runs out after about 24 hours without food (faster in a sick puppy). Reference blood glucose: normal about **90–200 mg/dL** (the vet's judgement governs). Signs: weakness, tremors, persistent crying, cold body, going limp. Prevention is **frequent feeding + warmth**, not last-minute rescue.
 
 ## 4. Elimination Stimulation: No Independent Toileting for 3 Weeks
@@ -79,6 +87,10 @@ Puppies **cannot urinate or defecate on their own before about 3 weeks**; the da
 - **Weigh at the same time every day on a gram scale**, log it in each puppy's chart, for at least the first 3 weeks
 - Normal gain: **about 5–10% of birth weight per day**; birth weight should **double by day 7–10**
 - **Red flag: any weight loss (especially >4%) or 2 consecutive days without gain** — report the same day and find the cause (losing out on teats? dam's milk? box temperature?)
+
+![Weight curve: normal gain is +5–10% per day, doubling by day 7–10; flat or falling is a red flag](/puppy-care/weight-en.svg)
+
+*The green line is normal growth (doubling by day 7–10); a flat or falling red line is a red flag — call the vet the same day.*
 
 **Developmental milestones (AKC / Merck — report significant delays):**
 
@@ -141,6 +153,8 @@ The dam's condition decides the whole litter's survival. Check and log daily:
 ## 10. Red-Flag Quick Reference: See One, Report One
 
 Any single item below — **report and contact the vet immediately**, do not leave it for the next shift:
+
+![Red-flag quick-reference card: see one, report one; when in doubt, phone the vet now](/puppy-care/redflags-en.svg)
 
 - Weight loss (especially >4%) or repeated failure to gain
 - Puppy feels cold, is limp, suckles weakly or won't seek the teat
