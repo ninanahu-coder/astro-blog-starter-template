@@ -1,11 +1,11 @@
 ---
 title: "Kennel Puppy Photography & Video Guide: Camera Choices and Shooting Techniques"
-description: "FluffyWA's guide to photographing and filming puppies: equipment by budget (phones, pocket gimbals, action cameras, mirrorless, fixed cams), camera settings, practical shooting techniques, and hygiene and safety rules for filming in the puppy area"
+description: "FluffyWA's guide to photographing and filming puppies: equipment by budget (phones, pocket gimbals, action cameras, mirrorless, fixed cams), camera settings cheat sheets by scenario, shooting angles and video length standards, practical techniques, and hygiene and safety rules for filming in the puppy area"
 pubDate: "Jul 17 2026"
 heroImage: "/blog-placeholder-5.jpg"
 ---
 
-Photos and videos are the public face of a kennel: the daily photo update is the highlight of every boarding client's day, and puppy growth records and adoption listings directly shape trust. But puppies are tiny and fast, the light is often poor, and biosecurity rules apply — casual snapshots usually come out blurry. This guide tells all FluffyWA staff **what equipment to use, how to set it up, and how to shoot**, plus the hygiene rules that must be followed when filming in the puppy area (K4).
+Photos and videos are the public face of a kennel: the daily photo update is the highlight of every boarding client's day, and puppy growth records and adoption listings directly shape trust. But puppies are tiny and fast, the light is often poor, and biosecurity rules apply — casual snapshots usually come out blurry. This guide tells all FluffyWA staff **what equipment to use, how to set it, which angles to choose, how long to shoot, and how to shoot**, plus the hygiene rules that must be followed when filming in the puppy area (K4).
 
 ## 1. Know What You're Shooting: Three Use Cases
 
@@ -23,7 +23,7 @@ Different uses demand different gear and technique: a phone is plenty for daily 
 
 ### Tier 0: The smartphone you already have (A$0, covers 90% of cases)
 
-Any iPhone or Android flagship from the last three or four years (iPhone 13 onwards, Pixel, Samsung S series) is entirely adequate for puppies — provided you use the right technique (see Section 4). Phones travel in your pocket and send photos instantly, which makes them ideal for client updates.
+Any iPhone or Android flagship from the last three or four years (iPhone 13 onwards, Pixel, Samsung S series) is entirely adequate for puppies — provided you use the right technique (see Sections 4 and 5). Phones travel in your pocket and send photos instantly, which makes them ideal for client updates.
 
 ### Tier 1: Pocket gimbal camera (approx. A$700–900) — the recommended upgrade
 
@@ -64,57 +64,92 @@ Choose models with **night vision, 2K+ resolution, and clip export**. Note: moni
 - Clip-on fill light (**adjustable brightness, warm colour temperature**, approx. A$30)
 - Camera/phone lanyard or wrist strap (drop protection — mandatory inside pens)
 - Squeaker toys and treats — the most important "camera gear" of all
-- 70% alcohol wipes (equipment disinfection, see Section 5)
+- 70% alcohol wipes (equipment disinfection, see Section 6)
 
 **Recommended setup**: staff phones as the workhorse at each site + one company Osmo Pocket 3 rotating between sites + 1–2 fixed cameras in K4.
 
-## 3. Key Settings
+## 3. Camera Settings Cheat Sheet
 
-### Photos
+**The priority order is always: shutter > focus > ISO > everything else.** A slightly noisy photo beats a blurry one every time.
 
-- **Burst mode**: always on for puppies — shooting 10 to keep 1 is normal
-- **Shutter speed**: **1/500s or faster** for a walking dog, **1/1000s or faster** for a running dog (use your phone's action/pro mode)
-- **Focus**: on mirrorless, enable **animal eye AF + continuous AF (AF-C)**; on a phone, tap the dog's face and long-press to lock focus
+### Photo settings (by scenario)
+
+| Scenario | Shutter speed | ISO | Aperture | Focus / drive |
+| --- | --- | --- | --- | --- |
+| Sleeping, still close-ups | **1/125s or faster** | 100–400 | f/1.8–2.8 (blur the background) | Single AF on the eye, single shot |
+| Walking, indoor play | **1/500s or faster** | 800–3200 (don't fear high ISO indoors) | Wide open | AF-C + animal eye AF, burst |
+| Outdoor running, toy catches | **1/1000–1/2000s** | Auto (cap 1600) | f/2.8–4 (depth-of-field margin) | AF-C + high-speed burst |
+
+- **Adjust exposure compensation for coat colour**: cameras render white dogs grey — **dial in +0.3 to +0.7 EV**; they render black dogs as a detail-less blob — **dial in -0.3 to -0.7 EV** and meter off the dog's face
+- Auto white balance by default; if warm indoor lighting turns everything yellow, switch to the incandescent/tungsten preset
 - **Never use digital zoom**: image quality collapses — walk closer or crop later
-- **Never use flash**: it frightens puppies and ruins the shot anyway (see Section 5)
+- **Never use flash** (see Section 6)
 
-### Video
+### Video settings and length (by use)
 
-- Everyday records: **4K/30fps**; running and play: **1080p/60fps or 4K/60fps** for slow-motion in post
-- Stabilisation always on
-- **10–20 seconds** per clip is the sweet spot: easy to send to clients and post to social, and it forces you to plan the shot
+| Use | Resolution / frame rate | Finished length | Key points |
+| --- | --- | --- | --- |
+| Client daily update | 1080p/30 or 4K/30 | **10–20 seconds** | Stabilisation on; one clip = one activity |
+| Running and play (slow-mo material) | **1080p/60 or 4K/60** | 10–15 seconds | Slow to 0.5x in post |
+| Adoption listing | 4K/30 | **30–60 seconds** (cut from 3–6 short clips) | Tripod/gimbal; one clip each of walking, playing, interacting |
+| Social media | 4K/30, **vertical 9:16** | **15–30 seconds** | The dog must appear within the first 3 seconds |
+| Growth record (weekly) | 4K/30 | **10 seconds** each, fixed position | Same spot, same angle — week-by-week comparison |
+| K4 fixed-cam time-lapse | Camera default | Record 30–60 min, export 15–30 s | Manager approval before export |
+
+- Before recording, **long-press to lock focus and exposure** so the image doesn't pulse bright/dark as the lens sweeps past a window
+- Decide before each take that "this clip shows one thing" (eating, chasing a ball, yawning) and stop once you have it — many short takes beat one three-minute ramble ten times over in the edit
 - **Minimise zooming and whip-pans** — move your feet instead
 
-## 4. Shooting Techniques: Making Photos Come Alive
+### Phone-specific operation
 
-### 1. Get down — lens at the dog's eye level
+- Turn on the **grid**; place the dog's eyes near the top-third line
+- **Long-press the screen to lock focus/exposure**, then slide up/down to fine-tune brightness (slide up a touch for white dogs, down for black dogs)
+- Burst: on iPhone, hold the shutter and slide left; on most Androids, long-press the shutter
+- For action, switch to **action/pro mode** and set the shutter to 1/1000s manually
+- Wipe the lens with a cloth before shooting — a pocketed lens always has fingerprints
 
-The single biggest improvement. Shooting down from standing height captures only the top of a head and a back; crouch, sit, or lie down so the lens meets the puppy's eyes and the photo instantly connects. Pocket gimbals and action cameras can shoot straight off the ground.
+## 4. Shooting Angles: Pick the Right Position from One Table
 
-### 2. Use natural light well
+**Default rule: bring the lens down to the dog's eye level.** Shooting down from standing height captures only the top of a head and a back; crouch, sit, or lie down and the photo instantly connects. From that baseline, choose the angle by purpose:
+
+| Angle | How to shoot it | Best for |
+| --- | --- | --- |
+| **Dog's eye level** (default) | Crouch/sit/lie down, lens level with the dog's eyes | 90% of shots: client updates, everyday records |
+| **Ground-level low angle** | Phone upside-down on the floor, or action cam placed on the ground | Puppies charging the lens; making a tiny pup look mighty |
+| **Directly overhead** | Stand over the whelping box/pen, lens pointing straight down | Whole-litter "family photo"; weekly growth comparison (same height) |
+| **Full-body profile** | Dog standing side-on, lens at the dog's back height | Adoption listing standard: build, coat and legs all visible at a glance |
+| **Close-up** | Move in or use the telephoto end, **focus always on the eye** | Sleeping faces, paw pads, noses; mind the phone's minimum focus distance — too close and it hunts |
+| **Follow cam** | Gimbal/action cam trailing 1–2 m behind or beside the dog | Walks and yard exploration videos — maximum immersion |
+
+- **The adoption three-shot set**: full-body profile + front sitting + head close-up, taken weekly for every puppy — these are the three photos buyers always ask for
+- **Two traps to avoid**: angled-down shots of the face from standing height (big head, tiny body, distorted proportions); wide-angle lenses too close (enlarged, warped nose). For a big head shot, step back half a pace and use the 2x telephoto end
+
+## 5. Shooting Techniques: Making Photos Come Alive
+
+### 1. Use natural light well
 
 - Best options: **open shade outdoors** (under eaves, tree shade) or an **indoor spot facing a window** — soft light, no squinting
 - **Morning is the best session**: good light, and dogs are fresh after their run; midday top-light and backlight are both hard to work with
 - If indoor light falls short, bounce the fill light **off the ceiling or a wall** — never aim it straight at the dog's face
 
-### 3. Subtract from the background
+### 2. Subtract from the background
 
 Spend 10 seconds checking the frame before shooting: move water bowls, mops, and cleaning gear; find a clean wall, grass, or a plain blanket. Adoption photos especially need clean backgrounds — the client should see the dog, not the clutter.
 
-### 4. Work in pairs; direct attention with sound and treats
+### 3. Work in pairs; direct attention with sound and treats
 
 - The most effective split: **one person shoots, one person wrangles**
 - To get the dog looking at the lens: hold a squeaker or treat **directly above the lens** and squeak it — burst-shoot the instant the head lifts
 - Don't squeak repeatedly — dogs tune it out after a few tries; save it for the moment before the shutter
 - For candid states (play, sleep, nursing) do the opposite: **stay quiet, don't interfere**, shoot from a distance at the long end
 
-### 5. Shooting action: pre-focus + burst + panning
+### 4. Shooting action: pre-focus + burst + panning
 
 - Have your partner run the dog along a fixed route, **pre-focus on a spot it must pass**, and burst-shoot as it enters frame
 - For panning shots (lens tracking the dog sideways), use the gimbal or grip the phone two-handed and rotate from the waist, not the wrists
 - Slow motion (60fps+) works best on running, water shake-offs, and toy catches
 
-### 6. Puppy-specific rules
+### 5. Puppy-specific rules
 
 - **No session longer than 5–10 minutes**: puppies tire extremely fast — a tired puppy looks bad in photos and shouldn't be pushed anyway
 - Shoot in the alert window **after waking, outside the half hour either side of feeding** — that's when they look their best
@@ -122,7 +157,7 @@ Spend 10 seconds checking the frame before shooting: move water bowls, mops, and
 - Puppies under 4 weeks **must not be away from their heat source for long** — shoot right beside the whelping area and keep it quick
 - For weekly growth comparisons use **the same spot, same angle, same reference object** (e.g. the same blanket) so the change reads instantly
 
-## 5. Hygiene and Safety: Filming Follows Biosecurity Rules Too
+## 6. Hygiene and Safety: Filming Follows Biosecurity Rules Too
 
 Puppies have not completed their vaccinations and are the most vulnerable animals on site. Equipment, like people, is a potential pathogen carrier and must follow the same rules as the cleaning SOP:
 
@@ -135,7 +170,7 @@ Puppies have not completed their vaccinations and are the most vulnerable animal
 - Phones, lens caps and small accessories **stay in hand, never on the floor** — puppies chew everything, and a swallowed part is an emergency
 - Filming must never interfere with feeding, cleaning or rest; stop immediately if a puppy shows stress signals (hiding, whining, tucked tail)
 
-## 6. Daily Workflow
+## 7. Daily Workflow
 
 1. **Shoot**: work through the day's list — 1–3 keeper photos + one 10–20 second video per dog
 2. **Cull**: delete blurry and closed-eye shots on the spot; keep only what's sendable
@@ -146,8 +181,9 @@ Puppies have not completed their vaccinations and are the most vulnerable animal
 ### Quick checklist (30 seconds before shooting)
 
 - [ ] Hands and equipment disinfected, lanyard on
-- [ ] Lens wiped (a pocketed lens always has fingerprints)
+- [ ] Lens wiped
 - [ ] Burst on, flash off, stabilisation on
+- [ ] Shutter: 1/500s walking, 1/1000s running
 - [ ] Background tidied
 - [ ] Are you crouching yet?
 
