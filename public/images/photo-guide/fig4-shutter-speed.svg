@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 300" width="800" height="300" font-family="-apple-system,'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif">
+  <rect width="800" height="300" fill="#ffffff"/>
+  <text x="16" y="28" font-size="16" font-weight="700" fill="#222939">图 4 · 快门速度速查:狗动得越快,快门越快</text>
+  <text x="16" y="46" font-size="11" fill="#60739f">Fig 4 · Shutter speed cheat sheet: the faster the dog, the faster the shutter</text>
+
+  <!-- Card 1: sleeping -->
+  <g transform="translate(10,58)">
+    <rect width="246" height="168" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <line x1="30" y1="92" x2="216" y2="92" stroke="#c9d2e3" stroke-width="2"/>
+    <!-- lying dog -->
+    <ellipse cx="112" cy="80" rx="36" ry="13" fill="#60739f"/>
+    <circle cx="150" cy="76" r="11" fill="#60739f"/>
+    <polygon points="144,68 148,58 154,68" fill="#60739f"/>
+    <path d="M 150,78 q 5,2 8,0" fill="none" stroke="#ffffff" stroke-width="1.6" stroke-linecap="round"/>
+    <line x1="76" y1="86" x2="62" y2="80" stroke="#60739f" stroke-width="5" stroke-linecap="round"/>
+    <text x="180" y="56" font-size="13" fill="#8fa0c4" font-style="italic">z z Z</text>
+    <text x="123" y="122" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">睡觉 / 静止特写</text>
+    <text x="123" y="152" font-size="21" font-weight="800" fill="#2337ff" text-anchor="middle">1/125s 起</text>
+  </g>
+
+  <!-- Card 2: walking -->
+  <g transform="translate(273,58)">
+    <rect width="246" height="168" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <line x1="30" y1="92" x2="216" y2="92" stroke="#c9d2e3" stroke-width="2"/>
+    <!-- walking dog -->
+    <ellipse cx="115" cy="66" rx="26" ry="12" fill="#60739f"/>
+    <circle cx="144" cy="54" r="10" fill="#60739f"/>
+    <polygon points="138,47 142,38 148,47" fill="#60739f"/>
+    <circle cx="148" cy="52" r="1.8" fill="#ffffff"/>
+    <line x1="98" y1="76" x2="92" y2="91" stroke="#60739f" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="108" y1="78" x2="112" y2="91" stroke="#60739f" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="123" y1="78" x2="119" y2="91" stroke="#60739f" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="132" y1="76" x2="139" y2="91" stroke="#60739f" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="91" y1="58" x2="80" y2="48" stroke="#60739f" stroke-width="4.5" stroke-linecap="round"/>
+    <text x="123" y="122" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">走动 / 室内玩耍</text>
+    <text x="123" y="152" font-size="21" font-weight="800" fill="#2337ff" text-anchor="middle">1/500s 起</text>
+  </g>
+
+  <!-- Card 3: running -->
+  <g transform="translate(536,58)">
+    <rect width="246" height="168" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <line x1="30" y1="92" x2="216" y2="92" stroke="#c9d2e3" stroke-width="2"/>
+    <!-- running dog, stretched -->
+    <ellipse cx="120" cy="64" rx="30" ry="11" fill="#60739f"/>
+    <circle cx="153" cy="56" r="10" fill="#60739f"/>
+    <polygon points="147,49 151,40 157,49" fill="#60739f"/>
+    <circle cx="157" cy="54" r="1.8" fill="#ffffff"/>
+    <line x1="96" y1="72" x2="78" y2="84" stroke="#60739f" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="104" y1="74" x2="90" y2="90" stroke="#60739f" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="136" y1="74" x2="152" y2="86" stroke="#60739f" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="142" y1="72" x2="160" y2="80" stroke="#60739f" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="92" y1="56" x2="76" y2="46" stroke="#60739f" stroke-width="4.5" stroke-linecap="round"/>
+    <line x1="60" y1="56" x2="44" y2="56" stroke="#8fa0c4" stroke-width="2.5"/>
+    <line x1="64" y1="66" x2="50" y2="66" stroke="#8fa0c4" stroke-width="2.5"/>
+    <line x1="58" y1="76" x2="46" y2="76" stroke="#8fa0c4" stroke-width="2.5"/>
+    <text x="123" y="122" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">奔跑 / 接玩具</text>
+    <text x="123" y="152" font-size="21" font-weight="800" fill="#2337ff" text-anchor="middle">1/1000s+</text>
+  </g>
+
+  <text x="400" y="258" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">口诀:宁可 ISO 高一点有噪点,也不要糊片</text>
+  <text x="400" y="280" font-size="12" fill="#60739f" text-anchor="middle">曝光补偿:白狗 +0.3~+0.7 EV(防拍灰) · 黑狗 −0.3~−0.7 EV(防死黑),对狗脸测光</text>
+</svg>

@@ -85,6 +85,8 @@ Choose models with **night vision, 2K+ resolution, and clip export**. Note: moni
 - **Never use digital zoom**: image quality collapses — walk closer or crop later
 - **Never use flash** (see Section 6)
 
+![Fig 4 · Shutter speed cheat sheet: the faster the dog, the faster the shutter](/images/photo-guide/fig4-shutter-speed.svg)
+
 ### Video settings and length (by use)
 
 | Use | Resolution / frame rate | Finished length | Key points |
@@ -108,9 +110,15 @@ Choose models with **night vision, 2K+ resolution, and clip export**. Note: moni
 - For action, switch to **action/pro mode** and set the shutter to 1/1000s manually
 - Wipe the lens with a cloth before shooting — a pocketed lens always has fingerprints
 
+![Fig 3 · Rule of thirds: eyes on the top-third intersection, space in the gaze direction](/images/photo-guide/fig3-composition.svg)
+
 ## 4. Shooting Angles: Pick the Right Position from One Table
 
-**Default rule: bring the lens down to the dog's eye level.** Shooting down from standing height captures only the top of a head and a back; crouch, sit, or lie down and the photo instantly connects. From that baseline, choose the angle by purpose:
+**Default rule: bring the lens down to the dog's eye level.** Shooting down from standing height captures only the top of a head and a back; crouch, sit, or lie down and the photo instantly connects.
+
+![Fig 1 · Camera height: get down to the dog's eye level](/images/photo-guide/fig1-camera-height.svg)
+
+From that baseline, choose the angle by purpose:
 
 | Angle | How to shoot it | Best for |
 | --- | --- | --- |
@@ -120,6 +128,8 @@ Choose models with **night vision, 2K+ resolution, and clip export**. Note: moni
 | **Full-body profile** | Dog standing side-on, lens at the dog's back height | Adoption listing standard: build, coat and legs all visible at a glance |
 | **Close-up** | Move in or use the telephoto end, **focus always on the eye** | Sleeping faces, paw pads, noses; mind the phone's minimum focus distance — too close and it hunts |
 | **Follow cam** | Gimbal/action cam trailing 1–2 m behind or beside the dog | Walks and yard exploration videos — maximum immersion |
+
+![Fig 2 · Six go-to shooting angles](/images/photo-guide/fig2-six-angles.svg)
 
 - **The adoption three-shot set**: full-body profile + front sitting + head close-up, taken weekly for every puppy — these are the three photos buyers always ask for
 - **Two traps to avoid**: angled-down shots of the face from standing height (big head, tiny body, distorted proportions); wide-angle lenses too close (enlarged, warped nose). For a big head shot, step back half a pace and use the 2x telephoto end
@@ -169,6 +179,8 @@ Puppies have not completed their vaccinations and are the most vulnerable animal
 - Lanyards/wrist straps are mandatory — **a dropped camera can injure a puppy**
 - Phones, lens caps and small accessories **stay in hand, never on the floor** — puppies chew everything, and a swallowed part is an emergency
 - Filming must never interfere with feeding, cleaning or rest; stop immediately if a puppy shows stress signals (hiding, whining, tucked tail)
+
+![Fig 5 · Biosecurity workflow for filming in the K4 puppy area](/images/photo-guide/fig5-biosecurity-flow.svg)
 
 ## 7. Daily Workflow
 
