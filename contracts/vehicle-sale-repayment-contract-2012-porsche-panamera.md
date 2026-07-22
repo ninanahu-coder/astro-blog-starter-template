@@ -45,14 +45,14 @@ Listed features 挂牌载明配置: electric sunroof 电动天窗; Porsche PCM i
 
 ## 3. PURCHASE PRICE AND PAYMENT PLAN 购车价款与分期付款安排
 
-**3.1 Total price 总价款.** The total purchase price of the Vehicle is **A$45,000.00** (forty-five thousand Australian dollars) (the "Purchase Price"), inclusive of the items listed in Section 2 and the insurance and registration described in Section 3.8.
-本车辆总价款为 **45,000.00澳元**(大写:肆万伍仟澳元整)(以下简称"总价款"),包含第2条所列配置及第3.8条所述保险与注册费。
+**3.1 Total price 总价款.** The total purchase price of the Vehicle is **A$45,000.00** (forty-five thousand Australian dollars) (the "Purchase Price"), inclusive of the items listed in Section 2. Comprehensive insurance and registration (rego) are charged in addition, monthly, under Section 3.8.
+本车辆总价款为 **45,000.00澳元**(大写:肆万伍仟澳元整)(以下简称"总价款"),包含第2条所列配置。商业全险与注册费(rego)为额外费用,按第3.8条按月支付。
 
 **3.2 Down payment 首付款.** The Buyer shall pay a down payment of **A$13,500.00** (30% of the Purchase Price) upon signing this Agreement, or on \_\_\_\_\_\_\_\_ (date). The A$500.00 online holding deposit already paid is credited toward the down payment, leaving **A$13,000.00** payable.
 买方应于签署本协议时或于\_\_\_\_年\_\_月\_\_日支付首付款 **13,500.00澳元**(总价款的30%)。已通过网站支付的500.00澳元订金抵扣首付款,首付尚需支付 **13,000.00澳元**。
 
-**3.3 Installments 分期付款.** The remaining balance of **A$31,500.00** shall be paid in 24 monthly installments over two (2) years: 23 installments of **A$1,482.81** each and a final installment of **A$1,482.92**, due on the \_\_\_\_ day of each month, starting on \_\_\_\_\_\_\_\_ and ending on \_\_\_\_\_\_\_\_. The installments total A$35,587.55, including total interest of A$4,087.55 (amortization schedule in Schedule A).
-剩余款项 **31,500.00澳元**由买方分24期(2年)按月支付:前23期每期 **1,482.81澳元**,末期 **1,482.92澳元**,于每月\_\_\_\_日到期,自\_\_\_\_年\_\_月\_\_日起至\_\_\_\_年\_\_月\_\_日止。分期款项合计35,587.55澳元,其中利息合计4,087.55澳元(摊还明细见附表A)。
+**3.3 Installments 分期付款.** The remaining balance of **A$31,500.00** shall be paid in 24 monthly installments over two (2) years: 23 installments of **A$1,482.81** each and a final installment of **A$1,482.92**, due on the \_\_\_\_ day of each month, starting on \_\_\_\_\_\_\_\_ and ending on \_\_\_\_\_\_\_\_. The installments total A$35,587.55, including total interest of A$4,087.55 (amortization schedule in Schedule A). Together with the monthly insurance-and-rego charge of A$300.00 under Section 3.8, the total amount payable each month is **A$1,782.81** (months 1–23) and **A$1,782.92** (final month).
+剩余款项 **31,500.00澳元**由买方分24期(2年)按月支付:前23期每期 **1,482.81澳元**,末期 **1,482.92澳元**,于每月\_\_\_\_日到期,自\_\_\_\_年\_\_月\_\_日起至\_\_\_\_年\_\_月\_\_日止。分期款项合计35,587.55澳元,其中利息合计4,087.55澳元(摊还明细见附表A)。加上第3.8条保险及注册费月摊300.00澳元,每月合计支付 **1,782.81澳元**(第1–23期),末期合计 **1,782.92澳元**。
 
 **3.4 Interest 利息.** The unpaid balance bears interest at **12% per annum** (1% per month), calculated on the reducing balance and already included in the installments set out in Section 3.3 and Schedule A. If the Buyer prepays, interest is recalculated on the actual reducing balance.
 未付余额按**年利率12%**(月利率1%)计息,按余额递减方式计算,利息已包含在第3.3条及附表A所列分期款项中。如买方提前还款,利息按实际剩余余额重新计算。
@@ -66,8 +66,18 @@ Listed features 挂牌载明配置: electric sunroof 电动天窗; Porsche PCM i
 **3.7 Early repayment 提前还款.** The Buyer may prepay all or part of the outstanding balance at any time without penalty; any interest shall be recalculated accordingly.
 买方可随时提前偿还全部或部分未付余款,无需支付任何违约金;如有利息,应相应重新计算。
 
-**3.8 Insurance and registration included 包含保险与注册费.** The Purchase Price includes, for the repayment period set out in Section 3.3: (a) comprehensive insurance for the Vehicle, with the premium benchmarked against RAC's quoted price for comparable cover (or an RAC policy); and (b) vehicle registration (rego) renewal, including CTP. The Seller shall arrange or bear these costs, and the policy and registration documents shall record the parties' interests where applicable.
-总价款包含第3.3条所述还款期间内的:(a)本车辆商业全险,保费参考RAC同等保障的报价(或直接投保RAC保单);(b)车辆注册费(rego,含强制三者险CTP)的续费。上述费用由卖方负责办理或承担;如适用,保单及注册文件应载明双方权益。
+**3.8 Monthly insurance and registration charge 保险与注册费月摊.** In addition to the installments in Section 3.3, the Buyer shall pay the Seller a monthly insurance-and-registration charge of **A$300.00**, being one-twelfth of: (a) the annual comprehensive insurance premium for the Vehicle, taken as A$2,400.00 per year, benchmarked against RAC's quoted price for comparable cover (or an RAC policy); and (b) the annual vehicle registration (rego, including CTP), taken as A$1,200.00 per year. During the repayment period the Seller shall arrange and keep the insurance and registration current and provide copies of the policy, renewal notices and receipts to the Buyer. At each renewal the charge shall be adjusted to the actual premium and rego amounts, and any difference shall be refunded or topped up accordingly.
+除第3.3条分期款项外,买方每月另向卖方支付保险及注册费分摊 **300.00澳元**,即以下两项年费的十二分之一:(a)本车辆商业全险年保费,暂按2,400.00澳元/年计,以RAC同等保障的报价为基准(或直接投保RAC保单);(b)车辆注册费(rego,含强制三者险CTP),暂按1,200.00澳元/年计。还款期间由卖方负责办理并维持保险与注册的有效性,并向买方提供保单、续费通知及缴费凭证副本;每次续保/续费时按实际金额调整该分摊额,多退少补。
+
+**Monthly payment breakdown 每月付款构成:**
+
+| Item 项目 | Monthly 每月 |
+|---|---|
+| Finance installment 分期月供(installments 1–23 期) | A$1,482.81 |
+| Comprehensive insurance 全险月摊(A$2,400.00/year 年 ÷ 12) | A$200.00 |
+| Registration (rego incl. CTP) 注册费月摊(A$1,200.00/year 年 ÷ 12) | A$100.00 |
+| **Total monthly payment 每月合计(months 1–23 期)** | **A$1,782.81** |
+| Final month 末期合计(A$1,482.92 + A$300.00) | A$1,782.92 |
 
 ## 4. LATE PAYMENT AND DEFAULT 逾期付款与违约
 
@@ -107,8 +117,8 @@ Listed features 挂牌载明配置: electric sunroof 电动天窗; Porsche PCM i
 
 ## 7. INSURANCE, REGISTRATION AND RUNNING COSTS 保险、登记与使用费用
 
-**7.1** From the date of delivery, the Buyer is responsible for taxes, inspections, fuel, maintenance, parking, tolls, fines and all other costs of keeping and using the Vehicle, except the comprehensive insurance and registration (rego) included in the Purchase Price under Section 3.8.
-自交付之日起,除第3.8条已包含在总价款中的商业全险及注册费(rego)外,本车辆的税费、检验、燃油、保养维修、停车、通行费、罚款及其他持有和使用费用均由买方承担。
+**7.1** From the date of delivery, the Buyer is responsible for taxes, inspections, fuel, maintenance, parking, tolls, fines and all other costs of keeping and using the Vehicle. Comprehensive insurance and registration (rego) are arranged by the Seller and paid by the Buyer through the monthly charge under Section 3.8.
+自交付之日起,本车辆的税费、检验、燃油、保养维修、停车、通行费、罚款及其他持有和使用费用均由买方承担;商业全险及注册费(rego)由卖方负责办理,买方按第3.8条以每月分摊方式支付。
 
 **7.2** Until the Purchase Price is paid in full, the Vehicle shall remain continuously covered by the comprehensive insurance provided under Section 3.8, and each party shall provide proof of insurance and registration to the other upon request.
 在总价款付清前,本车辆应持续处于第3.8条所含商业全险的保障之下;任一方应另一方要求,提供保险及注册凭证。
@@ -164,35 +174,36 @@ Signature 签字:\_\_\_\_\_\_\_\_\_\_\_\_  Name 姓名:\_\_\_\_\_\_\_\_\_\_\_\_ 
 
 Vehicle 车辆:**2012 Porsche Panamera (VIN WP0ZZZ97ZCL020838)**    Purchase Price 总价款:**A$45,000.00**
 Financed balance 分期本金:**A$31,500.00** · 24 monthly installments 期 · 12% p.a. 年利率(reducing balance 余额递减)
+Monthly total 每月合计:**A$1,482.81 + A$300.00(保险及注册费月摊)= A$1,782.81**(final month 末期 A$1,782.92)
 
 | No. 期数 | Due date 应付日期 | Amount due 应付金额 | Date paid 实付日期 | Amount paid 实付金额 | Balance remaining 剩余余款 | Seller's initials 卖方签字 |
 |---|---|---|---|---|---|---|
 | 订金 | | A$500.00 | | | A$44,500.00 | |
 | 首付 | | A$13,000.00 | | | A$31,500.00 | |
-| 1 | | A$1,482.81 | | | A$30,332.19 | |
-| 2 | | A$1,482.81 | | | A$29,152.70 | |
-| 3 | | A$1,482.81 | | | A$27,961.42 | |
-| 4 | | A$1,482.81 | | | A$26,758.22 | |
-| 5 | | A$1,482.81 | | | A$25,542.99 | |
-| 6 | | A$1,482.81 | | | A$24,315.61 | |
-| 7 | | A$1,482.81 | | | A$23,075.96 | |
-| 8 | | A$1,482.81 | | | A$21,823.91 | |
-| 9 | | A$1,482.81 | | | A$20,559.34 | |
-| 10 | | A$1,482.81 | | | A$19,282.12 | |
-| 11 | | A$1,482.81 | | | A$17,992.13 | |
-| 12 | | A$1,482.81 | | | A$16,689.24 | |
-| 13 | | A$1,482.81 | | | A$15,373.32 | |
-| 14 | | A$1,482.81 | | | A$14,044.24 | |
-| 15 | | A$1,482.81 | | | A$12,701.87 | |
-| 16 | | A$1,482.81 | | | A$11,346.08 | |
-| 17 | | A$1,482.81 | | | A$9,976.73 | |
-| 18 | | A$1,482.81 | | | A$8,593.69 | |
-| 19 | | A$1,482.81 | | | A$7,196.82 | |
-| 20 | | A$1,482.81 | | | A$5,785.98 | |
-| 21 | | A$1,482.81 | | | A$4,361.03 | |
-| 22 | | A$1,482.81 | | | A$2,921.83 | |
-| 23 | | A$1,482.81 | | | A$1,468.24 | |
-| 24 | | A$1,482.92 | | | A$0.00 | |
+| 1 | | A$1,782.81 | | | A$30,332.19 | |
+| 2 | | A$1,782.81 | | | A$29,152.70 | |
+| 3 | | A$1,782.81 | | | A$27,961.42 | |
+| 4 | | A$1,782.81 | | | A$26,758.22 | |
+| 5 | | A$1,782.81 | | | A$25,542.99 | |
+| 6 | | A$1,782.81 | | | A$24,315.61 | |
+| 7 | | A$1,782.81 | | | A$23,075.96 | |
+| 8 | | A$1,782.81 | | | A$21,823.91 | |
+| 9 | | A$1,782.81 | | | A$20,559.34 | |
+| 10 | | A$1,782.81 | | | A$19,282.12 | |
+| 11 | | A$1,782.81 | | | A$17,992.13 | |
+| 12 | | A$1,782.81 | | | A$16,689.24 | |
+| 13 | | A$1,782.81 | | | A$15,373.32 | |
+| 14 | | A$1,782.81 | | | A$14,044.24 | |
+| 15 | | A$1,782.81 | | | A$12,701.87 | |
+| 16 | | A$1,782.81 | | | A$11,346.08 | |
+| 17 | | A$1,782.81 | | | A$9,976.73 | |
+| 18 | | A$1,782.81 | | | A$8,593.69 | |
+| 19 | | A$1,782.81 | | | A$7,196.82 | |
+| 20 | | A$1,782.81 | | | A$5,785.98 | |
+| 21 | | A$1,782.81 | | | A$4,361.03 | |
+| 22 | | A$1,782.81 | | | A$2,921.83 | |
+| 23 | | A$1,782.81 | | | A$1,468.24 | |
+| 24 | | A$1,782.92 | | | A$0.00 | |
 
-Note: the A$500.00 holding deposit and the down payment are credited toward the Purchase Price; installments are calculated at 12% p.a. on the reducing balance, with the final installment absorbing rounding. Fill in the due dates from the agreed start date. Each payment takes effect as a record only when confirmed by the Seller's signature or written receipt.
-注:订金500.00澳元与首付款均抵扣总价款;分期款按年利率12%余额递减计算,末期含尾差;请按约定起始日填写各期应付日期;每期还款经卖方签字或出具书面收据确认后方构成有效记录。
+Note: each monthly "amount due" includes the A$300.00 insurance-and-rego charge under Section 3.8 (finance portion A$1,482.81, final month A$1,482.92); the "balance remaining" column shows the finance principal only. The A$500.00 holding deposit and the down payment are credited toward the Purchase Price; installments are calculated at 12% p.a. on the reducing balance, with the final installment absorbing rounding. Fill in the due dates from the agreed start date. Each payment takes effect as a record only when confirmed by the Seller's signature or written receipt.
+注:各期"应付金额"已含第3.8条保险及注册费月摊300.00澳元(分期部分为1,482.81澳元,末期1,482.92澳元);"剩余余款"列仅为分期本金余额。订金500.00澳元与首付款均抵扣总价款;分期款按年利率12%余额递减计算,末期含尾差;请按约定起始日填写各期应付日期;每期还款经卖方签字或出具书面收据确认后方构成有效记录。
