@@ -20,7 +20,7 @@ This Vehicle Sale and Installment Repayment Agreement (this "Agreement") is ente
 
 | | Seller 卖方 | Buyer 买方 |
 |---|---|---|
-| Full legal name 姓名/名称 | Malachite Prestige (dealer 经销商) | |
+| Full legal name 姓名/名称 | Fluffy Horde Pty Ltd (seller 卖方) | |
 | ABN / ACN / ID no. 公司注册号/证件号码 | | |
 | Address 地址 | | |
 | Phone 电话 | | |
@@ -45,17 +45,17 @@ Listed features 挂牌载明配置: electric sunroof 电动天窗; Porsche PCM i
 
 ## 3. PURCHASE PRICE AND PAYMENT PLAN 购车价款与分期付款安排
 
-**3.1 Total price 总价款.** The total purchase price of the Vehicle is **A$46,800** (forty-six thousand eight hundred Australian dollars) (the "Purchase Price"), inclusive of the items listed in Section 2 unless stated otherwise.
-本车辆总价款为 **46,800澳元**(大写:肆万陆仟捌佰澳元整)(以下简称"总价款"),除另有说明外包含第2条所列配置。
+**3.1 Total price 总价款.** The total purchase price of the Vehicle is **A$45,000.00** (forty-five thousand Australian dollars) (the "Purchase Price"), inclusive of the items listed in Section 2 and the insurance and registration described in Section 3.8.
+本车辆总价款为 **45,000.00澳元**(大写:肆万伍仟澳元整)(以下简称"总价款"),包含第2条所列配置及第3.8条所述保险与注册费。
 
-**3.2 Down payment 首付款.** The Buyer shall pay a down payment of \_\_\_\_\_\_\_\_ upon signing this Agreement, or on \_\_\_\_\_\_\_\_ (date). Any holding deposit already paid to the Seller (including the A$500 online holding deposit) is credited toward the down payment.
-买方应于签署本协议时或于\_\_\_\_年\_\_月\_\_日支付首付款\_\_\_\_\_\_\_\_。买方此前已向卖方支付的订金(包括通过网站支付的500澳元订金)抵扣首付款。
+**3.2 Down payment 首付款.** The Buyer shall pay a down payment of **A$13,500.00** (30% of the Purchase Price) upon signing this Agreement, or on \_\_\_\_\_\_\_\_ (date). The A$500.00 online holding deposit already paid is credited toward the down payment, leaving **A$13,000.00** payable.
+买方应于签署本协议时或于\_\_\_\_年\_\_月\_\_日支付首付款 **13,500.00澳元**(总价款的30%)。已通过网站支付的500.00澳元订金抵扣首付款,首付尚需支付 **13,000.00澳元**。
 
-**3.3 Installments 分期付款.** The remaining balance of \_\_\_\_\_\_\_\_ shall be paid in \_\_\_\_ installments of \_\_\_\_\_\_\_\_ each, due on the \_\_\_\_ day of each month, starting on \_\_\_\_\_\_\_\_ and ending on \_\_\_\_\_\_\_\_.
-剩余款项\_\_\_\_\_\_\_\_由买方分\_\_\_\_期支付,每期\_\_\_\_\_\_\_\_,于每月\_\_\_\_日到期,自\_\_\_\_年\_\_月\_\_日起至\_\_\_\_年\_\_月\_\_日止付清。
+**3.3 Installments 分期付款.** The remaining balance of **A$31,500.00** shall be paid in 24 monthly installments over two (2) years: 23 installments of **A$1,482.81** each and a final installment of **A$1,482.92**, due on the \_\_\_\_ day of each month, starting on \_\_\_\_\_\_\_\_ and ending on \_\_\_\_\_\_\_\_. The installments total A$35,587.55, including total interest of A$4,087.55 (amortization schedule in Schedule A).
+剩余款项 **31,500.00澳元**由买方分24期(2年)按月支付:前23期每期 **1,482.81澳元**,末期 **1,482.92澳元**,于每月\_\_\_\_日到期,自\_\_\_\_年\_\_月\_\_日起至\_\_\_\_年\_\_月\_\_日止。分期款项合计35,587.55澳元,其中利息合计4,087.55澳元(摊还明细见附表A)。
 
-**3.4 Interest 利息.** The unpaid balance shall bear interest at \_\_\_\_% per annum / shall be interest-free (select one). If no rate is filled in, the balance is interest-free.
-未付余额按年利率\_\_\_\_%计息/不计息(二选一)。如未填写利率,视为不计息。
+**3.4 Interest 利息.** The unpaid balance bears interest at **12% per annum** (1% per month), calculated on the reducing balance and already included in the installments set out in Section 3.3 and Schedule A. If the Buyer prepays, interest is recalculated on the actual reducing balance.
+未付余额按**年利率12%**(月利率1%)计息,按余额递减方式计算,利息已包含在第3.3条及附表A所列分期款项中。如买方提前还款,利息按实际剩余余额重新计算。
 
 **3.5 Payment method 付款方式.** ☐ Bank transfer 银行转账 ☐ Cash 现金 ☐ Other 其他:\_\_\_\_\_\_\_\_. Account for payment 收款账户 — Account name 户名:\_\_\_\_\_\_\_\_ Bank 开户行:\_\_\_\_\_\_\_\_ BSB:\_\_\_\_\_\_\_\_ Account no. 账号:\_\_\_\_\_\_\_\_.
 付款方式:☐银行转账 ☐现金 ☐其他:\_\_\_\_\_\_\_\_。收款账户——户名:\_\_\_\_\_\_\_\_;开户行:\_\_\_\_\_\_\_\_;BSB:\_\_\_\_\_\_\_\_;账号:\_\_\_\_\_\_\_\_。
@@ -65,6 +65,9 @@ Listed features 挂牌载明配置: electric sunroof 电动天窗; Porsche PCM i
 
 **3.7 Early repayment 提前还款.** The Buyer may prepay all or part of the outstanding balance at any time without penalty; any interest shall be recalculated accordingly.
 买方可随时提前偿还全部或部分未付余款,无需支付任何违约金;如有利息,应相应重新计算。
+
+**3.8 Insurance and registration included 包含保险与注册费.** The Purchase Price includes, for the repayment period set out in Section 3.3: (a) comprehensive insurance for the Vehicle, with the premium benchmarked against RAC's quoted price for comparable cover (or an RAC policy); and (b) vehicle registration (rego) renewal, including CTP. The Seller shall arrange or bear these costs, and the policy and registration documents shall record the parties' interests where applicable.
+总价款包含第3.3条所述还款期间内的:(a)本车辆商业全险,保费参考RAC同等保障的报价(或直接投保RAC保单);(b)车辆注册费(rego,含强制三者险CTP)的续费。上述费用由卖方负责办理或承担;如适用,保单及注册文件应载明双方权益。
 
 ## 4. LATE PAYMENT AND DEFAULT 逾期付款与违约
 
@@ -104,11 +107,11 @@ Listed features 挂牌载明配置: electric sunroof 电动天窗; Porsche PCM i
 
 ## 7. INSURANCE, REGISTRATION AND RUNNING COSTS 保险、登记与使用费用
 
-**7.1** From the date of delivery, the Buyer is responsible for insurance, registration, taxes, inspections, fuel, maintenance, parking, tolls, fines and all other costs of keeping and using the Vehicle.
-自交付之日起,本车辆的保险、登记、税费、年检、燃油、保养维修、停车、通行费、罚款及其他持有和使用费用均由买方承担。
+**7.1** From the date of delivery, the Buyer is responsible for taxes, inspections, fuel, maintenance, parking, tolls, fines and all other costs of keeping and using the Vehicle, except the comprehensive insurance and registration (rego) included in the Purchase Price under Section 3.8.
+自交付之日起,除第3.8条已包含在总价款中的商业全险及注册费(rego)外,本车辆的税费、检验、燃油、保养维修、停车、通行费、罚款及其他持有和使用费用均由买方承担。
 
-**7.2** Until the Purchase Price is paid in full, the Buyer shall keep the Vehicle continuously insured (at least compulsory third-party (CTP) insurance; comprehensive insurance: ☐ required ☐ recommended) and shall provide proof of insurance to the Seller upon request.
-在总价款付清前,买方应为本车辆持续投保(至少包括强制第三方责任险CTP;商业全险:☐必须投保 ☐建议投保),并应卖方要求提供保险凭证。
+**7.2** Until the Purchase Price is paid in full, the Vehicle shall remain continuously covered by the comprehensive insurance provided under Section 3.8, and each party shall provide proof of insurance and registration to the other upon request.
+在总价款付清前,本车辆应持续处于第3.8条所含商业全险的保障之下;任一方应另一方要求,提供保险及注册凭证。
 
 ## 8. RISK OF LOSS 风险承担
 
@@ -159,24 +162,37 @@ Signature 签字:\_\_\_\_\_\_\_\_\_\_\_\_  Name 姓名:\_\_\_\_\_\_\_\_\_\_\_\_ 
 
 ## SCHEDULE A — REPAYMENT SCHEDULE AND PAYMENT RECORD 附表A——还款计划与还款记录表
 
-Vehicle 车辆:**2012 Porsche Panamera (VIN WP0ZZZ97ZCL020838)**    Purchase Price 总价款:**A$46,800**
+Vehicle 车辆:**2012 Porsche Panamera (VIN WP0ZZZ97ZCL020838)**    Purchase Price 总价款:**A$45,000.00**
+Financed balance 分期本金:**A$31,500.00** · 24 monthly installments 期 · 12% p.a. 年利率(reducing balance 余额递减)
 
 | No. 期数 | Due date 应付日期 | Amount due 应付金额 | Date paid 实付日期 | Amount paid 实付金额 | Balance remaining 剩余余款 | Seller's initials 卖方签字 |
 |---|---|---|---|---|---|---|
-| 订金 | | A$500 | | | | |
-| 首付 | | | | | | |
-| 1 | | | | | | |
-| 2 | | | | | | |
-| 3 | | | | | | |
-| 4 | | | | | | |
-| 5 | | | | | | |
-| 6 | | | | | | |
-| 7 | | | | | | |
-| 8 | | | | | | |
-| 9 | | | | | | |
-| 10 | | | | | | |
-| 11 | | | | | | |
-| 12 | | | | | | |
+| 订金 | | A$500.00 | | | A$44,500.00 | |
+| 首付 | | A$13,000.00 | | | A$31,500.00 | |
+| 1 | | A$1,482.81 | | | A$30,332.19 | |
+| 2 | | A$1,482.81 | | | A$29,152.70 | |
+| 3 | | A$1,482.81 | | | A$27,961.42 | |
+| 4 | | A$1,482.81 | | | A$26,758.22 | |
+| 5 | | A$1,482.81 | | | A$25,542.99 | |
+| 6 | | A$1,482.81 | | | A$24,315.61 | |
+| 7 | | A$1,482.81 | | | A$23,075.96 | |
+| 8 | | A$1,482.81 | | | A$21,823.91 | |
+| 9 | | A$1,482.81 | | | A$20,559.34 | |
+| 10 | | A$1,482.81 | | | A$19,282.12 | |
+| 11 | | A$1,482.81 | | | A$17,992.13 | |
+| 12 | | A$1,482.81 | | | A$16,689.24 | |
+| 13 | | A$1,482.81 | | | A$15,373.32 | |
+| 14 | | A$1,482.81 | | | A$14,044.24 | |
+| 15 | | A$1,482.81 | | | A$12,701.87 | |
+| 16 | | A$1,482.81 | | | A$11,346.08 | |
+| 17 | | A$1,482.81 | | | A$9,976.73 | |
+| 18 | | A$1,482.81 | | | A$8,593.69 | |
+| 19 | | A$1,482.81 | | | A$7,196.82 | |
+| 20 | | A$1,482.81 | | | A$5,785.98 | |
+| 21 | | A$1,482.81 | | | A$4,361.03 | |
+| 22 | | A$1,482.81 | | | A$2,921.83 | |
+| 23 | | A$1,482.81 | | | A$1,468.24 | |
+| 24 | | A$1,482.92 | | | A$0.00 | |
 
-Note: the A$500 holding deposit row reflects the online deposit and is credited toward the Purchase Price. Add rows as needed if there are more installments. Each payment takes effect as a record only when confirmed by the Seller's signature or written receipt.
-注:"订金"行为网站支付的500澳元订金,抵扣总价款;期数较多时请自行增加行数;每期还款经卖方签字或出具书面收据确认后方构成有效记录。
+Note: the A$500.00 holding deposit and the down payment are credited toward the Purchase Price; installments are calculated at 12% p.a. on the reducing balance, with the final installment absorbing rounding. Fill in the due dates from the agreed start date. Each payment takes effect as a record only when confirmed by the Seller's signature or written receipt.
+注:订金500.00澳元与首付款均抵扣总价款;分期款按年利率12%余额递减计算,末期含尾差;请按约定起始日填写各期应付日期;每期还款经卖方签字或出具书面收据确认后方构成有效记录。
