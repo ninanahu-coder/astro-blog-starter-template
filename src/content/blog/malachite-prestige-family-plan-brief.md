@@ -6,6 +6,8 @@ heroImage: "/blog-placeholder-3.jpg"
 ---
 
 > 本简介为**受邀家庭**一对一提供,请勿公开转发。这里只讲重点——详细条款、数据来源与完整风险披露,请阅读[完整版项目说明](/blog/malachite-prestige-investor-pitch/);一切以经双方律师审阅、正式签署的法律文件为准。
+>
+> 📄 [下载 PDF 版(A4 四页,可直接转发给家人)](/malachite-prestige-family-plan-brief.pdf)
 
 ## 一句话说清这个计划
 
