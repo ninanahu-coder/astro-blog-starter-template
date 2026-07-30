@@ -1,0 +1,141 @@
+---
+import BaseHead from '../components/BaseHead.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE_TITLE } from '../consts';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+// 员工端入口 · 全部运营文档按类别归档
+const categories = [
+	{
+		name: '日常运营与排班',
+		desc: '入职必读、日常时间表、夜间部署',
+		docs: [
+			{ zh: '员工手册', slug: 'staff-handbook', en: 'staff-handbook-en' },
+			{ zh: '狗舍工作安排', slug: 'kennel-work-schedule', en: 'kennel-work-schedule-en' },
+			{ zh: '每日公司时间安排', slug: 'daily-company-schedule', en: 'daily-company-schedule-en' },
+			{ zh: '夜间工作部署方案', slug: 'night-shift-operations', en: 'night-shift-operations-en' },
+		],
+	},
+	{
+		name: '清洁与防疫',
+		desc: '清洁消毒时间表、成犬与幼犬 SOP',
+		docs: [
+			{ zh: '清洁消毒时间表', slug: 'cleaning-disinfection-schedule', en: 'cleaning-disinfection-schedule-en' },
+			{ zh: '清洁指导书:成犬与幼犬', slug: 'cleaning-sop-adult-puppy', en: 'cleaning-sop-adult-puppy-en' },
+		],
+	},
+	{
+		name: '照护 · 狗 / 幼犬 / 繁育',
+		desc: '有效照护、幼犬存活、母犬繁育',
+		docs: [
+			{ zh: '如何有效照顾狗', slug: 'effective-dog-care', en: 'effective-dog-care-en' },
+			{ zh: '提高幼犬存活率方案', slug: 'puppy-survival-plan', en: 'puppy-survival-plan-en' },
+			{ zh: '母犬繁育管理方案', slug: 'dam-breeding-management-plan', en: 'dam-breeding-management-plan-en' },
+		],
+	},
+	{
+		name: '设施建设',
+		desc: '笼舍尺寸、地面排水、通风温控、围栏',
+		docs: [
+			{ zh: '狗舍建设与基础设施指南', slug: 'kennel-construction-infrastructure', en: 'kennel-construction-infrastructure-en' },
+		],
+	},
+	{
+		name: '管理与战略',
+		desc: '运营方案、经理管控系统、长期路线图',
+		docs: [
+			{ zh: '最有效运营方案', slug: 'optimal-operations-plan', en: 'optimal-operations-plan-en' },
+			{ zh: '每日工作部署与经理管控系统', slug: 'management-system', en: null },
+			{ zh: '长期发展路线图与员工工作演变', slug: 'development-roadmap', en: null },
+		],
+	},
+];
+
+const sites = [
+	['K1', 'Canning Vale', '15 成犬'],
+	['K2', 'Southern River', '35 成犬'],
+	['K3', 'Southern River', '100 成犬'],
+	['K4', 'Ranford Rd', '10 成犬 + 15 幼犬'],
+];
+---
+
+<!doctype html>
+<html lang="zh">
+	<head>
+		<BaseHead title={`员工端 · ${SITE_TITLE}`} description="FluffyWA 员工端入口:全部运营标准作业与管理文档" />
+		<style>
+			main { width: 100%; max-width: 1040px; }
+			.hero {
+				background: var(--accent, #2f6a4d);
+				color: #fff;
+				border-radius: 16px;
+				padding: 2rem 2rem 1.6rem;
+				margin-bottom: 2rem;
+			}
+			.hero .eyebrow { text-transform: uppercase; letter-spacing: .22em; font-size: .72rem; opacity: .85; }
+			.hero h1 { margin: .3em 0 .3em; font-size: 2rem; line-height: 1.15; }
+			.hero p { margin: 0; opacity: .92; max-width: 60ch; }
+			.sites { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.1rem; }
+			.site { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
+				border-radius: 999px; padding: .3rem .8rem; font-size: .8rem; }
+			.cat { margin: 2rem 0; }
+			.cat > h2 { font-size: 1.25rem; margin: 0 0 .2em; }
+			.cat > .catdesc { color: rgb(var(--gray)); margin: 0 0 1rem; font-size: .92rem; }
+			.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+			.card { border: 1px solid rgb(var(--gray-light)); border-radius: 12px; padding: 1rem 1.1rem;
+				transition: box-shadow .15s, border-color .15s; background: #fff; }
+			.card:hover { box-shadow: var(--box-shadow); border-color: var(--accent, #2f6a4d); }
+			.card .doctitle { font-weight: 700; margin: 0 0 .6rem; color: rgb(var(--black)); }
+			.card .links { display: flex; gap: .5rem; }
+			.card a.doc { text-decoration: none; font-size: .82rem; font-weight: 600;
+				padding: .3rem .7rem; border-radius: 8px; border: 1px solid var(--accent, #2f6a4d);
+				color: var(--accent, #2f6a4d); }
+			.card a.doc:hover { background: var(--accent, #2f6a4d); color: #fff; }
+			.note { margin-top: 2.5rem; padding: 1rem 1.2rem; border-left: 3px solid var(--accent, #2f6a4d);
+				background: rgba(47,106,77,.06); border-radius: 0 10px 10px 0; font-size: .9rem; color: rgb(var(--gray-dark)); }
+			@media (max-width: 720px) { .hero h1 { font-size: 1.6rem; } }
+		</style>
+	</head>
+	<body>
+		<Header />
+		<main>
+			<section class="hero">
+				<div class="eyebrow">FluffyWA · Staff Portal</div>
+				<h1>员工端入口</h1>
+				<p>全部运营标准作业与管理文档,按类别归档。日常照护、清洁防疫、幼犬繁育、设施建设、管理与战略——上岗前通读,随时查阅。</p>
+				<div class="sites">
+					{sites.map((s) => <span class="site">{s[0]} · {s[1]} · {s[2]}</span>)}
+				</div>
+			</section>
+
+			{
+				categories.map((cat) => (
+					<section class="cat">
+						<h2>{cat.name}</h2>
+						<p class="catdesc">{cat.desc}</p>
+						<div class="grid">
+							{cat.docs.map((d) => (
+								<div class="card">
+									<p class="doctitle">{d.zh}</p>
+									<div class="links">
+										<a class="doc" href={`${base}/blog/${d.slug}/`}>中文</a>
+										{d.en && <a class="doc" href={`${base}/blog/${d.en}/`}>EN</a>}
+									</div>
+								</div>
+							))}
+						</div>
+					</section>
+				))
+			}
+
+			<div class="note">
+				紧急联系 Emergency:0405 098 765 / admin@fluffywa.com.au ·
+				临床与法规细节以监管兽医和所在州现行法规为准 ·
+				交接班表等表单请向管理员领取。
+			</div>
+		</main>
+		<Footer />
+	</body>
+</html>
