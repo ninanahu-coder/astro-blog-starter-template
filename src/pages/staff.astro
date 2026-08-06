@@ -6,13 +6,14 @@ import { SITE_TITLE } from '../consts';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
-// 员工端入口 · 全部运营文档按类别归档
+// 员工专属门户 · 手册置顶,其余按类别归档
+const handbook = { zh: 'staff-handbook', en: 'staff-handbook-en' };
+
 const categories = [
 	{
 		name: '日常运营与排班',
-		desc: '入职必读、日常时间表、夜间部署',
+		desc: '日常时间表、夜间部署',
 		docs: [
-			{ zh: '员工手册', slug: 'staff-handbook', en: 'staff-handbook-en' },
 			{ zh: '狗舍工作安排', slug: 'kennel-work-schedule', en: 'kennel-work-schedule-en' },
 			{ zh: '每日公司时间安排', slug: 'daily-company-schedule', en: 'daily-company-schedule-en' },
 			{ zh: '夜间工作部署方案', slug: 'night-shift-operations', en: 'night-shift-operations-en' },
@@ -59,83 +60,173 @@ const sites = [
 	['K3', 'Southern River', '100 成犬'],
 	['K4', 'Ranford Rd', '10 成犬 + 15 幼犬'],
 ];
+
+// SHA-256 of the staff passcode. Default passcode: FluffyWA2026
+// 要改密码:用新密码算 sha256(printf '%s' '新密码' | sha256sum),把下面这行替换掉。
+const PASS_HASH = 'b4b2190df24ac96de92c5082c541f9b8f0c9f0ec7d27b0eca54c0b038dc55b9c';
 ---
 
 <!doctype html>
 <html lang="zh">
 	<head>
-		<BaseHead title={`员工端 · ${SITE_TITLE}`} description="FluffyWA 员工端入口:全部运营标准作业与管理文档" />
+		<BaseHead title={`员工专属 · ${SITE_TITLE}`} description="FluffyWA 员工专属界面:员工手册与全部运营文档(需密码)" />
+		<meta name="robots" content="noindex, nofollow" />
 		<style>
 			main { width: 100%; max-width: 1040px; }
-			.hero {
-				background: var(--accent, #2f6a4d);
-				color: #fff;
-				border-radius: 16px;
-				padding: 2rem 2rem 1.6rem;
-				margin-bottom: 2rem;
+			/* 门禁遮罩 */
+			.gate {
+				position: fixed; inset: 0; z-index: 999;
+				display: flex; align-items: center; justify-content: center;
+				background: #12211a; padding: 1.5rem;
 			}
+			.gate.hidden { display: none; }
+			.gatebox {
+				background: #fff; border-radius: 16px; padding: 2rem; width: 100%; max-width: 360px;
+				box-shadow: 0 20px 60px rgba(0,0,0,.35); text-align: center;
+			}
+			.gatebox .lock { font-size: 2.2rem; }
+			.gatebox h2 { margin: .4em 0 .1em; font-size: 1.3rem; color: #1b211c; }
+			.gatebox p { margin: 0 0 1.2rem; color: #59635b; font-size: .9rem; }
+			.gatebox input {
+				width: 100%; padding: .7rem .9rem; font-size: 1rem; border: 1px solid #cfe0d6;
+				border-radius: 10px; margin-bottom: .7rem; text-align: center;
+			}
+			.gatebox button {
+				width: 100%; padding: .7rem; font-size: 1rem; font-weight: 700; color: #fff;
+				background: #2f6a4d; border: none; border-radius: 10px; cursor: pointer;
+			}
+			.gatebox button:hover { background: #275a41; }
+			.gate-err { color: #b3402a; font-size: .85rem; min-height: 1.2em; margin-top: .5rem; }
+			.body-locked { display: none; }
+			/* 门户 */
+			.hero { background: #2f6a4d; color: #fff; border-radius: 16px; padding: 2rem 2rem 1.6rem; margin-bottom: 1.4rem; }
 			.hero .eyebrow { text-transform: uppercase; letter-spacing: .22em; font-size: .72rem; opacity: .85; }
 			.hero h1 { margin: .3em 0 .3em; font-size: 2rem; line-height: 1.15; }
 			.hero p { margin: 0; opacity: .92; max-width: 60ch; }
 			.sites { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: 1.1rem; }
-			.site { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25);
-				border-radius: 999px; padding: .3rem .8rem; font-size: .8rem; }
-			.cat { margin: 2rem 0; }
-			.cat > h2 { font-size: 1.25rem; margin: 0 0 .2em; }
-			.cat > .catdesc { color: rgb(var(--gray)); margin: 0 0 1rem; font-size: .92rem; }
+			.site { background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.25); border-radius: 999px; padding: .3rem .8rem; font-size: .8rem; }
+			.feature { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; justify-content: space-between;
+				border: 2px solid #2f6a4d; border-radius: 14px; padding: 1.2rem 1.4rem; margin-bottom: 2rem; background: #eef5f0; }
+			.feature .ft-txt h2 { margin: 0 0 .2em; font-size: 1.25rem; color: #1b211c; }
+			.feature .ft-txt p { margin: 0; color: #59635b; font-size: .9rem; }
+			.feature .ft-links { display: flex; gap: .6rem; }
+			.feature a.doc { text-decoration: none; font-weight: 700; padding: .5rem 1rem; border-radius: 10px; background: #2f6a4d; color: #fff; }
+			.feature a.doc.alt { background: #fff; color: #2f6a4d; border: 1px solid #2f6a4d; }
+			.cat { margin: 1.8rem 0; }
+			.cat > h2 { font-size: 1.2rem; margin: 0 0 .2em; }
+			.cat > .catdesc { color: rgb(var(--gray)); margin: 0 0 1rem; font-size: .9rem; }
 			.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
-			.card { border: 1px solid rgb(var(--gray-light)); border-radius: 12px; padding: 1rem 1.1rem;
-				transition: box-shadow .15s, border-color .15s; background: #fff; }
-			.card:hover { box-shadow: var(--box-shadow); border-color: var(--accent, #2f6a4d); }
+			.card { border: 1px solid rgb(var(--gray-light)); border-radius: 12px; padding: 1rem 1.1rem; background: #fff; transition: box-shadow .15s, border-color .15s; }
+			.card:hover { box-shadow: var(--box-shadow); border-color: #2f6a4d; }
 			.card .doctitle { font-weight: 700; margin: 0 0 .6rem; color: rgb(var(--black)); }
 			.card .links { display: flex; gap: .5rem; }
-			.card a.doc { text-decoration: none; font-size: .82rem; font-weight: 600;
-				padding: .3rem .7rem; border-radius: 8px; border: 1px solid var(--accent, #2f6a4d);
-				color: var(--accent, #2f6a4d); }
-			.card a.doc:hover { background: var(--accent, #2f6a4d); color: #fff; }
-			.note { margin-top: 2.5rem; padding: 1rem 1.2rem; border-left: 3px solid var(--accent, #2f6a4d);
-				background: rgba(47,106,77,.06); border-radius: 0 10px 10px 0; font-size: .9rem; color: rgb(var(--gray-dark)); }
+			.card a.doc { text-decoration: none; font-size: .82rem; font-weight: 600; padding: .3rem .7rem; border-radius: 8px; border: 1px solid #2f6a4d; color: #2f6a4d; }
+			.card a.doc:hover { background: #2f6a4d; color: #fff; }
+			.logout { float: right; font-size: .8rem; color: #59635b; background: none; border: none; cursor: pointer; text-decoration: underline; }
+			.note { margin-top: 2.2rem; padding: 1rem 1.2rem; border-left: 3px solid #2f6a4d; background: rgba(47,106,77,.06); border-radius: 0 10px 10px 0; font-size: .9rem; color: rgb(var(--gray-dark)); }
 			@media (max-width: 720px) { .hero h1 { font-size: 1.6rem; } }
 		</style>
 	</head>
 	<body>
-		<Header />
-		<main>
-			<section class="hero">
-				<div class="eyebrow">FluffyWA · Staff Portal</div>
-				<h1>员工端入口</h1>
-				<p>全部运营标准作业与管理文档,按类别归档。日常照护、清洁防疫、幼犬繁育、设施建设、管理与战略——上岗前通读,随时查阅。</p>
-				<div class="sites">
-					{sites.map((s) => <span class="site">{s[0]} · {s[1]} · {s[2]}</span>)}
-				</div>
-			</section>
-
-			{
-				categories.map((cat) => (
-					<section class="cat">
-						<h2>{cat.name}</h2>
-						<p class="catdesc">{cat.desc}</p>
-						<div class="grid">
-							{cat.docs.map((d) => (
-								<div class="card">
-									<p class="doctitle">{d.zh}</p>
-									<div class="links">
-										<a class="doc" href={`${base}/blog/${d.slug}/`}>中文</a>
-										{d.en && <a class="doc" href={`${base}/blog/${d.en}/`}>EN</a>}
-									</div>
-								</div>
-							))}
-						</div>
-					</section>
-				))
-			}
-
-			<div class="note">
-				紧急联系 Emergency:0405 098 765 / admin@fluffywa.com.au ·
-				临床与法规细节以监管兽医和所在州现行法规为准 ·
-				交接班表等表单请向管理员领取。
+		<!-- 密码门禁 -->
+		<div class="gate" id="gate">
+			<div class="gatebox">
+				<div class="lock">🔒</div>
+				<h2>FluffyWA 员工专属</h2>
+				<p>本页面仅供 FluffyWA 员工访问,请输入员工密码。</p>
+				<form id="gateForm">
+					<input type="password" id="gatePass" placeholder="员工密码" autocomplete="off" autofocus />
+					<button type="submit">进入</button>
+					<div class="gate-err" id="gateErr"></div>
+				</form>
 			</div>
-		</main>
-		<Footer />
+		</div>
+
+		<div id="portal" class="body-locked">
+			<Header />
+			<main>
+				<section class="hero">
+					<button class="logout" id="logout">退出</button>
+					<div class="eyebrow">FluffyWA · Staff Only</div>
+					<h1>员工专属界面</h1>
+					<p>员工手册与全部运营标准作业文档。上岗前通读手册,日常随时查阅各项 SOP。</p>
+					<div class="sites">
+						{sites.map((s) => <span class="site">{s[0]} · {s[1]} · {s[2]}</span>)}
+					</div>
+				</section>
+
+				<!-- 手册置顶 -->
+				<div class="feature">
+					<div class="ft-txt">
+						<h2>📕 员工手册(必读)</h2>
+						<p>公司概况、岗位班次、日常职责、动物福利、清洁防疫、健康安全、应急、行为规范、薪酬福利 + 入职清单。</p>
+					</div>
+					<div class="ft-links">
+						<a class="doc" href={`${base}/blog/${handbook.zh}/`}>阅读手册(中文)</a>
+						<a class="doc alt" href={`${base}/blog/${handbook.en}/`}>EN</a>
+					</div>
+				</div>
+
+				{
+					categories.map((cat) => (
+						<section class="cat">
+							<h2>{cat.name}</h2>
+							<p class="catdesc">{cat.desc}</p>
+							<div class="grid">
+								{cat.docs.map((d) => (
+									<div class="card">
+										<p class="doctitle">{d.zh}</p>
+										<div class="links">
+											<a class="doc" href={`${base}/blog/${d.slug}/`}>中文</a>
+											{d.en && <a class="doc" href={`${base}/blog/${d.en}/`}>EN</a>}
+										</div>
+									</div>
+								))}
+							</div>
+						</section>
+					))
+				}
+
+				<div class="note">
+					紧急联系 Emergency:0405 098 765 / admin@fluffywa.com.au ·
+					临床与法规细节以监管兽医和所在州现行法规为准 ·
+					交接班表等表单请向管理员领取 · 本页面内容仅限员工使用,请勿外传。
+				</div>
+			</main>
+			<Footer />
+		</div>
+
+		<script define:vars={{ PASS_HASH }}>
+			const gate = document.getElementById('gate');
+			const portal = document.getElementById('portal');
+			const form = document.getElementById('gateForm');
+			const err = document.getElementById('gateErr');
+			const KEY = 'fluffywa_staff_ok';
+
+			function unlock() {
+				gate.classList.add('hidden');
+				portal.classList.remove('body-locked');
+			}
+			async function sha256(str) {
+				const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+				return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+			}
+			if (sessionStorage.getItem(KEY) === '1') unlock();
+			form.addEventListener('submit', async (e) => {
+				e.preventDefault();
+				const val = document.getElementById('gatePass').value;
+				const h = await sha256(val);
+				if (h === PASS_HASH) {
+					sessionStorage.setItem(KEY, '1');
+					unlock();
+				} else {
+					err.textContent = '密码错误,请重试或联系管理员。';
+				}
+			});
+			document.getElementById('logout').addEventListener('click', () => {
+				sessionStorage.removeItem(KEY);
+				location.reload();
+			});
+		</script>
 	</body>
 </html>
