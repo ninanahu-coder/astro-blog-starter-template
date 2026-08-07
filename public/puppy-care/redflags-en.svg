@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="Segoe UI, Helvetica, Arial, sans-serif" role="img">
+<rect x="0" y="0" width="720" height="300" rx="20" fill="#FBEAE9"/>
+<rect x="0" y="0" width="720" height="56" rx="20" fill="#D25A54"/>
+<rect x="0" y="30" width="720" height="26" fill="#D25A54"/>
+<text x="34" y="37" font-size="24">⚠️</text>
+<text x="70" y="37" font-size="20" font-weight="700" fill="#FFFFFF" text-anchor="start">Red flags: see one, report one</text>
+<rect x="30" y="84" width="330" height="46" rx="12" fill="#FFFFFF" stroke="#D25A54" stroke-width="1.5" opacity="0.96"/>
+<text x="56" y="115" font-size="20" text-anchor="middle">⚖️</text>
+<text x="78" y="114" font-size="13.5" font-weight="600" fill="#3A3A3A" text-anchor="start">Weight loss >4% or no gain</text>
+<rect x="382" y="84" width="330" height="46" rx="12" fill="#FFFFFF" stroke="#D25A54" stroke-width="1.5" opacity="0.96"/>
+<text x="408" y="115" font-size="20" text-anchor="middle">❄️</text>
+<text x="430" y="114" font-size="13.5" font-weight="600" fill="#3A3A3A" text-anchor="start">Cold, limp, won't nurse</text>
+<rect x="30" y="142" width="330" height="46" rx="12" fill="#FFFFFF" stroke="#D25A54" stroke-width="1.5" opacity="0.96"/>
+<text x="56" y="173" font-size="20" text-anchor="middle">💧</text>
+<text x="78" y="172" font-size="13.5" font-weight="600" fill="#3A3A3A" text-anchor="start">Diarrhoea / vomiting / bloated</text>
+<rect x="382" y="142" width="330" height="46" rx="12" fill="#FFFFFF" stroke="#D25A54" stroke-width="1.5" opacity="0.96"/>
+<text x="408" y="173" font-size="20" text-anchor="middle">😵</text>
+<text x="430" y="172" font-size="13.5" font-weight="600" fill="#3A3A3A" text-anchor="start">Laboured breathing, milk from nose</text>
+<rect x="30" y="200" width="330" height="46" rx="12" fill="#FFFFFF" stroke="#D25A54" stroke-width="1.5" opacity="0.96"/>
+<text x="56" y="231" font-size="20" text-anchor="middle">⚡</text>
+<text x="78" y="230" font-size="13.5" font-weight="600" fill="#3A3A3A" text-anchor="start">Tremors, seizures</text>
+<rect x="382" y="200" width="330" height="46" rx="12" fill="#FFFFFF" stroke="#D25A54" stroke-width="1.5" opacity="0.96"/>
+<text x="408" y="231" font-size="20" text-anchor="middle">🐾</text>
+<text x="430" y="230" font-size="13.5" font-weight="600" fill="#3A3A3A" text-anchor="start">Pushed out of the nest</text>
+<text x="360" y="284" font-size="14" font-weight="700" fill="#D25A54" text-anchor="middle">When in doubt, phone the vet now</text>
+</svg>
