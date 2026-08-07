@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 270" width="800" height="270" font-family="-apple-system,'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif">
+  <rect width="800" height="270" fill="#ffffff"/>
+  <text x="16" y="28" font-size="16" font-weight="700" fill="#222939">图 5 · K4 幼犬区拍摄防疫流程</text>
+  <text x="16" y="46" font-size="11" fill="#60739f">Fig 5 · Biosecurity workflow for filming in the K4 puppy area</text>
+
+  <!-- Step 1: wash hands -->
+  <g transform="translate(10,60)">
+    <rect width="130" height="96" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <path d="M 65,18 C 58,30 54,36 54,42 a 11,11 0 0 0 22,0 c 0,-6 -4,-12 -11,-24 Z" fill="#2337ff"/>
+    <text x="65" y="74" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">洗手</text>
+    <text x="65" y="90" font-size="10" fill="#60739f" text-anchor="middle">Wash hands</text>
+  </g>
+  <line x1="144" y1="108" x2="164" y2="108" stroke="#60739f" stroke-width="2.5"/>
+  <polygon points="168,108 158,103 158,113" fill="#60739f"/>
+
+  <!-- Step 2: wipe gear -->
+  <g transform="translate(172,60)">
+    <rect width="130" height="96" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <rect x="52" y="14" width="18" height="32" rx="3" fill="none" stroke="#2337ff" stroke-width="3"/>
+    <path d="M 78,16 l 3,7 7,3 -7,3 -3,7 -3,-7 -7,-3 7,-3 Z" fill="#15803d"/>
+    <text x="65" y="74" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">酒精湿巾擦设备</text>
+    <text x="65" y="90" font-size="10" fill="#60739f" text-anchor="middle">Wipe gear (70%)</text>
+  </g>
+  <line x1="306" y1="108" x2="326" y2="108" stroke="#60739f" stroke-width="2.5"/>
+  <polygon points="330,108 320,103 320,113" fill="#60739f"/>
+
+  <!-- Step 3: shoot in K4 -->
+  <g transform="translate(334,60)">
+    <rect width="130" height="96" rx="8" fill="#eef1ff" stroke="#2337ff" stroke-width="2"/>
+    <rect x="42" y="20" width="34" height="24" rx="4" fill="none" stroke="#2337ff" stroke-width="3"/>
+    <circle cx="59" cy="32" r="7" fill="none" stroke="#2337ff" stroke-width="3"/>
+    <rect x="48" y="14" width="12" height="6" rx="2" fill="#2337ff"/>
+    <text x="86" y="38" font-size="11" font-weight="700" fill="#2337ff">≤10min</text>
+    <text x="65" y="74" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">进入 K4 拍摄</text>
+    <text x="65" y="90" font-size="10" fill="#60739f" text-anchor="middle">Shoot in K4</text>
+  </g>
+  <line x1="468" y1="108" x2="488" y2="108" stroke="#60739f" stroke-width="2.5"/>
+  <polygon points="492,108 482,103 482,113" fill="#60739f"/>
+
+  <!-- Step 4: wipe again -->
+  <g transform="translate(496,60)">
+    <rect width="130" height="96" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <rect x="52" y="14" width="18" height="32" rx="3" fill="none" stroke="#2337ff" stroke-width="3"/>
+    <path d="M 78,16 l 3,7 7,3 -7,3 -3,7 -3,-7 -7,-3 7,-3 Z" fill="#15803d"/>
+    <text x="65" y="74" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">离开后再次擦拭</text>
+    <text x="65" y="90" font-size="10" fill="#60739f" text-anchor="middle">Wipe again on exit</text>
+  </g>
+  <line x1="630" y1="108" x2="650" y2="108" stroke="#60739f" stroke-width="2.5"/>
+  <polygon points="654,108 644,103 644,113" fill="#60739f"/>
+
+  <!-- Step 5: adult areas -->
+  <g transform="translate(658,60)">
+    <rect width="130" height="96" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <circle cx="60" cy="30" r="13" fill="#60739f"/>
+    <polygon points="52,21 57,8 63,20 Z" fill="#60739f"/>
+    <polygon points="68,21 73,8 79,20 Z" fill="#60739f"/>
+    <circle cx="55" cy="27" r="2" fill="#ffffff"/>
+    <text x="65" y="74" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">才可去成犬区</text>
+    <text x="65" y="90" font-size="10" fill="#60739f" text-anchor="middle">Then adult areas</text>
+  </g>
+
+  <text x="400" y="180" font-size="12" font-weight="700" fill="#60739f" text-anchor="middle">顺序与清洁作业一致:先幼犬区、后成犬区,不走回头路</text>
+
+  <!-- red rules bar -->
+  <rect x="10" y="196" width="778" height="52" rx="8" fill="#fef2f2" stroke="#dc2626"/>
+  <text x="399" y="218" font-size="13" font-weight="700" fill="#b91c1c" text-anchor="middle">禁止:闪光灯直射幼犬 · 设备落地 · 无挂绳进围栏 · 幼犬出现应激仍继续拍摄</text>
+  <text x="399" y="238" font-size="10" fill="#b91c1c" text-anchor="middle">Never: flash at puppies · gear on the floor · no lanyard in pens · keep shooting a stressed puppy</text>
+</svg>
