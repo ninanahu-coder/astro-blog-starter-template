@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>跟进三连 · 见面之后 | 盈扬 YNG LAB</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#060A14;--ink:#0A101E;--panel:#111A2E;--panel2:#0D1526;--line:rgba(233,236,245,.13);
+--text:#E9ECF5;--muted:#96A0BA;--dim:#6B7590;--gold:#E3A83E;--gold-soft:rgba(227,168,62,.14);
+--teal:#43BFA0;--red:#E06070;
+--sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",-apple-system,sans-serif;
+--mono:ui-monospace,"SF Mono",Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(900px 600px at 80% -5%,rgba(227,168,62,.07),transparent 60%),
+ radial-gradient(700px 500px at -10% 110%,rgba(67,191,160,.05),transparent 60%),var(--bg);
+ color:var(--text);font-family:var(--sans);line-height:1.6;-webkit-text-size-adjust:100%}
+.wrap{max-width:660px;margin:0 auto;padding:24px 18px 60px}
+a{color:var(--gold)}
+.brand{display:flex;align-items:center;gap:11px;margin-bottom:16px}
+.brand b{font-family:var(--mono);font-size:14px;letter-spacing:.26em;color:var(--gold)}
+.brand small{font-size:10px;letter-spacing:.3em;color:var(--muted)}
+.back{margin-left:auto;font-size:12.5px;color:var(--muted);text-decoration:none}
+h1{font-size:27px;line-height:1.25;font-weight:800;margin-bottom:8px}
+h1 .g{background:linear-gradient(92deg,#E3A83E 25%,#43BFA0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--muted);font-size:14.5px;margin-bottom:20px}
+
+/* 填空区 */
+.form{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:17px;margin-bottom:20px}
+.form h3{font-size:14px;color:var(--gold);font-family:var(--mono);letter-spacing:.14em;margin-bottom:13px}
+.fg{margin-bottom:12px}
+.fg:last-child{margin-bottom:0}
+.fg label{display:block;font-size:12.5px;color:var(--muted);font-weight:700;margin-bottom:6px}
+.fg input,.fg select,.fg textarea{width:100%;background:var(--panel2);border:1.5px solid var(--line);
+ border-radius:9px;padding:11px 13px;font-size:15px;color:var(--text);font-family:var(--sans)}
+.fg textarea{resize:vertical;min-height:62px;line-height:1.55}
+.fg input:focus,.fg select:focus,.fg textarea:focus{outline:none;border-color:var(--gold)}
+.fg input::placeholder,.fg textarea::placeholder{color:var(--dim)}
+.fg .h{font-size:11.5px;color:var(--dim);margin-top:5px;line-height:1.5}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* 语言切换 */
+.langs{display:flex;gap:8px;margin-bottom:16px}
+.langs button{flex:1;background:var(--panel);border:1.5px solid var(--line);border-radius:10px;
+ padding:11px;font-size:14px;font-weight:700;color:var(--text);cursor:pointer;font-family:var(--sans)}
+.langs button.on{border-color:var(--gold);background:var(--gold-soft);color:var(--gold)}
+
+/* 消息卡 */
+.msg{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 16px 15px;margin-bottom:13px}
+.msg-h{display:flex;align-items:center;gap:9px;margin-bottom:5px;flex-wrap:wrap}
+.when{font-family:var(--mono);font-size:11px;color:#0A101E;background:var(--gold);
+ border-radius:5px;padding:3px 8px;font-weight:700;letter-spacing:.06em;flex:none}
+.when.t{background:var(--teal)}
+.when.d{background:var(--dim)}
+.msg-h h3{font-size:16px;font-weight:700}
+.msg .goal{font-size:12.5px;color:var(--muted);margin-bottom:11px}
+pre.body{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:13px 14px;
+ font-family:var(--sans);font-size:14.5px;line-height:1.7;white-space:pre-wrap;word-break:break-word;color:var(--text)}
+pre.body .ph{color:var(--gold);font-weight:700}
+.cp{width:100%;margin-top:10px;background:linear-gradient(92deg,#E3A83E,#D9952B);color:#0A101E;
+ border:none;border-radius:10px;padding:12px;font-size:14.5px;font-weight:800;cursor:pointer;font-family:var(--sans)}
+.cp:active{transform:translateY(1px)}
+.cp.done{background:var(--teal)}
+.tip{background:rgba(67,191,160,.07);border:1px solid rgba(67,191,160,.22);border-radius:9px;
+ padding:10px 12px;font-size:12.5px;color:var(--muted);line-height:1.6;margin-top:10px}
+.tip b{color:var(--teal)}
+.warn{background:rgba(224,96,112,.07);border:1px solid rgba(224,96,112,.25);border-radius:11px;
+ padding:13px 15px;font-size:13px;color:var(--muted);line-height:1.65;margin:18px 0}
+.warn b{color:var(--red)}
+.sec-h{font-size:12px;font-family:var(--mono);letter-spacing:.2em;color:var(--dim);text-transform:uppercase;
+ margin:26px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.foot{margin-top:30px;padding-top:15px;border-top:1px solid var(--line);
+ font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <b>YNG LAB</b><small>盈扬工作室 · PERTH</small>
+    <a class="back" href="../">← 工具包</a>
+  </div>
+
+  <h1>见面之后,<span class="g">四条消息</span></h1>
+  <p class="lead">谈完当天不跟进,基本等于没谈。填一次下面的空,四条消息自动套好——回到车上就发第一条。</p>
+
+  <div class="form">
+    <h3>先填这几个空</h3>
+    <div class="row2">
+      <div class="fg">
+        <label>怎么称呼他</label>
+        <input id="f_name" placeholder="陈老板 / Mike">
+      </div>
+      <div class="fg">
+        <label>店名</label>
+        <input id="f_shop" placeholder="安心按摩">
+      </div>
+    </div>
+    <div class="row2">
+      <div class="fg">
+        <label>店在哪个区</label>
+        <input id="f_area" placeholder="Cannington">
+      </div>
+      <div class="fg">
+        <label>行业</label>
+        <select id="f_ind"></select>
+      </div>
+    </div>
+    <div class="fg">
+      <label>他现在的搜索排名</label>
+      <input id="f_rank" placeholder="7">
+      <div class="h">不知道就留空——留空时消息里会自动换成不提排名的写法。</div>
+    </div>
+    <div class="fg">
+      <label>他抱怨的那句原话 ★</label>
+      <textarea id="f_pain" placeholder="晚上打进来的电话根本没人接"></textarea>
+      <div class="h">这一栏最重要。原封不动引用他的话,是让他记住你的唯一方法。</div>
+    </div>
+  </div>
+
+  <div class="langs">
+    <button id="l_zh" class="on">中文 · 微信</button>
+    <button id="l_en">English · Email</button>
+  </div>
+
+  <div id="msgs"></div>
+
+  <div class="warn">
+    <b>节奏纪律</b>:发完第 ④ 条就真的停手,不要再追。留门比死缠管用——很多单是一两个月后他自己回来的。
+    追到他拉黑你,这个区的口碑就没了(Perth 华人生意圈子很小)。
+  </div>
+
+  <div class="sec-h">加微信时的验证消息</div>
+  <div class="msg">
+    <div class="msg-h"><span class="when t">当场</span><h3>好友申请附言</h3></div>
+    <div class="goal">当场就加。隔天再加,他已经想不起你是谁了。</div>
+    <pre class="body" id="wx"></pre>
+    <button class="cp" data-t="wx">复制</button>
+  </div>
+
+  <div class="foot">
+    <span>YNG LAB · 盈扬工作室</span>
+    <span>AY · 0405 098 765</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+
+  var INDUSTRY = {
+    massage:{n:'按摩 / 养生', kw:'massage',           en:'massage',            plan:'/plan-massage/',  page:'#/6', pageNo:'6',  pn:'按摩店方案',  pnEN:'the massage-shop proposal'},
+    builder:{n:'建材 / 五金', kw:'building supplies', en:'building supplies',  plan:'/plan-austern/',  page:'#/9', pageNo:'9',  pn:'建材方案',    pnEN:'the building-supplies proposal'},
+    car:    {n:'车行 / 二手车',kw:'used cars',        en:'used cars',          plan:'/demo-caryard/',  page:'',    pageNo:'',   pn:'车行案例',    pnEN:'the car-yard example we built'},
+    pet:    {n:'宠物店',      kw:'pet grooming',      en:'pet grooming',       plan:'/experience/',    page:'',    pageNo:'',   pn:'刚才那个体验', pnEN:'the demo you scanned'},
+    watch:  {n:'名表 / 珠宝', kw:'luxury watch',      en:'luxury watches',     plan:'/experience/',    page:'',    pageNo:'',   pn:'刚才那个体验', pnEN:'the demo you scanned'},
+    food:   {n:'餐饮 / 外卖', kw:'restaurant',        en:'restaurants',        plan:'/experience/',    page:'',    pageNo:'',   pn:'刚才那个体验', pnEN:'the demo you scanned'},
+    other:  {n:'其他',        kw:'',                  en:'',                   plan:'/experience/',    page:'',    pageNo:'',   pn:'刚才那个体验', pnEN:'the demo you scanned'}
+  };
+
+  var sel=$('f_ind');
+  for (var k in INDUSTRY){
+    var o=document.createElement('option'); o.value=k; o.textContent=INDUSTRY[k].n; sel.appendChild(o);
+  }
+
+  var PHONE='0405 098 765', MAIL='teluoke@hotmail.com', SIG='盈扬工作室 YNG LAB · AY';
+  var NUM=['①','②','③','④'];
+  var lang='zh';
+
+  function V(){
+    var i=INDUSTRY[sel.value]||INDUSTRY.other;
+    var o=location.origin;
+    return {
+      name : $('f_name').value.trim() || '老板',
+      shop : $('f_shop').value.trim() || '你的店',
+      area : $('f_area').value.trim() || '你们区',
+      rank : $('f_rank').value.trim(),
+      pain : $('f_pain').value.trim(),
+      ind  : i,
+      exp  : o+'/experience/',
+      plan : o+i.plan+(i.page||'')
+    };
+  }
+
+  // 中文 · 微信
+  function zhMsgs(v){
+    var rankLine = v.rank
+      ? '你现在搜「'+v.area+' '+(v.ind.kw||'')+'」排在第 '+v.rank+' 位,前面几家里有一半评价数还没你多——这块是最快能追上的。'
+      : '我把'+v.area+'附近同行在 Google 上的位置排了一遍,你现在的位置和前三名的差距,主要不在生意好坏,在评价数和资料完整度上——这块是最快能追上的。';
+    var painLine = v.pain
+      ? '你说的那句「'+v.pain+'」我记下来了——这正好是这套系统最先解决的一件事。'
+      : '你今天讲的几个情况我都记下来了。';
+
+    return [
+      {w:'T+2 小时',cls:'',t:'回到车上就发',
+       g:'趁他还记得你。这条唯一的任务是让他把你和「他自己说过的那句话」绑在一起。',
+       b:v.name+'你好,我是刚才在店里聊过的小 Y(盈扬)。\n\n谢谢你抽的那几分钟。'+painLine+'\n\n刚才你扫的那个在这:\n'+v.exp+'\n\n有空可以再玩一次,把'+v.shop+'的真实价目和项目填进去看看。\n\n——'+SIG+' '+PHONE,
+       tip:'★ <b>必须引用他的原话。</b>没有这句,这条消息和群发广告没区别。'},
+
+      {w:'T+1 天',cls:'',t:'把体检结果送过去',
+       g:'兑现你昨天答应的东西。给价值,不要单。',
+       b:v.name+'早,昨天说的体检我做了一版。\n\n'+rankLine+'\n\n完整的'+v.ind.pn+'在这里:\n'+v.plan+'\n\n'+(v.ind.pageNo?'手机上直接翻就行,一共 12 页——你要是只有一分钟,只看第 '+v.ind.pageNo+' 页,那页是算账的。':'手机上直接翻就行,几分钟能看完。')+'\n\n不用回我,看一眼就行。',
+       tip:'<b>「不用回我」</b>降低他的心理负担;<b>「只看第 '+(v.ind.pageNo||'一')+' 页」</b>降低阅读成本。两句都别删。'},
+
+      {w:'T+3 天',cls:'',t:'临门一脚',
+       g:'唯一一条真正要东西的消息。给真实的稀缺 + 二选一。',
+       b:v.name+',不打扰你做生意,就说一句。\n\n我手上同时只接得下 3 家案例店,'+v.shop+'是我这一批第一家聊的。案例店的条件是:首月免费,启动费打折,做出数字之后我拿你的店当案例去谈别家。\n\n如果这周能挤出 30 分钟,我把系统在'+v.shop+'具体怎么跑演示给你看一遍。\n\n周三下午,还是周四上午?',
+       tip:'<b>稀缺必须是真的</b>——你确实同时只服务得了几家。编出来的稀缺,老板一眼看穿。结尾永远二选一,不要问「你什么时候方便」。'},
+
+      {w:'T+7 天',cls:'d',t:'留门,收手',
+       g:'主动停,比被拉黑强。这条的目的是三个月后他还愿意回你消息。',
+       b:v.name+',这条之后我就不打扰你了。\n\n方案和体检报告都在你手机里,随时想起来发我一句就行——案例店的条件我一直给'+v.shop+'留着。\n\n祝生意兴隆 🙏\n\n'+SIG+' '+PHONE,
+       tip:'发完这条就<b>真的停</b>。日历上记一笔,两个月后再发一条纯问候(不谈生意)。'}
+    ];
+  }
+
+  // English · Email
+  function enMsgs(v){
+    var rankLine = v.rank
+      ? 'Right now you come up '+v.rank+'th when someone searches "'+v.area+' '+(v.ind.en||'')+'". Half the shops ahead of you have fewer reviews than you do — that gap is the quickest one to close.'
+      : 'I went through where the shops around '+v.area+' sit on Google. The gap between you and the top three isn\'t about how good the business is — it\'s review count and how complete the listing is. That\'s the quickest thing to fix.';
+    var painLine = v.pain
+      ? 'You mentioned "'+v.pain+'" — I wrote that down, because it\'s the first thing this system actually fixes.'
+      : 'I made notes on everything you walked me through.';
+
+    return [
+      {w:'T+2 hrs',cls:'',t:'Send from the car',
+       g:'While he still remembers your face. One job: tie yourself to something he said.',
+       b:'Subject: The thing you mentioned today — '+v.shop+'\n\nHi '+v.name+',\n\nThanks for the few minutes today — I know that\'s time off the floor.\n\n'+painLine+'\n\nHere\'s the demo you scanned:\n'+v.exp+'\n\nWorth running it again with '+v.shop+'\'s real services and prices in it.\n\nAY — YNG LAB\n'+PHONE+' · '+MAIL,
+       tip:'★ <b>Quote him verbatim.</b> Without that line this is just another cold email.'},
+
+      {w:'T+1 day',cls:'',t:'Deliver the check-up',
+       g:'Do what you said you\'d do. Give value, ask for nothing.',
+       b:'Subject: Your check-up — '+v.shop+'\n\nMorning '+v.name+',\n\nI put together the check-up I promised.\n\n'+rankLine+'\n\nFull proposal here:\n'+v.plan+'\n\n'+(v.ind.pageNo?'Twelve pages, reads fine on a phone. If you\'ve only got a minute, page '+v.ind.pageNo+' is the one that matters — that\'s the arithmetic.':'Reads fine on a phone, few minutes end to end.')+'\n\nNo need to reply — just have a look.\n\nAY — YNG LAB\n'+PHONE,
+       tip:'<b>"No need to reply"</b> lowers the cost of opening it. <b>"Only page '+(v.ind.pageNo||'one')+'"</b> lowers the cost of reading it.'},
+
+      {w:'T+3 days',cls:'',t:'The ask',
+       g:'The only message that asks for something. Real scarcity, then a either/or.',
+       b:'Subject: 30 minutes this week?\n\nHi '+v.name+',\n\nI won\'t take up your day — one thing only.\n\nI can only carry three shops as case studies at a time, and '+v.shop+' is the first one I\'ve spoken to in this batch. Case-study terms are: first month free, discounted setup, and once the numbers show up I use your shop as the reference when I talk to others.\n\nIf you can find 30 minutes this week I\'ll walk you through exactly how it would run at '+v.shop+'.\n\nWednesday afternoon, or Thursday morning?\n\nAY — YNG LAB\n'+PHONE,
+       tip:'<b>The scarcity has to be real</b> — you genuinely can only service a few at once. Always close on either/or, never "let me know when suits".'},
+
+      {w:'T+7 days',cls:'d',t:'Leave the door open',
+       g:'Stopping on your own terms beats being ignored. This is about still being welcome in three months.',
+       b:'Subject: Leaving it with you — '+v.shop+'\n\nHi '+v.name+',\n\nLast one from me — I\'ll leave you to it.\n\nThe proposal and the check-up are both in your inbox. If it ever comes back around, just send me a line — the case-study terms stay open for '+v.shop+'.\n\nAll the best with the shop.\n\nAY — YNG LAB\n'+PHONE+' · '+MAIL,
+       tip:'Then <b>actually stop</b>. Put a note in your calendar to send a friendly, non-sales line in two months.'}
+    ];
+  }
+
+  function render(){
+    var v=V();
+    var list = lang==='zh' ? zhMsgs(v) : enMsgs(v);
+    var box=$('msgs'); box.innerHTML='';
+    list.forEach(function(m,i){
+      var d=document.createElement('div'); d.className='msg';
+      d.innerHTML =
+        '<div class="msg-h"><span class="when '+m.cls+'">'+m.w+'</span><h3>'+NUM[i]+' '+m.t+'</h3></div>'+
+        '<div class="goal">'+m.g+'</div>'+
+        '<pre class="body"></pre>'+
+        '<button class="cp">'+(lang==='zh'?'复制这条':'Copy')+'</button>'+
+        '<div class="tip">'+m.tip+'</div>';
+      d.querySelector('pre').textContent = m.b;
+      d.querySelector('.cp').onclick = function(){ copy(m.b, this, lang); };
+      box.appendChild(d);
+    });
+
+    $('wx').textContent = v.shop+'的'+v.name+',刚在店里聊过的小 Y(盈扬),给你发个刚才那个链接。';
+  }
+
+  function copy(text, btn, lg){
+    var done=function(){
+      var old=btn.textContent;
+      btn.textContent = lg==='zh' ? '✓ 已复制' : '✓ Copied';
+      btn.classList.add('done');
+      setTimeout(function(){btn.textContent=old;btn.classList.remove('done')},1600);
+    };
+    if (navigator.clipboard && window.isSecureContext){
+      navigator.clipboard.writeText(text).then(done, function(){fallback(text,done)});
+    } else fallback(text,done);
+  }
+  function fallback(text, done){
+    var ta=document.createElement('textarea');
+    ta.value=text; ta.style.position='fixed'; ta.style.top='-9999px';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); done(); }catch(e){ alert('复制失败,请长按文字手动复制'); }
+    ta.remove();
+  }
+
+  ['f_name','f_shop','f_area','f_rank','f_pain'].forEach(function(id){
+    $(id).addEventListener('input', render);
+  });
+  sel.addEventListener('change', render);
+  $('l_zh').onclick=function(){lang='zh';$('l_zh').classList.add('on');$('l_en').classList.remove('on');render()};
+  $('l_en').onclick=function(){lang='en';$('l_en').classList.add('on');$('l_zh').classList.remove('on');render()};
+
+  render();
+})();
+</script>
+</body>
+</html>

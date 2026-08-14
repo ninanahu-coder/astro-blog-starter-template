@@ -1,0 +1,1378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>YNG LAB · Investor Business Plan (Essence Edition, 50 pages)</title>
+<style>
+:root{
+  --bg:#060A14;
+  --ink:#0A101E;
+  --panel:#111A2E;
+  --panel2:#0D1526;
+  --line:rgba(233,236,245,.13);
+  --text:#E9ECF5;
+  --muted:#96A0BA;
+  --dim:#6B7590;
+  --gold:#E3A83E;
+  --gold-soft:rgba(227,168,62,.14);
+  --teal:#43BFA0;
+  --red:#E06070;
+  --serif:Georgia,"Times New Roman","Songti SC","Noto Serif SC",serif;
+  --sans:-apple-system,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Noto Sans SC",sans-serif;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden;
+  -webkit-text-size-adjust:100%;text-size-adjust:100%;
+  -webkit-print-color-adjust:exact;print-color-adjust:exact}
+#stage{position:fixed;top:0;left:0;width:100vw;height:100vh;height:100dvh;
+  display:flex;align-items:center;justify-content:center}
+#rotate{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:10;
+  background:var(--panel);border:1px solid rgba(227,168,62,.5);border-radius:6px;
+  padding:9px 16px;font-size:13px;color:var(--text);display:none;white-space:nowrap;
+  box-shadow:0 4px 18px rgba(0,0,0,.5);transition:opacity .4s}
+@media (orientation:portrait) and (max-width:600px){#rotate{display:block}}
+#deck{width:1280px;height:720px;position:relative;transform-origin:center center;flex:none}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;padding:64px 84px 58px;
+  background:
+    radial-gradient(900px 500px at 85% -10%,rgba(227,168,62,.06),transparent 60%),
+    radial-gradient(700px 500px at -10% 110%,rgba(67,191,160,.05),transparent 60%),
+    var(--ink);
+  border:1px solid var(--line)}
+.slide.active{display:flex}
+/* chrome */
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;color:var(--gold);
+  text-transform:uppercase;display:flex;gap:14px;align-items:baseline;margin-bottom:18px}
+.eyebrow .no{color:var(--dim)}
+.foot{position:absolute;left:84px;right:84px;bottom:22px;display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.12em}
+h1{font-family:var(--serif);font-weight:600;font-size:54px;line-height:1.18;text-wrap:balance}
+h2.t{font-family:var(--serif);font-weight:600;font-size:37px;line-height:1.2;margin-bottom:10px;text-wrap:balance}
+.sub{color:var(--muted);font-size:16.5px;line-height:1.65;max-width:48em}
+em.g{color:var(--gold);font-style:normal}
+em.tl{color:var(--teal);font-style:normal}
+.body{flex:1;display:flex;flex-direction:column;justify-content:center;gap:22px;min-height:0}
+/* layout helpers */
+.cols{display:grid;gap:18px}
+.c2{grid-template-columns:1fr 1fr}.c3{grid-template-columns:1fr 1fr 1fr}
+.c4{grid-template-columns:repeat(4,1fr)}.c23{grid-template-columns:2fr 3fr}.c32{grid-template-columns:3fr 2fr}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px}
+.card h3{font-size:15.5px;margin-bottom:8px;color:var(--text);font-weight:600}
+.card p,.card li{font-size:13px;color:var(--muted);line-height:1.55}
+.card.hl{border-color:rgba(227,168,62,.45);background:linear-gradient(180deg,var(--gold-soft),var(--panel))}
+.kpi{font-family:var(--mono);font-size:40px;color:var(--gold);font-variant-numeric:tabular-nums;line-height:1.1}
+.kpi small{font-size:15px;color:var(--muted);font-family:var(--sans)}
+.kcap{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.5}
+ul.list{list-style:none;display:flex;flex-direction:column;gap:12px}
+ul.list li{padding-left:20px;position:relative;font-size:14.5px;color:var(--text);line-height:1.55}
+ul.list li::before{content:"";position:absolute;left:0;top:.62em;width:8px;height:2px;background:var(--gold)}
+ul.list li span{color:var(--muted)}
+.tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--teal);
+  border:1px solid rgba(67,191,160,.4);border-radius:3px;padding:3px 8px;margin-right:6px}
+.tag.gd{color:var(--gold);border-color:rgba(227,168,62,.4)}
+.tag.rd{color:var(--red);border-color:rgba(224,96,112,.4)}
+.src{font-size:11.5px;color:var(--dim);margin-top:14px;line-height:1.5}
+.note{font-size:12px;color:var(--gold);border:1px dashed rgba(227,168,62,.4);border-radius:4px;
+  padding:8px 12px;display:inline-block}
+/* tables */
+table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+table.tbl th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--gold);
+  text-align:left;padding:9px 11px;border-bottom:1px solid rgba(227,168,62,.35);font-weight:500}
+table.tbl td{padding:9px 11px;border-bottom:1px solid var(--line);color:var(--muted);line-height:1.5;vertical-align:top}
+table.tbl td:first-child{color:var(--text);font-weight:500}
+table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
+/* bar chart */
+.bars{display:flex;align-items:flex-end;gap:34px;height:250px;padding:0 10px}
+.bar{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:10px;height:100%}
+.bar .v{font-family:var(--mono);color:var(--gold);font-size:15px}
+.bar .b{width:100%;background:linear-gradient(180deg,rgba(227,168,62,.85),rgba(227,168,62,.25));
+  border-radius:3px 3px 0 0}
+.bar .b.tl{background:linear-gradient(180deg,rgba(67,191,160,.85),rgba(67,191,160,.2))}
+.bar .l{font-size:12px;color:var(--muted);font-family:var(--mono)}
+/* hbar */
+.hrow{display:grid;grid-template-columns:280px 1fr 110px;align-items:center;gap:14px;font-size:13.5px}
+.hrow .lab{color:var(--text)}
+.hrow .track{height:14px;background:var(--panel2);border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.hrow .fill{height:100%;background:linear-gradient(90deg,rgba(227,168,62,.4),var(--gold));border-radius:2px}
+.hrow .fill.tl{background:linear-gradient(90deg,rgba(67,191,160,.35),var(--teal))}
+.hrow .val{font-family:var(--mono);color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+/* flow */
+.flow{display:flex;align-items:stretch;gap:0}
+.flow .step{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px 14px;text-align:center}
+.flow .step h4{font-size:14px;margin-bottom:6px}
+.flow .step p{font-size:12px;color:var(--muted);line-height:1.5}
+.flow .arr{display:flex;align-items:center;padding:0 8px;color:var(--gold);font-family:var(--mono);font-size:18px}
+/* stack diagram */
+.layer{display:grid;grid-template-columns:170px 1fr;gap:14px;align-items:stretch}
+.layer .ln{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--gold);
+  display:flex;align-items:center;justify-content:flex-end;text-align:right}
+.layer .lc{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 16px;
+  display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.chip{background:var(--panel2);border:1px solid var(--line);border-radius:4px;padding:6px 12px;
+  font-size:13px;color:var(--text)}
+.chip b{color:var(--gold);font-weight:600}
+.chip small{color:var(--muted);display:block;font-size:11px;margin-top:2px}
+/* toc */
+.toc{display:grid;grid-template-columns:1fr 1fr;gap:14px 40px}
+.toc .it{display:flex;gap:16px;align-items:baseline;border-bottom:1px solid var(--line);padding:12px 4px}
+.toc .it b{font-family:var(--mono);color:var(--gold);font-size:13px;font-weight:500}
+.toc .it span{font-size:15.5px}
+.toc .it small{margin-left:auto;font-family:var(--mono);color:var(--dim);font-size:11px}
+/* timeline */
+.tline{display:flex;gap:0;align-items:stretch}
+.tline .ph{flex:1;padding:14px 16px;border-left:2px solid var(--line);position:relative}
+.tline .ph::before{content:"";position:absolute;left:-6px;top:18px;width:10px;height:10px;border-radius:50%;
+  background:var(--gold);box-shadow:0 0 0 4px var(--gold-soft)}
+.tline .ph h4{font-size:14.5px;margin-bottom:6px}
+.tline .ph .w{font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:.12em;margin-bottom:6px}
+.tline .ph p{font-size:12.5px;color:var(--muted);line-height:1.55}
+/* checklist */
+.ck li::before{content:"✓";background:none;width:auto;height:auto;top:0;color:var(--teal);font-family:var(--mono)}
+.ck.todo li::before{content:"→";color:var(--gold)}
+/* cover */
+.cover{justify-content:space-between}
+.cover .brand{font-family:var(--mono);letter-spacing:.3em;color:var(--gold);font-size:14px}
+.cover .meta{display:flex;gap:34px;font-family:var(--mono);font-size:12px;color:var(--muted);letter-spacing:.08em}
+.rule{height:1px;background:linear-gradient(90deg,var(--gold),transparent);margin:26px 0}
+.hint{position:absolute;right:84px;bottom:52px;font-size:12px;color:var(--dim);font-family:var(--mono)}
+/* progress + counter */
+#prog{position:fixed;top:0;left:0;height:3px;background:var(--gold);z-index:9;transition:width .25s}
+#ctr{position:fixed;right:16px;bottom:12px;font-family:var(--mono);font-size:12px;color:var(--dim);z-index:9}
+.secmark{position:absolute;top:64px;right:84px;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.2em}
+.big-serif{font-family:var(--serif);font-size:27px;line-height:1.5;max-width:30em;text-wrap:balance}
+.big-serif em{color:var(--gold);font-style:normal}
+/* funnel */
+.funnel{display:flex;flex-direction:column;gap:10px;align-items:center}
+.funnel .f{background:linear-gradient(90deg,rgba(227,168,62,.25),rgba(227,168,62,.08));
+  border:1px solid rgba(227,168,62,.35);border-radius:4px;padding:10px 18px;text-align:center;
+  display:flex;justify-content:space-between;gap:24px;font-size:13.5px}
+.funnel .f b{font-family:var(--mono);color:var(--gold);font-weight:500}
+/* ===== phone portrait: scroll-reading mode ===== */
+@media screen and (max-width:700px) and (orientation:portrait){
+  body{overflow:auto}
+  #stage{position:static;display:block;width:auto!important;height:auto!important}
+  #deck{width:auto;height:auto;transform:none!important}
+  .slide{position:relative;inset:auto;display:flex!important;width:100%;height:auto;
+    padding:26px 18px 20px;border:none;border-bottom:1px solid var(--line)}
+  .secmark{position:static;display:block;margin-bottom:8px}
+  .eyebrow{margin-bottom:10px}
+  h1{font-size:28px}
+  h2.t{font-size:20px}
+  .sub{font-size:14px}
+  .body{gap:14px;justify-content:flex-start}
+  .cols,.c2,.c3,.c4,.c23,.c32{grid-template-columns:1fr;gap:12px}
+  .card{padding:15px 15px}
+  .kpi{font-size:26px}
+  .big-serif{font-size:17px}
+  ul.list{gap:9px}
+  ul.list li{font-size:13.5px}
+  table.tbl{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table.tbl th,table.tbl td{min-width:108px;font-size:12px;padding:8px}
+  .flow{flex-direction:column}
+  .flow .arr{transform:rotate(90deg);justify-content:center;padding:2px 0}
+  .tline{flex-direction:column;gap:8px}
+  .layer{grid-template-columns:1fr;gap:6px}
+  .layer .ln{justify-content:flex-start;text-align:left}
+  .toc{grid-template-columns:1fr}
+  .bars{height:170px;gap:14px;padding:0}
+  .bar .v{font-size:12px}
+  .hrow{grid-template-columns:1fr 56px;font-size:12px;gap:8px}
+  .hrow .lab{grid-column:1/-1}
+  .hrow .val{font-size:11px}
+  .funnel .f{font-size:12px;gap:10px;padding:8px 10px}
+  .foot{position:static;margin-top:16px;display:flex;justify-content:space-between}
+  .cover{min-height:78vh;justify-content:space-between}
+  .cover .meta{flex-wrap:wrap;gap:10px 18px}
+  .hint,#ctr,#prog{display:none}
+  .src{font-size:10.5px}
+  .note{font-size:11px}
+}
+.legend{display:flex;flex-wrap:wrap;gap:10px 18px;font-size:12.5px;color:var(--muted)}
+.legend .sw{width:10px;height:10px;border-radius:2px;display:inline-block;margin-right:7px;vertical-align:-1px}
+.tech-grid{position:absolute;inset:0;pointer-events:none;
+  background-image:linear-gradient(rgba(227,168,62,.055) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(227,168,62,.055) 1px,transparent 1px);
+  background-size:52px 52px;
+  -webkit-mask-image:radial-gradient(900px 600px at 30% 40%,#000 30%,transparent 75%);
+  mask-image:radial-gradient(900px 600px at 30% 40%,#000 30%,transparent 75%)}
+.grad{background:linear-gradient(92deg,#E3A83E 20%,#43BFA0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hud{font-family:var(--mono);font-size:12px;letter-spacing:.3em;color:var(--teal)}
+.hud b{color:var(--gold);font-weight:500}
+@page{size:1280px 720px;margin:0}
+@media print{
+  body{overflow:visible;background:#fff;margin:0}
+  #stage{position:static;display:block;width:auto!important;height:auto!important}
+  #rotate{display:none}
+  #deck{width:auto;height:auto;transform:none!important}
+  .slide{position:relative;display:flex!important;width:1280px;height:720px;page-break-after:always;margin:0;border:none}
+  .slide:last-child{page-break-after:auto}
+  #prog,#ctr,.hint{display:none}
+}
+</style>
+</head>
+<body>
+<div id="prog"></div>
+<div id="ctr"></div>
+<div id="rotate">📱 Portrait: scroll to read · Landscape: slide mode</div>
+<div id="stage"><div id="deck">
+
+<!-- ============ 01 Cover ============ -->
+<section class="slide cover">
+  <div class="tech-grid"></div>
+  <div>
+    <div class="brand" style="display:flex;align-items:center;gap:16px;letter-spacing:0">
+      <svg width="48" height="48" viewBox="0 0 46 46" aria-label="YNG LAB logo">
+        <circle cx="23" cy="23" r="21" fill="none" stroke="#E3A83E" stroke-width="1.6" opacity=".85"/>
+        <rect x="12" y="26" width="5" height="8" rx="1" fill="#43BFA0"/>
+        <rect x="20.5" y="20" width="5" height="14" rx="1" fill="#E3A83E" opacity=".72"/>
+        <rect x="29" y="14" width="5" height="20" rx="1" fill="#E3A83E"/>
+        <path d="M28.5 13.5 L31.5 8.5 L34.5 13.5" fill="none" stroke="#E3A83E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span style="display:flex;flex-direction:column;gap:4px">
+        <b style="font-family:var(--mono);font-size:18px;letter-spacing:.3em;color:var(--gold);font-weight:600">YNG LAB</b>
+        <small style="font-size:11px;letter-spacing:.3em;color:var(--muted)">盈扬工作室 · PERTH, WA</small>
+      </span>
+    </div>
+    <div class="rule"></div>
+  </div>
+  <div>
+    <div class="hud">AGENT-NATIVE GROWTH ENGINE <b>⌁</b> PERTH UTC+8 <b>⌁</b> 100+ DAYS IN PRODUCTION</div>
+    <h1 style="margin-top:16px">Intelligence is capacity.<br><span class="grad">Data is compound interest.</span></h1>
+    <p class="sub" style="margin-top:22px">5× the exposure. Customers who come to you. A fleet of AI staff that never sleeps — a lead-generation and analysis engine that compounds quarter after quarter.<br>Based in Perth, Western Australia&nbsp;|&nbsp;Proven in production: e-commerce · pet vertical · car dealership · assistant bot fleet.</p>
+  </div>
+  <div>
+    <div class="meta">
+      <span>Business Plan · Essence Edition (50 pages)</span><span>Founder · AY</span><span>July 2026</span><span>CONFIDENTIAL</span>
+    </div>
+  </div>
+  <div class="hint">← → arrow keys to navigate · Ctrl/Cmd+P to export PDF</div>
+  <div class="foot"><span>YNG LAB</span><span>01 / 50</span></div>
+</section>
+
+<!-- ============ 02 Disclaimer ============ -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">02</span><span>Read first</span></div>
+  <h2 class="t">Important Notices</h2>
+  <div class="body">
+    <ul class="list">
+      <li><b>Confidential document.</b><span> This business plan is provided solely for evaluation by the named investors. It may not be forwarded, copied or disclosed without written permission.</span></li>
+      <li><b>Data basis.</b><span> Operating and cost data are actual running records and internal measurements as of July 2026; industry data are cited from third-party public sources and attributed on every page. The "Wave Thesis &amp; Returns" chapter is a scenario back-calculation from public benchmarks — every assumption is stated, and nothing in it is a performance promise.</span></li>
+      <li><b>Third-party data.</b><span> Industry and market figures are quoted from public research reports (sources noted per page); we have not independently verified their accuracy.</span></li>
+      <li><b>Not investment advice.</b><span> The equity-market, crypto-market and macro analysis this project provides is an information and research service — it does not constitute investment advice on any security or digital asset, and this document itself is not an offer.</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>02 / 50</span></div>
+</section>
+
+<!-- ============ 03 Executive summary ============ -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">03</span><span>Executive summary</span></div>
+  <h2 class="t">YNG LAB on One Page</h2>
+  <div class="body">
+    <div class="cols c3">
+      <div class="card"><h3>What we do</h3><p>Multi-model agent orchestration (Claude / Codex / Hermes) delivered through Telegram (via OpenClaw): six services — a static-website lead-gen factory, document &amp; data analysis, equity-market analysis, crypto-market analysis, a news→macro transmission engine, and a private assistant.</p></div>
+      <div class="card"><h3>Why us</h3><p>100+ days of full-time, hands-on operation: four toolchains in production, a self-hosted database live, and three lines of real business already running — e-commerce, a pet vertical website, and a fleet of Telegram bots. Not an idea; a system already on its way to revenue.</p></div>
+      <div class="card"><h3>How big is the market</h3><p>The AI-agent market was ≈US$5.1B in 2024 and is projected to reach US$47.1B by 2030, a ~44.8% CAGR (MarketsandMarkets).</p></div>
+      <div class="card"><h3>How we make money</h3><p>Three revenue layers: subscription analysis briefings (Telegram membership) + project work (website factory / custom agents) + high-end private deployment (self-hosted database, dedicated assistant).</p></div>
+      <div class="card"><h3>What sets us apart</h3><p>Data privatisation: client data lives in our own encrypted, self-hosted database — not a third-party cloud SaaS. Private, confidential, reliable — built for high-quality, high-ticket clients.</p></div>
+      <div class="card hl"><h3>This round</h3><p>Angel round of $800k (terms negotiable — see "The Ask"), funding a 24–30 month runway. Return logic in the "Wave Thesis &amp; Returns" chapter: back-calculated from public benchmarks, 3–5× is the conservative range if milestones are met.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>03 / 50</span></div>
+</section>
+
+<!-- ============ 04 100 days ============ -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">04</span><span>Where we started</span></div>
+  <h2 class="t">100+ Days in Production: From Tool User to System Builder</h2>
+  <p class="sub">Over the past three-plus months we completed 0→1 validation of both the technology and the workflows, operating as "one person + an agent fleet".</p>
+  <div class="body">
+    <div class="tline">
+      <div class="ph"><div class="w">WEEKS 1–4</div><h4>Dev workflow established</h4><p>Deep daily use of Claude and Codex to build an AI pair-development pipeline: requirement → generation → review → deploy, fully automated.</p></div>
+      <div class="ph"><div class="w">WEEKS 5–8</div><h4>OpenClaw × Telegram</h4><p>Deployed the open-source OpenClaw gateway, bringing agent capabilities into Telegram — "one message, one completed task" as the delivery format.</p></div>
+      <div class="ph"><div class="w">WEEKS 9–12</div><h4>Hermes agent orchestration</h4><p>Introduced the Hermes agent for multi-task orchestration and local inference, alongside self-hosted database v1 (clients / market data / news / knowledge).</p></div>
+      <div class="ph"><div class="w">NOW</div><h4>Six module prototypes</h4><p>Lead-gen website factory, document analysis, equity / crypto analysis, news-to-macro engine and private assistant all have demonstrable prototypes.</p></div>
+    </div>
+    <div class="cols c4">
+      <div class="card"><div class="kpi">100+<small> days</small></div><div class="kcap">of full-time hands-on operation</div></div>
+      <div class="card"><div class="kpi">4<small> toolchains</small></div><div class="kcap">in production: Claude / Codex / OpenClaw / Hermes</div></div>
+      <div class="card"><div class="kpi">6<small> modules</small></div><div class="kcap">service prototypes</div></div>
+      <div class="card"><div class="kpi">1<small> database</small></div><div class="kcap">self-hosted encrypted DB v1</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>04 / 50</span></div>
+</section>
+
+<!-- ============ 05 TOC ============ -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">05</span><span>Contents</span></div>
+  <h2 class="t">Structure of This Plan (Essence Edition)</h2>
+  <div class="body">
+    <div class="toc">
+      <div class="it"><b>I</b><span>Opening &amp; Executive Summary</span><small>01 – 05</small></div>
+      <div class="it"><b>II</b><span>Industry &amp; Timing</span><small>06</small></div>
+      <div class="it"><b>III</b><span>Australia &amp; Western Australia</span><small>07 – 11</small></div>
+      <div class="it"><b>IV</b><span>Pain Points &amp; Solution</span><small>12 – 14</small></div>
+      <div class="it"><b>V</b><span>Product Matrix</span><small>15 – 21</small></div>
+      <div class="it"><b>VI</b><span>Live Cases + Industry Multiplication Evidence</span><small>22 – 27</small></div>
+      <div class="it"><b>IX</b><span>Phased Project Portfolio</span><small>28 – 30</small></div>
+      <div class="it"><b>X</b><span>Business Model: Pricing · Subscription Arithmetic · Revenue</span><small>31 – 36</small></div>
+      <div class="it"><b>XI</b><span>Returns: Four Timepoints · Per Line · Comparisons</span><small>37 – 42</small></div>
+      <div class="it"><b>XII</b><span>Execution, Team &amp; Risk</span><small>43 – 46</small></div>
+      <div class="it"><b>XIII</b><span>The Ask &amp; Vision</span><small>47 – 50</small></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>05 / 50</span></div>
+</section>
+
+<!-- ============ 06 Market ============ -->
+<section class="slide">
+  <div class="secmark">PART I · INDUSTRY &amp; TIMING</div>
+  <div class="eyebrow"><span class="no">06</span><span>Market size</span></div>
+  <h2 class="t">AI Agents: One of the Steepest Growth Curves of the Next Five Years</h2>
+  <div class="body">
+    <div class="cols c32">
+      <div class="bars">
+        <div class="bar"><span class="v">$5.1B</span><div class="b" style="height:11%"></div><span class="l">2024</span></div>
+        <div class="bar"><span class="v">$7.4B</span><div class="b" style="height:16%"></div><span class="l">2025E</span></div>
+        <div class="bar"><span class="v">$15.6B</span><div class="b" style="height:33%"></div><span class="l">2027E</span></div>
+        <div class="bar"><span class="v">$47.1B</span><div class="b" style="height:100%"></div><span class="l">2030E</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;justify-content:center">
+        <div class="card"><div class="kpi">44.8%</div><div class="kcap">Global AI-agent market CAGR, 2024–2030 (MarketsandMarkets)</div></div>
+        <div class="card"><div class="kpi">$2.6–4.4<small> trillion/yr</small></div><div class="kcap">Potential annual value of generative AI to the global economy (McKinsey, 2023)</div></div>
+      </div>
+    </div>
+    <p class="src">Sources: MarketsandMarkets, "AI Agents Market" (2024); McKinsey, "The economic potential of generative AI" (2023). Intermediate years interpolated at the stated CAGR.</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>06 / 50</span></div>
+</section>
+
+<!-- ============ 07 Anthropic ============ -->
+<section class="slide">
+  <div class="secmark">PART III · AUSTRALIA &amp; WA</div>
+  <div class="eyebrow"><span class="no">07</span><span>Landmark case</span></div>
+  <h2 class="t">Anthropic (Maker of Claude) Tenders for ≥1.4GW of Australian Compute</h2>
+  <div class="body">
+    <div class="cols c2">
+      <div class="card hl"><h3>Deal highlights (per AFR, July 2026)</h3><p>· Anthropic issued a confidential RFP to Australian data-centre operators for <b style="color:var(--gold)">at least 1.4GW</b> of capacity<br>· Estimated build cost up to ≈<b style="color:var(--gold)">US$15B</b> (~A$21.6B)<br>· Target: at least 1GW live by end of 2027<br>· Five shortlisted: CDC, AirTrunk, NextDC, IREN, Stack<br>· Unsigned at time of reporting — cited exactly as reported</p></div>
+      <ul class="list">
+        <li><b>Policy backdrop</b>:<span> In April 2026 Anthropic's CEO signed an MoU with the Australian PM — the first of its kind under the National AI Plan, covering data-centre and energy investment in Australia and a Sydney office opening in 2026.</span></li>
+        <li><b>Corroboration from the same ecosystem</b>:<span> Firmus "Project Southgate" (with CDC and NVIDIA; up to 1.6GW planned by 2028, expansion sites including Perth) has secured US$10B of debt financing led by Blackstone/Coatue.</span></li>
+        <li><b>What it means for this project</b>:<span> the maker of the very model we run on daily is landing compute in Australia — lower latency, clearer data sovereignty, a bigger local ecosystem. We are built directly downstream of this supply chain.</span></li>
+      </ul>
+    </div>
+    <p class="src">Sources: Australian Financial Review (2026-07, widely syndicated; unsigned at time of reporting); Dept of Industry / Anthropic (2026-04 MoU); Firmus / Milbank / Kirkland &amp; Ellis deal announcements (2026-02).</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>07 / 50</span></div>
+</section>
+
+<!-- ============ 08 Realised gains ============ -->
+<section class="slide">
+  <div class="secmark">PART III · AUSTRALIA &amp; WA</div>
+  <div class="eyebrow"><span class="no">08</span><span>Realised gains</span></div>
+  <h2 class="t">AI in Australia Is Not a Concept: It Is Already Making Real Money</h2>
+  <div class="body">
+    <table class="tbl">
+      <tr><th>Organisation</th><th>Realised results (not forecasts)</th><th>Source / year</th></tr>
+      <tr><td>Commonwealth Bank (CBA)</td><td class="y">Fraud losses down &gt;20% YoY; ~75% of card anti-fraud rules generated and maintained by agentic AI; combined anti-scam measures cut scam losses 76%</td><td>CBA official, 2025–26</td></tr>
+      <tr><td>Westpac</td><td class="y">&gt;A$100M invested in AI anti-scam over two years, saving customers &gt;A$500M; one AI agent completed ~6 person-days of engineering in 1 hour</td><td>Westpac / Global Finance, 2025</td></tr>
+      <tr><td>NAB</td><td class="y">7,000+ engineers equipped with AI coding tools; delivery cycles significantly shortened</td><td>NAB / iTnews, 2025</td></tr>
+      <tr><td>Rio Tinto</td><td class="y">~130 autonomous haul trucks in the Pilbara: load-and-haul unit cost −15%, fuel −10%, estimated savings &gt;US$100M/yr</td><td>Rio Tinto / Mining Digital, 2023–25</td></tr>
+      <tr><td>Coles</td><td class="y">A$327M of FY25 cost savings attributed to machine learning and automation</td><td>FY25 results / Mi3, 2025</td></tr>
+    </table>
+    <ul class="list">
+      <li><b>Why this matters to investors</b>:<span> "Does AI actually make money?" already has an audited answer in Australia — we bring the same capabilities, at subscription prices, to the SMEs and individuals who cannot afford enterprise programmes.</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>08 / 50</span></div>
+</section>
+
+<!-- ============ 09 UTC+8 ============ -->
+<section class="slide">
+  <div class="secmark">PART III · AUSTRALIA &amp; WA</div>
+  <div class="eyebrow"><span class="no">09</span><span>Why WA ②</span></div>
+  <h2 class="t">UTC+8: Perth Shares a Time Zone with Beijing, Hong Kong &amp; Singapore</h2>
+  <div class="body">
+    <div class="cols c2">
+      <div class="card hl"><div class="kpi" style="font-size:56px">0<small> time difference</small></div><div class="kcap" style="font-size:14px;margin-top:10px">AWST = UTC+8, no daylight saving all year — perfectly aligned with mainland China, Hong Kong and Singapore. Sydney (UTC+10/11 with DST) is actually 2–3 hours out of sync.</div></div>
+      <ul class="list">
+        <li><b>Home-ground advantage for financial analysis</b>:<span> A-share and HK trading hours (09:30–16:00) coincide exactly with Perth business hours — pre-market briefings, intraday alerts and closing wraps all ship within a normal working day. No night shifts.</span></li>
+        <li><b>Zero-friction service for Chinese-speaking clients</b>:<span> our target clients cluster in the UTC+8 belt — when they are at work, so are we; Telegram messages get instant responses.</span></li>
+        <li><b>24/7 crypto markets</b>:<span> agents cover the off-hours; the human/machine division of labour is clean.</span></li>
+        <li><b>The comparison in one line</b>:<span> for Asia-facing financial information services, Perth has the best time-zone position of any Australian city — geographic fact, not opinion.</span></li>
+      </ul>
+    </div>
+    <p class="src">Sources: timeanddate.com (2026); WA has no daylight saving under current state law.</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>09 / 50</span></div>
+</section>
+
+<!-- ============ 10 Policy ============ -->
+<section class="slide">
+  <div class="secmark">PART III · AUSTRALIA &amp; WA</div>
+  <div class="eyebrow"><span class="no">10</span><span>Policy tailwinds</span></div>
+  <h2 class="t">Policy Tailwinds: Government Shares Early-Stage R&amp;D Costs</h2>
+  <div class="body">
+    <table class="tbl">
+      <tr><th>Instrument</th><th>Scale</th><th>What it means for this project</th></tr>
+      <tr><td>R&amp;D Tax Incentive (federal)</td><td class="y">Companies under A$20M turnover: refundable offset at company rate + 18.5pp = 43.5% of eligible R&amp;D spend, paid in cash while loss-making</td><td>Nearly half of R&amp;D outlay is returned through the tax system — directly extending the $800k runway</td></tr>
+      <tr><td>Company base tax rate (federal)</td><td>25% (turnover &lt; A$50M)</td><td>Higher retention and dividend efficiency post-profit than most developed markets</td></tr>
+      <tr><td>New Industries and Innovation Fund (WA)</td><td>A$40M over 2025–29; Innovation Booster Grants up to A$50k each</td><td>State-level grants for early founders — planned application at seed stage</td></tr>
+      <tr><td>Investment Attraction Fund (WA)</td><td>A$100M total</td><td>Optional support at scale-up stage</td></tr>
+    </table>
+    <ul class="list">
+      <li><b>Discipline</b>:<span> grants are planned as upside, never survival prerequisites; R&amp;D claims are prepared by a licensed accountant, already budgeted under compliance.</span></li>
+    </ul>
+    <p class="src">Sources: ATO / PwC Tax Summaries (2025–26); WA Government (wa.gov.au, 2025–26).</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>10 / 50</span></div>
+</section>
+
+<!-- ============ 11 Four layers ============ -->
+<section class="slide">
+  <div class="secmark">PART III · AUSTRALIA &amp; WA</div>
+  <div class="eyebrow"><span class="no">11</span><span>Argument by analogy</span></div>
+  <h2 class="t">Four Layers of the Same Wave: From Under Our Feet to the Globe</h2>
+  <div class="body" style="gap:12px">
+    <div class="layer"><div class="ln">LAYER 0 · THIS PROJECT</div><div class="lc"><span class="chip"><b>Live in Perth</b><small>e-commerce · pet site · TG bot fleet · site network (running, near-zero marginal cost)</small></span></div></div>
+    <div class="layer"><div class="ln">LAYER 1 · WA</div><div class="lc"><span class="chip"><b>CDC Maddington 200MW+ AI campus</b><small>Stage 1: A$415M</small></span><span class="chip"><b>Mining automation cluster</b><small>Rio / BHP, 15 years of remote operations</small></span></div></div>
+    <div class="layer"><div class="ln">LAYER 2 · NATIONAL</div><div class="lc"><span class="chip"><b>AirTrunk acquired for &gt;A$24B</b><small>world's largest DC deal at the time</small></span><span class="chip"><b>NEXTDC S7 × OpenAI</b><small>612MW — Australia's "Stargate"</small></span><span class="chip"><b>Anthropic ≥1.4GW tender</b><small>AFR, 2026-07</small></span></div></div>
+    <div class="layer"><div class="ln">LAYER 3 · GLOBAL</div><div class="lc"><span class="chip"><b>Big-five 2026 capex ~US$805B</b><small>Morgan Stanley forecast</small></span><span class="chip"><b>2026–31 AI infrastructure ~US$7.6T cumulative</b><small>Goldman Sachs model</small></span></div></div>
+    <p class="big-serif">Every layer doubles down on the same judgement: <em>intelligence is the new infrastructure</em>. Capital is building the power plants upstream; we are switching the lights on downstream — this project buys you the lightest, fastest-payback segment of the wave.</p>
+    <p class="src">Sources: preceding pages of this part; Morgan Stanley / Goldman Sachs (2026, forecast basis).</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>11 / 50</span></div>
+</section>
+
+<!-- ============ 12 Pain points ============ -->
+<section class="slide">
+  <div class="secmark">PART IV · PAIN &amp; SOLUTION</div>
+  <div class="eyebrow"><span class="no">12</span><span>Customer pain</span></div>
+  <h2 class="t">Three Customer Types, Three Pains, One Common Gap</h2>
+  <div class="body">
+    <table class="tbl">
+      <tr><th>Profile</th><th>Core pain</th><th>Current alternative</th><th>Why it falls short</th></tr>
+      <tr><td>SME owners</td><td>Customer acquisition keeps getting dearer; ad platforms hold the budget hostage</td><td>Agencies / paid ads</td><td class="n">High monthly fees, opaque results, traffic dies the day you stop paying</td></tr>
+      <tr><td>Active traders</td><td>Information overload; can't react to major events in time</td><td>Free news groups / institutional terminals</td><td class="n">Noisy and slow; terminals cost tens of thousands of dollars a year</td></tr>
+      <tr><td>HNW individuals / family offices</td><td>Assistant and research needs are highly confidential</td><td>Human assistants / cloud AI tools</td><td class="n">Humans are expensive and limited; cloud tools leak data</td></tr>
+    </table>
+    <p class="big-serif">The common gap: an intelligent service layer that is <em>affordable, always in your pocket, and keeps your data under your control</em>.</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>12 / 50</span></div>
+</section>
+
+<!-- ============ 13 Solution ============ -->
+<section class="slide">
+  <div class="secmark">PART IV · PAIN &amp; SOLUTION</div>
+  <div class="eyebrow"><span class="no">13</span><span>Solution</span></div>
+  <h2 class="t">One Hub, Two Product Lines, Six Modules</h2>
+  <div class="body">
+    <div class="cols c2">
+      <div class="card hl"><h3>Growth line · makes clients money</h3><p style="margin-bottom:10px">Use AI to crush the cost of owning your own traffic assets.</p>
+        <span class="tag gd">A</span><b style="font-size:14px"> Static-website generation factory</b><p>Industry landing pages / content site networks — batch-generated, edge-deployed, SEO-driven.</p>
+        <div style="height:10px"></div>
+        <span class="tag gd">B</span><b style="font-size:14px"> Document &amp; data analysis</b><p>Structured analysis and insight from contracts, statements and research reports.</p>
+      </div>
+      <div class="card hl"><h3>Analysis line · makes markets legible</h3><p style="margin-bottom:10px">24/7 event-driven financial information service.</p>
+        <span class="tag gd">C</span><b style="font-size:14px"> Equity-market assistant</b> &nbsp;<span class="tag gd">D</span><b style="font-size:14px"> Crypto-market analysis</b>
+        <p>Pre-market briefings, portfolio monitoring, on-chain anomalies, narrative tracking.</p>
+        <div style="height:10px"></div>
+        <span class="tag gd">E</span><b style="font-size:14px"> News → macro transmission engine</b> &nbsp;<span class="tag gd">F</span><b style="font-size:14px"> Private assistant</b>
+        <p>How events transmit into economies and currencies; calendar, email, research on demand.</p>
+      </div>
+    </div>
+    <div class="card" style="text-align:center"><p><b style="color:var(--gold)">The hub</b> = Telegram front door (OpenClaw) + multi-model orchestration (Claude / Codex / Hermes) + <b style="color:var(--teal)">self-hosted encrypted database</b> — six modules on one chassis, with falling marginal cost.</p></div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>13 / 50</span></div>
+</section>
+<!-- ============ 14 OpenClaw × Telegram ============ -->
+<section class="slide">
+  <div class="secmark">PART IV · PAIN &amp; SOLUTION</div>
+  <div class="eyebrow"><span class="no">14</span><span>The front door is the service</span></div>
+  <h2 class="t">OpenClaw × Telegram: The Shortest Path to Delivering "Anlan"</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>~1 billion monthly users</b>:<span> Telegram is the default messenger for crypto and cross-border communities — our target clients are already there.</span></li>
+        <li><b>Zero install cost</b>:<span> no app download, no new account — adding the bot IS onboarding. Minimum possible conversion friction.</span></li>
+        <li><b>A natural distribution structure</b>:<span> channels for free briefings (acquisition) → private bot for paid services (conversion) → groups for community (retention).</span></li>
+        <li><b>Mature payments &amp; subscriptions</b>:<span> subscriptions, tips and bot payments are all native — renewals happen inside the conversation.</span></li>
+      </ul>
+      <div class="card"><h3>Already running (prototype demos on request)</h3><p style="font-family:var(--mono);font-size:12.5px;line-height:2;color:var(--text)">
+<span style="color:var(--dim)">Client ›</span> Analyse tonight's Fed decision for me<br>
+<span style="color:var(--gold)">Anlan ›</span> ✓ Macro brief generated (USD / gold / BTC transmission)<br>
+<span style="color:var(--dim)">Client ›</span> Build a lead-gen landing page for my building-supplies business<br>
+<span style="color:var(--gold)">Anlan ›</span> ✓ Site deployed, with SEO copy and an enquiry form<br>
+<span style="color:var(--dim)">Client ›</span> Alert me when BTC funding rates go abnormal<br>
+<span style="color:var(--gold)">Anlan ›</span> ✓ Monitor armed, live 24/7</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>14 / 50</span></div>
+</section>
+
+<!-- ============ 15 Product matrix ============ -->
+<section class="slide">
+  <div class="secmark">PART V · PRODUCT MATRIX</div>
+  <div class="eyebrow"><span class="no">15</span><span>Product matrix</span></div>
+  <h2 class="t">Six Modules: A Combination Punch on One Chassis</h2>
+  <div class="body">
+    <div class="cols c3">
+      <div class="card"><span class="tag gd">A · Growth line</span><h3 style="margin-top:10px">Static-website factory</h3><p>One sentence to a live site; site networks that gather leads for clients — and for us.</p></div>
+      <div class="card"><span class="tag gd">B · Growth line</span><h3 style="margin-top:10px">Document &amp; data analysis</h3><p>Structured reading of contracts / statements / research, surfacing risks and insights.</p></div>
+      <div class="card"><span class="tag">C · Analysis line</span><h3 style="margin-top:10px">Equity-market assistant</h3><p>Pre-market briefs, earnings analysis, portfolio monitoring, technical-signal aggregation.</p></div>
+      <div class="card"><span class="tag">D · Analysis line</span><h3 style="margin-top:10px">Crypto-market analysis</h3><p>24/7 on-chain + exchange monitoring; whale moves and narrative tracking.</p></div>
+      <div class="card"><span class="tag">E · Analysis line</span><h3 style="margin-top:10px">News → macro engine</h3><p>How events transmit into economies and currencies, pushed in three tiers.</p></div>
+      <div class="card"><span class="tag rd">F · Premium line</span><h3 style="margin-top:10px">Private assistant</h3><p>Calendar, email, research and files — memory lives in our own database. Highly confidential.</p></div>
+    </div>
+    <ul class="list">
+      <li><b>The combination logic</b>:<span> A acquires → C/D/E monetise via subscription → F and private deployment capture the high ticket. Modules feed each other, share one data layer, and each additional module has near-zero marginal cost.</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>15 / 50</span></div>
+</section>
+
+<!-- ============ 16 Module A ============ -->
+<section class="slide">
+  <div class="secmark">PART V · PRODUCT MATRIX</div>
+  <div class="eyebrow"><span class="no">16</span><span>Module A · Growth line</span></div>
+  <h2 class="t">The Website Factory: Turning "Build a Site, Get Leads" into an Assembly Line</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>One sentence to a full site</b>:<span> Codex + Claude generate the whole site from an industry description — landing page, blog, SEO copy and enquiry form in one pass (the repo this plan lives in is itself one of our Astro templates).</span></li>
+        <li><b>Edge-deployed, near-zero cost</b>:<span> static sites on Cloudflare-class edge networks — serverless, no ops, single-digit dollars per site per month.</span></li>
+        <li><b>Site-network strategy</b>:<span> batch-generate content sites by industry × region × keyword; every site is a fishing pond collecting long-tail search traffic.</span></li>
+        <li><b>Leads straight to Telegram</b>:<span> visitor forms and subscribe buttons feed the Telegram bot; leads land in the self-hosted client database in real time.</span></li>
+      </ul>
+      <div class="card"><h3>A double role</h3><p><b>① Outward, it's a product</b> — sold to SMEs as project fee + monthly maintenance;<br><br><b>② Inward, it's our acquisition engine</b> — our own finance content sites feed the analysis subscriptions. Ad budget ≈ 0.<br><br><span class="tag gd">Verified</span> Requirement to live site in &lt; 1 hour (internal benchmark).</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>16 / 50</span></div>
+</section>
+
+<!-- ============ 17 Module C ============ -->
+<section class="slide">
+  <div class="secmark">PART V · PRODUCT MATRIX</div>
+  <div class="eyebrow"><span class="no">17</span><span>Module C · Analysis line</span></div>
+  <h2 class="t">Equity-Market Assistant: Institutional Information Density at a Subscription Price</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>Pre-market brief</b>:<span> overnight global markets, futures, the macro calendar and single-stock news — in your Telegram 30 minutes before the open.</span></li>
+        <li><b>Portfolio monitoring</b>:<span> client watchlists; unusual moves, filings and rating changes pushed in real time with interpretation.</span></li>
+        <li><b>Earnings-season engine</b>:<span> minutes after results drop: beats and misses, guidance changes, call highlights.</span></li>
+        <li><b>Multi-factor aggregation</b>:<span> technicals + fundamentals + fund flows + sentiment, scored on four axes — not single-indicator noise.</span></li>
+      </ul>
+      <div class="card"><h3>Boundaries &amp; compliance</h3><p><span class="tag rd">Important</span> This module is an <b>information and research service</b>: it presents facts, data and scenario analysis. It gives <b>no buy/sell advice, never trades on a client's behalf, promises no returns</b>. Every brief carries a risk notice. Details on the "Compliance &amp; Security" page.</p>
+      <div style="height:12px"></div><h3>Why clients pay</h3><p>The alternative at this information density is an institutional terminal at tens of thousands of dollars a year; we deliver the parts an individual trader actually uses, at a personal subscription price.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>17 / 50</span></div>
+</section>
+
+<!-- ============ 18 Module D ============ -->
+<section class="slide">
+  <div class="secmark">PART V · PRODUCT MATRIX</div>
+  <div class="eyebrow"><span class="no">18</span><span>Module D · Analysis line</span></div>
+  <h2 class="t">Crypto-Market Analysis: A 24/7 Market Needs a 24/7 Agent</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>On-chain + exchange, both sources</b>:<span> exchange prices, funding rates and open interest, layered with large on-chain transfers, whale-address moves and stablecoin issuance.</span></li>
+        <li><b>Narrative tracking</b>:<span> agents continuously scan social media and news to spot sector narratives forming (RWA, AI tokens, L2s) and quantify momentum.</span></li>
+        <li><b>Event linkage</b>:<span> wired into Module E — macro events (rate decisions, regulation, geopolitics) auto-trigger transmission analysis for crypto assets.</span></li>
+        <li><b>Personal alerts</b>:<span> "BTC funding above X", "address Y moved more than Z" — conditional monitors on watch around the clock.</span></li>
+      </ul>
+      <div class="card"><h3>Why this is the best wedge market</h3><p>· Users already live on Telegram — conversion path of zero<br>· 24/7 volatility = the one scenario where humans cannot substitute for agents<br>· Paid-subscription habits are established (paid signal groups are an existing market)<br>· We differentiate on data + transparent reasoning vs. black-box call groups<br><br><span class="tag rd">Compliance</span> High-risk-asset warnings up front; service restricted by client jurisdiction (see "Compliance &amp; Security").</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>18 / 50</span></div>
+</section>
+
+<!-- ============ 19 Module E ============ -->
+<section class="slide">
+  <div class="secmark">PART V · PRODUCT MATRIX</div>
+  <div class="eyebrow"><span class="no">19</span><span>Module E · Analysis line</span></div>
+  <h2 class="t">News → Macro Engine: The Transmission Chain from Headline to Asset Price</h2>
+  <div class="body" style="gap:14px">
+    <div class="flow">
+      <div class="step"><h4>① Collect</h4><p>Multilingual news, central-bank and regulator releases, social signals — scraped 24/7</p></div><div class="arr">→</div>
+      <div class="step"><h4>② Classify</h4><p>Monetary policy / geopolitics / regulation / industry events</p></div><div class="arr">→</div>
+      <div class="step"><h4>③ Transmission analysis</h4><p>Claude reasons through the event's path into rates, FX, commodities, indices and crypto</p></div><div class="arr">→</div>
+      <div class="step"><h4>④ Tiered push</h4><p>Red / amber / blue: instant alert · daily digest · weekly wrap</p></div>
+    </div>
+    <div class="cols c2">
+      <div class="card"><h3>Example: one rate-decision output</h3><p style="font-size:12.5px">"Fed holds but the dot plot turns hawkish → short-term USD strength → non-USD currencies and gold under pressure → tighter liquidity expectations for high-beta risk assets (growth stocks / BTC) → watch Treasury yields for confirmation within two days." — with data sources and comparable historical scenarios attached.</p></div>
+      <div class="card"><h3>The core value</h3><p>Clients don't want "faster news" — they want to <b style="color:var(--gold)">understand the transmission before the volatility</b>. Every swing in economies and currencies is a fresh reason to pay. The rougher the market, the higher this module's retention — naturally antifragile.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>19 / 50</span></div>
+</section>
+
+<!-- ============ 20 Module F ============ -->
+<section class="slide">
+  <div class="secmark">PART V · PRODUCT MATRIX</div>
+  <div class="eyebrow"><span class="no">20</span><span>Module F · Premium line</span></div>
+  <h2 class="t">"Anlan", the Private Assistant: A Truly Confidential Aide-de-Camp</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>Full-service secretary</b>:<span> calendar, email summaries and drafting, travel, filing — all inside one Telegram conversation.</span></li>
+        <li><b>Research on demand</b>:<span> "look into this company / this industry / this network for me" — the agent returns a sourced research memo within hours.</span></li>
+        <li><b>Long-term memory</b>:<span> preferences, relationships and past decisions live in our encrypted self-hosted store. The assistant knows its principal better every week — and that knowledge belongs to no cloud platform.</span></li>
+        <li><b>Private-deployment option</b>:<span> top clients can run the whole stack (including local Hermes inference) on their own hardware — physical data isolation.</span></li>
+      </ul>
+      <div class="card hl"><h3>Why it sits in the premium line</h3><p>A private assistant is the <b>highest-trust-density</b> service — and therefore the highest ticket and highest referral rate.<br><br>· Target clients: business owners, HNW individuals, small family offices<br>· Delivery: annual fee + one-off private-deployment charge<br>· Acquisition: high-value tiers of modules A–E, plus referrals<br><br><span class="tag gd">Positioning</span> Every private-assistant client is grown out of the subscription pool.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>20 / 50</span></div>
+</section>
+
+<!-- ============ 21 Self-hosted DB ============ -->
+<section class="slide">
+  <div class="secmark">PART V · PRODUCT MATRIX</div>
+  <div class="eyebrow"><span class="no">21</span><span>Data infrastructure</span></div>
+  <h2 class="t">The Self-Hosted Database: Private, Confidential, Reliable — Three Words We Can Promise</h2>
+  <div class="body">
+    <div class="cols c3">
+      <div class="card"><h3>Private</h3><p>Client records, conversational memory and analysis archives live in our own encrypted database — encrypted at rest and in transit, minimal retention. Nothing enters a third-party SaaS pipeline; nothing is used to train external models.</p></div>
+      <div class="card"><h3>Confidential</h3><p>Per-client data partitions and access control; sensitive tasks route to local Hermes inference, with originals burned after reading on request. For HNW clients this is the precondition of the deal, not a nice-to-have.</p></div>
+      <div class="card"><h3>Reliable</h3><p>No dependence on a third-party SaaS's survival, repricing or rate limits; local + off-site encrypted backups with rehearsed recovery. Versus the cloud, our fate stays in our own (and our clients') hands.</p></div>
+    </div>
+    <ul class="list">
+      <li><b>v1 is live</b>:<span> four stores — clients, market data, news, knowledge — in production, backing memory and retrieval for all six modules.</span></li>
+      <li><b>Not just a selling point — an asset</b>:<span> the structured data that accrues with service (the data flywheel) is the hardest-to-copy part of the valuation.</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>21 / 50</span></div>
+</section>
+
+<!-- ============ 22 Live businesses ============ -->
+<section class="slide">
+  <div class="secmark">PART VI · LIVE CASES &amp; CAPACITY</div>
+  <div class="eyebrow"><span class="no">22</span><span>Live overview</span></div>
+  <h2 class="t">More Than Prototypes: Three Lines of Business Already Run Live</h2>
+  <div class="body">
+    <div class="cols c4">
+      <div class="card"><span class="tag">Running</span><h3 style="margin-top:10px">E-commerce ops</h3><p>Product selection, copy, creative and support run on an agent pipeline — one person maintaining what used to take a small team.</p></div>
+      <div class="card"><span class="tag">Running</span><h3 style="margin-top:10px">Pet vertical website</h3><p>First output of the website factory: scheduled SEO content, monetisation loop closed; <b style="color:var(--gold)">Australian English edition in rollout</b>.</p></div>
+      <div class="card"><span class="tag">Running</span><h3 style="margin-top:10px">Telegram bot fleet</h3><p>Price alerts, briefings, support and assistant bots in parallel — live prototypes across four modules.</p></div>
+      <div class="card"><span class="tag gd">In rollout</span><h3 style="margin-top:10px">Car-dealer lead gen (Perth)</h3><p>Local dealer inventory site + enquiry pipeline — the growth line's first B2B industry flagship, with a replicable template.</p></div>
+    </div>
+    <ul class="list">
+      <li><b>Why it matters</b>:<span> these businesses share one chassis (orchestration layer + self-hosted DB). What they validate is not "can it be built" but "how much can one person run at once".</span></li>
+      <li><b>Industry-template queue</b>:<span> car dealers (Perth, in rollout) → watch dealers · luxury-watch trading (in preparation: inventory display + secondary-market price tracking; the clientele overlaps naturally with the private assistant) → more verticals cloned from the same template.</span></li>
+      <li><b>Disclosure basis</b>:<span> this chapter presents live businesses qualitatively; traffic, GMV and subscription detail are provided from the raw dashboards under NDA during due diligence.</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>22 / 50</span></div>
+</section>
+
+<!-- ============ 23 Car dealer ============ -->
+<section class="slide">
+  <div class="secmark">PART VI · LIVE CASES &amp; CAPACITY</div>
+  <div class="eyebrow"><span class="no">23</span><span>Case study · Car dealer</span></div>
+  <h2 class="t">The Car Dealership: Let Every Car Go Out and Find Its Own Buyer</h2>
+  <div class="body" style="gap:14px">
+    <table class="tbl">
+      <tr><th>Metric</th><th>Typical today (small Perth dealer)</th><th>12-month target</th><th>How</th></tr>
+      <tr><td>Online exposure</td><td class="n">Listings on marketplaces only; near-invisible in search</td><td class="y">×5–10</td><td>A dedicated page per car capturing long-tail search ("2019 CX-5 Perth used") + an industry content network</td></tr>
+      <tr><td>Qualified enquiries</td><td class="n">Phone and walk-ins by luck; unreachable after hours</td><td class="y">×3–5</td><td>A 24-hour assistant that quotes instantly and captures details — not one enquiry lost</td></tr>
+      <tr><td>Follow-up conversion</td><td class="n">Depends on the salesman's memory</td><td class="y">Every grain banked</td><td>Automatic lead scoring + follow-up sequences, all captured in the client database</td></tr>
+      <tr><td>Sales</td><td>Baseline</td><td class="y"><b>Target: double (×2)</b></td><td>The multiplicative effect of lifting exposure × enquiries × conversion at once</td></tr>
+    </table>
+    <div class="cols c2">
+      <div class="card hl"><h3>What we earn</h3><p>Site-build project fee + monthly maintenance + creative-pack subscription. What the client earns: more cars sold, faster stock turn — the numbers work for them, so renewals are sustainable.</p></div>
+      <div class="card"><h3>Basis</h3><p>Multipliers are <b>illustrative targets</b> based on the acquisition mechanics (not promises); after launch we calibrate monthly against actual exposure, enquiries and sales, shared with clients and investors.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>23 / 50</span></div>
+</section>
+
+<!-- ============ 24 Watch dealer ============ -->
+<section class="slide">
+  <div class="secmark">PART VI · LIVE CASES &amp; CAPACITY</div>
+  <div class="eyebrow"><span class="no">24</span><span>Case study · Watch dealer</span></div>
+  <h2 class="t">The Watch Dealer: Every Fine Watch Is a Doorway to a High-Net-Worth Client</h2>
+  <div class="body" style="gap:14px">
+    <table class="tbl">
+      <tr><th>Metric</th><th>Typical today (luxury-watch trading)</th><th>12-month target</th><th>How</th></tr>
+      <tr><td>Online exposure</td><td class="n">Word of mouth and the shop window; online near-blank</td><td class="y">×5+</td><td>A page per watch + market-reference-price content ("used Submariner prices Perth") — whatever buyers search, we own the term</td></tr>
+      <tr><td>Enquiry conversion</td><td class="n">Opaque pricing; hesitant buyers walk</td><td class="y">Double</td><td>Public reference pricing builds trust first; a quoting bot answers instantly</td></tr>
+      <tr><td>HNW list</td><td class="n">The relationship ends at the sale; client assets sit idle</td><td class="y">Every deal banks a contact</td><td>Every enquiry enters the database — watch clients are the natural audience for the "Anlan" private assistant</td></tr>
+      <tr><td>Sales</td><td>Baseline</td><td class="y"><b>Target: double (×2)</b>, more elastic at high tickets</td><td>Exposure + trust pricing + list-driven repeat purchases</td></tr>
+    </table>
+    <div class="cols c2">
+      <div class="card hl"><h3>One fish, two meals</h3><p>Layer one: the dealer pays for the site and the monthly fee. Layer two: the accumulated HNW list feeds the private assistant and private deployment — <b>one industry client, two revenue curves</b>.</p></div>
+      <div class="card"><h3>Basis</h3><p>Illustrative targets (not promises), same mechanics as the car-dealer page; list usage strictly follows our privacy commitments and client authorisation.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>24 / 50</span></div>
+</section>
+
+<!-- ============ 25 Industry evidence ============ -->
+<section class="slide">
+  <div class="secmark">PART VI · LIVE CASES &amp; CAPACITY</div>
+  <div class="eyebrow"><span class="no">25</span><span>Industry evidence</span></div>
+  <h2 class="t">Traditional Industries × AI: We Didn't Invent the Multiplier</h2>
+  <div class="body" style="gap:12px">
+    <table class="tbl">
+      <tr><th>Industry · company</th><th>Where AI was applied</th><th>Public figure (metric type)</th><th>Source · year</th></tr>
+      <tr><td>Motorcycle dealer · Harley-Davidson NYC</td><td>AI ad optimisation</td><td class="y">Qualified leads <b>+2,930%</b> (≈30×, a <b>leads</b> metric; 1 → 40 per day)</td><td>Harvard Business Review, 2017</td></tr>
+      <tr><td>Car dealer · Apple Honda</td><td>AI mining of customer data (CDP)</td><td class="y">3,900 opportunities identified in 3 months, <b>67 cars sold</b> (sales metric; vendor case)</td><td>Fullpath case study, 2025</td></tr>
+      <tr><td>Car dealers · industry-wide</td><td>AI follow-up &amp; operations</td><td>55% of AI-using dealers grew <b>revenue 10–30%</b> in 2024</td><td>Industry survey, 2024–25</td></tr>
+      <tr><td>Pet retail · PetSmart</td><td>AI decision engine</td><td class="y">Grooming <b>bookings +22%</b>, subscription transactions +13%</td><td>The Applied case, 2025</td></tr>
+      <tr><td>Apparel · Cosabella</td><td>AI ad buying</td><td>Facebook <b>ROAS +565%</b>, ad spend −12% (vendor-reported)</td><td>Business Wire, 2017</td></tr>
+      <tr><td>Live commerce · JD Yanxi</td><td>AI digital-human streaming</td><td class="y">9,000+ brands, cumulative <b>incremental GMV &gt; ¥14B</b>; 32% single-stream conversion (Anta, Singles' Day)</td><td>ce.cn, 2025</td></tr>
+      <tr><td>Retail broadly · McKinsey</td><td>Personalised recommendation</td><td><b>Revenue +10–15%</b> (authoritative range 5–25%)</td><td>McKinsey, 2021</td></tr>
+    </table>
+    <p class="src">Metric types are kept strictly apart (leads / sales / ROAS / revenue); rows marked "vendor case" are vendor-reported and not third-party audited — we say so plainly, and invite you to hold every project you see to the same standard.</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>25 / 50</span></div>
+</section>
+
+<!-- ============ 26 Multiplication mechanism ============ -->
+<section class="slide">
+  <div class="secmark">PART VI · LIVE CASES &amp; CAPACITY</div>
+  <div class="eyebrow"><span class="no">26</span><span>The mechanism</span></div>
+  <h2 class="t">How Multiplication Works: Sales Is the Product of Four Factors</h2>
+  <div class="body" style="gap:14px">
+    <div class="flow">
+      <div class="step"><h4>① Exposure</h4><p>AI ad buying &amp; SEO networks<br><b>the source of Harley's 30× leads</b></p></div><div class="arr">×</div>
+      <div class="step"><h4>② Enquiry capture</h4><p>24 hours, nothing missed<br>Impel: lead→appointment <b>+44%</b></p></div><div class="arr">×</div>
+      <div class="step"><h4>③ Conversion</h4><p>AI scoring &amp; auto follow-up<br>industry basis: close rate <b>+26%</b></p></div><div class="arr">×</div>
+      <div class="step"><h4>④ Repeat / subscribe</h4><p>Personalisation &amp; reminders<br>PetSmart: bookings <b>+22%</b></p></div>
+    </div>
+    <div class="cols c2">
+      <div class="card hl"><h3>Conservative arithmetic</h3><p>Take only a <b>fraction</b> of each public case: exposure ×2 · capture ×1.4 · conversion ×1.2 · repeat ×1.1 ≈ <b style="color:var(--gold)">×3.7</b>.<br><br>We promise car and watch dealers only a <b>×2 target</b> — nearly half held back as safety margin. Not an aggressive assumption; a conservative application of proven mechanics.</p></div>
+      <div class="card"><h3>Metric honesty (our promise to investors)</h3><p>The loudest number in the industry (29×) is <b>leads</b>, not sales — this plan keeps leads / sales / ROAS / revenue strictly separate throughout. Apply the same test to anyone claiming "AI multiplied sales N-fold": mixed metrics usually mean storytelling.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>26 / 50</span></div>
+</section>
+
+<!-- ============ 27 Capacity ============ -->
+<section class="slide">
+  <div class="secmark">PART VI · LIVE CASES &amp; CAPACITY</div>
+  <div class="eyebrow"><span class="no">27</span><span>Capacity analysis</span></div>
+  <h2 class="t">Capacity Structure: A 2-Person Core Team, 8–10 People's Output</h2>
+  <div class="body">
+    <div class="cols c2">
+      <table class="tbl">
+        <tr><th>Output</th><th>Measured capability</th></tr>
+        <tr><td>Static websites</td><td class="y">&lt; 1 hour per site, batch-parallelisable</td></tr>
+        <tr><td>SEO content</td><td class="y">Daily automatic updates across sites, unattended</td></tr>
+        <tr><td>Analysis briefings</td><td class="y">Three template families generated in minutes, triggered 24/7</td></tr>
+        <tr><td>Bot services</td><td class="y">N bots on watch in parallel, zero incremental headcount</td></tr>
+        <tr><td>E-commerce creative</td><td>Image APIs &lt; $0.25 per image (2026 market rate)</td></tr>
+        <tr><td>Headcount equivalent</td><td>The same output would traditionally need 5–8 people across content, ops, support and analysis</td></tr>
+      </table>
+      <ul class="list">
+        <li><b>Capacity is a function of compute, not headcount</b>:<span> scaling = adding agents and compute budget, and unit compute prices keep falling — the same budget buys more capacity every quarter.</span></li>
+        <li><b>The honest bottleneck</b>:<span> the founder's supervision bandwidth is the current ceiling. That is exactly what this raise fixes: 2–3 key hires + automated QA, moving supervision from "inspect every item" to "sampling + anomaly alerts".</span></li>
+        <li><b>This is the product</b>:<span> the six modules we sell are the very system we use to run our own live businesses every day — eating our own dog food is the hardest quality guarantee there is.</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>27 / 50</span></div>
+</section>
+
+<!-- ============ 28 Portfolio ============ -->
+<section class="slide">
+  <div class="secmark">PART IX · PHASED PORTFOLIO</div>
+  <div class="eyebrow"><span class="no">28</span><span>Portfolio overview</span></div>
+  <h2 class="t">Early, Middle and Late-Stage Projects on One Page</h2>
+  <div class="body">
+    <table class="tbl">
+      <tr><th>Phase</th><th>Projects (→ revenue line)</th><th>Status</th></tr>
+      <tr><td class="y">Early · 0–6 months</td><td>Subscription billing live · site-network expansion with <b>three monetisation rails</b> (ads / per-lead sales / build-to-sell) · <b>managed AI-gateway pilot</b> (compliant MSP model) · TG bot productisation · e-commerce creative packs · pet-site monetisation (+ AU English edition) · car-dealer template (Perth, in rollout) · watch template (in preparation) · pay-per-use document analysis</td><td class="y">All built on validated capability</td></tr>
+      <tr><td>Middle · 6–18 months</td><td><b>Scale the four things Phase 1 proved</b>: managed AI gateway to 10+ business clients · industrialised site network with a build-grow-sell pipeline · national template replication (car/watch/pet/dining, 20+ clients) · standardised private deployment; plus short-video pipeline · English-market sites · white-label bots (B2B2C)</td><td>Proven in Phase 1; Phase 2 is amplification</td></tr>
+      <tr><td>Late · 18–36 months</td><td>AI video studio · design→simulate→manufacture services · smart pet-hardware pilot · physical-AI flagship cases</td><td>Condition-triggered; option value</td></tr>
+    </table>
+    <ul class="list">
+      <li><b>Portfolio logic</b>:<span> the early phase feeds cash flow, the middle phase lifts ticket size and recurring share, the late phase opens the second growth curve — if any phase disappoints, the previous phase's cash flow is still there.</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>28 / 50</span></div>
+</section>
+
+<!-- ============ 29 Six-month projects ============ -->
+<section class="slide">
+  <div class="secmark">PART IX · PHASED PORTFOLIO</div>
+  <div class="eyebrow"><span class="no">29</span><span>Early phase · Projects</span></div>
+  <h2 class="t">The Next 6 Months: Only Things That Can Be Invoiced Now</h2>
+  <div class="body">
+    <table class="tbl">
+      <tr><th>Project</th><th>Deliverable</th><th>Built on</th></tr>
+      <tr><td>Subscription billing</td><td>In-Telegram payments + membership management, live</td><td>Bot fleet (running)</td></tr>
+      <tr><td>Content-network expansion</td><td>First 20 industry / finance sites live and acquiring</td><td>Website factory (&lt;1hr per site, measured)</td></tr>
+      <tr><td>Analysis-subscription beta</td><td>Paywall on equities / crypto / macro briefing lines</td><td>Briefing templates (in shape)</td></tr>
+      <tr><td>E-commerce creative pack</td><td>Monthly product-image + copy + social bundle</td><td>Image + text pipeline (used live)</td></tr>
+      <tr><td>Pet-site monetisation loop</td><td>Affiliate + e-commerce conversion baseline</td><td>Our own live property</td></tr>
+      <tr><td>Site-network monetisation, three rails</td><td>Ads/affiliate + per-lead sales to industry clients + first 1–2 mature sites sold (market pricing: 25–35× monthly profit)</td><td>Website factory (&lt;1hr/site) + 30–50 sites</td></tr>
+      <tr><td>Managed AI-gateway pilot</td><td>Unified access + multi-model routing + metered billing and audit for business clients; clients hold their own official accounts — <b>compliant MSP model</b></td><td>Internal routing engine (measured 50–70% savings)</td></tr>
+      <tr><td>Database v2</td><td>Permissions + audit logs + automated backups</td><td>Database v1 (running)</td></tr>
+    </table>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>29 / 50</span></div>
+</section>
+
+<!-- ============ 30 Milestones ============ -->
+<section class="slide">
+  <div class="secmark">PART IX · PHASED PORTFOLIO</div>
+  <div class="eyebrow"><span class="no">30</span><span>Early phase · Milestones</span></div>
+  <h2 class="t">6-Month Milestones: Every One Verifiable</h2>
+  <div class="body">
+    <div class="cols c2">
+      <div class="card"><h3>Must achieve →</h3>
+        <ul class="list ck todo" style="margin-top:8px">
+          <li>Subscription billing live with the first real paying customers</li>
+          <li>Retention and conversion baselines established (disclosable basis)</li>
+          <li>Site-network monetisation live: ads + lead revenue baseline, first site sale completed</li>
+          <li>R&amp;D Tax Incentive and NIIF grant applications lodged</li>
+          <li>Financial-information-service compliance opinion obtained</li>
+          <li>Technical partner on board; growth hire completed</li>
+        </ul></div>
+      <div class="card"><h3>How investors verify</h3><p>· A monthly investor letter: actual revenue, costs, customer count, retention — actuals only<br>· Paying customers available for interview (continuing diligence)<br>· Dashboard access under NDA<br><br><span class="tag gd">Skin in the game</span> If six months pass without any real paying revenue, the founder convenes an investor review and tables a revised plan — happy to write this into the post-investment terms.</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>30 / 50</span></div>
+</section>
+
+<!-- ============ 31 Revenue structure ============ -->
+<section class="slide">
+  <div class="secmark">PART X · BUSINESS MODEL</div>
+  <div class="eyebrow"><span class="no">31</span><span>Business model</span></div>
+  <h2 class="t">Three Revenue Layers: Subscriptions as the Floor, Projects as Cash, Premium as the Ceiling</h2>
+  <div class="body">
+    <div class="cols c3">
+      <div class="card"><span class="tag">Layer 1</span><h3 style="margin-top:10px">Subscriptions (recurring)</h3><p>Telegram memberships for equities / crypto / macro briefings, monthly or annual.<br><br><b>Role</b>: cash-flow base, valuation anchor.<br><b>Gross margin</b>: high (marginal cost ≈ model inference).</p></div>
+      <div class="card"><span class="tag gd">Layer 2</span><h3 style="margin-top:10px">Projects (cash flow)</h3><p>Lead-gen website factory (build + monthly maintenance), custom agent development, pay-per-use document analysis.<br><br><b>Role</b>: early cash + acquisition funnel.<br><b>Gross margin</b>: mid-high (delivery highly automated).</p></div>
+      <div class="card"><span class="tag rd">Layer 3</span><h3 style="margin-top:10px">Premium services (profit engine)</h3><p>Private-assistant annual fees, private deployment (one-off + annual support).<br><br><b>Role</b>: ticket-size ceiling, brand and moat.<br><b>Gross margin</b>: highest (trust premium).</p></div>
+    </div>
+    <ul class="list">
+      <li><b>Design intent</b>:<span> subscriptions give predictability, projects give early cash, premium gives margin — three layers on one chassis and one data layer, so revenue stacks while costs grow sub-linearly.</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>31 / 50</span></div>
+</section>
+
+<!-- ============ 32 Pricing ============ -->
+<section class="slide">
+  <div class="secmark">PART X · BUSINESS MODEL</div>
+  <div class="eyebrow"><span class="no">32</span><span>Pricing model</span></div>
+  <h2 class="t">Charging Model &amp; Example Pricing (Seed-Stage Basis)</h2>
+  <div class="body">
+    <table class="tbl">
+      <tr><th>Product</th><th>Billing</th><th>Example price</th><th>Anchor</th></tr>
+      <tr><td>Free channel briefing</td><td>Free</td><td>A$0</td><td>Acquisition and trust entry point</td></tr>
+      <tr><td>Analysis subscription · one line (equities/crypto/macro/property)</td><td>Monthly</td><td class="y"><b>A$49 / month</b></td><td>Below paid signal groups, higher information density</td></tr>
+      <tr><td>Analysis subscription · all-in + personal alerts</td><td>Monthly</td><td class="y"><b>A$129 / month</b></td><td>≈ 1/30 of an institutional terminal</td></tr>
+      <tr><td>E-commerce creative pack (images + copy + social)</td><td>Monthly</td><td class="y">A$199 / month</td><td>≈ 1/10 of a part-time designer</td></tr>
+      <tr><td>Industry site build (car / watch / pet template)</td><td>Project + monthly</td><td class="y">A$1,500–3,000 + <b>A$149 / month</b></td><td>Under half a typical agency retainer</td></tr>
+      <tr><td>Document analysis (contracts / research)</td><td>Per job</td><td>A$80–300 / job</td><td>Trial-style conversion entry</td></tr>
+      <tr><td>Private assistant "Anlan"</td><td>Monthly</td><td class="y"><b>A$800–1,500 / month</b></td><td>1/5 of a human assistant</td></tr>
+      <tr><td>Private deployment</td><td>One-off + annual support</td><td>A$15k–50k + 15%/yr</td><td>Physically isolated data — scarce supply</td></tr>
+    </table>
+    <p class="src">Final prices will be published after paid testing with seed clients; the formal edition carries no market-unvalidated price points.</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>32 / 50</span></div>
+</section>
+
+<!-- ============ 33 Revenue steps ============ -->
+<section class="slide">
+  <div class="secmark">PART X · BUSINESS MODEL</div>
+  <div class="eyebrow"><span class="no">33</span><span>Expected revenue</span></div>
+  <h2 class="t">Expected Revenue: Four Steps over Five Years (Illustrative Scenario)</h2>
+  <div class="body" style="gap:14px">
+    <div class="cols c32">
+      <div class="bars" style="height:210px">
+        <div class="bar"><span class="v">A$150–300k</span><div class="b tl" style="height:5%"></div><span class="l">Year 1 · Validate</span></div>
+        <div class="bar"><span class="v">A$0.8–1.2M</span><div class="b tl" style="height:16%"></div><span class="l">Year 2 · Replicate</span></div>
+        <div class="bar"><span class="v">A$2–3M</span><div class="b" style="height:42%"></div><span class="l">Year 3 · Scale</span></div>
+        <div class="bar"><span class="v">A$5–8M</span><div class="b" style="height:100%"></div><span class="l">Year 5 · Multi-engine</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;justify-content:center">
+        <div class="card"><h3>Year 1 · where the money comes from</h3><p style="font-size:12.5px">8–12 industry lead-gen clients (car / watch / pet templates, A$8k–15k annual value each) + analysis-subscription beta + e-commerce creative packs.</p></div>
+        <div class="card"><h3>Year 2 · why it multiplies</h3><p style="font-size:12.5px">Industry templates cloned to 20+ clients; 500+ paying subscribers; first 2–3 private deployments lifting average ticket.</p></div>
+        <div class="card"><h3>Year 3 · how it meshes with the returns pages</h3><p style="font-size:12.5px">Recurring revenue enters the A$1–2M range — exactly the trigger condition for the 3–5× case on the "A$100k timepoints" page.</p></div>
+      </div>
+    </div>
+    <ul class="list">
+      <li><b>Basis</b>:<span> illustrative scenario (not a performance promise), sharing one set of back-calculated assumptions with the "Benchmarks" and returns pages; calibrated and disclosed quarterly against actual revenue, client count and retention.</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>33 / 50</span></div>
+</section>
+<!-- ============ 34 Subscription arithmetic ============ -->
+<section class="slide">
+  <div class="secmark">PART X · BUSINESS MODEL</div>
+  <div class="eyebrow"><span class="no">34</span><span>Subscription arithmetic</span></div>
+  <h2 class="t">Subscription Arithmetic: Subscribers × Monthly Fee = MRR (Illustrative)</h2>
+  <div class="body" style="gap:12px">
+    <table class="tbl">
+      <tr><th>Timepoint</th><th>Paid subscribers (blended ≈A$60/mo)</th><th>Industry maintenance (A$149/mo)</th><th>Premium "Anlan" clients</th><th>Total MRR</th><th>Annualised (incl. projects &amp; per-job)</th></tr>
+      <tr><td>Month 6</td><td>60 → A$3.6k/mo</td><td>6 clients → A$0.9k/mo</td><td>—</td><td>≈A$4.5k/mo</td><td>A$60–120k</td></tr>
+      <tr><td>Year 1</td><td>200 → A$12k/mo</td><td>15 clients → A$2.2k/mo</td><td>2 → A$2k/mo</td><td class="y">≈A$16k/mo</td><td>A$150–300k</td></tr>
+      <tr><td>Year 3</td><td>1,200 → A$78k/mo</td><td>60 clients → A$8.9k/mo</td><td>15 → A$18k/mo</td><td class="y">≈A$105k/mo</td><td class="y">A$2–3M</td></tr>
+      <tr><td>Year 5</td><td>3,500 → A$245k/mo</td><td>150 clients → A$22k/mo</td><td>40 → A$52k/mo</td><td class="y">≈A$319k/mo</td><td class="y">A$5–8M</td></tr>
+    </table>
+    <div class="cols c32" style="align-items:center">
+      <svg width="100%" height="168" viewBox="0 0 560 168" preserveAspectRatio="xMidYMid meet">
+        <defs><linearGradient id="mrrg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#E3A83E" stop-opacity=".45"/><stop offset="100%" stop-color="#E3A83E" stop-opacity=".03"/>
+        </linearGradient></defs>
+        <line x1="36" y1="140" x2="540" y2="140" stroke="rgba(233,236,245,.2)"/>
+        <path d="M40,127 L200,115 L360,77 L520,30 L520,140 L40,140 Z" fill="url(#mrrg)"/>
+        <polyline points="40,127 200,115 360,77 520,30" fill="none" stroke="#E3A83E" stroke-width="2.5"/>
+        <circle cx="40" cy="127" r="4.5" fill="#43BFA0"/><circle cx="200" cy="115" r="4.5" fill="#E3A83E"/>
+        <circle cx="360" cy="77" r="4.5" fill="#E3A83E"/><circle cx="520" cy="30" r="5.5" fill="#E3A83E" stroke="#E9ECF5" stroke-width="1.5"/>
+        <text x="40" y="112" text-anchor="middle" fill="#96A0BA" font-size="12" font-family="monospace">4.5k</text>
+        <text x="200" y="100" text-anchor="middle" fill="#E9ECF5" font-size="12" font-family="monospace">16k</text>
+        <text x="360" y="62" text-anchor="middle" fill="#E9ECF5" font-size="12" font-family="monospace">105k</text>
+        <text x="520" y="16" text-anchor="middle" fill="#E3A83E" font-size="13" font-weight="700" font-family="monospace">A$319k/mo</text>
+        <text x="40" y="158" text-anchor="middle" fill="#6B7590" font-size="11">6 mo</text>
+        <text x="200" y="158" text-anchor="middle" fill="#6B7590" font-size="11">Year 1</text>
+        <text x="360" y="158" text-anchor="middle" fill="#6B7590" font-size="11">Year 3</text>
+        <text x="520" y="158" text-anchor="middle" fill="#6B7590" font-size="11">Year 5</text>
+      </svg>
+      <ul class="list">
+        <li><b>The price anchor</b>:<span> A$49/month at entry — a 24/7 analyst for the price of a coffee a week; every tier has arithmetic the client can check.</span></li>
+        <li><b>A three-page loop</b>:<span> MRR steps → revenue steps → return multiples, all on one set of assumptions — auditable cell by cell in diligence.</span></li>
+      </ul>
+    </div>
+    <p class="src">The MRR curve is an illustrative scenario (√-compressed scale, non-linear axis); subscriber counts are back-calculated, not promised.</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>34 / 50</span></div>
+</section>
+
+<!-- ============ 35 Cost ============ -->
+<section class="slide">
+  <div class="secmark">PART X · BUSINESS MODEL</div>
+  <div class="eyebrow"><span class="no">35</span><span>Measured costs</span></div>
+  <h2 class="t">A Measured Cost Structure: Running Records, Not Assumptions</h2>
+  <div class="body">
+    <div class="cols c2">
+      <table class="tbl">
+        <tr><th>Measured item</th><th>Result</th></tr>
+        <tr><td>Multi-model routing vs a single flagship API</td><td class="y">Blended inference cost down 50–70% (internal measured range)</td></tr>
+        <tr><td>Static site: requirement → live</td><td class="y">&lt; 1 hour (measured)</td></tr>
+        <tr><td>Edge hosting per site</td><td>≈ $0–5 / site / month (actual bills)</td></tr>
+        <tr><td>Briefing &amp; monitoring jobs</td><td>Fully agent-automated, no human on duty (run logs)</td></tr>
+        <tr><td>Self-hosted database v1 (four stores)</td><td class="y">In production, backing all six modules</td></tr>
+        <tr><td>Fixed-cost structure</td><td>1 founder + agent fleet; no office, no ad spend</td></tr>
+      </table>
+      <ul class="list">
+        <li><b>Costs improve with time</b>:<span> industry inference prices keep falling, and multi-model routing compounds that — the same service costs less to serve every quarter.</span></li>
+        <li><b>Pricing is not guesswork</b>:<span> public prices and conversion rates will be finalised from seed clients' real payment data.</span></li>
+        <li><b>The boundary of forecasts</b>:<span> the "Expected revenue" page and the returns chapter are clearly-labelled back-calculated scenarios (not promises); everything else is measured or logged. Actuals disclosed quarterly post-investment.</span></li>
+      </ul>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>35 / 50</span></div>
+</section>
+
+<!-- ============ 36 Competition ============ -->
+<section class="slide">
+  <div class="secmark">PART X · BUSINESS MODEL</div>
+  <div class="eyebrow"><span class="no">36</span><span>Competitive landscape</span></div>
+  <h2 class="t">The Landscape: We Sit in the Gap Between Four Kinds of Player</h2>
+  <div class="body">
+    <div class="cols c32" style="align-items:center">
+      <svg width="100%" height="300" viewBox="0 0 520 300" preserveAspectRatio="xMidYMid meet">
+        <rect x="20" y="14" width="480" height="252" rx="8" fill="rgba(17,26,46,.6)" stroke="rgba(233,236,245,.12)"/>
+        <line x1="260" y1="20" x2="260" y2="260" stroke="rgba(233,236,245,.15)" stroke-dasharray="4 4"/>
+        <line x1="26" y1="140" x2="494" y2="140" stroke="rgba(233,236,245,.15)" stroke-dasharray="4 4"/>
+        <text x="492" y="285" text-anchor="end" fill="#6B7590" font-size="12">Industry depth ⟶</text>
+        <text x="30" y="34" fill="#6B7590" font-size="12">⟰ Price accessibility (individuals / SMBs can afford)</text>
+        <g font-size="13" fill="#96A0BA">
+          <circle cx="115" cy="70" r="7" fill="#5A6378"/><text x="115" y="94" text-anchor="middle">General AI assistants</text>
+          <circle cx="150" cy="212" r="7" fill="#5A6378"/><text x="150" y="236" text-anchor="middle">Paid signal groups*</text>
+          <circle cx="235" cy="160" r="7" fill="#5A6378"/><text x="235" y="184" text-anchor="middle">Site SaaS / agencies</text>
+          <circle cx="400" cy="226" r="7" fill="#5A6378"/><text x="400" y="250" text-anchor="middle">Institutional terminals (Bloomberg etc.)</text>
+        </g>
+        <g>
+          <circle cx="428" cy="66" r="13" fill="#E3A83E"/>
+          <text x="428" y="71" text-anchor="middle" fill="#0A101E" font-size="12" font-weight="800">Y</text>
+          <text x="428" y="44" text-anchor="middle" fill="#E3A83E" font-size="14" font-weight="700">YNG LAB</text>
+        </g>
+      </svg>
+      <ul class="list">
+        <li><b>General assistants</b>:<span> cheap, but no industry depth and no standing watch.</span></li>
+        <li><b>Institutional terminals</b>:<span> authoritative data at tens of thousands a year.</span></li>
+        <li><b>Site SaaS / agencies</b>:<span> no AI loop, no ongoing service.</span></li>
+        <li><b>Signal groups*</b>:<span> affordable but black-box calls — trust doesn't last.</span></li>
+        <li><b>Us</b>:<span> industry depth × personal affordability — currently the only player in the top-right quadrant. The gap is scale and brand, which is exactly what this round buys.</span></li>
+      </ul>
+    </div>
+    <div class="legend"><span><i class="sw" style="background:#E3A83E"></i>YNG LAB</span><span><i class="sw" style="background:#5A6378"></i>The four incumbent types</span></div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>36 / 50</span></div>
+</section>
+
+<!-- ============ 37 Three waves ============ -->
+<section class="slide">
+  <div class="secmark">PART XI · WAVE THESIS &amp; RETURNS</div>
+  <div class="eyebrow"><span class="no">37</span><span>Three waves converge</span></div>
+  <h2 class="t">Three Waves Converge on This Project: Revenue, Cost, Option</h2>
+  <div class="body">
+    <table class="tbl">
+      <tr><th>Wave</th><th>Which layer it touches</th><th>Mechanism</th></tr>
+      <tr><td>Bitcoin / crypto (17 years of persistence)</td><td class="y">Revenue layer</td><td>Volatility drives demand for analysis subscriptions and alerts — modules C/D/E get a fresh reason to be paid for in every news cycle</td></tr>
+      <tr><td>Memory / compute supercycle</td><td class="y">Cost layer</td><td>Downstream of the AI-infrastructure capex boom = inference prices keep falling — same subscription price, expanding gross margin every quarter</td></tr>
+      <tr><td>Robotics / physical AI (ignition phase)</td><td class="y">Option layer</td><td>Four bridges laid at near-zero cost; when the hardware cost curve breaks, they convert into a second growth curve</td></tr>
+    </table>
+    <p class="big-serif">Few small ventures sit on the <em>tailwind side</em> of three waves at once: one pays revenue, one cuts cost, one grants an option — that is the value of position, not luck.</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>37 / 50</span></div>
+</section>
+
+<!-- ============ 38 Benchmarks ============ -->
+<section class="slide">
+  <div class="secmark">PART XI · WAVE THESIS &amp; RETURNS</div>
+  <div class="eyebrow"><span class="no">38</span><span>Benchmarks</span></div>
+  <h2 class="t">Why 3–5× Is the Conservative Range: Five Public Benchmarks</h2>
+  <div class="body">
+    <table class="tbl">
+      <tr><th>Benchmark</th><th>Data</th><th>What it implies for 3–5×</th></tr>
+      <tr><td>US median seed→A valuation step-up</td><td>2.6× (Carta, 2025)</td><td>3–5× is slightly above median — needs the AI premium plus a low entry point</td></tr>
+      <tr><td>AI valuation premium</td><td>AI-at-core companies command clear premiums and competitive rounds (TechCrunch/Carta 2026; Australia's Cut Through 2025 concurs)</td><td class="y">This project is AI-native — on the premium side</td></tr>
+      <tr><td>AI application multiples</td><td>Seed ~10–25× ARR, Series A ~15–30× ARR (venture benchmark compilations, 2026; medium confidence)</td><td class="y">Reaching A$1–2M ARR supports the target valuation range</td></tr>
+      <tr><td>Australian entry valuations</td><td>Angel + pre-seed median raise just A$1.0M (Cut Through 2025), far below the US</td><td class="y">Same milestones from a lower base = more multiple headroom</td></tr>
+      <tr><td>Top-end outliers (ceiling only)</td><td>Cursor ~29×, Lovable ~33×, Sierra ~100× ARR (2025; mainstream-media confirmed)</td><td>Not our benchmark — but the agent sector's upside tail is very long</td></tr>
+    </table>
+    <ul class="list">
+      <li><b>Synthesis</b>:<span> "3–5×" = the median step-up (2.6×) + the AI premium + Australia's low entry valuations, with zero value assigned to the video line or the physical-AI option — <b>conditional on milestones, it is the bottom of the range, not the top</b>.</span></li>
+    </ul>
+    <p class="src">Sources: Carta State of Private Markets (2025–26); TechCrunch (2026); Qubit Capital / Eqvista compilations (2026); Cut Through Venture (2025); CNBC / Bloomberg (2025, individual cases).</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>38 / 50</span></div>
+</section>
+
+<!-- ============ 39 A$100k timepoints ============ -->
+<section class="slide">
+  <div class="secmark">PART XI · WAVE THESIS &amp; RETURNS</div>
+  <div class="eyebrow"><span class="no">39</span><span>Returns in dollars</span></div>
+  <h2 class="t">Turning Multiples into Money: A$100,000 at Four Timepoints (Base Scenario)</h2>
+  <div class="body" style="gap:14px">
+    <div class="cols c32">
+      <div class="bars" style="height:210px">
+        <div class="bar"><span class="v">A$100k</span><div class="b tl" style="height:13%"></div><span class="l">Today · Invested</span></div>
+        <div class="bar"><span class="v">≈A$100k</span><div class="b tl" style="height:14%"></div><span class="l">6 mo · Risk down</span></div>
+        <div class="bar"><span class="v">A$150–250k</span><div class="b" style="height:28%"></div><span class="l">1 yr · 1.5–2.5×</span></div>
+        <div class="bar"><span class="v">A$300–500k</span><div class="b" style="height:56%"></div><span class="l">3 yr · 3–5× (conservative)</span></div>
+        <div class="bar"><span class="v">A$500–800k</span><div class="b" style="height:100%"></div><span class="l">5 yr · 5–8× (conservative)</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;justify-content:center">
+        <div class="card"><h3>The condition behind each number</h3><p style="font-size:12.5px">· 6 months: first real payments + retention baseline (probability of zero materially down)<br>· 1 year: operating costs covered + ARR baseline (bridge/SAFE reference)<br>· 3 years: ARR at A$1–2M (Series A priced at AI-application multiples)<br>· 5 years: ARR A$4–6M × 6–10× revenue, or realised via high dividends</p></div>
+        <div class="card"><h3>The upside tail</h3><p style="font-size:12.5px">The conservative range assigns no value to the video line or the physical-AI option; top agent-sector cases show a very long upside tail — but we don't budget on the tail.</p></div>
+      </div>
+    </div>
+    <ul class="list">
+      <li><b>Three paths to cash</b>:<span> secondary sale in the next round · company buy-back · high-margin dividends (the low-burn structure makes the dividend backstop credible) — all open for the investment agreement.</span></li>
+      <li><b>Basis</b>:<span> milestone-linked scenario back-calculated from public benchmarks (Carta 2.6× median step-up + AI premium + low Australian base — see "Benchmarks"), not a promise; paper ≠ pocket; reviewed quarterly against actuals.</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>39 / 50</span></div>
+</section>
+
+<!-- ============ 40 Per-line expectations ============ -->
+<section class="slide">
+  <div class="secmark">PART XI · WAVE THESIS &amp; RETURNS</div>
+  <div class="eyebrow"><span class="no">40</span><span>Per-line expectations</span></div>
+  <h2 class="t">Expectations by Layer: Five Revenue Lines × Four Timepoints (Illustrative)</h2>
+  <div class="body" style="gap:12px">
+    <table class="tbl">
+      <tr><th>Revenue line</th><th>6 months</th><th>Year 1</th><th>Year 3</th><th>Year 5</th></tr>
+      <tr><td>Analysis subscriptions (monthly recurring)</td><td>A$1–3k/mo starting</td><td>A$8–15k/mo</td><td class="y">A$60–100k/mo</td><td class="y">A$200–350k/mo</td></tr>
+      <tr><td>Industry lead-gen projects (car/watch/pet templates)</td><td>A$30–60k cumulative</td><td>A$100–150k/yr</td><td class="y">A$500–800k/yr</td><td class="y">A$1–1.5M/yr</td></tr>
+      <tr><td>Premium line (Anlan annual + private deployment)</td><td>—</td><td>First deals A$30–80k</td><td class="y">A$400–600k/yr</td><td class="y">A$1.5–2.5M/yr</td></tr>
+      <tr><td>Content line (creative packs → short video → studio)</td><td>Creative packs start</td><td>Pilot revenue</td><td>A$200–400k/yr</td><td class="y">A$0.8–1.5M/yr</td></tr>
+      <tr><td>Hardware option (smart pet products)</td><td>—</td><td>—</td><td>Pilot</td><td>Option value, counted separately</td></tr>
+      <tr><td><b>Total (annualised)</b></td><td><b>A$60–120k</b></td><td><b>A$150–300k</b></td><td class="y"><b>A$2–3M</b></td><td class="y"><b>A$5–8M</b></td></tr>
+    </table>
+    <ul class="list">
+      <li><b>The structural signal</b>:<span> recurring revenue (subscriptions + annual fees) rises from ~30% of the mix in year one to ~60% by year five — valuation multiples rise with revenue quality, the second source of the returns-page multiples.</span></li>
+      <li><b>Basis</b>:<span> illustrative scenario (not a promise), built bottom-up from the pricing model and per-client value ranges; calibrated and disclosed quarterly.</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>40 / 50</span></div>
+</section>
+
+<!-- ============ 41 Five-year comparison ============ -->
+<section class="slide">
+  <div class="secmark">PART XI · WAVE THESIS &amp; RETURNS</div>
+  <div class="eyebrow"><span class="no">41</span><span>Five-year comparison</span></div>
+  <h2 class="t">The Same A$100k over Five Years: The Options Side by Side</h2>
+  <div class="body" style="gap:14px">
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="hrow"><span class="lab">Term deposit (~4.5%/yr)</span><div class="track"><div class="fill tl" style="width:16%"></div></div><span class="val">≈A$125k</span></div>
+      <div class="hrow"><span class="lab">Residential property (long-run ~6%/yr, before holding costs)</span><div class="track"><div class="fill tl" style="width:17%"></div></div><span class="val">≈A$134k</span></div>
+      <div class="hrow"><span class="lab">ASX 200 incl. dividends (long-run ~9%/yr)</span><div class="track"><div class="fill tl" style="width:19%"></div></div><span class="val">≈A$154k</span></div>
+      <div class="hrow"><span class="lab">This project · 5-yr conservative range (5–8×, milestones met)</span><div class="track"><div class="fill" style="width:100%"></div></div><span class="val">A$500–800k</span></div>
+    </div>
+    <div class="cols c2">
+      <div class="card hl"><h3>As an annual rate</h3><p>5–8× over 5 years ≈ <b style="color:var(--gold)">38–52% IRR</b> — the normal right-hand side of angel investing's power-law distribution, and the price of bearing early-stage risk.</p></div>
+      <div class="card"><h3>The half-page you must read with it</h3><p>Risk and liquidity are in different leagues: deposits are capital-guaranteed, index funds can be sold any day; angel equity can go to zero and cannot exit early. That is why we write the "survives without the next round" cash-flow structure and quarterly actuals disclosure into the terms (see "Honesty Framework") — to push the left side's risk down.</p></div>
+    </div>
+    <p class="src">Comparison rates are long-run historical orders of magnitude (indicative), not product quotes; this project's range is a milestone-linked scenario, not a promise.</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>41 / 50</span></div>
+</section>
+
+<!-- ============ 42 Honesty framework ============ -->
+<section class="slide">
+  <div class="secmark">PART XI · WAVE THESIS &amp; RETURNS</div>
+  <div class="eyebrow"><span class="no">42</span><span>Honesty framework</span></div>
+  <h2 class="t">The Ugly Numbers in Print: Probability Discounts and Failure Modes</h2>
+  <div class="body">
+    <div class="cols c2">
+      <table class="tbl">
+        <tr><th>The brutal base rates</th><th>Data</th></tr>
+        <tr><td>Loss-making share of angel exits</td><td class="n">52% of exits fail to return capital (AIPP research)</td></tr>
+        <tr><td>Concentration of returns</td><td class="n">7% of exits (&gt;10×) produce 75% of all returns</td></tr>
+        <tr><td>Seed→A graduation within two years</td><td class="n">Only ~15% (Carta 2022 cohort)</td></tr>
+        <tr><td>Average angel portfolio return</td><td>2.6× / 3.5 yrs (~27% IRR; the mean is dragged up by big winners)</td></tr>
+      </table>
+      <ul class="list">
+        <li><b>How we improve our own odds</b>:<span> ① project cash flow covers fixed costs — "doesn't die without the next round" directly lowers the zero branch; ② the 43.5% R&amp;D refund stretches the runway; ③ the multi-engine portfolio limits single-point failure; ④ dividend capacity provides a non-exit return backstop.</span></li>
+        <li><b>The full statement of the conclusion</b>:<span> "3–5×" is <b>the conservative multiple in the milestones-met case</b>, not an unconditional expectation; quarterly actuals disclosure means you always know which branch you are on.</span></li>
+      </ul>
+    </div>
+    <p class="src">Sources: Wiltbank &amp; Boeker / Kauffman Foundation AIPP (2007); Carta cohort data (2025). A team willing to put this page in its deck deserves an extra 30 minutes of your time.</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>42 / 50</span></div>
+</section>
+
+<!-- ============ 43 Roadmap ============ -->
+<section class="slide">
+  <div class="secmark">PART XII · EXECUTION &amp; TEAM</div>
+  <div class="eyebrow"><span class="no">43</span><span>Roadmap</span></div>
+  <h2 class="t">The Next 24 Months</h2>
+  <div class="body">
+    <div class="tline">
+      <div class="ph"><div class="w">2026 Q3–Q4</div><h4>Productise</h4><p>Six modules from prototype to sellable product; subscription billing live; 1–2 key hires (engineering seat already filled by the technical partner).</p></div>
+      <div class="ph"><div class="w">2027 Q1–Q2</div><h4>Validate growth</h4><p>First private deployment delivered; pricing and retention benchmarks set from real payment data.</p></div>
+      <div class="ph"><div class="w">2027 Q3–Q4</div><h4>Scale + physical-AI pilot</h4><p>With hardware partners, wire agents into reception robots / IoT / smart-office devices; deliver 2–3 "digital + physical" flagship cases.</p></div>
+      <div class="ph"><div class="w">2028</div><h4>Physical-AI product + next round</h4><p>Standardised physical-AI integration package; open Round 2 (Pre-A/A, planned at $5–8M; up to $20M in a strong-growth case) on recurring revenue, retention and the physical-AI cases.</p></div>
+    </div>
+    <div class="cols c3">
+      <div class="card"><div class="kpi" style="font-size:26px">North star</div><div class="kcap">Paid subscriptions × net revenue retention (NRR)</div></div>
+      <div class="card"><div class="kpi" style="font-size:26px">Discipline</div><div class="kcap">Quarterly disclosure of actual revenue, cost and retention — actuals only</div></div>
+      <div class="card"><div class="kpi" style="font-size:26px">Principle</div><div class="kcap">Cash flow first: project revenue always covers the fixed-cost floor</div></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>43 / 50</span></div>
+</section>
+
+<!-- ============ 44 Team ============ -->
+<section class="slide">
+  <div class="secmark">PART XII · EXECUTION &amp; TEAM</div>
+  <div class="eyebrow"><span class="no">44</span><span>Team</span></div>
+  <h2 class="t">An AI-Native Organisation: A 2-Person Core Team + an Agent Fleet</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>Founder · AY (full-time)</b>:<span> 100+ days of full-stack operation proving the system end-to-end; with the technical partner on board, now focused on commercialisation — pricing, channels, premium clients and the raise.</span></li>
+        <li><b>Technical partner (full-time · option-locked)</b>:<span> IT engineering background; owns database v2, subscription billing, private-deployment delivery and the bot gateway — 4-year vesting with milestone options, compensation tied to delivery.</span></li>
+        <li><b>The agent fleet (24/7)</b>:<span> research, development, content and monitoring agents run in parallel — the workload of a traditional 5–8 person team, carried by an agent system supervised by the two-person core team.</span></li>
+        <li><b>Key hires after the raise (1–2)</b>:<span> ① growth operations (Telegram community + content distribution); ② a part-time compliance adviser — the engineering seat is already filled by the technical partner, so the raise buys more growth.</span></li>
+      </ul>
+      <div class="card hl"><h3>Why a lean core team is an advantage here, not a risk</h3><p>· This project's product <b>is</b> "an AI fleet replacing headcount" — our organisational form is the product's best case study<br>· Ultra-low burn: the raise buys growth and compliance, not a payroll<br>· Zero decision friction; iteration measured in days<br>· Hedged: every core process is documented and agentised; key-person dependence falls as the system matures (see "Risk Disclosure")</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>44 / 50</span></div>
+</section>
+
+<!-- ============ 45 Risk ============ -->
+<section class="slide">
+  <div class="secmark">PART XII · EXECUTION &amp; TEAM</div>
+  <div class="eyebrow"><span class="no">45</span><span>Risk disclosure</span></div>
+  <h2 class="t">Key Risks and Mitigations (Laid Out Unprompted)</h2>
+  <div class="body">
+    <table class="tbl">
+      <tr><th>Risk</th><th>Impact</th><th>Mitigation</th></tr>
+      <tr><td>Upstream model dependence</td><td>API repricing / policy shifts hit cost and features</td><td class="y">Multi-model routing + open-source Hermes local fallback; any single vendor replaceable within days</td></tr>
+      <tr><td>Platform policy (Telegram)</td><td>Bot rules or regional availability change</td><td class="y">OpenClaw is natively multi-messenger (WhatsApp etc.) + website / email fallbacks; client relationships live in our own database, not the platform</td></tr>
+      <tr><td>Financial-information regulation</td><td>Licensing requirements differ by jurisdiction</td><td class="y">Hold the "information service" line — no advice, no discretionary management; jurisdiction whitelist; formal compliance opinion after the raise</td></tr>
+      <tr><td>Crypto-cycle volatility</td><td>Bear markets soften subscription demand</td><td class="y">Equities + macro + growth line as multiple engines; Module E demand actually rises in turmoil</td></tr>
+      <tr><td>Key-person risk</td><td>Early stage depends on core members</td><td class="y">Technical partner in place (4-year option lock); processes fully documented and agentised; two-person custody of code and data plus escrow</td></tr>
+      <tr><td>Competitive influx</td><td>More lookalikes after the window</td><td class="y">Data flywheel and premium-client trust compound first-mover advantage</td></tr>
+    </table>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>45 / 50</span></div>
+</section>
+
+<!-- ============ 46 Compliance ============ -->
+<section class="slide">
+  <div class="secmark">PART XII · EXECUTION &amp; TEAM</div>
+  <div class="eyebrow"><span class="no">46</span><span>Compliance &amp; security</span></div>
+  <h2 class="t">Compliance Red Lines and Security Commitments</h2>
+  <div class="body">
+    <div class="cols c2">
+      <div class="card"><h3>Financial-information boundary</h3><p>· <b>Information, data and scenario analysis only</b> — no buy/sell recommendations on any stock or token<br>· No discretionary trading, no custody of funds, no promised returns<br>· Every analysis carries a risk notice and data sources<br>· Jurisdiction whitelist maintained; no crypto services in restricted regions</p></div>
+      <div class="card"><h3>Data protection</h3><p>· Encrypted at rest and in transit; per-client partitions<br>· Minimal collection; one-click export + full deletion<br>· Client data never used to train external models<br>· Aligned to GDPR-class regimes in target markets</p></div>
+      <div class="card"><h3>Content &amp; marketing compliance</h3><p>· Site-network content labelled as AI-generated where required<br>· No exaggerated-returns ad creative<br>· Prospect research uses public and authorised data only</p></div>
+      <div class="card"><h3>Security engineering</h3><p>· Isolated key and credential management, least privilege<br>· Local + off-site encrypted backups, recovery rehearsed<br>· Third-party penetration testing and annual security audit after the raise</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>46 / 50</span></div>
+</section>
+
+<!-- ============ 47 Ask ============ -->
+<section class="slide">
+  <div class="secmark">PART XIII · THE ASK</div>
+  <div class="eyebrow"><span class="no">47</span><span>The ask</span></div>
+  <h2 class="t">This Round: Angel</h2>
+  <div class="body">
+    <div class="cols c2">
+      <div class="card hl"><h3>The Ask</h3>
+        <div class="kpi" style="margin:10px 0">$800k</div>
+        <p>Angel round; valuation and terms negotiable (SAFE or convertible note both open).<br><br>Funds a <b style="color:var(--gold)">24–30 month</b> runway: scaling the digital products + the physical-AI pilot, two curves. Allocation on the "Use of Funds" page.</p></div>
+      <ul class="list">
+        <li><b>Why invest now</b>:<span> the system already runs and the cost structure is proven — this money buys growth speed, not discovery risk.</span></li>
+        <li><b>12-month goal</b>:<span> subscription billing live; first real paying customers and disclosable retention data.</span></li>
+        <li><b>24-month goal</b>:<span> standardised private-deployment delivery; physical-AI flagship cases done; second growth curve open.</span></li>
+        <li><b>Financing roadmap (two rounds)</b>:<span> this angel round of <b>$800k</b> (productisation + growth validation) → a planned Round 2 (Pre-A/A) of <b>$5–8M</b> in the base milestones-met case (ARR A$1–2M, recurring revenue above half the mix, standardised private delivery; 20–25% dilution), stretching to <b>$12–20M</b> in a strong-growth scenario (ARR A$3M+) — funding national template replication, physical-AI scale-up and APAC expansion — with project cash flow bridging the rounds, no survival dependence on the next raise.</span></li>
+        <li><b>What investors can add</b>:<span> HNW client networks (seed clients for the private assistant), hardware and robotics introductions, compliance resources, next-round referrals.</span></li>
+      </ul>
+    </div>
+    <p class="src">This page is not an offer of securities; final terms per definitive transaction documents.</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>47 / 50</span></div>
+</section>
+
+<!-- ============ 48 Use of funds ============ -->
+<section class="slide">
+  <div class="secmark">PART XIII · THE ASK</div>
+  <div class="eyebrow"><span class="no">48</span><span>Use of funds</span></div>
+  <h2 class="t">Where the $800k Goes (Planned over 24–30 Months)</h2>
+  <div class="body">
+    <div class="cols c32" style="align-items:center">
+      <div style="display:flex;justify-content:center">
+      <svg width="260" height="260" viewBox="0 0 200 200">
+        <g transform="rotate(-90 100 100)">
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#E3A83E" stroke-width="30" stroke-dasharray="153.9 285.9" stroke-dashoffset="0"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#C98F2E" stroke-width="30" stroke-dasharray="87.9 351.9" stroke-dashoffset="-153.9"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#43BFA0" stroke-width="30" stroke-dasharray="87.9 351.9" stroke-dashoffset="-241.8"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#2E8F78" stroke-width="30" stroke-dasharray="66 373.8" stroke-dashoffset="-329.7"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#8A93AD" stroke-width="30" stroke-dasharray="30.8 409" stroke-dashoffset="-395.7"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#5A6378" stroke-width="30" stroke-dasharray="13.2 426.6" stroke-dashoffset="-426.5"/>
+        </g>
+        <text x="100" y="95" text-anchor="middle" fill="#E9ECF5" font-size="24" font-weight="700" font-family="monospace">$800k</text>
+        <text x="100" y="116" text-anchor="middle" fill="#96A0BA" font-size="11">24–30 months</text>
+      </svg>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="legend" style="flex-direction:column;gap:10px;font-size:13.5px">
+          <span><i class="sw" style="background:#E3A83E"></i><b style="color:var(--text)">Product &amp; engineering 35%</b> · $280k — database v2, private-deployment package, billing, the technical partner and 1–2 key hires</span>
+          <span><i class="sw" style="background:#C98F2E"></i><b style="color:var(--text)">Data sources &amp; compute 20%</b> · $160k</span>
+          <span><i class="sw" style="background:#43BFA0"></i><b style="color:var(--text)">Growth &amp; community 20%</b> · $160k</span>
+          <span><i class="sw" style="background:#2E8F78"></i><b style="color:var(--text)">Physical-AI pilot 15%</b> · $120k — devices &amp; partner integration</span>
+          <span><i class="sw" style="background:#8A93AD"></i><b style="color:var(--text)">Compliance &amp; security 7%</b> · $56k</span>
+          <span><i class="sw" style="background:#5A6378"></i><b style="color:var(--text)">Reserve 3%</b> · $24k</span>
+        </div>
+      </div>
+    </div>
+    <div class="cols c2">
+      <div class="card"><h3>What the 35% engineering and 15% physical-AI buy</h3><p>Engineering: database v2 (permissions / audit / automated backup), the standardised private-deployment package, subscription billing, 3–4 key engineering/growth hires. Physical AI: pilot devices, robotics/IoT platform integration, 2–3 flagship client rollouts.</p></div>
+      <div class="card"><h3>What we deliberately don't spend on</h3><p>No paid advertising (the owned-traffic funnel replaces it), no office (remote + agent fleet), no foundation-model or robot-hardware R&amp;D (we build the agent application and integration layer only).</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>48 / 50</span></div>
+</section>
+
+<!-- ============ 49 Vision ============ -->
+<section class="slide">
+  <div class="secmark">PART XIII · THE ASK</div>
+  <div class="eyebrow"><span class="no">49</span><span>Vision</span></div>
+  <div class="body" style="justify-content:center">
+    <p class="big-serif" style="font-size:36px;max-width:22em">Every small-business owner and individual investor should command an analyst team that <em>works only for them</em> — <em>on data that belongs only to them</em>.</p>
+    <p class="sub">Today it is a bot in Telegram; in five years, the default private intelligence layer for millions.</p>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>49 / 50</span></div>
+</section>
+
+<!-- ============ 50 Thanks ============ -->
+<section class="slide cover">
+  <div>
+    <div class="brand" style="display:flex;align-items:center;gap:16px;letter-spacing:0">
+      <svg width="48" height="48" viewBox="0 0 46 46" aria-label="YNG LAB logo">
+        <circle cx="23" cy="23" r="21" fill="none" stroke="#E3A83E" stroke-width="1.6" opacity=".85"/>
+        <rect x="12" y="26" width="5" height="8" rx="1" fill="#43BFA0"/>
+        <rect x="20.5" y="20" width="5" height="14" rx="1" fill="#E3A83E" opacity=".72"/>
+        <rect x="29" y="14" width="5" height="20" rx="1" fill="#E3A83E"/>
+        <path d="M28.5 13.5 L31.5 8.5 L34.5 13.5" fill="none" stroke="#E3A83E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span style="display:flex;flex-direction:column;gap:4px">
+        <b style="font-family:var(--mono);font-size:18px;letter-spacing:.3em;color:var(--gold);font-weight:600">YNG LAB</b>
+        <small style="font-size:11px;letter-spacing:.3em;color:var(--muted)">盈扬工作室 · PERTH, WA</small>
+      </span>
+    </div>
+    <div class="rule"></div>
+  </div>
+  <div>
+    <h1>Thank you.<br>Come and watch the system actually run.</h1>
+    <p class="sub" style="margin-top:22px">盈以守正，扬帆致远 — Steady gains, sails set far.<br><br>We are glad to arrange a 30-minute live demonstration any time: starting from a single Telegram message,<br>watch a lead-gen site go live, a macro brief generate, and a market monitor arm itself.</p>
+  </div>
+  <div>
+    <div class="meta">
+      <span>AY</span><span>0405 098 765</span><span>July 2026 · Confidential</span>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB</span><span>50 / 50</span></div>
+</section>
+
+</div></div>
+<script>
+(function(){
+  var slides=[].slice.call(document.querySelectorAll('.slide')),n=slides.length,i=0,lastSwipe=0;
+  var deck=document.getElementById('deck'),prog=document.getElementById('prog'),
+      ctr=document.getElementById('ctr'),stage=document.getElementById('stage'),
+      rot=document.getElementById('rotate'),vv=window.visualViewport;
+  var mq=matchMedia('(max-width:700px) and (orientation:portrait)');
+  function mob(){return mq.matches}
+  function vw(){return vv?vv.width:innerWidth}
+  function vh(){return vv?vv.height:innerHeight}
+  function fit(){
+    if(mob()){stage.style.height='';stage.style.width='';deck.style.transform='';return}
+    stage.style.height=vh()+'px';stage.style.width=vw()+'px';
+    var s=Math.min(vw()/1300,vh()/740);deck.style.transform='scale('+s+')';}
+  function show(k){i=Math.max(0,Math.min(n-1,k));
+    slides.forEach(function(s,j){s.classList.toggle('active',j===i)});
+    prog.style.width=((i+1)/n*100)+'%';ctr.textContent=(i+1)+' / '+n;
+    location.hash='#/'+(i+1);}
+  addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key==='PageDown'||e.key===' ')show(i+1);
+    else if(e.key==='ArrowLeft'||e.key==='PageUp')show(i-1);
+    else if(e.key==='Home')show(0);else if(e.key==='End')show(n-1);});
+  addEventListener('click',function(e){
+    if(mob())return;
+    if(e.target.closest('a'))return;
+    if(Date.now()-lastSwipe<500)return;
+    if(vv&&vv.scale>1.05)return; /* zoomed in: taps shouldn't flip pages */
+    show(e.clientX>innerWidth/2?i+1:i-1);});
+  var tx=null,ty=null;
+  addEventListener('touchstart',function(e){
+    if(e.touches.length!==1){tx=null;return}
+    tx=e.touches[0].clientX;ty=e.touches[0].clientY;},{passive:true});
+  addEventListener('touchend',function(e){
+    if(tx===null||mob())return;
+    if(vv&&vv.scale>1.05){tx=null;return}
+    var dx=e.changedTouches[0].clientX-tx,dy=e.changedTouches[0].clientY-ty;
+    if(Math.abs(dx)>40&&Math.abs(dx)>Math.abs(dy)){lastSwipe=Date.now();show(dx<0?i+1:i-1)}
+    tx=null;},{passive:true});
+  addEventListener('resize',fit);
+  addEventListener('orientationchange',function(){setTimeout(fit,300)});
+  mq.addEventListener&&mq.addEventListener('change',function(){fit();show(i)});
+  if(vv){vv.addEventListener('resize',fit);vv.addEventListener('scroll',fit)}
+  if(rot)setTimeout(function(){rot.style.opacity='0';setTimeout(function(){rot.remove()},500)},6000);
+  var m=location.hash.match(/#\/(\d+)/);fit();show(m?+m[1]-1:0);
+})();
+</script>
+</body>
+</html>
