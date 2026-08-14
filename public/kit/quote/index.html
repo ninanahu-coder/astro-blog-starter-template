@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>报价与合作确认单 | 盈扬 YNG LAB</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#060A14;--ink:#0A101E;--panel:#111A2E;--panel2:#0D1526;--line:rgba(233,236,245,.13);
+--text:#E9ECF5;--muted:#96A0BA;--dim:#6B7590;--gold:#E3A83E;--gold-soft:rgba(227,168,62,.14);
+--teal:#43BFA0;--red:#E06070;
+--sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",-apple-system,sans-serif;
+--mono:ui-monospace,"SF Mono",Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(900px 600px at 80% -5%,rgba(227,168,62,.07),transparent 60%),
+ radial-gradient(700px 500px at -10% 110%,rgba(67,191,160,.05),transparent 60%),var(--bg);
+ color:var(--text);font-family:var(--sans);line-height:1.6;-webkit-text-size-adjust:100%}
+.wrap{max-width:680px;margin:0 auto;padding:24px 18px 60px}
+a{color:var(--gold)}
+.brand{display:flex;align-items:center;gap:11px;margin-bottom:16px}
+.brand b{font-family:var(--mono);font-size:14px;letter-spacing:.26em;color:var(--gold)}
+.brand small{font-size:10px;letter-spacing:.3em;color:var(--muted)}
+.back{margin-left:auto;font-size:12.5px;color:var(--muted);text-decoration:none}
+h1{font-size:27px;line-height:1.25;font-weight:800;margin-bottom:8px}
+h1 .g{background:linear-gradient(92deg,#E3A83E 25%,#43BFA0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--muted);font-size:14.5px;margin-bottom:20px}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:17px;margin-bottom:14px}
+.card h3{font-size:13px;color:var(--gold);font-family:var(--mono);letter-spacing:.14em;margin-bottom:13px}
+.fg{margin-bottom:12px}.fg:last-child{margin-bottom:0}
+.fg label{display:block;font-size:12.5px;color:var(--muted);font-weight:700;margin-bottom:6px}
+.fg input,.fg select{width:100%;background:var(--panel2);border:1.5px solid var(--line);
+ border-radius:9px;padding:11px 13px;font-size:15px;color:var(--text);font-family:var(--sans)}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--gold)}
+.fg input::placeholder{color:var(--dim)}
+.fg .h{font-size:11.5px;color:var(--dim);margin-top:5px;line-height:1.5}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.chk{display:flex;align-items:flex-start;gap:10px;background:var(--panel2);border:1.5px solid var(--line);
+ border-radius:10px;padding:12px 13px;cursor:pointer}
+.chk input{width:20px;height:20px;flex:none;margin-top:1px;accent-color:#E3A83E}
+.chk span{font-size:14px;line-height:1.5}
+.chk span small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
+.src{font-size:11.5px;color:var(--teal);margin-top:6px}
+.src.warn{color:var(--gold)}
+
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:18px 0 8px}
+.btn{border:1px solid var(--line);border-radius:11px;padding:14px 8px;font-size:14.5px;font-weight:800;
+ cursor:pointer;font-family:var(--sans);background:var(--panel);color:var(--text)}
+.btn.pri{background:linear-gradient(92deg,#E3A83E,#D9952B);color:#0A101E;border-color:transparent;
+ grid-column:1/-1;font-size:16.5px;padding:17px}
+.btn:active{transform:translateY(1px)}
+.why{background:rgba(67,191,160,.07);border:1px solid rgba(67,191,160,.22);border-radius:11px;
+ padding:13px 15px;font-size:13px;color:var(--muted);line-height:1.65;margin-top:14px}
+.why b{color:var(--teal)}
+.foot{margin-top:28px;padding-top:15px;border-top:1px solid var(--line);
+ font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+
+/* 屏幕上的预览(白纸) */
+#doc{background:#fff;color:#111;border-radius:10px;padding:26px 24px;margin-top:18px;
+ font-size:13px;line-height:1.62;box-shadow:0 14px 40px rgba(0,0,0,.4)}
+#doc .dh{display:flex;justify-content:space-between;align-items:flex-start;
+ border-bottom:2px solid #E3A83E;padding-bottom:12px;margin-bottom:16px;gap:14px}
+#doc .dh .lg b{font-family:var(--mono);font-size:15px;letter-spacing:.24em;color:#B8860B;display:block}
+#doc .dh .lg small{font-size:10.5px;letter-spacing:.2em;color:#666}
+#doc .dh .no{text-align:right;font-family:var(--mono);font-size:10.5px;color:#666;line-height:1.75;white-space:nowrap}
+#doc h2{font-size:19px;font-weight:800;margin-bottom:3px;color:#000}
+#doc .st{font-size:12px;color:#666;margin-bottom:16px}
+#doc h4{font-size:11px;font-family:var(--mono);letter-spacing:.16em;color:#B8860B;
+ margin:15px 0 8px;padding-bottom:5px;border-bottom:1px solid #e3e3e3;text-transform:uppercase}
+#doc table{width:100%;border-collapse:collapse;font-size:12.5px}
+#doc table th{text-align:left;font-weight:700;color:#000;padding:6px 8px;border-bottom:1px solid #ccc;font-size:11.5px}
+#doc table td{padding:6px 8px;border-bottom:1px solid #eee;color:#333;vertical-align:top}
+#doc table td:first-child{color:#000;font-weight:600;width:34%}
+#doc table td.num{text-align:right;font-family:var(--mono);white-space:nowrap;color:#000;font-weight:700}
+#doc tr.total td{border-top:1.5px solid #B8860B;border-bottom:none;font-weight:800;color:#000;padding-top:9px}
+#doc ul{list-style:none;padding:0}
+#doc ul li{position:relative;padding-left:15px;margin-bottom:5px;font-size:12.5px;color:#333;line-height:1.6}
+#doc ul li::before{content:"";position:absolute;left:0;top:.62em;width:7px;height:1.5px;background:#E3A83E}
+#doc ol.terms{padding-left:17px;font-size:11.5px;color:#333;line-height:1.65}
+#doc ol.terms li{margin-bottom:5px}
+#doc .sign{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:18px}
+#doc .sign .b{border:1px solid #ddd;border-radius:5px;padding:11px 12px}
+#doc .sign .b .t{font-size:11px;color:#666;font-family:var(--mono);letter-spacing:.1em;margin-bottom:4px}
+#doc .sign .b .nm{font-size:13px;font-weight:700;color:#000;margin-bottom:22px}
+#doc .sign .b .ln{border-top:1px solid #999;padding-top:4px;font-size:10.5px;color:#777;
+ display:flex;justify-content:space-between}
+#doc .df{margin-top:16px;padding-top:10px;border-top:1px solid #e3e3e3;
+ font-size:10px;color:#888;line-height:1.6;display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#doc .hl{background:#FFF7E6;border:1px solid #E3A83E;border-radius:5px;padding:9px 11px;
+ font-size:12px;color:#5a4410;margin-top:9px;line-height:1.6}
+
+@media print{
+  @page{size:A4;margin:12mm}
+  html,body{background:#fff!important}
+  .wrap>*:not(#doc){display:none!important}
+  .wrap{max-width:none;padding:0}
+  #doc{box-shadow:none;border-radius:0;padding:0;margin:0;font-size:10.4pt;line-height:1.55}
+  #doc h2{font-size:16pt}#doc table{font-size:9.6pt}#doc ol.terms{font-size:8.8pt}
+  #doc ul li{font-size:9.6pt}
+  #doc h4{margin:11px 0 6px}
+  #doc .sign{page-break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <b>YNG LAB</b><small>盈扬工作室 · PERTH</small>
+    <a class="back" href="../">← 工具包</a>
+  </div>
+
+  <h1>报价与<span class="g">合作确认单</span></h1>
+  <p class="lead">客户点头之后当场填。选行业自动带出交付范围和价格,改成谈定的数字,打印或存 PDF 签字。</p>
+
+  <div class="card">
+    <h3>客户信息</h3>
+    <div class="row2">
+      <div class="fg"><label>店名 / 公司名</label><input id="q_shop" placeholder="安心按摩 Anxin Massage"></div>
+      <div class="fg"><label>联系人</label><input id="q_person" placeholder="陈老板"></div>
+    </div>
+    <div class="row2">
+      <div class="fg"><label>电话</label><input id="q_phone" placeholder="04xx xxx xxx"></div>
+      <div class="fg"><label>邮箱</label><input id="q_email" placeholder="可留空"></div>
+    </div>
+    <div class="fg"><label>门店地址</label><input id="q_addr" placeholder="Shop 3, … Cannington WA 6107"></div>
+  </div>
+
+  <div class="card">
+    <h3>方案与价格</h3>
+    <div class="fg">
+      <label>行业(自动带出交付范围与参考价)</label>
+      <select id="q_ind"></select>
+      <div class="src" id="q_src"></div>
+    </div>
+    <div class="row2">
+      <div class="fg"><label>启动费(一次性,A$)</label><input id="q_setup" type="number" inputmode="numeric"></div>
+      <div class="fg"><label>月度服务费(A$/月)</label><input id="q_month" type="number" inputmode="numeric"></div>
+    </div>
+    <div class="fg">
+      <label class="chk"><input type="checkbox" id="q_free" checked>
+        <span>首月免费<small>上线起 30 天不收月费,期间可无理由终止。第一家客户强烈建议勾上——这是你换真实案例最划算的代价。</small></span></label>
+    </div>
+    <div class="fg">
+      <label class="chk"><input type="checkbox" id="q_gst">
+        <span>价格含 GST<small>没注册 GST 就别勾。ABN/ACN 下来之前,单据上写「暂不含 GST」更稳妥。</small></span></label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>时间与单据</h3>
+    <div class="row2">
+      <div class="fg"><label>上线周期</label><input id="q_weeks" value="2 周内"></div>
+      <div class="fg"><label>报价有效期</label><input id="q_valid" value="14 天"></div>
+    </div>
+    <div class="row2">
+      <div class="fg"><label>单号</label><input id="q_no"></div>
+      <div class="fg"><label>日期</label><input id="q_date" type="date"></div>
+    </div>
+  </div>
+
+  <div class="btns">
+    <button class="btn pri" id="print">🖨 打印 / 存成 PDF</button>
+    <button class="btn" id="reset">清空重填</button>
+    <button class="btn" id="save">已自动保存 ✓</button>
+  </div>
+
+  <div class="why">
+    <b>怎么用</b>:手机上填完直接打印或「存储为 PDF」发给客户;或者带一张打印好的空白单上门,当场手写填。
+    内容会自动存在这台设备上,刷新不丢。<br>
+    <b>先别急着改条款</b>:第 3、4 条(随时终止、数据归客户)看着吃亏,其实是小店老板最怕的两件事——写清楚反而更容易签。
+  </div>
+
+  <!-- ============ 单据本体 ============ -->
+  <div id="doc">
+    <div class="dh">
+      <div class="lg"><b>YNG LAB</b><small>盈扬工作室 · PERTH WA</small></div>
+      <div class="no">
+        单号 <span id="d_no"></span><br>
+        日期 <span id="d_date"></span><br>
+        有效期 <span id="d_valid"></span>
+      </div>
+    </div>
+
+    <h2>报价与合作确认单</h2>
+    <div class="st">门店线上获客系统 · <span id="d_indname"></span></div>
+
+    <h4>一 · 双方</h4>
+    <table>
+      <tr><td>甲方(客户)</td><td id="d_shop"></td></tr>
+      <tr><td>联系人 / 电话</td><td id="d_contact"></td></tr>
+      <tr><td>门店地址</td><td id="d_addr"></td></tr>
+      <tr><td>乙方(服务方)</td><td>盈扬工作室 YNG LAB · AY · 0405 098 765 · teluoke@hotmail.com</td></tr>
+    </table>
+
+    <h4>二 · 交付内容</h4>
+    <ul id="d_scope"></ul>
+
+    <h4>三 · 费用</h4>
+    <table>
+      <tr><th>项目</th><th>说明</th><th style="text-align:right">金额</th></tr>
+      <tr><td>启动费(一次性)</td><td id="d_setupdesc"></td><td class="num" id="d_setup"></td></tr>
+      <tr><td>月度服务费</td><td id="d_monthdesc"></td><td class="num" id="d_month"></td></tr>
+      <tr class="total"><td>签署时应付</td><td id="d_duedesc"></td><td class="num" id="d_due"></td></tr>
+    </table>
+    <div class="hl" id="d_free"></div>
+
+    <h4>四 · 时间与分工</h4>
+    <table>
+      <tr><td>上线周期</td><td id="d_weeks"></td></tr>
+      <tr><td>甲方投入</td><td>约半天:提供价目表、营业时间、配合拍 10 张照片</td></tr>
+      <tr><td>乙方投入</td><td>建站、SEO、地图优化、Bot 部署、系统维护、月度报告</td></tr>
+    </table>
+
+    <h4>五 · 条款</h4>
+    <ol class="terms">
+      <li><b>付款方式</b>:启动费签署时付 50%,上线验收后付 50%;月度服务费按月预付,自上线之日(或免费期结束之日)起计。</li>
+      <li><b>不更换现有系统</b>:甲方现有收银、排班、进销存及供货关系一律保留,本服务仅作用于「客人进店之前与离店之后」的获客与复购环节。</li>
+      <li><b>随时终止,无长期锁定</b>:任一方提前 14 天书面通知即可终止月度服务,乙方不收取任何违约金;已预付未服务部分按日退还。</li>
+      <li><b>数据归属</b>:门店客户名单、预约与交易数据的所有权归甲方。终止后 14 天内乙方导出全部数据交付甲方,并删除自有副本。</li>
+      <li><b>效果口径</b>:方案中的曝光、询盘、营收增量均为基于行业基准的<b>示例测算,非业绩承诺</b>。乙方每月提供实际数据对账单(曝光、点击、询盘、预约、爽约、增量收入);连续两个月数据未达双方书面约定目标的,甲方可依第 3 条终止且不承担剩余费用。</li>
+      <li><b>第三方费用</b>:域名、短信、支付通道、广告投放等第三方费用由甲方承担;乙方代付的,按实报实销,不加价。</li>
+      <li><b>保密</b>:乙方对甲方经营数据、客户信息负保密义务;未经甲方书面同意,不得将甲方名称或数据用于案例宣传。</li>
+      <li><b>本单性质</b>:本单为商务报价与合作确认,双方签字(或电子确认)后生效;如需更详尽的服务条款,可另行签署服务协议,冲突时以后者为准。</li>
+    </ol>
+
+    <div class="sign">
+      <div class="b">
+        <div class="t">甲方(客户)确认</div>
+        <div class="nm" id="d_signshop">—</div>
+        <div class="ln"><span>签字</span><span>日期</span></div>
+      </div>
+      <div class="b">
+        <div class="t">乙方(服务方)确认</div>
+        <div class="nm">盈扬工作室 YNG LAB · AY</div>
+        <div class="ln"><span>签字</span><span>日期</span></div>
+      </div>
+    </div>
+
+    <div class="df">
+      <span id="d_gst"></span>
+      <span>YNG LAB 盈扬工作室 · Perth WA · 0405 098 765 · teluoke@hotmail.com</span>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>YNG LAB · 盈扬工作室</span>
+    <span>AY · 0405 098 765</span>
+  </div>
+</div>
+
+<script>
+(function(){
+  var $=function(id){return document.getElementById(id)};
+
+  var COMMON = [
+    '门店官网:按「服务 × 区域」拆分的 SEO 落地页,手机端优先',
+    'Google 商家资料与地图优化:类目、营业时间、照片、问答完整化',
+    '客户库与自动召回:到期提醒、生日券、沉睡唤醒(名单归甲方所有)',
+    '每月数据对账单:曝光、点击、询盘、成交与增量收入'
+  ];
+
+  var IND = {
+    massage:{n:'按摩 / 养生', setup:1500, month:149, srcTxt:'✓ 与《按摩店流量与收入提升方案》第 10 页一致(启动 A$1,500–3,000 · 月费 A$149)', ok:true,
+      scope:[COMMON[0],COMMON[1],
+        '24 小时预约 Bot:实时空位、在线选服务、订金锁位(到店全额抵扣)',
+        '爽约防护:前 24 小时自动提醒、免费改期一次、24 小时内取消订金不退',
+        '评价引擎:做完 2 小时自动回访,满意导向 Google 五星,不满意转店主私聊',
+        '疗程包与储值电子卡:5 次/10 次预付,自动计次',
+        COMMON[2],COMMON[3]]},
+    builder:{n:'建材 / 五金(B2B)', setup:3000, month:299, srcTxt:'✓ 与《建材 B2B 强化方案》第 11 页一致(启动 A$3,000–6,000 · 月费 A$299–499)', ok:true,
+      scope:['产品官网:按品牌/品类拆分的产品 SEO 页 + 在线批量询价表单',COMMON[1],
+        'tradie 下单 Bot:手机发材料清单 → 自动报价、查库存、排送货',
+        '采购数据入自建客户库:常购清单、智能补货提醒',
+        '账期与对账自动化:到期提醒、对账单生成',
+        COMMON[3]]},
+    car:{n:'车行 / 二手车', setup:2000, month:199, srcTxt:'⚠ 参考价(方案未定价):车行交付含每车独立页面与库存同步,按实际车位数调整', ok:false,
+      scope:['车行官网:每台在售车一个独立页面,吃车型 + 区域搜索',COMMON[1],
+        '24 小时询价 Bot:自动报价区间、留资、预约看车',
+        '库存上下架与售出自动同步',COMMON[2],COMMON[3]]},
+    pet:{n:'宠物店', setup:1500, month:149, srcTxt:'⚠ 参考价(方案未定价):按 C 端门店基准价,与按摩店同档', ok:false,
+      scope:[COMMON[0],COMMON[1],
+        '预约 Bot:美容、洗澡、寄养在线预约与订金锁位',
+        '到期提醒:「该洗澡了」自动召回 + 会员积分',
+        COMMON[2],COMMON[3]]},
+    watch:{n:'名表 / 珠宝', setup:2000, month:199, srcTxt:'⚠ 参考价(方案未定价):高客单需含藏品页与私密询价通道,按藏品数量调整', ok:false,
+      scope:['藏品官网:每款一页,行情参考价透明展示',COMMON[1],
+        '询价 Bot:即时响应 + 高端客户专属通道',
+        COMMON[2],COMMON[3]]},
+    food:{n:'餐饮 / 外卖', setup:1500, month:149, srcTxt:'⚠ 参考价(方案未定价):按 C 端门店基准价,与按摩店同档', ok:false,
+      scope:[COMMON[0],COMMON[1],
+        '在线订位 + 扫码点餐;招牌菜图文页吃搜索',
+        '会员储值与优惠自动发放',COMMON[2],COMMON[3]]},
+    other:{n:'门店线上获客', setup:1500, month:149, srcTxt:'⚠ 参考价:按 C 端门店基准价。交付范围请按客户实际情况手工调整', ok:false,
+      scope:[COMMON[0],COMMON[1],'询盘 / 预约 Bot:24 小时接单与留资',COMMON[2],COMMON[3]]}
+  };
+
+  var sel=$('q_ind');
+  for (var k in IND){ var o=document.createElement('option'); o.value=k; o.textContent=IND[k].n; sel.appendChild(o); }
+
+  var FIELDS=['q_shop','q_person','q_phone','q_email','q_addr','q_ind','q_setup','q_month','q_weeks','q_valid','q_no','q_date'];
+  var CHECKS=['q_free','q_gst'];
+  var KEY='yng-quote-v1';
+
+  function pad(x){return x<10?'0'+x:''+x}
+  function todayISO(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
+  function genNo(){var d=new Date();
+    return 'YNG-'+d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'-'+pad(Math.floor(Math.random()*90)+10)}
+  function money(n){ n=Number(n)||0; return 'A$'+n.toLocaleString('en-AU') }
+  function fmtDate(iso){ if(!iso) return '—';
+    var p=iso.split('-'); return p[0]+' 年 '+Number(p[1])+' 月 '+Number(p[2])+' 日' }
+
+  function applyPreset(){
+    var i=IND[sel.value]||IND.other;
+    $('q_setup').value=i.setup; $('q_month').value=i.month;
+    var s=$('q_src'); s.textContent=i.srcTxt; s.className='src'+(i.ok?'':' warn');
+    render();
+  }
+
+  function render(){
+    var i=IND[sel.value]||IND.other;
+    var setup=Number($('q_setup').value)||0, month=Number($('q_month').value)||0;
+    var free=$('q_free').checked, gst=$('q_gst').checked;
+
+    $('d_no').textContent=$('q_no').value||'—';
+    $('d_date').textContent=fmtDate($('q_date').value);
+    $('d_valid').textContent=$('q_valid').value||'—';
+    $('d_indname').textContent=i.n;
+
+    $('d_shop').textContent=$('q_shop').value||'—';
+    var c=[$('q_person').value,$('q_phone').value,$('q_email').value].filter(function(x){return x&&x.trim()});
+    $('d_contact').textContent=c.length?c.join(' · '):'—';
+    $('d_addr').textContent=$('q_addr').value||'—';
+    $('d_signshop').textContent=$('q_shop').value||'—';
+
+    var ul=$('d_scope'); ul.innerHTML='';
+    i.scope.forEach(function(t){var li=document.createElement('li');li.textContent=t;ul.appendChild(li)});
+
+    $('d_setup').textContent=money(setup);
+    $('d_setupdesc').textContent='建站、SEO 落地页、地图优化、Bot 部署与上线调试(一次性)';
+    $('d_month').textContent=money(month)+' / 月';
+    $('d_monthdesc').textContent='Bot 运行、客户库与召回、内容更新、系统维护、月度数据报告';
+    $('d_due').textContent=money(Math.round(setup*0.5));
+    $('d_duedesc').textContent='启动费 50%(余款上线验收后付)'+(free?';首月免月费':'');
+
+    $('d_free').style.display = free?'block':'none';
+    $('d_free').innerHTML = free
+      ? '<b>首月免费</b>:自上线之日起 30 天内不收取月度服务费。免费期内甲方可无理由终止合作,'
+        +'乙方不再收取任何后续费用,已交付的网站内容与客户数据一并移交甲方。'
+      : '';
+
+    $('d_weeks').textContent=$('q_weeks').value||'—';
+    $('d_gst').textContent = gst ? '所列金额均含 GST。' : '所列金额暂不含 GST;乙方完成 GST 注册后另行开具税务发票。';
+
+    save();
+  }
+
+  function save(){
+    try{
+      var d={};
+      FIELDS.forEach(function(f){d[f]=$(f).value});
+      CHECKS.forEach(function(f){d[f]=$(f).checked});
+      localStorage.setItem(KEY,JSON.stringify(d));
+    }catch(e){}
+  }
+  function load(){
+    try{
+      var d=JSON.parse(localStorage.getItem(KEY)||'null');
+      if(!d) return false;
+      FIELDS.forEach(function(f){ if(d[f]!=null) $(f).value=d[f] });
+      CHECKS.forEach(function(f){ if(d[f]!=null) $(f).checked=d[f] });
+      var i=IND[sel.value]||IND.other;
+      var s=$('q_src'); s.textContent=i.srcTxt; s.className='src'+(i.ok?'':' warn');
+      return true;
+    }catch(e){ return false }
+  }
+
+  FIELDS.concat(CHECKS).forEach(function(f){
+    $(f).addEventListener('input',render);
+    $(f).addEventListener('change',render);
+  });
+  sel.addEventListener('change',applyPreset);
+
+  $('print').onclick=function(){window.print()};
+  $('reset').onclick=function(){
+    if(!confirm('清空这张单子上的全部内容?')) return;
+    try{localStorage.removeItem(KEY)}catch(e){}
+    FIELDS.forEach(function(f){ if(f!=='q_ind') $(f).value='' });
+    CHECKS.forEach(function(f){ $(f).checked = (f==='q_free') });
+    $('q_weeks').value='2 周内'; $('q_valid').value='14 天';
+    $('q_no').value=genNo(); $('q_date').value=todayISO();
+    sel.value='massage'; applyPreset();
+  };
+  $('save').onclick=function(){ save(); this.textContent='已保存 ✓'; };
+
+  // 初始化
+  if(!load()){
+    $('q_no').value=genNo(); $('q_date').value=todayISO();
+    sel.value='massage'; applyPreset();
+  } else render();
+})();
+</script>
+</body>
+</html>
