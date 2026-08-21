@@ -2,6 +2,7 @@
 title: "Kennel Construction and Infrastructure Guide (Australia)"
 description: "A kennel construction guide compiled from Australian state codes and veterinary facility standards: enclosure dimensions, floor drainage, ventilation and temperature control, partitions and noise, fencing and security, functional zoning, and utilities."
 pubDate: "Jul 09 2026"
+updatedDate: "Jul 30 2026"
 heroImage: "/blog-placeholder-3.jpg"
 ---
 
@@ -20,6 +21,10 @@ A good kennel's disease control, welfare, and operational efficiency are determi
 **NSW Code No. 5:** performance-based, with few hard figures — each dog must be able to eat, sleep, sit and lie down, stretch its limbs, stretch out, and move about, and the enclosure height must allow for cleaning.
 
 **ACT:** adjacent enclosures must be separated by **solid, opaque partitions** (for both disease control and noise reduction).
+
+> **Reminder:** the table above is "reported figures, verify against code." Before formal construction, defer to the current text of Victoria's *Domestic Animals Act* and your site's local council, and size up with a margin for the largest breed you expect to house — **building right at the lower limit means a rework the moment the regulations rise or you take in a larger breed.**
+
+**Raised sleeping area in practice:** within the weatherproof 1/3 zone, place an off-the-ground sleeping platform/bed so dogs stay clear of the cold, damp floor and away from the hose-down water line; the platform material must be washable and disinfectable (e.g. plastic/composite board, avoiding water-absorbing bare timber).
 
 ## 2. Floors and Surfaces
 
@@ -42,12 +47,21 @@ A good kennel's disease control, welfare, and operational efficiency are determi
 - **Independent air supply to each enclosure/compartment**, to prevent air from migrating from one enclosure to another
 - **Humidity controlled at approx. 30–70%**; the NSW code requires ventilation to keep the space free of dampness, foul odour, and draughts
 
+**Judging on-site whether ventilation is adequate:**
+
+- **Smell test:** on entering in the morning, after the ventilation system has run all night, a persistent sharp ammonia smell/stuffiness indicates insufficient air exchange or accumulated drainage waste, and must be investigated
+- **Condensation test:** condensation droplets on windows, walls, or metal surfaces = humidity too high and ventilation insufficient, breeding mould and respiratory pathogens
+- **Draught self-check:** measure air movement at dog resting height (not standing human height) — floor-level draughts affect puppies and sleeping dogs most, yet are routinely overlooked from a standing viewpoint
+- **Intake/exhaust layout:** air intakes and exhausts should be staggered to create a through-flow, avoiding "short-circuiting" (fresh air being extracted the moment it enters, leaving dead corners unventilated)
+
 ## 5. Temperature Control (Especially Critical for Perth's Heat)
 
 - **Victoria code** [verify against code]: within fully enclosed, mechanically ventilated buildings, temperature must be maintained at **15°C – 27°C**
 - Common Australian kennel guidance: no lower than 10°C, no higher than 26°C (secondary source, verify); AVMA: above 15.5°C, below 26.6°C
 - **NSW:** performance-based — protect dogs from temperature extremes; young/old dogs may need heating or cooling
 - **Perth practicalities:** WA currently has only the *Standards and Guidelines for Dog Health and Welfare* (2020) + the *Animal Welfare Act 2002*, with dedicated regulations still in draft; given Perth's summer heat, sufficient cooling capacity must be built to hold the ≤26–27°C upper limit, with shade and protection against extreme weather
+
+> 🔥 **Perth heat-wave contingency plan (put it on the wall as soon as built):** (1) install a **thermometer** in each enclosure/zone, and add **high-temperature audible/visual alarms** linked to phone alerts in the isolation and puppy-nursery areas; (2) write out in advance the cooling measures for a cooling-system failure (cool water, wet towels, added fans, and if necessary moving dogs to the coolest area) and who is responsible; (3) on heat-wave days assign someone to **intensified patrols**, identifying early signs of heatstroke (excessive panting, drooling, reddened gums, weakness); (4) during a power outage, prioritise backup power for the isolation and nursery HVAC (see Section 9). Never leave a dog in an enclosed space with no cooling.
 
 ## 6. Walls, Partitions, and Noise
 
@@ -77,6 +91,11 @@ A well-designed facility requires the following **physically separated** areas:
 - **Storage room**
 - **Exercise yard** (separate from housing; see the Victoria +20 m²/dog rule)
 - **Staff area/office/records**
+
+**Two flow principles for the zoning layout:**
+
+- **One-way "clean → dirty" flow:** as far as possible, people and materials should flow from the cleanest, most vulnerable areas (puppy nursery/whelping room) toward the dirtiest, highest-risk areas (isolation/quarantine), avoiding backflow and cross-contamination; the food-preparation area must be kept well away from waste drainage and the isolation area
+- **Adjacency priority:** the nursery/whelping room ⟷ isolation area should be kept **as far apart as possible**; food preparation ⟷ laundry/waste should be separated; place the reception/check-in area on the perimeter so visitors can complete check-in without passing through the housing. Lock these adjacency relationships down at the floor-plan stage — they are extremely hard to change once built
 
 ## 9. Utilities and Services
 
