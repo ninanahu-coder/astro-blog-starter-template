@@ -2,6 +2,7 @@
 title: "Kennel Night Shift Operations Plan"
 description: "FluffyWA Kennels 18:00–07:00 night operations: tiered coverage, K4 puppy overnight feeding, health and security patrols, emergency response, and remote monitoring"
 pubDate: "Jul 09 2026"
+updatedDate: "Jul 30 2026"
 heroImage: "/blog-placeholder-1.jpg"
 ---
 
@@ -20,7 +21,11 @@ Day-shift scheduling ends at 18:00, but dogs — especially puppies and sick dog
 
 **Deployment principle**: Because of the puppies, K4 is the only site requiring someone on-site all night. Other adult sites are covered by an **evening final check + scheduled night patrols + remote monitoring + duty manager on call**. Any site that has an isolated sick dog must have a patrol scheduled that night.
 
+> **Set the deployment each evening based on that night's actual situation**: before day shift closes up, the duty manager confirms — based on the number of puppies on-site that day, whether there are any newly sick/isolated dogs, whether any dam is close to whelping, and the weather (hot nights) — whether K3/K2/K1 need an added on-site patrol that night. The default minimum configuration is K4 on-site + the rest on remote monitoring, but whenever there is an isolated dog or a dam near whelping, the corresponding site must have someone on-site to patrol that night and cannot rely on monitoring alone.
+
 ## 2. Night Schedule
+
+> **10 minutes of prep before starting the shift**: on arrival, take a face-to-face handover from day shift first — clarify which puppies and isolated dogs need close watching tonight, any daytime abnormalities and medications, and the status of dams near whelping; confirm your phone/radio is fully charged, the emergency contact list is in hand, the torch and backup heat source are ready, and the puppy feed is prepared. Only let day shift leave once the handover is complete.
 
 ### K4 Puppy Area (On-Site All Night)
 
@@ -36,6 +41,14 @@ Day-shift scheduling ends at 18:00, but dogs — especially puppies and sick dog
 
 > The 2–3 hour feeding rhythm for newborn/pre-weaning puppies must not be interrupted overnight. Before each feed, confirm the puppy is warm (rewarm a chilled puppy before feeding — never feed a cold puppy).
 
+**The three puppy night checks** (run through quickly on each patrol; when in doubt, call):
+
+- **Check warmth**: feel whether the puppy's ear tips, foot pads, and belly are warm; the whole litter huddling into a tight pile is often a sign the environment is too cold, while pups spread apart may mean it is too hot — cross-check the heating-zone temperature against age in days (29–32°C for the first 4 days, decreasing with age thereafter, judged by the pups lying relaxed and quiet without whimpering)
+- **Check feeding**: whether they actively seek/take the teat, and whether any refuse to feed; refusal to feed + feeling cold is the earliest and most dangerous combination for hypoglycaemia/hypothermia
+- **Check vitality**: whether they struggle vigorously when picked up and whether their cry is loud; a limp, cold pup with a faint cry must be rewarmed and reported immediately
+
+> **Heating-equipment failure is the number-one overnight hazard**: on each patrol, take a moment to confirm the heat pad/lamp is powered, at the right temperature, and that puppies are not lying directly on an overheated surface; if the equipment fails, first maintain warmth with a backup heat source (a cloth-wrapped hot-water bottle, raising the room temperature) and then report it for repair — never let a puppy litter lose heat all night.
+
 ### Adult Sites (Patrol + Monitoring)
 
 | Time | Tasks |
@@ -48,7 +61,7 @@ Day-shift scheduling ends at 18:00, but dogs — especially puppies and sick dog
 ## 3. Core Tasks That Must Be Done Overnight
 
 1. **Puppy feeding and warmth** (K4): feed at the frequency for their age in months, confirm temperature each time; check heat pads/lamps, and ensure ambient temperature meets the standard for their age in days (29–32°C for the first 4 days)
-2. **Sick/isolated dog patrols**: illness readily worsens at night; any site with isolated dogs must be patrolled on-site, and any abnormality handled per the emergency procedure
+2. **Sick/isolated dog patrols**: illness readily worsens at night; any site with isolated dogs must be patrolled on-site, and any abnormality handled per the emergency procedure; patrol isolated dogs **after the healthy dogs**, change gloves/disinfect your hands when entering and leaving the isolation area to avoid carrying pathogens to other dogs, and record feeding, drinking, elimination, breathing, and demeanour at each round to compare trends over time
 3. **Security**: check all door locks, fencing, and gates; confirm no dogs have escaped and nothing is abnormal; log any intrusion/unusual noise
 4. **Environment**: check that ventilation and climate control are running (hot Perth nights still require cooling/ventilation); check water supply
 5. **Records**: fill in the night patrol log at each round, and confirm handover in person

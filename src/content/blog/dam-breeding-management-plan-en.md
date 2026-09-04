@@ -2,6 +2,7 @@
 title: "Dam Breeding Management Plan: From Pre-Breeding to Lactation (Australia Edition)"
 description: "A complete dam breeding workflow based on Australian regulations and veterinary authorities: regulatory ethics, pre-breeding health, breeding timing, gestation management, whelping room and labour, and postpartum dam care"
 pubDate: "Jul 09 2026"
+updatedDate: "Jul 30 2026"
 heroImage: "/blog-placeholder-4.jpg"
 ---
 
@@ -32,11 +33,28 @@ Healthy puppies begin with a healthy dam. This plan covers the complete workflow
   - **ORCHID** health database + breed-specific DNA testing (via ANKC)
   - Add breed-specific tests as applicable: eyes (ACES), heart, breed genetic disease DNA (e.g. PRA, DM, etc.)
 
+**Pre-breeding health checklist (complete once 1–2 months before mating)**:
+
+- [ ] Core vaccine (C5) is within its validity period, with any due booster given **2–4 weeks before oestrus**
+- [ ] Intestinal deworming + heartworm/flea/tick prevention in place
+- [ ] Brucellosis test (in endemic areas / dogs with an imported background) is negative
+- [ ] Body condition score BCS 4–6, with conditioning already begun if too thin/too fat
+- [ ] Hip/elbow scoring, eyes, heart, and breed genetic disease DNA screening completed and passed
+- [ ] Full physical exam: dentition, skin, mammary glands, and reproductive tract free of abnormalities
+- [ ] Age/parity comply with ANKC and your state's regulations (see Section 1); dogs ≥8 years have obtained veterinary fitness certification
+
 ## 3. Oestrus and Mating (Precise Timing Using Progesterone)
 
 - **Progesterone testing to pinpoint ovulation**: begin testing on **days 5–7** of oestrus (proestrus); progesterone rising above **4–8 ng/mL** indicates ovulation (most dams ovulate at around 5 ng/mL)
 - **Optimal mating: 48–72 hours after ovulation** (eggs need a further 2–3 days to mature after release), i.e. approximately 4–7 days after the LH peak
 - **Gestation: 63 ± 1 days from ovulation** (calculated from the mating date it fluctuates widely at 58–68 days, because sperm can survive several days) — **hormonal timing is far more accurate than counting from the mating date**
+
+**Practical tips for mating timing**:
+
+- **The progesterone trend matters more than a single value**: retest every other day (every 48 hours) as a rule and judge ovulation from the rising curve, not from the absolute value on any single day
+- **Do not rush to mate before ovulation**: after release, the eggs still need 2–3 days to mature before they can be fertilised, so mating too early only wastes an opportunity
+- **Record every mating date and progesterone value**: use them to **back-calculate the due date** and mark it on the calendar, entering whelping standby one week before the due date
+- **Ancillary signals**: vaginal exfoliative cytology (keratinisation rate), degree of vulval softening, and the dam's receptiveness to the stud can corroborate the progesterone readings, but are less precise than progesterone
 
 ## 4. Gestation Management
 
@@ -51,11 +69,29 @@ Healthy puppies begin with a healthy dam. This plan covers the complete workflow
 ## 5. Whelping Room Preparation and Labour
 
 - **Whelping box**: set up 1–2 weeks in advance in a quiet, warm, draught-free location so the dam can acclimatise; place a heating pad/lamp on one side of the puppy area to maintain **about 29–32°C** (leaving space for the dam to move away from the heat source)
+- **Pig rail**: fit a rail a few centimetres off the floor around the inside walls of the whelping box, to stop the dam from crushing a puppy that has crawled beneath her when she rolls over or lies against the wall
+
+**Whelping kit (assemble before labour and keep beside the whelping box)**:
+
+- [ ] Plenty of clean towels/paper towel (to dry and stimulate puppies), plus clean replaceable bedding
+- [ ] Digital thermometer + lubricant (to monitor the pre-labour temperature drop and postpartum temperature)
+- [ ] Gram scale + weight record sheet (weigh each puppy at birth)
+- [ ] Sterile scissors + disinfected thread/dental floss (to tie off and cut the cord if needed), povidone-iodine to disinfect the cord
+- [ ] Bulb syringe/nasal aspirator (to clear mucus from the mouth and nose)
+- [ ] Unmarked collar thread/marker pen (to distinguish puppies), disposable gloves
+- [ ] Heating pad/heat lamp + backup incubator, canine milk replacer and bottle (for emergencies)
+- [ ] Veterinary and emergency phone numbers posted prominently, with a vehicle ready at all times (in case a night-time caesarean is needed)
 - **Pre-labour temperature drop**: rectal temperature falls to about **37.1°C (36.7–37.8°C)**, i.e. **below about 37.2°C**, usually **8–24 hours** before whelping; begin measuring twice daily as the due date approaches
 - **Stages of labour**:
   - First stage: restlessness, nesting, panting, shivering, reduced appetite, temperature drop; lasts 6–12 hours (up to 24)
   - Second stage: active straining to deliver puppies, **0–30 minutes per puppy is normal, with intervals of up to about 2 hours**
   - Third stage: expulsion of the placenta after each puppy (second and third stages alternate)
+
+**The "dos and don'ts" of assisting delivery**:
+
+- **Do**: check that the number of placentas matches the number of puppies (**a retained placenta can cause metritis**, see Section 6); when the dam does not tear the membranes promptly, manually **tear open the membrane at the puppy's mouth and nose first**, dry the puppy, and if needed clear mucus from the mouth and nose to stimulate breathing; record each puppy's birth time, sex, weight, and any abnormalities
+- **Don't**: **do not pull the puppy hard** (only assist gently in the direction of the birth canal during a contraction, wrapping the puppy in a towel — never yank forcefully); **do not forcibly pull the cord to drag out the placenta**; do not use oxytocin without guidance — misuse can cause uterine rupture or fetal distress
+- **Apparently dead puppies**: for a puppy that still does not breathe after being dried and having its airway cleared, support the head and neck firmly and stimulate it gently, call the veterinarian immediately, and never swing it
 
 **Dystocia — contact a veterinarian immediately**:
 - No delivery **24–36 hours** after the temperature drop
