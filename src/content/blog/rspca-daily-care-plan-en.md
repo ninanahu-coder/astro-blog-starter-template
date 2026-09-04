@@ -19,6 +19,7 @@ A safe, stable baseline plan for the daily operation of four kennels (K1–K4, r
 
 - **Clean kennels and activity areas at least once daily** [NSW Code No 5] [VIC Code] — hose down, remove faeces, change bedding, wash food and water bowls
 - **Disinfect at least once weekly**; in addition, **disinfection is mandatory before a new dog moves in and after a disease outbreak** [NSW Code No 5]
+  - ⚠️ This is a **regulatory floor, not our operating standard**. FluffyWA disinfects kennels **daily** per the *Cleaning and Disinfection Schedule* (the 13:00–14:00 slot), well above this floor. **On the floor, always follow the Cleaning and Disinfection Schedule**; this line only states the compliance minimum.
 - **Perform a terminal deep clean and disinfection at turnover** [RSPCA] [Shelter-medicine best practice]
 - Remove faeces and urine **as soon as they appear**, not on a fixed schedule [Shelter-medicine best practice]
 
@@ -76,7 +77,8 @@ A safe, stable baseline plan for the daily operation of four kennels (K1–K4, r
 ### Intake and vaccination
 
 - **A vaccination certificate must be presented before intake**, showing vaccination against **distemper, hepatitis, parvovirus, and kennel cough** within the past 12 months (i.e. **C5**) [NSW Code No 5]
-- The **number of days in advance** a dog must be vaccinated before intake is **governed by your council's / vet's requirements** (advance vaccination is common practice, but "14 days in advance" is not written into the NSW code) [Verify with local council]
+- **FluffyWA policy: the C5 must be completed at least 14 days before intake**, per the *Optimal Operations Plan* (immunity takes time to develop; injectable Bordetella protects only 5–7 days after the second dose, intranasal after 48–72 hours). **Frontline staff apply the 14-day rule — a dog short of 14 days is not admitted (offer to rebook).**
+- Note that "14 days in advance" is **our own standard, not written into the NSW code**; where a council or vet imposes something stricter, follow the stricter rule [Verify with local council]
 - On intake day, perform a **health and behaviour check and record a baseline**; newly arrived dogs should be **observed more closely** (stress lowers immunity and raises susceptibility to infection) [Shelter-medicine best practice] [RSPCA]
 - Ensure **timely access to a vet** during boarding, and keep the owner's vet contact details on file [RSPCA]
 

@@ -38,7 +38,7 @@ A good kennel's disease control, welfare, and operational efficiency are determi
 - **One drain channel per row of back-to-back enclosures**, with floors sloping toward it at approx. 2%; fine-mesh basket screens can be fitted in the channel to catch hair and waste
 - **No shared drainage:** each enclosure/pen must not drain through a neighbour; effluent must not cross compartments (disease control). Solid biosecurity walls keep wash water contained within each compartment
 - **Drain channel slope at least 0.5%**, one-directional; **avoid bends and intersections** ("waste doesn't like to turn corners"), and break long channels into sections to prevent excessive depth
-- **Cleaning frequency** (ACT/Victoria, operational level, verify): faeces cleared at least once daily; enclosures hosed at least once daily; enclosures/pens disinfected at least 3 times per week
+- **Cleaning frequency** (ACT/Victoria, operational level, verify): faeces cleared at least once daily; enclosures hosed at least once daily; enclosures/pens disinfected at least 3 times per week — this is a **regulatory floor**; FluffyWA actually disinfects kennels **daily** per the Cleaning and Disinfection Schedule, well above this floor
 
 ## 4. Ventilation and Air Quality
 
@@ -109,6 +109,8 @@ A well-designed facility requires the following **physically separated** areas:
 - Days 7–10: reduce to approx. 26.7°C
 - End of week 4: approx. 22.2°C
 - Puppies cannot self-regulate temperature until about 2.5 weeks: provide a **heating pad + warm environment + one cool retreat zone** so puppies can self-regulate; watch for huddling behaviour [Victoria also has a *Code of Practice for the Operation of Breeding and Rearing Businesses*; mandatory puppy-nursery specifications defer to that code, verify]
+
+> **Which figure applies**: the 29.5–32°C here is a **facility-design** reference (size your heating capacity to it at build time). The **29–32°C** used in the *Improving Puppy Survival Plan* and the *Night Shift Operations Plan* is the **frontline operating figure**. The ranges overlap; **on the floor, always follow the survival plan's 29–32°C**, and judge finally by whether the litter lies relaxed, spread out and quiet.
 
 ---
 
