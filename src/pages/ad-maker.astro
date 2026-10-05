@@ -1,0 +1,3059 @@
+---
+// 电商产品广告制作工具 — 纯前端，全部在浏览器本地完成（产品图不会上传到任何服务器）。
+// 填写产品信息 + 上传产品图 → 一键生成主图 / 小红书 / 抖音 / 信息流 / 店铺横幅等多尺寸广告图并导出，
+// 附带公式化文案灵感与《广告法》极限词自查。
+const title = '电商广告制作 · Ad Studio';
+const description =
+	'在线制作电商产品广告图：淘宝/京东主图、小红书、抖音竖版、信息流与店铺横幅多尺寸一键导出，支持抠图、风格模板、文案灵感与广告法极限词自查。';
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+		<meta name="theme-color" content="#ff5b2e" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<title>{title}</title>
+		<meta name="description" content={description} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+	</head>
+	<body>
+		<header class="topbar">
+			<a class="back" href="/" aria-label="返回首页">‹ 首页</a>
+			<h1>电商广告制作 <small>Ad Studio</small></h1>
+			<button type="button" id="reset" class="ghost small">恢复示例</button>
+		</header>
+
+		<main class="app">
+			<section class="preview" aria-label="广告预览">
+				<div class="versions" id="versions" role="tablist" aria-label="版本（各自保存文字与设置）">
+					<button type="button" role="tab" data-v="zh">中文 · 小红书</button>
+					<button type="button" role="tab" data-v="en">English · Facebook</button>
+				</div>
+				<div class="sizes" id="sizes" role="listbox" aria-label="选择尺寸"></div>
+				<div class="custom-size" id="customSize" hidden>
+					<label>宽 <input type="number" data-k="cw" min="200" max="3000" step="10" /></label>
+					<span>×</span>
+					<label>高 <input type="number" data-k="ch" min="200" max="3000" step="10" /></label>
+					<span class="muted">px</span>
+				</div>
+				<div class="stage" id="stage">
+					<canvas id="canvas" width="800" height="800" aria-label="广告图预览"></canvas>
+					<div class="drop-hint">松开即可替换产品图</div>
+				</div>
+				<div class="exportbar">
+					<select data-k="format" aria-label="导出格式">
+						<option value="png">PNG</option>
+						<option value="jpg">JPG</option>
+					</select>
+					<button type="button" id="dl" class="primary">下载当前尺寸</button>
+					<button type="button" id="dlAll">导出全部尺寸</button>
+					<button type="button" id="copyImg">复制图片</button>
+				</div>
+				<p class="risk-line" id="riskLine" hidden></p>
+			</section>
+
+			<section class="controls" aria-label="编辑">
+				<details class="card" open>
+					<summary>① 产品信息</summary>
+					<div class="card-body">
+						<div class="grid2">
+							<label>品牌名<input data-k="brand" maxlength="20" /></label>
+							<label>产品名（简短）<input data-k="product" maxlength="20" /></label>
+						</div>
+						<label
+							>主标题 <span class="count" id="headCount"></span>
+							<textarea data-k="headline" rows="2" maxlength="40"></textarea>
+						</label>
+						<label>副标题<input data-k="sub" maxlength="40" /></label>
+						<label
+							>核心卖点（每行一条，最多 4 条）
+							<textarea data-k="points" rows="4"></textarea>
+						</label>
+						<div class="grid3">
+							<label>价格前缀<input data-k="prefix" maxlength="6" /></label>
+							<label>现价<input data-k="price" inputmode="decimal" maxlength="10" /></label>
+							<label>原价<input data-k="orig" inputmode="decimal" maxlength="10" /></label>
+						</div>
+						<div class="grid2">
+							<label
+								>货币
+								<select data-k="currency">
+									<option value="¥">¥ 人民币</option>
+									<option value="$">$ 美元</option>
+									<option value="A$">A$ 澳元</option>
+									<option value="€">€ 欧元</option>
+									<option value="£">£ 英镑</option>
+								</select>
+							</label>
+							<label>促销角标<input data-k="badge" maxlength="10" /></label>
+						</div>
+						<div class="grid2">
+							<label>按钮文字<input data-k="cta" maxlength="10" /></label>
+							<label>底部说明<input data-k="note" maxlength="30" /></label>
+						</div>
+						<p class="hint">任一项留空，该元素就不会出现在画面上。</p>
+					</div>
+				</details>
+
+				<details class="card" open>
+					<summary>② 产品图</summary>
+					<div class="card-body">
+						<div class="upload">
+							<label class="file-btn">
+								<input type="file" id="file" accept="image/*" />
+								上传产品图
+							</label>
+							<button type="button" id="useSample" class="ghost">用示例图</button>
+							<span id="fileName" class="muted"></span>
+						</div>
+						<p class="hint">也可以把图片直接拖到预览区，或按 Ctrl/⌘+V 粘贴。白底或纯色底的产品图效果最好。</p>
+						<label class="check"><input type="checkbox" data-k="removeBg" /> 去除纯色背景（抠图）</label>
+						<label class="range" id="tolRow"
+							>抠图容差 <output data-out="tol"></output>
+							<input type="range" data-k="tol" min="8" max="90" />
+						</label>
+						<label class="range"
+							>产品大小 <output data-out="imgScale"></output>
+							<input type="range" data-k="imgScale" min="50" max="140" />
+						</label>
+					</div>
+				</details>
+
+				<details class="card" open>
+					<summary>③ 风格模板</summary>
+					<div class="card-body">
+						<div class="themes" id="themes" role="radiogroup" aria-label="风格模板"></div>
+						<div class="row">
+							<label class="color">主色 <input type="color" data-k="accent" /></label>
+							<button type="button" id="accentReset" class="ghost small">恢复模板色</button>
+						</div>
+					</div>
+				</details>
+
+				<details class="card" id="ideasCard">
+					<summary>④ 文案助手</summary>
+					<div class="card-body">
+						<div class="grid2">
+							<label>目标人群<input data-k="audience" maxlength="16" /></label>
+							<label>用户痛点<input data-k="pain" maxlength="20" /></label>
+						</div>
+						<h4>主标题灵感 <span class="muted">点击填入</span></h4>
+						<div class="ideas" id="ideasH"></div>
+						<h4>副标题灵感</h4>
+						<div class="ideas" id="ideasS"></div>
+						<h4>按钮文字</h4>
+						<div class="ideas chips" id="ideasC"></div>
+						<p class="hint">按常见电商文案公式（痛点 / 利益 / 人群 / 数字 / 价格）自动组合，仅作灵感参考。</p>
+					</div>
+				</details>
+
+				<details class="card" id="listingCard" open>
+					<summary>⑤ 发布文案 <span id="listingKind" class="pill ok"></span></summary>
+					<div class="card-body">
+						<div class="grid2">
+							<label>所在地区<input data-k="region" maxlength="40" /></label>
+							<label>交易方式<input data-k="delivery" maxlength="40" /></label>
+						</div>
+						<div class="listing">
+							<div class="listing-head">
+								<b>标题</b>
+								<span class="muted" id="listingTitleNote"></span>
+								<button type="button" class="ghost small" data-copy="title">复制</button>
+							</div>
+							<output id="listingTitle"></output>
+							<div class="listing-head" id="listingPriceRow">
+								<b>价格</b>
+								<output id="listingPrice"></output>
+							</div>
+							<div class="listing-head">
+								<b>正文</b>
+								<button type="button" class="ghost small" data-copy="body">复制</button>
+							</div>
+							<textarea id="listingBody" rows="12" readonly></textarea>
+							<button type="button" data-copy="all">复制标题 + 正文</button>
+						</div>
+						<p class="hint" id="listingHint"></p>
+					</div>
+				</details>
+
+				<details class="card" id="complianceCard" open>
+					<summary>⑥ 合规自查 <span id="riskBadge" class="pill"></span></summary>
+					<div class="card-body">
+						<p class="hint">
+							中文检查《广告法》极限词、绝对化用语、医疗功效、权威背书与虚假紧迫表述；英文检查澳洲消费者法（ACL）下常见的误导性宣传。结果仅供参考，不构成法律意见。
+						</p>
+						<ul class="hits" id="hits"></ul>
+						<button type="button" id="fixAll" hidden>一键替换可替换项</button>
+					</div>
+				</details>
+
+				<p class="footnote">所有处理都在你的浏览器本地完成，产品图不会被上传。</p>
+			</section>
+		</main>
+
+		<button type="button" class="pip" id="pip" hidden aria-label="回到预览"><canvas id="pipCanvas"></canvas></button>
+		<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+		<script>
+			// ============================================================
+			// 基础工具
+			// ============================================================
+			const $ = (s, r = document) => r.querySelector(s);
+			const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+			const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+			const makeCanvas = (w, h) => {
+				const c = document.createElement('canvas');
+				c.width = Math.max(1, Math.round(w));
+				c.height = Math.max(1, Math.round(h));
+				return c;
+			};
+			const SANS =
+				'"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC","WenQuanYi Zen Hei",system-ui,sans-serif';
+			const SERIF = '"Songti SC","STSong","Noto Serif CJK SC","Source Han Serif SC","SimSun",' + SANS;
+
+			function hex2rgb(h) {
+				h = String(h || '#000').replace('#', '');
+				if (h.length === 3) h = h.split('').map((x) => x + x).join('');
+				const n = parseInt(h, 16) || 0;
+				return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+			}
+			const rgb2hex = (c) =>
+				'#' + c.map((v) => Math.round(clamp(v, 0, 255)).toString(16).padStart(2, '0')).join('');
+			const mix = (a, b, t) => {
+				const A = hex2rgb(a), B = hex2rgb(b);
+				return rgb2hex(A.map((v, i) => v + (B[i] - v) * t));
+			};
+			const lighten = (h, t) => mix(h, '#ffffff', t);
+			const darken = (h, t) => mix(h, '#000000', t);
+			const rgba = (h, a) => {
+				const [r, g, b] = hex2rgb(h);
+				return `rgba(${r},${g},${b},${a})`;
+			};
+			const luminance = (h) => {
+				const [r, g, b] = hex2rgb(h).map((v) => {
+					v /= 255;
+					return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+				});
+				return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+			};
+			const onColor = (h) => (luminance(h) > 0.45 ? '#141414' : '#ffffff');
+
+			function mulberry32(a) {
+				return function () {
+					a |= 0;
+					a = (a + 0x6d2b79f5) | 0;
+					let t = Math.imul(a ^ (a >>> 15), 1 | a);
+					t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+					return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+				};
+			}
+
+			// 画布阴影参数不受 transform 影响，缩略图渲染时需要按比例缩放
+			let SK = 1;
+
+			// ============================================================
+			// 图形工具
+			// ============================================================
+			function rr(ctx, x, y, w, h, r) {
+				r = Math.max(0, Math.min(r, w / 2, h / 2));
+				ctx.beginPath();
+				ctx.moveTo(x + r, y);
+				ctx.arcTo(x + w, y, x + w, y + h, r);
+				ctx.arcTo(x + w, y + h, x, y + h, r);
+				ctx.arcTo(x, y + h, x, y, r);
+				ctx.arcTo(x, y, x + w, y, r);
+				ctx.closePath();
+			}
+			function paint(ctx, fill, y0, y1) {
+				if (Array.isArray(fill)) {
+					const g = ctx.createLinearGradient(0, y0, 0, y1);
+					fill.forEach((c, i) => g.addColorStop(i / (fill.length - 1), c));
+					return g;
+				}
+				return fill;
+			}
+			function checkIcon(ctx, cx, cy, r, bg, fg) {
+				ctx.beginPath();
+				ctx.arc(cx, cy, r, 0, Math.PI * 2);
+				ctx.fillStyle = bg;
+				ctx.fill();
+				ctx.beginPath();
+				ctx.moveTo(cx - r * 0.45, cy + r * 0.02);
+				ctx.lineTo(cx - r * 0.1, cy + r * 0.36);
+				ctx.lineTo(cx + r * 0.48, cy - r * 0.32);
+				ctx.strokeStyle = fg;
+				ctx.lineWidth = r * 0.26;
+				ctx.lineCap = 'round';
+				ctx.lineJoin = 'round';
+				ctx.stroke();
+			}
+			function paw(ctx, x, y, s, rot, fill) {
+				ctx.save();
+				ctx.translate(x, y);
+				ctx.rotate(rot);
+				ctx.fillStyle = fill;
+				ctx.beginPath();
+				ctx.ellipse(0, s * 0.28, s * 0.42, s * 0.34, 0, 0, Math.PI * 2);
+				ctx.fill();
+				for (const [tx, ty, a] of [
+					[-0.46, -0.14, -0.35],
+					[-0.17, -0.42, -0.1],
+					[0.17, -0.42, 0.1],
+					[0.46, -0.14, 0.35],
+				]) {
+					ctx.beginPath();
+					ctx.ellipse(tx * s, ty * s, s * 0.15, s * 0.2, a, 0, Math.PI * 2);
+					ctx.fill();
+				}
+				ctx.restore();
+			}
+			function leaf(ctx, x, y, len, rot, fill, vein) {
+				ctx.save();
+				ctx.translate(x, y);
+				ctx.rotate(rot);
+				ctx.beginPath();
+				ctx.moveTo(0, 0);
+				ctx.quadraticCurveTo(len * 0.5, -len * 0.34, len, 0);
+				ctx.quadraticCurveTo(len * 0.5, len * 0.34, 0, 0);
+				ctx.fillStyle = fill;
+				ctx.fill();
+				ctx.beginPath();
+				ctx.moveTo(len * 0.06, 0);
+				ctx.lineTo(len * 0.9, 0);
+				ctx.strokeStyle = vein;
+				ctx.lineWidth = len * 0.025;
+				ctx.stroke();
+				ctx.restore();
+			}
+			function starPath(ctx, cx, cy, r, n, inner, rot) {
+				ctx.beginPath();
+				for (let i = 0; i < n * 2; i++) {
+					const a = rot + (i * Math.PI) / n;
+					const rad = i % 2 ? r * inner : r;
+					ctx.lineTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad);
+				}
+				ctx.closePath();
+			}
+			function podium(ctx, cx, topY, w, top, side, edge) {
+				const rx = w / 2, ry = w * 0.12, depth = ry * 1.25;
+				ctx.save();
+				ctx.fillStyle = paint(ctx, side, topY, topY + depth + ry);
+				ctx.fillRect(cx - rx, topY, w, depth);
+				ctx.beginPath();
+				ctx.ellipse(cx, topY + depth, rx, ry, 0, 0, Math.PI * 2);
+				ctx.fill();
+				ctx.beginPath();
+				ctx.ellipse(cx, topY, rx, ry, 0, 0, Math.PI * 2);
+				ctx.fillStyle = paint(ctx, top, topY - ry, topY + ry);
+				ctx.fill();
+				if (edge) {
+					ctx.strokeStyle = edge;
+					ctx.lineWidth = Math.max(1, w * 0.006);
+					ctx.stroke();
+				}
+				ctx.restore();
+				return ry;
+			}
+
+			// ============================================================
+			// 文字排版：中英混排换行、自动缩放、行宽均衡
+			// ============================================================
+			const NO_START = '，。！？、；：）」』】》,.!?;:)…%～~—-';
+			const TOKEN_RE = /[A-Za-z0-9¥$€£%.,'’+\-&\/×]+|\s+|[\s\S]/gu;
+			const LATIN_RE = /^[A-Za-z0-9¥$€£%.,'’+\-&\/×]+$/;
+			// 有分词能力的浏览器按词断行（避免「冻|干」这类拆词），英文单词与价格保持整体
+			const SEG = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter('zh', { granularity: 'word' }) : null;
+			const tokenCache = new Map();
+			function tokenize(s) {
+				if (!SEG) return s.match(TOKEN_RE) || [];
+				let out = tokenCache.get(s);
+				if (out) return out;
+				out = [];
+				for (const { segment } of SEG.segment(s)) {
+					const prev = out[out.length - 1];
+					if (prev !== undefined && LATIN_RE.test(prev) && LATIN_RE.test(segment)) out[out.length - 1] = prev + segment;
+					else out.push(segment);
+				}
+				if (tokenCache.size > 500) tokenCache.clear();
+				tokenCache.set(s, out);
+				return out;
+			}
+			function wrap(ctx, text, maxW) {
+				const out = [];
+				for (const para of String(text).split('\n')) {
+					let line = '';
+					for (const tok of tokenize(para)) {
+						const blank = /^\s+$/.test(tok);
+						if (!line && blank) continue;
+						const test = line + tok;
+						if (ctx.measureText(test).width <= maxW) {
+							line = test;
+							continue;
+						}
+						if (blank) {
+							out.push(line.trimEnd());
+							line = '';
+							continue;
+						}
+						// 行首禁则：标点挂在上一行末尾
+						if (tok.length === 1 && NO_START.includes(tok) && line) {
+							line = test;
+							continue;
+						}
+						if (line.trim()) out.push(line.trimEnd());
+						if (ctx.measureText(tok).width > maxW) {
+							line = '';
+							for (const ch of tok) {
+								if (line && ctx.measureText(line + ch).width > maxW) {
+									out.push(line);
+									line = ch;
+								} else line += ch;
+							}
+						} else line = tok;
+					}
+					if (line.trim()) out.push(line.trimEnd());
+				}
+				return out.length ? out : [''];
+			}
+			function clip(ctx, s, maxW) {
+				if (ctx.measureText(s).width <= maxW) return s;
+				let chars = [...s];
+				while (chars.length && ctx.measureText(chars.join('') + '…').width > maxW) chars.pop();
+				return chars.join('') + '…';
+			}
+			function fitText(ctx, text, maxW, maxLines, size, minSize, weight, family, balance) {
+				text = String(text || '').trim();
+				if (!text) return null;
+				let s = size, lines;
+				for (;;) {
+					ctx.font = `${weight} ${s}px ${family}`;
+					lines = wrap(ctx, text, maxW);
+					if (lines.length <= maxLines || s <= minSize) break;
+					s = Math.max(minSize, s * 0.93);
+				}
+				// 标题：若缩小不超过 20% 就能少占一行，优先少行（避免中文被拆词换行）
+				if (balance && lines.length > 1 && lines.length <= maxLines && !text.includes('\n')) {
+					for (let s2 = s * 0.95; s2 >= Math.max(minSize, size * 0.8); s2 *= 0.95) {
+						ctx.font = `${weight} ${s2}px ${family}`;
+						const l2 = wrap(ctx, text, maxW);
+						if (l2.length < lines.length) {
+							s = s2;
+							lines = l2;
+							if (l2.length === 1) break;
+						}
+					}
+					ctx.font = `${weight} ${s}px ${family}`;
+				}
+				if (lines.length > maxLines) {
+					lines = lines.slice(0, maxLines);
+					const chars = [...lines[maxLines - 1]];
+					while (chars.length && ctx.measureText(chars.join('') + '…').width > maxW) chars.pop();
+					lines[maxLines - 1] = chars.join('') + '…';
+				} else if (balance && lines.length > 1 && !text.includes('\n')) {
+					const widest = Math.max(...tokenize(text).map((t) => ctx.measureText(t).width));
+					let lo = Math.min(maxW, Math.max(maxW * 0.4, widest)), hi = maxW;
+					for (let i = 0; i < 10; i++) {
+						const mid = (lo + hi) / 2;
+						if (wrap(ctx, text, mid).length <= lines.length) hi = mid;
+						else lo = mid;
+					}
+					lines = wrap(ctx, text, hi);
+				}
+				return { lines, size: s, font: ctx.font };
+			}
+
+			// ============================================================
+			// 风格模板
+			// ============================================================
+			const THEMES = {
+				promo: {
+					name: '大促爆款',
+					accent: '#e3262f',
+					swatch: (a) => [lighten(a, 0.1), '#ffd84d'],
+					badge: 'burst',
+					align: 'center',
+					head: SANS,
+					headW: 900,
+					chip: 'pill',
+					barR: 0.28,
+					pouch: (a) => ['#ffc93a', a],
+					make: (a) => ({
+						bg: [lighten(a, 0.1), darken(a, 0.3)],
+						ray: 'rgba(255,255,255,.075)',
+						glow: 'rgba(255,226,140,.55)',
+						confetti: ['#ffd84d', '#fff3c4', '#ffb23a'],
+						headline: ['#ffffff', '#ffe08a'],
+						headShadow: rgba(darken(a, 0.6), 0.55),
+						sub: '#ffe9b0',
+						brand: 'rgba(255,255,255,.92)',
+						chipBg: '#fff4cf',
+						chipText: darken(a, 0.3),
+						icon: a,
+						iconFg: '#ffffff',
+						bar: ['#fff3b0', '#ffc83a'],
+						price: darken(a, 0.05),
+						prefix: darken(a, 0.35),
+						orig: rgba(darken(a, 0.5), 0.6),
+						cta: [lighten(a, 0.08), darken(a, 0.2)],
+						ctaText: '#ffffff',
+						badgeBg: '#ffd84d',
+						badgeText: darken(a, 0.15),
+						note: 'rgba(255,255,255,.82)',
+						podium: [['#fff3b0', '#ffcf4d'], [darken('#ffc83a', 0.05), darken('#e59a12', 0.1)], 'rgba(255,255,255,.6)'],
+						shadowA: 0.32,
+					}),
+				},
+				minimal: {
+					name: '简约高级',
+					accent: '#1d1b18',
+					swatch: (a) => ['#f3efe8', a],
+					badge: 'rect',
+					align: 'left',
+					head: SERIF,
+					headW: 700,
+					chip: 'line',
+					barStyle: 'line',
+					ctaSquare: true,
+					brandSpaced: true,
+					pouch: (a) => [a, a],
+					make: (a) => ({
+						bg: '#f3efe8',
+						disc: '#e7e0d4',
+						line: 'rgba(30,25,20,.16)',
+						headline: '#161412',
+						sub: '#6d665c',
+						brand: '#161412',
+						chipBg: null,
+						chipText: '#2b2722',
+						icon: a,
+						iconFg: onColor(a),
+						bar: null,
+						price: '#161412',
+						prefix: '#6d665c',
+						orig: '#a59d90',
+						cta: a,
+						ctaText: onColor(a),
+						badgeBg: a,
+						badgeText: onColor(a),
+						note: '#8a8378',
+						podium: ['#ece6dc', ['#ddd5c7', '#cdc3b3'], null],
+						shadowA: 0.22,
+					}),
+				},
+				natural: {
+					name: '清新自然',
+					accent: '#2f9e62',
+					swatch: (a) => [lighten(a, 0.8), a],
+					badge: 'circle',
+					align: 'center',
+					head: SANS,
+					headW: 800,
+					chip: 'pill',
+					barR: 'full',
+					pouch: (a) => [a, darken(a, 0.2)],
+					make: (a) => ({
+						bg: [lighten(a, 0.86), '#fbfdfb'],
+						blob: rgba(lighten(a, 0.55), 0.35),
+						disc: 'rgba(255,255,255,.82)',
+						leaf: rgba(lighten(a, 0.2), 0.5),
+						vein: 'rgba(255,255,255,.6)',
+						headline: darken(a, 0.55),
+						sub: mix(darken(a, 0.4), '#888888', 0.35),
+						brand: darken(a, 0.1),
+						chipBg: '#ffffff',
+						chipShadow: 'rgba(20,60,40,.10)',
+						chipText: darken(a, 0.5),
+						icon: a,
+						iconFg: '#ffffff',
+						bar: '#ffffff',
+						barShadow: 'rgba(20,60,40,.12)',
+						price: darken(a, 0.05),
+						prefix: darken(a, 0.4),
+						orig: '#9aa59f',
+						cta: [lighten(a, 0.08), darken(a, 0.12)],
+						ctaText: onColor(a),
+						badgeBg: a,
+						badgeText: onColor(a),
+						note: mix(darken(a, 0.4), '#999999', 0.4),
+						podium: ['#ffffff', [lighten(a, 0.72), lighten(a, 0.55)], null],
+						shadowA: 0.2,
+					}),
+				},
+				tech: {
+					name: '科技暗黑',
+					accent: '#38e1ff',
+					swatch: (a) => ['#0b0f24', a],
+					badge: 'pill',
+					align: 'center',
+					head: SANS,
+					headW: 800,
+					chip: 'glass',
+					barR: 0.22,
+					pouch: (a) => [mix(a, '#3a46ff', 0.55), darken(mix(a, '#3a46ff', 0.55), 0.3)],
+					make: (a) => ({
+						bg: ['#0a0e22', '#161b45'],
+						grid: a,
+						glow: rgba(a, 0.3),
+						ring: rgba(a, 0.6),
+						headline: ['#ffffff', lighten(a, 0.35)],
+						sub: 'rgba(214,230,255,.78)',
+						brand: a,
+						chipBg: rgba(a, 0.1),
+						chipStroke: rgba(a, 0.45),
+						chipText: '#e8f6ff',
+						icon: a,
+						iconFg: '#0a0e22',
+						bar: 'rgba(255,255,255,.05)',
+						barStroke: rgba(a, 0.5),
+						price: a,
+						priceGlow: rgba(a, 0.7),
+						prefix: '#9fb2d8',
+						orig: '#6c7aa8',
+						cta: a,
+						ctaText: onColor(a),
+						badgeBg: a,
+						badgeText: onColor(a),
+						note: 'rgba(170,186,220,.75)',
+						shadowA: 0.5,
+					}),
+				},
+				warm: {
+					name: '温暖萌宠',
+					accent: '#ff8a3d',
+					swatch: (a) => ['#fff3e2', a],
+					badge: 'scallop',
+					align: 'center',
+					head: SANS,
+					headW: 900,
+					chip: 'pill',
+					barR: 'full',
+					pouch: (a) => [a, darken(a, 0.25)],
+					make: (a) => ({
+						bg: ['#fff7ea', '#ffe6c9'],
+						paw: rgba(a, 0.13),
+						disc: lighten(a, 0.74),
+						dot: rgba(a, 0.55),
+						headline: '#4a2a12',
+						sub: '#8a5a33',
+						brand: darken(a, 0.1),
+						chipBg: '#ffffff',
+						chipShadow: 'rgba(120,60,10,.10)',
+						chipText: '#5a3418',
+						icon: a,
+						iconFg: '#ffffff',
+						bar: '#ffffff',
+						barShadow: 'rgba(120,60,10,.12)',
+						price: darken(a, 0.08),
+						prefix: '#8a5a33',
+						orig: '#c4a487',
+						cta: [lighten(a, 0.06), darken(a, 0.12)],
+						ctaText: onColor(a),
+						badgeBg: a,
+						badgeText: onColor(a),
+						note: '#a07a58',
+						podium: ['#fffaf2', [lighten(a, 0.55), lighten(a, 0.4)], null],
+						shadowA: 0.22,
+					}),
+				},
+			};
+
+			// ============================================================
+			// 背景与装饰（按模板）
+			// ============================================================
+			const BG = {
+				promo(ctx, W, H, L, c) {
+					const P = L.prod, u = L.u;
+					ctx.fillStyle = paint(ctx, c.bg, 0, H);
+					ctx.fillRect(0, 0, W, H);
+					const R = Math.hypot(W, H);
+					ctx.fillStyle = c.ray;
+					for (let i = 0; i < 36; i += 2) {
+						const a0 = (i / 36) * Math.PI * 2, a1 = ((i + 1) / 36) * Math.PI * 2;
+						ctx.beginPath();
+						ctx.moveTo(P.cx, P.cy);
+						ctx.arc(P.cx, P.cy, R, a0, a1);
+						ctx.closePath();
+						ctx.fill();
+					}
+					const g = ctx.createRadialGradient(P.cx, P.cy, 0, P.cx, P.cy, P.r * 1.25);
+					g.addColorStop(0, c.glow);
+					g.addColorStop(1, 'rgba(255,226,140,0)');
+					ctx.fillStyle = g;
+					ctx.fillRect(0, 0, W, H);
+					const rnd = mulberry32(7);
+					for (let i = 0; i < 30; i++) {
+						const x = rnd() * W, y = rnd() * H, s = u * (0.5 + rnd() * 1.1);
+						ctx.save();
+						ctx.globalAlpha = 0.35 + rnd() * 0.3;
+						ctx.fillStyle = c.confetti[i % 3];
+						ctx.translate(x, y);
+						ctx.rotate(rnd() * Math.PI);
+						if (i % 2) ctx.fillRect(-s, -s * 0.35, s * 2, s * 0.7);
+						else {
+							ctx.beginPath();
+							ctx.arc(0, 0, s * 0.55, 0, Math.PI * 2);
+							ctx.fill();
+						}
+						ctx.restore();
+					}
+					basePodium(ctx, L, c);
+				},
+				minimal(ctx, W, H, L, c) {
+					const P = L.prod, u = L.u;
+					ctx.fillStyle = c.bg;
+					ctx.fillRect(0, 0, W, H);
+					ctx.fillStyle = c.disc;
+					ctx.beginPath();
+					ctx.arc(P.cx, P.cy, P.r * 0.96, 0, Math.PI * 2);
+					ctx.fill();
+					ctx.strokeStyle = c.line;
+					ctx.lineWidth = Math.max(1, u * 0.18);
+					ctx.beginPath();
+					ctx.arc(P.cx + P.r * 0.14, P.cy - P.r * 0.1, P.r * 1.04, 0, Math.PI * 2);
+					ctx.stroke();
+					ctx.lineWidth = Math.max(1, u * 0.14);
+					ctx.strokeRect(u * 2.4, u * 2.4, W - u * 4.8, H - u * 4.8);
+					basePodium(ctx, L, c);
+				},
+				natural(ctx, W, H, L, c) {
+					const P = L.prod, m = Math.min(W, H);
+					ctx.fillStyle = paint(ctx, c.bg, 0, H);
+					ctx.fillRect(0, 0, W, H);
+					ctx.fillStyle = c.blob;
+					ctx.beginPath();
+					ctx.arc(W * 0.94, H * 0.04, m * 0.4, 0, Math.PI * 2);
+					ctx.fill();
+					ctx.beginPath();
+					ctx.arc(W * 0.04, H * 0.94, m * 0.32, 0, Math.PI * 2);
+					ctx.fill();
+					ctx.fillStyle = c.disc;
+					ctx.beginPath();
+					ctx.arc(P.cx, P.cy, P.r * 0.94, 0, Math.PI * 2);
+					ctx.fill();
+					for (const [a, rot, s] of [
+						[-2.5, -2.2, 0.5],
+						[-2.05, -1.4, 0.36],
+						[-0.55, -0.9, 0.42],
+						[0.45, 0.2, 0.34],
+						[2.55, 2.9, 0.4],
+					]) {
+						leaf(ctx, P.cx + Math.cos(a) * P.r * 0.86, P.cy + Math.sin(a) * P.r * 0.86, P.r * s, rot, c.leaf, c.vein);
+					}
+					basePodium(ctx, L, c);
+				},
+				tech(ctx, W, H, L, c) {
+					const P = L.prod, u = L.u, d = P.draw;
+					ctx.fillStyle = paint(ctx, c.bg, 0, H);
+					ctx.fillRect(0, 0, W, H);
+					// 透视网格地面
+					const hy = Math.min(H * 0.92, d.y + d.h);
+					const vpY = hy - (H - hy) * 0.9;
+					ctx.save();
+					ctx.beginPath();
+					ctx.rect(0, hy, W, H - hy);
+					ctx.clip();
+					const gg = ctx.createLinearGradient(0, hy, 0, H);
+					gg.addColorStop(0, rgba(c.grid, 0));
+					gg.addColorStop(1, rgba(c.grid, 0.3));
+					ctx.strokeStyle = gg;
+					ctx.lineWidth = Math.max(1, u * 0.14);
+					for (let i = -16; i <= 16; i++) {
+						ctx.beginPath();
+						ctx.moveTo(P.cx, vpY);
+						ctx.lineTo(P.cx + i * W * 0.09, H);
+						ctx.stroke();
+					}
+					for (let j = 1; j <= 9; j++) {
+						const y = hy + (H - hy) * (j / 9) ** 1.8;
+						ctx.beginPath();
+						ctx.moveTo(0, y);
+						ctx.lineTo(W, y);
+						ctx.stroke();
+					}
+					ctx.restore();
+					const g = ctx.createRadialGradient(P.cx, P.cy, 0, P.cx, P.cy, P.r * 1.35);
+					g.addColorStop(0, c.glow);
+					g.addColorStop(1, rgba(c.grid, 0));
+					ctx.fillStyle = g;
+					ctx.fillRect(0, 0, W, H);
+					ctx.save();
+					ctx.strokeStyle = c.ring;
+					ctx.lineWidth = u * 0.35;
+					ctx.shadowColor = c.grid;
+					ctx.shadowBlur = u * 3 * SK;
+					ctx.beginPath();
+					ctx.arc(P.cx, P.cy, P.r * 0.9, 0, Math.PI * 2);
+					ctx.stroke();
+					ctx.setLineDash([u * 0.6, u * 1.6]);
+					ctx.lineWidth = u * 0.2;
+					ctx.shadowBlur = 0;
+					ctx.beginPath();
+					ctx.arc(P.cx, P.cy, P.r * 1.0, 0, Math.PI * 2);
+					ctx.stroke();
+					ctx.restore();
+					const rnd = mulberry32(3);
+					for (let i = 0; i < 42; i++) {
+						ctx.fillStyle = rgba(c.grid, 0.2 + rnd() * 0.5);
+						ctx.beginPath();
+						ctx.arc(rnd() * W, rnd() * H, u * (0.12 + rnd() * 0.32), 0, Math.PI * 2);
+						ctx.fill();
+					}
+					if (P.cutout) {
+						const rx = d.w * 0.62, ry = rx * 0.16, y = d.y + d.h - ry * 0.2;
+						ctx.save();
+						ctx.fillStyle = rgba(c.grid, 0.14);
+						ctx.strokeStyle = c.ring;
+						ctx.lineWidth = u * 0.35;
+						ctx.shadowColor = c.grid;
+						ctx.shadowBlur = u * 2.5 * SK;
+						ctx.beginPath();
+						ctx.ellipse(P.cx, y, rx, ry, 0, 0, Math.PI * 2);
+						ctx.fill();
+						ctx.stroke();
+						ctx.restore();
+					}
+				},
+				warm(ctx, W, H, L, c) {
+					const P = L.prod, u = L.u;
+					ctx.fillStyle = paint(ctx, c.bg, 0, H);
+					ctx.fillRect(0, 0, W, H);
+					const rnd = mulberry32(11);
+					for (let i = 0; i < 16; i++) {
+						paw(ctx, rnd() * W, rnd() * H, u * (3.5 + rnd() * 4), rnd() * 1.6 - 0.8, c.paw);
+					}
+					ctx.fillStyle = c.disc;
+					ctx.beginPath();
+					ctx.arc(P.cx, P.cy, P.r * 0.94, 0, Math.PI * 2);
+					ctx.fill();
+					ctx.save();
+					ctx.strokeStyle = c.dot;
+					ctx.lineWidth = u * 0.7;
+					ctx.lineCap = 'round';
+					ctx.setLineDash([0.01, u * 1.8]);
+					ctx.beginPath();
+					ctx.arc(P.cx, P.cy, P.r * 1.03, 0, Math.PI * 2);
+					ctx.stroke();
+					ctx.restore();
+					basePodium(ctx, L, c);
+				},
+			};
+
+			function basePodium(ctx, L, c) {
+				const P = L.prod, d = P.draw;
+				if (!P.cutout || !c.podium) return;
+				const w = Math.min(Math.max(d.w * 1.35, P.r * 1.15), P.w * 0.98);
+				const ry = w * 0.12;
+				podium(ctx, P.cx, d.y + d.h - ry * 0.35, w, c.podium[0], c.podium[1], c.podium[2]);
+			}
+
+			// ============================================================
+			// 示例产品图（参数化绘制的立式包装袋，颜色随模板变化）
+			// ============================================================
+			let sampleCache = { key: '', cv: null };
+			function samplePouch(body, ink, brand, name, lang) {
+				const key = [body, ink, brand, name, lang].join('|');
+				if (sampleCache.key === key) return sampleCache.cv;
+				const W = 760, H = 980, cv = makeCanvas(W, H), x = cv.getContext('2d');
+				const bx = 60, by = 40, bw = 640, bh = 900;
+				x.beginPath();
+				x.moveTo(bx + 24, by);
+				x.lineTo(bx + bw - 24, by);
+				x.quadraticCurveTo(bx + bw, by, bx + bw, by + 24);
+				x.lineTo(bx + bw - 6, by + bh - 70);
+				x.quadraticCurveTo(bx + bw - 10, by + bh, bx + bw - 80, by + bh);
+				x.lineTo(bx + 80, by + bh);
+				x.quadraticCurveTo(bx + 10, by + bh, bx + 6, by + bh - 70);
+				x.lineTo(bx, by + 24);
+				x.quadraticCurveTo(bx, by, bx + 24, by);
+				x.closePath();
+				const g = x.createLinearGradient(bx, 0, bx + bw, 0);
+				g.addColorStop(0, darken(body, 0.28));
+				g.addColorStop(0.18, body);
+				g.addColorStop(0.5, lighten(body, 0.12));
+				g.addColorStop(0.82, body);
+				g.addColorStop(1, darken(body, 0.32));
+				x.fillStyle = g;
+				x.fill();
+				x.save();
+				x.clip();
+				x.fillStyle = 'rgba(0,0,0,.16)';
+				x.fillRect(bx, by, bw, 70);
+				for (let i = 0; i < 6; i++) {
+					x.fillStyle = i % 2 ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.08)';
+					x.fillRect(bx, by + 10 + i * 9, bw, 4);
+				}
+				x.fillStyle = 'rgba(0,0,0,.22)';
+				x.fillRect(bx, by + 96, bw, 5);
+				const gl = x.createLinearGradient(bx + 90, 0, bx + 190, 0);
+				gl.addColorStop(0, 'rgba(255,255,255,0)');
+				gl.addColorStop(0.5, 'rgba(255,255,255,.28)');
+				gl.addColorStop(1, 'rgba(255,255,255,0)');
+				x.fillStyle = gl;
+				x.fillRect(bx + 90, by, 100, bh);
+				const bg = x.createLinearGradient(0, by + bh - 130, 0, by + bh);
+				bg.addColorStop(0, 'rgba(0,0,0,0)');
+				bg.addColorStop(1, 'rgba(0,0,0,.22)');
+				x.fillStyle = bg;
+				x.fillRect(bx, by + bh - 130, bw, 130);
+				x.restore();
+				// 标签
+				const lx = bx + 80, ly = by + 250, lw = bw - 160, lh = 500;
+				x.save();
+				x.shadowColor = 'rgba(0,0,0,.18)';
+				x.shadowBlur = 18;
+				x.shadowOffsetY = 6;
+				rr(x, lx, ly, lw, lh, 44);
+				x.fillStyle = '#fffdf8';
+				x.fill();
+				x.restore();
+				paw(x, W / 2, ly + 96, 84, 0, ink);
+				x.textAlign = 'center';
+				x.textBaseline = 'middle';
+				const b = fitText(x, brand || 'BRAND', lw - 70, 1, 64, 28, 900, SANS);
+				x.font = b.font;
+				x.fillStyle = darken(ink, 0.1);
+				x.fillText(b.lines[0], W / 2, ly + 205);
+				x.fillStyle = rgba(ink, 0.35);
+				x.fillRect(W / 2 - 60, ly + 250, 120, 4);
+				const n = fitText(x, name || '产品名称', lw - 80, 2, 50, 26, 700, SANS, true);
+				x.font = n.font;
+				x.fillStyle = '#2b2b2b';
+				n.lines.forEach((ln, i) => x.fillText(ln, W / 2, ly + 310 + i * n.size * 1.25 + n.size / 2));
+				x.font = `600 24px ${SANS}`;
+				x.fillStyle = '#8a8a8a';
+				x.fillText(lang === 'en' ? 'PREMIUM RECIPE' : 'PREMIUM · 精选配方', W / 2, ly + lh - 44);
+				sampleCache = { key, cv };
+				return cv;
+			}
+
+			// ============================================================
+			// 产品图处理：抠图（边缘泛洪 + 羽化）、裁边
+			// ============================================================
+			const IMG = { src: null, proc: null, cutout: true, alpha: false, name: '' };
+
+			function borderInfo(cv) {
+				const w = cv.width, h = cv.height;
+				const d = cv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+				const bins = new Map();
+				let n = 0, transparent = 0;
+				const sample = (px, py) => {
+					const i = (py * w + px) * 4;
+					n++;
+					if (d[i + 3] < 250) transparent++;
+					const key = ((d[i] >> 4) << 8) | ((d[i + 1] >> 4) << 4) | (d[i + 2] >> 4);
+					const b = bins.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+					b.n++;
+					b.r += d[i];
+					b.g += d[i + 1];
+					b.b += d[i + 2];
+					bins.set(key, b);
+				};
+				const sx = Math.max(1, w >> 6), sy = Math.max(1, h >> 6);
+				for (let i = 0; i < w; i += sx) {
+					sample(i, 0);
+					sample(i, h - 1);
+				}
+				for (let j = 0; j < h; j += sy) {
+					sample(0, j);
+					sample(w - 1, j);
+				}
+				let best = { n: 0, r: 0, g: 0, b: 0 };
+				for (const b of bins.values()) if (b.n > best.n) best = b;
+				const ref = [best.r / best.n, best.g / best.n, best.b / best.n];
+				return { ref, uniform: best.n / n, alpha: transparent / n > 0.05, data: d };
+			}
+
+			function removeBg(src, tol) {
+				const w = src.width, h = src.height;
+				const cv = makeCanvas(w, h), x = cv.getContext('2d', { willReadFrequently: true });
+				x.drawImage(src, 0, 0);
+				const im = x.getImageData(0, 0, w, h), d = im.data;
+				const [r, g, b] = borderInfo(src).ref;
+				const t2 = tol * tol;
+				const dist2 = (i) => {
+					const dr = d[i] - r, dg = d[i + 1] - g, db = d[i + 2] - b;
+					return dr * dr + dg * dg + db * db;
+				};
+				const seen = new Uint8Array(w * h), q = new Int32Array(w * h);
+				let qh = 0, qt = 0;
+				const push = (p) => {
+					if (!seen[p] && dist2(p * 4) <= t2) {
+						seen[p] = 1;
+						q[qt++] = p;
+					}
+				};
+				for (let i = 0; i < w; i++) {
+					push(i);
+					push((h - 1) * w + i);
+				}
+				for (let j = 0; j < h; j++) {
+					push(j * w);
+					push(j * w + w - 1);
+				}
+				while (qh < qt) {
+					const p = q[qh++], px = p % w;
+					if (px > 0) push(p - 1);
+					if (px < w - 1) push(p + 1);
+					if (p >= w) push(p - w);
+					if (p < w * (h - 1)) push(p + w);
+				}
+				for (let p = 0; p < w * h; p++) if (seen[p]) d[p * 4 + 3] = 0;
+				// 边缘羽化：与背景相邻、颜色接近背景的像素做半透明过渡
+				const soft = tol * 1.8;
+				for (let p = 0; p < w * h; p++) {
+					if (seen[p]) continue;
+					const px = p % w;
+					if (
+						(px > 0 && seen[p - 1]) ||
+						(px < w - 1 && seen[p + 1]) ||
+						(p >= w && seen[p - w]) ||
+						(p < w * (h - 1) && seen[p + w])
+					) {
+						const dd = Math.sqrt(dist2(p * 4));
+						if (dd < soft) d[p * 4 + 3] = Math.round(d[p * 4 + 3] * clamp((dd - tol) / (soft - tol), 0.15, 1));
+					}
+				}
+				x.putImageData(im, 0, 0);
+				return cv;
+			}
+
+			function trimAlpha(cv) {
+				const w = cv.width, h = cv.height;
+				const d = cv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, w, h).data;
+				let x0 = w, y0 = h, x1 = -1, y1 = -1;
+				for (let y = 0; y < h; y++) {
+					for (let x = 0; x < w; x++) {
+						if (d[(y * w + x) * 4 + 3] > 16) {
+							if (x < x0) x0 = x;
+							if (x > x1) x1 = x;
+							if (y < y0) y0 = y;
+							if (y > y1) y1 = y;
+						}
+					}
+				}
+				if (x1 < 0 || (x0 === 0 && y0 === 0 && x1 === w - 1 && y1 === h - 1)) return cv;
+				const out = makeCanvas(x1 - x0 + 1, y1 - y0 + 1);
+				out.getContext('2d').drawImage(cv, -x0, -y0);
+				return out;
+			}
+
+			function processImage() {
+				if (!IMG.src) {
+					IMG.proc = null;
+					return;
+				}
+				if (IMG.alpha) {
+					IMG.proc = trimAlpha(IMG.src);
+					IMG.cutout = true;
+				} else if (state.removeBg) {
+					IMG.proc = trimAlpha(removeBg(IMG.src, +state.tol));
+					IMG.cutout = true;
+				} else {
+					IMG.proc = IMG.src;
+					IMG.cutout = false;
+				}
+			}
+
+			function currentImage(th, accent) {
+				if (IMG.proc) return { canvas: IMG.proc, w: IMG.proc.width, h: IMG.proc.height, cutout: IMG.cutout };
+				const [body, ink] = th.pouch(accent);
+				const cv = samplePouch(body, ink, state.brand.trim(), (state.product || state.headline).trim(), state.lang);
+				return { canvas: cv, w: cv.width, h: cv.height, cutout: true };
+			}
+
+			// ============================================================
+			// 布局
+			// ============================================================
+			const parsePoints = (s) =>
+				String(s || '')
+					.split('\n')
+					.map((t) => t.trim())
+					.filter(Boolean)
+					.slice(0, 4);
+
+			function prodGeom(R, img, scale) {
+				const cx = R.x + R.w / 2;
+				const cy = R.y + R.h * (img.cutout ? 0.46 : 0.5);
+				const P = { x: R.x, y: R.y, w: R.w, h: R.h, cx, cy, r: Math.min(R.w, R.h) / 2, cutout: img.cutout };
+				const s = Math.min((R.w * 0.9) / img.w, (R.h * (img.cutout ? 0.82 : 0.9)) / img.h) * scale;
+				const w = img.w * s, h = img.h * s;
+				P.draw = { x: cx - w / 2, y: cy - h / 2, w, h };
+				return P;
+			}
+
+			// 方图/接近方图：卖点竖排在左，产品在右
+			function layoutSide(ctx, pts, R, u, k) {
+				let size = 3.3 * u * k;
+				const min = 2.2 * u;
+				for (;;) {
+					ctx.font = `600 ${size}px ${SANS}`;
+					const ih = size * 2.1, gap = size * 0.6, ir = size * 0.62, padL = size * 0.55, padR = size * 0.9;
+					const maxText = R.w - padL - ir * 2 - size * 0.45 - padR;
+					const widths = pts.map((p) => ctx.measureText(p).width);
+					let n = pts.length;
+					let total = n * ih + (n - 1) * gap;
+					const fits = Math.max(...widths) <= maxText && total <= R.h;
+					if (fits || size <= min) {
+						if (total > R.h) {
+							n = Math.max(1, Math.floor((R.h + gap) / (ih + gap)));
+							total = n * ih + (n - 1) * gap;
+						}
+						const y0 = R.y + (R.h - total) / 2;
+						const items = pts.slice(0, n).map((p, i) => {
+							const t = clip(ctx, p, maxText);
+							const tw = ctx.measureText(t).width;
+							return { t, x: R.x, y: y0 + i * (ih + gap), w: padL + ir * 2 + size * 0.45 + tw + padR, h: ih };
+						});
+						return { size, ir, padL, items, font: ctx.font, ok: fits };
+					}
+					size = Math.max(min, size * 0.93);
+				}
+			}
+
+			// 竖版长图：卖点 2 列卡片
+			function layoutGrid(ctx, pts, x0, cw, bottom, u, k) {
+				const gap = 2 * u * k;
+				let size = 3.7 * u * k;
+				const min = 2.6 * u;
+				for (;;) {
+					ctx.font = `600 ${size}px ${SANS}`;
+					const ir = size * 0.62, padL = size * 0.7, padR = size * 0.7, padY = size * 0.8, lh = size * 1.3;
+					const n = pts.length, colW = (cw - gap) / 2;
+					let over = false;
+					const cells = pts.map((t, i) => {
+						const full = n % 2 === 1 && i === n - 1;
+						const w = full ? cw : colW;
+						const textW = w - padL - ir * 2 - size * 0.45 - padR;
+						const lines = wrap(ctx, t, textW);
+						if (lines.length > 2) over = true;
+						return { t, w, textW, lines, col: full ? 0 : i % 2, row: Math.floor(i / 2) };
+					});
+					if (!over || size <= min) {
+						for (const cl of cells) {
+							if (cl.lines.length > 2) cl.lines = [cl.lines[0], clip(ctx, cl.lines.slice(1).join(''), cl.textW)];
+						}
+						const rows = Math.ceil(n / 2);
+						const h = Math.max(...cells.map((cl) => cl.lines.length)) * lh + padY * 2;
+						const top = bottom - (rows * h + (rows - 1) * gap);
+						for (const cl of cells) {
+							cl.x = x0 + cl.col * (colW + gap);
+							cl.y = top + cl.row * (h + gap);
+							cl.h = h;
+						}
+						return { size, ir, padL, items: cells, top, font: ctx.font, lh, ok: true };
+					}
+					size = Math.max(min, size * 0.93);
+				}
+			}
+
+			// 横版：卖点胶囊流式排列
+			function layoutChips(ctx, pts, maxW, size0, minSize, maxRows) {
+				let size = size0;
+				for (;;) {
+					ctx.font = `600 ${size}px ${SANS}`;
+					const h = size * 2, gap = size * 0.55, ir = size * 0.55, padL = size * 0.5, padR = size * 0.85;
+					const maxT = maxW - padL - ir * 2 - size * 0.45 - padR;
+					let row = 0, x = 0;
+					const items = pts.map((p) => {
+						const t = clip(ctx, p, maxT);
+						const w = padL + ir * 2 + size * 0.45 + ctx.measureText(t).width + padR;
+						if (x > 0 && x + w > maxW) {
+							row++;
+							x = 0;
+						}
+						const it = { t, w, h, row, dx: x };
+						x += w + gap;
+						return it;
+					});
+					if (row < maxRows || size <= minSize) {
+						const kept = items.filter((it) => it.row < maxRows);
+						const rows = Math.min(row + 1, maxRows);
+						return { size, h, gap, ir, padL, items: kept, height: rows * h + (rows - 1) * gap, font: ctx.font, ok: true };
+					}
+					size = Math.max(minSize, size * 0.93);
+				}
+			}
+
+			const hasBar = (st) => !!(String(st.price).trim() || String(st.cta).trim());
+
+			function layoutTall(ctx, W, H, st, th, img, pts) {
+				let L;
+				for (let k = 1; k >= 0.6; k -= 0.06) {
+					L = tryTall(ctx, W, H, st, th, img, pts, k);
+					if (L.ok) break;
+				}
+				return L;
+			}
+			function tryTall(ctx, W, H, st, th, img, pts, k) {
+				const ratio = W / H;
+				const mode = ratio < 0.7 ? 'grid' : 'side';
+				const u = Math.min(W, H) / 100;
+				const pad = 6 * u;
+				const x0 = pad, cw = W - pad * 2;
+				const L = { W, H, u, x0, cw, align: th.align, tx: th.align === 'center' ? W / 2 : x0 };
+				let y = pad * 0.95;
+				if (st.brand.trim()) {
+					L.brand = { y, size: 3.4 * u * k };
+					y += L.brand.size + 2.4 * u * k;
+				}
+				L.head = fitText(ctx, st.headline, cw, 2, (mode === 'grid' ? 11 : 9) * u * k, 5 * u, th.headW, th.head, true);
+				if (L.head) {
+					L.head.y = y;
+					L.head.lh = L.head.size * 1.18;
+					y += L.head.lines.length * L.head.lh + 1.2 * u * k;
+				}
+				L.sub = fitText(ctx, st.sub, cw, ratio < 0.85 ? 2 : 1, 4.3 * u * k, 3 * u, 500, SANS, true);
+				if (L.sub) {
+					L.sub.y = y;
+					L.sub.lh = L.sub.size * 1.38;
+					y += L.sub.lines.length * L.sub.lh + 2.2 * u * k;
+				}
+				const top = y;
+				let yb = H - pad * 0.9;
+				if (st.note.trim()) {
+					L.note = { size: 2.6 * u * k };
+					L.note.y = yb - L.note.size;
+					yb = L.note.y - 1.8 * u * k;
+				}
+				if (hasBar(st)) {
+					const P = (mode === 'grid' ? 15 : 13.5) * u * k;
+					L.bar = { x: x0, y: yb - P, w: cw, h: P };
+					yb = L.bar.y - 2.6 * u * k;
+				}
+				if (mode === 'grid' && pts.length) {
+					L.pts = layoutGrid(ctx, pts, x0, cw, yb, u, k);
+					yb = L.pts.top - 2.6 * u * k;
+				}
+				const band = { x: x0, y: top, w: cw, h: yb - top };
+				let R = band;
+				if (mode === 'side' && pts.length) {
+					const sw = cw * 0.42;
+					L.pts = layoutSide(ctx, pts, { x: x0, y: band.y, w: sw, h: band.h }, u, k);
+					R = { x: x0 + sw + 2 * u, y: band.y, w: cw - sw - 2 * u, h: band.h };
+				}
+				L.prod = prodGeom(R, img, st.imgScale / 100);
+				L.ok = band.h >= H * (mode === 'grid' ? 0.34 : 0.36) && (!L.pts || L.pts.ok);
+				return L;
+			}
+
+			function layoutWide(ctx, W, H, st, th, img, pts) {
+				let L;
+				for (let k = 1; k >= 0.6; k -= 0.05) {
+					L = tryWide(ctx, W, H, st, th, img, pts, k);
+					if (L.ok) break;
+				}
+				return L;
+			}
+			function tryWide(ctx, W, H, st, th, img, pts, k) {
+				const u = H / 100;
+				const x0 = 7 * u;
+				const tw = Math.min(W * 0.52 - x0, 130 * u);
+				const L = { W, H, u, x0, cw: tw, align: 'left', tx: x0, wide: true };
+				const parts = [];
+				if (st.brand.trim()) {
+					L.brand = { size: 3.6 * u * k };
+					parts.push(['brand', L.brand.size, 2.4 * u * k]);
+				}
+				L.head = fitText(ctx, st.headline, tw, 2, 11.5 * u * k, 6 * u * k, th.headW, th.head, true);
+				if (L.head) {
+					L.head.lh = L.head.size * 1.16;
+					parts.push(['head', L.head.lines.length * L.head.lh, 1.6 * u * k]);
+				}
+				L.sub = fitText(ctx, st.sub, tw, 2, 4.8 * u * k, 3.2 * u * k, 500, SANS, true);
+				if (L.sub) {
+					L.sub.lh = L.sub.size * 1.4;
+					parts.push(['sub', L.sub.lines.length * L.sub.lh, 3.4 * u * k]);
+				}
+				if (pts.length) {
+					L.pts = layoutChips(ctx, pts, tw, 3.4 * u * k, 2.4 * u, 2);
+					parts.push(['pts', L.pts.height, 4 * u * k]);
+				}
+				if (hasBar(st)) {
+					L.bar = { x: x0, w: tw, h: 13 * u * k, fit: true };
+					parts.push(['bar', L.bar.h, 2.6 * u * k]);
+				}
+				if (st.note.trim()) {
+					L.note = { size: 2.7 * u * k };
+					parts.push(['note', L.note.size * 1.2, 0]);
+				}
+				const total = parts.reduce((s, p, i) => s + p[1] + (i < parts.length - 1 ? p[2] : 0), 0);
+				let y = Math.max(5 * u, (H - total) / 2);
+				for (const [key, h, gap] of parts) {
+					L[key].y = y;
+					y += h + gap;
+				}
+				if (L.pts) {
+					for (const it of L.pts.items) {
+						it.x = x0 + it.dx;
+						it.y = L.pts.y + it.row * (L.pts.h + L.pts.gap);
+					}
+				}
+				const px = x0 + tw + 4 * u;
+				L.prod = prodGeom({ x: px, y: 6 * u, w: W - px - 6 * u, h: 88 * u }, img, st.imgScale / 100);
+				L.ok = total <= H - 10 * u;
+				return L;
+			}
+
+			// ============================================================
+			// 元素绘制
+			// ============================================================
+			function drawBlock(ctx, B, x, align, fill, shadow) {
+				if (!B) return;
+				ctx.save();
+				ctx.font = B.font;
+				ctx.textAlign = align;
+				ctx.textBaseline = 'middle';
+				ctx.fillStyle = paint(ctx, fill, B.y, B.y + B.lines.length * B.lh);
+				if (shadow) {
+					ctx.shadowColor = shadow;
+					ctx.shadowBlur = B.size * 0.12 * SK;
+					ctx.shadowOffsetY = B.size * 0.05 * SK;
+				}
+				B.lines.forEach((ln, i) => ctx.fillText(ln, x, B.y + i * B.lh + B.lh / 2));
+				ctx.restore();
+			}
+
+			function drawBrand(ctx, L, st, c, th) {
+				if (!L.brand) return;
+				const B = L.brand;
+				ctx.save();
+				ctx.font = `800 ${B.size}px ${SANS}`;
+				ctx.textAlign = L.align;
+				ctx.textBaseline = 'middle';
+				ctx.fillStyle = c.brand;
+				let text = st.brand.trim();
+				if (th.brandSpaced) {
+					text = text.toUpperCase();
+					if ('letterSpacing' in ctx) ctx.letterSpacing = `${B.size * 0.28}px`;
+				}
+				ctx.fillText(clip(ctx, text, L.cw), L.tx, B.y + B.size / 2);
+				ctx.restore();
+			}
+
+			function drawProduct(ctx, L, img, c) {
+				const d = L.prod.draw;
+				ctx.save();
+				if (img.cutout) {
+					const sx = d.x + d.w / 2, sy = d.y + d.h - d.w * 0.012;
+					const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, d.w * 0.48);
+					g.addColorStop(0, `rgba(0,0,0,${c.shadowA})`);
+					g.addColorStop(1, 'rgba(0,0,0,0)');
+					ctx.fillStyle = g;
+					ctx.beginPath();
+					ctx.ellipse(sx, sy, d.w * 0.48, d.w * 0.07, 0, 0, Math.PI * 2);
+					ctx.fill();
+					ctx.drawImage(img.canvas, d.x, d.y, d.w, d.h);
+				} else {
+					const r = Math.min(d.w, d.h) * 0.045;
+					ctx.shadowColor = 'rgba(0,0,0,.28)';
+					ctx.shadowBlur = d.w * 0.06 * SK;
+					ctx.shadowOffsetY = d.w * 0.025 * SK;
+					rr(ctx, d.x, d.y, d.w, d.h, r);
+					ctx.fillStyle = '#ffffff';
+					ctx.fill();
+					ctx.shadowColor = 'transparent';
+					ctx.clip();
+					ctx.drawImage(img.canvas, d.x, d.y, d.w, d.h);
+				}
+				ctx.restore();
+			}
+
+			function drawBadge(ctx, L, st, c, th) {
+				const t = st.badge.trim();
+				if (!t) return;
+				const P = L.prod, d = P.draw, u = L.u;
+				ctx.save();
+				if (th.badge === 'rect' || th.badge === 'pill') {
+					const fs = 3.3 * u;
+					ctx.font = `800 ${fs}px ${SANS}`;
+					const text = clip(ctx, t, P.w * 0.7);
+					const w = ctx.measureText(text).width + fs * 1.6, h = fs * 2.1;
+					const x = Math.min(d.x + d.w - w * 0.55, P.x + P.w - w);
+					const y = Math.max(d.y - h * 0.2, P.y);
+					rr(ctx, x, y, w, h, th.badge === 'pill' ? h / 2 : 0);
+					ctx.fillStyle = c.badgeBg;
+					ctx.shadowColor = 'rgba(0,0,0,.2)';
+					ctx.shadowBlur = fs * 0.5 * SK;
+					ctx.fill();
+					ctx.shadowColor = 'transparent';
+					ctx.fillStyle = c.badgeText;
+					ctx.textAlign = 'center';
+					ctx.textBaseline = 'middle';
+					ctx.fillText(text, x + w / 2, y + h / 2);
+				} else {
+					const r = clamp(Math.min(P.w, P.h) * 0.17, 7 * u, 12 * u);
+					const cx = Math.min(d.x + d.w - r * 0.1, P.x + P.w - r * 1.02);
+					const cy = Math.max(d.y + r * 0.35, P.y + r * 1.02);
+					ctx.translate(cx, cy);
+					ctx.rotate(th.badge === 'burst' ? -0.2 : 0);
+					ctx.shadowColor = 'rgba(0,0,0,.22)';
+					ctx.shadowBlur = r * 0.18 * SK;
+					ctx.shadowOffsetY = r * 0.06 * SK;
+					ctx.fillStyle = c.badgeBg;
+					if (th.badge === 'burst') {
+						starPath(ctx, 0, 0, r, 16, 0.84, 0);
+						ctx.fill();
+					} else if (th.badge === 'scallop') {
+						ctx.beginPath();
+						ctx.arc(0, 0, r * 0.86, 0, Math.PI * 2);
+						ctx.fill();
+						ctx.shadowColor = 'transparent';
+						for (let i = 0; i < 14; i++) {
+							const a = (i / 14) * Math.PI * 2;
+							ctx.beginPath();
+							ctx.arc(Math.cos(a) * r * 0.84, Math.sin(a) * r * 0.84, r * 0.17, 0, Math.PI * 2);
+							ctx.fill();
+						}
+					} else {
+						ctx.beginPath();
+						ctx.arc(0, 0, r, 0, Math.PI * 2);
+						ctx.fill();
+					}
+					ctx.shadowColor = 'transparent';
+					const f = fitText(ctx, t, r * 1.36, 2, r * 0.5, r * 0.24, 900, SANS, true);
+					ctx.font = f.font;
+					ctx.fillStyle = c.badgeText;
+					ctx.textAlign = 'center';
+					ctx.textBaseline = 'middle';
+					const lh = f.size * 1.12;
+					f.lines.forEach((ln, i) => ctx.fillText(ln, 0, (i - (f.lines.length - 1) / 2) * lh));
+				}
+				ctx.restore();
+			}
+
+			function drawPoints(ctx, L, c, th) {
+				const P = L.pts;
+				if (!P) return;
+				ctx.save();
+				ctx.textBaseline = 'middle';
+				ctx.textAlign = 'left';
+				const grid = !!P.lh;
+				for (const it of P.items) {
+					if (th.chip === 'line') {
+						ctx.fillStyle = c.line || 'rgba(0,0,0,.15)';
+						ctx.fillRect(it.x, it.y + it.h - Math.max(1, P.size * 0.05), it.w, Math.max(1, P.size * 0.05));
+					} else {
+						rr(ctx, it.x, it.y, it.w, it.h, grid ? P.size * 0.7 : it.h / 2);
+						ctx.save();
+						if (c.chipShadow) {
+							ctx.shadowColor = c.chipShadow;
+							ctx.shadowBlur = P.size * 0.6 * SK;
+							ctx.shadowOffsetY = P.size * 0.15 * SK;
+						}
+						ctx.fillStyle = c.chipBg;
+						ctx.fill();
+						ctx.restore();
+						if (c.chipStroke) {
+							ctx.strokeStyle = c.chipStroke;
+							ctx.lineWidth = Math.max(1, P.size * 0.06);
+							ctx.stroke();
+						}
+					}
+					const icx = it.x + P.padL + P.ir, icy = it.y + it.h / 2;
+					if (th.chip === 'line') {
+						ctx.fillStyle = c.icon;
+						const s = P.ir * 0.62;
+						ctx.fillRect(icx - s / 2, icy - s / 2, s, s);
+					} else checkIcon(ctx, icx, icy, P.ir, c.icon, c.iconFg);
+					ctx.font = P.font;
+					ctx.fillStyle = c.chipText;
+					const tx = icx + P.ir + P.size * 0.45;
+					const lines = it.lines || [it.t];
+					const lh = P.lh || P.size * 1.3;
+					const y0 = icy - ((lines.length - 1) * lh) / 2;
+					lines.forEach((ln, i) => ctx.fillText(ln, tx, y0 + i * lh));
+				}
+				ctx.restore();
+			}
+
+			function priceSegments(ctx, st, size) {
+				const price = String(st.price).trim();
+				if (!price) return { seg: [], w: 0, size };
+				const cur = st.currency || '¥';
+				const prefix = String(st.prefix).trim(), orig = String(st.orig).trim();
+				const seg = [];
+				if (prefix) seg.push({ t: prefix, f: `700 ${size * 0.34}px ${SANS}`, k: 'prefix', gap: size * 0.16 });
+				seg.push({ t: cur, f: `800 ${size * 0.48}px ${SANS}`, k: 'price', gap: size * 0.04 });
+				seg.push({ t: price, f: `900 ${size}px ${SANS}`, k: 'price', gap: size * 0.22, main: true });
+				if (orig) seg.push({ t: cur + orig, f: `500 ${size * 0.32}px ${SANS}`, k: 'orig', gap: 0, strike: true });
+				let w = 0;
+				seg.forEach((s, i) => {
+					ctx.font = s.f;
+					s.w = ctx.measureText(s.t).width;
+					w += s.w + (i < seg.length - 1 ? s.gap : 0);
+				});
+				return { seg, w, size };
+			}
+			function drawPriceSegments(ctx, m, x, baseline, c) {
+				let cx = x;
+				ctx.save();
+				ctx.textAlign = 'left';
+				ctx.textBaseline = 'alphabetic';
+				for (const s of m.seg) {
+					ctx.font = s.f;
+					ctx.fillStyle = c[s.k];
+					if (s.main && c.priceGlow) {
+						ctx.shadowColor = c.priceGlow;
+						ctx.shadowBlur = m.size * 0.25 * SK;
+					}
+					ctx.fillText(s.t, cx, baseline);
+					ctx.shadowColor = 'transparent';
+					if (s.strike) {
+						ctx.fillStyle = c.orig;
+						ctx.fillRect(cx, baseline - m.size * 0.11, s.w, Math.max(1, m.size * 0.025));
+					}
+					cx += s.w + s.gap;
+				}
+				ctx.restore();
+			}
+			function ctaMetrics(ctx, text, h) {
+				const fs = h * 0.42;
+				ctx.font = `800 ${fs}px ${SANS}`;
+				const tw = ctx.measureText(text).width;
+				const aw = fs * 0.5;
+				return { text, h, fs, tw, aw, w: tw + fs * 0.45 + aw + h * 0.8 };
+			}
+			function drawCta(ctx, m, x, y, c, th) {
+				ctx.save();
+				rr(ctx, x, y, m.w, m.h, th.ctaSquare ? m.h * 0.06 : m.h / 2);
+				ctx.fillStyle = paint(ctx, c.cta, y, y + m.h);
+				ctx.fill();
+				ctx.font = `800 ${m.fs}px ${SANS}`;
+				ctx.fillStyle = c.ctaText;
+				ctx.textAlign = 'left';
+				ctx.textBaseline = 'middle';
+				const tx = x + m.h * 0.4;
+				ctx.fillText(m.text, tx, y + m.h / 2);
+				const ax = tx + m.tw + m.fs * 0.45, ay = y + m.h / 2, s = m.aw * 0.55;
+				ctx.beginPath();
+				ctx.moveTo(ax, ay - s);
+				ctx.lineTo(ax + s * 0.85, ay);
+				ctx.lineTo(ax, ay + s);
+				ctx.strokeStyle = c.ctaText;
+				ctx.lineWidth = m.fs * 0.14;
+				ctx.lineCap = 'round';
+				ctx.lineJoin = 'round';
+				ctx.stroke();
+				ctx.restore();
+			}
+
+			function drawBar(ctx, L, st, c, th) {
+				const B = L.bar;
+				if (!B) return;
+				const P = B.h;
+				const ctaText = String(st.cta).trim();
+				const cta = ctaText ? ctaMetrics(ctx, ctaText, P * 0.64) : null;
+				const inset = (P - (cta ? cta.h : 0)) / 2;
+				const lined = th.barStyle === 'line';
+				const pl = lined ? 0 : P * 0.28;
+				const avail = B.w - pl * 2 - (cta ? cta.w + P * 0.3 : 0);
+				let size = P * 0.6;
+				let m = priceSegments(ctx, st, size);
+				while (m.w > avail && size > P * 0.28) {
+					size *= 0.94;
+					m = priceSegments(ctx, st, size);
+				}
+				// 只有按钮没有价格：放大按钮，不画价格条
+				if (!m.w) {
+					if (!cta) return;
+					const big = ctaMetrics(ctx, ctaText, P * 0.78);
+					const bx = L.wide ? B.x : B.x + (B.w - big.w) / 2;
+					drawCta(ctx, big, bx, B.y + (P - big.h) / 2, c, th);
+					return;
+				}
+				let bw = B.w;
+				if (B.fit) bw = Math.min(B.w, pl + m.w + (cta ? P * 0.3 + cta.w + inset : pl));
+				ctx.save();
+				if (lined) {
+					ctx.fillStyle = c.line || 'rgba(0,0,0,.2)';
+					ctx.fillRect(B.x, B.y, bw, Math.max(1, L.u * 0.14));
+				} else if (c.bar) {
+					rr(ctx, B.x, B.y, bw, P, th.barR === 'full' ? P / 2 : P * th.barR);
+					if (c.barShadow) {
+						ctx.shadowColor = c.barShadow;
+						ctx.shadowBlur = P * 0.3 * SK;
+						ctx.shadowOffsetY = P * 0.06 * SK;
+					}
+					ctx.fillStyle = paint(ctx, c.bar, B.y, B.y + P);
+					ctx.fill();
+					ctx.shadowColor = 'transparent';
+					if (c.barStroke) {
+						ctx.strokeStyle = c.barStroke;
+						ctx.lineWidth = Math.max(1, L.u * 0.18);
+						ctx.stroke();
+					}
+				}
+				ctx.restore();
+				const baseline = B.y + P / 2 + m.size * 0.36;
+				const priceX = cta || B.fit ? B.x + pl : B.x + (bw - m.w) / 2;
+				drawPriceSegments(ctx, m, priceX, baseline, c);
+				if (cta) drawCta(ctx, cta, B.x + bw - (lined ? 0 : inset) - cta.w, B.y + inset, c, th);
+			}
+
+			function drawNote(ctx, L, st, c) {
+				if (!L.note) return;
+				ctx.save();
+				ctx.font = `500 ${L.note.size}px ${SANS}`;
+				ctx.fillStyle = c.note;
+				ctx.textAlign = L.wide ? 'left' : 'center';
+				ctx.textBaseline = 'middle';
+				ctx.fillText(clip(ctx, st.note.trim(), L.wide ? L.cw : L.cw), L.wide ? L.x0 : L.W / 2, L.note.y + L.note.size / 2);
+				ctx.restore();
+			}
+
+			// ============================================================
+			// 主渲染
+			// ============================================================
+			function render(ctx, W, H, st, k = 1) {
+				SK = k;
+				const th = THEMES[st.theme] || THEMES.promo;
+				const accent = /^#[0-9a-f]{6}$/i.test(st.accent) ? st.accent : th.accent;
+				const c = th.make(accent);
+				const img = currentImage(th, accent);
+				const pts = parsePoints(st.points);
+				ctx.save();
+				ctx.clearRect(0, 0, W, H);
+				const L = W / H >= 1.3 ? layoutWide(ctx, W, H, st, th, img, pts) : layoutTall(ctx, W, H, st, th, img, pts);
+				BG[st.theme in BG ? st.theme : 'promo'](ctx, W, H, L, c);
+				drawProduct(ctx, L, img, c);
+				drawBadge(ctx, L, st, c, th);
+				drawBrand(ctx, L, st, c, th);
+				drawBlock(ctx, L.head, L.tx, L.align, c.headline, c.headShadow);
+				drawBlock(ctx, L.sub, L.tx, L.align, c.sub);
+				drawPoints(ctx, L, c, th);
+				drawBar(ctx, L, st, c, th);
+				drawNote(ctx, L, st, c);
+				ctx.restore();
+			}
+
+			// ============================================================
+			// 广告法自查
+			// ============================================================
+			// [词或正则, 等级, 原因, 建议替换（字符串=可一键替换；''=删除；undefined=需人工改写）]
+			const RULES = [
+				['最佳', 'high', '极限用语', '优选'],
+				['最好', 'high', '极限用语', '优质'],
+				['最优', 'high', '极限用语', '优选'],
+				['最强', 'high', '极限用语', '强劲'],
+				['最低价', 'high', '极限用语', '优惠价'],
+				['最便宜', 'high', '极限用语', '超值'],
+				['最先进', 'high', '极限用语', '先进'],
+				['最受欢迎', 'high', '极限用语', '广受欢迎'],
+				['最畅销', 'high', '极限用语', '热销'],
+				['最高级', 'high', '极限用语', '高品质'],
+				['最划算', 'high', '极限用语', '超划算'],
+				['最实惠', 'high', '极限用语', '实惠'],
+				['最专业', 'high', '极限用语', '专业'],
+				['最安全', 'high', '极限用语', '安心'],
+				['最有效', 'high', '极限用语', '有效'],
+				['最舒适', 'high', '极限用语', '舒适'],
+				['最完美', 'high', '极限用语', '出色'],
+				['最新', 'mid', '「最新」需有明确时间依据', '新款'],
+				[/最(?![近后终初少])[一-龥]/g, 'mid', '疑似「最」字极限用语', undefined, 1],
+				[/第一(?![次步天口眼个件单])/g, 'high', '排名类极限用语，需权威依据', '领先'],
+				[/NO\.?\s?1|TOP\s?1/gi, 'high', '排名类极限用语', '领先'],
+				['唯一', 'high', '极限用语', undefined],
+				['首个', 'high', '极限用语，需权威依据', undefined],
+				['首选', 'high', '极限用语', '优选'],
+				['顶级', 'high', '极限用语', '高品质'],
+				['顶尖', 'high', '极限用语', '出色'],
+				['极致', 'high', '极限用语', '出色'],
+				['极品', 'high', '极限用语', '精品'],
+				['巅峰', 'high', '极限用语', undefined],
+				['无敌', 'high', '极限用语', undefined],
+				['史无前例', 'high', '极限用语', undefined],
+				['绝无仅有', 'high', '极限用语', undefined],
+				[/全网最低价?/g, 'high', '极限用语', '超值价'],
+				['全国第一', 'high', '极限用语', undefined],
+				['世界级', 'high', '极限用语', undefined],
+				['国家级', 'high', '不得使用国家级等表述', undefined],
+				['绝对', 'high', '绝对化用语', ''],
+				['百分之百', 'high', '绝对化用语，需检测依据', undefined],
+				['100%', 'mid', '绝对化数据，需检测报告支撑', undefined],
+				['万能', 'high', '绝对化用语', '多用途'],
+				['永久', 'mid', '绝对化承诺，需确保可兑现', '长效'],
+				['完美', 'mid', '绝对化用语', '出色'],
+				['遥遥领先', 'mid', '比较性用语，需有依据', '领先'],
+				['销量冠军', 'mid', '需有真实销售数据依据', '热销'],
+				['冠军', 'mid', '需有真实依据', undefined],
+				['全球首发', 'mid', '需有依据', '新品首发'],
+				['独家', 'mid', '需有依据', undefined],
+				['王牌', 'mid', '极限用语', '明星'],
+				['仅此一次', 'mid', '虚假紧迫感', '限时'],
+				['随时涨价', 'mid', '虚假紧迫感', undefined],
+				['马上涨价', 'mid', '虚假紧迫感', undefined],
+				['最后一波', 'mid', '虚假紧迫感', '限时'],
+				['秒杀全网', 'high', '贬低同行 / 极限用语', undefined],
+				['点击领奖', 'high', '诱导欺诈表述', undefined],
+				['恭喜获奖', 'high', '诱导欺诈表述', undefined],
+				['治疗', 'high', '普通商品不得宣称医疗作用', undefined],
+				['治愈', 'high', '普通商品不得宣称医疗作用', undefined],
+				['根治', 'high', '普通商品不得宣称医疗作用', undefined],
+				['药到病除', 'high', '医疗用语', undefined],
+				['特效', 'high', '医疗用语', undefined],
+				['疗效', 'high', '医疗用语', undefined],
+				['无副作用', 'high', '医疗用语', undefined],
+				['包治', 'high', '医疗用语', undefined],
+				['消炎', 'high', '医疗用语', undefined],
+				['抗癌', 'high', '医疗用语', undefined],
+				['防癌', 'high', '医疗用语', undefined],
+				['延年益寿', 'high', '医疗用语', undefined],
+				['纯天然', 'mid', '需有依据', '天然'],
+				['零添加', 'mid', '需有依据', undefined],
+				['无添加', 'mid', '需有依据', undefined],
+				['医生推荐', 'high', '不得利用医生名义作推荐', undefined],
+				['专家推荐', 'mid', '不得利用专家名义作推荐', undefined],
+				['兽医推荐', 'mid', '需有真实依据与授权', undefined],
+				['质量免检', 'high', '禁用表述', undefined],
+				['免检', 'high', '禁用表述', undefined],
+				['驰名商标', 'high', '不得用于广告宣传', undefined],
+				['特供', 'high', '禁用表述', undefined],
+				['专供', 'high', '禁用表述', undefined],
+				[/澳洲制造|澳洲本土生产|澳大利亚制造|澳洲原产/g, 'high', '原产地声明须真实（淘宝等进口货源不可宣称澳洲制造）', undefined],
+				// 英文（澳洲消费者法 ACL：禁止误导性或无法证实的宣传）
+				[/\b(australian[- ]made|made in australia|aussie[- ]made)\b/gi, 'high', 'ACL 原产地声明须真实（进口货源不可宣称 Australian made）', undefined],
+				[/\b(world'?s |australia'?s )?best\b/gi, 'mid', 'ACL：最高级用语需能证实', 'great'],
+				[/\b(no\.?\s?1|number one|#1)\b/gi, 'high', 'ACL：排名声明需有证据', 'leading'],
+				[/\b(cheapest|lowest price)\b/gi, 'high', 'ACL：价格比较声明需有证据', 'great value'],
+				[/\bguaranteed? results?\b|\bmoney[- ]back guarantee\b/gi, 'mid', 'ACL：承诺必须兑现，且不得限制法定消费者保障', undefined],
+				[/\b100\s?%/g, 'mid', 'ACL：绝对化数据需有证据', undefined],
+				[/\b(cures?|heals?|cure-all|miracle)\b/gi, 'high', '不得宣称治疗功效（TGA/ACL）', undefined],
+				[/\bprevents? (disease|illness|cancer|infection)s?\b/gi, 'high', '不得宣称预防疾病', undefined],
+				[/\bclinically proven\b/gi, 'high', 'ACL：需有临床证据', undefined],
+				[/\bvet[- ]?(recommended|approved)\b/gi, 'mid', '需有真实兽医背书与授权', undefined],
+				[/\b(only|last) (one|few|\d+) left\b|\bselling out fast\b/gi, 'mid', 'ACL：虚假稀缺属误导', undefined],
+				[/\b(organic|all[- ]natural)\b/gi, 'mid', '需有认证或依据', undefined],
+			].map(([w, lv, why, fix, low]) => ({
+				re: w instanceof RegExp ? w : new RegExp(w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
+				lv,
+				why,
+				fix,
+				prio: low ? 1 : 0,
+			}));
+			const CHECK_FIELDS = { headline: '主标题', sub: '副标题', points: '卖点', badge: '角标', prefix: '价格前缀', cta: '按钮', note: '底部说明' };
+
+			function scan(text) {
+				const all = [];
+				for (const rule of RULES) {
+					rule.re.lastIndex = 0;
+					for (const m of String(text).matchAll(rule.re)) {
+						all.push({ start: m.index, end: m.index + m[0].length, word: m[0], rule });
+					}
+				}
+				all.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start) || a.rule.prio - b.rule.prio);
+				const out = [];
+				let lastEnd = -1;
+				for (const h of all) {
+					if (h.start >= lastEnd) {
+						out.push(h);
+						lastEnd = h.end;
+					}
+				}
+				return out;
+			}
+			function complianceHits(st) {
+				const hits = [];
+				for (const [k, label] of Object.entries(CHECK_FIELDS)) {
+					for (const h of scan(st[k] || '')) hits.push({ ...h, field: k, label });
+				}
+				return hits;
+			}
+			function autofix(st) {
+				let n = 0;
+				for (const k of Object.keys(CHECK_FIELDS)) {
+					const hits = scan(st[k] || '').filter((h) => h.rule.fix !== undefined);
+					let s = st[k];
+					for (const h of hits.reverse()) {
+						s = s.slice(0, h.start) + h.rule.fix + s.slice(h.end);
+						n++;
+					}
+					st[k] = s;
+				}
+				return n;
+			}
+
+			// ============================================================
+			// 文案助手
+			// ============================================================
+			const CN_NUM = ['', '一', '两', '三', '四'];
+			const fmtNum = (n) => (Number.isInteger(n) ? String(n) : n.toFixed(2).replace(/0+$/, '').replace(/\.$/, ''));
+
+			const EN_NUM = ['', 'One', 'Two', 'Three', 'Four'];
+			const CITIES = [
+				[/perth|珀斯/i, '珀斯', 'Perth'],
+				[/sydney|悉尼/i, '悉尼', 'Sydney'],
+				[/melbourne|墨尔本/i, '墨尔本', 'Melbourne'],
+				[/brisbane|布里斯班/i, '布里斯班', 'Brisbane'],
+				[/adelaide|阿德莱德/i, '阿德莱德', 'Adelaide'],
+				[/canberra|堪培拉/i, '堪培拉', 'Canberra'],
+				[/gold coast|黄金海岸/i, '黄金海岸', 'GoldCoast'],
+				[/hobart|霍巴特/i, '霍巴特', 'Hobart'],
+				[/darwin|达尔文/i, '达尔文', 'Darwin'],
+			];
+			const cityOf = (region) => CITIES.find(([re]) => re.test(region || '')) || null;
+			const tagify = (s) => String(s || '').replace(/[\s#·|｜,，、.。!！?？:：'"“”()（）\-]+/g, '');
+
+			// 平台发布文案：中文 → 小红书笔记；English → Facebook Marketplace
+			function listingCopy(st) {
+				const P = (st.product || '').trim() || st.headline.trim();
+				const B = st.brand.trim(), A = st.audience.trim(), badge = st.badge.trim(), cta = st.cta.trim();
+				const region = st.region.trim(), delivery = st.delivery.trim();
+				const pts = parsePoints(st.points);
+				const cur = st.currency;
+				const price = String(st.price).trim(), orig = String(st.orig).trim();
+				const city = cityOf(region);
+				if (st.lang === 'en') {
+					const title = [B, P].filter(Boolean).join(' ') + (pts[0] ? ` – ${pts[0]}` : '');
+					const lines = [];
+					if (st.headline.trim()) lines.push(st.headline.trim().replace(/\n/g, ' '));
+					if (st.sub.trim()) lines.push(st.sub.trim());
+					if (pts.length) lines.push('', ...pts.map((p) => `✔ ${p}`));
+					lines.push('');
+					if (badge) lines.push(`🔥 ${badge}`);
+					if (price) lines.push(orig ? `💰 Was ${cur}${orig}, now ${cur}${price}` : `💰 ${cur}${price}`);
+					if (region || delivery) lines.push(`📍 ${[region, delivery].filter(Boolean).join(' · ')}`);
+					if (st.note.trim()) lines.push(`ℹ️ ${st.note.trim()}`);
+					lines.push('', `${cta && !/message/i.test(cta) ? `${cta} — ` : ''}Message me to check availability 🙂`);
+					return { kind: 'Facebook Marketplace', title, titleNote: `${title.length} 字符`, price: price ? `${cur}${price}` : '', body: lines.join('\n') };
+				}
+				let title = `${city ? city[1] : '澳洲'}${P ? '｜' + P : ''}${pts[0] ? ' ' + pts[0] : ''}`;
+				if ([...title].length > 20) title = [...title].slice(0, 20).join('');
+				const nums = ['1️⃣', '2️⃣', '3️⃣', '4️⃣'];
+				const lines = [];
+				if (st.headline.trim()) lines.push(`✨ ${st.headline.trim().replace(/\n/g, '')}`);
+				if (st.sub.trim()) lines.push(st.sub.trim());
+				if (pts.length) lines.push('', '🌟 亮点', ...pts.map((p, i) => `${nums[i]} ${p}`));
+				lines.push('');
+				if (price) lines.push(`💰 ${st.prefix.trim()}${cur}${price}${orig ? `（原价${cur}${orig}）` : ''}${badge ? `｜${badge}` : ''}`);
+				else if (badge) lines.push(`🎁 ${badge}`);
+				if (region || delivery) lines.push(`📍 ${[region, delivery].filter(Boolean).join('｜')}`);
+				if (st.note.trim()) lines.push(`📦 ${st.note.trim()}`);
+				lines.push('', cta && /私信|咨询|联系/.test(cta) ? `👉 ${cta}～` : `${cta ? `👉 ${cta}，` : ''}感兴趣的宝子私信我～`);
+				const tags = ['澳洲生活', '澳洲华人', city ? `${city[1]}华人` : '', city ? `${city[1]}生活` : '', P, A, B]
+					.map(tagify)
+					.filter(Boolean);
+				lines.push('', [...new Set(tags)].map((t) => `#${t}`).join(' '));
+				return { kind: '小红书笔记', title, titleNote: `${[...title].length}/20 字`, price: '', body: lines.join('\n') };
+			}
+
+			function copyIdeas(st) {
+				const P = (st.product || '').trim() || st.headline.trim();
+				const B = st.brand.trim(), A = st.audience.trim(), pain = st.pain.trim(), badge = st.badge.trim();
+				const pts = parsePoints(st.points);
+				const [p1, p2, p3] = pts;
+				const cur = st.currency;
+				const price = String(st.price).trim(), orig = String(st.orig).trim();
+				const save = price && orig && +orig > +price && !isNaN(+orig - +price) ? fmtNum(+orig - +price) : '';
+				const H = [], S = [];
+				const add = (arr, ok, text, tag) => ok && arr.push({ text, tag });
+				if (st.lang === 'en') {
+					add(H, P && pain, `Say goodbye to ${pain} with ${[B, P].filter(Boolean).join(' ')}`, 'Pain point');
+					add(H, P && pain, `${pain}? Try ${P}`, 'Question');
+					add(H, p1 && p2, `${p1} · ${p2}`, 'Benefit');
+					add(H, P && A, `${P}, made for ${A}`, 'Audience');
+					add(H, P && pts.length >= 2, `${EN_NUM[pts.length]} reasons to try ${P}`, 'Number');
+					add(H, P && save, `Save ${cur}${save} on ${P}`, 'Price');
+					add(H, P && badge && price, `${badge}: ${P} now ${cur}${price}`, 'Promo');
+					add(H, P && B && p1, `${B} ${P} | ${p1}`, 'Brand');
+					add(S, pts.length >= 2, pts.length >= 3 ? `${p1}, ${p2} & ${p3}` : `${p1} & ${p2}`, 'Benefits');
+					add(S, A && p1, `Made for ${A} — ${p1}`, 'Audience');
+					add(S, pain && (p2 || p1), `No more ${pain}: ${p2 || p1}`, 'Pain point');
+					add(S, B && p1 && p2, `By ${B} · ${p1} · ${p2}`, 'Brand');
+					const C = ['Message me', 'Buy now', 'Shop now', 'Order today', 'DM to order', 'Learn more', 'Grab yours'];
+					return { H, S, C };
+				}
+				add(H, P && pain, `告别${pain}，就选${B}${P}`, '痛点');
+				add(H, P && pain, `${pain}？试试${P}`, '提问');
+				add(H, p1 && p2, `${p1} · ${p2}`, '利益');
+				add(H, P && A, `专为${A}打造的${P}`, '人群');
+				add(H, P && A, `${A}都爱的${P}`, '从众');
+				add(H, P && pts.length >= 2, `${CN_NUM[pts.length]}大亮点，${P}值得入手`, '数字');
+				add(H, P && save, `立省${cur}${save}！${P}限时特惠`, '价格');
+				add(H, P && badge && price, `${badge}！${P}${st.prefix.trim()}${cur}${price}`, '促销');
+				add(H, P && B && p1, `${B} ${P}｜${p1}`, '品牌');
+				add(S, pts.length >= 2, pts.slice(0, 3).join('，'), '卖点');
+				add(S, A && p1, `专为${A}打造，${p1}`, '人群');
+				add(S, pain && (p2 || p1), `解决${pain}，${p2 || p1}`, '痛点');
+				add(S, B && p1 && p2, `${B}出品 · ${p1} · ${p2}`, '品牌');
+				add(S, p3 && P, `${P}，${p3}`, '利益');
+				const C = ['私信下单', '立即抢购', '限时特惠', '马上咨询', '点击了解', '新客专享'];
+				return { H, S, C };
+			}
+
+			// ============================================================
+			// 状态与界面
+			// ============================================================
+			const PRESETS = [
+				{ key: 'main', name: '主图 1:1', note: '淘宝/京东/拼多多', w: 800, h: 800 },
+				{ key: 'xhs', name: '小红书 3:4', note: '笔记封面', w: 1080, h: 1440 },
+				{ key: 'story', name: '抖音 9:16', note: '视频号/快手', w: 1080, h: 1920 },
+				{ key: 'feed', name: '信息流 16:9', note: '朋友圈/头条', w: 1280, h: 720 },
+				{ key: 'banner', name: '店铺横幅', note: '首页海报', w: 1920, h: 700 },
+				{ key: 'fb', name: 'Facebook 1:1', note: 'Marketplace 商品图', w: 1080, h: 1080 },
+			];
+			// 两个独立版本：中文（小红书）与 English（Facebook Marketplace），各自保存文字与设置
+			const DEFAULTS = {
+				zh: {
+					lang: 'zh',
+					brand: 'FluffyWA',
+					product: '冻干双拼粮',
+					headline: '金毛专属冻干双拼粮',
+					sub: '鲜肉冻干 + 营养主粮，挑食毛孩子也爱吃',
+					points: '高鲜肉含量\n冻干颗粒添加\n美毛护肤配方\n无谷低敏',
+					prefix: '到手价',
+					currency: 'A$',
+					price: '39',
+					orig: '55',
+					badge: '第2件半价',
+					cta: '私信下单',
+					note: '现货 · 当天可自提',
+					audience: '挑食狗狗',
+					pain: '狗狗挑食不爱吃',
+					region: '珀斯 Canning Vale',
+					delivery: '可自提 / 全澳邮寄',
+					theme: 'warm',
+					accent: THEMES.warm.accent,
+					preset: 'xhs',
+					cw: 1200,
+					ch: 1200,
+					imgScale: 100,
+					removeBg: false,
+					tol: 40,
+					format: 'jpg',
+				},
+				en: {
+					lang: 'en',
+					brand: 'FluffyWA',
+					product: 'Freeze-Dried Dog Food',
+					headline: 'Freeze-Dried Mix for Golden Retrievers',
+					sub: 'Real meat + complete kibble. Fussy eaters love it.',
+					points: 'High real-meat content\nFreeze-dried bites inside\nShiny-coat formula\nGrain-free recipe',
+					prefix: 'Now',
+					currency: 'A$',
+					price: '39',
+					orig: '55',
+					badge: '2nd bag half price',
+					cta: 'Message me',
+					note: 'In stock · Same-day pickup',
+					audience: 'fussy eaters',
+					pain: 'fussy eating',
+					region: 'Canning Vale, Perth WA',
+					delivery: 'Pickup or local delivery',
+					theme: 'natural',
+					accent: THEMES.natural.accent,
+					preset: 'fb',
+					cw: 1200,
+					ch: 1200,
+					imgScale: 100,
+					removeBg: false,
+					tol: 40,
+					format: 'jpg',
+				},
+			};
+			const STORE_KEY = 'ad-studio:v2';
+			const store = { active: 'zh', zh: { ...DEFAULTS.zh }, en: { ...DEFAULTS.en } };
+			try {
+				const saved = JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+				if (saved && typeof saved === 'object') {
+					for (const v of ['zh', 'en']) {
+						const s = saved[v];
+						if (!s || typeof s !== 'object') continue;
+						for (const k of Object.keys(DEFAULTS[v])) {
+							if (k !== 'lang' && k in s && typeof s[k] === typeof DEFAULTS[v][k]) store[v][k] = s[k];
+						}
+						if (!(store[v].theme in THEMES)) store[v].theme = DEFAULTS[v].theme;
+					}
+					if (saved.active === 'en') store.active = 'en';
+				}
+			} catch {}
+			let state = store[store.active];
+
+			const canvas = $('#canvas');
+			const stage = $('#stage');
+
+			function allPresets() {
+				const cw = clamp(parseInt(state.cw, 10) || 1200, 200, 3000);
+				const ch = clamp(parseInt(state.ch, 10) || 1200, 200, 3000);
+				return [...PRESETS, { key: 'custom', name: '自定义', note: '任意尺寸', w: cw, h: ch }];
+			}
+			const currentPreset = () => allPresets().find((p) => p.key === state.preset) || PRESETS[0];
+
+			function syncForm() {
+				for (const el of $$('[data-k]')) {
+					const k = el.dataset.k;
+					if (el.type === 'checkbox') el.checked = !!state[k];
+					else el.value = state[k];
+				}
+				for (const r of $$('input[name="theme"]')) r.checked = r.value === state.theme;
+			}
+
+			// 风格卡片
+			const themesEl = $('#themes');
+			for (const [key, th] of Object.entries(THEMES)) {
+				const [a, b] = th.swatch(th.accent);
+				const lab = document.createElement('label');
+				lab.className = 'theme';
+				const input = document.createElement('input');
+				input.type = 'radio';
+				input.name = 'theme';
+				input.value = key;
+				const span = document.createElement('span');
+				const sw = document.createElement('i');
+				sw.style.background = `linear-gradient(135deg, ${a} 0 55%, ${b} 55% 100%)`;
+				span.append(sw, th.name);
+				lab.append(input, span);
+				themesEl.append(lab);
+			}
+
+			// 尺寸缩略图
+			const sizesEl = $('#sizes');
+			const thumbs = {};
+			for (const p of allPresets()) {
+				const b = document.createElement('button');
+				b.type = 'button';
+				b.className = 'size';
+				b.dataset.key = p.key;
+				b.setAttribute('role', 'option');
+				const cv = document.createElement('canvas');
+				const name = document.createElement('b');
+				name.textContent = p.name;
+				const dims = document.createElement('small');
+				b.append(cv, name, dims);
+				sizesEl.append(b);
+				thumbs[p.key] = { b, cv, dims };
+				b.addEventListener('click', () => {
+					state.preset = p.key;
+					schedule();
+				});
+			}
+
+			function renderThumbs() {
+				const dpr = Math.min(2, window.devicePixelRatio || 1);
+				for (const p of allPresets()) {
+					const t = thumbs[p.key];
+					const s = Math.min((88 * dpr) / p.h, (150 * dpr) / p.w);
+					t.cv.width = Math.round(p.w * s);
+					t.cv.height = Math.round(p.h * s);
+					t.cv.style.width = `${t.cv.width / dpr}px`;
+					t.cv.style.height = `${t.cv.height / dpr}px`;
+					const ctx = t.cv.getContext('2d');
+					ctx.setTransform(s, 0, 0, s, 0, 0);
+					render(ctx, p.w, p.h, state, s);
+					t.dims.textContent = `${p.w}×${p.h}`;
+					t.b.classList.toggle('active', p.key === state.preset);
+					t.b.setAttribute('aria-selected', String(p.key === state.preset));
+					t.b.title = `${p.name} · ${p.note}`;
+				}
+			}
+
+			function ideaButton(text, tag, target) {
+				const b = document.createElement('button');
+				b.type = 'button';
+				b.className = 'idea';
+				const s = document.createElement('span');
+				s.textContent = text;
+				b.append(s);
+				if (tag) {
+					const em = document.createElement('em');
+					em.textContent = tag;
+					b.append(em);
+				}
+				b.addEventListener('click', () => {
+					state[target] = text;
+					syncForm();
+					schedule();
+					toast('已填入');
+				});
+				return b;
+			}
+			function renderIdeas() {
+				if (!$('#ideasCard').open) return;
+				const { H, S, C } = copyIdeas(state);
+				const fill = (el, list, target, empty) => {
+					el.replaceChildren(...list.map((x) => (typeof x === 'string' ? ideaButton(x, '', target) : ideaButton(x.text, x.tag, target))));
+					if (!list.length) {
+						const p = document.createElement('p');
+						p.className = 'muted';
+						p.textContent = empty;
+						el.append(p);
+					}
+				};
+				fill($('#ideasH'), H, 'headline', '填写产品名、卖点、人群或痛点后自动生成');
+				fill($('#ideasS'), S, 'sub', '至少填写两条卖点后自动生成');
+				fill($('#ideasC'), C, 'cta', '');
+			}
+
+			let listing = { title: '', body: '' };
+			function renderListing() {
+				listing = listingCopy(state);
+				$('#listingKind').textContent = listing.kind;
+				$('#listingTitle').textContent = listing.title || '—';
+				$('#listingTitleNote').textContent = listing.titleNote;
+				$('#listingPriceRow').hidden = !listing.price;
+				$('#listingPrice').textContent = listing.price;
+				const body = $('#listingBody');
+				if (body.value !== listing.body) body.value = listing.body;
+				$('#listingHint').textContent =
+					state.lang === 'en'
+						? 'Facebook Marketplace：第一张图建议用干净的实拍图，本页生成的广告图放第二张；分类选对、价格与图中一致。'
+						: '小红书：封面用 3:4 尺寸；标题控制在 20 字内，正文末尾的话题标签可按需增删。';
+			}
+
+			function renderCompliance() {
+				const hits = complianceHits(state);
+				const list = $('#hits');
+				list.replaceChildren();
+				const badge = $('#riskBadge');
+				const line = $('#riskLine');
+				if (!hits.length) {
+					const li = document.createElement('li');
+					li.className = 'ok';
+					li.textContent = '✓ 未发现常见违规用语';
+					list.append(li);
+					badge.textContent = '通过';
+					badge.className = 'pill ok';
+					line.hidden = true;
+					$('#fixAll').hidden = true;
+					return;
+				}
+				for (const h of hits) {
+					const li = document.createElement('li');
+					li.className = h.rule.lv;
+					const w = document.createElement('b');
+					w.textContent = `「${h.word}」`;
+					const meta = document.createElement('span');
+					meta.textContent = `${h.label} · ${h.rule.why}`;
+					const fix = document.createElement('small');
+					fix.textContent =
+						h.rule.fix === undefined ? '建议人工改写' : h.rule.fix === '' ? '建议删除' : `建议改为「${h.rule.fix}」`;
+					li.append(w, meta, fix);
+					list.append(li);
+				}
+				const high = hits.filter((h) => h.rule.lv === 'high').length;
+				badge.textContent = `${hits.length} 处`;
+				badge.className = `pill ${high ? 'bad' : 'warn'}`;
+				line.hidden = false;
+				line.className = `risk-line ${high ? 'bad' : 'warn'}`;
+				line.textContent = `⚠ 画面文字中有 ${hits.length} 处可能违规或误导的表述，建议导出前在「⑥ 合规自查」中修改。`;
+				$('#fixAll').hidden = !hits.some((h) => h.rule.fix !== undefined);
+			}
+
+			function updateOutputs() {
+				for (const o of $$('output[data-out]')) o.textContent = `${state[o.dataset.out]}${o.dataset.out === 'imgScale' ? '%' : ''}`;
+				$('#headCount').textContent = `${[...state.headline.replace(/\s/g, '')].length} 字`;
+				$('#tolRow').classList.toggle('disabled', !state.removeBg || IMG.alpha || !IMG.src);
+				$('[data-k="tol"]').disabled = !state.removeBg || IMG.alpha || !IMG.src;
+				$('#customSize').hidden = state.preset !== 'custom';
+				$('#fileName').textContent = IMG.src ? `当前：${IMG.name}` : '当前：示例包装（可替换）';
+				$('#useSample').hidden = !IMG.src;
+			}
+
+			let saveTimer = 0;
+			function save() {
+				clearTimeout(saveTimer);
+				saveTimer = setTimeout(() => {
+					try {
+						localStorage.setItem(STORE_KEY, JSON.stringify(store));
+					} catch {}
+				}, 300);
+			}
+
+			let pending = false;
+			function schedule() {
+				if (pending) return;
+				pending = true;
+				requestAnimationFrame(renderAll);
+			}
+			function renderAll() {
+				pending = false;
+				const p = currentPreset();
+				if (canvas.width !== p.w || canvas.height !== p.h) {
+					canvas.width = p.w;
+					canvas.height = p.h;
+				}
+				render(canvas.getContext('2d'), p.w, p.h, state, 1);
+				renderThumbs();
+				renderIdeas();
+				renderListing();
+				renderCompliance();
+				for (const b of $$('#versions [data-v]')) b.setAttribute('aria-selected', String(b.dataset.v === store.active));
+				updateOutputs();
+				updatePip();
+				save();
+			}
+
+			// 表单输入
+			document.addEventListener('input', (e) => {
+				const el = e.target;
+				if (!(el instanceof HTMLElement)) return;
+				if (el.matches('input[name="theme"]')) {
+					state.theme = el.value;
+					state.accent = THEMES[el.value].accent;
+					syncForm();
+					schedule();
+					return;
+				}
+				const k = el.dataset.k;
+				if (!k) return;
+				const v = el.type === 'checkbox' ? el.checked : el.type === 'range' ? +el.value : el.value;
+				state[k] = typeof DEFAULTS.zh[k] === 'number' && el.type !== 'checkbox' ? +v || 0 : v;
+				if (k === 'removeBg' || k === 'tol') processImage();
+				schedule();
+			});
+			$('#ideasCard').addEventListener('toggle', schedule);
+			$('#accentReset').addEventListener('click', () => {
+				state.accent = THEMES[state.theme].accent;
+				syncForm();
+				schedule();
+			});
+			$('#fixAll').addEventListener('click', () => {
+				const n = autofix(state);
+				syncForm();
+				schedule();
+				toast(n ? `已替换 ${n} 处` : '没有可自动替换的词');
+			});
+			$('#reset').addEventListener('click', () => {
+				if (!confirm('恢复当前版本的示例内容？当前版本填写的文字和设置会被覆盖。')) return;
+				state = store[store.active] = { ...DEFAULTS[store.active] };
+				IMG.src = IMG.proc = null;
+				IMG.alpha = false;
+				syncForm();
+				schedule();
+			});
+			for (const b of $$('#versions [data-v]')) {
+				b.addEventListener('click', () => {
+					if (store.active === b.dataset.v) return;
+					store.active = b.dataset.v;
+					state = store[store.active];
+					syncForm();
+					processImage();
+					schedule();
+				});
+			}
+			for (const b of $$('[data-copy]')) {
+				b.addEventListener('click', async () => {
+					const what = b.dataset.copy;
+					const text = what === 'title' ? listing.title : what === 'body' ? listing.body : `${listing.title}\n\n${listing.body}`;
+					try {
+						await navigator.clipboard.writeText(text);
+						toast('已复制');
+					} catch {
+						toast('复制失败，请手动选择文字');
+					}
+				});
+			}
+
+			// 产品图：上传 / 拖拽 / 粘贴
+			async function loadFile(file) {
+				if (!file || !/^image\//.test(file.type)) {
+					toast('请选择图片文件');
+					return;
+				}
+				const url = URL.createObjectURL(file);
+				try {
+					const im = new Image();
+					im.src = url;
+					await im.decode();
+					const MAX = 1400;
+					const s = Math.min(1, MAX / Math.max(im.naturalWidth, im.naturalHeight));
+					const cv = makeCanvas(im.naturalWidth * s, im.naturalHeight * s);
+					cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height);
+					const info = borderInfo(cv);
+					IMG.src = cv;
+					IMG.name = file.name || '粘贴的图片';
+					IMG.alpha = info.alpha;
+					// 边缘是均匀的浅色背景时自动抠图
+					const light = info.ref.reduce((a, b) => a + b, 0) / 3 > 200;
+					if (!info.alpha && info.uniform > 0.85 && light && !state.removeBg) {
+						state.removeBg = true;
+						syncForm();
+						toast('检测到纯色背景，已自动抠图（可在「产品图」中关闭）');
+					}
+					processImage();
+					schedule();
+				} catch {
+					toast('图片读取失败，请换一张试试');
+				} finally {
+					URL.revokeObjectURL(url);
+				}
+			}
+			$('#file').addEventListener('change', (e) => {
+				const f = e.target.files && e.target.files[0];
+				if (f) loadFile(f);
+				e.target.value = '';
+			});
+			$('#useSample').addEventListener('click', () => {
+				IMG.src = IMG.proc = null;
+				IMG.alpha = false;
+				schedule();
+			});
+			let dragDepth = 0;
+			document.addEventListener('dragenter', (e) => {
+				if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) {
+					dragDepth++;
+					stage.classList.add('drag');
+				}
+			});
+			document.addEventListener('dragleave', () => {
+				dragDepth = Math.max(0, dragDepth - 1);
+				if (!dragDepth) stage.classList.remove('drag');
+			});
+			document.addEventListener('dragover', (e) => e.preventDefault());
+			document.addEventListener('drop', (e) => {
+				e.preventDefault();
+				dragDepth = 0;
+				stage.classList.remove('drag');
+				const f = e.dataTransfer && e.dataTransfer.files[0];
+				if (f) loadFile(f);
+			});
+			document.addEventListener('paste', (e) => {
+				const item = [...(e.clipboardData ? e.clipboardData.items : [])].find((i) => i.type.startsWith('image/'));
+				if (item) {
+					e.preventDefault();
+					loadFile(item.getAsFile());
+				}
+			});
+
+			// 导出
+			const safeName = (s) => String(s || 'ad').trim().replace(/[\\/:*?"<>|\s]+/g, '-').slice(0, 40) || 'ad';
+			function renderBlob(p) {
+				const cv = makeCanvas(p.w, p.h);
+				render(cv.getContext('2d'), p.w, p.h, state, 1);
+				const jpg = state.format === 'jpg';
+				return new Promise((res) => cv.toBlob(res, jpg ? 'image/jpeg' : 'image/png', 0.92));
+			}
+			function download(blob, name) {
+				const a = document.createElement('a');
+				a.href = URL.createObjectURL(blob);
+				a.download = name;
+				document.body.append(a);
+				a.click();
+				a.remove();
+				setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+			}
+			const kb = (n) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.round(n / 1024)} KB`);
+			async function exportPreset(p) {
+				const blob = await renderBlob(p);
+				if (!blob) throw new Error('export failed');
+				const ext = state.format === 'jpg' ? 'jpg' : 'png';
+				download(blob, `${safeName(state.product || state.headline)}-${state.lang}-${p.key}-${p.w}x${p.h}.${ext}`);
+				return blob;
+			}
+			$('#dl').addEventListener('click', async () => {
+				try {
+					const p = currentPreset();
+					const blob = await exportPreset(p);
+					const big = p.key === 'main' && blob.size > 3 * 1024 * 1024 ? '（超过 3MB，主图建议改用 JPG）' : '';
+					toast(`已导出 ${p.w}×${p.h}，${kb(blob.size)}${big}`);
+				} catch {
+					toast('导出失败');
+				}
+			});
+			$('#dlAll').addEventListener('click', async () => {
+				const list = allPresets().filter((p) => p.key !== 'custom' || state.preset === 'custom');
+				try {
+					for (const p of list) {
+						await exportPreset(p);
+						await new Promise((r) => setTimeout(r, 350));
+					}
+					toast(`已导出 ${list.length} 张（浏览器若询问“允许下载多个文件”，请选择允许）`);
+				} catch {
+					toast('导出失败');
+				}
+			});
+			const canCopy = !!(navigator.clipboard && window.ClipboardItem);
+			$('#copyImg').hidden = !canCopy;
+			$('#copyImg').addEventListener('click', async () => {
+				try {
+					const p = currentPreset();
+					const cv = makeCanvas(p.w, p.h);
+					render(cv.getContext('2d'), p.w, p.h, state, 1);
+					const blob = new Promise((res) => cv.toBlob(res, 'image/png'));
+					await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+					toast('图片已复制到剪贴板');
+				} catch {
+					toast('当前浏览器不支持复制图片，请使用下载');
+				}
+			});
+
+			// 手机端：预览区滚出屏幕时显示悬浮小预览
+			const pip = $('#pip');
+			const pipCv = $('#pipCanvas');
+			let stageVisible = true;
+			function updatePip() {
+				const show = !stageVisible && window.matchMedia('(max-width: 960px)').matches;
+				pip.hidden = !show;
+				if (!show) return;
+				const s = Math.min(240 / canvas.width, 240 / canvas.height);
+				pipCv.width = Math.round(canvas.width * s);
+				pipCv.height = Math.round(canvas.height * s);
+				pipCv.getContext('2d').drawImage(canvas, 0, 0, pipCv.width, pipCv.height);
+			}
+			if ('IntersectionObserver' in window) {
+				new IntersectionObserver((entries) => {
+					stageVisible = entries[0].isIntersecting;
+					updatePip();
+				}).observe(canvas);
+			}
+			pip.addEventListener('click', () => stage.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+
+			// 提示
+			let toastTimer = 0;
+			function toast(msg) {
+				const t = $('#toast');
+				t.textContent = msg;
+				t.classList.add('show');
+				clearTimeout(toastTimer);
+				toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+			}
+
+			syncForm();
+			processImage();
+			schedule();
+		</script>
+
+		<style is:global>
+			:root {
+				--bg: #f4f5f7;
+				--panel: #ffffff;
+				--ink: #1c2230;
+				--muted: #6a7284;
+				--line: #e2e5eb;
+				--field: #f7f8fa;
+				--brand: #ff5b2e;
+				--brand-ink: #ffffff;
+				--ok: #1f9d55;
+				--warn: #b86e00;
+				--bad: #d93025;
+				--stage: #e9ebef;
+				--radius: 14px;
+				--shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 4px 16px rgba(16, 24, 40, 0.06);
+				color-scheme: light;
+			}
+			@media (prefers-color-scheme: dark) {
+				:root {
+					--bg: #0f1115;
+					--panel: #181b22;
+					--ink: #e8ebf1;
+					--muted: #9aa3b5;
+					--line: #2a2f3a;
+					--field: #12151b;
+					--stage: #1d2129;
+					--ok: #3ccf7f;
+					--warn: #f0a63a;
+					--bad: #ff6b5e;
+					--shadow: none;
+					color-scheme: dark;
+				}
+			}
+			* {
+				box-sizing: border-box;
+			}
+			html,
+			body {
+				margin: 0;
+				background: var(--bg);
+				color: var(--ink);
+				font:
+					15px/1.55 -apple-system,
+					'PingFang SC',
+					'Hiragino Sans GB',
+					'Microsoft YaHei',
+					'Noto Sans CJK SC',
+					'WenQuanYi Zen Hei',
+					sans-serif;
+				-webkit-text-size-adjust: 100%;
+			}
+			.topbar {
+				position: sticky;
+				top: 0;
+				z-index: 20;
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				padding: 10px 16px;
+				background: var(--panel);
+				border-bottom: 1px solid var(--line);
+			}
+			.topbar h1 {
+				flex: 1;
+				margin: 0;
+				font-size: 17px;
+				font-weight: 800;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+			.topbar h1 small {
+				color: var(--muted);
+				font-weight: 500;
+				font-size: 12px;
+				margin-left: 4px;
+			}
+			.back {
+				color: var(--muted);
+				text-decoration: none;
+				white-space: nowrap;
+			}
+			.app {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) 400px;
+				gap: 20px;
+				max-width: 1380px;
+				margin: 0 auto;
+				padding: 16px;
+				align-items: start;
+			}
+			.preview {
+				position: sticky;
+				top: 64px;
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+				min-width: 0;
+			}
+			.versions {
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 4px;
+				padding: 4px;
+				border-radius: 12px;
+				background: var(--panel);
+				border: 1px solid var(--line);
+			}
+			.versions button {
+				border: 0;
+				border-radius: 9px;
+				background: transparent;
+				font-weight: 700;
+				color: var(--muted);
+			}
+			.versions button[aria-selected='true'] {
+				background: var(--brand);
+				color: var(--brand-ink);
+			}
+			.listing {
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+			}
+			.listing-head {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				font-size: 13px;
+			}
+			.listing-head button {
+				margin-left: auto;
+			}
+			#listingTitle,
+			#listingPrice {
+				font-weight: 700;
+				word-break: break-word;
+			}
+			#listingTitle {
+				padding: 8px 10px;
+				border-radius: 10px;
+				background: var(--field);
+				border: 1px solid var(--line);
+			}
+			#listingBody {
+				font-size: 14px;
+			}
+			.sizes {
+				display: flex;
+				gap: 8px;
+				overflow-x: auto;
+				padding: 2px 2px 6px;
+				scrollbar-width: thin;
+			}
+			.size {
+				flex: 0 0 auto;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: flex-end;
+				gap: 4px;
+				min-width: 92px;
+				padding: 8px 10px;
+				border: 2px solid transparent;
+				border-radius: 12px;
+				background: var(--panel);
+				box-shadow: var(--shadow);
+				color: var(--ink);
+				cursor: pointer;
+			}
+			.size canvas {
+				display: block;
+				border-radius: 3px;
+				box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+			}
+			.size b {
+				font-size: 12px;
+				line-height: 1.2;
+			}
+			.size small {
+				font-size: 11px;
+				color: var(--muted);
+				line-height: 1.2;
+			}
+			.size.active {
+				border-color: var(--brand);
+			}
+			.custom-size {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				flex-wrap: wrap;
+			}
+			.custom-size label {
+				flex-direction: row;
+				align-items: center;
+				gap: 6px;
+			}
+			.custom-size input {
+				width: 96px;
+			}
+			.stage {
+				position: relative;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				padding: 16px;
+				min-height: 280px;
+				border-radius: var(--radius);
+				background-color: var(--stage);
+				background-image:
+					linear-gradient(45deg, rgba(127, 127, 127, 0.08) 25%, transparent 25%),
+					linear-gradient(-45deg, rgba(127, 127, 127, 0.08) 25%, transparent 25%),
+					linear-gradient(45deg, transparent 75%, rgba(127, 127, 127, 0.08) 75%),
+					linear-gradient(-45deg, transparent 75%, rgba(127, 127, 127, 0.08) 75%);
+				background-size: 20px 20px;
+				background-position:
+					0 0,
+					0 10px,
+					10px -10px,
+					-10px 0;
+			}
+			.stage canvas {
+				display: block;
+				max-width: 100%;
+				max-height: calc(100vh - 290px);
+				width: auto;
+				height: auto;
+				border-radius: 4px;
+				box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+			}
+			.drop-hint {
+				position: absolute;
+				inset: 8px;
+				display: none;
+				align-items: center;
+				justify-content: center;
+				border: 3px dashed var(--brand);
+				border-radius: 12px;
+				background: rgba(255, 91, 46, 0.12);
+				color: var(--brand);
+				font-weight: 800;
+				font-size: 18px;
+			}
+			.stage.drag .drop-hint {
+				display: flex;
+			}
+			.exportbar {
+				display: flex;
+				gap: 8px;
+				flex-wrap: wrap;
+			}
+			.exportbar select {
+				width: auto;
+			}
+			.risk-line {
+				margin: 0;
+				padding: 8px 12px;
+				border-radius: 10px;
+				font-size: 13px;
+			}
+			.risk-line.warn {
+				background: color-mix(in srgb, var(--warn) 12%, transparent);
+				color: var(--warn);
+			}
+			.risk-line.bad {
+				background: color-mix(in srgb, var(--bad) 12%, transparent);
+				color: var(--bad);
+			}
+			.controls {
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+				min-width: 0;
+			}
+			.card {
+				background: var(--panel);
+				border: 1px solid var(--line);
+				border-radius: var(--radius);
+				box-shadow: var(--shadow);
+			}
+			.card > summary {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 13px 16px;
+				font-weight: 800;
+				cursor: pointer;
+				list-style: none;
+			}
+			.card > summary::-webkit-details-marker {
+				display: none;
+			}
+			.card > summary::after {
+				content: '';
+				margin-left: auto;
+				width: 8px;
+				height: 8px;
+				border-right: 2px solid var(--muted);
+				border-bottom: 2px solid var(--muted);
+				transform: rotate(45deg);
+				transition: transform 0.2s;
+			}
+			.card[open] > summary::after {
+				transform: rotate(-135deg);
+			}
+			.card-body {
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+				padding: 0 16px 16px;
+			}
+			.card h4 {
+				margin: 4px 0 -4px;
+				font-size: 13px;
+			}
+			label {
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				font-size: 13px;
+				color: var(--muted);
+			}
+			input:not([type]),
+			input[type='number'],
+			textarea,
+			select {
+				width: 100%;
+				font: inherit;
+				font-size: 15px;
+				color: var(--ink);
+				background: var(--field);
+				border: 1px solid var(--line);
+				border-radius: 10px;
+				padding: 8px 10px;
+			}
+			textarea {
+				resize: vertical;
+				line-height: 1.45;
+			}
+			input:focus-visible,
+			textarea:focus-visible,
+			select:focus-visible,
+			button:focus-visible,
+			.theme input:focus-visible + span {
+				outline: 2px solid var(--brand);
+				outline-offset: 1px;
+			}
+			.grid2,
+			.grid3 {
+				display: grid;
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+				gap: 10px;
+			}
+			.grid3 {
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+			}
+			button,
+			.file-btn {
+				font: inherit;
+				font-size: 14px;
+				border-radius: 10px;
+				border: 1px solid var(--line);
+				background: var(--panel);
+				color: var(--ink);
+				padding: 8px 14px;
+				cursor: pointer;
+			}
+			button:hover,
+			.file-btn:hover {
+				border-color: var(--muted);
+			}
+			button.primary,
+			.file-btn {
+				background: var(--brand);
+				color: var(--brand-ink);
+				border-color: transparent;
+				font-weight: 700;
+			}
+			button.ghost {
+				background: transparent;
+			}
+			button.small {
+				padding: 5px 10px;
+				font-size: 13px;
+			}
+			[hidden] {
+				display: none !important;
+			}
+			.upload {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				flex-wrap: wrap;
+			}
+			.file-btn {
+				display: inline-block;
+			}
+			.file-btn input {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				opacity: 0;
+			}
+			.check {
+				flex-direction: row;
+				align-items: center;
+				gap: 8px;
+				color: var(--ink);
+				font-size: 14px;
+			}
+			.range output {
+				color: var(--ink);
+				font-weight: 700;
+			}
+			.range input {
+				width: 100%;
+				accent-color: var(--brand);
+			}
+			.range.disabled {
+				opacity: 0.45;
+			}
+			.themes {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+				gap: 8px;
+			}
+			.theme {
+				position: relative;
+				color: var(--ink);
+			}
+			.theme input {
+				position: absolute;
+				opacity: 0;
+			}
+			.theme span {
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+				padding: 7px;
+				border: 2px solid var(--line);
+				border-radius: 12px;
+				font-size: 13px;
+				font-weight: 700;
+				text-align: center;
+				cursor: pointer;
+			}
+			.theme i {
+				display: block;
+				height: 34px;
+				border-radius: 8px;
+			}
+			.theme input:checked + span {
+				border-color: var(--brand);
+			}
+			.row {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+			}
+			.color {
+				flex-direction: row;
+				align-items: center;
+				gap: 8px;
+				color: var(--ink);
+				font-size: 14px;
+			}
+			.color input {
+				width: 44px;
+				height: 32px;
+				padding: 0;
+				border: 1px solid var(--line);
+				border-radius: 8px;
+				background: none;
+			}
+			.ideas {
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+			}
+			.ideas.chips {
+				flex-direction: row;
+				flex-wrap: wrap;
+			}
+			.idea {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 8px;
+				text-align: left;
+				padding: 7px 10px;
+			}
+			.idea em {
+				font-style: normal;
+				font-size: 11px;
+				color: var(--muted);
+				border: 1px solid var(--line);
+				border-radius: 999px;
+				padding: 0 7px;
+				white-space: nowrap;
+			}
+			.hint,
+			.footnote {
+				margin: 0;
+				font-size: 12px;
+				color: var(--muted);
+			}
+			.footnote {
+				text-align: center;
+				padding: 4px 0 24px;
+			}
+			.muted {
+				color: var(--muted);
+				font-weight: 400;
+				font-size: 12px;
+			}
+			.count {
+				float: right;
+				font-size: 12px;
+			}
+			.pill {
+				font-size: 12px;
+				padding: 1px 8px;
+				border-radius: 999px;
+				font-weight: 700;
+			}
+			.pill.ok {
+				color: var(--ok);
+				background: color-mix(in srgb, var(--ok) 14%, transparent);
+			}
+			.pill.warn {
+				color: var(--warn);
+				background: color-mix(in srgb, var(--warn) 14%, transparent);
+			}
+			.pill.bad {
+				color: var(--bad);
+				background: color-mix(in srgb, var(--bad) 14%, transparent);
+			}
+			.hits {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+			}
+			.hits li {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: baseline;
+				gap: 4px 8px;
+				padding: 8px 10px;
+				border-radius: 10px;
+				background: var(--field);
+				border-left: 3px solid var(--line);
+				font-size: 13px;
+			}
+			.hits li.high {
+				border-left-color: var(--bad);
+			}
+			.hits li.mid {
+				border-left-color: var(--warn);
+			}
+			.hits li.ok {
+				border-left-color: var(--ok);
+				color: var(--ok);
+			}
+			.hits li span {
+				color: var(--muted);
+			}
+			.hits li small {
+				margin-left: auto;
+				color: var(--ink);
+			}
+			.pip {
+				position: fixed;
+				right: 12px;
+				bottom: calc(12px + env(safe-area-inset-bottom));
+				z-index: 30;
+				padding: 4px;
+				border-radius: 10px;
+				background: var(--panel);
+				box-shadow: 0 6px 24px rgba(0, 0, 0, 0.28);
+			}
+			.pip canvas {
+				display: block;
+				max-width: 34vw;
+				max-height: 26vh;
+				width: auto;
+				height: auto;
+				border-radius: 6px;
+			}
+			.toast {
+				position: fixed;
+				left: 50%;
+				bottom: calc(24px + env(safe-area-inset-bottom));
+				z-index: 40;
+				max-width: calc(100vw - 32px);
+				padding: 10px 16px;
+				border-radius: 12px;
+				background: rgba(20, 22, 28, 0.92);
+				color: #fff;
+				font-size: 14px;
+				opacity: 0;
+				pointer-events: none;
+				transform: translate(-50%, 8px);
+				transition:
+					opacity 0.2s,
+					transform 0.2s;
+			}
+			.toast.show {
+				opacity: 1;
+				transform: translate(-50%, 0);
+			}
+			@media (max-width: 960px) {
+				.app {
+					grid-template-columns: minmax(0, 1fr);
+					padding: 12px 16px;
+				}
+				.preview {
+					position: static;
+				}
+				.stage {
+					padding: 10px;
+					min-height: 0;
+				}
+				.stage canvas {
+					max-height: 60vh;
+				}
+			}
+			@media (max-width: 420px) {
+				.grid3 {
+					grid-template-columns: repeat(2, minmax(0, 1fr));
+				}
+				.exportbar button {
+					flex: 1 1 auto;
+				}
+			}
+		</style>
+	</body>
+</html>
