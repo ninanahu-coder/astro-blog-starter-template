@@ -62,3 +62,7 @@ Check out [our documentation](https://docs.astro.build) or jump into our [Discor
 ## Credit
 
 This theme is based off of the lovely [Bear Blog](https://github.com/HermanMartinus/bearblog/).
+
+## 地球人生 / Terra Life
+
+在线人生模拟游戏框架（第一阶段：西澳大利亚），入口 `/earth`。架构、数据采集、CGI 出图与审查流程见 [docs/earth-game/README.md](docs/earth-game/README.md)。

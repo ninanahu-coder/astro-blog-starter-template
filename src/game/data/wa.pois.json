@@ -1,0 +1,15 @@
+{
+  "region": "wa",
+  "generatedBy": "seed",
+  "attribution": "种子数据为人工录入的近似坐标；OpenClaw 采集的数据须注明 © OpenStreetMap contributors (ODbL) / Wikidata (CC0)。",
+  "pois": [
+    { "id": "seed-kings-park", "loc": "perth", "name": "国王公园 Kings Park", "lat": -31.9609, "lon": 115.832, "category": "park", "source": "seed" },
+    { "id": "seed-elizabeth-quay", "loc": "perth", "name": "伊丽莎白码头 Elizabeth Quay", "lat": -31.958, "lon": 115.8573, "category": "landmark", "source": "seed" },
+    { "id": "seed-cottesloe", "loc": "perth", "name": "科特索海滩 Cottesloe Beach", "lat": -31.9939, "lon": 115.7511, "category": "beach", "source": "seed" },
+    { "id": "seed-freo-prison", "loc": "fremantle", "name": "弗里曼特尔监狱 Fremantle Prison", "lat": -32.055, "lon": 115.7536, "category": "heritage", "source": "seed" },
+    { "id": "seed-freo-markets", "loc": "fremantle", "name": "弗里曼特尔市集 Fremantle Markets", "lat": -32.0564, "lon": 115.7489, "category": "market", "source": "seed" },
+    { "id": "seed-cable-beach", "loc": "broome", "name": "凯布尔海滩 Cable Beach", "lat": -17.9318, "lon": 122.208, "category": "beach", "source": "seed" },
+    { "id": "seed-wave-rock", "loc": "wave-rock", "name": "波浪岩 Wave Rock", "lat": -32.4436, "lon": 118.8975, "category": "landmark", "source": "seed" },
+    { "id": "seed-pinnacles", "loc": "pinnacles", "name": "尖峰石阵观景台 Pinnacles Lookout", "lat": -30.6058, "lon": 115.1575, "category": "landmark", "source": "seed" }
+  ]
+}
