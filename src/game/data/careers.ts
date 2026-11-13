@@ -35,8 +35,8 @@ export const CAREERS: CareerDef[] = [
 		shift: { needs: { energy: -50, hygiene: -35, fun: -20 }, skills: { strength: 2, stamina: 1 } },
 		levels: [
 			{ title: '普工', pay: 300, req: { skills: { strength: 20 } } },
-			{ title: '设备操作员', pay: 380, req: { skills: { strength: 35, driving: 25 } } },
-			{ title: '班组长', pay: 470, req: { skills: { strength: 50 }, respect: 50 } },
+			{ title: '设备操作员', pay: 380, req: { skills: { strength: 35, driving: 15 } } },
+			{ title: '班组长', pay: 470, req: { skills: { strength: 50 }, respect: 30 } },
 		],
 	},
 	{

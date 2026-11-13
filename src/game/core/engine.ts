@@ -18,7 +18,7 @@ import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
 import { clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
-import { moodletGainMult } from './formulas.ts';
+import { efficiency, moodletGainMult } from './formulas.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
 	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
@@ -312,6 +312,16 @@ function blockedReason(state: PlayerState, act: Activity): string | undefined {
 	return undefined;
 }
 
+/** 训练类活动的能力成长乘状态系数（和真实地点一致）；只作用于这些活动，不改全局 growSkill */
+const CONDITION_SCALED = new Set(['gym', 'swim']);
+function scaledFx(state: PlayerState, act: Activity): Effect {
+	if (!CONDITION_SCALED.has(act.id) || !act.fx.skills) return act.fx;
+	const k = efficiency(state).total;
+	const skills: Partial<Record<SkillKey, number>> = {};
+	for (const [key, v] of Object.entries(act.fx.skills)) skills[key as SkillKey] = Math.round(v! * k * 100) / 100;
+	return { ...act.fx, skills };
+}
+
 export function performActivity(prev: PlayerState, region: Region, activityId: string): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	const loc = getLocation(region, prev.loc);
@@ -320,7 +330,7 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	const blocked = blockedReason(prev, act);
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);
-	applyEffect(state, { ...act.fx, minutes: act.minutes }, region);
+	applyEffect(state, { ...scaledFx(prev, act), minutes: act.minutes }, region);
 	log(state, `在${loc.name}${act.name}。`);
 	return { ok: true, state, msg: `${act.icon} ${act.name}完成。` };
 }

@@ -4,16 +4,16 @@
 import type { VenueOp, VenueTypeDef } from '../core/types.ts';
 
 export const VENUE_TYPES: VenueTypeDef[] = [
-	{ id: 'restaurant', name: '餐馆', icon: '🍽️', osm: 'amenity=restaurant', radiusM: 60, tier: 2, gigRate: 27, ops: ['meal', 'work'] },
-	{ id: 'fast-food', name: '快餐店', icon: '🍔', osm: 'amenity=fast_food', radiusM: 60, tier: 1, gigRate: 25, ops: ['meal', 'work'] },
-	{ id: 'cafe', name: '咖啡馆', icon: '☕', osm: 'amenity=cafe', radiusM: 50, tier: 1, gigRate: 26, ops: ['meal', 'work'] },
-	{ id: 'pub', name: '酒吧', icon: '🍺', osm: 'amenity=pub|bar', radiusM: 60, tier: 2, gigRate: 28, ops: ['drink', 'work'] },
+	{ id: 'restaurant', name: '餐馆', icon: '🍽️', osm: 'amenity=restaurant', radiusM: 60, tier: 2, gigRate: 23, ops: ['meal', 'work'] },
+	{ id: 'fast-food', name: '快餐店', icon: '🍔', osm: 'amenity=fast_food', radiusM: 60, tier: 1, gigRate: 21, ops: ['meal', 'work'] },
+	{ id: 'cafe', name: '咖啡馆', icon: '☕', osm: 'amenity=cafe', radiusM: 50, tier: 1, gigRate: 22, ops: ['meal', 'work'] },
+	{ id: 'pub', name: '酒吧', icon: '🍺', osm: 'amenity=pub|bar', radiusM: 60, tier: 2, gigRate: 24, ops: ['drink', 'work'] },
 	{ id: 'gym', name: '健身房', icon: '🏋️', osm: 'leisure=fitness_centre', radiusM: 60, tier: 2, quality: 1, ops: ['train'] },
 	{ id: 'sports-centre', name: '体育中心', icon: '🏟️', osm: 'leisure=sports_centre', radiusM: 120, tier: 2, quality: 0.8, ops: ['train', 'swim'] },
 	{ id: 'pool', name: '游泳池', icon: '🏊', osm: 'leisure=swimming_pool + access=yes', radiusM: 80, tier: 1, ops: ['swim', 'work'] },
 	{ id: 'park', name: '公园', icon: '🌳', osm: 'leisure=park', radiusM: 250, tier: 1, ops: ['run', 'relax'] },
 	{ id: 'library', name: '图书馆', icon: '📚', osm: 'amenity=library', radiusM: 60, tier: 1, ops: ['study'] },
-	{ id: 'supermarket', name: '超市', icon: '🛒', osm: 'shop=supermarket', radiusM: 80, tier: 1, gigRate: 25, ops: ['groceries', 'work'] },
+	{ id: 'supermarket', name: '超市', icon: '🛒', osm: 'shop=supermarket', radiusM: 80, tier: 1, gigRate: 21, ops: ['groceries', 'work'] },
 	{ id: 'clinic', name: '诊所', icon: '🏥', osm: 'amenity=clinic|doctors|hospital', radiusM: 80, tier: 2, ops: ['heal'] },
 ];
 
@@ -47,6 +47,6 @@ export const FIX_RULES = {
 	speedFreeKm: 2, // 两次定位相距不到这么远时不查速度（GPS 漂移）
 	clockInMinMin: 15, // 上班至少待满这么多真实分钟才计薪
 	shiftMaxMin: 480, // 一次上班最多计这么多分钟
-	dayMaxMin: 600, // 每个现实日最多计薪这么多分钟
+	dayMaxMin: 480, // 每个现实日最多计薪这么多分钟
 	clockInStaleMin: 16 * 60, // 上班卡超过这么久没打下班卡就作废
 };

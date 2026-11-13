@@ -191,6 +191,25 @@ test('自习给「专注」，健身房训练涨魅力', () => {
 	assert.ok(gym.ok, gym.msg);
 	assert.ok(gym.state.skills.charisma > s.skills.charisma && gym.state.skills.strength > s.skills.strength);
 	assert.ok(gym.state.needs.energy < s.needs.energy);
+	const ids = gym.state.moodlets.map((m) => m.id);
+	assert.ok(ids.includes('pumped') && ids.includes('sore'), '练完：练完很精神 + 肌肉酸痛');
+	const again = trainOutcome(gym.state, VENUE_TYPES.find((t) => t.id === 'gym')!);
+	assert.ok(again.notes.includes('酸痛 ×0.5'), '12 小时内再练只有一半效果');
+});
+
+test('游戏内健身、游泳的成长也乘状态系数；其他活动不变', () => {
+	const fresh = make({ cash: 100 });
+	const tired = make({ cash: 100, health: 50, needs: { ...make().needs, energy: 25 } });
+	assert.ok(efficiency(fresh).total > efficiency(tired).total);
+	const gain = (s: PlayerState, id: string, k: 'strength' | 'charisma') => {
+		const r = applyAction({ ...s, clock: 10 * 60 }, WA, { t: 'activity', id });
+		assert.ok(r.ok, `${id}: ${r.msg}`);
+		return r.state.skills[k] - s.skills[k];
+	};
+	assert.ok(gain(fresh, 'gym', 'strength') > gain(tired, 'gym', 'strength'), '状态好练得多');
+	const busk = gain(fresh, 'busk', 'charisma');
+	assert.ok(busk > 0);
+	assert.equal(busk.toFixed(3), gain(tired, 'busk', 'charisma').toFixed(3), '街头表演不受状态系数影响');
 });
 
 test('动作协议与存档校验', () => {

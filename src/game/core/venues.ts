@@ -1,7 +1,7 @@
 // 真实地点：玩家拿着手机真的走到某家餐馆、健身房、公园，就能在游戏里做对应的事。
 // 纯函数：现实时间 now（毫秒）由服务端传入，客户端无法伪造；坐标来自手机定位，可以伪造，所以做了精度、距离和速度三道检查。
 import { realDayOf } from './daily.ts';
-import { applyEffect, clone, fail, getCareer, getLocation, log, tryPromote } from './engine.ts';
+import { addMoodlet, applyEffect, clone, fail, getCareer, getLocation, log, tryPromote } from './engine.ts';
 import {
 	drinkOutcome, exerciseOutcome, groceriesOutcome, healOutcome, mealOutcome, relaxOutcome, studyOutcome, trainOutcome, workPay,
 	type OpOutcome,
@@ -10,6 +10,9 @@ import { haversineKm } from './geo.ts';
 import { dayOf } from './time.ts';
 import { FIX_RULES, VENUE_OPS, VENUE_TYPES, type VenueOpDef } from '../data/venues.ts';
 import type { ActionResult, PlayerState, Region, SkillKey, Venue, VenueOp, VenueTypeDef } from './types.ts';
+
+/** 实地到岗的时薪加成（第六轮平衡：1.15 → 1.05） */
+export const ON_SITE_BONUS = 1.05;
 
 export const getVenueType = (id: string): VenueTypeDef | undefined => VENUE_TYPES.find((t) => t.id === id);
 export const getVenueOp = (id: string): VenueOpDef | undefined => VENUE_OPS.find((o) => o.id === id);
@@ -29,7 +32,7 @@ export function workTerms(state: PlayerState, type: VenueTypeDef): WorkTerms | n
 	const c = job ? getCareer(job.career) : undefined;
 	if (job && c?.venues?.includes(type.id)) {
 		const base = Math.max(c.levels[job.level].pay / (c.minutes / 60), type.gigRate ?? 0);
-		return { hourly: Math.round(base * 1.15 * 10) / 10, skill: c.skill, career: true };
+		return { hourly: Math.round(base * ON_SITE_BONUS * 10) / 10, skill: c.skill, career: true };
 	}
 	if (type.gigRate) return { hourly: type.gigRate, skill: GIG_SKILL[type.id] ?? 'charisma', career: false };
 	return null;
@@ -158,6 +161,7 @@ function simpleOp(prev: PlayerState, region: Region, venue: Venue, type: VenueTy
 	const state = clone(prev);
 	// 先流逝时间再结算（applyEffect 内部顺序），所以时长单独传
 	applyEffect(state, { ...out.fx, minutes: op.minutes }, region);
+	if (op.id === 'train') addMoodlet(state, 'sore'); // 练完 12 小时内再练只有一半效果（超量恢复）
 	state.venueCd[op.id] = now;
 	const msg = `在${venue.name}${op.name}：${out.notes.join('，')}。`;
 	log(state, msg);

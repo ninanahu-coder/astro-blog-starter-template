@@ -61,7 +61,7 @@ test('数据里的活动会留下状态：外出吃饭、住旅馆、露营', ()
 	const s = make({ clock: at(12), cash: 500, needs: { hunger: 30, energy: 20, hygiene: 60, fun: 60, social: 60 } });
 	assert.deepEqual(ids(applyAction(s, WA, { t: 'activity', id: 'eat' }).state), ['well-fed']);
 	assert.ok(ids(applyAction(s, WA, { t: 'activity', id: 'sleep-motel' }).state).includes('great-sleep'));
-	assert.ok(ids(applyAction(s, WA, { t: 'activity', id: 'sleep-camp' }).state).includes('rough-night'));
+	assert.ok(ids(applyAction(s, WA, { t: 'activity', id: 'sleep-camp' }).state).includes('camp-calm'));
 });
 
 test('引擎时刻：新地方、乔迁、受伤、晕倒', () => {

@@ -5,7 +5,7 @@ export const ACTIVITIES: Activity[] = [
 	{ id: 'eat', name: '吃顿饭', icon: '🍽️', minutes: 40, fx: { moodlet: 'well-fed', cash: -18, needs: { hunger: 55, fun: 4 } }, requires: { cash: 18 }, desc: '填饱肚子。' },
 	{ id: 'forage', name: '野外找吃的', icon: '🌿', kinds: ['outback', 'park'], minutes: 90, fx: { needs: { hunger: 22, hygiene: -8 }, skills: { survival: 2 } }, desc: '不花钱，靠生存技巧。' },
 	{ id: 'sleep-motel', name: '住旅馆', icon: '🛏️', kinds: ['city', 'port', 'town', 'coast', 'mining', 'island'], minutes: 480, fx: { moodlet: 'great-sleep', cash: -90, health: 15, needs: { energy: 100, hygiene: 40 } }, requires: { cash: 90 }, desc: '睡个整觉，顺便洗澡。' },
-	{ id: 'sleep-camp', name: '露营过夜', icon: '⛺', minutes: 480, fx: { moodlet: 'rough-night', health: 5, needs: { energy: 70, hygiene: -15, fun: 5 }, skills: { survival: 1.5 } }, desc: '免费，但睡不踏实。' },
+	{ id: 'sleep-camp', name: '露营过夜', icon: '⛺', minutes: 480, fx: { moodlet: 'camp-calm', health: 5, needs: { energy: 70, hygiene: -15, fun: 5 }, skills: { survival: 1.5 } }, desc: '免费。睡得不算舒服，但醒来看见满天星星，心里很静。' },
 	{ id: 'shower', name: '洗澡', icon: '🚿', kinds: ['city', 'port', 'town', 'coast', 'mining', 'island'], minutes: 20, fx: { cash: -5, needs: { hygiene: 80 } }, requires: { cash: 5 }, desc: '公共淋浴。' },
 	{ id: 'swim', name: '下海游泳', icon: '🏊', tags: ['beach'], minutes: 60, fx: { needs: { fun: 25, hygiene: 15, energy: -12 }, skills: { swimming: 2, stamina: 1 } }, desc: '印度洋的水，清澈见底。' },
 	{ id: 'snorkel', name: '浮潜', icon: '🤿', tags: ['reef'], minutes: 120, fx: { moodlet: 'good-time', cash: -45, needs: { fun: 45, energy: -18 }, skills: { swimming: 3 }, respect: 1 }, requires: { cash: 45, skill: { swimming: 15 } }, hours: [7, 16], desc: '珊瑚礁浮潜，需要一点水性。' },

@@ -23,7 +23,8 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'promoted', name: '升职了', icon: '📈', value: 12, hours: 72 },
 	{ id: 'new-home', name: '乔迁之喜', icon: '🏡', value: 10, hours: 72 },
 	// 负面
-	{ id: 'rough-night', name: '没睡好', icon: '🥱', value: -4, hours: 8 },
+	{ id: 'rough-night', name: '没睡好', icon: '🥱', value: -2, hours: 8 }, // 第七轮起露营改给 camp-calm；保留定义，旧存档里的状态照常显示到过期
+	{ id: 'camp-calm', name: '星空下醒来', icon: '🌌', value: 10, hours: 24 }, // 露营专属（第七轮平衡：替代「没睡好」，托住穷角色的心情）
 	{ id: 'gift-awkward', name: '送错了礼物', icon: '😅', value: -3, hours: 6 },
 	{ id: 'sore', name: '肌肉酸痛', icon: '🦵', value: -3, hours: 12 },
 	{ id: 'hurt', name: '受了点伤', icon: '🩹', value: -6, hours: 24 },

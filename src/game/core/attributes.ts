@@ -75,7 +75,7 @@ export function activeMoodlets(state: PlayerState): ActiveMoodlet[] {
 }
 
 export interface MoodBreakdown {
-	needs: number; // 需求部分：平均值 × 0.6 + 最低值 × 0.4
+	needs: number; // 需求部分：平均值 × 0.75 + 最低值 × 0.25
 	traits: number;
 	home: number;
 	moodlets: ActiveMoodlet[];
@@ -86,7 +86,7 @@ export interface MoodBreakdown {
 export function moodBreakdown(state: PlayerState): MoodBreakdown {
 	const v = Object.values(state.needs);
 	const avg = v.reduce((a, b) => a + b, 0) / v.length;
-	const needs = Math.round(avg * 0.6 + Math.min(...v) * 0.4);
+	const needs = Math.round(avg * 0.75 + Math.min(...v) * 0.25);
 	const traits = mods(state).reduce((a, m) => a + (m.mood ?? 0), 0);
 	const home = homeComfort(state);
 	const moodlets = activeMoodlets(state);
