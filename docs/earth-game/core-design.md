@@ -101,6 +101,8 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 
 所有动作返回 `{ ok, state, msg }`。
 
+客户端不直接调用这些函数。`core/actions.ts` 定义了动作协议：`parseAction()` 把网络输入校验成 `GameAction`，`applyAction()` 分发给上表的函数，由服务端（`server/world.ts`）执行并保存。
+
 ## 5. 人际关系
 
 每个 NPC 可以做三种互动，每种每个游戏日一次：

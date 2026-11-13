@@ -51,6 +51,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
 			#app { max-width: 560px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
 			.hidden { display: none !important; }
+			body.busy #panel, body.busy #modal { opacity: 0.6; pointer-events: none; }
 			button { font: inherit; color: var(--text); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
 			button:disabled { opacity: 0.45; cursor: not-allowed; }
 			button.primary { background: var(--accent); border-color: var(--accent); color: #1a1205; font-weight: 700; }
@@ -141,15 +142,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 		</style>
 
 		<script>
-			import { AVATARS, NEED_META, ORIGINS, SKILL_META, createCharacter, formatClock, sanitizeState } from '../game/core/character.ts';
-			import { activitiesAt, buyItem, interactNpc, npcsAt, relationTier, getLocation, getPendingEvent, gpsCheckIn, performActivity, resolveEvent, shopAt, travel, travelOptions, useItem } from '../game/core/engine.ts';
+			import { AVATARS, NEED_META, ORIGINS, SKILL_META, formatClock, sanitizeState } from '../game/core/character.ts';
+			import type { GameAction } from '../game/core/actions.ts';
+			import { activitiesAt, npcsAt, relationTier, getLocation, getPendingEvent, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { checkScore, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
 			import { period } from '../game/core/time.ts';
 			import { makeProjection } from '../game/core/geo.ts';
 			import { NEED_KEYS, SKILL_KEYS } from '../game/core/types.ts';
-			import type { ActionResult, PlayerState, TravelMode } from '../game/core/types.ts';
+			import type { NpcAction, PlayerState, TravelMode } from '../game/core/types.ts';
 			import { WA } from '../game/data/wa.ts';
 
 			const region = WA;
@@ -175,8 +177,6 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let chats: Chat[] = [];
 			let emotes: string[] = [];
 			let syncStatus = '未同步';
-			let pushTimer = 0;
-			let syncedRev = -1; // 云端已确认的版本，避免重复上传
 			// 珀斯一带地点密集，标签手动错开：[dx, dy, anchor]
 			const LABEL: Record<string, [number, number, string]> = { perth: [8, -3, 'start'], fremantle: [-8, 9, 'end'], rottnest: [-9, -1, 'end'] };
 
@@ -202,50 +202,40 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 
 			// ---------- 存档与云同步 ----------
-			function persist() {
-				if (!state) return;
-				store.set(SAVE_KEY, JSON.stringify(state));
-				clearTimeout(pushTimer);
-				pushTimer = window.setTimeout(pushCloud, 1500);
+			// 服务端权威：本机只缓存最近一次服务器返回的存档用于显示，所有动作都由服务器结算
+			function cache() {
+				if (state) store.set(SAVE_KEY, JSON.stringify(state));
 			}
 			async function api(body: unknown) {
 				const res = await fetch('/api/earth/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 				return { status: res.status, data: (await res.json()) as any };
 			}
-			function adopt(remote: unknown, why: string) {
+			/** 采用服务器返回的存档；位置变了就通知在线频道 */
+			function adopt(remote: unknown, why?: string) {
 				const clean = sanitizeState(remote, LOC_IDS);
 				if (!clean) return false;
+				const moved = !state || state.loc !== clean.loc;
 				state = clean;
-				syncedRev = clean.rev;
 				syncStatus = `已同步 · 版本 ${clean.rev}`;
-				store.set(SAVE_KEY, JSON.stringify(state));
-				ws?.send(JSON.stringify({ t: 'move', loc: state.loc }));
-				toast(why);
-				render();
+				cache();
+				if (moved && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'move', loc: state.loc }));
+				if (why) toast(why);
 				return true;
-			}
-			async function pushCloud() {
-				if (!state || !cred || syncedRev === state.rev) return;
-				try {
-					const { status, data } = await api({ action: 'put', id: cred.id, key: cred.key, state });
-					if (data.ok) { syncedRev = data.rev; syncStatus = `已同步 · 版本 ${data.rev}`; }
-					else if (status === 409 && data.state?.rev > state.rev) adopt(data.state, '已载入另一台设备上更新的进度');
-					else if (status === 409 && data.state?.rev === state.rev) { syncedRev = state.rev; syncStatus = `已同步 · 版本 ${state.rev}`; }
-					else syncStatus = '同步失败：' + (data.msg || status);
-				} catch {
-					syncStatus = '离线 · 进度保存在本机';
-				}
-				if (tab === 'sync') renderPanel();
 			}
 			async function pullCloud() {
 				if (!cred) return;
 				try {
 					const { data } = await api({ action: 'get', id: cred.id, key: cred.key });
-					if (data.ok && (!state || data.state.rev > state.rev)) adopt(data.state, '已从云端载入最新进度');
-					else if (data.ok && data.state.rev === state.rev) { syncedRev = state.rev; syncStatus = `已同步 · 版本 ${state.rev}`; }
+					// 本机缓存只用于离线显示，联网时一律以服务器为准（即使版本号相同，缓存也可能被改过）
+					if (data.ok) {
+						const newer = !!state && data.state.rev !== state.rev;
+						adopt(data.state, newer ? '已载入最新进度' : undefined);
+						render();
+					} else syncStatus = '同步失败：' + (data.msg || '');
 				} catch {
-					syncStatus = '离线 · 进度保存在本机';
+					syncStatus = '离线：可以查看，联网后才能行动';
 				}
+				if (tab === 'sync') renderPanel();
 			}
 
 			// ---------- 在线状态 ----------
@@ -274,14 +264,25 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 			setInterval(() => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'ping' })); }, 20000);
 
-			// ---------- 动作 ----------
-			function commit(res: ActionResult) {
-				if (!res.ok) { toast(res.msg); if (res.state !== state) { state = res.state; persist(); render(); } return false; }
-				const moved = res.state.loc !== state!.loc;
-				state = { ...res.state, rev: res.state.rev + 1 };
-				persist();
-				if (moved && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'move', loc: state.loc }));
-				return true;
+			// ---------- 动作（发给服务器结算） ----------
+			let busy = false;
+			async function act(a: GameAction): Promise<{ ok: boolean; msg: string } | null> {
+				if (!state || !cred || busy) return null;
+				busy = true;
+				document.body.classList.add('busy');
+				try {
+					const { status, data } = await api({ action: 'act', id: cred.id, key: cred.key, rev: state.rev, act: a });
+					if (status === 409 && data.state) { adopt(data.state, data.msg); render(); return null; }
+					if (data.state) adopt(data.state);
+					if (!data.ok) { toast(data.msg || '操作失败'); render(); return null; }
+					return { ok: true, msg: data.msg };
+				} catch {
+					toast('网络断开了，联网后才能行动');
+					return null;
+				} finally {
+					busy = false;
+					document.body.classList.remove('busy');
+				}
 			}
 
 			// ---------- 渲染 ----------
@@ -473,20 +474,19 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) { tab = d.tab; renderPanel(); }
-				else if (d.npc && d.npcAct) { const r = interactNpc(state, region, d.npc, d.npcAct as 'chat' | 'gift' | 'help'); if (commit(r)) { lastOutcome = r.msg; toast(r.msg); render(); } }
-				else if (d.buy) { const r = buyItem(state, region, d.buy); if (commit(r)) { toast(r.msg); render(); } }
-				else if (d.use) { const r = useItem(state, region, d.use); if (commit(r)) { toast(r.msg); render(); } }
-				else if (d.act) { const r = performActivity(state, region, d.act); if (commit(r)) { lastOutcome = null; toast(r.msg); render(); } }
+				else if (d.npc && d.npcAct) act({ t: 'npc', npc: d.npc, act: d.npcAct as NpcAction }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.buy) act({ t: 'buy', item: d.buy }).then((r) => { if (r) { toast(r.msg); render(); } });
+				else if (d.use) act({ t: 'use', item: d.use }).then((r) => { if (r) { toast(r.msg); render(); } });
+				else if (d.act) act({ t: 'activity', id: d.act }).then((r) => { if (r) { lastOutcome = null; toast(r.msg); render(); } });
 				else if (d.go) {
-					const r = travel(state, region, d.go, d.mode as TravelMode);
-					if (commit(r)) { selected = null; lastOutcome = null; tab = 'place'; if (!state.pending) toast(r.msg); render(); window.scrollTo({ top: 0 }); }
+					act({ t: 'travel', to: d.go, mode: d.mode as TravelMode }).then((r) => { if (r) { selected = null; lastOutcome = null; tab = 'place'; if (!state!.pending) toast(r.msg); render(); window.scrollTo({ top: 0 }); } });
 				}
 				else if (d.loc) { selected = d.loc === state.loc ? null : d.loc; tab = selected ? 'go' : 'place'; renderMap(); renderPanel(); }
-				else if (d.choice) { const r = resolveEvent(state, region, +d.choice); if (commit(r)) { lastOutcome = r.msg; tab = 'place'; render(); } else render(); }
+				else if (d.choice) act({ t: 'event', choice: +d.choice }).then((r) => { if (r) { lastOutcome = r.msg; tab = 'place'; render(); } });
 				else if ('gps' in d) checkIn();
 				else if (d.emote && d.to) { ws?.send(JSON.stringify({ t: 'emote', to: d.to, kind: d.emote })); toast(`你向对方 ${d.emote}`); }
 				else if ('copy' in d) navigator.clipboard?.writeText(`${cred!.id}.${cred!.key}`).then(() => toast('已复制'), () => toast('复制失败，请长按手动复制'));
-				else if ('pull' in d) pullCloud().then(pushCloud);
+				else if ('pull' in d) pullCloud();
 				else if ('reset' in d) {
 					if (!confirm('确定删除本机存档？请先记下同步码。')) return;
 					try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(CRED_KEY); } catch {}
@@ -508,8 +508,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				navigator.geolocation.getCurrentPosition(
 					(pos) => {
 						if (!state) return;
-						const r = gpsCheckIn(state, region, pos.coords.latitude, pos.coords.longitude);
-						if (commit(r)) { if (!state.pending) toast(r.msg); render(); }
+						act({ t: 'gps', lat: pos.coords.latitude, lon: pos.coords.longitude }).then((r) => { if (r) { if (!state!.pending) toast(r.msg); render(); } });
 					},
 					() => toast('无法获取定位，请检查定位权限'),
 					{ enableHighAccuracy: true, timeout: 10000 },
@@ -541,12 +540,22 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				renderCreate();
 			});
 			function begin() { render(); connect(); }
-			$('c-start').addEventListener('click', () => {
-				cred = { id: 'p' + randId(15), key: randId(24) };
-				store.set(CRED_KEY, JSON.stringify(cred));
-				state = createCharacter({ id: cred.id, name: ($('c-name') as HTMLInputElement).value, avatar: pickAvatar, origin: pickOrigin, region: region.id, spawn: region.spawn, traits: pickTraits });
-				persist();
-				begin();
+			$('c-start').addEventListener('click', async () => {
+				const btn = $('c-start') as HTMLButtonElement;
+				const c = { id: 'p' + randId(15), key: randId(24) };
+				const profile = { name: ($('c-name') as HTMLInputElement).value, avatar: pickAvatar, origin: pickOrigin, traits: pickTraits };
+				btn.disabled = true;
+				try {
+					const { data } = await api({ action: 'create', id: c.id, key: c.key, profile });
+					if (!data.ok) return toast(data.msg || '创建失败');
+					cred = c;
+					store.set(CRED_KEY, JSON.stringify(cred));
+					if (adopt(data.state)) begin();
+				} catch {
+					toast('需要联网才能创建角色');
+				} finally {
+					btn.disabled = false;
+				}
 			});
 			$('c-import').addEventListener('click', async () => {
 				const m = /^([a-zA-Z0-9_-]{6,40})\.([a-zA-Z0-9]{16,64})$/.exec(($('c-code') as HTMLInputElement).value.trim());
@@ -556,7 +565,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					if (!data.ok) return toast(data.msg || '恢复失败');
 					cred = { id: m[1], key: m[2] };
 					store.set(CRED_KEY, JSON.stringify(cred));
-					if (adopt(data.state, '已恢复云端存档')) begin();
+					if (adopt(data.state, '已恢复云端存档')) { render(); begin(); }
 					else toast('云端存档已损坏');
 				} catch { toast('网络错误，请稍后再试'); }
 			});
@@ -568,7 +577,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			renderCreate();
 			render();
 			fetch('/earth/cgi/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: any) => { cgi = m.images || {}; if (state) { renderPanel(); renderEvent(); } }).catch(() => {});
-			if (state) { connect(); pullCloud().then(pushCloud); }
+			if (state) { connect(); pullCloud(); }
 			document.addEventListener('visibilitychange', () => { if (!document.hidden && state) { connect(); pullCloud(); } });
 		</script>
 	</body>

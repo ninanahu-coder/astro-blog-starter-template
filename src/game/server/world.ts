@@ -1,9 +1,10 @@
 // 「地球人生」联机服务端 —— Cloudflare Durable Object。
 // 一个区域一个实例（idFromName(regionId)）：在线玩家位置、同地点聊天、互动表情。
 // 另有保留实例 '@SAVES' 负责云存档（跨设备同步）。
-// 第一阶段：规则由客户端引擎结算，服务端只做存档校验（sanitizeState）与版本冲突检测；
-// 第二阶段再把 engine 搬到服务端做权威结算（引擎是纯函数，可直接复用）。
-import { cleanName, sanitizeState } from '../core/character.ts';
+// 权威结算：客户端只发送动作（create / act），由本实例调用规则引擎结算并保存；
+// 客户端不能上传存档，改本地数据不会影响服务器上的进度。
+import { applyAction, parseAction, publicState } from '../core/actions.ts';
+import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
 import { REGIONS } from '../data/wa.ts';
 
 const SAVES_ROOM = '@SAVES';
@@ -14,7 +15,7 @@ const IDLE_TIMEOUT_MS = 70000; // 客户端每 20s ping
 const CHAT_MAX = 120;
 const SAVE_BODY_MAX = 48 * 1024;
 const SAVE_WINDOW_MS = 60 * 1000;
-const SAVE_LIMIT = 40; // 每 IP 每分钟
+const SAVE_LIMIT = 90; // 每 IP 每分钟（每个动作一次请求）
 const EMOTES = ['👋', '🤝', '🍻', '📸', '❤️', '😂'];
 const ID_RE = /^[a-zA-Z0-9_-]{6,40}$/;
 const KEY_RE = /^[a-zA-Z0-9]{16,64}$/;
@@ -48,6 +49,7 @@ export class EarthWorld {
 	private msgCount = new Map<WebSocket, { n: number; resetAt: number }>();
 	private saveRate = new Map<string, { n: number; resetAt: number }>();
 	private sweeper: ReturnType<typeof setInterval> | null = null;
+	private locks = new Map<string, Promise<unknown>>(); // 同一存档的请求排队执行，避免并发读改写
 
 	constructor(ctx: DurableObjectState, _env: unknown) {
 		this.ctx = ctx;
@@ -184,8 +186,12 @@ export class EarthWorld {
 		}
 	}
 
-	// ---------- 云存档（仅 '@SAVES' 实例；storage 键：save:<id> = { keyHash, state, at }） ----------
+	// ---------- 云存档与权威结算（仅 '@SAVES' 实例；storage 键：save:<id> = { keyHash, state, at }） ----------
 	// 同步码 = id + '.' + key。key 只在客户端与请求体里出现，服务端只存哈希。
+	// 接口：
+	//   create { id, key, profile: { name, avatar, origin, traits } }  新建角色（id 未被占用时）
+	//   get    { id, key }                                             读取存档
+	//   act    { id, key, rev, act: GameAction }                       执行一个动作；rev 与服务端不一致返回 409
 	private async handleSave(request: Request): Promise<Response> {
 		if (request.method !== 'POST') return json({ ok: false, msg: '请求无效' }, 405);
 		const ip = request.headers.get('CF-Connecting-IP') || 'local';
@@ -197,33 +203,67 @@ export class EarthWorld {
 		} else if (++rate.n > SAVE_LIMIT) return json({ ok: false, msg: '操作太频繁' }, 429);
 
 		const text = await request.text();
-		if (text.length > SAVE_BODY_MAX) return json({ ok: false, msg: '存档过大' }, 413);
+		if (text.length > SAVE_BODY_MAX) return json({ ok: false, msg: '请求过大' }, 413);
 		let body: any;
 		try {
 			body = JSON.parse(text);
 		} catch {
 			return json({ ok: false, msg: '请求无效' }, 400);
 		}
-		const { action, id, key } = body ?? {};
+		const { id, key } = body ?? {};
 		if (typeof id !== 'string' || !ID_RE.test(id) || typeof key !== 'string' || !KEY_RE.test(key)) {
 			return json({ ok: false, msg: '同步码无效' }, 400);
 		}
+		// 同一存档串行处理：上一个请求结束后才开始下一个
+		const prev = this.locks.get(id) ?? Promise.resolve();
+		const run = prev.then(() => this.handleSaveLocked(body, id, key, now));
+		const tail = run.catch(() => {});
+		this.locks.set(id, tail);
+		tail.then(() => {
+			if (this.locks.get(id) === tail) this.locks.delete(id);
+		});
+		return run;
+	}
+
+	private async handleSaveLocked(body: any, id: string, key: string, now: number): Promise<Response> {
 		const keyHash = await sha256Hex(id + ':' + key);
 		const rec = await this.ctx.storage.get<{ keyHash: string; state: any; at: number }>('save:' + id);
 		if (rec && !timingSafeEqual(rec.keyHash, keyHash)) return json({ ok: false, msg: '同步码无效' }, 403);
+		const action = body.action;
 
-		if (action === 'get') {
-			if (!rec) return json({ ok: false, msg: '云端没有这个存档' }, 404);
-			return json({ ok: true, state: rec.state, at: rec.at });
-		}
-		if (action === 'put') {
-			const region = REGIONS[body.state?.region] ?? REGIONS.wa;
-			const state = sanitizeState(body.state, new Set(region.locations.map((l) => l.id)));
-			if (!state || state.id !== id) return json({ ok: false, msg: '存档格式无效' }, 400);
-			// 版本冲突：云端更新（另一台设备玩过）时拒绝覆盖，把云端版本还给客户端
-			if (rec && rec.state.rev >= state.rev) return json({ ok: false, conflict: true, state: rec.state, at: rec.at }, 409);
+		if (action === 'create') {
+			if (rec) return json({ ok: false, msg: '这个存档已存在' }, 409);
+			const prof = body.profile ?? {};
+			const region = REGIONS.wa;
+			const state = createCharacter({
+				id,
+				name: cleanName(prof.name),
+				avatar: String(prof.avatar ?? ''),
+				origin: String(prof.origin ?? ''),
+				traits: Array.isArray(prof.traits) ? prof.traits.filter((t: unknown) => typeof t === 'string').slice(0, 4) : [],
+				region: region.id,
+				spawn: region.spawn,
+				seed: crypto.getRandomValues(new Uint32Array(1))[0],
+			});
 			await this.ctx.storage.put('save:' + id, { keyHash, state, at: now });
-			return json({ ok: true, rev: state.rev, at: now });
+			return json({ ok: true, state: publicState(state), at: now });
+		}
+
+		if (!rec) return json({ ok: false, msg: '云端没有这个存档' }, 404);
+		const region = REGIONS[rec.state?.region] ?? REGIONS.wa;
+		const current = sanitizeState(rec.state, new Set(region.locations.map((l) => l.id)));
+		if (!current) return json({ ok: false, msg: '云端存档已损坏' }, 500);
+
+		if (action === 'get') return json({ ok: true, state: publicState(current), at: rec.at });
+
+		if (action === 'act') {
+			// 客户端看到的版本落后（另一台设备刚玩过）：不执行，把最新存档还给它
+			if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: '进度已在另一台设备上更新', state: publicState(current) }, 409);
+			const act = parseAction(body.act);
+			if (!act) return json({ ok: false, msg: '动作无效' }, 400);
+			const r = applyAction(current, region, act);
+			if (r.state !== current) await this.ctx.storage.put('save:' + id, { keyHash, state: r.state, at: now });
+			return json({ ok: r.ok, msg: r.msg, state: publicState(r.state) });
 		}
 		return json({ ok: false, msg: '请求无效' }, 400);
 	}
