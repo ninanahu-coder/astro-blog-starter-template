@@ -4,7 +4,7 @@ import type { CareerDef } from '../core/types.ts';
 
 export const CAREERS: CareerDef[] = [
 	{
-		id: 'barista', name: '咖啡店', where: { kinds: ['city', 'port', 'town', 'coast'] }, start: [6, 11], minutes: 360, skill: 'charisma',
+		id: 'barista', name: '咖啡店', where: { kinds: ['city', 'port', 'town', 'coast'] }, venues: ['cafe', 'restaurant', 'fast-food'], start: [6, 11], minutes: 360, skill: 'charisma',
 		shift: { needs: { energy: -25, social: 15, fun: -8 }, skills: { charisma: 1.5 } },
 		levels: [
 			{ title: '学徒', pay: 120 },
@@ -13,7 +13,7 @@ export const CAREERS: CareerDef[] = [
 		],
 	},
 	{
-		id: 'lifeguard', name: '海滩救生队', where: { tags: ['beach'] }, start: [6, 10], minutes: 480, skill: 'swimming',
+		id: 'lifeguard', name: '海滩救生队', where: { tags: ['beach'] }, venues: ['pool'], start: [6, 10], minutes: 480, skill: 'swimming',
 		shift: { needs: { energy: -30, hygiene: -10, fun: 5 }, skills: { swimming: 2, stamina: 1 } },
 		levels: [
 			{ title: '见习救生员', pay: 160, req: { skills: { swimming: 25 } } },

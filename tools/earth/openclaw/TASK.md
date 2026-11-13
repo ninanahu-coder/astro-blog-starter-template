@@ -46,3 +46,31 @@
 - `npm run earth:pois` 无报错（schema、坐标落在所属地点半径内、id 不重复）。
 - `npm test` 通过。
 - PR 描述里写明数据源、查询时间、条目数。
+
+## 第三项任务：真实地点（餐馆、健身房、公园……）
+
+游戏的「附近」页让玩家本人走到真实的店里就能在游戏里吃饭、训练、打卡上班。需要采集这些地点的坐标。
+
+> 已有确定性采集脚本：`npm run earth:fetch-venues -- --locs=<地点id,...> --km=<半径>`，它按下面的规则查 Overpass 并写出 inbox 批次。珀斯、弗里曼特尔已于 2026-11-13 采集。新增地点时优先跑脚本，不要手抄坐标。
+
+类型定义在 `src/game/data/venues.ts` 的 `VENUE_TYPES`（每种都写了对应的 OSM 标签）。
+
+1. **只用 OpenStreetMap（Overpass API）**。不要用 Google Maps / Google Places、点评网站或任何商业地图的数据：许可不允许缓存和再分发。
+2. 先做珀斯（`perth`）和弗里曼特尔（`fremantle`），在地点中心 5 公里内查询：
+   - `amenity=restaurant` → `restaurant`；`amenity=fast_food` → `fast-food`；`amenity=cafe` → `cafe`；`amenity=pub` 或 `amenity=bar` → `pub`
+   - `leisure=fitness_centre` → `gym`；`leisure=sports_centre` → `sports-centre`；`leisure=swimming_pool` 且 `access` 不是 `private` → `pool`
+   - `leisure=park` → `park`（只要有名字的）；`amenity=library` → `library`；`shop=supermarket` → `supermarket`
+   - `amenity=clinic` / `amenity=doctors` / `amenity=hospital` → `clinic`
+3. 只保留有 `name` 的条目。`way` / `relation` 用中心点坐标（Overpass 的 `out center`）。
+4. 每种类型每个地点最多 40 条，按有 `wikidata`、`website`、`opening_hours` 标签的优先。
+5. `id` 写成 `osm-<node|way|relation>-<数字>`，`source` 写 `osm`，`name` 照 OSM 原文（不要翻译、不要加中文）。
+6. `tier`（档次 1–4）可选：只有 OSM 上有明确依据时才写（如快餐连锁写 1），没有依据就不写，用类型默认值。
+7. 输出到 `tools/earth/openclaw/inbox/venues-<日期>.json`：
+
+   ```json
+   { "region": "wa", "venues": [ { "id": "osm-node-123", "loc": "perth", "name": "…", "lat": -31.95, "lon": 115.86, "type": "cafe", "source": "osm" } ] }
+   ```
+
+8. 运行 `npm run earth:venues -- --dry-run`，通过后再运行不带 `--dry-run` 的版本。PR 描述里写明查询语句、查询时间、每种类型的条数。
+
+不要采集：私人住宅、家庭日托、宗教场所和学校；诊所只要机构名，不要医生个人的名字。

@@ -12,6 +12,7 @@ import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { WISHES } from '../data/wishes.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
+import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { COURSES } from '../data/courses.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
@@ -105,6 +106,10 @@ export function createCharacter(opts: {
 		collected: [],
 		courseDays: {},
 		pending: null,
+		fix: null,
+		venueCd: {},
+		clockIn: null,
+		realWork: { day: 0, min: 0 },
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		seed: (opts.seed ?? Math.floor(Math.random() * 2 ** 31)) >>> 0,
 		rev: 0,
@@ -206,6 +211,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 			return out;
 		})(),
 		pending: r.pending && typeof r.pending.eventId === 'string' ? { eventId: r.pending.eventId.slice(0, 64) } : null,
+		...cleanReal(r),
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
 		rev: Math.floor(num(r.rev, 0, 1e9, 0)),
@@ -213,6 +219,26 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 }
 
 export const JOURNAL_MAX = 40;
+
+const VENUE_ID = /^[a-z0-9][a-z0-9-]{2,63}$/;
+const finiteIn = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+
+/** 真实定位相关字段：坐标只留 3 位小数，时间为非负整数，动作名只留已知的 */
+function cleanReal(r: any): Pick<PlayerState, 'fix' | 'venueCd' | 'clockIn' | 'realWork'> {
+	const f = r.fix;
+	const fix = f && finiteIn(f.lat, -90, 90) && finiteIn(f.lon, -180, 180) && finiteIn(f.at, 0, 1e15)
+		? { lat: Math.round(f.lat * 1000) / 1000, lon: Math.round(f.lon * 1000) / 1000, at: Math.floor(f.at) }
+		: null;
+	const venueCd: PlayerState['venueCd'] = {};
+	for (const op of VENUE_OPS) {
+		const t = r.venueCd?.[op.id];
+		if (finiteIn(t, 0, 1e15)) venueCd[op.id] = Math.floor(t);
+	}
+	const c = r.clockIn;
+	const clockIn = c && typeof c.venue === 'string' && VENUE_ID.test(c.venue) && finiteIn(c.at, 0, 1e15) ? { venue: c.venue, at: Math.floor(c.at) } : null;
+	const realWork = { day: Math.floor(num(r.realWork?.day, 0, 1e7, 0)), min: Math.floor(num(r.realWork?.min, 0, 1440, 0)) };
+	return { fix, venueCd, clockIn, realWork };
+}
 
 function cleanJob(raw: any, knownLocs?: Set<string>): Job | null {
 	if (!raw || typeof raw !== 'object') return null;
@@ -263,19 +289,29 @@ function cleanHome(raw: any, knownLocs?: Set<string>): Home | null {
 	return { type: raw.type, loc: raw.loc, furniture };
 }
 
-/** 关系只保留已知 NPC，分数钳制，日期为非负整数 */
+/**
+ * 关系只保留已知 NPC，分数钳制，日期为非负整数；剧情门槛只保留该 NPC 真有的，物品只保留已知的。
+ * 旧存档没有 seen：按当前分数把已经越过的门槛记为看过（不补发回报），旧的 bonded 视为看过「好友」那一段。
+ */
 function cleanRelations(raw: unknown): Record<string, Relation> {
 	const out: Record<string, Relation> = {};
 	if (!raw || typeof raw !== 'object') return out;
+	const items = new Set(ITEMS.map((i) => i.id));
 	for (const npc of NPCS) {
 		const r = (raw as Record<string, any>)[npc.id];
 		if (!r || typeof r !== 'object') continue;
 		const last: Relation['last'] = {};
-		for (const k of ['chat', 'gift', 'help'] as const) {
+		for (const k of ['chat', 'gift', 'help', 'perk'] as const) {
 			const d = r.last?.[k];
 			if (typeof d === 'number' && Number.isFinite(d) && d >= 0) last[k] = Math.floor(d);
 		}
-		out[npc.id] = { score: num(r.score, -100, 100, 0), last, bonded: r.bonded === true };
+		const score = num(r.score, -100, 100, 0);
+		const gates = npc.stories.map((st) => st.at);
+		const seen = Array.isArray(r.seen)
+			? gates.filter((g) => r.seen.includes(g))
+			: gates.filter((g) => g <= score || (r.bonded === true && g <= 60));
+		const known = Array.isArray(r.known) ? [...new Set(r.known.filter((i: unknown) => typeof i === 'string' && items.has(i)))] as string[] : [];
+		out[npc.id] = { score, last, seen, known };
 	}
 	return out;
 }

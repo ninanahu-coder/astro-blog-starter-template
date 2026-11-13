@@ -272,7 +272,7 @@ export class EarthWorld {
 			const act = parseAction(body.act);
 			if (!act) return json({ ok: false, msg: '动作无效' }, 400);
 			// 版本号按领奖前的存档比对（上面已检查），动作在领奖后的存档上执行
-			const r = applyAction(live, region, act);
+			const r = applyAction(live, region, act, now);
 			if (r.state !== current) await this.ctx.storage.put('save:' + id, { keyHash, state: r.state, at: now });
 			return json({ ok: r.ok, msg: r.msg, state: publicState(r.state), daily: claim?.msg });
 		}

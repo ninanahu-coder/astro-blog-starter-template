@@ -34,6 +34,7 @@ export interface MoodletDef {
 	icon: string;
 	value: number; // 心情加减
 	hours: number; // 持续的游戏小时
+	gain?: number; // 生效期间所有能力成长的倍率（如「专注」1.25）
 }
 
 export interface Moodlet {
@@ -62,23 +63,58 @@ export interface TraitDef {
 }
 
 // ---------- NPC 与关系 ----------
+export type SeasonKey = 'spring' | 'summer' | 'autumn' | 'winter';
+
+/** 日程里的一条：今天满足条件时，NPC 在 loc 的 hours 时段出现。按顺序取第一条满足的，都不满足时用常驻地点和作息 */
+export interface NpcSlot {
+	loc: string;
+	hours: Hours;
+	weekdays?: number[]; // 0 = 周一 … 6 = 周日
+	seasons?: SeasonKey[];
+	festival?: string; // 节日进行中
+	note?: string; // 界面上的说明，如“周日去集市摆摊”
+}
+
+/** 送礼反应：最爱 / 喜欢 / 一般 / 讨厌。没列出的物品算一般 */
+export type GiftReaction = 'love' | 'like' | 'neutral' | 'dislike';
+
+/** 好感度第一次达到 at 时触发的一段小剧情，各触发一次 */
+export interface NpcStory {
+	at: number;
+	title: string;
+	text: string;
+	fx?: Effect;
+}
+
+/** 专属互动：好感度达到 at 后解锁，每 every 个游戏日一次 */
+export interface NpcPerk {
+	at: number;
+	name: string;
+	desc: string;
+	every: number;
+	fx: Effect;
+}
+
 export interface NpcDef {
 	id: string;
 	name: string;
 	role: string;
-	loc: string;
-	hours: Hours;
-	likes: string[]; // 喜欢的物品 id
+	loc: string; // 常驻地点
+	hours: Hours; // 常驻作息
+	schedule?: NpcSlot[];
+	gifts: { love: string[]; like: string[]; dislike: string[] }; // 物品 id
 	bio: string;
-	bond: { text: string; fx: Effect }; // 第一次成为「好友」时的回报
+	stories: NpcStory[]; // 按 at 从小到大
+	perk?: NpcPerk;
 }
 
-export type NpcAction = 'chat' | 'gift' | 'help';
+export type NpcAction = 'chat' | 'gift' | 'help' | 'perk';
 
 export interface Relation {
 	score: number; // −100..100
-	last: Partial<Record<NpcAction, number>>; // 每种互动最近一次的游戏日，同一天不能重复
-	bonded: boolean; // 已领取好友回报
+	last: Partial<Record<NpcAction, number>>; // 每种互动最近一次的游戏日
+	seen: number[]; // 已触发过的剧情门槛
+	known: string[]; // 已经知道 TA 反应的物品 id（送过一次就知道）
 }
 
 // ---------- 职业与住房 ----------
@@ -103,6 +139,7 @@ export interface CareerDef {
 	skill: SkillKey; // 表现检定用的能力
 	shift: Effect; // 每个班的固定消耗与成长（不含工资）
 	levels: CareerLevel[];
+	venues?: string[]; // 可以在这些类型的真实地点打卡上班（VenueTypeDef.id）
 }
 
 export interface Job {
@@ -255,6 +292,35 @@ export interface Region {
 	locations: GameLocation[];
 	routes: Route[];
 	pois: Poi[];
+	venues: Venue[];
+}
+
+// ---------- 真实地点（店铺、健身房、公园……） ----------
+/** 真实地点上能做的事。公式见 core/formulas.ts */
+export type VenueOp = 'meal' | 'train' | 'work' | 'run' | 'swim' | 'relax' | 'study' | 'drink' | 'groceries' | 'heal';
+
+export interface VenueTypeDef {
+	id: string;
+	name: string;
+	icon: string;
+	osm: string; // 对应的 OSM 标签，给采集任务看
+	radiusM: number; // 判定“人在这里”的半径（米）
+	tier: number; // 档次 1–4，影响饭价和饱腹
+	quality?: number; // 训练质量（健身房 1.0）
+	gigRate?: number; // 没有对应职业时，真实打工的时薪
+	ops: VenueOp[];
+}
+
+/** 一个真实地点，由 OpenClaw 从 OSM 采集（wa.venues.json） */
+export interface Venue {
+	id: string;
+	loc: string; // 所属 GameLocation.id
+	name: string;
+	lat: number;
+	lon: number;
+	type: string; // VenueTypeDef.id
+	tier?: number; // 覆盖类型的默认档次
+	source: string;
 }
 
 /** 营业/作息时间 [开, 关) 小时，关 ≤ 开 表示跨午夜 */
@@ -290,7 +356,7 @@ export interface FestivalDef {
 	id: string;
 	name: string;
 	loc: string;
-	season: 'spring' | 'summer' | 'autumn' | 'winter';
+	season: SeasonKey;
 	day: number; // 季内第几天开始
 	days: number; // 持续天数
 	desc: string;
@@ -364,6 +430,10 @@ export interface PlayerState {
 	collected: string[]; // 已完成的收费体验 id
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
 	pending: { eventId: string } | null;
+	fix: { lat: number; lon: number; at: number } | null; // 最近一次真实定位（坐标保留 3 位小数，约 100 米；at 为服务端时间）
+	venueCd: Partial<Record<VenueOp, number>>; // 每种真实地点动作最近一次的服务端时间（毫秒）
+	clockIn: { venue: string; at: number } | null; // 真实打卡上班：哪个地点、几点打的卡
+	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	journal: JournalEntry[];
 	seed: number;
 	rev: number; // 存档版本号，云同步用

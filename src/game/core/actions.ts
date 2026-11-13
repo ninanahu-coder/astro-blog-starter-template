@@ -5,7 +5,9 @@ import {
 } from './engine.ts';
 import { settleWishes } from './wishes.ts';
 import { pruneMoodlets } from './engine.ts';
-import type { ActionResult, NpcAction, PlayerState, Region, TravelMode } from './types.ts';
+import type { ActionResult, NpcAction, PlayerState, Region, TravelMode, VenueOp } from './types.ts';
+import { venueAction } from './venues.ts';
+import { VENUE_OPS } from '../data/venues.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -14,7 +16,7 @@ export type GameAction =
 	| { t: 'gps'; lat: number; lon: number }
 	| { t: 'buy'; item: string }
 	| { t: 'use'; item: string }
-	| { t: 'npc'; npc: string; act: NpcAction }
+	| { t: 'npc'; npc: string; act: NpcAction; item?: string }
 	| { t: 'job'; op: 'apply'; career: string }
 	| { t: 'job'; op: 'work' | 'quit' }
 	| { t: 'home'; op: 'rent'; home: string }
@@ -27,10 +29,11 @@ export type GameAction =
 	| { t: 'vehicle'; op: 'buy'; id: string }
 	| { t: 'vehicle'; op: 'sell' | 'sleep' }
 	| { t: 'course'; id: string }
-	| { t: 'experience'; id: string };
+	| { t: 'experience'; id: string }
+	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
-const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help'];
+const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk'];
 const ID = /^[a-z0-9-]{1,40}$/;
 
 const str = (v: unknown): v is string => typeof v === 'string' && ID.test(v);
@@ -53,7 +56,13 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'use':
 			return str(a.item) ? { t: a.t, item: a.item } : null;
 		case 'npc':
-			return str(a.npc) && NPC_ACTS.includes(a.act as NpcAction) ? { t: 'npc', npc: a.npc, act: a.act as NpcAction } : null;
+			if (!str(a.npc) || !NPC_ACTS.includes(a.act as NpcAction)) return null;
+			if (a.item === undefined) return { t: 'npc', npc: a.npc, act: a.act as NpcAction };
+			return a.act === 'gift' && str(a.item) ? { t: 'npc', npc: a.npc, act: 'gift', item: a.item } : null;
+		case 'venue':
+			return str(a.venue) && VENUE_OPS.some((o) => o.id === a.op) && finite(a.lat) && finite(a.lon) && finite(a.acc) && Math.abs(a.lat) <= 90 && Math.abs(a.lon) <= 180 && a.acc >= 0 && a.acc <= 10000
+				? { t: 'venue', venue: a.venue, op: a.op as VenueOp, lat: a.lat, lon: a.lon, acc: a.acc }
+				: null;
 		case 'job':
 			if (a.op === 'apply') return str(a.career) ? { t: 'job', op: 'apply', career: a.career } : null;
 			return a.op === 'work' || a.op === 'quit' ? { t: 'job', op: a.op } : null;
@@ -79,8 +88,8 @@ export function parseAction(raw: unknown): GameAction | null {
 	}
 }
 
-/** 执行一个动作。成功时存档版本号 +1 */
-export function applyAction(state: PlayerState, region: Region, a: GameAction): ActionResult {
+/** 执行一个动作。成功时存档版本号 +1。now 为服务端的现实时间（毫秒），只有真实地点动作用到；不传则真实地点不可用 */
+export function applyAction(state: PlayerState, region: Region, a: GameAction, now = 0): ActionResult {
 	let r: ActionResult;
 	switch (a.t) {
 		case 'travel': r = travel(state, region, a.to, a.mode); break;
@@ -89,7 +98,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction): 
 		case 'gps': r = gpsCheckIn(state, region, a.lat, a.lon); break;
 		case 'buy': r = buyItem(state, region, a.item); break;
 		case 'use': r = useItem(state, region, a.item); break;
-		case 'npc': r = interactNpc(state, region, a.npc, a.act); break;
+		case 'npc': r = interactNpc(state, region, a.npc, a.act, a.item); break;
 		case 'job': r = a.op === 'apply' ? applyJob(state, region, a.career) : a.op === 'work' ? workShift(state, region) : quitJob(state); break;
 		case 'home': r = a.op === 'rent' ? rentHome(state, region, a.home) : a.op === 'sleep' ? sleepHome(state, region) : a.op === 'cook' ? cookAtHome(state, region) : a.op === 'relax' ? relaxAtHome(state, region) : leaveHome(state); break;
 		case 'furniture': r = a.op === 'buy' ? buyFurniture(state, region, a.id) : sellFurniture(state, a.slot); break;
@@ -103,6 +112,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction): 
 			break;
 		case 'course': r = takeCourse(state, region, a.id); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
+		case 'venue': r = venueAction(state, region, a, now); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;

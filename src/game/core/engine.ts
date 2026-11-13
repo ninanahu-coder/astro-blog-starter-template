@@ -12,15 +12,16 @@ import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } f
 import { DEALER_HOURS, DEALER_TAG, VEHICLES } from '../data/vehicles.ts';
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
 import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
-import { dateOf, dayOf, hoursLabel, inSpan, isOpen } from './time.ts';
+import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, weekdayOf } from './time.ts';
 import { FESTIVALS } from '../data/festivals.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
 import { clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
+import { moodletGainMult } from './formulas.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
-	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
+	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
@@ -38,10 +39,10 @@ function roll(state: PlayerState): number {
 	return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
-const clone = (s: PlayerState): PlayerState => structuredClone(s);
-const fail = (state: PlayerState, msg: string): ActionResult => ({ ok: false, state, msg });
+export const clone = (s: PlayerState): PlayerState => structuredClone(s);
+export const fail = (state: PlayerState, msg: string): ActionResult => ({ ok: false, state, msg });
 
-function log(state: PlayerState, text: string) {
+export function log(state: PlayerState, text: string) {
 	state.journal.push({ t: state.clock, text });
 	if (state.journal.length > JOURNAL_MAX) state.journal.splice(0, state.journal.length - JOURNAL_MAX);
 }
@@ -102,7 +103,7 @@ export const SKILL_GROWTH = { scale: 0.35, cap: 110 };
 /** 能力变化的唯一入口。增长 = 原值 × 特质倍率 × scale × (1 − 当前值 / cap)；扣减不打折 */
 export function growSkill(state: PlayerState, k: SkillKey, d: number) {
 	const cur = state.skills[k];
-	const delta = d > 0 ? d * gainMult(state, k) * SKILL_GROWTH.scale * Math.max(0, 1 - cur / SKILL_GROWTH.cap) : d;
+	const delta = d > 0 ? d * gainMult(state, k) * moodletGainMult(state) * SKILL_GROWTH.scale * Math.max(0, 1 - cur / SKILL_GROWTH.cap) : d;
 	state.skills[k] = clamp100(cur + delta);
 }
 
@@ -408,7 +409,6 @@ export const RELATION_TIERS = [
 	{ min: 60, name: '好友' },
 	{ min: 90, name: '挚友' },
 ];
-const BOND_AT = 60;
 
 export function relationTier(score: number): string {
 	let name = RELATION_TIERS[0].name;
@@ -417,47 +417,136 @@ export function relationTier(score: number): string {
 }
 
 export const getRelation = (state: PlayerState, npcId: string): Relation =>
-	state.relations[npcId] ?? { score: 0, last: {}, bonded: false };
+	state.relations[npcId] ?? { score: 0, last: {}, seen: [], known: [] };
+
+/** 送礼时关系的变化 */
+export const GIFT_GAIN: Record<GiftReaction, number> = { love: 15, like: 9, neutral: 3, dislike: -8 };
+export const GIFT_LABEL: Record<GiftReaction, string> = { love: '最爱', like: '喜欢', neutral: '一般', dislike: '讨厌' };
+
+export function giftReaction(npc: NpcDef, itemId: string): GiftReaction {
+	if (npc.gifts.love.includes(itemId)) return 'love';
+	if (npc.gifts.like.includes(itemId)) return 'like';
+	if (npc.gifts.dislike.includes(itemId)) return 'dislike';
+	return 'neutral';
+}
+
+export interface NpcPlan {
+	loc: string;
+	hours: Hours;
+	note?: string;
+}
+
+/** NPC 某天的安排：日程里第一条满足今天条件的，否则常驻地点和作息 */
+export function npcPlan(npc: NpcDef, clock: number): NpcPlan {
+	const wd = weekdayOf(clock);
+	const season = dateOf(clock).season;
+	for (const slot of npc.schedule ?? []) {
+		if (slot.weekdays && !slot.weekdays.includes(wd)) continue;
+		if (slot.seasons && !slot.seasons.includes(season)) continue;
+		if (slot.festival && !festivalActive(slot.festival, clock)) continue;
+		return { loc: slot.loc, hours: slot.hours, note: slot.note };
+	}
+	return { loc: npc.loc, hours: npc.hours };
+}
+
+/** 跨午夜的作息（如 20:00–6:00）在凌晨时算前一天的安排 */
+function planNow(npc: NpcDef, clock: number): NpcPlan {
+	const today = npcPlan(npc, clock);
+	const [open, close] = today.hours;
+	if (open < close || hourOf(clock) >= open) return today;
+	const yesterday = npcPlan(npc, clock - 1440);
+	return yesterday.hours[0] >= yesterday.hours[1] ? yesterday : today;
+}
+
+/** NPC 此刻是否在某地点 */
+export function npcPresent(npc: NpcDef, loc: string, clock: number): boolean {
+	const p = planNow(npc, clock);
+	return p.loc === loc && isOpen(p.hours, clock);
+}
+
+/** 专属互动不能做的原因；undefined 表示可以做。没有专属互动的 NPC 返回 null */
+function perkBlocked(npc: NpcDef, rel: Relation, today: number): string | null | undefined {
+	if (!npc.perk) return null;
+	if (rel.score < npc.perk.at) return `关系达到「${relationTier(npc.perk.at)}」后解锁`;
+	const last = rel.last.perk;
+	if (last !== undefined && today - last < npc.perk.every) return `${npc.perk.every - (today - last)} 天后可以再来`;
+	return undefined;
+}
 
 export interface NpcAvailability {
 	npc: NpcDef;
 	rel: Relation;
 	tier: string;
-	/** 每种互动不能做的原因；undefined 表示可以做 */
-	blocked: Record<NpcAction, string | undefined>;
-	/** 送礼时会送出的物品（背包里第一件 TA 喜欢的东西） */
+	/** 每种互动不能做的原因；undefined 表示可以做。没有专属互动的 NPC 没有 perk 键 */
+	blocked: Partial<Record<NpcAction, string | undefined>> & Record<'chat' | 'gift' | 'help', string | undefined>;
+	/** 不指定物品时会送出的东西：背包里 TA 反应最好的（不会自动送讨厌的） */
 	gift?: string;
+	/** 下一段剧情的门槛 */
+	nextStory?: number;
+}
+
+/** 不指定物品时挑哪件：最爱 > 喜欢 > 一般，讨厌的不挑 */
+function pickGift(state: PlayerState, npc: NpcDef): string | undefined {
+	const owned = ITEMS.filter((i) => state.inventory[i.id]).map((i) => i.id);
+	for (const r of ['love', 'like', 'neutral'] as const) {
+		const hit = owned.find((id) => giftReaction(npc, id) === r);
+		if (hit) return hit;
+	}
+	return undefined;
 }
 
 /** 当前地点、当前时段在场的 NPC */
 export function npcsAt(state: PlayerState, region: Region): NpcAvailability[] {
 	void region;
 	const today = dayOf(state.clock);
-	return NPCS.filter((n) => n.loc === state.loc && isOpen(n.hours, state.clock)).map((npc) => {
+	return NPCS.filter((n) => npcPresent(n, state.loc, state.clock)).map((npc) => {
 		const rel = getRelation(state, npc.id);
-		const gift = npc.likes.find((id) => state.inventory[id]);
+		const gift = pickGift(state, npc);
 		const used = (a: NpcAction) => (rel.last[a] === today ? '今天已经做过了' : undefined);
-		return {
-			npc, rel, tier: relationTier(rel.score), gift,
-			blocked: {
-				chat: used('chat'),
-				gift: used('gift') ?? (gift ? undefined : `没有TA喜欢的东西（${npc.likes.map((id) => getItem(id)?.name).join('、')}）`),
-				help: used('help') ?? (state.needs.energy < 25 ? '太累了' : undefined),
-			},
+		const anyItem = Object.values(state.inventory).some((n) => n > 0);
+		const blocked: NpcAvailability['blocked'] = {
+			chat: used('chat'),
+			gift: used('gift') ?? (anyItem ? undefined : '背包里没有能送的东西'),
+			help: used('help') ?? (state.needs.energy < 25 ? '太累了' : undefined),
 		};
+		const perk = perkBlocked(npc, rel, today);
+		if (perk !== null) blocked.perk = perk;
+		const nextStory = npc.stories.find((st) => !rel.seen.includes(st.at))?.at;
+		return { npc, rel, tier: relationTier(rel.score), gift, blocked, nextStory };
 	});
 }
 
+/** 关系变化后，触发所有新达到门槛的剧情（可能一次跨过好几档）。原地修改 */
+function unlockStories(state: PlayerState, region: Region, npc: NpcDef, rel: Relation): string[] {
+	const out: string[] = [];
+	for (const st of npc.stories) {
+		if (rel.score < st.at || rel.seen.includes(st.at)) continue;
+		rel.seen.push(st.at);
+		if (st.fx) applyEffect(state, st.fx, region);
+		log(state, `【${npc.name} · ${st.title}】${st.text}`);
+		out.push(`【${st.title}】${st.text}`);
+	}
+	rel.seen.sort((a, b) => a - b);
+	return out;
+}
+
 /**
- * 与 NPC 互动：聊天（魅力检定决定涨多少）、送礼（消耗一件TA喜欢的物品）、帮忙（花时间体力，涨声望）。
- * 每种互动每个游戏日一次。关系第一次达到「好友」时发放该 NPC 的一次性回报。
+ * 与 NPC 互动：聊天（魅力检定决定涨多少）、送礼（看 TA 对这件东西的反应）、帮忙（花时间体力，涨声望）、
+ * 专属互动（关系够了才解锁，有冷却）。聊天、送礼、帮忙每种每个游戏日一次。
+ * 关系第一次达到某段剧情的门槛时触发那段剧情和它的回报。
  */
-export function interactNpc(prev: PlayerState, region: Region, npcId: string, action: NpcAction): ActionResult {
+export function interactNpc(prev: PlayerState, region: Region, npcId: string, action: NpcAction, itemId?: string): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	const here = npcsAt(prev, region).find((a) => a.npc.id === npcId);
 	if (!here) return fail(prev, 'TA现在不在这里。');
+	if (action === 'perk' && !here.npc.perk) return fail(prev, 'TA没有这个互动。');
 	const why = here.blocked[action];
 	if (why) return fail(prev, why);
+	const gift = action === 'gift' ? itemId ?? here.gift : undefined;
+	if (action === 'gift') {
+		if (!gift) return fail(prev, '背包里没有合适的礼物。');
+		if (!prev.inventory[gift] || !getItem(gift)) return fail(prev, '背包里没有这件东西。');
+	}
 	const { npc } = here;
 	const state = clone(prev);
 	const rel: Relation = structuredClone(getRelation(state, npcId));
@@ -469,25 +558,33 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 		applyEffect(state, { minutes: 30, needs: { social: 18, fun: 5 }, skills: { charisma: 0.5 } }, region);
 		text = good ? `和${npc.name}聊得很投机。` : `和${npc.name}寒暄了几句。`;
 	} else if (action === 'gift') {
-		gain = 12;
-		applyEffect(state, { minutes: 10, items: { [here.gift!]: -1 }, needs: { social: 8 } }, region);
-		text = `送给${npc.name}一份${getItem(here.gift!)!.name}，TA很高兴。`;
-	} else {
+		const r = giftReaction(npc, gift!);
+		gain = GIFT_GAIN[r];
+		const name = getItem(gift!)!.name;
+		applyEffect(state, { minutes: 10, items: { [gift!]: -1 }, needs: { social: r === 'dislike' ? 0 : 8 }, moodlet: r === 'love' ? 'gift-loved' : r === 'dislike' ? 'gift-awkward' : undefined }, region);
+		text = {
+			love: `送给${npc.name}一份${name}，TA眼睛都亮了——这是TA的最爱。`,
+			like: `送给${npc.name}一份${name}，TA很高兴。`,
+			neutral: `送给${npc.name}一份${name}，TA客气地收下了。`,
+			dislike: `送给${npc.name}一份${name}，TA的笑容有点僵——看来不喜欢这个。`,
+		}[r];
+		if (!rel.known.includes(gift!)) rel.known.push(gift!);
+	} else if (action === 'help') {
 		gain = 9;
 		applyEffect(state, { minutes: 120, respect: 1, needs: { energy: -18, social: 10 }, skills: { strength: 0.5, stamina: 0.5 } }, region);
 		text = `帮${npc.name}干了两小时活。`;
+	} else {
+		const perk = npc.perk!;
+		gain = 2;
+		applyEffect(state, perk.fx, region);
+		text = `${perk.name}：${perk.desc}`;
 	}
-	rel.score = Math.min(100, rel.score + gain);
+	rel.score = Math.max(-100, Math.min(100, rel.score + gain));
 	rel.last[action] = dayOf(prev.clock); // 按开始互动的那天计，跨午夜也不能当天重复
 	state.relations[npcId] = rel;
 	log(state, text);
-	if (!rel.bonded && rel.score >= BOND_AT) {
-		rel.bonded = true;
-		applyEffect(state, npc.bond.fx, region);
-		addMoodlet(state, 'new-friend');
-		log(state, `【${npc.name}成了你的好友】${npc.bond.text}`);
-		text += ` ${npc.name}成了你的好友！${npc.bond.text}`;
-	}
+	const stories = unlockStories(state, region, npc, rel);
+	if (stories.length) text += ' ' + stories.join(' ');
 	return { ok: true, state, msg: text };
 }
 
@@ -586,18 +683,24 @@ export function workShift(prev: PlayerState, region: Region): ActionResult {
 	applyEffect(state, { ...c.shift, minutes: c.minutes, cash: pay }, region);
 	job.shifts++;
 	if (good) job.good++;
-	let msg = `${lv.title}上班 ${Math.round(c.minutes / 60)} 小时，收入 $${pay}${good ? '（表现出色，有奖金）' : ''}。`;
-	const next = c.levels[job.level + 1];
-	if (next && job.shifts >= PROMOTE_SHIFTS && job.good >= PROMOTE_GOOD && !unmet(state, next)) {
-		job.level++;
-		job.shifts = 0;
-		job.good = 0;
-		state.respect += 3;
-		addMoodlet(state, 'promoted');
-		msg += ` 升职为${next.title}！`;
-	}
+	const msg = `${lv.title}上班 ${Math.round(c.minutes / 60)} 小时，收入 $${pay}${good ? '（表现出色，有奖金）' : ''}。` + tryPromote(state);
 	log(state, msg);
 	return { ok: true, state, msg };
+}
+
+/** 班次和表现够了、下一级要求也满足时升职。原地修改，返回要追加的提示（没升职为空串） */
+export function tryPromote(state: PlayerState): string {
+	const job = state.job;
+	if (!job) return '';
+	const c = getCareer(job.career)!;
+	const next = c.levels[job.level + 1];
+	if (!next || job.shifts < PROMOTE_SHIFTS || job.good < PROMOTE_GOOD || unmet(state, next)) return '';
+	job.level++;
+	job.shifts = 0;
+	job.good = 0;
+	state.respect += 3;
+	addMoodlet(state, 'promoted');
+	return ` 升职为${next.title}！`;
 }
 
 // ---------- 住房 ----------

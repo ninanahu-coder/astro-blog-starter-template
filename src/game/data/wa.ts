@@ -1,8 +1,9 @@
 // 第一阶段区域：西澳大利亚州（Western Australia）。
 // 地点坐标为城镇/地标的近似经纬度；海岸线为手工简化多边形，仅用于示意地图。
 // 更精细的 POI 由 OpenClaw 采集后写入 wa.pois.json（见 tools/earth/openclaw/）。
-import type { GameLocation, Poi, Region, Route } from '../core/types.ts';
+import type { GameLocation, Poi, Region, Route, Venue } from '../core/types.ts';
 import pois from './wa.pois.json' with { type: 'json' };
+import venues from './wa.venues.json' with { type: 'json' };
 
 const L = (
 	id: string,
@@ -90,6 +91,7 @@ export const WA: Region = {
 	locations,
 	routes,
 	pois: (pois as { pois: Poi[] }).pois,
+	venues: (venues as { venues: Venue[] }).venues,
 };
 
 export const REGIONS: Record<string, Region> = { wa: WA };

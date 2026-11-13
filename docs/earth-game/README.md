@@ -38,8 +38,12 @@ src/game/
   core/character.ts   出身、初始属性、存档校验 sanitizeState()
   core/engine.ts      规则引擎：travel / performActivity / resolveEvent / gpsCheckIn（纯函数、确定性）
   core/geo.ts         距离、地图投影、真实坐标 → 游戏地点
+  core/formulas.ts    派生属性（体质、吸引力、状态系数……）与真实地点动作的公式
+  core/venues.ts      真实地点：附近列表、定位检查、吃饭/训练/打卡上班等结算
   data/wa.ts          西澳：18 个地点、路线图、海岸线轮廓
   data/wa.pois.json   打卡点（OpenClaw 写入）
+  data/venues.ts      真实地点的类型、动作和定位规则
+  data/wa.venues.json 真实地点（OpenClaw 从 OSM 采集写入）
   data/activities.ts  地点互动表（数值调参都在这里）
   data/events.ts      到达事件表（加事件只加数据，不写逻辑）
   server/world.ts     Durable Object：在线位置、同地点聊天/表情、云存档
@@ -49,7 +53,7 @@ tools/earth/comfyui/  提示词生成、工作流模板、远程出图脚本
 tests/earth/          引擎与数据自洽性测试
 ```
 
-人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)。
+人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。
 
 设计原则：
 
