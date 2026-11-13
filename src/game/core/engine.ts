@@ -1017,7 +1017,7 @@ export function propertiesAt(state: PlayerState, region: Region): PropertyOffer[
 	});
 }
 
-/** 买房：全款，或付两成首付、其余贷款。要人在房产所在地 */
+/** 买房：全款，或付最低首付（FINANCE.minDown）、其余贷款。要人在房产所在地 */
 export function buyProperty(prev: PlayerState, region: Region, id: string, withLoan: boolean): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	const offer = propertiesAt(prev, region).find((o) => o.property.id === id);

@@ -2,9 +2,9 @@
 import type { OwnedProperty, PropertyDef } from './types.ts';
 
 export const FINANCE = {
-	minDown: 0.2, // 最低首付比例
+	minDown: 0.1, // 最低首付比例（模拟后从 0.2 下调：上班族约 4 个月能付得起首付）
 	weeklyRate: 0.001, // 每周利率（年化约 5%）
-	weeklyPrincipal: 0.005, // 每周归还的本金 = 房价 × 该比例（八成贷款约 160 周还清）
+	weeklyPrincipal: 0.005, // 每周归还的本金 = 房价 × 该比例（九成贷款约 180 周还清）
 	sellShare: 0.95, // 正常卖房到手比例（扣中介费）
 	forecloseShare: 0.85, // 断供强制卖房到手比例
 	graceWeeks: 2, // 连续欠款超过这么多周就强制卖房

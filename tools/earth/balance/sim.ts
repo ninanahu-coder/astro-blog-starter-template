@@ -10,7 +10,7 @@ import { applyAction, type GameAction } from '../../../src/game/core/actions.ts'
 import { mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careersAt, coursesAt, dealerAt, furnitureAt, furnitureValue, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, resaleValue, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careersAt, coursesAt, dealerAt, netWorth, propertiesAt, furnitureAt, furnitureValue, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, resaleValue, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
@@ -27,7 +27,7 @@ interface Bot {
 	s: PlayerState;
 	rng: () => number;
 	plan: Plan;
-	stats: { collapses: number; evictions: number; promotions: number; events: number; moodSum: number; moodN: number; shifts: number; daysBroke: number; cashByDay: number[]; flow: Record<string, number>; promoDays: number[] };
+	stats: { collapses: number; evictions: number; promotions: number; events: number; moodSum: number; moodN: number; shifts: number; daysBroke: number; cashByDay: number[]; flow: Record<string, number>; promoDays: number[]; homeDay?: number };
 }
 
 interface Plan {
@@ -72,13 +72,13 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		return false;
 	}
 	b.s = r.state;
-	const key = a.t === 'activity' ? a.id : a.t === 'job' || a.t === 'home' || a.t === 'furniture' ? `${a.t}-${a.op}` : a.t === 'npc' ? 'npc' : a.t === 'buy' ? `buy-${a.item}` : a.t;
+	const key = a.t === 'activity' ? a.id : a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' ? `${a.t}-${a.op}` : a.t === 'npc' ? 'npc' : a.t === 'buy' ? `buy-${a.item}` : a.t;
 	b.stats.flow[key] = (b.stats.flow[key] ?? 0) + (b.s.cash - before.cash);
 	// 这次动作中写下的日志：时间晚于动作开始时刻（每个成功动作都会让时间前进）
 	for (const j of b.s.journal) {
 		if (j.t <= before.clock) continue;
 		if (j.text.includes('晕倒')) b.stats.collapses++;
-		if (j.text.includes('收回')) b.stats.evictions++;
+		if (j.text.includes('收回') || j.text.includes('强制卖出')) b.stats.evictions++;
 	}
 	if (b.s.job && before.job && b.s.job.career === before.job.career && b.s.job.level > before.job.level) {
 		b.stats.promotions++;
@@ -163,7 +163,14 @@ function step(b: Bot) {
 			const exp = experiencesAt(s, WA).find((o) => o.first && !o.blocked);
 			if (exp && tryAct(b, { t: 'experience', id: exp.exp.id })) return;
 		}
-		if (s.vehicle === 'none' && s.cash > 7000) {
+		// 买房：首付之外还留 $3,000 周转；买了就搬进去
+		const house = propertiesAt(s, WA).find((o) => !o.owned && s.cash >= o.down + 3000);
+		if (house && s.properties.length === 0 && tryAct(b, { t: 'property', op: 'buy', id: house.property.id, loan: s.cash < house.property.price + 3000 })) {
+			tryAct(b, { t: 'property', op: 'movein', id: house.property.id });
+			b.stats.homeDay = dayOf(b.s.clock) + 1;
+			return;
+		}
+		if (s.vehicle === 'none' && s.cash > 7000 && s.properties.length > 0) {
 			const car = dealerAt(s, WA).find((o) => o.vehicle.id === 'car' && !o.blocked);
 			if (car && tryAct(b, { t: 'vehicle', op: 'buy', id: 'car' })) return;
 		}
@@ -242,7 +249,7 @@ out(`# 数值平衡模拟报告`);
 out();
 out(`${DAYS} 个游戏日 × 每种策略 ${RUNS} 个随机种子。由 \`npm run earth:sim\` 生成。`);
 out();
-out('| 策略 | 第 7 天现金（中位） | 第 30 天 | 第 60 天 | 第 60 天 10%–90% | 日均净收入 | 第 60 天净资产 | 收藏 | 平均心情 | 晕倒/人 | 被收房/人 | 升职/人 | 第 1 / 2 次升职（中位天数） | 破产天数占比 |');
+out('| 策略 | 第 7 天现金（中位） | 第 30 天 | 第 60 天 | 第 60 天 10%–90% | 日均净收入 | 第 60 天净资产 | 买房（中位天数） | 平均心情 | 晕倒/人 | 被收房或断供/人 | 升职/人 | 第 1 / 2 次升职（中位天数） | 破产天数占比 |');
 out('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |');
 const flows: string[] = [];
 const skillRows: [string, number[]][] = [];
@@ -265,7 +272,7 @@ for (const plan of PLANS) {
 	for (const b of bots) for (const [k, v] of Object.entries(b.stats.flow)) flow[k] = (flow[k] ?? 0) + v / RUNS / DAYS;
 	const top = Object.entries(flow).filter(([, v]) => Math.abs(v) >= 1).sort((x, y) => y[1] - x[1]);
 	flows.push(`| ${plan.name} | ${top.filter(([, v]) => v > 0).map(([k, v]) => `${k} +${Math.round(v)}`).join('，') || '—'} | ${top.filter(([, v]) => v < 0).reverse().map(([k, v]) => `${k} ${Math.round(v)}`).join('，') || '—'} |`);
-	out(`| ${plan.name} | ${money(pct(at(7), 0.5))} | ${money(pct(at(30), 0.5))} | ${money(pct(at(endD), 0.5))} | ${money(pct(at(endD), 0.1))}–${money(pct(at(endD), 0.9))} | ${money(net)} | ${money(pct(bots.map((b) => b.s.cash + resaleValue(b.s.vehicle) + furnitureValue(b.s)), 0.5))} | ${pct(bots.map((b) => b.s.collected.length), 0.5)} | ${m.toFixed(0)} | ${coll.toFixed(2)} | ${ev.toFixed(2)} | ${pr.toFixed(2)} | ${promoCol} | ${(broke * 100).toFixed(0)}% |`);
+	out(`| ${plan.name} | ${money(pct(at(7), 0.5))} | ${money(pct(at(30), 0.5))} | ${money(pct(at(endD), 0.5))} | ${money(pct(at(endD), 0.1))}–${money(pct(at(endD), 0.9))} | ${money(net)} | ${money(pct(bots.map((b) => netWorth(b.s)), 0.5))} | ${(() => { const d = bots.map((b) => b.stats.homeDay).filter((x): x is number => x !== undefined); return d.length > bots.length / 2 ? `第 ${pct(d, 0.5)} 天` : '—'; })()} | ${m.toFixed(0)} | ${coll.toFixed(2)} | ${ev.toFixed(2)} | ${pr.toFixed(2)} | ${promoCol} | ${(broke * 100).toFixed(0)}% |`);
 }
 out();
 out('## 第 ' + DAYS + ' 天的能力值（中位）');
