@@ -6,6 +6,8 @@ import { ITEMS } from '../data/items.ts';
 import { NPCS } from '../data/npcs.ts';
 import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../data/careers.ts';
 import { HOMES } from '../data/housing.ts';
+import { PROPERTIES } from '../data/properties.ts';
+import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, saleProceeds, weeklyInterest, weeklyPrincipal } from './finance.ts';
 import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } from '../data/furniture.ts';
 import { DEALER_HOURS, DEALER_TAG, VEHICLES } from '../data/vehicles.ts';
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
@@ -16,7 +18,7 @@ import { clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
-	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FurnitureDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
+	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
@@ -597,12 +599,12 @@ function vacate(state: PlayerState): number {
 
 /**
  * 每周结算：时间每跨过一个结算日执行一次。
- * 1. 房租：付不起则被收房（家具折现）  2. 车辆保险保养：付不起则记麻烦值
+ * 1. 房租（住自有房不交）：付不起则被收房  2. 房产：租金收入、维修、物业费、还款、断供  3. 车辆保险：付不起则记麻烦值
  */
 function weeklyTick(state: PlayerState, region: Region) {
 	while (dayOf(state.clock) >= state.nextWeek) {
 		state.nextWeek += 7;
-		if (state.home) {
+		if (state.home && !state.home.owned) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
 			if (state.cash >= def.rentWeek) {
@@ -613,6 +615,7 @@ function weeklyTick(state: PlayerState, region: Region) {
 				log(state, `付不起${place}${def.name}的房租，房东收回了房子${got ? `，家具折现 $${got}` : ''}。`);
 			}
 		}
+		settleProperties(state, region);
 		const v = getVehicle(state.vehicle);
 		if (v?.weekly) {
 			if (state.cash >= v.weekly) {
@@ -642,7 +645,7 @@ export function homesAt(state: PlayerState, region: Region): HomeOffer[] {
 	if (!loc) return [];
 	return HOMES.filter((h) => matches(h.where, loc)).map((home) => ({
 		home,
-		blocked: state.home?.type === home.id && state.home.loc === loc.id ? '你正住在这里' : state.cash < firstRent(state, home) ? `首期租金 $${firstRent(state, home)}` : undefined,
+		blocked: state.home?.type === home.id && state.home.loc === loc.id && !state.home.owned ? '你正住在这里' : state.cash < firstRent(state, home) ? `首期租金 $${firstRent(state, home)}` : undefined,
 	}));
 }
 
@@ -664,10 +667,11 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string): Act
 }
 
 export function leaveHome(prev: PlayerState): ActionResult {
-	if (!prev.home) return fail(prev, '你没有租房。');
+	if (!prev.home) return fail(prev, '你没有住处。');
 	const state = clone(prev);
+	const own = !!state.home!.owned;
 	const got = vacate(state);
-	const msg = `退掉了租的房子${got ? `，家具折现 $${got}` : ''}。`;
+	const msg = `${own ? '搬出了自己的房子' : '退掉了租的房子'}${got ? `，家具折现 $${got}` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -928,4 +932,176 @@ export function relaxAtHome(prev: PlayerState, region: Region): ActionResult {
 	applyEffect(state, { minutes: HOME_RELAX.minutes, needs: { fun: HOME_RELAX.fun, energy: 3 } }, region);
 	log(state, '在家放松了一会儿。');
 	return { ok: true, state, msg: '🎵 在家放松了一会儿。' };
+}
+
+// ---------- 房产 ----------
+export const getProperty = (id: string): PropertyDef | undefined => PROPERTIES.find((p) => p.id === id);
+export const ownedProperty = (state: PlayerState, id: string): OwnedProperty | undefined => state.properties.find((p) => p.id === id);
+
+/** 净资产 = 现金 + 车辆残值 + 住处家具折现 + 各房产（按正常卖出到手价，已扣贷款） */
+export function netWorth(state: PlayerState): number {
+	const estate = state.properties.reduce((sum, p) => {
+		const def = getProperty(p.id);
+		return sum + (def ? propertyEquity(def, p.loan) : 0);
+	}, 0);
+	return state.cash + resaleValue(state.vehicle) + furnitureValue(state) + estate;
+}
+
+/** 每周结算里的房产部分。顺序：租金收入 → 维修 → 物业费与还款 → 断供处理 */
+function settleProperties(state: PlayerState, region: Region) {
+	for (const p of [...state.properties]) {
+		const def = getProperty(p.id);
+		if (!def) continue;
+		if (p.rented) {
+			if (roll(state) < FINANCE.vacancy) log(state, `周结算：${def.name}这周空置，没有租金。`);
+			else {
+				state.cash += def.rentIncome;
+				log(state, `周结算：${def.name}租金收入 $${def.rentIncome}。`);
+			}
+			if (roll(state) < FINANCE.repairChance) {
+				const [lo, hi] = repairRange(def);
+				const cost = Math.min(state.cash, Math.round(lo + roll(state) * (hi - lo)));
+				state.cash -= cost;
+				log(state, `${def.name}的租客报修，花了 $${cost}。`);
+			}
+		}
+		const interest = weeklyInterest(p.loan);
+		const principal = weeklyPrincipal(def, p.loan);
+		const due = def.weekly + (p.loan > 0 ? interest + principal : 0);
+		if (state.cash >= due) {
+			state.cash -= due;
+			p.loan -= principal;
+			p.missed = 0;
+			log(state, `周结算：${def.name}物业费 $${def.weekly}${interest + principal ? `，还款 $${interest + principal}（剩余贷款 $${p.loan}）` : ''}。`);
+			continue;
+		}
+		p.missed++;
+		p.loan += interest; // 没付的利息计入本金
+		if (p.missed <= FINANCE.graceWeeks) {
+			log(state, `付不起${def.name}这周的 $${due}（第 ${p.missed} 次欠款，超过 ${FINANCE.graceWeeks} 次将被强制卖房）。`);
+			continue;
+		}
+		const got = saleProceeds(def, p.loan, FINANCE.forecloseShare);
+		removeProperty(state, p.id);
+		state.cash += got;
+		log(state, `连续欠款，${def.name}被强制卖出，还清贷款后到手 $${got}。`);
+	}
+	void region;
+}
+
+/** 从名下移除一套房；如果正住在里面则搬出（家具折现） */
+function removeProperty(state: PlayerState, id: string) {
+	if (state.home?.owned === id) vacate(state);
+	state.properties = state.properties.filter((p) => p.id !== id);
+}
+
+export interface PropertyOffer {
+	property: PropertyDef;
+	owned?: OwnedProperty;
+	down: number; // 贷款买的首付
+	blockedCash?: string; // 全款买不了的原因
+	blockedLoan?: string; // 贷款买不了的原因
+}
+
+/** 当前地点的在售房产（含已拥有的，方便界面显示） */
+export function propertiesAt(state: PlayerState, region: Region): PropertyOffer[] {
+	void region;
+	return PROPERTIES.filter((p) => p.loc === state.loc).map((property) => {
+		const owned = ownedProperty(state, property.id);
+		const down = downPayment(property);
+		return {
+			property, owned, down,
+			blockedCash: owned ? '已拥有' : state.cash < property.price ? `全款需要 $${property.price}` : undefined,
+			blockedLoan: owned ? '已拥有' : state.cash < down ? `首付需要 $${down}` : undefined,
+		};
+	});
+}
+
+/** 买房：全款，或付两成首付、其余贷款。要人在房产所在地 */
+export function buyProperty(prev: PlayerState, region: Region, id: string, withLoan: boolean): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const offer = propertiesAt(prev, region).find((o) => o.property.id === id);
+	if (!offer) return fail(prev, '这里没有这套房。');
+	const why = withLoan ? offer.blockedLoan : offer.blockedCash;
+	if (why) return fail(prev, why);
+	const def = offer.property;
+	const state = clone(prev);
+	const paid = withLoan ? offer.down : def.price;
+	state.cash -= paid;
+	state.properties.push({ id, loan: def.price - paid, rented: false, missed: 0 });
+	state.respect += 5;
+	advance(state, 120, region);
+	const msg = withLoan
+		? `付了 $${paid} 首付买下${def.name}，贷款 $${def.price - paid}，每周还款约 $${loanPayment(def, def.price - paid)}。`
+		: `全款 $${paid} 买下了${def.name}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+/** 卖房：到手房价的 95% 减去剩余贷款；在任何地方都能卖 */
+export function sellProperty(prev: PlayerState, id: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const def = getProperty(id);
+	const mine = ownedProperty(prev, id);
+	if (!def || !mine) return fail(prev, '你没有这套房。');
+	const state = clone(prev);
+	const got = saleProceeds(def, mine.loan);
+	removeProperty(state, id);
+	state.cash += got;
+	const msg = `卖掉了${def.name}，${mine.loan ? `还清贷款 $${mine.loan} 后` : ''}到手 $${got}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+/** 搬进自己的房子：停止出租，退掉原来的住处（家具折现）。在任何地方都能办，但要人到了才能睡 */
+export function moveIntoProperty(prev: PlayerState, id: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const def = getProperty(id);
+	if (!def || !ownedProperty(prev, id)) return fail(prev, '你没有这套房。');
+	if (prev.home?.owned === id) return fail(prev, '你已经住在这里。');
+	const state = clone(prev);
+	const sold = vacate(state);
+	ownedProperty(state, id)!.rented = false;
+	state.home = { type: def.homeType, loc: def.loc, furniture: {}, owned: id };
+	const msg = `搬进了自己的${def.name}，以后不用交房租了${sold ? `；旧家具折现 $${sold}` : ''}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+/** 把房子租出去（正住在里面则先搬出）；再调用一次停止出租 */
+export function toggleRentOut(prev: PlayerState, id: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const def = getProperty(id);
+	if (!def || !ownedProperty(prev, id)) return fail(prev, '你没有这套房。');
+	const state = clone(prev);
+	const mine = ownedProperty(state, id)!;
+	let msg: string;
+	if (mine.rented) {
+		mine.rented = false;
+		msg = `${def.name}不再出租。`;
+	} else {
+		const sold = state.home?.owned === id ? vacate(state) : 0;
+		mine.rented = true;
+		msg = `${def.name}挂牌出租，每周租金 $${def.rentIncome}${sold ? `；搬出时家具折现 $${sold}` : ''}。`;
+	}
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+/** 提前还贷：把一部分现金还进贷款（不超过剩余贷款和手头现金） */
+export function repayLoan(prev: PlayerState, id: string, amount: number): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const def = getProperty(id);
+	const mine = ownedProperty(prev, id);
+	if (!def || !mine) return fail(prev, '你没有这套房。');
+	if (!mine.loan) return fail(prev, '这套房没有贷款。');
+	const pay = Math.floor(Math.min(amount, mine.loan, prev.cash));
+	if (!(pay > 0)) return fail(prev, '还款金额无效。');
+	const state = clone(prev);
+	state.cash -= pay;
+	ownedProperty(state, id)!.loan -= pay;
+	const left = mine.loan - pay;
+	const msg = left ? `提前还了 $${pay}，${def.name}还剩贷款 $${left}。` : `${def.name}的贷款还清了！`;
+	log(state, msg);
+	return { ok: true, state, msg };
 }

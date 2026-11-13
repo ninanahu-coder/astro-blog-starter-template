@@ -112,6 +112,25 @@ export interface Home {
 	type: string;
 	loc: string;
 	furniture: Record<string, string>; // 槽位 -> 家具 id
+	owned?: string; // 自有房产 id；有值表示住在自己的房子里，不交房租
+}
+
+export interface PropertyDef {
+	id: string;
+	name: string;
+	loc: string;
+	homeType: string; // 自住时的房型（决定舒适度），见 data/housing.ts
+	price: number;
+	weekly: number; // 每周物业费与地税
+	rentIncome: number; // 出租的周租金
+	desc: string;
+}
+
+export interface OwnedProperty {
+	id: string;
+	loan: number; // 剩余贷款
+	rented: boolean; // 是否出租中
+	missed: number; // 连续欠款周数
 }
 
 export interface FurnitureDef {
@@ -295,6 +314,7 @@ export interface PlayerState {
 	relations: Record<string, Relation>; // npcId -> 关系
 	job: Job | null;
 	home: Home | null;
+	properties: OwnedProperty[];
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
 	collected: string[]; // 已完成的收费体验 id
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日

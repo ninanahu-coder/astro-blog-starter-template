@@ -36,6 +36,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | 职业 | `job` | — | `{ career, loc, level, shifts, good, lastDay }`：雇主、工作地点、等级、本级已上班次与表现好的班次、最近上班日 |
 | 住房 | `home` | — | `{ type, loc, furniture }`：房型、所在地点、各槽位的家具 |
 | 周结算 | `nextWeek` | — | 下一次周结算的游戏日 |
+| 房产 | `properties` | — | `{ id, loan, rented, missed }[]`：剩余贷款、是否出租、连续欠款周数。住在自有房里时 `home.owned` 指向它 |
 | 关系 | `relations` | 分数 −100..100 | `npcId → { score, last, bonded }`：分数、每种互动最近一次的游戏日、是否已领好友回报 |
 | 世界进度 | `loc` `clock` `visited` `checkins` `seen` `pending` | — | 位置、游戏分钟、到访次数、打卡、一次性事件、待处理事件 |
 | 系统 | `seed` `rev` `journal` | — | 随机数状态、云同步版本号、最近 40 条日志 |
@@ -85,6 +86,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | 课程 `CourseDef` | `data/courses.ts` | 对应能力、基础学费、时长、成长量、开课地点与时间 | 7 门课；学费 = 基础价 × (1 + 当前能力/25)；每门每天一次 |
 | 体验 `ExperienceDef` | `data/experiences.ts` | 地点、片区、价格、开放时间、效果、首次声望 | 15 个，分 5 个片区；首次进收藏册，集齐片区得称号 |
 | 家具 `FurnitureDef` | `data/furniture.ts` | 槽位、价格、心情加成、睡眠加成、解锁的在家活动 | 5 个槽位各放一件；同槽位换新时旧的半价折现 |
+| 房产 `PropertyDef` | `data/properties.ts` | 地点、自住房型、房价、物业费、出租周租金 | 4 套；每人每套只能买一次 |
 | 物品 `ItemDef` | `data/items.ts` | 价格、携带上限、售卖地点、`use` 或 `passive` | 消耗品用掉减一；装备持有即生效，同技能只取最高一件 |
 
 ### `Effect` 的结算顺序（`applyEffect`）
@@ -114,6 +116,9 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | `experiencesAt` / `doExperience` | 体验 / 参加体验 | 不在开放时间、钱不够 |
 | `furnitureAt` / `buyFurniture` / `sellFurniture` | 家具 / 添置 / 卖掉 | 没有住处、不在住处、钱不够 |
 | `cookAtHome` / `relaxAtHome` | 在家做饭 / 放松 | 不在住处、缺对应家具 |
+| `propertiesAt` / `buyProperty` / `sellProperty` | 在售房产 / 买房（全款或贷款）/ 卖房 | 人不在当地、钱不够、已拥有 |
+| `moveIntoProperty` / `toggleRentOut` / `repayLoan` | 搬进自有房 / 出租或停租 / 提前还贷 | 没有这套房、没有贷款、金额无效 |
+| `netWorth` | 净资产 | — |
 | `npcsAt` / `interactNpc` | 查看在场 NPC / 聊天、送礼、帮忙 | TA 不在、今天做过了、没有 TA 喜欢的东西、太累 |
 
 所有动作返回 `{ ok, state, msg }`。
@@ -158,14 +163,33 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 - 只能有一处住处，搬家时旧住处直接退掉，已付租金不退。
 - 派生属性：住处心情 = 房型舒适度 + 家具舒适度；每周固定开销 = 房租 + 车辆保险。
 
-## 7. 存档兼容
+## 7. 房产与贷款（底层函数，界面未接）
+
+公式集中在 `core/finance.ts`，常量在 `FINANCE`：
+
+| 项目 | 规则 |
+| --- | --- |
+| 首付 | 房价的 20% |
+| 每周还款 | 利息（剩余贷款 × 0.1%）+ 本金（房价 × 0.5%，约 160 周还清） |
+| 卖房 | 到手 = 房价 × 95% − 剩余贷款 |
+| 出租 | 每周收租金；5% 概率空置；1/12 概率维修，花费房价的 0.2%–0.6% |
+| 欠款 | 当周付不起物业费 + 还款：记一次欠款，利息计入本金。连续欠款超过 2 周，按房价的 85% 强制卖出 |
+| 收益上限 | 全款出租的期望年化净收益 ≤ 4%（`expectedYield()`，测试检查每套房） |
+| 净资产 | 现金 + 车辆残值 + 家具折现 + Σ（房价 × 95% − 贷款） |
+
+每周结算的顺序：房租（住自有房不交）→ 每套房依次结算租金、维修、物业费与还款、断供 → 车辆保险。
+
+自住：`moveIntoProperty()` 把 `home` 设为 `{ type, loc, furniture, owned }`，之后和租的房子一样可以添家具、回家睡觉。出租和自住互斥。
+
+## 8. 存档兼容
 
 存档格式版本仍是 `v: 1`。新增字段由 `sanitizeState()` 补默认值：旧存档里的 `home.paidUntil` 会迁移成 `nextWeek`。其余缺少的字段按空值读取：`traits` 空列表、`inventory` 空背包、`relations` 空关系、`job` 和 `home` 为空。未知 NPC 的关系丢弃。非法特质组合整体丢弃，背包里未知物品丢弃、数量钳制到上限。测试覆盖了这些情况。
 
-## 8. 怎么加内容
+## 9. 怎么加内容
 
 - **新特质**：在 `data/traits.ts` 加一条，只用 `TraitMods` 里已有的字段。需要新类型的修正时，先在 `attributes.ts` 加一个乘数函数，再在引擎对应位置调用。
 - **新物品**：在 `data/items.ts` 加一条，二选一：`use`（一个 `Effect`）或 `passive`（检定加值）。
+- **新房产**：在 `data/properties.ts` 加一条；租金和物业费要让 `expectedYield()` 落在 0–4%，否则测试不过。
 - **新职业 / 新房型**：在 `data/careers.ts` / `data/housing.ts` 加一条。
 - **新 NPC**：在 `data/npcs.ts` 加一条，填所在地点、作息时间、喜欢的物品和好友回报。
 - **新互动 / 新事件**：见 `docs/earth-game/README.md`。

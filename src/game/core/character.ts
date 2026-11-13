@@ -1,7 +1,7 @@
 // 角色创建与存档校验。初始属性参考开放世界动作游戏的“能力条”思路：
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
-import type { Home, Job, Needs, PlayerState, Relation, Skills, Vehicle } from './types.ts';
+import type { Home, Job, OwnedProperty, Needs, PlayerState, Relation, Skills, Vehicle } from './types.ts';
 import { ITEMS } from '../data/items.ts';
 import { MAX_TRAITS } from '../data/traits.ts';
 import { NPCS } from '../data/npcs.ts';
@@ -9,6 +9,8 @@ import { CAREERS } from '../data/careers.ts';
 import { HOMES } from '../data/housing.ts';
 import { VEHICLES } from '../data/vehicles.ts';
 import { FURNITURE } from '../data/furniture.ts';
+import { PROPERTIES } from '../data/properties.ts';
+import { FINANCE } from './finance.ts';
 import { COURSES } from '../data/courses.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
 import { validTraits } from './attributes.ts';
@@ -92,6 +94,7 @@ export function createCharacter(opts: {
 		relations: {},
 		job: null,
 		home: null,
+		properties: [],
 		nextWeek: 7,
 		collected: [],
 		courseDays: {},
@@ -165,7 +168,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 		inventory: cleanInventory(r.inventory),
 		relations: cleanRelations(r.relations),
 		job: cleanJob(r.job, knownLocs),
-		home: cleanHome(r.home, knownLocs),
+		...cleanEstate(r, knownLocs),
 		nextWeek: (() => {
 			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周
 			const today = Math.floor(num(r.clock, 0, 1e9, START_CLOCK) / 1440);
@@ -202,6 +205,31 @@ function cleanJob(raw: any, knownLocs?: Set<string>): Job | null {
 		good: Math.floor(num(raw.good, 0, 1e6, 0)),
 		lastDay: Math.floor(num(raw.lastDay, -1, 1e7, -1)),
 	};
+}
+
+/** 房产与住处要一起校验：住在自有房里时，那套房必须确实拥有、地点一致、且没有出租 */
+function cleanEstate(r: any, knownLocs?: Set<string>): { properties: OwnedProperty[]; home: Home | null } {
+	const properties: OwnedProperty[] = [];
+	if (Array.isArray(r.properties)) {
+		for (const def of PROPERTIES) {
+			const raw = r.properties.find((p: any) => p && p.id === def.id);
+			if (!raw) continue;
+			properties.push({
+				id: def.id,
+				loan: Math.round(num(raw.loan, 0, def.price, 0)),
+				rented: raw.rented === true,
+				missed: Math.floor(num(raw.missed, 0, FINANCE.graceWeeks, 0)),
+			});
+		}
+	}
+	let home = cleanHome(r.home, knownLocs);
+	if (home && typeof r.home.owned === 'string') {
+		const def = PROPERTIES.find((p) => p.id === r.home.owned);
+		const mine = properties.find((p) => p.id === r.home.owned);
+		if (def && mine && !mine.rented && def.loc === home.loc && def.homeType === home.type) home.owned = def.id;
+		else home = null;
+	}
+	return { properties, home };
 }
 
 function cleanHome(raw: any, knownLocs?: Set<string>): Home | null {

@@ -208,7 +208,7 @@ test('搬走或被收房：家具半价折现', () => {
 
 test('每周结算：房租 + 车辆保险；没钱续保记麻烦值', () => {
 	const s = housed({ vehicle: '4wd' });
-	assert.deepEqual(weeklyCosts(s), { rent: 160, vehicle: 40, total: 200 });
+	assert.deepEqual(weeklyCosts(s), { rent: 160, vehicle: 40, property: 0, total: 200 });
 	const after = applyAction({ ...s, clock: at(20, 6) }, WA, { t: 'activity', id: 'sleep-camp' }).state;
 	assert.equal(after.cash, s.cash - 200);
 	assert.equal(after.nextWeek, 14);

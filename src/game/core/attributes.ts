@@ -5,6 +5,8 @@ import { TRAITS } from '../data/traits.ts';
 import { HOMES } from '../data/housing.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { VEHICLES } from '../data/vehicles.ts';
+import { PROPERTIES } from '../data/properties.ts';
+import { propertyDue } from './finance.ts';
 import type { ItemDef, NeedKey, PlayerState, SkillKey, TraitDef, TraitMods } from './types.ts';
 
 const traitById = new Map(TRAITS.map((t) => [t.id, t]));
@@ -40,14 +42,19 @@ export function homeComfort(state: PlayerState): number {
 export interface WeeklyCosts {
 	rent: number;
 	vehicle: number;
+	property: number; // 物业费 + 还款
 	total: number;
 }
 
-/** 每周固定开销：房租 + 车辆保险保养 */
+/** 每周固定开销：房租（住自有房时为 0）+ 车辆保险保养 + 房产的物业费与还款。不含租金收入 */
 export function weeklyCosts(state: PlayerState): WeeklyCosts {
-	const rent = state.home ? (HOMES.find((h) => h.id === state.home!.type)?.rentWeek ?? 0) : 0;
+	const rent = state.home && !state.home.owned ? (HOMES.find((h) => h.id === state.home!.type)?.rentWeek ?? 0) : 0;
 	const vehicle = VEHICLES.find((v) => v.id === state.vehicle)?.weekly ?? 0;
-	return { rent, vehicle, total: rent + vehicle };
+	const property = state.properties.reduce((sum, p) => {
+		const def = PROPERTIES.find((d) => d.id === p.id);
+		return sum + (def ? propertyDue(def, p) : 0);
+	}, 0);
+	return { rent, vehicle, property, total: rent + vehicle + property };
 }
 
 // ---------- 心情 ----------
