@@ -10,6 +10,7 @@ import { HOMES } from '../data/housing.ts';
 import { VEHICLES } from '../data/vehicles.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
+import { WISHES } from '../data/wishes.ts';
 import { FINANCE } from './finance.ts';
 import { COURSES } from '../data/courses.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
@@ -96,6 +97,9 @@ export function createCharacter(opts: {
 		home: null,
 		properties: [],
 		nextWeek: 7,
+		wishes: [],
+		wishDay: -1,
+		daily: { day: 0, streak: 0 },
 		collected: [],
 		courseDays: {},
 		pending: null,
@@ -175,6 +179,9 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 			const raw = typeof r.nextWeek === 'number' ? r.nextWeek : typeof r.home?.paidUntil === 'number' ? r.home.paidUntil : today + 7;
 			return Math.floor(num(raw, today - 7, today + 7, today + 7));
 		})(),
+		wishes: [...new Set(strList(r.wishes, 10))].filter((id) => WISHES.some((w) => w.id === id)),
+		wishDay: Math.floor(num(r.wishDay, -1, 1e7, -1)),
+		daily: { day: Math.floor(num(r.daily?.day, 0, 1e7, 0)), streak: Math.floor(num(r.daily?.streak, 0, 1e6, 0)) },
 		collected: [...new Set(strList(r.collected, 200))].filter((id) => EXPERIENCES.some((e) => e.id === id)),
 		courseDays: (() => {
 			const out: Record<string, number> = {};

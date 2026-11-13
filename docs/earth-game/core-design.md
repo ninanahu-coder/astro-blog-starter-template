@@ -36,6 +36,8 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | 职业 | `job` | — | `{ career, loc, level, shifts, good, lastDay }`：雇主、工作地点、等级、本级已上班次与表现好的班次、最近上班日 |
 | 住房 | `home` | — | `{ type, loc, furniture }`：房型、所在地点、各槽位的家具 |
 | 周结算 | `nextWeek` | — | 下一次周结算的游戏日 |
+| 心愿 | `wishes` `wishDay` | — | 今天还没完成的心愿 id；这批心愿生成于哪个游戏日 |
+| 每日奖励 | `daily` | — | `{ day, streak }`：最近领取的现实日序号（珀斯时间）、连续天数 |
 | 房产 | `properties` | — | `{ id, loan, rented, missed }[]`：剩余贷款、是否出租、连续欠款周数。住在自有房里时 `home.owned` 指向它 |
 | 关系 | `relations` | 分数 −100..100 | `npcId → { score, last, bonded }`：分数、每种互动最近一次的游戏日、是否已领好友回报 |
 | 世界进度 | `loc` `clock` `visited` `checkins` `seen` `pending` | — | 位置、游戏分钟、到访次数、打卡、一次性事件、待处理事件 |
@@ -87,6 +89,8 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | 体验 `ExperienceDef` | `data/experiences.ts` | 地点、片区、价格、开放时间、效果、首次声望 | 15 个，分 5 个片区；首次进收藏册，集齐片区得称号 |
 | 家具 `FurnitureDef` | `data/furniture.ts` | 槽位、价格、心情加成、睡眠加成、解锁的在家活动 | 5 个槽位各放一件；同槽位换新时旧的半价折现 |
 | 房产 `PropertyDef` | `data/properties.ts` | 地点、自住房型、房价、物业费、出租周租金 | 4 套；每人每套只能买一次 |
+| 节日 `FestivalDef` | `data/festivals.ts` | 地点、季节、开始日、持续天数 | 5 个；节日期间当地开放专属体验，到场加娱乐 |
+| 心愿 `WishDef` | `data/wishes.ts` | 文字、出现条件、哪种动作算完成 | 15 条；每个游戏日随机 3 条 |
 | 物品 `ItemDef` | `data/items.ts` | 价格、携带上限、售卖地点、`use` 或 `passive` | 消耗品用掉减一；装备持有即生效，同技能只取最高一件 |
 
 ### `Effect` 的结算顺序（`applyEffect`）
@@ -181,14 +185,36 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 
 自住：`moveIntoProperty()` 把 `home` 设为 `{ type, loc, furniture, owned }`，之后和租的房子一样可以添家具、回家睡觉。出租和自住互斥。
 
-## 8. 存档兼容
+## 8. 日历、心愿与每日奖励
+
+**日历**（`core/time.ts`）：一年 4 季，每季 28 天，共 112 个游戏日；游戏第 1 天是第 1 年春季第 1 天。
+
+- 事件可以写 `seasons`，只在这些季节出现（野花季只在春天，热浪只在夏天，冬季风暴只在冬天）。
+- 节日每年固定日期举行。体验写了 `festival` 的只在节日期间开放，并计入「节日」收藏片区。
+- `inSpan()` 判断某一天是否在节日期间，以及离下次开始还有几天。
+
+**心愿**（`core/wishes.ts`）：
+
+- 每个游戏日第一次成功行动后生成 3 条，随机数来自存档的种子；需要工作或住处的心愿只在有的时候出现。
+- 判定在 `applyAction()` 里统一做：成功的动作如果满足某条心愿，娱乐 +12、声望 +0.5，并从列表里移除。
+- 过了当天，没完成的直接换掉，没有惩罚。
+
+**每日奖励**（`core/daily.ts`，由服务端按真实时间触发）：
+
+- 以珀斯时间 0 点为界，每个现实日第一次读取存档或行动时发放。
+- 金额：连续第 1 天 $30，每多一天 +$10，到 $90 封顶；每连续满 7 天当天另加 $150 和声望 +2。断一天从第 1 天重新算。
+- 这是引擎里唯一用到真实时间的地方。真实日期由服务端算好传给纯函数 `claimDaily()`，引擎本身仍然不读时钟。
+
+## 9. 存档兼容
 
 存档格式版本仍是 `v: 1`。新增字段由 `sanitizeState()` 补默认值：旧存档里的 `home.paidUntil` 会迁移成 `nextWeek`。其余缺少的字段按空值读取：`traits` 空列表、`inventory` 空背包、`relations` 空关系、`job` 和 `home` 为空。未知 NPC 的关系丢弃。非法特质组合整体丢弃，背包里未知物品丢弃、数量钳制到上限。测试覆盖了这些情况。
 
-## 9. 怎么加内容
+## 10. 怎么加内容
 
 - **新特质**：在 `data/traits.ts` 加一条，只用 `TraitMods` 里已有的字段。需要新类型的修正时，先在 `attributes.ts` 加一个乘数函数，再在引擎对应位置调用。
 - **新物品**：在 `data/items.ts` 加一条，二选一：`use`（一个 `Effect`）或 `passive`（检定加值）。
+- **新节日**：在 `data/festivals.ts` 加一条，并在 `data/experiences.ts` 加至少一个带 `festival` 的体验（测试会检查）。
+- **新心愿**：在 `data/wishes.ts` 加一条，`done` 只能用已有的动作类型。
 - **新房产**：在 `data/properties.ts` 加一条；租金和物业费要让 `expectedYield()` 落在 0–4%，否则测试不过。
 - **新职业 / 新房型**：在 `data/careers.ts` / `data/housing.ts` 加一条。
 - **新 NPC**：在 `data/npcs.ts` 加一条，填所在地点、作息时间、喜欢的物品和好友回报。

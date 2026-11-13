@@ -4,6 +4,8 @@
 // 权威结算：客户端只发送动作（create / act），由本实例调用规则引擎结算并保存；
 // 客户端不能上传存档，改本地数据不会影响服务器上的进度。
 import { applyAction, parseAction, publicState } from '../core/actions.ts';
+import { claimDaily, realDayOf } from '../core/daily.ts';
+import { refreshWishes } from '../core/wishes.ts';
 import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
 import { REGIONS } from '../data/wa.ts';
 
@@ -245,8 +247,11 @@ export class EarthWorld {
 				spawn: region.spawn,
 				seed: crypto.getRandomValues(new Uint32Array(1))[0],
 			});
-			await this.ctx.storage.put('save:' + id, { keyHash, state, at: now });
-			return json({ ok: true, state: publicState(state), at: now });
+			refreshWishes(state);
+			const first = claimDaily(state, realDayOf(now));
+			const created = first ? { ...first.state, rev: 0 } : state;
+			await this.ctx.storage.put('save:' + id, { keyHash, state: created, at: now });
+			return json({ ok: true, state: publicState(created), at: now, daily: first?.msg });
 		}
 
 		if (!rec) return json({ ok: false, msg: '云端没有这个存档' }, 404);
@@ -254,16 +259,22 @@ export class EarthWorld {
 		const current = sanitizeState(rec.state, new Set(region.locations.map((l) => l.id)));
 		if (!current) return json({ ok: false, msg: '云端存档已损坏' }, 500);
 
-		if (action === 'get') return json({ ok: true, state: publicState(current), at: rec.at });
+		// 每日奖励：按现实日期（服务端时钟）每天第一次读取或行动时发放
+		const claim = claimDaily(current, realDayOf(now));
+		const live = claim ? claim.state : current;
+		if (claim && action === 'get') await this.ctx.storage.put('save:' + id, { keyHash, state: live, at: now });
+
+		if (action === 'get') return json({ ok: true, state: publicState(live), at: now, daily: claim?.msg });
 
 		if (action === 'act') {
 			// 客户端看到的版本落后（另一台设备刚玩过）：不执行，把最新存档还给它
 			if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: '进度已在另一台设备上更新', state: publicState(current) }, 409);
 			const act = parseAction(body.act);
 			if (!act) return json({ ok: false, msg: '动作无效' }, 400);
-			const r = applyAction(current, region, act);
+			// 版本号按领奖前的存档比对（上面已检查），动作在领奖后的存档上执行
+			const r = applyAction(live, region, act);
 			if (r.state !== current) await this.ctx.storage.put('save:' + id, { keyHash, state: r.state, at: now });
-			return json({ ok: r.ok, msg: r.msg, state: publicState(r.state) });
+			return json({ ok: r.ok, msg: r.msg, state: publicState(r.state), daily: claim?.msg });
 		}
 		return json({ ok: false, msg: '请求无效' }, 400);
 	}

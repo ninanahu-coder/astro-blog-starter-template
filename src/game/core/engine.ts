@@ -12,13 +12,14 @@ import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } f
 import { DEALER_HOURS, DEALER_TAG, VEHICLES } from '../data/vehicles.ts';
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
 import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
-import { dayOf, hoursLabel, isOpen } from './time.ts';
+import { dateOf, dayOf, hoursLabel, inSpan, isOpen } from './time.ts';
+import { FESTIVALS } from '../data/festivals.ts';
 import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, hurtMult } from './attributes.ts';
 import { clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
-	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
+	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
@@ -220,11 +221,17 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 	state.visited[locId] = (state.visited[locId] ?? 0) + 1;
 	log(state, first ? `第一次来到${loc.name}。${loc.blurb}` : `回到${loc.name}。`);
 	if (first) state.respect += 1;
+	const fest = festivalsNow(state.clock).find((f) => f.loc === locId);
+	if (fest) {
+		state.needs.fun = clamp100(state.needs.fun + 10);
+		log(state, `正赶上${fest.name}：${fest.desc}`);
+	}
 	const ev = pickArrivalEvent(state, loc, mode === 'gps' ? null : mode, first);
 	if (ev) state.pending = { eventId: ev.id };
 }
 
-function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null): boolean {
+function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null, clock: number): boolean {
+	if (ev.seasons && !ev.seasons.includes(dateOf(clock).season)) return false;
 	if (ev.arrivedBy && (!mode || !ev.arrivedBy.includes(mode))) return false;
 	const scoped = ev.locs || ev.tags || ev.kinds;
 	if (!scoped) return true;
@@ -237,7 +244,7 @@ function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null)
 
 function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean): GameEvent | null {
 	if (state.heat >= HEAT_CHECK_AT) return EVENTS.find((e) => e.id === 'heat-check') ?? null;
-	const pool = EVENTS.filter((e) => e.weight > 0 && eventMatches(e, loc, mode) && !(e.once && state.seen.includes(e.id)));
+	const pool = EVENTS.filter((e) => e.weight > 0 && eventMatches(e, loc, mode, state.clock) && !(e.once && state.seen.includes(e.id)));
 	if (!pool.length) return null;
 	// 首次到访：有签名事件就必出
 	const signature = pool.filter((e) => e.once);
@@ -810,7 +817,7 @@ export interface ExperienceOffer {
 
 export function experiencesAt(state: PlayerState, region: Region): ExperienceOffer[] {
 	void region;
-	return EXPERIENCES.filter((e) => e.loc === state.loc).map((exp) => ({
+	return EXPERIENCES.filter((e) => e.loc === state.loc && (!e.festival || festivalActive(e.festival, state.clock))).map((exp) => ({
 		exp,
 		first: !state.collected.includes(exp.id),
 		blocked: !isOpen(exp.hours, state.clock) ? `开放时间 ${hoursLabel(exp.hours!)}` : state.cash < exp.price ? `需要 $${exp.price}` : undefined,
@@ -1105,3 +1112,20 @@ export function repayLoan(prev: PlayerState, id: string, amount: number): Action
 	log(state, msg);
 	return { ok: true, state, msg };
 }
+
+// ---------- 日历与节日 ----------
+export const festivalActive = (id: string, clock: number): boolean => {
+	const f = FESTIVALS.find((x) => x.id === id);
+	return !!f && inSpan(clock, f.season, f.day, f.days).active;
+};
+
+/** 今天正在举行的节日 */
+export const festivalsNow = (clock: number): FestivalDef[] => FESTIVALS.filter((f) => inSpan(clock, f.season, f.day, f.days).active);
+
+/** 全部节日，按离现在的远近排序；进行中的 startsIn 为 0 */
+export function festivalCalendar(clock: number): { festival: FestivalDef; active: boolean; startsIn: number }[] {
+	return FESTIVALS.map((festival) => ({ festival, ...inSpan(clock, festival.season, festival.day, festival.days) })).sort((a, b) => a.startsIn - b.startsIn);
+}
+
+// 给 core/wishes.ts 等同层模块用的内部工具
+export { roll as rngRoll, log as addLog };

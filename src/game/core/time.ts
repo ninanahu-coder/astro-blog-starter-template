@@ -27,3 +27,43 @@ export function isOpen(hours: Hours | undefined, clock: number): boolean {
 }
 
 export const hoursLabel = (hours: Hours) => `${hours[0]}:00–${hours[1] % 24}:00`;
+
+// ---------- 日历：一年四季，每季 28 天 ----------
+export const SEASON_DAYS = 28;
+export const SEASONS = [
+	{ id: 'spring', name: '春' },
+	{ id: 'summer', name: '夏' },
+	{ id: 'autumn', name: '秋' },
+	{ id: 'winter', name: '冬' },
+] as const;
+export type SeasonId = (typeof SEASONS)[number]['id'];
+export const YEAR_DAYS = SEASON_DAYS * SEASONS.length;
+
+export interface GameDate {
+	year: number; // 从 1 开始
+	season: SeasonId;
+	seasonName: string;
+	day: number; // 季内第几天，1–28
+	dayOfYear: number; // 0–111
+}
+
+/** 游戏第 1 天是第 1 年春季第 1 天 */
+export function dateOf(clock: number): GameDate {
+	const d = dayOf(clock);
+	const dayOfYear = ((d % YEAR_DAYS) + YEAR_DAYS) % YEAR_DAYS;
+	const s = SEASONS[Math.floor(dayOfYear / SEASON_DAYS)];
+	return { year: Math.floor(d / YEAR_DAYS) + 1, season: s.id, seasonName: s.name, day: (dayOfYear % SEASON_DAYS) + 1, dayOfYear };
+}
+
+export const dateLabel = (clock: number) => {
+	const d = dateOf(clock);
+	return `${d.seasonName}季第 ${d.day} 天`;
+};
+
+/** 某个“季 + 日”起、持续 days 天的时间段，今天是否在其中；以及距离下次开始还有几天（进行中为 0） */
+export function inSpan(clock: number, season: SeasonId, day: number, days: number): { active: boolean; startsIn: number } {
+	const start = SEASONS.findIndex((s) => s.id === season) * SEASON_DAYS + (day - 1);
+	const offset = (dateOf(clock).dayOfYear - start + YEAR_DAYS) % YEAR_DAYS;
+	const active = offset < days;
+	return { active, startsIn: active ? 0 : YEAR_DAYS - offset };
+}

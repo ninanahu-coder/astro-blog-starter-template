@@ -180,6 +180,7 @@ export interface ExperienceDef {
 	price: number;
 	minutes: number;
 	respect: number; // 第一次体验的声望
+	festival?: string; // 只在这个节日期间开放
 	hours?: Hours;
 	fx: Effect;
 	desc: string;
@@ -270,7 +271,32 @@ export interface EventChoice {
 	fail?: Outcome;
 }
 
+export interface FestivalDef {
+	id: string;
+	name: string;
+	loc: string;
+	season: 'spring' | 'summer' | 'autumn' | 'winter';
+	day: number; // 季内第几天开始
+	days: number; // 持续天数
+	desc: string;
+}
+
+/** 哪种动作算完成一个心愿 */
+export type WishDone =
+	| { t: 'activity'; ids: string[] }
+	| { t: 'npc'; acts: NpcAction[] }
+	| { t: 'home'; ops: string[] }
+	| { t: 'job' | 'course' | 'experience' | 'buy' | 'travel' | 'newplace' };
+
+export interface WishDef {
+	id: string;
+	text: string;
+	needs?: 'job' | 'home'; // 有工作 / 有住处才会出现
+	done: WishDone;
+}
+
 export interface GameEvent {
+	seasons?: string[]; // 只在这些季节出现
 	id: string;
 	title: string;
 	icon: string;
@@ -316,6 +342,9 @@ export interface PlayerState {
 	home: Home | null;
 	properties: OwnedProperty[];
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
+	wishes: string[]; // 今天还没完成的心愿 id
+	wishDay: number; // 这批心愿是哪个游戏日生成的，−1 表示还没生成
+	daily: { day: number; streak: number }; // 每日奖励：最近领取的现实日序号、连续天数
 	collected: string[]; // 已完成的收费体验 id
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
 	pending: { eventId: string } | null;

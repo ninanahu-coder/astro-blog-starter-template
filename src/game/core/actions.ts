@@ -3,6 +3,7 @@
 import {
 	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
+import { settleWishes } from './wishes.ts';
 import type { ActionResult, NpcAction, PlayerState, Region, TravelMode } from './types.ts';
 
 export type GameAction =
@@ -104,7 +105,14 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction): 
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
-	return changed ? { ...r, state: { ...r.state, rev: state.rev + 1 } } : r;
+	if (!changed) return r;
+	let msg = r.msg;
+	if (r.ok) {
+		// 成功的动作：结算心愿（r.state 是引擎新建的对象，可以原地改）
+		const done = settleWishes(state, r.state, a);
+		if (done.length) msg += ` ✨ 心愿达成：${done.join('、')}`;
+	}
+	return { ...r, msg, state: { ...r.state, rev: state.rev + 1 } };
 }
 
 /** 发给客户端的存档：隐去随机数种子，客户端无法预知检定结果 */
