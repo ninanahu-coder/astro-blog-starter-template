@@ -3,6 +3,8 @@
 import { ITEMS } from '../data/items.ts';
 import { TRAITS } from '../data/traits.ts';
 import { HOMES } from '../data/housing.ts';
+import { FURNITURE } from '../data/furniture.ts';
+import { VEHICLES } from '../data/vehicles.ts';
 import type { ItemDef, NeedKey, PlayerState, SkillKey, TraitDef, TraitMods } from './types.ts';
 
 const traitById = new Map(TRAITS.map((t) => [t.id, t]));
@@ -26,6 +28,28 @@ export const costMult = (s: PlayerState) => product(s, (m) => m.cost);
 export const heatMult = (s: PlayerState) => product(s, (m) => m.heat);
 export const hurtMult = (s: PlayerState) => product(s, (m) => m.hurt);
 
+// ---------- 住处与每周开销 ----------
+/** 住处的心情加成 = 房型舒适度 + 家具舒适度 */
+export function homeComfort(state: PlayerState): number {
+	if (!state.home) return 0;
+	const base = HOMES.find((h) => h.id === state.home!.type)?.comfort ?? 0;
+	const extra = Object.values(state.home.furniture).reduce((a, id) => a + (FURNITURE.find((f) => f.id === id)?.comfort ?? 0), 0);
+	return base + extra;
+}
+
+export interface WeeklyCosts {
+	rent: number;
+	vehicle: number;
+	total: number;
+}
+
+/** 每周固定开销：房租 + 车辆保险保养 */
+export function weeklyCosts(state: PlayerState): WeeklyCosts {
+	const rent = state.home ? (HOMES.find((h) => h.id === state.home!.type)?.rentWeek ?? 0) : 0;
+	const vehicle = VEHICLES.find((v) => v.id === state.vehicle)?.weekly ?? 0;
+	return { rent, vehicle, total: rent + vehicle };
+}
+
 // ---------- 心情 ----------
 /** 心情 0–100：五项需求的平均值，再被最低的那一项往下拉（短板效应） */
 export function mood(state: PlayerState): number {
@@ -33,7 +57,7 @@ export function mood(state: PlayerState): number {
 	const avg = v.reduce((a, b) => a + b, 0) / v.length;
 	const low = Math.min(...v);
 	const bonus = mods(state).reduce((a, m) => a + (m.mood ?? 0), 0);
-	const home = state.home ? (HOMES.find((h) => h.id === state.home!.type)?.comfort ?? 0) : 0;
+	const home = homeComfort(state);
 	return Math.max(0, Math.min(100, Math.round(avg * 0.6 + low * 0.4 + bonus + home)));
 }
 

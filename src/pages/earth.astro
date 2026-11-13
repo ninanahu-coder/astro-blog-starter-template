@@ -144,11 +144,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 		<script>
 			import { AVATARS, NEED_META, ORIGINS, SKILL_META, formatClock, sanitizeState } from '../game/core/character.ts';
 			import type { GameAction } from '../game/core/actions.ts';
-			import { activitiesAt, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, npcsAt, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
+			import { activitiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, npcsAt, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { AREAS, EXPERIENCES } from '../game/data/experiences.ts';
+			import { FURNITURE_SLOTS, HOME_COOK } from '../game/data/furniture.ts';
 			import { dayOf, hoursLabel } from '../game/core/time.ts';
-			import { checkScore, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
+			import { checkScore, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
 			import { period } from '../game/core/time.ts';
@@ -368,9 +369,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					${offers.map(({ career: c, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(c.name)} · 招${esc(c.levels[0].title)}<small>${esc(blocked ?? `每班 $${c.levels[0].pay}，最高可升到${c.levels[c.levels.length - 1].title}`)}</small></span><button data-job="apply" data-career="${c.id}" ${blocked ? 'disabled' : ''}>${job ? '跳槽' : '应聘'}</button></div>`).join('')}</div>` : '';
 				const homeHere = s.home && s.home.loc === loc.id ? getHome(s.home.type) : undefined;
 				const rentals = homesAt(s, region);
+				const cookWhy = homeActionBlocked(s, 'cook');
+				const relaxWhy = homeActionBlocked(s, 'relax');
 				const homeHtml = homeHere || rentals.length ? `<div class="card"><h3>住处</h3>
-					${homeHere ? `<div class="row" style="margin-top:8px"><span class="body">你的${esc(homeHere.name)}<small>房租付到第 ${s.home!.paidUntil + 1} 天 · 每周 $${homeHere.rentWeek}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>` : ''}
-					${rentals.filter((o) => !(homeHere && o.home.id === s.home!.type)).map(({ home, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(home.name)} · $${home.rentWeek}/周<small>${esc(blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''}`)}</small></span><button data-home="rent" data-home-id="${home.id}" ${blocked ? 'disabled' : ''}>${s.home ? '搬来' : '租下'}</button></div>`).join('')}</div>` : '';
+					${homeHere ? `<div class="row" style="margin-top:8px"><span class="body">你的${esc(homeHere.name)}<small>每周 $${homeHere.rentWeek} · ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算 · 心情 +${homeComfort(s)}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>
+					<div class="inline" style="margin-top:8px"><button data-home="cook" ${cookWhy ? 'disabled' : ''}>做饭 $${HOME_COOK.cost}</button><button data-home="relax" ${relaxWhy ? 'disabled' : ''}>放松</button></div>
+					${cookWhy || relaxWhy ? `<p style="margin-top:4px">${esc([...new Set([cookWhy, relaxWhy].filter(Boolean))].join('；'))}</p>` : ''}
+					<details style="margin-top:8px"><summary class="muted">添置家具（已有 ${Object.keys(s.home!.furniture).length}/${Object.keys(FURNITURE_SLOTS).length} 类，折现值 $${furnitureValue(s)}）</summary>
+					${furnitureAt(s).map(({ item, owned, net, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${owned ? '✅ ' : ''}${esc(FURNITURE_SLOTS[item.slot])} · ${esc(item.name)}<small>${esc(item.desc)}${!owned && net !== item.price ? ` 换购价 $${net}` : ''}</small></span>${owned ? `<button data-furn="sell" data-slot="${item.slot}">卖</button>` : `<button data-furn="buy" data-furn-id="${item.id}" ${blocked ? 'disabled' : ''}>$${item.price}</button>`}</div>`).join('')}</details>` : ''}
+					${rentals.filter((o) => !(homeHere && o.home.id === s.home!.type)).map(({ home, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(home.name)} · $${home.rentWeek}/周<small>${esc(blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}`)}</small></span><button data-home="rent" data-home-id="${home.id}" ${blocked ? 'disabled' : ''}>${s.home ? '搬来' : '租下'}</button></div>`).join('')}</div>` : '';
 				const myVeh = getVehicle(s.vehicle);
 				const exps = experiencesAt(s, region);
 				const expHtml = exps.length ? `<div class="card"><h3>体验</h3>${exps.map(({ exp, first, blocked }) => `
@@ -431,10 +438,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const jc = s.job ? getCareer(s.job.career) : undefined;
 				const promo = promotionStatus(s);
 				const hd = s.home ? getHome(s.home.type) : undefined;
+				const wc = weeklyCosts(s);
 				const life = `
 					<p>${jc ? `${esc(jc.name)}（${esc(getLocation(region, s.job!.loc)!.name)}）· ${esc(jc.levels[s.job!.level].title)} · 每班 $${jc.levels[s.job!.level].pay}` : '无业。到城镇、海滩、矿区等地方找工作。'}</p>
 					${promo ? `<p>升职到${esc(promo.next.title)}：已上 ${promo.shifts}/${PROMOTE_SHIFTS} 班，表现好 ${promo.good}/${PROMOTE_GOOD} 班${promo.blocked ? `，还需${esc(promo.blocked)}` : ''}</p>` : jc ? '<p>已是最高职位。</p>' : ''}
-					<p>${hd ? `住在${esc(getLocation(region, s.home!.loc)!.name)}的${esc(hd.name)}，每周 $${hd.rentWeek}，房租还剩 ${Math.max(0, s.home!.paidUntil - dayOf(s.clock))} 天` : '没有住处。在城镇可以租房，回家睡觉免费且恢复更多。'}</p>
+					<p>${hd ? `住在${esc(getLocation(region, s.home!.loc)!.name)}的${esc(hd.name)}，家具：${Object.values(s.home!.furniture).map((id) => esc(getFurniture(id)?.name ?? '')).join('、') || '无'}` : '没有住处。在城镇可以租房，回家睡觉免费且恢复更多。'}</p>
+					<p>每周固定开销 $${wc.total}${wc.total ? `（房租 $${wc.rent} + 车辆 $${wc.vehicle}）· ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算` : ''}</p>
 					<div class="inline" style="margin-top:8px">${jc ? '<button data-job="quit">辞职</button>' : ''}${hd ? '<button data-home="leave">退租</button>' : ''}</div>`;
 				const rels = Object.entries(s.relations).map(([id, r]) => {
 					const npc = NPCS.find((n) => n.id === id);
@@ -515,7 +524,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-emote],[data-copy],[data-pull],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-emote],[data-copy],[data-pull],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) { tab = d.tab; renderPanel(); }
@@ -532,9 +541,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const a: GameAction = d.job === 'apply' ? { t: 'job', op: 'apply', career: d.career! } : { t: 'job', op: d.job as 'work' | 'quit' };
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
+				else if (d.furn) {
+					const a: GameAction = d.furn === 'buy' ? { t: 'furniture', op: 'buy', id: d.furnId! } : { t: 'furniture', op: 'sell', slot: d.slot! };
+					act(a).then((r) => { if (r) { toast(r.msg); render(); } });
+				}
 				else if (d.home) {
-					if (d.home === 'leave' && !confirm('确定退租？已付的房租不退。')) return;
-					const a: GameAction = d.home === 'rent' ? { t: 'home', op: 'rent', home: d.homeId! } : { t: 'home', op: d.home as 'sleep' | 'leave' };
+					if (d.home === 'leave' && !confirm('确定退租？已付的房租不退，家具半价折现。')) return;
+					if (d.home === 'rent' && state.home && !confirm('搬家会退掉现在的住处，家具半价折现。确定？')) return;
+					const a: GameAction = d.home === 'rent' ? { t: 'home', op: 'rent', home: d.homeId! } : { t: 'home', op: d.home as 'sleep' | 'leave' | 'cook' | 'relax' };
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.buy) act({ t: 'buy', item: d.buy }).then((r) => { if (r) { toast(r.msg); render(); } });

@@ -6,6 +6,7 @@ import { ITEMS } from '../data/items.ts';
 import { NPCS } from '../data/npcs.ts';
 import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../data/careers.ts';
 import { HOMES } from '../data/housing.ts';
+import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } from '../data/furniture.ts';
 import { DEALER_HOURS, DEALER_TAG, VEHICLES } from '../data/vehicles.ts';
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
 import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
@@ -15,7 +16,7 @@ import { clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
-	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
+	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FurnitureDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
@@ -50,7 +51,7 @@ export function getLocation(region: Region, id: string): GameLocation | undefine
 function advance(state: PlayerState, minutes: number, region: Region): boolean {
 	if (minutes <= 0) return false;
 	state.clock += minutes;
-	chargeRent(state, region);
+	weeklyTick(state, region);
 	for (const k of NEED_KEYS) state.needs[k] = clamp100(state.needs[k] - DECAY[k] * decayMult(state, k) * minutes);
 	if (state.needs.hunger <= 0 || state.needs.energy <= 0) {
 		state.health = clamp100(state.health - STARVE_DMG * minutes);
@@ -580,20 +581,55 @@ export function workShift(prev: PlayerState, region: Region): ActionResult {
 // ---------- 住房 ----------
 export const getHome = (id: string) => HOMES.find((h) => h.id === id);
 
-/** 时间每跨过一个已付租期就扣一周房租；付不起就被收回住处 */
-function chargeRent(state: PlayerState, region: Region) {
-	while (state.home && dayOf(state.clock) >= state.home.paidUntil) {
-		const def = getHome(state.home.type)!;
-		const place = getLocation(region, state.home.loc)?.name ?? '';
-		if (state.cash >= def.rentWeek) {
-			state.cash -= def.rentWeek;
-			state.home.paidUntil += 7;
-			log(state, `自动支付了${place}${def.name}一周房租 $${def.rentWeek}。`);
-		} else {
-			log(state, `付不起${place}${def.name}的房租，房东收回了房子。`);
-			state.home = null;
+/** 住处家具的折现价值 */
+export function furnitureValue(state: PlayerState): number {
+	if (!state.home) return 0;
+	return Object.values(state.home.furniture).reduce((sum, id) => sum + Math.round((getFurniture(id)?.price ?? 0) * FURNITURE_RESALE), 0);
+}
+
+/** 离开住处：家具半价折现 */
+function vacate(state: PlayerState): number {
+	const got = furnitureValue(state);
+	state.cash += got;
+	state.home = null;
+	return got;
+}
+
+/**
+ * 每周结算：时间每跨过一个结算日执行一次。
+ * 1. 房租：付不起则被收房（家具折现）  2. 车辆保险保养：付不起则记麻烦值
+ */
+function weeklyTick(state: PlayerState, region: Region) {
+	while (dayOf(state.clock) >= state.nextWeek) {
+		state.nextWeek += 7;
+		if (state.home) {
+			const def = getHome(state.home.type)!;
+			const place = getLocation(region, state.home.loc)?.name ?? '';
+			if (state.cash >= def.rentWeek) {
+				state.cash -= def.rentWeek;
+				log(state, `周结算：支付${place}${def.name}房租 $${def.rentWeek}。`);
+			} else {
+				const got = vacate(state);
+				log(state, `付不起${place}${def.name}的房租，房东收回了房子${got ? `，家具折现 $${got}` : ''}。`);
+			}
+		}
+		const v = getVehicle(state.vehicle);
+		if (v?.weekly) {
+			if (state.cash >= v.weekly) {
+				state.cash -= v.weekly;
+				log(state, `周结算：${v.name}保险保养 $${v.weekly}。`);
+			} else {
+				state.heat = clamp100(state.heat + 8 * heatMult(state));
+				log(state, `没钱续${v.name}的保险，无保险上路被记了一笔。`);
+			}
 		}
 	}
+}
+
+/** 现在租房要付的首期：按到下一个结算日的天数折算（至少一天） */
+export function firstRent(state: PlayerState, home: HomeDef): number {
+	const days = Math.max(1, Math.min(7, state.nextWeek - dayOf(state.clock)));
+	return Math.round((home.rentWeek * days) / 7);
 }
 
 export interface HomeOffer {
@@ -606,21 +642,23 @@ export function homesAt(state: PlayerState, region: Region): HomeOffer[] {
 	if (!loc) return [];
 	return HOMES.filter((h) => matches(h.where, loc)).map((home) => ({
 		home,
-		blocked: state.home?.type === home.id && state.home.loc === loc.id ? '你正住在这里' : state.cash < home.rentWeek ? `首周租金 $${home.rentWeek}` : undefined,
+		blocked: state.home?.type === home.id && state.home.loc === loc.id ? '你正住在这里' : state.cash < firstRent(state, home) ? `首期租金 $${firstRent(state, home)}` : undefined,
 	}));
 }
 
-/** 租房：先付一周房租；之前的住处直接退掉（已付租金不退） */
+/** 租房：先付到下一个结算日的房租；之前的住处直接退掉（已付租金不退，家具半价折现） */
 export function rentHome(prev: PlayerState, region: Region, homeId: string): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	const offer = homesAt(prev, region).find((o) => o.home.id === homeId);
 	if (!offer) return fail(prev, '这里租不到。');
 	if (offer.blocked) return fail(prev, offer.blocked);
 	const state = clone(prev);
-	state.cash -= offer.home.rentWeek;
-	state.home = { type: homeId, loc: state.loc, paidUntil: dayOf(state.clock) + 7 };
+	const due = firstRent(state, offer.home);
+	const sold = vacate(state);
+	state.cash -= due;
+	state.home = { type: homeId, loc: state.loc, furniture: {} };
 	advance(state, 60, region);
-	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，每周 $${offer.home.rentWeek}。`;
+	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}，之后每周 $${offer.home.rentWeek}${sold ? `；旧家具折现 $${sold}` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -628,9 +666,10 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string): Act
 export function leaveHome(prev: PlayerState): ActionResult {
 	if (!prev.home) return fail(prev, '你没有租房。');
 	const state = clone(prev);
-	state.home = null;
-	log(state, '退掉了租的房子。');
-	return { ok: true, state, msg: '已退租。' };
+	const got = vacate(state);
+	const msg = `退掉了租的房子${got ? `，家具折现 $${got}` : ''}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
 }
 
 /** 回家睡觉：免费，恢复量随住房舒适度提高 */
@@ -641,6 +680,10 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	const def = getHome(prev.home.type)!;
 	const state = clone(prev);
 	applyEffect(state, { minutes: 480, health: 15 + def.comfort, needs: { energy: 100, hygiene: 50 + def.comfort * 2, fun: 5 + def.comfort } }, region);
+	for (const id of Object.values(state.home!.furniture)) {
+		const extra = getFurniture(id)?.sleep;
+		if (extra) applyEffect(state, extra, region);
+	}
 	log(state, `在${def.name}睡了一觉。`);
 	return { ok: true, state, msg: '睡了个好觉。' };
 }
@@ -801,4 +844,88 @@ export function doExperience(prev: PlayerState, region: Region, id: string): Act
 	}
 	log(state, msg);
 	return { ok: true, state, msg };
+}
+
+// ---------- 家具与在家活动 ----------
+export const getFurniture = (id: string): FurnitureDef | undefined => FURNITURE.find((f) => f.id === id);
+
+const atHome = (state: PlayerState) => !!state.home && state.home.loc === state.loc;
+const homeHas = (state: PlayerState, unlock: 'cook' | 'relax') =>
+	!!state.home && Object.values(state.home.furniture).some((id) => getFurniture(id)?.unlock === unlock);
+
+export interface FurnitureOffer {
+	item: FurnitureDef;
+	owned: boolean;
+	/** 扣掉同槽位旧家具折现后要付的钱 */
+	net: number;
+	blocked?: string;
+}
+
+/** 人在住处时可以给住处添置的家具 */
+export function furnitureAt(state: PlayerState): FurnitureOffer[] {
+	if (!atHome(state)) return [];
+	return FURNITURE.map((item) => {
+		const cur = state.home!.furniture[item.slot];
+		const owned = cur === item.id;
+		const net = item.price - (cur ? Math.round((getFurniture(cur)?.price ?? 0) * FURNITURE_RESALE) : 0);
+		return { item, owned, net, blocked: owned ? '已拥有' : state.cash < net ? `需要 $${net}` : undefined };
+	});
+}
+
+export function buyFurniture(prev: PlayerState, region: Region, id: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	if (!prev.home) return fail(prev, '先租个住处。');
+	const offer = furnitureAt(prev).find((o) => o.item.id === id);
+	if (!offer) return fail(prev, '要在住处才能添置家具。');
+	if (offer.blocked) return fail(prev, offer.blocked);
+	const state = clone(prev);
+	const old = getFurniture(state.home!.furniture[offer.item.slot] ?? '');
+	state.cash -= offer.net;
+	state.home!.furniture[offer.item.slot] = id;
+	advance(state, 30, region);
+	const msg = `给住处添了${offer.item.name}${old ? `（旧的${old.name}折了半价）` : ''}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+export function sellFurniture(prev: PlayerState, slot: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	if (!atHome(prev)) return fail(prev, '要在住处才能处理家具。');
+	const item = getFurniture(prev.home!.furniture[slot] ?? '');
+	if (!item || !FURNITURE_SLOTS[slot]) return fail(prev, '这个位置没有家具。');
+	const state = clone(prev);
+	const got = Math.round(item.price * FURNITURE_RESALE);
+	state.cash += got;
+	Reflect.deleteProperty(state.home!.furniture, slot);
+	const msg = `把${item.name}卖了 $${got}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+/** 在家做饭 / 放松不能做的原因 */
+export function homeActionBlocked(state: PlayerState, op: 'cook' | 'relax'): string | undefined {
+	if (!atHome(state)) return '要在住处';
+	if (!homeHas(state, op)) return op === 'cook' ? '需要炊具' : '需要娱乐设备';
+	if (op === 'cook' && state.cash < HOME_COOK.cost) return `需要 $${HOME_COOK.cost}`;
+	return undefined;
+}
+
+export function cookAtHome(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const why = homeActionBlocked(prev, 'cook');
+	if (why) return fail(prev, why);
+	const state = clone(prev);
+	applyEffect(state, { cash: -HOME_COOK.cost, minutes: HOME_COOK.minutes, needs: { hunger: HOME_COOK.hunger, fun: 3 } }, region);
+	log(state, '在家做了顿饭。');
+	return { ok: true, state, msg: '🍳 在家吃了顿饭。' };
+}
+
+export function relaxAtHome(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const why = homeActionBlocked(prev, 'relax');
+	if (why) return fail(prev, why);
+	const state = clone(prev);
+	applyEffect(state, { minutes: HOME_RELAX.minutes, needs: { fun: HOME_RELAX.fun, energy: 3 } }, region);
+	log(state, '在家放松了一会儿。');
+	return { ok: true, state, msg: '🎵 在家放松了一会儿。' };
 }

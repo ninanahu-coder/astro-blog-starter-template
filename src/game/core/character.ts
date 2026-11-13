@@ -8,6 +8,7 @@ import { NPCS } from '../data/npcs.ts';
 import { CAREERS } from '../data/careers.ts';
 import { HOMES } from '../data/housing.ts';
 import { VEHICLES } from '../data/vehicles.ts';
+import { FURNITURE } from '../data/furniture.ts';
 import { COURSES } from '../data/courses.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
 import { validTraits } from './attributes.ts';
@@ -91,6 +92,7 @@ export function createCharacter(opts: {
 		relations: {},
 		job: null,
 		home: null,
+		nextWeek: 7,
 		collected: [],
 		courseDays: {},
 		pending: null,
@@ -164,6 +166,12 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 		relations: cleanRelations(r.relations),
 		job: cleanJob(r.job, knownLocs),
 		home: cleanHome(r.home, knownLocs),
+		nextWeek: (() => {
+			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周
+			const today = Math.floor(num(r.clock, 0, 1e9, START_CLOCK) / 1440);
+			const raw = typeof r.nextWeek === 'number' ? r.nextWeek : typeof r.home?.paidUntil === 'number' ? r.home.paidUntil : today + 7;
+			return Math.floor(num(raw, today - 7, today + 7, today + 7));
+		})(),
 		collected: [...new Set(strList(r.collected, 200))].filter((id) => EXPERIENCES.some((e) => e.id === id)),
 		courseDays: (() => {
 			const out: Record<string, number> = {};
@@ -199,7 +207,11 @@ function cleanJob(raw: any, knownLocs?: Set<string>): Job | null {
 function cleanHome(raw: any, knownLocs?: Set<string>): Home | null {
 	if (!raw || typeof raw !== 'object') return null;
 	if (!HOMES.some((h) => h.id === raw.type) || typeof raw.loc !== 'string' || (knownLocs && !knownLocs.has(raw.loc))) return null;
-	return { type: raw.type, loc: raw.loc, paidUntil: Math.floor(num(raw.paidUntil, 0, 1e7, 0)) };
+	const furniture: Record<string, string> = {};
+	if (raw.furniture && typeof raw.furniture === 'object') {
+		for (const f of FURNITURE) if (raw.furniture[f.slot] === f.id) furniture[f.slot] = f.id;
+	}
+	return { type: raw.type, loc: raw.loc, furniture };
 }
 
 /** 关系只保留已知 NPC，分数钳制，日期为非负整数 */

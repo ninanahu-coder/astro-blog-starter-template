@@ -1,7 +1,7 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	applyJob, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
+	applyJob, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import type { ActionResult, NpcAction, PlayerState, Region, TravelMode } from './types.ts';
 
@@ -16,7 +16,9 @@ export type GameAction =
 	| { t: 'job'; op: 'apply'; career: string }
 	| { t: 'job'; op: 'work' | 'quit' }
 	| { t: 'home'; op: 'rent'; home: string }
-	| { t: 'home'; op: 'sleep' | 'leave' }
+	| { t: 'home'; op: 'sleep' | 'leave' | 'cook' | 'relax' }
+	| { t: 'furniture'; op: 'buy'; id: string }
+	| { t: 'furniture'; op: 'sell'; slot: string }
 	| { t: 'vehicle'; op: 'buy'; id: string }
 	| { t: 'vehicle'; op: 'sell' | 'sleep' }
 	| { t: 'course'; id: string }
@@ -52,7 +54,10 @@ export function parseAction(raw: unknown): GameAction | null {
 			return a.op === 'work' || a.op === 'quit' ? { t: 'job', op: a.op } : null;
 		case 'home':
 			if (a.op === 'rent') return str(a.home) ? { t: 'home', op: 'rent', home: a.home } : null;
-			return a.op === 'sleep' || a.op === 'leave' ? { t: 'home', op: a.op } : null;
+			return a.op === 'sleep' || a.op === 'leave' || a.op === 'cook' || a.op === 'relax' ? { t: 'home', op: a.op } : null;
+		case 'furniture':
+			if (a.op === 'buy') return str(a.id) ? { t: 'furniture', op: 'buy', id: a.id } : null;
+			return a.op === 'sell' && str(a.slot) ? { t: 'furniture', op: 'sell', slot: a.slot } : null;
 		case 'vehicle':
 			if (a.op === 'buy') return str(a.id) ? { t: 'vehicle', op: 'buy', id: a.id } : null;
 			return a.op === 'sell' || a.op === 'sleep' ? { t: 'vehicle', op: a.op } : null;
@@ -76,7 +81,8 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction): 
 		case 'use': r = useItem(state, region, a.item); break;
 		case 'npc': r = interactNpc(state, region, a.npc, a.act); break;
 		case 'job': r = a.op === 'apply' ? applyJob(state, region, a.career) : a.op === 'work' ? workShift(state, region) : quitJob(state); break;
-		case 'home': r = a.op === 'rent' ? rentHome(state, region, a.home) : a.op === 'sleep' ? sleepHome(state, region) : leaveHome(state); break;
+		case 'home': r = a.op === 'rent' ? rentHome(state, region, a.home) : a.op === 'sleep' ? sleepHome(state, region) : a.op === 'cook' ? cookAtHome(state, region) : a.op === 'relax' ? relaxAtHome(state, region) : leaveHome(state); break;
+		case 'furniture': r = a.op === 'buy' ? buyFurniture(state, region, a.id) : sellFurniture(state, a.slot); break;
 		case 'vehicle': r = a.op === 'buy' ? buyVehicle(state, region, a.id) : a.op === 'sell' ? sellVehicle(state, region) : sleepInVehicle(state, region); break;
 		case 'course': r = takeCourse(state, region, a.id); break;
 		case 'experience': r = doExperience(state, region, a.id); break;

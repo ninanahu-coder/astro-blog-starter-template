@@ -111,7 +111,18 @@ export interface HomeDef {
 export interface Home {
 	type: string;
 	loc: string;
-	paidUntil: number; // 租金付到第几个游戏日（不含）
+	furniture: Record<string, string>; // 槽位 -> 家具 id
+}
+
+export interface FurnitureDef {
+	id: string;
+	slot: string;
+	name: string;
+	price: number;
+	comfort?: number; // 住处心情加成
+	sleep?: Effect; // 回家睡觉的额外恢复
+	unlock?: 'cook' | 'relax';
+	desc: string;
 }
 
 // ---------- 交通工具、课程、体验 ----------
@@ -124,6 +135,7 @@ export interface VehicleDef {
 	speed: number; // 公路基础时速
 	trackSpeed: number; // 土路基础时速，0 表示不能走土路
 	costPerKm: number;
+	weekly: number; // 每周保险与保养
 	ride?: Partial<Needs>; // 每分钟额外的需求变化（摩托车更累）
 	sleep?: Effect; // 能在车里睡觉时的恢复效果（不含时间）
 	desc: string;
@@ -283,6 +295,7 @@ export interface PlayerState {
 	relations: Record<string, Relation>; // npcId -> 关系
 	job: Job | null;
 	home: Home | null;
+	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
 	collected: string[]; // 已完成的收费体验 id
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
 	pending: { eventId: string } | null;

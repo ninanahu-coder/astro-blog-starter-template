@@ -10,7 +10,7 @@ import { applyAction, type GameAction } from '../../../src/game/core/actions.ts'
 import { mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careersAt, coursesAt, dealerAt, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, resaleValue, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careersAt, coursesAt, dealerAt, furnitureAt, furnitureValue, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, resaleValue, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
@@ -72,7 +72,7 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		return false;
 	}
 	b.s = r.state;
-	const key = a.t === 'activity' ? a.id : a.t === 'job' || a.t === 'home' ? `${a.t}-${a.op}` : a.t === 'npc' ? 'npc' : a.t === 'buy' ? `buy-${a.item}` : a.t;
+	const key = a.t === 'activity' ? a.id : a.t === 'job' || a.t === 'home' || a.t === 'furniture' ? `${a.t}-${a.op}` : a.t === 'npc' ? 'npc' : a.t === 'buy' ? `buy-${a.item}` : a.t;
 	b.stats.flow[key] = (b.stats.flow[key] ?? 0) + (b.s.cash - before.cash);
 	// 这次动作中写下的日志：时间晚于动作开始时刻（每个成功动作都会让时间前进）
 	for (const j of b.s.journal) {
@@ -115,6 +115,7 @@ function step(b: Bot) {
 	if (s.cash < 60 && s.needs.hunger < 80 && (act(b, 'charity-meal') || act(b, 'charity-dinner'))) return;
 	if (s.health < 35 && (act(b, 'clinic') || (s.inventory.firstaid && tryAct(b, { t: 'use', item: 'firstaid' })))) return;
 	if (s.needs.hunger < 35) {
+		if (!homeActionBlocked(s, 'cook') && tryAct(b, { t: 'home', op: 'cook' })) return;
 		if (act(b, 'eat')) return;
 		if (s.inventory.snack && tryAct(b, { t: 'use', item: 'snack' })) return;
 		if (s.inventory.water && tryAct(b, { t: 'use', item: 'water' })) return;
@@ -154,6 +155,10 @@ function step(b: Bot) {
 			const course = coursesAt(s, WA).find((o) => lacking.includes(o.course.skill) && !o.blocked);
 			if (course && tryAct(b, { t: 'course', id: course.course.id })) return;
 		}
+		if (atHome && s.cash > 1500) {
+			const f = furnitureAt(s).find((o) => !o.blocked && !s.home!.furniture[o.item.slot] && o.item.price <= 500);
+			if (f && tryAct(b, { t: 'furniture', op: 'buy', id: f.item.id })) return;
+		}
 		if (s.cash > 2500) {
 			const exp = experiencesAt(s, WA).find((o) => o.first && !o.blocked);
 			if (exp && tryAct(b, { t: 'experience', id: exp.exp.id })) return;
@@ -176,6 +181,7 @@ function step(b: Bot) {
 		if (s.cash > 150 && act(b, 'pub')) return;
 	}
 	if (s.needs.fun < 40) {
+		if (!homeActionBlocked(s, 'relax') && tryAct(b, { t: 'home', op: 'relax' })) return;
 		for (const f of ['swim', 'hike', 'market']) if (act(b, f)) return;
 		if (s.cash > 150 && act(b, 'pub')) return;
 	}
@@ -259,7 +265,7 @@ for (const plan of PLANS) {
 	for (const b of bots) for (const [k, v] of Object.entries(b.stats.flow)) flow[k] = (flow[k] ?? 0) + v / RUNS / DAYS;
 	const top = Object.entries(flow).filter(([, v]) => Math.abs(v) >= 1).sort((x, y) => y[1] - x[1]);
 	flows.push(`| ${plan.name} | ${top.filter(([, v]) => v > 0).map(([k, v]) => `${k} +${Math.round(v)}`).join('，') || '—'} | ${top.filter(([, v]) => v < 0).reverse().map(([k, v]) => `${k} ${Math.round(v)}`).join('，') || '—'} |`);
-	out(`| ${plan.name} | ${money(pct(at(7), 0.5))} | ${money(pct(at(30), 0.5))} | ${money(pct(at(endD), 0.5))} | ${money(pct(at(endD), 0.1))}–${money(pct(at(endD), 0.9))} | ${money(net)} | ${money(pct(bots.map((b) => b.s.cash + resaleValue(b.s.vehicle)), 0.5))} | ${pct(bots.map((b) => b.s.collected.length), 0.5)} | ${m.toFixed(0)} | ${coll.toFixed(2)} | ${ev.toFixed(2)} | ${pr.toFixed(2)} | ${promoCol} | ${(broke * 100).toFixed(0)}% |`);
+	out(`| ${plan.name} | ${money(pct(at(7), 0.5))} | ${money(pct(at(30), 0.5))} | ${money(pct(at(endD), 0.5))} | ${money(pct(at(endD), 0.1))}–${money(pct(at(endD), 0.9))} | ${money(net)} | ${money(pct(bots.map((b) => b.s.cash + resaleValue(b.s.vehicle) + furnitureValue(b.s)), 0.5))} | ${pct(bots.map((b) => b.s.collected.length), 0.5)} | ${m.toFixed(0)} | ${coll.toFixed(2)} | ${ev.toFixed(2)} | ${pr.toFixed(2)} | ${promoCol} | ${(broke * 100).toFixed(0)}% |`);
 }
 out();
 out('## 第 ' + DAYS + ' 天的能力值（中位）');

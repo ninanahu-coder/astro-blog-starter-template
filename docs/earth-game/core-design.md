@@ -34,7 +34,8 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | 状态 | `cash` `health` `respect` `heat` `vehicle` | 见下 | 现金 ≥0；健康 0–100；声望 ≥0；麻烦值 0–100 |
 | 物品 | `inventory` | 每种 1..上限 | `itemId → 数量` |
 | 职业 | `job` | — | `{ career, loc, level, shifts, good, lastDay }`：雇主、工作地点、等级、本级已上班次与表现好的班次、最近上班日 |
-| 住房 | `home` | — | `{ type, loc, paidUntil }`：房型、所在地点、房租付到第几天 |
+| 住房 | `home` | — | `{ type, loc, furniture }`：房型、所在地点、各槽位的家具 |
+| 周结算 | `nextWeek` | — | 下一次周结算的游戏日 |
 | 关系 | `relations` | 分数 −100..100 | `npcId → { score, last, bonded }`：分数、每种互动最近一次的游戏日、是否已领好友回报 |
 | 世界进度 | `loc` `clock` `visited` `checkins` `seen` `pending` | — | 位置、游戏分钟、到访次数、打卡、一次性事件、待处理事件 |
 | 系统 | `seed` `rev` `journal` | — | 随机数状态、云同步版本号、最近 40 条日志 |
@@ -83,6 +84,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | 交通工具 `VehicleDef` | `data/vehicles.ts` | 价格、回收比例、公路 / 土路时速、油费、骑行消耗、车内睡眠 | 摩托车、二手轿车、四驱越野、露营车；在车行买卖，换车自动折抵 |
 | 课程 `CourseDef` | `data/courses.ts` | 对应能力、基础学费、时长、成长量、开课地点与时间 | 7 门课；学费 = 基础价 × (1 + 当前能力/25)；每门每天一次 |
 | 体验 `ExperienceDef` | `data/experiences.ts` | 地点、片区、价格、开放时间、效果、首次声望 | 15 个，分 5 个片区；首次进收藏册，集齐片区得称号 |
+| 家具 `FurnitureDef` | `data/furniture.ts` | 槽位、价格、心情加成、睡眠加成、解锁的在家活动 | 5 个槽位各放一件；同槽位换新时旧的半价折现 |
 | 物品 `ItemDef` | `data/items.ts` | 价格、携带上限、售卖地点、`use` 或 `passive` | 消耗品用掉减一；装备持有即生效，同技能只取最高一件 |
 
 ### `Effect` 的结算顺序（`applyEffect`）
@@ -110,6 +112,8 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | `dealerAt` / `buyVehicle` / `sellVehicle` / `sleepInVehicle` | 车行 / 买车（旧车折抵）/ 卖车 / 车里过夜 | 不在车行、车行没开门、钱不够、车不能睡人 |
 | `coursesAt` / `takeCourse` | 课程 / 上课 | 不在开课时间、今天上过、钱不够、太累 |
 | `experiencesAt` / `doExperience` | 体验 / 参加体验 | 不在开放时间、钱不够 |
+| `furnitureAt` / `buyFurniture` / `sellFurniture` | 家具 / 添置 / 卖掉 | 没有住处、不在住处、钱不够 |
+| `cookAtHome` / `relaxAtHome` | 在家做饭 / 放松 | 不在住处、缺对应家具 |
 | `npcsAt` / `interactNpc` | 查看在场 NPC / 聊天、送礼、帮忙 | TA 不在、今天做过了、没有 TA 喜欢的东西、太累 |
 
 所有动作返回 `{ ok, state, msg }`。
@@ -147,13 +151,16 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | 一居室公寓 | $320 | +5 | 城市、港口、城镇、海岸 |
 | 海景小屋 | $650 | +10 | 有海滩的地点 |
 
-- 租房时先付一周。之后时间每跨过一个租期就自动扣一周；钱不够时房子被收回。
+- 每周结算一次（全局结算日，每 7 天）：扣房租和车辆保险保养。租房时先付到下一个结算日的房租（按天折算）。
+- 结算时付不起房租，房子被收回，家具半价折现；付不起车辆保险不收车，麻烦值 +8。
+- 家具：床、厨房、浴室、娱乐、装饰五个槽位。炊具解锁在家做饭（$6），音响解锁在家放松（免费）。搬走时家具半价折现。
 - 回家睡觉免费，精力回满，清洁、娱乐、健康的恢复量随舒适度提高。
 - 只能有一处住处，搬家时旧住处直接退掉，已付租金不退。
+- 派生属性：住处心情 = 房型舒适度 + 家具舒适度；每周固定开销 = 房租 + 车辆保险。
 
 ## 7. 存档兼容
 
-存档格式版本仍是 `v: 1`。新增字段由 `sanitizeState()` 补默认值：旧存档缺少的字段按空值读取：`traits` 空列表、`inventory` 空背包、`relations` 空关系、`job` 和 `home` 为空。未知 NPC 的关系丢弃。非法特质组合整体丢弃，背包里未知物品丢弃、数量钳制到上限。测试覆盖了这些情况。
+存档格式版本仍是 `v: 1`。新增字段由 `sanitizeState()` 补默认值：旧存档里的 `home.paidUntil` 会迁移成 `nextWeek`。其余缺少的字段按空值读取：`traits` 空列表、`inventory` 空背包、`relations` 空关系、`job` 和 `home` 为空。未知 NPC 的关系丢弃。非法特质组合整体丢弃，背包里未知物品丢弃、数量钳制到上限。测试覆盖了这些情况。
 
 ## 8. 怎么加内容
 

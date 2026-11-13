@@ -133,3 +133,107 @@ test('动作协议与存档校验', () => {
 	assert.deepEqual(migrated.collected, []);
 	assert.deepEqual(migrated.courseDays, {});
 });
+
+// ---------- 阶段 B：家具、在家活动、每周结算 ----------
+import { homeComfort, mood, weeklyCosts } from '../../src/game/core/attributes.ts';
+import {
+	buyFurniture, cookAtHome, firstRent, furnitureAt, furnitureValue, homeActionBlocked, leaveHome, relaxAtHome, rentHome,
+	sellFurniture, sleepHome,
+} from '../../src/game/core/engine.ts';
+import { FURNITURE, FURNITURE_SLOTS } from '../../src/game/data/furniture.ts';
+import { HOMES } from '../../src/game/data/housing.ts';
+
+const housed = (over: Partial<PlayerState> = {}) => rentHome(make({ cash: 5000, clock: at(9), ...over }), WA, 'room').state;
+
+test('家具数据自洽', () => {
+	assert.equal(new Set(FURNITURE.map((f) => f.id)).size, FURNITURE.length);
+	for (const f of FURNITURE) assert.ok(FURNITURE_SLOTS[f.slot], `${f.id} 槽位存在`);
+	for (const op of ['cook', 'relax']) assert.ok(FURNITURE.some((f) => f.unlock === op));
+});
+
+test('租房首期按到结算日的天数折算', () => {
+	const room = HOMES.find((h) => h.id === 'room')!;
+	assert.equal(firstRent(make({ clock: at(9) }), room), 160, '第 1 天租：整周');
+	assert.equal(firstRent(make({ clock: at(9, 5) }), room), Math.round((160 * 2) / 7), '第 6 天租：只付 2 天');
+	const r = rentHome(make({ cash: 1000, clock: at(9, 5) }), WA, 'room');
+	assert.equal(r.state.cash, 1000 - 46);
+});
+
+test('家具：要在住处买、同槽位替换半价折旧、可卖', () => {
+	const s = housed();
+	assert.equal(furnitureAt({ ...s, loc: 'fremantle' }).length, 0);
+	assert.equal(buyFurniture(make({ cash: 5000 }), WA, 'mattress').ok, false, '没有住处');
+	const r1 = buyFurniture(s, WA, 'mattress');
+	assert.ok(r1.ok);
+	assert.equal(r1.state.cash, s.cash - 400);
+	const r2 = buyFurniture(r1.state, WA, 'kingbed');
+	assert.equal(r2.state.cash, r1.state.cash - (1200 - 200), '旧床垫折 $200');
+	assert.equal(r2.state.home!.furniture.bed, 'kingbed');
+	const r3 = sellFurniture(r2.state, 'bed');
+	assert.equal(r3.state.cash, r2.state.cash + 600);
+	assert.equal(r3.state.home!.furniture.bed, undefined);
+	assert.ok(r3.state.cash < s.cash, '买了再卖一定亏');
+});
+
+test('家具效果：睡得更好、在家做饭和放松、心情', () => {
+	let s = housed();
+	assert.equal(homeActionBlocked(s, 'cook'), '需要炊具');
+	assert.equal(cookAtHome(s, WA).ok, false);
+	for (const id of ['cookset', 'stereo', 'mattress', 'designer']) s = buyFurniture(s, WA, id).state;
+	const hungry = { ...s, needs: { ...s.needs, hunger: 10, fun: 10 } };
+	const cooked = cookAtHome(hungry, WA);
+	assert.ok(cooked.ok);
+	assert.equal(cooked.state.cash, hungry.cash - 6);
+	assert.ok(cooked.state.needs.hunger > 55);
+	assert.ok(relaxAtHome(hungry, WA).state.needs.fun > 35);
+	assert.equal(cookAtHome({ ...hungry, loc: 'fremantle' }, WA).ok, false, '不在家');
+	assert.equal(homeComfort(s), 5);
+	assert.equal(mood(s) - mood({ ...s, home: { ...s.home!, furniture: {} } }), 5);
+	const hurt = { ...s, health: 40 };
+	const plain = { ...hurt, home: { ...s.home!, furniture: {} } };
+	assert.equal(sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health, 10, '好床垫 +10 健康');
+});
+
+test('搬走或被收房：家具半价折现', () => {
+	let s = housed();
+	s = buyFurniture(s, WA, 'mattress').state;
+	s = buyFurniture(s, WA, 'plants').state;
+	assert.equal(furnitureValue(s), 275);
+	const left = leaveHome(s);
+	assert.equal(left.state.cash, s.cash + 275);
+	const evicted = applyAction({ ...s, cash: 10, clock: at(20, 6) }, WA, { t: 'activity', id: 'sleep-camp' }).state;
+	assert.equal(evicted.home, null);
+	assert.equal(evicted.cash, 10 + 275);
+});
+
+test('每周结算：房租 + 车辆保险；没钱续保记麻烦值', () => {
+	const s = housed({ vehicle: '4wd' });
+	assert.deepEqual(weeklyCosts(s), { rent: 160, vehicle: 40, total: 200 });
+	const after = applyAction({ ...s, clock: at(20, 6) }, WA, { t: 'activity', id: 'sleep-camp' }).state;
+	assert.equal(after.cash, s.cash - 200);
+	assert.equal(after.nextWeek, 14);
+	const two = applyAction({ ...s, clock: at(20, 13) }, WA, { t: 'activity', id: 'sleep-camp' }).state;
+	assert.equal(two.cash, s.cash - 400, '跨两周扣两次');
+	const broke = applyAction(make({ vehicle: 'car', cash: 5, clock: at(20, 6) }), WA, { t: 'activity', id: 'sleep-camp' }).state;
+	assert.equal(broke.cash, 5);
+	assert.ok(broke.heat > 0);
+	assert.equal(broke.vehicle, 'car', '车不会被收走');
+});
+
+test('阶段 B 的动作协议与旧存档迁移', () => {
+	assert.deepEqual(parseAction({ t: 'home', op: 'cook' }), { t: 'home', op: 'cook' });
+	assert.deepEqual(parseAction({ t: 'furniture', op: 'buy', id: 'stereo' }), { t: 'furniture', op: 'buy', id: 'stereo' });
+	assert.deepEqual(parseAction({ t: 'furniture', op: 'sell', slot: 'bed' }), { t: 'furniture', op: 'sell', slot: 'bed' });
+	assert.equal(parseAction({ t: 'furniture', op: 'sell' }), null);
+
+	// 旧存档：home.paidUntil，没有 nextWeek / furniture
+	const old = { ...make({ clock: at(9, 10) }), home: { type: 'room', loc: 'perth', paidUntil: 12 } } as Record<string, unknown>;
+	Reflect.deleteProperty(old, 'nextWeek');
+	const m = sanitizeState(old)!;
+	assert.equal(m.nextWeek, 12, '沿用旧的房租到期日');
+	assert.deepEqual(m.home, { type: 'room', loc: 'perth', furniture: {} });
+	const dirty = housed();
+	const c = sanitizeState({ ...dirty, nextWeek: -9999, home: { ...dirty.home, furniture: { bed: 'stereo', decor: 'plants', hax: 'x' } } })!;
+	assert.deepEqual(c.home!.furniture, { decor: 'plants' }, '家具必须放在自己的槽位');
+	assert.ok(c.nextWeek >= -7, '结算日不会落后太多，避免一次补扣几百周');
+});

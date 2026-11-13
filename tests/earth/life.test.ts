@@ -75,11 +75,11 @@ test('租房：首周租金、按周扣租、付不起被收回', () => {
 	const r = rentHome(s, WA, 'room');
 	assert.ok(r.ok);
 	assert.equal(r.state.cash, 840);
-	assert.equal(r.state.home!.paidUntil, 7);
+	assert.equal(r.state.nextWeek, 7);
 	// 第 8 天睡一觉：自动扣第二周
 	const later = performActivity({ ...r.state, clock: at(20, 6) }, WA, 'sleep-camp').state;
-	assert.equal(later.home!.paidUntil, 14);
-	assert.equal(later.cash, 840 - 160);
+	assert.equal(later.nextWeek, 14);
+	assert.equal(later.cash, 840 - 160 - 25, '房租 + 轿车保险');
 	// 没钱：被收回
 	const broke = performActivity({ ...r.state, cash: 10, clock: at(20, 6) }, WA, 'sleep-camp').state;
 	assert.equal(broke.home, null);
@@ -109,7 +109,7 @@ test('存档校验：职业与住房', () => {
 	const locs = new Set(WA.locations.map((l) => l.id));
 	const dirty = make({
 		job: { career: 'barista', loc: 'perth', level: 99, shifts: -4, good: 2.5, lastDay: 3 },
-		home: { type: 'castle', loc: 'perth', paidUntil: 7 },
+		home: { type: 'castle', loc: 'perth', furniture: {} },
 	});
 	const clean = sanitizeState(dirty, locs)!;
 	assert.deepEqual(clean.job, { career: 'barista', loc: 'perth', level: 2, shifts: 0, good: 2, lastDay: 3 });
