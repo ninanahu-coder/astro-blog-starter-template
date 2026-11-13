@@ -14,7 +14,8 @@ import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
 import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
 import { dateOf, dayOf, hoursLabel, inSpan, isOpen } from './time.ts';
 import { FESTIVALS } from '../data/festivals.ts';
-import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, hurtMult } from './attributes.ts';
+import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
+import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
 import { clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
@@ -73,6 +74,7 @@ function collapse(state: PlayerState, region: Region) {
 	for (const k of NEED_KEYS) state.needs[k] = Math.max(state.needs[k], 50);
 	state.loc = nearestHospital(state, region);
 	state.pending = null;
+	addMoodlet(state, 'collapsed');
 	state.clock += 12 * 60;
 	log(state, `你晕倒了，在${getLocation(region, state.loc)?.name ?? ''}的医院醒来，医药费 $${bill}。`);
 }
@@ -127,7 +129,9 @@ export function applyEffect(state: PlayerState, fx: Effect, region: Region) {
 	// 先流逝时间（会衰减需求），再结算需求增减，保证“睡 8 小时”后精力确实是满的
 	if (fx.minutes) advance(state, fx.minutes, region);
 	if (fx.needs) for (const k of NEED_KEYS) if (fx.needs[k]) state.needs[k] = clamp100(state.needs[k] + fx.needs[k]!);
+	if (fx.moodlet) addMoodlet(state, fx.moodlet);
 	if (fx.health) {
+		if (fx.health <= -5) addMoodlet(state, 'hurt');
 		state.health = clamp100(state.health + (fx.health < 0 ? fx.health * hurtMult(state) : fx.health));
 		if (state.health <= 0) collapse(state, region);
 	}
@@ -220,14 +224,21 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 	state.loc = locId;
 	state.visited[locId] = (state.visited[locId] ?? 0) + 1;
 	log(state, first ? `第一次来到${loc.name}。${loc.blurb}` : `回到${loc.name}。`);
-	if (first) state.respect += 1;
+	if (first) {
+		state.respect += 1;
+		addMoodlet(state, 'first-visit');
+	}
 	const fest = festivalsNow(state.clock).find((f) => f.loc === locId);
 	if (fest) {
 		state.needs.fun = clamp100(state.needs.fun + 10);
+		addMoodlet(state, 'festival');
 		log(state, `正赶上${fest.name}：${fest.desc}`);
 	}
 	const ev = pickArrivalEvent(state, loc, mode === 'gps' ? null : mode, first);
-	if (ev) state.pending = { eventId: ev.id };
+	if (ev) {
+		state.pending = { eventId: ev.id };
+		if (ev.id === 'heat-check') addMoodlet(state, 'in-trouble');
+	}
 }
 
 function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null, clock: number): boolean {
@@ -473,6 +484,7 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 	if (!rel.bonded && rel.score >= BOND_AT) {
 		rel.bonded = true;
 		applyEffect(state, npc.bond.fx, region);
+		addMoodlet(state, 'new-friend');
 		log(state, `【${npc.name}成了你的好友】${npc.bond.text}`);
 		text += ` ${npc.name}成了你的好友！${npc.bond.text}`;
 	}
@@ -581,6 +593,7 @@ export function workShift(prev: PlayerState, region: Region): ActionResult {
 		job.shifts = 0;
 		job.good = 0;
 		state.respect += 3;
+		addMoodlet(state, 'promoted');
 		msg += ` 升职为${next.title}！`;
 	}
 	log(state, msg);
@@ -619,6 +632,7 @@ function weeklyTick(state: PlayerState, region: Region) {
 				log(state, `周结算：支付${place}${def.name}房租 $${def.rentWeek}。`);
 			} else {
 				const got = vacate(state);
+				addMoodlet(state, 'evicted');
 				log(state, `付不起${place}${def.name}的房租，房东收回了房子${got ? `，家具折现 $${got}` : ''}。`);
 			}
 		}
@@ -667,6 +681,7 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string): Act
 	const sold = vacate(state);
 	state.cash -= due;
 	state.home = { type: homeId, loc: state.loc, furniture: {} };
+	addMoodlet(state, 'new-home');
 	advance(state, 60, region);
 	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}，之后每周 $${offer.home.rentWeek}${sold ? `；旧家具折现 $${sold}` : ''}。`;
 	log(state, msg);
@@ -695,6 +710,7 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 		const extra = getFurniture(id)?.sleep;
 		if (extra) applyEffect(state, extra, region);
 	}
+	if (homeComfort(state) >= 3 || Object.keys(state.home!.furniture).some((slot) => slot === 'bed')) addMoodlet(state, 'great-sleep');
 	log(state, `在${def.name}睡了一觉。`);
 	return { ok: true, state, msg: '睡了个好觉。' };
 }
@@ -841,11 +857,11 @@ export function doExperience(prev: PlayerState, region: Region, id: string): Act
 	const titlesBefore = areaTitles(state);
 	state.cash -= e.price;
 	if (offer.first) {
-		applyEffect(state, { ...e.fx, minutes: e.minutes, respect: e.respect }, region);
+		applyEffect(state, { ...e.fx, minutes: e.minutes, respect: e.respect, moodlet: 'experience' }, region);
 		state.collected.push(e.id);
 	} else {
 		const fun = Math.round((e.fx.needs?.fun ?? 0) * REPEAT_FUN_SHARE);
-		applyEffect(state, { minutes: e.minutes, needs: { fun } }, region);
+		applyEffect(state, { minutes: e.minutes, needs: { fun }, moodlet: 'good-time' }, region);
 	}
 	let msg = offer.first ? `体验了${e.name}，收进了收藏册（声望 +${e.respect}）。` : `又体验了一次${e.name}。`;
 	const gained = areaTitles(state).filter((t) => !titlesBefore.includes(t));
@@ -926,7 +942,7 @@ export function cookAtHome(prev: PlayerState, region: Region): ActionResult {
 	const why = homeActionBlocked(prev, 'cook');
 	if (why) return fail(prev, why);
 	const state = clone(prev);
-	applyEffect(state, { cash: -HOME_COOK.cost, minutes: HOME_COOK.minutes, needs: { hunger: HOME_COOK.hunger, fun: 3 } }, region);
+	applyEffect(state, { cash: -HOME_COOK.cost, minutes: HOME_COOK.minutes, needs: { hunger: HOME_COOK.hunger, fun: 3 }, moodlet: 'well-fed' }, region);
 	log(state, '在家做了顿饭。');
 	return { ok: true, state, msg: '🍳 在家吃了顿饭。' };
 }
@@ -1070,6 +1086,7 @@ export function moveIntoProperty(prev: PlayerState, id: string): ActionResult {
 	const sold = vacate(state);
 	ownedProperty(state, id)!.rented = false;
 	state.home = { type: def.homeType, loc: def.loc, furniture: {}, owned: id };
+	addMoodlet(state, 'new-home');
 	const msg = `搬进了自己的${def.name}，以后不用交房租了${sold ? `；旧家具折现 $${sold}` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
@@ -1129,3 +1146,19 @@ export function festivalCalendar(clock: number): { festival: FestivalDef; active
 
 // 给 core/wishes.ts 等同层模块用的内部工具
 export { roll as rngRoll, log as addLog };
+
+// ---------- 带时限的心情状态 ----------
+/** 获得一个心情状态：同种刷新时长；顺带清掉已过期的。原地修改 */
+export function addMoodlet(state: PlayerState, id: string) {
+	const def = MOODLETS.find((m) => m.id === id);
+	if (!def) return;
+	const until = state.clock + def.hours * 60;
+	state.moodlets = state.moodlets.filter((m) => m.id !== id && m.until > state.clock);
+	state.moodlets.push({ id, until });
+	if (state.moodlets.length > MOODLET_MAX) state.moodlets.splice(0, state.moodlets.length - MOODLET_MAX);
+}
+
+/** 清掉已过期的心情状态。原地修改 */
+export function pruneMoodlets(state: PlayerState) {
+	state.moodlets = state.moodlets.filter((m) => m.until > state.clock);
+}

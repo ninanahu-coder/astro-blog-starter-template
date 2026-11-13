@@ -11,6 +11,7 @@ import { VEHICLES } from '../data/vehicles.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { WISHES } from '../data/wishes.ts';
+import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { FINANCE } from './finance.ts';
 import { COURSES } from '../data/courses.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
@@ -97,6 +98,7 @@ export function createCharacter(opts: {
 		home: null,
 		properties: [],
 		nextWeek: 7,
+		moodlets: [],
 		wishes: [],
 		wishDay: -1,
 		daily: { day: 0, streak: 0 },
@@ -178,6 +180,18 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 			const today = Math.floor(num(r.clock, 0, 1e9, START_CLOCK) / 1440);
 			const raw = typeof r.nextWeek === 'number' ? r.nextWeek : typeof r.home?.paidUntil === 'number' ? r.home.paidUntil : today + 7;
 			return Math.floor(num(raw, today - 7, today + 7, today + 7));
+		})(),
+		moodlets: (() => {
+			// 只保留已知状态；失效时间不能早于现在、也不能超过该状态的最长时长
+			const clock = num(r.clock, 0, 1e9, START_CLOCK);
+			const out: { id: string; until: number }[] = [];
+			for (const m of Array.isArray(r.moodlets) ? r.moodlets.slice(0, 50) : []) {
+				const def = MOODLETS.find((d) => d.id === m?.id);
+				if (!def || out.some((o) => o.id === def.id) || typeof m.until !== 'number' || !Number.isFinite(m.until)) continue;
+				if (m.until <= clock) continue;
+				out.push({ id: def.id, until: Math.floor(Math.min(m.until, clock + def.hours * 60)) });
+			}
+			return out.slice(-MOODLET_MAX);
 		})(),
 		wishes: [...new Set(strList(r.wishes, 10))].filter((id) => WISHES.some((w) => w.id === id)),
 		wishDay: Math.floor(num(r.wishDay, -1, 1e7, -1)),

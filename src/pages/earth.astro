@@ -51,6 +51,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
 			#app { max-width: 560px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
 			.hidden { display: none !important; }
+			.moodchip { background: none; border: 0; padding: 0; font: inherit; font-size: 13px; color: var(--text); }
+			.mood-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+			.mood-row:last-child { border-bottom: 0; }
+			.mood-row .up { color: var(--ok); }
+			.mood-row .down { color: var(--bad); }
 			body.busy #panel, body.busy #modal { opacity: 0.6; pointer-events: none; }
 			button { font: inherit; color: var(--text); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
 			button:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -150,7 +155,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { FURNITURE_SLOTS, HOME_COOK } from '../game/data/furniture.ts';
 			import { FINANCE, loanPayment, saleProceeds, weeksToPayOff } from '../game/core/finance.ts';
 			import { dayOf, hoursLabel } from '../game/core/time.ts';
-			import { checkScore, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
+			import { checkScore, moodBreakdown, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
 			import { dateLabel, period } from '../game/core/time.ts';
@@ -305,7 +310,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<span class="who">${s.avatar} ${esc(s.name)}</span>
 						<span class="stat">💵 $${s.cash.toLocaleString()}</span>
 						<span class="stat">Lv${level(s.respect).lv}</span>
-						<span class="stat" title="心情">${moodTier(mood(s)).name}</span>
+						<button class="stat moodchip" data-tab="me" title="看心情的来源">${moodTier(mood(s)).name} ${mood(s)}</button>
 						<span class="stat" title="通缉星级">${'★'.repeat(wantedStars(s.heat)) || '☆'}</span>
 						<span class="stat" title="${formatClock(s.clock)}">🕗 ${dateLabel(s.clock)} ${formatClock(s.clock).split(' ')[1]} ${period(s.clock).name}</span>
 					</div>
@@ -452,6 +457,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const lv = level(s.respect);
 				const m = mood(s);
 				const tier = moodTier(m);
+				const mb = moodBreakdown(s);
 				const traits = s.traits.map((id) => getTrait(id)).filter(Boolean).map((t) => `<span class="tag" title="${esc(t!.desc)}">${esc(t!.name)}</span>`).join('');
 				const jc = s.job ? getCareer(s.job.career) : undefined;
 				const promo = promotionStatus(s);
@@ -486,6 +492,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
 						<p>Lv${lv.lv} ${lv.title} · 声望 ${Math.floor(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
 						<div class="tags">${traits || '<span class="muted">没有性格特质</span>'}</div></div>
+					<div class="card"><h3>心情 ${mb.total}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</h3>
+						<div style="margin-top:6px">
+							<div class="mood-row"><span>生活需求（最低的一项拉低整体）</span><b>${mb.needs}</b></div>
+							${mb.traits ? `<div class="mood-row"><span>性格特质</span><b class="${mb.traits > 0 ? 'up' : 'down'}">${mb.traits > 0 ? '+' : ''}${mb.traits}</b></div>` : ''}
+							${mb.home ? `<div class="mood-row"><span>住处</span><b class="up">+${mb.home}</b></div>` : ''}
+							${mb.moodlets.map((x) => `<div class="mood-row"><span>${x.def.icon} ${esc(x.def.name)} <span class="muted">还剩 ${x.minutesLeft >= 120 ? Math.round(x.minutesLeft / 60) + ' 小时' : Math.max(1, Math.round(x.minutesLeft)) + ' 分钟'}</span></span><b class="${x.def.value > 0 ? 'up' : 'down'}">${x.def.value > 0 ? '+' : ''}${x.def.value}</b></div>`).join('')}
+						</div>
+						${mb.moodlets.length ? '' : '<p style="margin-top:6px">做点开心的事——好好吃一顿、睡个好觉、完成心愿、去新地方——会留下几小时到几天的好心情。</p>'}
+					</div>
 					<div class="card"><h3>每日奖励</h3><p>已连续上线 ${s.daily.streak} 天。每天第一次上线领取，连续越久越多（$${DAILY.base} 起，第 ${DAILY.cap} 天另加 $${DAILY.bonus}），断一天从头算。</p></div>
 					<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>
 					<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>

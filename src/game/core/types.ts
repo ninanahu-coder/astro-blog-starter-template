@@ -24,6 +24,21 @@ export interface Effect {
 	vehicle?: Vehicle;
 	/** 物品增减：itemId -> 数量（负数为消耗） */
 	items?: Record<string, number>;
+	/** 获得一个带时限的心情状态（见 data/moodlets.ts） */
+	moodlet?: string;
+}
+
+export interface MoodletDef {
+	id: string;
+	name: string;
+	icon: string;
+	value: number; // 心情加减
+	hours: number; // 持续的游戏小时
+}
+
+export interface Moodlet {
+	id: string;
+	until: number; // 到这个游戏分钟数失效
 }
 
 // ---------- 性格特质 ----------
@@ -342,6 +357,7 @@ export interface PlayerState {
 	home: Home | null;
 	properties: OwnedProperty[];
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
+	moodlets: Moodlet[]; // 带时限的心情状态
 	wishes: string[]; // 今天还没完成的心愿 id
 	wishDay: number; // 这批心愿是哪个游戏日生成的，−1 表示还没生成
 	daily: { day: number; streak: number }; // 每日奖励：最近领取的现实日序号、连续天数

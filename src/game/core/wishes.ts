@@ -2,7 +2,7 @@
 import { WISH_REWARD, WISHES, WISHES_PER_DAY } from '../data/wishes.ts';
 import type { GameAction } from './actions.ts';
 import { clamp100 } from './character.ts';
-import { addLog, rngRoll } from './engine.ts';
+import { addLog, addMoodlet, rngRoll } from './engine.ts';
 import { dayOf } from './time.ts';
 import type { PlayerState, WishDef } from './types.ts';
 
@@ -58,6 +58,7 @@ export function settleWishes(before: PlayerState, after: PlayerState, a: GameAct
 		after.wishes = after.wishes.filter((x) => x !== id);
 		after.needs.fun = clamp100(after.needs.fun + WISH_REWARD.fun);
 		after.respect += WISH_REWARD.respect;
+		addMoodlet(after, 'wish-done');
 		addLog(after, `心愿达成：${w.text}。`);
 		done.push(w.text);
 	}

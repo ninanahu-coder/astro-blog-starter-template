@@ -4,6 +4,7 @@ import {
 	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { settleWishes } from './wishes.ts';
+import { pruneMoodlets } from './engine.ts';
 import type { ActionResult, NpcAction, PlayerState, Region, TravelMode } from './types.ts';
 
 export type GameAction =
@@ -111,6 +112,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction): 
 		// 成功的动作：结算心愿（r.state 是引擎新建的对象，可以原地改）
 		const done = settleWishes(state, r.state, a);
 		if (done.length) msg += ` ✨ 心愿达成：${done.join('、')}`;
+		pruneMoodlets(r.state);
 	}
 	return { ...r, msg, state: { ...r.state, rev: state.rev + 1 } };
 }

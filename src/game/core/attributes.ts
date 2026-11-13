@@ -7,6 +7,8 @@ import { FURNITURE } from '../data/furniture.ts';
 import { VEHICLES } from '../data/vehicles.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { propertyDue } from './finance.ts';
+import { MOODLETS } from '../data/moodlets.ts';
+import type { MoodletDef } from './types.ts';
 import type { ItemDef, NeedKey, PlayerState, SkillKey, TraitDef, TraitMods } from './types.ts';
 
 const traitById = new Map(TRAITS.map((t) => [t.id, t]));
@@ -58,14 +60,43 @@ export function weeklyCosts(state: PlayerState): WeeklyCosts {
 }
 
 // ---------- 心情 ----------
-/** 心情 0–100：五项需求的平均值，再被最低的那一项往下拉（短板效应） */
-export function mood(state: PlayerState): number {
+export interface ActiveMoodlet {
+	def: MoodletDef;
+	minutesLeft: number;
+}
+
+/** 当前生效的心情状态（已过期的不算），按影响大小排序 */
+export function activeMoodlets(state: PlayerState): ActiveMoodlet[] {
+	return state.moodlets
+		.filter((m) => m.until > state.clock)
+		.map((m) => ({ def: MOODLETS.find((d) => d.id === m.id)!, minutesLeft: m.until - state.clock }))
+		.filter((m) => m.def)
+		.sort((a, b) => Math.abs(b.def.value) - Math.abs(a.def.value));
+}
+
+export interface MoodBreakdown {
+	needs: number; // 需求部分：平均值 × 0.6 + 最低值 × 0.4
+	traits: number;
+	home: number;
+	moodlets: ActiveMoodlet[];
+	total: number; // 钳制到 0–100
+}
+
+/** 心情的来源拆解，界面用它解释“为什么心情是这个数” */
+export function moodBreakdown(state: PlayerState): MoodBreakdown {
 	const v = Object.values(state.needs);
 	const avg = v.reduce((a, b) => a + b, 0) / v.length;
-	const low = Math.min(...v);
-	const bonus = mods(state).reduce((a, m) => a + (m.mood ?? 0), 0);
+	const needs = Math.round(avg * 0.6 + Math.min(...v) * 0.4);
+	const traits = mods(state).reduce((a, m) => a + (m.mood ?? 0), 0);
 	const home = homeComfort(state);
-	return Math.max(0, Math.min(100, Math.round(avg * 0.6 + low * 0.4 + bonus + home)));
+	const moodlets = activeMoodlets(state);
+	const sum = needs + traits + home + moodlets.reduce((a, m) => a + m.def.value, 0);
+	return { needs, traits, home, moodlets, total: Math.max(0, Math.min(100, sum)) };
+}
+
+/** 心情 0–100 = 需求（短板效应）+ 特质 + 住处 + 带时限的心情状态 */
+export function mood(state: PlayerState): number {
+	return moodBreakdown(state).total;
 }
 
 export interface MoodTier {

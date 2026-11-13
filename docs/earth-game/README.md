@@ -14,9 +14,9 @@
 
 | 角色 | 工具 | 负责什么 | 产物落在哪里 | 不做什么 |
 | --- | --- | --- | --- | --- |
-| 架构 + 前端 | **Claude Code** | 类型、规则引擎、Durable Object、`/earth` 页面、测试 | `src/game/`、`src/pages/earth.astro`、`tests/earth/` | 不手写大批量地理数据、不生成图片 |
-| 数据采集 | **OpenClaw** | 按任务书采集 POI（OSM / Wikidata） | `tools/earth/openclaw/inbox/*.json` → `src/game/data/wa.pois.json` | 不改代码；只交 JSON |
-| 审查 | **Codex** | 审 PR：规则正确性、安全、数据许可 | PR review 评论（规则见仓库根 `AGENTS.md`） | 不直接推送主分支 |
+| 逻辑 + 前端 | **Claude Code** | 类型、规则引擎、Durable Object、`/earth` 页面、测试；按 Codex 的分析报告实施调参 | `src/game/`、`src/pages/earth.astro`、`tests/earth/` | 不手写大批量数据、不生成图片、不自己下平衡分析结论 |
+| 数据采集 | **OpenClaw** | 按任务书采集 POI、地点和节日的真实资料（OSM / Wikidata） | `tools/earth/openclaw/inbox/*.json` → `src/game/data/wa.pois.json` | 不改代码；只交 JSON |
+| 检查与分析 | **Codex** | 审 PR（规则正确性、安全、数据许可）；跑数值模拟并写平衡分析；分析 OpenClaw 的数据。任务书 [codex-tasks.md](codex-tasks.md) | PR 审查评论；`docs/earth-game/balance.md` 的分析小节 | 不写逻辑和前端；调参只提建议 |
 | CGI 素材 | **远程 ComfyUI** | 地点主视觉、事件插图 | `public/earth/cgi/*.png` + `manifest.json` | 不参与逻辑；缺图时前端自动用占位图 |
 
 四者之间只通过**仓库里的文件**交接，互不依赖对方在线：
@@ -25,6 +25,7 @@
 OpenClaw ──inbox/*.json──▶ npm run earth:pois ──▶ wa.pois.json ─┐
                                                                ├─▶ PR ──▶ Codex 审查 ──▶ 合并 ──▶ 部署
 Claude Code ──▶ src/game/** + earth.astro + tests ─────────────┤
+                                    Codex 跑 earth:sim ──▶ balance.md 分析 ──▶ Claude Code 按报告调参
                                                                │
 src/game/data/* ──▶ prompts.mjs ──▶ 远程 ComfyUI ──▶ cgi/*.png ─┘
 ```

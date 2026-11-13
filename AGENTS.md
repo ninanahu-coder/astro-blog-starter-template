@@ -2,6 +2,14 @@
 
 本仓库是 Astro + Cloudflare Workers 站点。`/earth` 是在线人生模拟游戏「地球人生」，说明见 `docs/earth-game/README.md`。
 
+## 分工
+
+| 角色 | 负责 | 不做 |
+| --- | --- | --- |
+| **OpenClaw** | 采集数据：POI、地点资料、节日和体验涉及的真实信息。任务书 `tools/earth/openclaw/TASK.md` | 不改代码 |
+| **Codex** | 检查和分析：审查 PR、跑数值模拟并写平衡分析、分析 OpenClaw 的数据。任务书 `docs/earth-game/codex-tasks.md` | 不写游戏逻辑和前端；调参只提建议，不直接改数值 |
+| **Claude Code** | 逻辑和前端：`src/game/`、`src/pages/earth.astro`、服务端、测试；按 Codex 的分析报告实施调参 | 不手写大批量数据；不自己下平衡分析结论 |
+
 ## 常用命令
 
 - `npm test` —— 游戏引擎与数据测试（Node ≥ 22.18，原生跑 TypeScript）
