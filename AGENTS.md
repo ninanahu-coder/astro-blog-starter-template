@@ -8,6 +8,7 @@
 - `npm run check` —— 构建 + `tsc` + `wrangler deploy --dry-run`
 - `npm run preview` —— 本地带 Durable Object 运行
 - `npm run earth:pois -- --dry-run` —— 校验 POI 数据
+- `npm run earth:sim` —— 数值平衡模拟（改了工资、房租、衰减、成长等数值后跑一遍，对比 `docs/earth-game/balance-report.md`）
 
 ## 代码约定
 

@@ -12,7 +12,7 @@ import { clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
-	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GameLocation, HomeDef, ItemDef, NpcAction, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
+	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
@@ -57,16 +57,44 @@ function advance(state: PlayerState, minutes: number, region: Region): boolean {
 	return true;
 }
 
-/** 体力耗尽：在医院醒来，损失部分现金（不删档） */
+/** 体力耗尽：在医院醒来，付医药费（$100 + 现金的 10%，最多 $500；不删档） */
+export const COLLAPSE_BILL = { base: 100, share: 0.1, max: 500 };
 function collapse(state: PlayerState, region: Region) {
-	const bill = Math.round(state.cash * 0.2);
+	const bill = Math.min(state.cash, Math.round(Math.min(COLLAPSE_BILL.max, COLLAPSE_BILL.base + state.cash * COLLAPSE_BILL.share)));
 	state.cash -= bill;
 	state.health = 50;
 	for (const k of NEED_KEYS) state.needs[k] = Math.max(state.needs[k], 50);
-	state.loc = region.hospital;
+	state.loc = nearestHospital(state, region);
 	state.pending = null;
 	state.clock += 12 * 60;
-	log(state, `你晕倒了，在${getLocation(region, region.hospital)?.name ?? '医院'}醒来，医药费 $${bill}。`);
+	log(state, `你晕倒了，在${getLocation(region, state.loc)?.name ?? ''}的医院醒来，医药费 $${bill}。`);
+}
+
+/** 离当前位置最近、有医院的地点；没有就用区域默认医院 */
+function nearestHospital(state: PlayerState, region: Region): string {
+	const here = getLocation(region, state.loc);
+	if (!here) return region.hospital;
+	let best = region.hospital;
+	let bestKm = Infinity;
+	for (const l of region.locations) {
+		if (!l.tags.includes('hospital')) continue;
+		const km = haversineKm(here.lat, here.lon, l.lat, l.lon);
+		if (km < bestKm) {
+			best = l.id;
+			bestKm = km;
+		}
+	}
+	return best;
+}
+
+/** 能力成长整体倍率与递减曲线：越接近满分涨得越慢 */
+export const SKILL_GROWTH = { scale: 0.35, cap: 110 };
+
+/** 能力变化的唯一入口。增长 = 原值 × 特质倍率 × scale × (1 − 当前值 / cap)；扣减不打折 */
+export function growSkill(state: PlayerState, k: SkillKey, d: number) {
+	const cur = state.skills[k];
+	const delta = d > 0 ? d * gainMult(state, k) * SKILL_GROWTH.scale * Math.max(0, 1 - cur / SKILL_GROWTH.cap) : d;
+	state.skills[k] = clamp100(cur + delta);
 }
 
 export function applyEffect(state: PlayerState, fx: Effect, region: Region) {
@@ -77,7 +105,7 @@ export function applyEffect(state: PlayerState, fx: Effect, region: Region) {
 	if (fx.skills) {
 		for (const k of SKILL_KEYS) {
 			const d = fx.skills[k];
-			if (d) state.skills[k] = clamp100(state.skills[k] + (d > 0 ? d * gainMult(state, k) : d));
+			if (d) growSkill(state, k, d);
 		}
 	}
 	if (fx.items) {
@@ -167,8 +195,8 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 	state.cash -= opt.cost;
 	const selfDrive = (mode === 'road' || mode === 'track') && state.vehicle !== 'none';
 	if (selfDrive) {
-		state.skills.driving = clamp100(state.skills.driving + opt.km / 150);
-		if (mode === 'track') state.skills.survival = clamp100(state.skills.survival + opt.km / 300);
+		growSkill(state, 'driving', opt.km / 150);
+		if (mode === 'track') growSkill(state, 'survival', opt.km / 300);
 	}
 	if (advance(state, opt.minutes, region)) return { ok: true, state, msg: '路上体力不支晕倒了。' }; // collapse 已把人送去医院
 	arrive(state, region, toId, mode);

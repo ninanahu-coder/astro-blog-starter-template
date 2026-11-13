@@ -97,3 +97,20 @@ test('存档校验：特质与背包', () => {
 	assert.deepEqual(migrated.traits, [], '旧存档没有这两个字段也能读');
 	assert.deepEqual(migrated.inventory, {});
 });
+
+test('能力成长：边际递减，不超过 100，扣减不打折', async () => {
+	const { growSkill } = await import('../../src/game/core/engine.ts');
+	const s = make();
+	s.skills.strength = 10;
+	growSkill(s, 'strength', 10);
+	const low = s.skills.strength - 10;
+	s.skills.strength = 90;
+	growSkill(s, 'strength', 10);
+	const high = s.skills.strength - 90;
+	assert.ok(low > 0 && high > 0 && high < low / 3, `低位 +${low.toFixed(2)}，高位 +${high.toFixed(2)}`);
+	for (let i = 0; i < 10000; i++) growSkill(s, 'strength', 50);
+	assert.ok(s.skills.strength <= 100);
+	s.skills.strength = 50;
+	growSkill(s, 'strength', -5);
+	assert.equal(s.skills.strength, 45);
+});

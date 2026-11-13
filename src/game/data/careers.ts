@@ -34,9 +34,9 @@ export const CAREERS: CareerDef[] = [
 		id: 'miner', name: '矿业公司', where: { kinds: ['mining'] }, start: [5, 8], minutes: 600, skill: 'strength',
 		shift: { needs: { energy: -50, hygiene: -35, fun: -20 }, skills: { strength: 2, stamina: 1 } },
 		levels: [
-			{ title: '普工', pay: 480, req: { skills: { strength: 20 } } },
-			{ title: '设备操作员', pay: 640, req: { skills: { strength: 35, driving: 25 } } },
-			{ title: '班组长', pay: 820, req: { skills: { strength: 50 }, respect: 50 } },
+			{ title: '普工', pay: 300, req: { skills: { strength: 20 } } },
+			{ title: '设备操作员', pay: 380, req: { skills: { strength: 35, driving: 25 } } },
+			{ title: '班组长', pay: 470, req: { skills: { strength: 50 }, respect: 50 } },
 		],
 	},
 	{
@@ -51,9 +51,9 @@ export const CAREERS: CareerDef[] = [
 ];
 
 /** 每个等级至少上多少个班、其中多少个表现好，才有资格升到下一级 */
-export const PROMOTE_SHIFTS = 5;
-export const PROMOTE_GOOD = 3;
+export const PROMOTE_SHIFTS = 8;
+export const PROMOTE_GOOD = 5;
 /** 表现检定的难度，按当前等级 */
-export const SHIFT_DC = [35, 50, 65];
+export const SHIFT_DC = [55, 70, 85];
 /** 表现好时的奖金比例 */
 export const GOOD_BONUS = 0.2;
