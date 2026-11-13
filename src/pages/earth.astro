@@ -144,7 +144,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 		<script>
 			import { AVATARS, NEED_META, ORIGINS, SKILL_META, formatClock, sanitizeState } from '../game/core/character.ts';
 			import type { GameAction } from '../game/core/actions.ts';
-			import { activitiesAt, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, npcsAt, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
+			import { activitiesAt, festivalCalendar, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, npcsAt, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { AREAS, EXPERIENCES } from '../game/data/experiences.ts';
 			import { FURNITURE_SLOTS, HOME_COOK } from '../game/data/furniture.ts';
@@ -153,7 +153,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { checkScore, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
-			import { period } from '../game/core/time.ts';
+			import { dateLabel, period } from '../game/core/time.ts';
+			import { getWish } from '../game/core/wishes.ts';
+			import { DAILY } from '../game/core/daily.ts';
 			import { makeProjection } from '../game/core/geo.ts';
 			import { NEED_KEYS, SKILL_KEYS } from '../game/core/types.ts';
 			import type { NpcAction, PlayerState, TravelMode } from '../game/core/types.ts';
@@ -211,9 +213,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			function cache() {
 				if (state) store.set(SAVE_KEY, JSON.stringify(state));
 			}
+			let dailyNote = '';
 			async function api(body: unknown) {
 				const res = await fetch('/api/earth/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-				return { status: res.status, data: (await res.json()) as any };
+				const data = (await res.json()) as any;
+				if (typeof data?.daily === 'string') dailyNote = data.daily;
+				return { status: res.status, data };
 			}
 			/** 采用服务器返回的存档；位置变了就通知在线频道 */
 			function adopt(remote: unknown, why?: string) {
@@ -302,7 +307,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<span class="stat">Lv${level(s.respect).lv}</span>
 						<span class="stat" title="心情">${moodTier(mood(s)).name}</span>
 						<span class="stat" title="通缉星级">${'★'.repeat(wantedStars(s.heat)) || '☆'}</span>
-						<span class="stat">🕗 ${formatClock(s.clock)} ${period(s.clock).name}</span>
+						<span class="stat" title="${formatClock(s.clock)}">🕗 ${dateLabel(s.clock)} ${formatClock(s.clock).split(' ')[1]} ${period(s.clock).name}</span>
 					</div>
 					<div class="needs">
 						<div class="need">❤️健康<div class="bar"><i class="${barCls(s.health)}" style="width:${s.health}%"></i></div></div>${needs}
@@ -400,13 +405,20 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const shopHtml = shop.length ? `<div class="card"><h3>商店</h3><div class="list" style="margin-top:8px">${shop.map(({ item, price, blocked }) => `
 					<button class="row" data-buy="${item.id}" ${blocked ? 'disabled' : ''}><span class="ico">${item.icon}</span>
 					<span class="body">${esc(item.name)}${s.inventory[item.id] ? ` ×${s.inventory[item.id]}` : ''}<small>${esc(blocked ?? item.desc)}</small></span><span class="meta">$${price}</span></button>`).join('')}</div></div>` : '';
+				const wishHtml = s.wishes.length ? `<div class="card"><h3>今天的心愿</h3><p>做到了加心情和声望，过了今天会换一批。</p><div class="tags">${s.wishes.map((id) => `<span class="tag">✨ ${esc(getWish(id)?.text ?? '')}</span>`).join('')}</div></div>` : '';
+				const cal = festivalCalendar(s.clock);
+				const festHere = cal.find((c) => c.active && c.festival.loc === loc.id);
+				const festSoon = cal.filter((c) => c !== festHere).slice(0, 2);
+				const festHtml = `<div class="card"><h3>${festHere ? `🎉 ${esc(festHere.festival.name)}进行中` : '节日'}</h3>${festHere ? `<p>${esc(festHere.festival.desc)} 节日专属体验在下面的「体验」里。</p>` : ''}
+					${festSoon.map((c) => `<p style="margin-top:4px">${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(c.festival.name)} · ${esc(getLocation(region, c.festival.loc)!.name)}</p>`).join('')}</div>`;
 				return `
+					${wishHtml}
 					<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
 						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
 						${lastOutcome ? `<p style="margin-top:8px;color:var(--text)">💡 ${esc(lastOutcome)}</p>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<div class="list">${acts}</div>${courseHtml}${shopHtml}${dealerHtml}${propHtml}${poiHtml}`;
+					${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<div class="list">${acts}</div>${courseHtml}${shopHtml}${dealerHtml}${propHtml}${poiHtml}`;
 			}
 
 			function panelGo() {
@@ -474,6 +486,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
 						<p>Lv${lv.lv} ${lv.title} · 声望 ${Math.floor(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
 						<div class="tags">${traits || '<span class="muted">没有性格特质</span>'}</div></div>
+					<div class="card"><h3>每日奖励</h3><p>已连续上线 ${s.daily.streak} 天。每天第一次上线领取，连续越久越多（$${DAILY.base} 起，第 ${DAILY.cap} 天另加 $${DAILY.bonus}），断一天从头算。</p></div>
 					<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>
 					<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>
 					<div class="card"><h3>工作与住处</h3>${life}</div>
@@ -535,6 +548,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				renderMap();
 				renderPanel();
 				renderEvent();
+				if (dailyNote) {
+					const note = dailyNote;
+					dailyNote = '';
+					setTimeout(() => toast('🎁 ' + note), 400);
+				}
 			}
 
 			// ---------- 输入 ----------

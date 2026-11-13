@@ -93,7 +93,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'wildflowers', title: '野花季', icon: '🌼', kinds: ['park', 'outback', 'town'], weight: 2,
+		id: 'wildflowers', title: '野花季', icon: '🌼', seasons: ['spring'], kinds: ['park', 'outback', 'town'], weight: 2,
 		text: '路两边铺满了粉色和黄色的永生花，一直开到地平线。',
 		choices: [{ label: '停下走一走', ok: { text: '风里全是花的味道。', fx: { minutes: 30, needs: { fun: 22 } } } }],
 	},
@@ -119,6 +119,22 @@ export const EVENTS: GameEvent[] = [
 		choices: [
 			{ label: '买来转手', check: { skill: 'street', dc: 50 }, ok: { text: '你一眼挑出了真货，转手赚了一笔。', fx: { cash: 400, heat: 15, skills: { street: 3 } } }, fail: { text: '塑料珠子。钱没了。', fx: { cash: -200, heat: 10, skills: { street: 1 } } } },
 			{ label: '摆手走开', ok: { text: '不惹麻烦。', fx: {} } },
+		],
+	},
+	{
+		id: 'heatwave', title: '热浪', icon: '🥵', seasons: ['summer'], kinds: ['outback', 'mining', 'park'], weight: 4,
+		text: '下车的一瞬间像打开了烤箱门，路面上的热气在抖。',
+		choices: [
+			{ label: '找个阴凉地方等太阳下去', ok: { text: '你在加油站的雨棚下坐到了傍晚。', fx: { minutes: 180, needs: { fun: -5 } } } },
+			{ label: '硬顶着继续', check: { skill: 'stamina', dc: 50 }, ok: { text: '你喝光了水，但撑下来了。', fx: { needs: { energy: -15, hygiene: -15 }, skills: { stamina: 2, survival: 1 } } }, fail: { text: '你有点中暑，头晕得厉害。', fx: { health: -15, needs: { energy: -25 } } } },
+		],
+	},
+	{
+		id: 'winter-swell', title: '冬季风暴', icon: '🌊', seasons: ['winter'], tags: ['beach'], weight: 4,
+		text: '南边来的风暴把海搅成了灰白色，浪头砸在防波堤上。',
+		choices: [
+			{ label: '躲进酒吧喝杯热的', ok: { text: '半个镇子的人都在这儿，壁炉烧得正旺。', fx: { cash: -15, needs: { social: 20, fun: 10 } } } },
+			{ label: '裹紧外套去看浪', ok: { text: '浪花溅了你一身，但值得。', fx: { needs: { fun: 18, hygiene: -10 } } } },
 		],
 	},
 	{

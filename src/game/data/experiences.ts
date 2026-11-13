@@ -8,6 +8,7 @@ export const AREAS: Record<string, { name: string; title: string }> = {
 	midwest: { name: '中西部', title: '珊瑚海岸旅人' },
 	goldfields: { name: '金矿区', title: '淘金客' },
 	north: { name: '西北与金伯利', title: '北方探险家' },
+	festival: { name: '节日', title: '节日达人' },
 };
 
 export const EXPERIENCES: ExperienceDef[] = [
@@ -26,6 +27,12 @@ export const EXPERIENCES: ExperienceDef[] = [
 	{ id: 'karijini-canyon', name: '峡谷探险', loc: 'karijini', area: 'north', price: 150, minutes: 360, respect: 6, hours: [7, 11], fx: { needs: { fun: 45, energy: -30 }, skills: { stamina: 2, survival: 1 } }, desc: '攀岩、溯溪、跳进天然泳池。' },
 	{ id: 'broome-camels', name: '骆驼骑行看日落', loc: 'broome', area: 'north', price: 120, minutes: 90, respect: 4, hours: [16, 19], fx: { needs: { fun: 35 } }, desc: '凯布尔海滩上的经典驼队剪影。' },
 	{ id: 'bungle-flight', name: '邦格尔邦格尔观光飞行', loc: 'kununurra', area: 'north', price: 550, minutes: 240, respect: 8, hours: [6, 14], fx: { needs: { fun: 55 } }, desc: '从空中看蜂巢一样的橙黑条纹圆顶。' },
+	// 节日专属：只在对应节日期间开放（data/festivals.ts）
+	{ id: 'fest-wildflower-walk', name: '野花节导览徒步', loc: 'kalbarri', area: 'festival', festival: 'wildflower', price: 25, minutes: 180, respect: 5, hours: [7, 16], fx: { needs: { fun: 40, energy: -12 }, skills: { survival: 1 } }, desc: '植物学家带队，认识二十种只在这里开的花。' },
+	{ id: 'fest-race-day', name: '赛马日', loc: 'kalgoorlie', area: 'festival', festival: 'goldfields-cup', price: 60, minutes: 240, respect: 5, hours: [11, 18], fx: { needs: { fun: 40, social: 30 } }, desc: '看台、礼帽和冰镇香槟。' },
+	{ id: 'fest-skyshow', name: '河岸烟火', loc: 'perth', area: 'festival', festival: 'skyshow', price: 0, minutes: 180, respect: 5, hours: [18, 23], fx: { needs: { fun: 45, social: 25 } }, desc: '带块野餐垫，等第一朵烟火升起来。' },
+	{ id: 'fest-surf-final', name: '大师赛决赛日', loc: 'margaret-river', area: 'festival', festival: 'surf-pro', price: 40, minutes: 240, respect: 5, hours: [7, 16], fx: { needs: { fun: 42, social: 15 } }, desc: '站在悬崖上看世界冠军冲三米高的浪。' },
+	{ id: 'fest-lantern-walk', name: '灯笼游行', loc: 'broome', area: 'festival', festival: 'pearl-festival', price: 20, minutes: 150, respect: 5, hours: [17, 22], fx: { needs: { fun: 42, social: 25 } }, desc: '提着纸灯笼跟着龙舞走过老唐人街。' },
 ];
 
 /** 重复体验只给心情的比例 */
