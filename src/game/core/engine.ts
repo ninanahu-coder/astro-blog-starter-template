@@ -3,12 +3,14 @@
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
+import { NPCS } from '../data/npcs.ts';
+import { dayOf, hoursLabel, isOpen } from './time.ts';
 import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, hurtMult } from './attributes.ts';
 import { clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
-	ActionResult, Activity, Effect, GameEvent, GameLocation, ItemDef, PlayerState, Region, Route, TravelMode,
+	ActionResult, Activity, Effect, GameEvent, GameLocation, ItemDef, NpcAction, NpcDef, PlayerState, Region, Relation, Route, TravelMode,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
@@ -241,6 +243,7 @@ export function activitiesAt(state: PlayerState, region: Region): { act: Activit
 }
 
 function blockedReason(state: PlayerState, act: Activity): string | undefined {
+	if (!isOpen(act.hours, state.clock)) return `营业时间 ${hoursLabel(act.hours!)}`;
 	const req = act.requires;
 	if (!req) return undefined;
 	if (req.cash && state.cash < req.cash) return `需要 $${req.cash}`;
@@ -335,4 +338,95 @@ export function useItem(prev: PlayerState, region: Region, itemId: string): Acti
 	const state = clone(prev);
 	applyEffect(state, { ...def.use, items: { [itemId]: -1 } }, region);
 	return { ok: true, state, msg: `用了${def.name}。` };
+}
+
+// ---------- NPC 与关系 ----------
+export const RELATION_TIERS = [
+	{ min: -100, name: '有过节' },
+	{ min: 0, name: '陌生人' },
+	{ min: 10, name: '认识' },
+	{ min: 30, name: '朋友' },
+	{ min: 60, name: '好友' },
+	{ min: 90, name: '挚友' },
+];
+const BOND_AT = 60;
+
+export function relationTier(score: number): string {
+	let name = RELATION_TIERS[0].name;
+	for (const t of RELATION_TIERS) if (score >= t.min) name = t.name;
+	return name;
+}
+
+export const getRelation = (state: PlayerState, npcId: string): Relation =>
+	state.relations[npcId] ?? { score: 0, last: {}, bonded: false };
+
+export interface NpcAvailability {
+	npc: NpcDef;
+	rel: Relation;
+	tier: string;
+	/** 每种互动不能做的原因；undefined 表示可以做 */
+	blocked: Record<NpcAction, string | undefined>;
+	/** 送礼时会送出的物品（背包里第一件 TA 喜欢的东西） */
+	gift?: string;
+}
+
+/** 当前地点、当前时段在场的 NPC */
+export function npcsAt(state: PlayerState, region: Region): NpcAvailability[] {
+	void region;
+	const today = dayOf(state.clock);
+	return NPCS.filter((n) => n.loc === state.loc && isOpen(n.hours, state.clock)).map((npc) => {
+		const rel = getRelation(state, npc.id);
+		const gift = npc.likes.find((id) => state.inventory[id]);
+		const used = (a: NpcAction) => (rel.last[a] === today ? '今天已经做过了' : undefined);
+		return {
+			npc, rel, tier: relationTier(rel.score), gift,
+			blocked: {
+				chat: used('chat'),
+				gift: used('gift') ?? (gift ? undefined : `没有TA喜欢的东西（${npc.likes.map((id) => getItem(id)?.name).join('、')}）`),
+				help: used('help') ?? (state.needs.energy < 25 ? '太累了' : undefined),
+			},
+		};
+	});
+}
+
+/**
+ * 与 NPC 互动：聊天（魅力检定决定涨多少）、送礼（消耗一件TA喜欢的物品）、帮忙（花时间体力，涨声望）。
+ * 每种互动每个游戏日一次。关系第一次达到「好友」时发放该 NPC 的一次性回报。
+ */
+export function interactNpc(prev: PlayerState, region: Region, npcId: string, action: NpcAction): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const here = npcsAt(prev, region).find((a) => a.npc.id === npcId);
+	if (!here) return fail(prev, 'TA现在不在这里。');
+	const why = here.blocked[action];
+	if (why) return fail(prev, why);
+	const { npc } = here;
+	const state = clone(prev);
+	const rel: Relation = structuredClone(getRelation(state, npcId));
+	let gain = 0;
+	let text = '';
+	if (action === 'chat') {
+		const good = checkScore(state, 'charisma').total + roll(state) * 60 >= 45;
+		gain = good ? 7 : 3;
+		applyEffect(state, { minutes: 30, needs: { social: 18, fun: 5 }, skills: { charisma: 0.5 } }, region);
+		text = good ? `和${npc.name}聊得很投机。` : `和${npc.name}寒暄了几句。`;
+	} else if (action === 'gift') {
+		gain = 12;
+		applyEffect(state, { minutes: 10, items: { [here.gift!]: -1 }, needs: { social: 8 } }, region);
+		text = `送给${npc.name}一份${getItem(here.gift!)!.name}，TA很高兴。`;
+	} else {
+		gain = 9;
+		applyEffect(state, { minutes: 120, respect: 1, needs: { energy: -18, social: 10 }, skills: { strength: 0.5, stamina: 0.5 } }, region);
+		text = `帮${npc.name}干了两小时活。`;
+	}
+	rel.score = Math.min(100, rel.score + gain);
+	rel.last[action] = dayOf(prev.clock); // 按开始互动的那天计，跨午夜也不能当天重复
+	state.relations[npcId] = rel;
+	log(state, text);
+	if (!rel.bonded && rel.score >= BOND_AT) {
+		rel.bonded = true;
+		applyEffect(state, npc.bond.fx, region);
+		log(state, `【${npc.name}成了你的好友】${npc.bond.text}`);
+		text += ` ${npc.name}成了你的好友！${npc.bond.text}`;
+	}
+	return { ok: true, state, msg: text };
 }

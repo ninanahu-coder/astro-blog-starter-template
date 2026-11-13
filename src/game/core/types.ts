@@ -45,6 +45,26 @@ export interface TraitDef {
 	conflicts?: string[];
 }
 
+// ---------- NPC 与关系 ----------
+export interface NpcDef {
+	id: string;
+	name: string;
+	role: string;
+	loc: string;
+	hours: Hours;
+	likes: string[]; // 喜欢的物品 id
+	bio: string;
+	bond: { text: string; fx: Effect }; // 第一次成为「好友」时的回报
+}
+
+export type NpcAction = 'chat' | 'gift' | 'help';
+
+export interface Relation {
+	score: number; // −100..100
+	last: Partial<Record<NpcAction, number>>; // 每种互动最近一次的游戏日，同一天不能重复
+	bonded: boolean; // 已领取好友回报
+}
+
 // ---------- 物品 ----------
 export interface ItemDef {
 	id: string;
@@ -101,6 +121,9 @@ export interface Region {
 	pois: Poi[];
 }
 
+/** 营业/作息时间 [开, 关) 小时，关 ≤ 开 表示跨午夜 */
+export type Hours = [number, number];
+
 export interface Activity {
 	id: string;
 	name: string;
@@ -111,6 +134,7 @@ export interface Activity {
 	minutes: number;
 	fx: Effect;
 	requires?: { cash?: number; skill?: Partial<Skills>; vehicle?: Vehicle[] };
+	hours?: Hours; // 不写表示全天可做
 	desc: string;
 }
 
@@ -167,6 +191,7 @@ export interface PlayerState {
 	seen: string[]; // 已触发的 once 事件
 	traits: string[]; // 性格特质 id，创建时选定
 	inventory: Record<string, number>; // itemId -> 数量
+	relations: Record<string, Relation>; // npcId -> 关系
 	pending: { eventId: string } | null;
 	journal: JournalEntry[];
 	seed: number;

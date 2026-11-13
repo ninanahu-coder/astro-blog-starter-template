@@ -122,7 +122,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.row .meta { font-size: 12px; color: var(--dim); text-align: right; white-space: nowrap; flex: none; }
 			.row.sel { border-color: var(--accent); }
 			.list { display: flex; flex-direction: column; gap: 8px; }
-			.skill { display: grid; grid-template-columns: 30px 1fr 34px; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; }
+			.skill { display: grid; grid-template-columns: 30px 1fr 44px; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; }
 			.skill .bar { height: 8px; }
 			.skill .bar i { background: var(--accent); }
 			.muted { color: var(--dim); font-size: 13px; }
@@ -142,9 +142,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 		<script>
 			import { AVATARS, NEED_META, ORIGINS, SKILL_META, createCharacter, formatClock, sanitizeState } from '../game/core/character.ts';
-			import { activitiesAt, buyItem, getLocation, getPendingEvent, gpsCheckIn, performActivity, resolveEvent, shopAt, travel, travelOptions, useItem } from '../game/core/engine.ts';
+			import { activitiesAt, buyItem, interactNpc, npcsAt, relationTier, getLocation, getPendingEvent, gpsCheckIn, performActivity, resolveEvent, shopAt, travel, travelOptions, useItem } from '../game/core/engine.ts';
 			import { checkScore, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
+			import { NPCS } from '../game/data/npcs.ts';
+			import { period } from '../game/core/time.ts';
 			import { makeProjection } from '../game/core/geo.ts';
 			import { NEED_KEYS, SKILL_KEYS } from '../game/core/types.ts';
 			import type { ActionResult, PlayerState, TravelMode } from '../game/core/types.ts';
@@ -294,7 +296,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<span class="stat">Lv${level(s.respect).lv}</span>
 						<span class="stat" title="心情">${moodTier(mood(s)).name}</span>
 						<span class="stat" title="通缉星级">${'★'.repeat(wantedStars(s.heat)) || '☆'}</span>
-						<span class="stat">🕗 ${formatClock(s.clock)}</span>
+						<span class="stat">🕗 ${formatClock(s.clock)} ${period(s.clock).name}</span>
 					</div>
 					<div class="needs">
 						<div class="need">❤️健康<div class="bar"><i class="${barCls(s.health)}" style="width:${s.health}%"></i></div></div>${needs}
@@ -345,6 +347,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const pois = region.pois.filter((p) => p.loc === loc.id);
 				const poiHtml = pois.length ? `<div class="card"><h3>打卡点</h3><p>人到现场、打开定位即可打卡（${pois.filter((p) => s.checkins.includes(p.id)).length}/${pois.length}）</p>
 					<div class="list" style="margin-top:8px">${pois.map((p) => `<div class="row"><span class="ico">${s.checkins.includes(p.id) ? '✅' : '📌'}</span><span class="body">${esc(p.name)}<small>${esc(p.category)}</small></span></div>`).join('')}</div></div>` : '';
+				const people = npcsAt(s, region);
+				const away = NPCS.filter((n) => n.loc === loc.id && !people.some((a) => a.npc.id === n.id));
+				const peopleHtml = people.length || away.length ? `<div class="card"><h3>这里的人</h3>${people.map(({ npc, rel, tier, blocked }) => `
+					<div style="margin-top:10px"><div class="row"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${esc(npc.bio)}</small></span><span class="meta">${tier}<br/>${Math.round(rel.score)}/100</span></div>
+					<div class="inline" style="margin-top:6px">${(['chat', 'gift', 'help'] as const).map((a) => `<button data-npc="${npc.id}" data-npc-act="${a}" ${blocked[a] ? `disabled title="${esc(blocked[a])}"` : ''}>${{ chat: '聊天', gift: '送礼', help: '帮忙' }[a]}</button>`).join('')}</div>
+					${Object.values(blocked).some(Boolean) ? `<p style="margin-top:4px">${esc([...new Set(Object.values(blocked).filter(Boolean))].join('；'))}</p>` : ''}</div>`).join('')}
+					${away.map((n) => `<p style="margin-top:8px">${esc(n.name)}（${esc(n.role)}）现在不在，通常 ${n.hours[0]}:00–${n.hours[1] % 24}:00 在这里。</p>`).join('')}</div>` : '';
 				const shop = shopAt(s, region);
 				const shopHtml = shop.length ? `<div class="card"><h3>商店</h3><div class="list" style="margin-top:8px">${shop.map(({ item, price, blocked }) => `
 					<button class="row" data-buy="${item.id}" ${blocked ? 'disabled' : ''}><span class="ico">${item.icon}</span>
@@ -355,7 +364,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						${lastOutcome ? `<p style="margin-top:8px;color:var(--text)">💡 ${esc(lastOutcome)}</p>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					<div class="list">${acts}</div>${shopHtml}${poiHtml}`;
+					${peopleHtml}<div class="list">${acts}</div>${shopHtml}${poiHtml}`;
 			}
 
 			function panelGo() {
@@ -383,6 +392,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const m = mood(s);
 				const tier = moodTier(m);
 				const traits = s.traits.map((id) => getTrait(id)).filter(Boolean).map((t) => `<span class="tag" title="${esc(t!.desc)}">${esc(t!.name)}</span>`).join('');
+				const rels = Object.entries(s.relations).map(([id, r]) => {
+					const npc = NPCS.find((n) => n.id === id);
+					if (!npc) return '';
+					const where = getLocation(region, npc.loc)?.name ?? '';
+					return `<div class="skill"><span></span><div>${esc(npc.name)} <span class="muted">${esc(npc.role)} · ${esc(where)}</span><div class="bar"><i style="width:${Math.max(0, r.score)}%"></i></div></div><b title="${relationTier(r.score)}">${relationTier(r.score)}</b></div>`;
+				}).join('');
 				const bag = Object.entries(s.inventory).map(([id, n]) => {
 					const it = getItem(id);
 					if (!it) return '';
@@ -392,6 +407,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
 						<p>Lv${lv.lv} ${lv.title} · 声望 ${Math.floor(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
 						<div class="tags">${traits || '<span class="muted">没有性格特质</span>'}</div></div>
+					<div class="card"><h3>人际关系</h3>${rels || '<p>还没认识什么人。去各地看看谁在那里。</p>'}</div>
 					<div class="card"><h3>背包</h3>${bag || '<p>空的。在地点页的商店里买东西。</p>'}</div>
 					<div class="card"><h3>能力</h3><p>用得越多涨得越快。</p>${skills}</div>`;
 			}
@@ -453,10 +469,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-emote],[data-copy],[data-pull],[data-reset],[data-buy],[data-use]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-emote],[data-copy],[data-pull],[data-reset],[data-buy],[data-use],[data-npc]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) { tab = d.tab; renderPanel(); }
+				else if (d.npc && d.npcAct) { const r = interactNpc(state, region, d.npc, d.npcAct as 'chat' | 'gift' | 'help'); if (commit(r)) { lastOutcome = r.msg; toast(r.msg); render(); } }
 				else if (d.buy) { const r = buyItem(state, region, d.buy); if (commit(r)) { toast(r.msg); render(); } }
 				else if (d.use) { const r = useItem(state, region, d.use); if (commit(r)) { toast(r.msg); render(); } }
 				else if (d.act) { const r = performActivity(state, region, d.act); if (commit(r)) { lastOutcome = null; toast(r.msg); render(); } }
