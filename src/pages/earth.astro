@@ -23,6 +23,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				<label class="field">名字<input id="c-name" maxlength="12" placeholder="给自己起个名字" autocomplete="off" /></label>
 				<div class="field">形象<div id="c-avatars" class="chips"></div></div>
 				<div class="field">出身<div id="c-origins"></div></div>
+				<div class="field">性格特质（选 2 个）<div id="c-traits" class="chips"></div></div>
 				<button id="c-start" class="primary">开始生活</button>
 				<details class="import">
 					<summary>已有存档？用同步码恢复</summary>
@@ -65,6 +66,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.origin { display: block; width: 100%; text-align: left; margin-bottom: 8px; }
 			.origin small { display: block; color: var(--dim); }
 			.import { color: var(--dim); font-size: 13px; }
+			#c-traits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+			.trait { font-size: 13px; padding: 8px 10px; text-align: left; }
+			.trait small { display: block; color: var(--dim); font-size: 11px; }
+			.trait.on { border-color: var(--accent); background: #3a2c14; }
+			.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+			.tag { font-size: 12px; padding: 3px 8px; border-radius: 10px; background: #0a1522; color: var(--text); }
 			.import input { margin: 8px 0; }
 
 			#game { flex: 1; display: flex; flex-direction: column; min-height: 100dvh; }
@@ -135,7 +142,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 		<script>
 			import { AVATARS, NEED_META, ORIGINS, SKILL_META, createCharacter, formatClock, sanitizeState } from '../game/core/character.ts';
-			import { activitiesAt, getLocation, getPendingEvent, gpsCheckIn, performActivity, resolveEvent, travel, travelOptions } from '../game/core/engine.ts';
+			import { activitiesAt, buyItem, getLocation, getPendingEvent, gpsCheckIn, performActivity, resolveEvent, shopAt, travel, travelOptions, useItem } from '../game/core/engine.ts';
+			import { checkScore, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
+			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { makeProjection } from '../game/core/geo.ts';
 			import { NEED_KEYS, SKILL_KEYS } from '../game/core/types.ts';
 			import type { ActionResult, PlayerState, TravelMode } from '../game/core/types.ts';
@@ -282,8 +291,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<div class="hud-row">
 						<span class="who">${s.avatar} ${esc(s.name)}</span>
 						<span class="stat">💵 $${s.cash.toLocaleString()}</span>
-						<span class="stat">⭐ ${Math.floor(s.respect)}</span>
-						<span class="stat">🔥 ${Math.round(s.heat)}</span>
+						<span class="stat">Lv${level(s.respect).lv}</span>
+						<span class="stat" title="心情">${moodTier(mood(s)).name}</span>
+						<span class="stat" title="通缉星级">${'★'.repeat(wantedStars(s.heat)) || '☆'}</span>
 						<span class="stat">🕗 ${formatClock(s.clock)}</span>
 					</div>
 					<div class="needs">
@@ -335,13 +345,17 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const pois = region.pois.filter((p) => p.loc === loc.id);
 				const poiHtml = pois.length ? `<div class="card"><h3>打卡点</h3><p>人到现场、打开定位即可打卡（${pois.filter((p) => s.checkins.includes(p.id)).length}/${pois.length}）</p>
 					<div class="list" style="margin-top:8px">${pois.map((p) => `<div class="row"><span class="ico">${s.checkins.includes(p.id) ? '✅' : '📌'}</span><span class="body">${esc(p.name)}<small>${esc(p.category)}</small></span></div>`).join('')}</div></div>` : '';
+				const shop = shopAt(s, region);
+				const shopHtml = shop.length ? `<div class="card"><h3>商店</h3><div class="list" style="margin-top:8px">${shop.map(({ item, price, blocked }) => `
+					<button class="row" data-buy="${item.id}" ${blocked ? 'disabled' : ''}><span class="ico">${item.icon}</span>
+					<span class="body">${esc(item.name)}${s.inventory[item.id] ? ` ×${s.inventory[item.id]}` : ''}<small>${esc(blocked ?? item.desc)}</small></span><span class="meta">$${price}</span></button>`).join('')}</div></div>` : '';
 				return `
 					<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
 						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
 						${lastOutcome ? `<p style="margin-top:8px;color:var(--text)">💡 ${esc(lastOutcome)}</p>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					<div class="list">${acts}</div>${poiHtml}`;
+					<div class="list">${acts}</div>${shopHtml}${poiHtml}`;
 			}
 
 			function panelGo() {
@@ -363,10 +377,22 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			function panelMe() {
 				const s = state!;
 				const origin = ORIGINS.find((o) => o.id === s.origin)!;
-				const skills = SKILL_KEYS.map((k) => `<div class="skill"><span>${SKILL_META[k].icon}</span><div>${SKILL_META[k].name} <span class="muted">${SKILL_META[k].hint}</span><div class="bar"><i style="width:${s.skills[k]}%"></i></div></div><b>${Math.floor(s.skills[k])}</b></div>`).join('');
+				const skills = SKILL_KEYS.map((k) => `<div class="skill"><span>${SKILL_META[k].icon}</span><div>${SKILL_META[k].name} <span class="muted">${SKILL_META[k].hint}</span><div class="bar"><i style="width:${s.skills[k]}%"></i></div></div><b title="含特质、装备、心情的检定分">${checkScore(s, k).total}</b></div>`).join('');
 				const veh = { none: '无（坐巴士）', car: '🚗 二手轿车', '4wd': '🚙 四驱越野' }[s.vehicle];
+				const lv = level(s.respect);
+				const m = mood(s);
+				const tier = moodTier(m);
+				const traits = s.traits.map((id) => getTrait(id)).filter(Boolean).map((t) => `<span class="tag" title="${esc(t!.desc)}">${esc(t!.name)}</span>`).join('');
+				const bag = Object.entries(s.inventory).map(([id, n]) => {
+					const it = getItem(id);
+					if (!it) return '';
+					return `<div class="row" style="margin-top:8px"><span class="ico">${it.icon}</span><span class="body">${esc(it.name)} ×${n}<small>${esc(it.desc)}</small></span>${it.use ? `<button data-use="${it.id}">使用</button>` : '<span class="meta">装备中</span>'}</div>`;
+				}).join('');
 				return `<div class="card"><h3>${s.avatar} ${esc(s.name)}</h3><p>${origin.icon} ${origin.name} · 座驾：${veh}</p>
-					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 声望 ${Math.floor(s.respect)} · 麻烦值 ${Math.round(s.heat)}/100</p></div>
+					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
+						<p>Lv${lv.lv} ${lv.title} · 声望 ${Math.floor(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
+						<div class="tags">${traits || '<span class="muted">没有性格特质</span>'}</div></div>
+					<div class="card"><h3>背包</h3>${bag || '<p>空的。在地点页的商店里买东西。</p>'}</div>
 					<div class="card"><h3>能力</h3><p>用得越多涨得越快。</p>${skills}</div>`;
 			}
 
@@ -411,7 +437,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const s = state!;
 				modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${hero('event:' + ev.id, ev.icon)}
 					<h2>${ev.icon} ${esc(ev.title)}</h2><p>${esc(ev.text)}</p>
-					<div class="list">${ev.choices.map((c, i) => `<button class="row" data-choice="${i}"><span class="body">${esc(c.label)}${c.check ? `<small>${SKILL_META[c.check.skill].icon} ${SKILL_META[c.check.skill].name}检定（你 ${Math.floor(s.skills[c.check.skill])} / 难度 ${c.check.dc}）</small>` : ''}</span></button>`).join('')}</div></div>`;
+					<div class="list">${ev.choices.map((c, i) => `<button class="row" data-choice="${i}"><span class="body">${esc(c.label)}${c.check ? `<small>${SKILL_META[c.check.skill].icon} ${SKILL_META[c.check.skill].name}检定（你 ${checkScore(s, c.check.skill).total} + 随机 0–60 / 难度 ${c.check.dc}）</small>` : ''}</span></button>`).join('')}</div></div>`;
 				modal.classList.remove('hidden');
 			}
 
@@ -427,10 +453,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-emote],[data-copy],[data-pull],[data-reset]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-emote],[data-copy],[data-pull],[data-reset],[data-buy],[data-use]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) { tab = d.tab; renderPanel(); }
+				else if (d.buy) { const r = buyItem(state, region, d.buy); if (commit(r)) { toast(r.msg); render(); } }
+				else if (d.use) { const r = useItem(state, region, d.use); if (commit(r)) { toast(r.msg); render(); } }
 				else if (d.act) { const r = performActivity(state, region, d.act); if (commit(r)) { lastOutcome = null; toast(r.msg); render(); } }
 				else if (d.go) {
 					const r = travel(state, region, d.go, d.mode as TravelMode);
@@ -474,22 +502,32 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			// ---------- 创建角色 ----------
 			let pickAvatar = AVATARS[0];
 			let pickOrigin = ORIGINS[0].id;
+			let pickTraits: string[] = [];
 			function renderCreate() {
 				$('c-avatars').innerHTML = AVATARS.map((a) => `<button class="chip${a === pickAvatar ? ' on' : ''}" data-avatar="${a}">${a}</button>`).join('');
 				$('c-origins').innerHTML = ORIGINS.map((o) => `<button class="origin${o.id === pickOrigin ? ' on' : ''}" data-origin="${o.id}">${o.icon} ${o.name} · 起始 $${o.cash}${o.vehicle !== 'none' ? ' · 有车' : ''}<small>${o.desc}</small></button>`).join('');
+				$('c-traits').innerHTML = TRAITS.map((t) => {
+					const on = pickTraits.includes(t.id);
+					const ok = on || validTraits([...pickTraits, t.id], MAX_TRAITS);
+					return `<button class="trait${on ? ' on' : ''}" data-trait="${t.id}" ${ok ? '' : 'disabled'}>${esc(t.name)}<small>${esc(t.desc)}</small></button>`;
+				}).join('');
+				($('c-start') as HTMLButtonElement).disabled = pickTraits.length !== MAX_TRAITS;
+				$('c-start').textContent = pickTraits.length === MAX_TRAITS ? '开始生活' : `再选 ${MAX_TRAITS - pickTraits.length} 个性格特质`;
 			}
 			$('create').addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-avatar],[data-origin]');
-				if (!t) return;
+				const t = (e.target as Element).closest<HTMLElement>('[data-avatar],[data-origin],[data-trait]');
+				if (!t || (t as HTMLButtonElement).disabled) return;
 				if (t.dataset.avatar) pickAvatar = t.dataset.avatar;
 				if (t.dataset.origin) pickOrigin = t.dataset.origin;
+				const tr = t.dataset.trait;
+				if (tr) pickTraits = pickTraits.includes(tr) ? pickTraits.filter((x) => x !== tr) : [...pickTraits, tr];
 				renderCreate();
 			});
 			function begin() { render(); connect(); }
 			$('c-start').addEventListener('click', () => {
 				cred = { id: 'p' + randId(15), key: randId(24) };
 				store.set(CRED_KEY, JSON.stringify(cred));
-				state = createCharacter({ id: cred.id, name: ($('c-name') as HTMLInputElement).value, avatar: pickAvatar, origin: pickOrigin, region: region.id, spawn: region.spawn });
+				state = createCharacter({ id: cred.id, name: ($('c-name') as HTMLInputElement).value, avatar: pickAvatar, origin: pickOrigin, region: region.id, spawn: region.spawn, traits: pickTraits });
 				persist();
 				begin();
 			});

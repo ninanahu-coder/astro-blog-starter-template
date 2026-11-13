@@ -21,6 +21,41 @@ export interface Effect {
 	needs?: Partial<Needs>;
 	skills?: Partial<Skills>;
 	vehicle?: Vehicle;
+	/** 物品增减：itemId -> 数量（负数为消耗） */
+	items?: Record<string, number>;
+}
+
+// ---------- 性格特质 ----------
+/** 修正系数：gain/decay/cost/heat/hurt 为乘数（1 = 不变），check/mood 为加值 */
+export interface TraitMods {
+	gain?: Partial<Skills>;
+	decay?: Partial<Needs>;
+	check?: Partial<Skills>;
+	cost?: number;
+	heat?: number;
+	hurt?: number;
+	mood?: number;
+}
+
+export interface TraitDef {
+	id: string;
+	name: string;
+	desc: string;
+	mods: TraitMods;
+	conflicts?: string[];
+}
+
+// ---------- 物品 ----------
+export interface ItemDef {
+	id: string;
+	name: string;
+	icon: string;
+	price: number;
+	max: number; // 最多携带数量
+	shop: { kinds?: LocationKind[]; tags?: string[] };
+	use?: Effect; // 可消耗：使用后数量 −1
+	passive?: Partial<Skills>; // 随身装备：持有即获得检定加值
+	desc: string;
 }
 
 export type LocationKind = 'city' | 'port' | 'island' | 'coast' | 'outback' | 'mining' | 'park' | 'town';
@@ -130,6 +165,8 @@ export interface PlayerState {
 	visited: Record<string, number>; // locId -> 到访次数
 	checkins: string[]; // 已 GPS 打卡的 POI id
 	seen: string[]; // 已触发的 once 事件
+	traits: string[]; // 性格特质 id，创建时选定
+	inventory: Record<string, number>; // itemId -> 数量
 	pending: { eventId: string } | null;
 	journal: JournalEntry[];
 	seed: number;

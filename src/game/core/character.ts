@@ -2,6 +2,9 @@
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type { Needs, PlayerState, Skills, Vehicle } from './types.ts';
+import { ITEMS } from '../data/items.ts';
+import { MAX_TRAITS } from '../data/traits.ts';
+import { validTraits } from './attributes.ts';
 
 export const NEED_META: Record<string, { name: string; icon: string }> = {
 	hunger: { name: '饱食', icon: '🍔' },
@@ -53,6 +56,7 @@ export function createCharacter(opts: {
 	region: string;
 	spawn: string;
 	seed?: number;
+	traits?: string[];
 }): PlayerState {
 	const origin = ORIGINS.find((o) => o.id === opts.origin) ?? ORIGINS[0];
 	const skills = Object.fromEntries(SKILL_KEYS.map((k) => [k, origin.skills[k] ?? 5])) as Skills;
@@ -76,6 +80,8 @@ export function createCharacter(opts: {
 		visited: { [opts.spawn]: 1 },
 		checkins: [],
 		seen: [],
+		traits: validTraits(opts.traits ?? [], MAX_TRAITS) ? [...(opts.traits ?? [])] : [],
+		inventory: { water: 2, snack: 1 },
 		pending: null,
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		seed: (opts.seed ?? Math.floor(Math.random() * 2 ** 31)) >>> 0,
@@ -139,6 +145,11 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 		visited,
 		checkins: strList(r.checkins, 2000),
 		seen: strList(r.seen, 500),
+		traits: (() => {
+			const t = strList(r.traits, MAX_TRAITS);
+			return validTraits(t, MAX_TRAITS) ? t : [];
+		})(),
+		inventory: cleanInventory(r.inventory),
 		pending: r.pending && typeof r.pending.eventId === 'string' ? { eventId: r.pending.eventId.slice(0, 64) } : null,
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
@@ -147,6 +158,17 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 }
 
 export const JOURNAL_MAX = 40;
+
+/** 背包只保留已知物品，数量钳制在 1..max，其余丢弃 */
+function cleanInventory(raw: unknown): Record<string, number> {
+	const out: Record<string, number> = {};
+	if (!raw || typeof raw !== 'object') return out;
+	for (const item of ITEMS) {
+		const n = (raw as Record<string, unknown>)[item.id];
+		if (typeof n === 'number' && Number.isFinite(n) && n >= 1) out[item.id] = Math.min(item.max, Math.floor(n));
+	}
+	return out;
+}
 
 export function formatClock(clock: number): string {
 	const day = Math.floor(clock / 1440) + 1;

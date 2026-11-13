@@ -2,11 +2,13 @@
 // 所有动作返回新的 PlayerState，不修改入参。
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
+import { ITEMS } from '../data/items.ts';
+import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, hurtMult } from './attributes.ts';
 import { clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
-	ActionResult, Activity, Effect, GameEvent, GameLocation, PlayerState, Region, Route, TravelMode,
+	ActionResult, Activity, Effect, GameEvent, GameLocation, ItemDef, PlayerState, Region, Route, TravelMode,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
@@ -41,7 +43,7 @@ export function getLocation(region: Region, id: string): GameLocation | undefine
 function advance(state: PlayerState, minutes: number, region: Region): boolean {
 	if (minutes <= 0) return false;
 	state.clock += minutes;
-	for (const k of NEED_KEYS) state.needs[k] = clamp100(state.needs[k] - DECAY[k] * minutes);
+	for (const k of NEED_KEYS) state.needs[k] = clamp100(state.needs[k] - DECAY[k] * decayMult(state, k) * minutes);
 	if (state.needs.hunger <= 0 || state.needs.energy <= 0) {
 		state.health = clamp100(state.health - STARVE_DMG * minutes);
 	}
@@ -65,14 +67,28 @@ function collapse(state: PlayerState, region: Region) {
 export function applyEffect(state: PlayerState, fx: Effect, region: Region) {
 	if (fx.cash) state.cash = Math.max(0, Math.round(state.cash + fx.cash));
 	if (fx.respect) state.respect = Math.max(0, state.respect + fx.respect);
-	if (fx.heat) state.heat = clamp100(state.heat + fx.heat);
+	if (fx.heat) state.heat = clamp100(state.heat + (fx.heat > 0 ? fx.heat * heatMult(state) : fx.heat));
 	if (fx.vehicle) state.vehicle = fx.vehicle;
-	if (fx.skills) for (const k of SKILL_KEYS) if (fx.skills[k]) state.skills[k] = clamp100(state.skills[k] + fx.skills[k]!);
+	if (fx.skills) {
+		for (const k of SKILL_KEYS) {
+			const d = fx.skills[k];
+			if (d) state.skills[k] = clamp100(state.skills[k] + (d > 0 ? d * gainMult(state, k) : d));
+		}
+	}
+	if (fx.items) {
+		for (const [id, d] of Object.entries(fx.items)) {
+			const def = getItem(id);
+			if (!def || !d) continue;
+			const n = Math.max(0, Math.min(def.max, (state.inventory[id] ?? 0) + d));
+			if (n) state.inventory[id] = n;
+			else Reflect.deleteProperty(state.inventory, id);
+		}
+	}
 	// 先流逝时间（会衰减需求），再结算需求增减，保证“睡 8 小时”后精力确实是满的
 	if (fx.minutes) advance(state, fx.minutes, region);
 	if (fx.needs) for (const k of NEED_KEYS) if (fx.needs[k]) state.needs[k] = clamp100(state.needs[k] + fx.needs[k]!);
 	if (fx.health) {
-		state.health = clamp100(state.health + fx.health);
+		state.health = clamp100(state.health + (fx.health < 0 ? fx.health * hurtMult(state) : fx.health));
 		if (state.health <= 0) collapse(state, region);
 	}
 }
@@ -132,7 +148,7 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 			cost = km * (state.vehicle === '4wd' ? 0.2 : 0.15);
 		}
 	}
-	cost = Math.round(cost);
+	cost = Math.round(cost * costMult(state));
 	if (available && state.cash < cost) { available = false; reason = '现金不足'; }
 	return { to: to.id, mode: r.mode, label, km: Math.round(km), minutes: Math.round(minutes), cost, available, reason };
 }
@@ -204,7 +220,7 @@ export function resolveEvent(prev: PlayerState, region: Region, choiceIdx: numbe
 	if (ev.once && !state.seen.includes(ev.id)) state.seen.push(ev.id);
 	let outcome = choice.ok;
 	if (choice.check) {
-		const passed = state.skills[choice.check.skill] + roll(state) * 60 >= choice.check.dc;
+		const passed = checkScore(state, choice.check.skill).total + roll(state) * 60 >= choice.check.dc;
 		if (!passed && choice.fail) outcome = choice.fail;
 	}
 	applyEffect(state, outcome.fx, region);
@@ -274,4 +290,49 @@ export function gpsCheckIn(prev: PlayerState, region: Region, lat: number, lon: 
 	}
 	if (!msgs.length) return fail(prev, '你已经在这里了，附近暂无新的打卡点。');
 	return { ok: true, state, msg: msgs.join(' ') };
+}
+
+// ---------- 物品 ----------
+function soldAt(item: ItemDef, loc: GameLocation): boolean {
+	return !!(item.shop.kinds?.includes(loc.kind) || item.shop.tags?.some((t) => loc.tags.includes(t)));
+}
+
+export interface ShopEntry {
+	item: ItemDef;
+	price: number;
+	blocked?: string;
+}
+
+/** 当前地点可买的物品（价格已含特质折扣） */
+export function shopAt(state: PlayerState, region: Region): ShopEntry[] {
+	const loc = getLocation(region, state.loc);
+	if (!loc) return [];
+	return ITEMS.filter((i) => soldAt(i, loc)).map((item) => {
+		const price = Math.round(item.price * costMult(state));
+		const have = state.inventory[item.id] ?? 0;
+		const blocked = have >= item.max ? '已带满' : state.cash < price ? `需要 $${price}` : undefined;
+		return { item, price, blocked };
+	});
+}
+
+export function buyItem(prev: PlayerState, region: Region, itemId: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const entry = shopAt(prev, region).find((e) => e.item.id === itemId);
+	if (!entry) return fail(prev, '这里买不到。');
+	if (entry.blocked) return fail(prev, entry.blocked);
+	const state = clone(prev);
+	state.cash -= entry.price;
+	state.inventory[itemId] = (state.inventory[itemId] ?? 0) + 1;
+	advance(state, 5, region);
+	return { ok: true, state, msg: `买了${entry.item.name}。` };
+}
+
+export function useItem(prev: PlayerState, region: Region, itemId: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const def = getItem(itemId);
+	if (!def?.use) return fail(prev, '这个不能直接使用。');
+	if (!prev.inventory[itemId]) return fail(prev, '背包里没有。');
+	const state = clone(prev);
+	applyEffect(state, { ...def.use, items: { [itemId]: -1 } }, region);
+	return { ok: true, state, msg: `用了${def.name}。` };
 }
