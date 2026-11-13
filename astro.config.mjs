@@ -15,7 +15,7 @@ export default defineConfig({
 		},
 		workerEntryPoint: {
 			path: "src/worker.ts",
-			namedExports: ["BaccaratTable"],
+			namedExports: ["BaccaratTable", "EarthWorld"],
 		},
 	}),
 });

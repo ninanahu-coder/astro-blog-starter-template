@@ -4,6 +4,7 @@
 import type { SSRManifest } from 'astro';
 import { App } from 'astro/app';
 import { handle } from '@astrojs/cloudflare/handler';
+import { EarthWorld, routeEarth } from './game/server/world.ts';
 
 // ---------- 规则常量（与单机版一致） ----------
 const SUITS = ['♠', '♥', '♦', '♣'];
@@ -734,6 +735,8 @@ export function createExports(manifest: SSRManifest) {
 		default: {
 			async fetch(request: Request, env: any, ctx: any): Promise<Response> {
 				const url = new URL(request.url);
+				const earth = routeEarth(request, env);
+				if (earth) return earth;
 				if (url.pathname === '/api/baccarat/auth') {
 					// 账号系统复用 BaccaratTable 的 '@ACCOUNTS' 保留实例（不新增 DO 类，免 migration）。
 					// 方法校验在 handleAuth 内完成（非 POST 返回 JSON 405）。
@@ -753,5 +756,6 @@ export function createExports(manifest: SSRManifest) {
 			},
 		},
 		BaccaratTable,
+		EarthWorld,
 	};
 }

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Terra Life POI batch",
+  "description": "OpenClaw 采集产物格式。一个文件一批，放到 tools/earth/openclaw/inbox/*.json，再运行 npm run earth:pois 校验并合并。",
+  "type": "object",
+  "required": ["region", "generatedBy", "pois"],
+  "properties": {
+    "region": { "const": "wa" },
+    "generatedBy": { "type": "string", "description": "采集代理/任务标识，如 openclaw:2026-11-12" },
+    "pois": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "loc", "name", "lat", "lon", "category", "source"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$", "description": "稳定 id，建议 osm-node-123 / wd-q123" },
+          "loc": { "type": "string", "description": "所属游戏地点 id（见 src/game/data/wa.ts），POI 必须落在该地点打卡半径内" },
+          "name": { "type": "string", "maxLength": 60, "description": "中文名 + 英文原名" },
+          "lat": { "type": "number", "minimum": -35.6, "maximum": -13.4 },
+          "lon": { "type": "number", "minimum": 112.3, "maximum": 129.7 },
+          "category": { "enum": ["park", "beach", "landmark", "heritage", "market", "museum", "lookout", "food", "pub", "wildlife", "trail"] },
+          "source": { "enum": ["osm", "wikidata", "seed"] },
+          "license": { "type": "string" }
+        }
+      }
+    }
+  }
+}

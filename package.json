@@ -33,7 +33,11 @@
 		"check": "astro build && tsc && wrangler deploy --dry-run",
 		"deploy": "wrangler deploy",
 		"dev": "astro dev",
-		"preview": "astro build && wrangler dev"
+		"preview": "astro build && wrangler dev",
+		"test": "node --test \"tests/**/*.test.ts\"",
+		"earth:pois": "node tools/earth/openclaw/import-pois.mjs",
+		"earth:cgi": "node tools/earth/comfyui/generate.mjs",
+		"earth:sim": "node tools/earth/balance/sim.ts"
 	},
 	"type": "module"
 }

@@ -12,6 +12,10 @@
 			{
 				"name": "BACCARAT_TABLE",
 				"class_name": "BaccaratTable"
+			},
+			{
+				"name": "EARTH_WORLD",
+				"class_name": "EarthWorld"
 			}
 		]
 	},
@@ -19,6 +23,10 @@
 		{
 			"tag": "v1",
 			"new_sqlite_classes": ["BaccaratTable"]
+		},
+		{
+			"tag": "v2",
+			"new_sqlite_classes": ["EarthWorld"]
 		}
 	],
 	"observability": {
