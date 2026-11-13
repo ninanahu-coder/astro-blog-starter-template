@@ -7,6 +7,9 @@ import { derivedStats, efficiency, mealOutcome, trainOutcome, workPay } from '..
 import { fixProblem, venueAction, venuesNear } from '../../src/game/core/venues.ts';
 import { CAREERS } from '../../src/game/data/careers.ts';
 import { MOODLETS } from '../../src/game/data/moodlets.ts';
+import { EVENTS } from '../../src/game/data/events.ts';
+import { VENUE_EVENTS } from '../../src/game/data/venue-events.ts';
+import { getPendingEvent } from '../../src/game/core/engine.ts';
 import { FIX_RULES, VENUE_OPS, VENUE_TYPES } from '../../src/game/data/venues.ts';
 import { WA } from '../../src/game/data/wa.ts';
 import type { PlayerState, Region, Venue } from '../../src/game/core/types.ts';
@@ -127,7 +130,7 @@ test('定位检查：精度、距离、瞬移、游戏里不在这个地点', ()
 });
 
 test('冷却按真实时间算，换一家店也一样', () => {
-	const s = make({ cash: 200, needs: { ...make().needs, hunger: 20 } });
+	const s = make({ cash: 200, needs: { ...make().needs, hunger: 20 }, venueEvAt: T0 }); // 刚遇到过事件，排除事件干扰
 	const r1 = venueAction(s, R, { op: 'meal', ...at(find('t-cafe')) }, T0);
 	assert.ok(r1.ok);
 	const r2 = venueAction(r1.state, R, { op: 'meal', ...at(find('t-diner')) }, T0 + 30 * MIN);
@@ -225,10 +228,56 @@ test('动作协议与存档校验', () => {
 	const clean = sanitizeState(dirty)!;
 	assert.deepEqual(clean.fix, { lat: -31.951, lon: 115.86, at: 5 });
 	assert.deepEqual(clean.venueCd, { meal: 3 });
+	assert.equal(sanitizeState({ ...make(), venueEvAt: -5 })!.venueEvAt, 0);
+	assert.equal(sanitizeState({ ...make(), venueEvAt: 1234.9 })!.venueEvAt, 1234);
 	assert.equal(clean.clockIn, null);
 	assert.deepEqual(clean.realWork, { day: 3, min: 1440 });
 	const old = { ...make() } as Record<string, unknown>;
 	for (const k of ['fix', 'venueCd', 'clockIn', 'realWork']) Reflect.deleteProperty(old, k);
 	const migrated = sanitizeState(old)!;
 	assert.deepEqual([migrated.fix, migrated.venueCd, migrated.clockIn, migrated.realWork], [null, {}, null, { day: 0, min: 0 }]);
+	assert.equal(migrated.venueEvAt, 0);
+});
+
+test('真实地点事件：数据自洽，每类能去的地点至少 2 个事件', () => {
+	const types = new Set(VENUE_TYPES.map((t) => t.id));
+	for (const e of VENUE_EVENTS) {
+		assert.ok(e.venueTypes?.length, e.id);
+		for (const t of e.venueTypes!) assert.ok(types.has(t), `${e.id}: 未知地点类型 ${t}`);
+		assert.ok(!e.locs && !e.tags && !e.kinds, `${e.id}: 真实地点事件不能同时挂城镇范围`);
+		assert.ok(EVENTS.includes(e), `${e.id} 已注册进 EVENTS`);
+	}
+	for (const t of VENUE_TYPES) assert.ok(VENUE_EVENTS.filter((e) => e.venueTypes!.includes(t.id) && !e.seasons).length >= 2, `${t.id} 全年事件不足 2 个`);
+});
+
+test('真实地点事件：做完事按概率触发、只抽本类型、现实里至少隔 60 分钟', () => {
+	let hit = 0, miss = 0;
+	for (let seed = 1; seed <= 60; seed++) {
+		const s = { ...make({ cash: 200, needs: { ...make().needs, hunger: 20 } }), seed };
+		const r = venueAction(s, R, { op: 'meal', ...at(find('t-cafe')) }, T0);
+		assert.ok(r.ok, r.msg);
+		const ev = getPendingEvent(r.state);
+		if (!ev) { miss++; assert.equal(r.state.venueEvAt, 0); continue; }
+		hit++;
+		assert.ok(ev.venueTypes!.includes('cafe'), ev.id);
+		assert.equal(r.state.venueEvAt, T0);
+		assert.match(r.msg, new RegExp(ev.title));
+		// 有事件没处理时，别的真实地点动作被挡住
+		assert.match(venueAction(r.state, R, { op: 'study', ...at(find('t-library')) }, T0 + 5 * MIN).msg, /先处理/);
+	}
+	assert.ok(hit >= 10 && miss >= 10, `命中 ${hit} / 未命中 ${miss}`);
+	// 60 分钟内不会再触发
+	for (let seed = 1; seed <= 60; seed++) {
+		const s = { ...make({ cash: 200, needs: { ...make().needs, hunger: 20 } }), seed, venueEvAt: T0 - 59 * MIN };
+		assert.equal(venueAction(s, R, { op: 'meal', ...at(find('t-cafe')) }, T0).state.pending, null);
+	}
+});
+
+test('真实地点事件不会在到达城镇时被抽到', () => {
+	const ids = new Set(VENUE_EVENTS.map((e) => e.id));
+	for (let seed = 1; seed <= 200; seed++) {
+		const s = { ...make({ cash: 2000 }), seed };
+		const r = applyAction(s, WA, { t: 'travel', to: 'fremantle', mode: 'road' });
+		if (r.state.pending) assert.ok(!ids.has(r.state.pending.eventId), r.state.pending.eventId);
+	}
 });

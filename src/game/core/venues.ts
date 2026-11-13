@@ -1,7 +1,7 @@
 // 真实地点：玩家拿着手机真的走到某家餐馆、健身房、公园，就能在游戏里做对应的事。
 // 纯函数：现实时间 now（毫秒）由服务端传入，客户端无法伪造；坐标来自手机定位，可以伪造，所以做了精度、距离和速度三道检查。
 import { realDayOf } from './daily.ts';
-import { addMoodlet, applyEffect, clone, fail, getCareer, getLocation, log, tryPromote } from './engine.ts';
+import { addMoodlet, applyEffect, clone, fail, getCareer, getLocation, log, pickVenueEvent, tryPromote } from './engine.ts';
 import {
 	drinkOutcome, exerciseOutcome, groceriesOutcome, healOutcome, mealOutcome, relaxOutcome, studyOutcome, trainOutcome, workPay,
 	type OpOutcome,
@@ -165,7 +165,17 @@ function simpleOp(prev: PlayerState, region: Region, venue: Venue, type: VenueTy
 	state.venueCd[op.id] = now;
 	const msg = `在${venue.name}${op.name}：${out.notes.join('，')}。`;
 	log(state, msg);
-	return { ok: true, state, msg };
+	return { ok: true, state, msg: msg + venueEvent(state, type, now) };
+}
+
+/** 做完一件事后可能遇到事件：同一时间只有一个，现实里至少隔 eventGapMin 分钟 */
+function venueEvent(state: PlayerState, type: VenueTypeDef, now: number): string {
+	if (state.pending || now - state.venueEvAt < FIX_RULES.eventGapMin * 60_000) return '';
+	const ev = pickVenueEvent(state, type.id, FIX_RULES.eventChance);
+	if (!ev) return '';
+	state.pending = { eventId: ev.id };
+	state.venueEvAt = now;
+	return ` 这时：${ev.icon} ${ev.title}。`;
 }
 
 /** 打卡上班 / 下班。第一次点是上班卡，同一地点再点是下班卡，按真实停留时长计薪 */
@@ -210,5 +220,5 @@ function work(prev: PlayerState, region: Region, venue: Venue, type: VenueTypeDe
 		msg += ` 算作一个班次${w.perf >= 1 ? '（表现出色）' : ''}。` + tryPromote(state);
 	}
 	log(state, msg);
-	return { ok: true, state, msg };
+	return { ok: true, state, msg: msg + venueEvent(state, type, now) };
 }

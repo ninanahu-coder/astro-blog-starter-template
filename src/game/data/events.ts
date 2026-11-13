@@ -1,6 +1,7 @@
 // 到达地点触发的事件。once=true 的是地标“签名事件”，首次到访优先触发。
 // 新增事件只需往数组里加一条；effects 全部走 engine.applyEffect，无需写逻辑代码。
 import type { GameEvent } from '../core/types.ts';
+import { VENUE_EVENTS } from './venue-events.ts';
 
 export const EVENTS: GameEvent[] = [
 	{
@@ -145,4 +146,5 @@ export const EVENTS: GameEvent[] = [
 			{ label: '想办法溜走', check: { skill: 'stamina', dc: 60 }, ok: { text: '你拐进小巷甩掉了他们。', fx: { heat: -15, skills: { stamina: 2, street: 2 } } }, fail: { text: '没跑出五十米就被按住了。', fx: { cash: -500, health: -10, heat: -30 } } },
 		],
 	},
+	...VENUE_EVENTS,
 ];

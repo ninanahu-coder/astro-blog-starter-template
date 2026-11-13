@@ -49,4 +49,6 @@ export const FIX_RULES = {
 	shiftMaxMin: 480, // 一次上班最多计这么多分钟
 	dayMaxMin: 480, // 每个现实日最多计薪这么多分钟
 	clockInStaleMin: 16 * 60, // 上班卡超过这么久没打下班卡就作废
+	eventChance: 0.4, // 在真实地点做完一件事后遇到事件的概率
+	eventGapMin: 60, // 两次真实地点事件之间至少隔这么多真实分钟
 };

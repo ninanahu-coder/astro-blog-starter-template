@@ -387,6 +387,8 @@ export interface GameEvent {
 	tags?: string[];
 	kinds?: LocationKind[];
 	arrivedBy?: TravelMode[];
+	/** 真实地点事件：只在这些类型的真实地点（餐馆、健身房……）做完动作后触发，到达城镇时不会抽到 */
+	venueTypes?: string[];
 	once?: boolean; // 每个角色只触发一次（地标签名事件）
 	weight: number;
 	choices: EventChoice[];
@@ -432,6 +434,7 @@ export interface PlayerState {
 	pending: { eventId: string } | null;
 	fix: { lat: number; lon: number; at: number } | null; // 最近一次真实定位（坐标保留 3 位小数，约 100 米；at 为服务端时间）
 	venueCd: Partial<Record<VenueOp, number>>; // 每种真实地点动作最近一次的服务端时间（毫秒）
+	venueEvAt: number; // 最近一次真实地点事件的服务端时间（毫秒），0 为从未
 	clockIn: { venue: string; at: number } | null; // 真实打卡上班：哪个地点、几点打的卡
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	journal: JournalEntry[];

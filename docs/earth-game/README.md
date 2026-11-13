@@ -46,6 +46,7 @@ src/game/
   data/wa.venues.json 真实地点（OpenClaw 从 OSM 采集写入）
   data/activities.ts  地点互动表（数值调参都在这里）
   data/events.ts      到达事件表（加事件只加数据，不写逻辑）
+  data/venue-events.ts 到店事件表：真实地点做完事后按地点类型触发（见 real-places.md §5）
   server/world.ts     Durable Object：在线位置、同地点聊天/表情、云存档
 src/pages/earth.astro 手机端单页客户端（只负责渲染和输入）
 tools/earth/openclaw/ 采集任务书、JSON Schema、校验合并脚本

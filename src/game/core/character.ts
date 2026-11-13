@@ -108,6 +108,7 @@ export function createCharacter(opts: {
 		pending: null,
 		fix: null,
 		venueCd: {},
+		venueEvAt: 0,
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
@@ -224,7 +225,7 @@ const VENUE_ID = /^[a-z0-9][a-z0-9-]{2,63}$/;
 const finiteIn = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
 
 /** 真实定位相关字段：坐标只留 3 位小数，时间为非负整数，动作名只留已知的 */
-function cleanReal(r: any): Pick<PlayerState, 'fix' | 'venueCd' | 'clockIn' | 'realWork'> {
+function cleanReal(r: any): Pick<PlayerState, 'fix' | 'venueCd' | 'venueEvAt' | 'clockIn' | 'realWork'> {
 	const f = r.fix;
 	const fix = f && finiteIn(f.lat, -90, 90) && finiteIn(f.lon, -180, 180) && finiteIn(f.at, 0, 1e15)
 		? { lat: Math.round(f.lat * 1000) / 1000, lon: Math.round(f.lon * 1000) / 1000, at: Math.floor(f.at) }
@@ -237,7 +238,8 @@ function cleanReal(r: any): Pick<PlayerState, 'fix' | 'venueCd' | 'clockIn' | 'r
 	const c = r.clockIn;
 	const clockIn = c && typeof c.venue === 'string' && VENUE_ID.test(c.venue) && finiteIn(c.at, 0, 1e15) ? { venue: c.venue, at: Math.floor(c.at) } : null;
 	const realWork = { day: Math.floor(num(r.realWork?.day, 0, 1e7, 0)), min: Math.floor(num(r.realWork?.min, 0, 1440, 0)) };
-	return { fix, venueCd, clockIn, realWork };
+	const venueEvAt = finiteIn(r.venueEvAt, 0, 1e15) ? Math.floor(r.venueEvAt) : 0;
+	return { fix, venueCd, venueEvAt, clockIn, realWork };
 }
 
 function cleanJob(raw: any, knownLocs?: Set<string>): Job | null {

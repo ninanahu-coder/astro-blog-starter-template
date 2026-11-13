@@ -243,6 +243,7 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 }
 
 function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null, clock: number): boolean {
+	if (ev.venueTypes) return false; // 真实地点事件只由 pickVenueEvent 抽
 	if (ev.seasons && !ev.seasons.includes(dateOf(clock).season)) return false;
 	if (ev.arrivedBy && (!mode || !ev.arrivedBy.includes(mode))) return false;
 	const scoped = ev.locs || ev.tags || ev.kinds;
@@ -262,6 +263,20 @@ function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: TravelMod
 	const signature = pool.filter((e) => e.once);
 	if (first && signature.length) return signature[Math.floor(roll(state) * signature.length)];
 	if (roll(state) > ARRIVAL_EVENT_CHANCE) return null;
+	let r = roll(state) * pool.reduce((s, e) => s + e.weight, 0);
+	for (const e of pool) if ((r -= e.weight) <= 0) return e;
+	return pool[pool.length - 1];
+}
+
+/**
+ * 在真实地点做完一件事后，按地点类型抽一个事件（用存档里的种子，结果可复现）。
+ * 概率和现实时间间隔见 FIX_RULES；返回 null 表示这次没遇到。
+ */
+export function pickVenueEvent(state: PlayerState, venueType: string, chance: number): GameEvent | null {
+	const pool = EVENTS.filter((e) => e.weight > 0 && e.venueTypes?.includes(venueType)
+		&& (!e.seasons || e.seasons.includes(dateOf(state.clock).season))
+		&& !(e.once && state.seen.includes(e.id)));
+	if (!pool.length || roll(state) > chance) return null;
 	let r = roll(state) * pool.reduce((s, e) => s + e.weight, 0);
 	for (const e of pool) if ((r -= e.weight) <= 0) return e;
 	return pool[pool.length - 1];
