@@ -4,13 +4,15 @@ import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
 import { NPCS } from '../data/npcs.ts';
+import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../data/careers.ts';
+import { HOMES } from '../data/housing.ts';
 import { dayOf, hoursLabel, isOpen } from './time.ts';
 import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, hurtMult } from './attributes.ts';
 import { clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
-	ActionResult, Activity, Effect, GameEvent, GameLocation, ItemDef, NpcAction, NpcDef, PlayerState, Region, Relation, Route, TravelMode,
+	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GameLocation, HomeDef, ItemDef, NpcAction, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
@@ -45,6 +47,7 @@ export function getLocation(region: Region, id: string): GameLocation | undefine
 function advance(state: PlayerState, minutes: number, region: Region): boolean {
 	if (minutes <= 0) return false;
 	state.clock += minutes;
+	chargeRent(state, region);
 	for (const k of NEED_KEYS) state.needs[k] = clamp100(state.needs[k] - DECAY[k] * decayMult(state, k) * minutes);
 	if (state.needs.hunger <= 0 || state.needs.energy <= 0) {
 		state.health = clamp100(state.health - STARVE_DMG * minutes);
@@ -429,4 +432,180 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 		text += ` ${npc.name}成了你的好友！${npc.bond.text}`;
 	}
 	return { ok: true, state, msg: text };
+}
+
+// ---------- 职业 ----------
+const matches = (w: Where, loc: GameLocation) => !!(w.kinds?.includes(loc.kind) || w.tags?.some((t) => loc.tags.includes(t)));
+
+/** 是否满足某个职业等级的要求；不满足时返回原因 */
+function unmet(state: PlayerState, lv: CareerLevel): string | undefined {
+	if (lv.req?.respect && state.respect < lv.req.respect) return `声望需达到 ${lv.req.respect}`;
+	for (const k of SKILL_KEYS) {
+		const need = lv.req?.skills?.[k];
+		if (need && state.skills[k] < need) return `${SKILL_META[k].name}需达到 ${need}`;
+	}
+	return undefined;
+}
+
+export interface CareerOffer {
+	career: CareerDef;
+	blocked?: string;
+}
+
+/** 当前地点能应聘的职业 */
+export function careersAt(state: PlayerState, region: Region): CareerOffer[] {
+	const loc = getLocation(region, state.loc);
+	if (!loc) return [];
+	return CAREERS.filter((c) => matches(c.where, loc)).map((career) => ({
+		career,
+		blocked: state.job?.career === career.id && state.job.loc === loc.id ? '你已经在这里工作' : unmet(state, career.levels[0]),
+	}));
+}
+
+export const getCareer = (id: string) => CAREERS.find((c) => c.id === id);
+
+/** 当前工作能否上班；可以返回 undefined */
+export function shiftBlocked(state: PlayerState): string | undefined {
+	const job = state.job;
+	if (!job) return '你还没有工作';
+	const c = getCareer(job.career)!;
+	if (state.loc !== job.loc) return '要到工作地点才能上班';
+	if (job.lastDay === dayOf(state.clock)) return '今天已经上过班了';
+	if (!isOpen(c.start, state.clock)) return `上班时间 ${hoursLabel(c.start)} 开始`;
+	if (state.needs.energy < 20) return '太累了，先休息';
+	return undefined;
+}
+
+/** 下一级的升职条件，已经是最高级时返回 null */
+export function promotionStatus(state: PlayerState): { next: CareerLevel; shifts: number; good: number; blocked?: string } | null {
+	const job = state.job;
+	if (!job) return null;
+	const c = getCareer(job.career)!;
+	const next = c.levels[job.level + 1];
+	if (!next) return null;
+	return { next, shifts: job.shifts, good: job.good, blocked: unmet(state, next) };
+}
+
+export function applyJob(prev: PlayerState, region: Region, careerId: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const offer = careersAt(prev, region).find((o) => o.career.id === careerId);
+	if (!offer) return fail(prev, '这里没有这份工作。');
+	if (offer.blocked) return fail(prev, offer.blocked);
+	const state = clone(prev);
+	const old = state.job ? getCareer(state.job.career) : null;
+	state.job = { career: careerId, loc: state.loc, level: 0, shifts: 0, good: 0, lastDay: -1 };
+	advance(state, 30, region);
+	const title = offer.career.levels[0].title;
+	const place = getLocation(region, state.loc)!.name;
+	const msg = `${old ? `辞去了${old.name}的工作，` : ''}被${place}的${offer.career.name}录用为${title}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+export function quitJob(prev: PlayerState): ActionResult {
+	if (!prev.job) return fail(prev, '你还没有工作。');
+	const state = clone(prev);
+	const c = getCareer(state.job!.career)!;
+	state.job = null;
+	log(state, `辞去了${c.name}的工作。`);
+	return { ok: true, state, msg: '已辞职。' };
+}
+
+/**
+ * 上一个班：按能力检定表现，表现好有奖金。
+ * 当前等级上满 PROMOTE_SHIFTS 班、其中 PROMOTE_GOOD 班表现好、且满足下一级要求时自动升职。
+ */
+export function workShift(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const why = shiftBlocked(prev);
+	if (why) return fail(prev, why);
+	const state = clone(prev);
+	const job = state.job!;
+	const c = getCareer(job.career)!;
+	const lv = c.levels[job.level];
+	const good = checkScore(state, c.skill).total + roll(state) * 60 >= SHIFT_DC[Math.min(job.level, SHIFT_DC.length - 1)];
+	const pay = Math.round(lv.pay * (good ? 1 + GOOD_BONUS : 1));
+	job.lastDay = dayOf(state.clock);
+	applyEffect(state, { ...c.shift, minutes: c.minutes, cash: pay }, region);
+	job.shifts++;
+	if (good) job.good++;
+	let msg = `${lv.title}上班 ${Math.round(c.minutes / 60)} 小时，收入 $${pay}${good ? '（表现出色，有奖金）' : ''}。`;
+	const next = c.levels[job.level + 1];
+	if (next && job.shifts >= PROMOTE_SHIFTS && job.good >= PROMOTE_GOOD && !unmet(state, next)) {
+		job.level++;
+		job.shifts = 0;
+		job.good = 0;
+		state.respect += 3;
+		msg += ` 升职为${next.title}！`;
+	}
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+// ---------- 住房 ----------
+export const getHome = (id: string) => HOMES.find((h) => h.id === id);
+
+/** 时间每跨过一个已付租期就扣一周房租；付不起就被收回住处 */
+function chargeRent(state: PlayerState, region: Region) {
+	while (state.home && dayOf(state.clock) >= state.home.paidUntil) {
+		const def = getHome(state.home.type)!;
+		const place = getLocation(region, state.home.loc)?.name ?? '';
+		if (state.cash >= def.rentWeek) {
+			state.cash -= def.rentWeek;
+			state.home.paidUntil += 7;
+			log(state, `自动支付了${place}${def.name}一周房租 $${def.rentWeek}。`);
+		} else {
+			log(state, `付不起${place}${def.name}的房租，房东收回了房子。`);
+			state.home = null;
+		}
+	}
+}
+
+export interface HomeOffer {
+	home: HomeDef;
+	blocked?: string;
+}
+
+export function homesAt(state: PlayerState, region: Region): HomeOffer[] {
+	const loc = getLocation(region, state.loc);
+	if (!loc) return [];
+	return HOMES.filter((h) => matches(h.where, loc)).map((home) => ({
+		home,
+		blocked: state.home?.type === home.id && state.home.loc === loc.id ? '你正住在这里' : state.cash < home.rentWeek ? `首周租金 $${home.rentWeek}` : undefined,
+	}));
+}
+
+/** 租房：先付一周房租；之前的住处直接退掉（已付租金不退） */
+export function rentHome(prev: PlayerState, region: Region, homeId: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const offer = homesAt(prev, region).find((o) => o.home.id === homeId);
+	if (!offer) return fail(prev, '这里租不到。');
+	if (offer.blocked) return fail(prev, offer.blocked);
+	const state = clone(prev);
+	state.cash -= offer.home.rentWeek;
+	state.home = { type: homeId, loc: state.loc, paidUntil: dayOf(state.clock) + 7 };
+	advance(state, 60, region);
+	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，每周 $${offer.home.rentWeek}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+export function leaveHome(prev: PlayerState): ActionResult {
+	if (!prev.home) return fail(prev, '你没有租房。');
+	const state = clone(prev);
+	state.home = null;
+	log(state, '退掉了租的房子。');
+	return { ok: true, state, msg: '已退租。' };
+}
+
+/** 回家睡觉：免费，恢复量随住房舒适度提高 */
+export function sleepHome(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	if (!prev.home) return fail(prev, '你没有租房。');
+	if (prev.home.loc !== prev.loc) return fail(prev, '要回到住处才能睡。');
+	const def = getHome(prev.home.type)!;
+	const state = clone(prev);
+	applyEffect(state, { minutes: 480, health: 15 + def.comfort, needs: { energy: 100, hygiene: 50 + def.comfort * 2, fun: 5 + def.comfort } }, region);
+	log(state, `在${def.name}睡了一觉。`);
+	return { ok: true, state, msg: '睡了个好觉。' };
 }

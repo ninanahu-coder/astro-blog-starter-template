@@ -65,6 +65,54 @@ export interface Relation {
 	bonded: boolean; // 已领取好友回报
 }
 
+// ---------- 职业与住房 ----------
+/** 适用地点：kind 或 tag 任一命中 */
+export interface Where {
+	kinds?: LocationKind[];
+	tags?: string[];
+}
+
+export interface CareerLevel {
+	title: string;
+	pay: number; // 每班工资
+	req?: { skills?: Partial<Skills>; respect?: number };
+}
+
+export interface CareerDef {
+	id: string;
+	name: string; // 雇主名，如「咖啡店」
+	where: Where;
+	start: Hours; // 可以开始上班的时段
+	minutes: number; // 一个班的时长
+	skill: SkillKey; // 表现检定用的能力
+	shift: Effect; // 每个班的固定消耗与成长（不含工资）
+	levels: CareerLevel[];
+}
+
+export interface Job {
+	career: string;
+	loc: string; // 工作地点
+	level: number; // 0 起
+	shifts: number; // 当前等级已上班次
+	good: number; // 当前等级表现好的班次
+	lastDay: number; // 最近一次上班的游戏日，−1 表示还没上过
+}
+
+export interface HomeDef {
+	id: string;
+	name: string;
+	rentWeek: number;
+	comfort: number; // 心情加成，也加到回家睡觉的恢复量上
+	where: Where;
+	desc: string;
+}
+
+export interface Home {
+	type: string;
+	loc: string;
+	paidUntil: number; // 租金付到第几个游戏日（不含）
+}
+
 // ---------- 物品 ----------
 export interface ItemDef {
 	id: string;
@@ -192,6 +240,8 @@ export interface PlayerState {
 	traits: string[]; // 性格特质 id，创建时选定
 	inventory: Record<string, number>; // itemId -> 数量
 	relations: Record<string, Relation>; // npcId -> 关系
+	job: Job | null;
+	home: Home | null;
 	pending: { eventId: string } | null;
 	journal: JournalEntry[];
 	seed: number;

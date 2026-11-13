@@ -32,6 +32,8 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | 能力 | `skills.stamina/strength/driving/swimming/charisma/survival/street` | 0–100 | 只增不减，靠行为成长 |
 | 状态 | `cash` `health` `respect` `heat` `vehicle` | 见下 | 现金 ≥0；健康 0–100；声望 ≥0；麻烦值 0–100 |
 | 物品 | `inventory` | 每种 1..上限 | `itemId → 数量` |
+| 职业 | `job` | — | `{ career, loc, level, shifts, good, lastDay }`：雇主、工作地点、等级、本级已上班次与表现好的班次、最近上班日 |
+| 住房 | `home` | — | `{ type, loc, paidUntil }`：房型、所在地点、房租付到第几天 |
 | 关系 | `relations` | 分数 −100..100 | `npcId → { score, last, bonded }`：分数、每种互动最近一次的游戏日、是否已领好友回报 |
 | 世界进度 | `loc` `clock` `visited` `checkins` `seen` `pending` | — | 位置、游戏分钟、到访次数、打卡、一次性事件、待处理事件 |
 | 系统 | `seed` `rev` `journal` | — | 随机数状态、云同步版本号、最近 40 条日志 |
@@ -75,6 +77,8 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | 特质 `TraitDef` | `data/traits.ts` | 修正系数、互斥 | 角色的长期性格 |
 | NPC `NpcDef` | `data/npcs.ts` | 所在地点、作息时间、喜欢的物品、好友回报 | 只在自己的地点和作息时间内出现 |
 | 时段 | `core/time.ts` | 清晨 5–8 · 白天 8–17 · 傍晚 17–20 · 夜晚 20–5 | 互动可设营业时间 `hours`，支持跨午夜 |
+| 职业 `CareerDef` | `data/careers.ts` | 应聘地点、开工时段、班长、表现检定能力、各等级工资与要求 | 5 种职业，每种 3 级 |
+| 住房 `HomeDef` | `data/housing.ts` | 周租、舒适度、可租地点 | 合租房间 / 一居室公寓 / 海景小屋 |
 | 物品 `ItemDef` | `data/items.ts` | 价格、携带上限、售卖地点、`use` 或 `passive` | 消耗品用掉减一；装备持有即生效，同技能只取最高一件 |
 
 ### `Effect` 的结算顺序（`applyEffect`）
@@ -97,6 +101,8 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | `gpsCheckIn` | 用真实坐标抵达地点、领取打卡奖励 | 不在任何地点半径内、没有新东西可领 |
 | `shopAt` / `buyItem` | 查看 / 购买当前地点商品 | 买不到、钱不够、已带满 |
 | `useItem` | 使用消耗品 | 没有、是装备 |
+| `careersAt` / `applyJob` / `workShift` / `quitJob` | 找工作 / 应聘 / 上班 / 辞职 | 条件不够、不在工作地点、不在开工时段、今天上过班、太累 |
+| `homesAt` / `rentHome` / `sleepHome` / `leaveHome` | 看房 / 租房 / 回家睡觉 / 退租 | 钱不够首周租金、不在住处 |
 | `npcsAt` / `interactNpc` | 查看在场 NPC / 聊天、送礼、帮忙 | TA 不在、今天做过了、没有 TA 喜欢的东西、太累 |
 
 所有动作返回 `{ ok, state, msg }`。
@@ -117,14 +123,36 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 
 现有 9 个 NPC 分布在 9 个地点，其中黑德兰港的卡车司机戴夫只在夜里（20:00–6:00）出现。
 
-## 6. 存档兼容
+## 6. 职业与住房
 
-存档格式版本仍是 `v: 1`。新增字段由 `sanitizeState()` 补默认值：旧存档没有 `traits`、`inventory`、`relations` 时，分别读成空列表、空背包、空关系。未知 NPC 的关系丢弃。非法特质组合整体丢弃，背包里未知物品丢弃、数量钳制到上限。测试覆盖了这些情况。
+**职业**：5 种（咖啡店、海滩救生队、旅游公司、矿业公司、货运公司），每种 3 级。
 
-## 7. 怎么加内容
+- 在符合条件的地点应聘，只能有一份工作，跳槽会清零进度。
+- 每天在工作地点、开工时段内上一个班，消耗时间和需求，按等级发工资。
+- 每个班做一次表现检定（职业对应的能力，难度按等级 35 / 50 / 65），表现好多发 20% 奖金。
+- 本级上满 5 个班、其中 3 个表现好、且满足下一级的能力和声望要求时自动升职，声望 +3。
+
+**住房**：
+
+| 房型 | 周租 | 心情 | 可租地点 |
+| --- | --- | --- | --- |
+| 合租房间 | $160 | +0 | 城市、港口、城镇、海岸、矿区 |
+| 一居室公寓 | $320 | +5 | 城市、港口、城镇、海岸 |
+| 海景小屋 | $650 | +10 | 有海滩的地点 |
+
+- 租房时先付一周。之后时间每跨过一个租期就自动扣一周；钱不够时房子被收回。
+- 回家睡觉免费，精力回满，清洁、娱乐、健康的恢复量随舒适度提高。
+- 只能有一处住处，搬家时旧住处直接退掉，已付租金不退。
+
+## 7. 存档兼容
+
+存档格式版本仍是 `v: 1`。新增字段由 `sanitizeState()` 补默认值：旧存档缺少的字段按空值读取：`traits` 空列表、`inventory` 空背包、`relations` 空关系、`job` 和 `home` 为空。未知 NPC 的关系丢弃。非法特质组合整体丢弃，背包里未知物品丢弃、数量钳制到上限。测试覆盖了这些情况。
+
+## 8. 怎么加内容
 
 - **新特质**：在 `data/traits.ts` 加一条，只用 `TraitMods` 里已有的字段。需要新类型的修正时，先在 `attributes.ts` 加一个乘数函数，再在引擎对应位置调用。
 - **新物品**：在 `data/items.ts` 加一条，二选一：`use`（一个 `Effect`）或 `passive`（检定加值）。
+- **新职业 / 新房型**：在 `data/careers.ts` / `data/housing.ts` 加一条。
 - **新 NPC**：在 `data/npcs.ts` 加一条，填所在地点、作息时间、喜欢的物品和好友回报。
 - **新互动 / 新事件**：见 `docs/earth-game/README.md`。
 - 改完运行 `npm test`，数据自洽性测试会检查 id 重复、互斥是否双向、物品是否可用等。

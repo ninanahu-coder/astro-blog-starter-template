@@ -2,6 +2,7 @@
 // 引擎所有涉及特质 / 物品 / 心情的数值都走这里，调参只改这一个文件和 data/。
 import { ITEMS } from '../data/items.ts';
 import { TRAITS } from '../data/traits.ts';
+import { HOMES } from '../data/housing.ts';
 import type { ItemDef, NeedKey, PlayerState, SkillKey, TraitDef, TraitMods } from './types.ts';
 
 const traitById = new Map(TRAITS.map((t) => [t.id, t]));
@@ -32,7 +33,8 @@ export function mood(state: PlayerState): number {
 	const avg = v.reduce((a, b) => a + b, 0) / v.length;
 	const low = Math.min(...v);
 	const bonus = mods(state).reduce((a, m) => a + (m.mood ?? 0), 0);
-	return Math.max(0, Math.min(100, Math.round(avg * 0.6 + low * 0.4 + bonus)));
+	const home = state.home ? (HOMES.find((h) => h.id === state.home!.type)?.comfort ?? 0) : 0;
+	return Math.max(0, Math.min(100, Math.round(avg * 0.6 + low * 0.4 + bonus + home)));
 }
 
 export interface MoodTier {

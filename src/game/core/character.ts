@@ -1,10 +1,12 @@
 // 角色创建与存档校验。初始属性参考开放世界动作游戏的“能力条”思路：
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
-import type { Needs, PlayerState, Relation, Skills, Vehicle } from './types.ts';
+import type { Home, Job, Needs, PlayerState, Relation, Skills, Vehicle } from './types.ts';
 import { ITEMS } from '../data/items.ts';
 import { MAX_TRAITS } from '../data/traits.ts';
 import { NPCS } from '../data/npcs.ts';
+import { CAREERS } from '../data/careers.ts';
+import { HOMES } from '../data/housing.ts';
 import { validTraits } from './attributes.ts';
 
 export const NEED_META: Record<string, { name: string; icon: string }> = {
@@ -84,6 +86,8 @@ export function createCharacter(opts: {
 		traits: validTraits(opts.traits ?? [], MAX_TRAITS) ? [...(opts.traits ?? [])] : [],
 		inventory: { water: 2, snack: 1 },
 		relations: {},
+		job: null,
+		home: null,
 		pending: null,
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		seed: (opts.seed ?? Math.floor(Math.random() * 2 ** 31)) >>> 0,
@@ -153,6 +157,8 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 		})(),
 		inventory: cleanInventory(r.inventory),
 		relations: cleanRelations(r.relations),
+		job: cleanJob(r.job, knownLocs),
+		home: cleanHome(r.home, knownLocs),
 		pending: r.pending && typeof r.pending.eventId === 'string' ? { eventId: r.pending.eventId.slice(0, 64) } : null,
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
@@ -161,6 +167,26 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 }
 
 export const JOURNAL_MAX = 40;
+
+function cleanJob(raw: any, knownLocs?: Set<string>): Job | null {
+	if (!raw || typeof raw !== 'object') return null;
+	const c = CAREERS.find((x) => x.id === raw.career);
+	if (!c || typeof raw.loc !== 'string' || (knownLocs && !knownLocs.has(raw.loc))) return null;
+	return {
+		career: c.id,
+		loc: raw.loc,
+		level: Math.floor(num(raw.level, 0, c.levels.length - 1, 0)),
+		shifts: Math.floor(num(raw.shifts, 0, 1e6, 0)),
+		good: Math.floor(num(raw.good, 0, 1e6, 0)),
+		lastDay: Math.floor(num(raw.lastDay, -1, 1e7, -1)),
+	};
+}
+
+function cleanHome(raw: any, knownLocs?: Set<string>): Home | null {
+	if (!raw || typeof raw !== 'object') return null;
+	if (!HOMES.some((h) => h.id === raw.type) || typeof raw.loc !== 'string' || (knownLocs && !knownLocs.has(raw.loc))) return null;
+	return { type: raw.type, loc: raw.loc, paidUntil: Math.floor(num(raw.paidUntil, 0, 1e7, 0)) };
+}
 
 /** 关系只保留已知 NPC，分数钳制，日期为非负整数 */
 function cleanRelations(raw: unknown): Record<string, Relation> {
