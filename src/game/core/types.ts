@@ -9,7 +9,8 @@ export const SKILL_KEYS = ['stamina', 'strength', 'driving', 'swimming', 'charis
 export type SkillKey = (typeof SKILL_KEYS)[number];
 export type Skills = Record<SkillKey, number>; // 0–100，用得越多涨得越多（开放世界式成长）
 
-export type Vehicle = 'none' | 'car' | '4wd';
+/** 车型 id（见 data/vehicles.ts），'none' 表示没有车 */
+export type Vehicle = string;
 export type TravelMode = 'road' | 'track' | 'ferry' | 'air';
 
 export interface Effect {
@@ -111,6 +112,46 @@ export interface Home {
 	type: string;
 	loc: string;
 	paidUntil: number; // 租金付到第几个游戏日（不含）
+}
+
+// ---------- 交通工具、课程、体验 ----------
+export interface VehicleDef {
+	id: string;
+	name: string;
+	icon: string;
+	price: number;
+	resale: number; // 卖出回收比例
+	speed: number; // 公路基础时速
+	trackSpeed: number; // 土路基础时速，0 表示不能走土路
+	costPerKm: number;
+	ride?: Partial<Needs>; // 每分钟额外的需求变化（摩托车更累）
+	sleep?: Effect; // 能在车里睡觉时的恢复效果（不含时间）
+	desc: string;
+}
+
+export interface CourseDef {
+	id: string;
+	name: string;
+	skill: SkillKey;
+	base: number; // 基础学费
+	minutes: number;
+	gain: number; // 传给 growSkill 的原始增量
+	where: Where;
+	hours: Hours;
+	desc: string;
+}
+
+export interface ExperienceDef {
+	id: string;
+	name: string;
+	loc: string;
+	area: string; // 收藏片区
+	price: number;
+	minutes: number;
+	respect: number; // 第一次体验的声望
+	hours?: Hours;
+	fx: Effect;
+	desc: string;
 }
 
 // ---------- 物品 ----------
@@ -242,6 +283,8 @@ export interface PlayerState {
 	relations: Record<string, Relation>; // npcId -> 关系
 	job: Job | null;
 	home: Home | null;
+	collected: string[]; // 已完成的收费体验 id
+	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
 	pending: { eventId: string } | null;
 	journal: JournalEntry[];
 	seed: number;

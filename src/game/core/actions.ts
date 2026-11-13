@@ -1,7 +1,7 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	applyJob, buyItem, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
+	applyJob, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import type { ActionResult, NpcAction, PlayerState, Region, TravelMode } from './types.ts';
 
@@ -16,7 +16,11 @@ export type GameAction =
 	| { t: 'job'; op: 'apply'; career: string }
 	| { t: 'job'; op: 'work' | 'quit' }
 	| { t: 'home'; op: 'rent'; home: string }
-	| { t: 'home'; op: 'sleep' | 'leave' };
+	| { t: 'home'; op: 'sleep' | 'leave' }
+	| { t: 'vehicle'; op: 'buy'; id: string }
+	| { t: 'vehicle'; op: 'sell' | 'sleep' }
+	| { t: 'course'; id: string }
+	| { t: 'experience'; id: string };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help'];
@@ -49,6 +53,12 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'home':
 			if (a.op === 'rent') return str(a.home) ? { t: 'home', op: 'rent', home: a.home } : null;
 			return a.op === 'sleep' || a.op === 'leave' ? { t: 'home', op: a.op } : null;
+		case 'vehicle':
+			if (a.op === 'buy') return str(a.id) ? { t: 'vehicle', op: 'buy', id: a.id } : null;
+			return a.op === 'sell' || a.op === 'sleep' ? { t: 'vehicle', op: a.op } : null;
+		case 'course':
+		case 'experience':
+			return str(a.id) ? { t: a.t, id: a.id } : null;
 		default:
 			return null;
 	}
@@ -67,6 +77,9 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction): 
 		case 'npc': r = interactNpc(state, region, a.npc, a.act); break;
 		case 'job': r = a.op === 'apply' ? applyJob(state, region, a.career) : a.op === 'work' ? workShift(state, region) : quitJob(state); break;
 		case 'home': r = a.op === 'rent' ? rentHome(state, region, a.home) : a.op === 'sleep' ? sleepHome(state, region) : leaveHome(state); break;
+		case 'vehicle': r = a.op === 'buy' ? buyVehicle(state, region, a.id) : a.op === 'sell' ? sellVehicle(state, region) : sleepInVehicle(state, region); break;
+		case 'course': r = takeCourse(state, region, a.id); break;
+		case 'experience': r = doExperience(state, region, a.id); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;

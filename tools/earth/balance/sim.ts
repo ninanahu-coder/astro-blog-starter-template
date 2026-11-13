@@ -10,9 +10,10 @@ import { applyAction, type GameAction } from '../../../src/game/core/actions.ts'
 import { mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careersAt, getPendingEvent, homesAt, npcsAt, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careersAt, coursesAt, dealerAt, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, resaleValue, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
+import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
 
@@ -40,6 +41,8 @@ interface Plan {
 	home?: string;
 	/** 有空就四处旅行 */
 	roam?: boolean;
+	/** false：不上课、不体验、不买车（用来和旧版本对比） */
+	spend?: boolean;
 }
 
 const PLANS: Plan[] = [
@@ -136,19 +139,37 @@ function step(b: Bot) {
 			}
 		} else if (s.loc !== s.job.loc) {
 			if (headTo(b, s.job.loc)) return; // 被送去外地医院等情况：先回工作地点
-		} else if (!shiftBlocked(s) && tryAct(b, { t: 'job', op: 'work' })) return;
+		} else if (dayOf(s.clock) % 7 !== 6 && !shiftBlocked(s) && tryAct(b, { t: 'job', op: 'work' })) return; // 每周休一天
 	}
 	if (plan.home && !s.home && s.cash > 400) {
 		const want = plan.job?.loc ?? WA.spawn;
 		if (s.loc === want && homesAt(s, WA).some((o) => o.home.id === plan.home && !o.blocked) && tryAct(b, { t: 'home', op: 'rent', home: plan.home })) return;
 	}
 
-	// 3. 没有正式工作的人靠零工
+	// 3. 花钱（阶段 A）：升职卡在能力上就上课；钱多就体验、买车
+	if (plan.spend !== false && plan.id !== 'idle') {
+		if (s.job && s.cash > 600) {
+			const next = getCareer(s.job.career)!.levels[s.job.level + 1];
+			const lacking = SKILL_KEYS.filter((k) => (next?.req?.skills?.[k] ?? 0) > s.skills[k]);
+			const course = coursesAt(s, WA).find((o) => lacking.includes(o.course.skill) && !o.blocked);
+			if (course && tryAct(b, { t: 'course', id: course.course.id })) return;
+		}
+		if (s.cash > 2500) {
+			const exp = experiencesAt(s, WA).find((o) => o.first && !o.blocked);
+			if (exp && tryAct(b, { t: 'experience', id: exp.exp.id })) return;
+		}
+		if (s.vehicle === 'none' && s.cash > 7000) {
+			const car = dealerAt(s, WA).find((o) => o.vehicle.id === 'car' && !o.blocked);
+			if (car && tryAct(b, { t: 'vehicle', op: 'buy', id: 'car' })) return;
+		}
+	}
+
+	// 4. 没有正式工作的人靠零工
 	if (!s.job && plan.id !== 'idle' && s.cash < 400) {
 		for (const gig of ['work-mine', 'work-farm', 'work-cafe', 'busk']) if (act(b, gig)) return;
 	}
 
-	// 4. 娱乐和社交
+	// 5. 娱乐和社交
 	if (s.needs.social < 40) {
 		const npc = npcsAt(s, WA).find((n) => !n.blocked.chat);
 		if (npc && tryAct(b, { t: 'npc', npc: npc.npc.id, act: 'chat' })) return;
@@ -164,7 +185,7 @@ function step(b: Bot) {
 		if (e && tryAct(b, { t: 'buy', item: 'snack' })) return;
 	}
 
-	// 5. 闲着：到处走或者打发时间
+	// 6. 闲着：到处走或者打发时间
 	if (plan.roam && b.rng() < 0.35) {
 		const opts = travelOptions(s, WA).filter((o) => o.available && o.mode !== 'air' && o.cost < s.cash * 0.3);
 		if (opts.length) {
@@ -215,8 +236,8 @@ out(`# 数值平衡模拟报告`);
 out();
 out(`${DAYS} 个游戏日 × 每种策略 ${RUNS} 个随机种子。由 \`npm run earth:sim\` 生成。`);
 out();
-out('| 策略 | 第 7 天现金（中位） | 第 30 天 | 第 60 天 | 第 60 天 10%–90% | 日均净收入 | 平均心情 | 晕倒/人 | 被收房/人 | 升职/人 | 第 1 / 2 次升职（中位天数） | 破产天数占比 |');
-out('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+out('| 策略 | 第 7 天现金（中位） | 第 30 天 | 第 60 天 | 第 60 天 10%–90% | 日均净收入 | 第 60 天净资产 | 收藏 | 平均心情 | 晕倒/人 | 被收房/人 | 升职/人 | 第 1 / 2 次升职（中位天数） | 破产天数占比 |');
+out('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |');
 const flows: string[] = [];
 const skillRows: [string, number[]][] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
@@ -238,7 +259,7 @@ for (const plan of PLANS) {
 	for (const b of bots) for (const [k, v] of Object.entries(b.stats.flow)) flow[k] = (flow[k] ?? 0) + v / RUNS / DAYS;
 	const top = Object.entries(flow).filter(([, v]) => Math.abs(v) >= 1).sort((x, y) => y[1] - x[1]);
 	flows.push(`| ${plan.name} | ${top.filter(([, v]) => v > 0).map(([k, v]) => `${k} +${Math.round(v)}`).join('，') || '—'} | ${top.filter(([, v]) => v < 0).reverse().map(([k, v]) => `${k} ${Math.round(v)}`).join('，') || '—'} |`);
-	out(`| ${plan.name} | ${money(pct(at(7), 0.5))} | ${money(pct(at(30), 0.5))} | ${money(pct(at(endD), 0.5))} | ${money(pct(at(endD), 0.1))}–${money(pct(at(endD), 0.9))} | ${money(net)} | ${m.toFixed(0)} | ${coll.toFixed(2)} | ${ev.toFixed(2)} | ${pr.toFixed(2)} | ${promoCol} | ${(broke * 100).toFixed(0)}% |`);
+	out(`| ${plan.name} | ${money(pct(at(7), 0.5))} | ${money(pct(at(30), 0.5))} | ${money(pct(at(endD), 0.5))} | ${money(pct(at(endD), 0.1))}–${money(pct(at(endD), 0.9))} | ${money(net)} | ${money(pct(bots.map((b) => b.s.cash + resaleValue(b.s.vehicle)), 0.5))} | ${pct(bots.map((b) => b.s.collected.length), 0.5)} | ${m.toFixed(0)} | ${coll.toFixed(2)} | ${ev.toFixed(2)} | ${pr.toFixed(2)} | ${promoCol} | ${(broke * 100).toFixed(0)}% |`);
 }
 out();
 out('## 第 ' + DAYS + ' 天的能力值（中位）');

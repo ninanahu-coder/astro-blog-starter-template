@@ -6,13 +6,16 @@ import { ITEMS } from '../data/items.ts';
 import { NPCS } from '../data/npcs.ts';
 import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../data/careers.ts';
 import { HOMES } from '../data/housing.ts';
+import { DEALER_HOURS, DEALER_TAG, VEHICLES } from '../data/vehicles.ts';
+import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
+import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
 import { dayOf, hoursLabel, isOpen } from './time.ts';
 import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, hurtMult } from './attributes.ts';
 import { clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
-	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
+	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
@@ -166,19 +169,21 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 		label = '⛴️ 渡轮';
 	} else {
 		km = straight * 1.25; // 公路绕行系数
+		const v = getVehicle(state.vehicle);
 		if (r.mode === 'track') {
-			label = '🚙 越野土路';
-			if (state.vehicle !== '4wd') { available = false; reason = '需要四驱越野车'; }
-			minutes = (km / (55 + state.skills.driving * 0.15)) * 60;
-			cost = km * 0.22;
-		} else if (state.vehicle === 'none') {
+			label = `${v?.icon ?? '🚙'} 越野土路`;
+			const speed = v?.trackSpeed ?? 0;
+			if (!speed) { available = false; reason = '需要能走土路的车（四驱或露营车）'; }
+			minutes = (km / ((speed || 55) + state.skills.driving * 0.15)) * 60;
+			cost = km * (v?.costPerKm ?? 0.22);
+		} else if (!v) {
 			label = '🚌 长途巴士';
 			minutes = (km / 70) * 60 + 20;
 			cost = 8 + km * 0.12;
 		} else {
-			label = '🚗 自驾';
-			minutes = (km / (85 + state.skills.driving * 0.25)) * 60;
-			cost = km * (state.vehicle === '4wd' ? 0.2 : 0.15);
+			label = `${v.icon} 自驾`;
+			minutes = (km / (v.speed + state.skills.driving * 0.25)) * 60;
+			cost = km * v.costPerKm;
 		}
 	}
 	cost = Math.round(cost * costMult(state));
@@ -193,11 +198,13 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 	if (!opt.available) return fail(prev, opt.reason ?? '暂时无法出行。');
 	const state = clone(prev);
 	state.cash -= opt.cost;
-	const selfDrive = (mode === 'road' || mode === 'track') && state.vehicle !== 'none';
+	const selfDrive = (mode === 'road' || mode === 'track') && !!getVehicle(state.vehicle);
 	if (selfDrive) {
 		growSkill(state, 'driving', opt.km / 150);
 		if (mode === 'track') growSkill(state, 'survival', opt.km / 300);
 	}
+	const ride = selfDrive ? getVehicle(state.vehicle)?.ride : undefined;
+	if (ride) for (const k of NEED_KEYS) if (ride[k]) state.needs[k] = clamp100(state.needs[k] + ride[k]! * opt.minutes);
 	if (advance(state, opt.minutes, region)) return { ok: true, state, msg: '路上体力不支晕倒了。' }; // collapse 已把人送去医院
 	arrive(state, region, toId, mode);
 	return { ok: true, state, msg: `抵达${getLocation(region, toId)!.name}。` };
@@ -636,4 +643,162 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	applyEffect(state, { minutes: 480, health: 15 + def.comfort, needs: { energy: 100, hygiene: 50 + def.comfort * 2, fun: 5 + def.comfort } }, region);
 	log(state, `在${def.name}睡了一觉。`);
 	return { ok: true, state, msg: '睡了个好觉。' };
+}
+
+// ---------- 交通工具 ----------
+export const getVehicle = (id: string): VehicleDef | undefined => VEHICLES.find((v) => v.id === id);
+export const resaleValue = (id: string) => {
+	const v = getVehicle(id);
+	return v ? Math.round(v.price * v.resale) : 0;
+};
+
+export interface DealerOffer {
+	vehicle: VehicleDef;
+	/** 扣除旧车折抵后要付的钱 */
+	net: number;
+	blocked?: string;
+}
+
+/** 车行在售车型；不在车行或不在营业时间返回空 */
+export function dealerAt(state: PlayerState, region: Region): DealerOffer[] {
+	const loc = getLocation(region, state.loc);
+	if (!loc || !loc.tags.includes(DEALER_TAG)) return [];
+	const open = isOpen(DEALER_HOURS, state.clock);
+	const tradeIn = resaleValue(state.vehicle);
+	return VEHICLES.map((vehicle) => {
+		const net = vehicle.price - tradeIn;
+		const blocked = !open ? `车行营业时间 ${hoursLabel(DEALER_HOURS)}` : state.vehicle === vehicle.id ? '你已经有这辆车' : state.cash < net ? `还差 $${net - state.cash}` : undefined;
+		return { vehicle, net, blocked };
+	});
+}
+
+export function buyVehicle(prev: PlayerState, region: Region, id: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const offer = dealerAt(prev, region).find((o) => o.vehicle.id === id);
+	if (!offer) return fail(prev, '这里没有车行。');
+	if (offer.blocked) return fail(prev, offer.blocked);
+	const state = clone(prev);
+	const old = getVehicle(state.vehicle);
+	state.cash -= offer.net;
+	state.vehicle = id;
+	advance(state, 60, region);
+	const msg = old ? `用${old.name}折抵 $${resaleValue(old.id)}，换了一辆${offer.vehicle.name}。` : `买了一辆${offer.vehicle.name}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+export function sellVehicle(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const v = getVehicle(prev.vehicle);
+	if (!v) return fail(prev, '你没有车。');
+	if (!dealerAt(prev, region).length) return fail(prev, '要到车行才能卖车。');
+	if (!isOpen(DEALER_HOURS, prev.clock)) return fail(prev, `车行营业时间 ${hoursLabel(DEALER_HOURS)}`);
+	const state = clone(prev);
+	const got = resaleValue(v.id);
+	state.cash += got;
+	state.vehicle = 'none';
+	advance(state, 30, region);
+	const msg = `把${v.name}卖了 $${got}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+/** 在车里过夜（只有露营车这类 sleep 不为空的车） */
+export function sleepInVehicle(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const v = getVehicle(prev.vehicle);
+	if (!v?.sleep) return fail(prev, '你的车不能睡人。');
+	const state = clone(prev);
+	applyEffect(state, { ...v.sleep, minutes: 480 }, region);
+	log(state, `在${v.name}里睡了一觉。`);
+	return { ok: true, state, msg: '在车里睡了一觉。' };
+}
+
+// ---------- 课程 ----------
+export const coursePrice = (state: PlayerState, c: CourseDef) => Math.round(c.base * (1 + state.skills[c.skill] / COURSE_PRICE_STEP));
+
+export interface CourseOffer {
+	course: CourseDef;
+	price: number;
+	blocked?: string;
+}
+
+export function coursesAt(state: PlayerState, region: Region): CourseOffer[] {
+	const loc = getLocation(region, state.loc);
+	if (!loc) return [];
+	const today = dayOf(state.clock);
+	return COURSES.filter((c) => matches(c.where, loc)).map((course) => {
+		const price = coursePrice(state, course);
+		const blocked = !isOpen(course.hours, state.clock) ? `上课时间 ${hoursLabel(course.hours)}`
+			: state.courseDays[course.id] === today ? '今天已经上过这门课'
+			: state.cash < price ? `需要 $${price}`
+			: state.needs.energy < 15 ? '太累了' : undefined;
+		return { course, price, blocked };
+	});
+}
+
+export function takeCourse(prev: PlayerState, region: Region, id: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const offer = coursesAt(prev, region).find((o) => o.course.id === id);
+	if (!offer) return fail(prev, '这里没有这门课。');
+	if (offer.blocked) return fail(prev, offer.blocked);
+	const c = offer.course;
+	const state = clone(prev);
+	const before = state.skills[c.skill];
+	state.cash -= offer.price;
+	state.courseDays[c.id] = dayOf(prev.clock);
+	growSkill(state, c.skill, c.gain);
+	applyEffect(state, { minutes: c.minutes, needs: { energy: -Math.round(c.minutes / 12), fun: 3 } }, region);
+	const msg = `上了${c.name}，${SKILL_META[c.skill].name} +${(state.skills[c.skill] - before).toFixed(1)}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+// ---------- 体验与收藏 ----------
+export interface ExperienceOffer {
+	exp: ExperienceDef;
+	first: boolean;
+	blocked?: string;
+}
+
+export function experiencesAt(state: PlayerState, region: Region): ExperienceOffer[] {
+	void region;
+	return EXPERIENCES.filter((e) => e.loc === state.loc).map((exp) => ({
+		exp,
+		first: !state.collected.includes(exp.id),
+		blocked: !isOpen(exp.hours, state.clock) ? `开放时间 ${hoursLabel(exp.hours!)}` : state.cash < exp.price ? `需要 $${exp.price}` : undefined,
+	}));
+}
+
+/** 已集齐的片区称号 */
+export function areaTitles(state: PlayerState): string[] {
+	return Object.entries(AREAS)
+		.filter(([id]) => EXPERIENCES.filter((e) => e.area === id).every((e) => state.collected.includes(e.id)))
+		.map(([, a]) => a.title);
+}
+
+export function doExperience(prev: PlayerState, region: Region, id: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const offer = experiencesAt(prev, region).find((o) => o.exp.id === id);
+	if (!offer) return fail(prev, '这里没有这个项目。');
+	if (offer.blocked) return fail(prev, offer.blocked);
+	const e = offer.exp;
+	const state = clone(prev);
+	const titlesBefore = areaTitles(state);
+	state.cash -= e.price;
+	if (offer.first) {
+		applyEffect(state, { ...e.fx, minutes: e.minutes, respect: e.respect }, region);
+		state.collected.push(e.id);
+	} else {
+		const fun = Math.round((e.fx.needs?.fun ?? 0) * REPEAT_FUN_SHARE);
+		applyEffect(state, { minutes: e.minutes, needs: { fun } }, region);
+	}
+	let msg = offer.first ? `体验了${e.name}，收进了收藏册（声望 +${e.respect}）。` : `又体验了一次${e.name}。`;
+	const gained = areaTitles(state).filter((t) => !titlesBefore.includes(t));
+	if (gained.length) {
+		state.respect += 5;
+		msg += ` 集齐了「${AREAS[e.area].name}」，获得称号「${gained[0]}」！`;
+	}
+	log(state, msg);
+	return { ok: true, state, msg };
 }

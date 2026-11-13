@@ -30,6 +30,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | 身份 | `id` `name` `avatar` `origin` `traits` | — | 出身决定开局；特质创建时选 2 个，之后不可改 |
 | 生活需求 | `needs.hunger/energy/hygiene/fun/social` | 0–100 | 随游戏时间下降；饱食或精力为 0 时持续掉健康 |
 | 能力 | `skills.stamina/strength/driving/swimming/charisma/survival/street` | 0–100 | 靠行为成长，边际递减：增长 = 原值 × 特质倍率 × 0.35 × (1 − 当前值/110) |
+| 收藏 | `collected` `courseDays` | — | 已完成的体验；每门课最近一次上课的游戏日 |
 | 状态 | `cash` `health` `respect` `heat` `vehicle` | 见下 | 现金 ≥0；健康 0–100；声望 ≥0；麻烦值 0–100 |
 | 物品 | `inventory` | 每种 1..上限 | `itemId → 数量` |
 | 职业 | `job` | — | `{ career, loc, level, shifts, good, lastDay }`：雇主、工作地点、等级、本级已上班次与表现好的班次、最近上班日 |
@@ -79,6 +80,9 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | 时段 | `core/time.ts` | 清晨 5–8 · 白天 8–17 · 傍晚 17–20 · 夜晚 20–5 | 互动可设营业时间 `hours`，支持跨午夜 |
 | 职业 `CareerDef` | `data/careers.ts` | 应聘地点、开工时段、班长、表现检定能力、各等级工资与要求 | 5 种职业，每种 3 级 |
 | 住房 `HomeDef` | `data/housing.ts` | 周租、舒适度、可租地点 | 合租房间 / 一居室公寓 / 海景小屋 |
+| 交通工具 `VehicleDef` | `data/vehicles.ts` | 价格、回收比例、公路 / 土路时速、油费、骑行消耗、车内睡眠 | 摩托车、二手轿车、四驱越野、露营车；在车行买卖，换车自动折抵 |
+| 课程 `CourseDef` | `data/courses.ts` | 对应能力、基础学费、时长、成长量、开课地点与时间 | 7 门课；学费 = 基础价 × (1 + 当前能力/25)；每门每天一次 |
+| 体验 `ExperienceDef` | `data/experiences.ts` | 地点、片区、价格、开放时间、效果、首次声望 | 15 个，分 5 个片区；首次进收藏册，集齐片区得称号 |
 | 物品 `ItemDef` | `data/items.ts` | 价格、携带上限、售卖地点、`use` 或 `passive` | 消耗品用掉减一；装备持有即生效，同技能只取最高一件 |
 
 ### `Effect` 的结算顺序（`applyEffect`）
@@ -103,6 +107,9 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 只校验和存�
 | `useItem` | 使用消耗品 | 没有、是装备 |
 | `careersAt` / `applyJob` / `workShift` / `quitJob` | 找工作 / 应聘 / 上班 / 辞职 | 条件不够、不在工作地点、不在开工时段、今天上过班、太累 |
 | `homesAt` / `rentHome` / `sleepHome` / `leaveHome` | 看房 / 租房 / 回家睡觉 / 退租 | 钱不够首周租金、不在住处 |
+| `dealerAt` / `buyVehicle` / `sellVehicle` / `sleepInVehicle` | 车行 / 买车（旧车折抵）/ 卖车 / 车里过夜 | 不在车行、车行没开门、钱不够、车不能睡人 |
+| `coursesAt` / `takeCourse` | 课程 / 上课 | 不在开课时间、今天上过、钱不够、太累 |
+| `experiencesAt` / `doExperience` | 体验 / 参加体验 | 不在开放时间、钱不够 |
 | `npcsAt` / `interactNpc` | 查看在场 NPC / 聊天、送礼、帮忙 | TA 不在、今天做过了、没有 TA 喜欢的东西、太累 |
 
 所有动作返回 `{ ok, state, msg }`。

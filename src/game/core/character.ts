@@ -7,6 +7,9 @@ import { MAX_TRAITS } from '../data/traits.ts';
 import { NPCS } from '../data/npcs.ts';
 import { CAREERS } from '../data/careers.ts';
 import { HOMES } from '../data/housing.ts';
+import { VEHICLES } from '../data/vehicles.ts';
+import { COURSES } from '../data/courses.ts';
+import { EXPERIENCES } from '../data/experiences.ts';
 import { validTraits } from './attributes.ts';
 
 export const NEED_META: Record<string, { name: string; icon: string }> = {
@@ -88,6 +91,8 @@ export function createCharacter(opts: {
 		relations: {},
 		job: null,
 		home: null,
+		collected: [],
+		courseDays: {},
 		pending: null,
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		seed: (opts.seed ?? Math.floor(Math.random() * 2 ** 31)) >>> 0,
@@ -147,7 +152,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 		heat: num(r.heat, 0, 100, 0),
 		needs,
 		skills,
-		vehicle: r.vehicle === 'car' || r.vehicle === '4wd' ? r.vehicle : 'none',
+		vehicle: VEHICLES.some((v) => v.id === r.vehicle) ? r.vehicle : 'none',
 		visited,
 		checkins: strList(r.checkins, 2000),
 		seen: strList(r.seen, 500),
@@ -159,6 +164,15 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 		relations: cleanRelations(r.relations),
 		job: cleanJob(r.job, knownLocs),
 		home: cleanHome(r.home, knownLocs),
+		collected: [...new Set(strList(r.collected, 200))].filter((id) => EXPERIENCES.some((e) => e.id === id)),
+		courseDays: (() => {
+			const out: Record<string, number> = {};
+			for (const c of COURSES) {
+				const d = r.courseDays?.[c.id];
+				if (typeof d === 'number' && Number.isFinite(d) && d >= 0) out[c.id] = Math.floor(d);
+			}
+			return out;
+		})(),
 		pending: r.pending && typeof r.pending.eventId === 'string' ? { eventId: r.pending.eventId.slice(0, 64) } : null,
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,

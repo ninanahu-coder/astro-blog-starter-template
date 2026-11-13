@@ -24,6 +24,4 @@ export const ACTIVITIES: Activity[] = [
 	{ id: 'charity-dinner', name: '慈善晚餐', icon: '🍲', kinds: ['city', 'port', 'town'], hours: [18, 19], minutes: 60, fx: { needs: { hunger: 50, social: 5, fun: -5 } }, desc: '社区厨房的免费晚饭，傍晚开放。' },
 	{ id: 'rest', name: '歇一会儿', icon: '☕', minutes: 60, fx: { needs: { energy: 4 } }, desc: '找个阴凉地方坐一小时，等上班或等店开门。' },
 	{ id: 'lay-low', name: '低调几天', icon: '🕶️', minutes: 300, fx: { heat: -40, needs: { fun: -10, social: -10 } }, desc: '让麻烦值降下来。' },
-	{ id: 'buy-car', name: '买二手轿车', icon: '🚗', tags: ['dealer'], minutes: 60, fx: { cash: -4500, vehicle: 'car' }, requires: { cash: 4500, vehicle: ['none'] }, hours: [9, 17], desc: '可以自驾走公路了。' },
-	{ id: 'buy-4wd', name: '换四驱越野', icon: '🚙', tags: ['dealer'], minutes: 60, fx: { cash: -12000, vehicle: '4wd' }, requires: { cash: 12000, vehicle: ['none', 'car'] }, hours: [9, 17], desc: '越野土路必备。' },
 ];
