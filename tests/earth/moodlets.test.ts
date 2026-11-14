@@ -88,8 +88,9 @@ test('上班途中晕倒：不发工资、不计班次、心愿不算完成', ()
 	assert.equal(r.state.loc, WA.hospital);
 	assert.equal(r.state.cash, 0, '没上完的班没有工资');
 	assert.equal(r.state.job!.shifts, 0);
-	assert.deepEqual(r.state.wishes, ['work'], '心愿还在');
-	assert.ok(!ids(r.state).includes('wish-done'));
+	assert.ok(!ids(r.state).includes('wish-done'), '心愿不算完成');
+	assert.ok(r.state.clock >= at(0, 1), '住院到了第二天');
+	assert.equal(r.state.wishDay, 1, '跨日晕倒后换成新一天的心愿，昨天的不能留到今天完成');
 	// 对照：同样的人吃饱了上班，照常发工资、计班次、完成心愿
 	const fine = applyAction({ ...s, needs: { ...s.needs, hunger: 90 }, health: 80 }, WA, { t: 'job', op: 'work' });
 	assert.ok(fine.ok && !fine.collapsed);

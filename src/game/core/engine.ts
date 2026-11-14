@@ -53,15 +53,24 @@ export function getLocation(region: Region, id: string): GameLocation | undefine
 
 // ---------- 时间与效果 ----------
 /** 返回 true 表示途中晕倒（已被送往医院） */
-function advance(state: PlayerState, minutes: number, region: Region): boolean {
-	if (minutes <= 0) return false;
+/**
+ * 时间流逝：需求衰减、饥饿伤害，再做跨周结算。返回途中是否晕倒。
+ * gains 是本动作的收获（工资等）：没晕倒才入账，而且在跨周结算之前，所以这一班的工资能付刚到期的房租房贷。
+ */
+function advance(state: PlayerState, minutes: number, region: Region, gains?: () => void): boolean {
+	if (minutes <= 0) {
+		gains?.();
+		return false;
+	}
 	state.clock += minutes;
-	weeklyTick(state, region);
 	for (const k of NEED_KEYS) state.needs[k] = clamp100(state.needs[k] - DECAY[k] * decayMult(state, k) * minutes);
 	if (state.needs.hunger <= 0 || state.needs.energy <= 0) {
 		state.health = clamp100(state.health - STARVE_DMG * minutes);
 	}
-	if (state.health > 0) return false;
+	const collapsed = state.health <= 0;
+	if (!collapsed) gains?.();
+	weeklyTick(state, region);
+	if (!collapsed) return false;
 	collapse(state, region);
 	return true;
 }
@@ -113,29 +122,28 @@ export function growSkill(state: PlayerState, k: SkillKey, d: number) {
  * 能力成长仍在时间流逝前结算（学到的就是学到的）。
  */
 export function applyEffect(state: PlayerState, fx: Effect, region: Region): boolean {
+	// 付出在前
 	if (fx.cash && fx.cash < 0) state.cash = Math.max(0, Math.round(state.cash + fx.cash));
-	if (fx.respect) state.respect = Math.max(0, state.respect + fx.respect);
-	if (fx.heat) state.heat = clamp100(state.heat + (fx.heat > 0 ? fx.heat * heatMult(state) : fx.heat));
-	if (fx.vehicle) state.vehicle = fx.vehicle;
+	if (fx.respect && fx.respect < 0) state.respect = Math.max(0, state.respect + fx.respect);
+	if (fx.heat && fx.heat > 0) state.heat = clamp100(state.heat + fx.heat * heatMult(state));
+	addItems(state, fx.items, -1);
 	if (fx.skills) {
 		for (const k of SKILL_KEYS) {
 			const d = fx.skills[k];
 			if (d) growSkill(state, k, d);
 		}
 	}
-	if (fx.items) {
-		for (const [id, d] of Object.entries(fx.items)) {
-			const def = getItem(id);
-			if (!def || !d) continue;
-			const n = Math.max(0, Math.min(def.max, (state.inventory[id] ?? 0) + d));
-			if (n) state.inventory[id] = n;
-			else Reflect.deleteProperty(state.inventory, id);
-		}
-	}
+	// 收获在后：时间走完、没晕倒才拿到
+	const gains = () => {
+		if (fx.cash && fx.cash > 0) state.cash = Math.round(state.cash + fx.cash);
+		if (fx.respect && fx.respect > 0) state.respect += fx.respect;
+		if (fx.heat && fx.heat < 0) state.heat = clamp100(state.heat + fx.heat);
+		if (fx.vehicle) state.vehicle = fx.vehicle;
+		addItems(state, fx.items, 1);
+	};
 	// 先流逝时间（会衰减需求），再结算需求增减，保证“睡 8 小时”后精力确实是满的
-	// 途中晕倒：原动作到此为止，后面的需求、状态、健康都不再结算（不然露营晕倒还会拿到「星空下醒来」）
-	if (fx.minutes && advance(state, fx.minutes, region)) return true;
-	if (fx.cash && fx.cash > 0) state.cash = Math.round(state.cash + fx.cash);
+	// 途中晕倒：原动作到此为止，收获、需求、状态、健康都不再结算（不然露营晕倒还会拿到「星空下醒来」）
+	if (advance(state, fx.minutes ?? 0, region, gains)) return true;
 	if (fx.needs) for (const k of NEED_KEYS) if (fx.needs[k]) state.needs[k] = clamp100(state.needs[k] + fx.needs[k]!);
 	if (fx.moodlet) addMoodlet(state, fx.moodlet);
 	if (fx.health) {
@@ -147,6 +155,18 @@ export function applyEffect(state: PlayerState, fx: Effect, region: Region): boo
 		}
 	}
 	return false;
+}
+
+/** 按符号增减物品：sign = -1 只处理用掉的，1 只处理得到的 */
+function addItems(state: PlayerState, items: Effect['items'], sign: 1 | -1) {
+	if (!items) return;
+	for (const [id, d] of Object.entries(items)) {
+		const def = getItem(id);
+		if (!def || !d || Math.sign(d) !== sign) continue;
+		const n = Math.max(0, Math.min(def.max, (state.inventory[id] ?? 0) + d));
+		if (n) state.inventory[id] = n;
+		else Reflect.deleteProperty(state.inventory, id);
+	}
 }
 
 /** 动作途中晕倒时的统一结果 */
@@ -230,7 +250,7 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 	}
 	const ride = selfDrive ? getVehicle(state.vehicle)?.ride : undefined;
 	if (ride) for (const k of NEED_KEYS) if (ride[k]) state.needs[k] = clamp100(state.needs[k] + ride[k]! * opt.minutes);
-	if (advance(state, opt.minutes, region)) return { ok: true, state, msg: '路上体力不支晕倒了。' }; // collapse 已把人送去医院
+	if (advance(state, opt.minutes, region)) return collapsedResult(state); // collapse 已把人送去医院，没到达
 	arrive(state, region, toId, mode);
 	return { ok: true, state, msg: `抵达${getLocation(region, toId)!.name}。` };
 }
@@ -691,7 +711,7 @@ export function applyJob(prev: PlayerState, region: Region, careerId: string): A
 	const state = clone(prev);
 	const old = state.job ? getCareer(state.job.career) : null;
 	state.job = { career: careerId, loc: state.loc, level: 0, shifts: 0, good: 0, lastDay: -1 };
-	advance(state, 30, region);
+	if (advance(state, 30, region)) return collapsedResult(state);
 	const title = offer.career.levels[0].title;
 	const place = getLocation(region, state.loc)!.name;
 	const msg = `${old ? `辞去了${old.name}的工作，` : ''}被${place}的${offer.career.name}录用为${title}。`;
@@ -828,7 +848,7 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string): Act
 	state.cash -= due;
 	state.home = { type: homeId, loc: state.loc, furniture: {} };
 	addMoodlet(state, 'new-home');
-	advance(state, 60, region);
+	if (advance(state, 60, region)) return collapsedResult(state);
 	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}，之后每周 $${offer.home.rentWeek}${sold ? `；旧家具折现 $${sold}` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
@@ -897,7 +917,7 @@ export function buyVehicle(prev: PlayerState, region: Region, id: string): Actio
 	const old = getVehicle(state.vehicle);
 	state.cash -= offer.net;
 	state.vehicle = id;
-	advance(state, 60, region);
+	if (advance(state, 60, region)) return collapsedResult(state);
 	const msg = old ? `用${old.name}折抵 $${resaleValue(old.id)}，换了一辆${offer.vehicle.name}。` : `买了一辆${offer.vehicle.name}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
@@ -913,7 +933,7 @@ export function sellVehicle(prev: PlayerState, region: Region): ActionResult {
 	const got = resaleValue(v.id);
 	state.cash += got;
 	state.vehicle = 'none';
-	advance(state, 30, region);
+	if (advance(state, 30, region)) return collapsedResult(state);
 	const msg = `把${v.name}卖了 $${got}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
@@ -1056,7 +1076,7 @@ export function buyFurniture(prev: PlayerState, region: Region, id: string): Act
 	const old = getFurniture(state.home!.furniture[offer.item.slot] ?? '');
 	state.cash -= offer.net;
 	state.home!.furniture[offer.item.slot] = id;
-	advance(state, 30, region);
+	if (advance(state, 30, region)) return collapsedResult(state);
 	const msg = `给住处添了${offer.item.name}${old ? `（旧的${old.name}折了半价）` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
@@ -1200,7 +1220,7 @@ export function buyProperty(prev: PlayerState, region: Region, id: string, withL
 	state.cash -= paid;
 	state.properties.push({ id, loan: def.price - paid, rented: false, missed: 0 });
 	state.respect += 5;
-	advance(state, 120, region);
+	if (advance(state, 120, region)) return collapsedResult(state);
 	const msg = withLoan
 		? `付了 $${paid} 首付买下${def.name}，贷款 $${def.price - paid}，每周还款约 $${loanPayment(def, def.price - paid)}。`
 		: `全款 $${paid} 买下了${def.name}。`;

@@ -237,3 +237,28 @@ test('阶段 B 的动作协议与旧存档迁移', () => {
 	assert.deepEqual(c.home!.furniture, { decor: 'plants' }, '家具必须放在自己的槽位');
 	assert.ok(c.nextWeek >= -7, '结算日不会落后太多，避免一次补扣几百周');
 });
+
+test('跨周结算前先发这一班的工资：工资够付刚到期的房租就不会被收房', () => {
+	const s = housed({ clock: at(9) });
+	const job = { career: 'barista', loc: s.loc, level: 0, shifts: 0, good: 0, lastDay: -1 };
+	const due = { ...s, job, cash: 50, clock: at(7, 6), nextWeek: 6, needs: { hunger: 90, energy: 90, hygiene: 80, fun: 60, social: 60 } };
+	const r = applyAction(due, WA, { t: 'job', op: 'work' });
+	assert.ok(r.ok && !r.collapsed, r.msg);
+	assert.ok(r.state.home, '$50 + 工资 ≥ 房租 $160，不该被收房');
+	assert.equal(r.state.nextWeek, 13);
+	assert.ok(r.state.cash < 50 + 200, '房租照扣');
+});
+
+test('直接耗时的动作途中晕倒也要停下：出行、买家具、应聘', () => {
+	const weak = { health: 0.2, needs: { hunger: 0, energy: 90, hygiene: 80, fun: 60, social: 60 } };
+	const trip = applyAction(make({ cash: 500, clock: at(9), wishes: ['road-trip'], wishDay: 0, ...weak }), WA, { t: 'travel', to: 'fremantle', mode: 'road' });
+	assert.ok(trip.ok && trip.collapsed, trip.msg);
+	assert.notEqual(trip.state.loc, 'fremantle', '没到达');
+	assert.ok(!trip.state.moodlets.some((m) => m.id === 'wish-done'), '出行心愿不算完成');
+	const home = housed();
+	const bed = applyAction({ ...home, ...weak }, WA, { t: 'furniture', op: 'buy', id: 'mattress' });
+	assert.ok(bed.ok && bed.collapsed, bed.msg);
+	assert.equal(bed.state.home?.furniture.bed, 'mattress', '已经成交的家具保留');
+	const hired = applyAction(make({ clock: at(9), ...weak }), WA, { t: 'job', op: 'apply', career: 'barista' });
+	assert.ok(hired.ok && hired.collapsed, hired.msg);
+});

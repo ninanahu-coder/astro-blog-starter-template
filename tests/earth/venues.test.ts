@@ -318,6 +318,15 @@ test('真实地点训练途中晕倒：没有肌肉酸痛、不抽到店事件�
 	assert.equal(r.state.venueCd.train, T0);
 });
 
+test('事件途中晕倒拿不到末尾的奖励物品', () => {
+	const s = make({ health: 0.2, pending: { eventId: 'v-park-dog' }, needs: { hunger: 0, energy: 90, hygiene: 80, fun: 60, social: 60 } });
+	const r = applyAction(s, R, { t: 'event', choice: 0 });
+	assert.ok(r.ok && r.collapsed, r.msg);
+	assert.equal(r.state.inventory.snack ?? 0, s.inventory.snack ?? 0, '主人还没到人就晕了，饼干没拿到');
+	const fine = applyAction({ ...s, health: 80, needs: { ...s.needs, hunger: 80 } }, R, { t: 'event', choice: 0 });
+	assert.equal(fine.state.inventory.snack, (s.inventory.snack ?? 0) + 1);
+});
+
 test('真实地点事件不会在到达城镇时被抽到', () => {
 	const ids = new Set(VENUE_EVENTS.map((e) => e.id));
 	for (let seed = 1; seed <= 200; seed++) {
