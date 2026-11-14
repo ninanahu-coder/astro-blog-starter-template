@@ -377,4 +377,28 @@ test('过期的上班卡：辞职后去别处打卡，开始不了新班也要�
 	assert.match(late.msg, /作废/);
 	assert.equal(late.state.clockIn, null);
 	assert.equal(late.state.cash, quit.cash);
+	// 「附近」列表要和后端一致：没过期时按钮禁用，过期后能点、并说明只是作废旧卡
+	const workOp = (now: number) => venuesNear(quit, R2, other.lat, other.lon, 10, now).find((n) => n.venue.id === other.id)!.ops.find((o) => o.op.id === 'work')!;
+	assert.ok(workOp(T0 + 60 * MIN).blocked, '没过期：别处上不了班，按钮禁用');
+	assert.equal(workOp(T0 + 961 * MIN).blocked, undefined, '过期后能点');
+	assert.match(workOp(T0 + 961 * MIN).voids ?? '', /职业/);
+});
+
+test('实地上满半班后辞职再应聘：当天不能再上一班', () => {
+	const cafe = find('t-cafe');
+	const s = make({ job: { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } });
+	const inn = venueAction(s, R, { op: 'work', ...at(cafe) }, T0);
+	assert.ok(inn.ok, inn.msg);
+	const out = venueAction(inn.state, R, { op: 'work', ...at(cafe) }, T0 + 180 * MIN);
+	assert.ok(out.ok && out.state.job!.shifts === 1, out.msg);
+	assert.equal(out.state.workDay, out.state.job!.lastDay);
+	// 下班时可能抽到到店事件，这里不关心
+	const quit = applyAction({ ...out.state, pending: null }, R, { t: 'job', op: 'quit' });
+	assert.ok(quit.ok, quit.msg);
+	const again = applyAction(quit.state, R, { t: 'job', op: 'apply', career: 'barista' });
+	assert.ok(again.ok, again.msg);
+	const shift = applyAction(again.state, R, { t: 'job', op: 'work' });
+	assert.ok(!shift.ok, '同一天第二班应被拒绝');
+	assert.match(shift.msg, /今天已经上过班/);
+	assert.equal(shift.state.cash, again.state.cash);
 });

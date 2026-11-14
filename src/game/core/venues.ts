@@ -83,6 +83,7 @@ export interface NearbyOp {
 	op: VenueOpDef;
 	outcome: OpOutcome | null; // 上班为 null
 	blocked?: string;
+	voids?: string; // 上班：这里打不了新卡，但点一下能作废过期的旧卡；值是打不了新卡的原因
 }
 
 export interface NearbyVenue {
@@ -104,13 +105,22 @@ export function venuesNear(state: PlayerState, region: Region, lat: number, lon:
 		if (distM > maxM) continue;
 		const ops = type.ops.map((id) => {
 			const op = getVenueOp(id)!;
-			if (id === 'work') return { op, outcome: null, blocked: workBlocked(state, type, venue, now) };
+			if (id === 'work') {
+				const blocked = workBlocked(state, type, venue, now);
+				// 和 work() 一致：别处的卡已过期时，这里就算上不了班也能点，用来作废旧卡
+				return blocked && clockStale(state, now) ? { op, outcome: null, voids: blocked } : { op, outcome: null, blocked };
+			}
 			const outcome = opOutcome(state, id, type, venue);
 			return { op, outcome, blocked: cooldownLeft(state, op, now) ?? outcome?.blocked };
 		});
 		out.push({ venue, type, distM, inRange: distM <= type.radiusM + slack, ops });
 	}
 	return out.sort((a, b) => a.distM - b.distM);
+}
+
+/** 上班卡是否已经过期（太久没打下班卡） */
+export function clockStale(state: PlayerState, now: number): boolean {
+	return !!state.clockIn && now - state.clockIn.at > FIX_RULES.clockInStaleMin * 60_000;
 }
 
 function workBlocked(state: PlayerState, type: VenueTypeDef, venue: Venue, now: number): string | undefined {
@@ -182,7 +192,7 @@ function venueEvent(state: PlayerState, type: VenueTypeDef, now: number): string
 function work(prev: PlayerState, region: Region, venue: Venue, type: VenueTypeDef, now: number): ActionResult {
 	const state = clone(prev);
 	const ci = state.clockIn;
-	const stale = ci && now - ci.at > FIX_RULES.clockInStaleMin * 60_000;
+	const stale = clockStale(state, now);
 	if (ci && ci.venue === venue.id && !workTerms(state, type)) {
 		// 打上班卡之后辞职或换了工作：不管待了多久、卡有没有过期，下班卡都能打，只是不计薪，不然这张卡会一直挂着
 		state.clockIn = null;
@@ -228,7 +238,7 @@ function work(prev: PlayerState, region: Region, venue: Venue, type: VenueTypeDe
 		applyEffect(state, { skills: c.shift.skills }, region);
 		job.shifts++;
 		if (w.perf >= 1) job.good++;
-		job.lastDay = dayOf(prev.clock);
+		job.lastDay = state.workDay = dayOf(prev.clock);
 		msg += ` 算作一个班次${w.perf >= 1 ? '（表现出色）' : ''}。` + tryPromote(state);
 	}
 	log(state, msg);

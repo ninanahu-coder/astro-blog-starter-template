@@ -439,6 +439,7 @@ export interface PlayerState {
 	venueEvAt: number; // 最近一次真实地点事件的服务端时间（毫秒），0 为从未
 	clockIn: { venue: string; at: number } | null; // 真实打卡上班：哪个地点、几点打的卡
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
+	workDay: number; // 最近一次算过班次的游戏日，−1 表示还没上过；跟人走，不随换工作重置
 	journal: JournalEntry[];
 	seed: number;
 	rev: number; // 存档版本号，云同步用

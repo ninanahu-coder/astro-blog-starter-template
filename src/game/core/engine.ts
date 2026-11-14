@@ -711,7 +711,8 @@ export function applyJob(prev: PlayerState, region: Region, careerId: string): A
 	if (offer.blocked) return fail(prev, offer.blocked);
 	const state = clone(prev);
 	const old = state.job ? getCareer(state.job.career) : null;
-	state.job = { career: careerId, loc: state.loc, level: 0, shifts: 0, good: 0, lastDay: -1 };
+	// 今天已经上过班的话，换了工作当天也不能再上一班
+	state.job = { career: careerId, loc: state.loc, level: 0, shifts: 0, good: 0, lastDay: state.workDay };
 	if (advance(state, 30, region)) return collapsedResult(state);
 	const title = offer.career.levels[0].title;
 	const place = getLocation(region, state.loc)!.name;
@@ -744,7 +745,7 @@ export function workShift(prev: PlayerState, region: Region): ActionResult {
 	const lv = c.levels[job.level];
 	const good = checkScore(state, c.skill).total + roll(state) * 60 >= SHIFT_DC[Math.min(job.level, SHIFT_DC.length - 1)];
 	const pay = Math.round(lv.pay * (good ? 1 + GOOD_BONUS : 1));
-	job.lastDay = dayOf(state.clock);
+	job.lastDay = state.workDay = dayOf(state.clock);
 	if (applyEffect(state, { ...c.shift, minutes: c.minutes, cash: pay }, region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
 	job.shifts++;
 	if (good) job.good++;

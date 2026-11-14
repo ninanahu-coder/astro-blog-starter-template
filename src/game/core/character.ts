@@ -111,6 +111,7 @@ export function createCharacter(opts: {
 		venueEvAt: 0,
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
+		workDay: -1,
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		seed: opts.seed >>> 0,
 		rev: 0,
@@ -180,6 +181,8 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 		inventory: cleanInventory(r.inventory),
 		relations: cleanRelations(r.relations),
 		job: cleanJob(r.job, knownLocs),
+		// 旧存档没有这个字段：用当前工作的 lastDay 补上
+		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
 		...cleanEstate(r, knownLocs),
 		nextWeek: (() => {
 			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周

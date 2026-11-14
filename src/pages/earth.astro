@@ -161,7 +161,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { dateLabel, period, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
 			import { getWish } from '../game/core/wishes.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
-			import { getVenueType, venuesNear } from '../game/core/venues.ts';
+			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
 			import { FIX_RULES } from '../game/data/venues.ts';
 			import type { VenueOp } from '../game/core/types.ts';
 			import { DAILY } from '../game/core/daily.ts';
@@ -556,16 +556,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					${nearFix ? `<p style="margin-top:6px" class="muted">定位误差约 ${Math.round(nearFix.acc)} 米 · ${Math.max(0, Math.round((Date.now() - nearFix.at) / 60000))} 分钟前</p>` : ''}</div>`;
 				const ci = s.clockIn;
 				const ciVenue = ci ? region.venues.find((v) => v.id === ci.venue) : undefined;
-				const clockHtml = ci ? `<div class="card"><h3>💼 上班中</h3><p>${esc(ciVenue?.name ?? ci.venue)} · 已 ${Math.max(0, Math.round((Date.now() - ci.at) / 60000))} 分钟。离开前在那里打下班卡（至少 ${FIX_RULES.clockInMinMin} 分钟，一次最多计 ${FIX_RULES.shiftMaxMin / 60} 小时）。</p></div>` : '';
+				const clockHtml = ci ? `<div class="card"><h3>💼 上班中</h3><p>${esc(ciVenue?.name ?? ci.venue)} · 已 ${Math.max(0, Math.round((Date.now() - ci.at) / 60000))} 分钟。${clockStale(s, Date.now()) ? '这张卡太久没打下班卡，已经过期：在任何能上班的地点点一下就会作废。' : `离开前在那里打下班卡（至少 ${FIX_RULES.clockInMinMin} 分钟，一次最多计 ${FIX_RULES.shiftMaxMin / 60} 小时）。`}</p></div>` : '';
 				if (!region.venues.length) return intro + clockHtml + '<div class="card"><p>这个区域的真实地点数据还在采集中（来自 OpenStreetMap）。</p></div>';
 				if (!nearFix) return intro + clockHtml;
 				const list = venuesNear(s, region, nearFix.lat, nearFix.lon, nearFix.acc, Date.now());
 				if (!list.length) return intro + clockHtml + '<div class="card"><p>1.5 公里内没有收录的地点。</p></div>';
 				const cards = list.slice(0, 20).map(({ venue, type, distM, inRange, ops }) => `<div class="card"><h3>${type.icon} ${esc(venue.name)} <span class="muted">${esc(type.name)} · ${distM} 米</span></h3>
-					${inRange ? ops.map(({ op, outcome, blocked }) => {
+					${inRange ? ops.map(({ op, outcome, blocked, voids }) => {
 						const clockOut = op.id === 'work' && s.clockIn?.venue === venue.id;
-						const label = op.id === 'work' ? (clockOut ? '打下班卡' : '打上班卡') : op.name;
-						const detail = blocked ?? (outcome ? outcome.notes.join(' · ') : op.desc);
+						const label = op.id === 'work' ? (voids ? '作废过期的上班卡' : clockOut ? '打下班卡' : '打上班卡') : op.name;
+						const detail = blocked ?? (voids ? `${voids}，打不了新卡` : outcome ? outcome.notes.join(' · ') : op.desc);
 						return `<button class="row" data-venue="${esc(venue.id)}" data-venue-op="${op.id}" ${blocked ? 'disabled' : ''}><span class="ico">${op.icon}</span><span class="body">${label}<small>${esc(detail)}</small></span></button>`;
 					}).join('') : `<p>再走近 ${Math.max(0, distM - type.radiusM)} 米就能${ops.map((o) => o.op.name).join('、')}。</p>`}</div>`).join('');
 				return intro + clockHtml + cards;
