@@ -149,7 +149,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 		<script>
 			import { AVATARS, NEED_META, ORIGINS, SKILL_META, formatClock, sanitizeState } from '../game/core/character.ts';
 			import type { GameAction } from '../game/core/actions.ts';
-			import { activitiesAt, festivalCalendar, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
+			import { activitiesAt, choiceLabel, festivalCalendar, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { AREAS, EXPERIENCES } from '../game/data/experiences.ts';
 			import { FURNITURE_SLOTS, HOME_COOK } from '../game/data/furniture.ts';
@@ -484,7 +484,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const pr = getProperty(op.id);
 					if (!pr) return '';
 					const living = s.home?.owned === op.id;
-					const status = living ? '自住' : op.rented ? `出租中 +$${pr.rentIncome}/周` : '空置';
+					const status = living ? '自住' : op.rented ? (op.fresh ? `刚挂牌，下个结算日后起收租 $${pr.rentIncome}/周` : `出租中 +$${pr.rentIncome}/周`) : '空置';
 					return `<div style="margin-top:10px"><div class="row"><span class="body">${esc(pr.name)} · ${esc(getLocation(region, pr.loc)!.name)}<small>${status} · 物业费 $${pr.weekly}/周${op.loan ? ` · 贷款 $${op.loan.toLocaleString()}，每周还 $${loanPayment(pr, op.loan)}` : ' · 无贷款'}${op.missed ? ` · ⚠️ 已欠款 ${op.missed} 次（超过 ${FINANCE.graceWeeks} 次强制卖房）` : ''}</small></span><span class="meta">卖出到手<br/>$${saleProceeds(pr, op.loan).toLocaleString()}</span></div>
 					<div class="inline" style="margin-top:6px;flex-wrap:wrap">${living ? '' : `<button data-prop="movein" data-prop-id="${op.id}">搬进去</button>`}<button data-prop="rentout" data-prop-id="${op.id}">${op.rented ? '停止出租' : '出租'}</button>${op.loan ? `<button data-prop="repay" data-prop-id="${op.id}">提前还贷</button>` : ''}<button data-prop="sell" data-prop-id="${op.id}">卖掉</button></div></div>`;
 				}).join('');
@@ -599,7 +599,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const s = state!;
 				modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${hero('event:' + ev.id, ev.icon)}
 					<h2>${ev.icon} ${esc(ev.title)}</h2><p>${esc(ev.text)}</p>
-					<div class="list">${ev.choices.map((c, i) => `<button class="row" data-choice="${i}"${c.cost && c.cost > s.cash ? ' disabled' : ''}><span class="body">${esc(c.label)}${c.cost && c.cost > s.cash ? `<small>需要 $${c.cost}，钱不够</small>` : ''}${c.check ? `<small>${SKILL_META[c.check.skill].icon} ${SKILL_META[c.check.skill].name}检定（你 ${checkScore(s, c.check.skill).total} + 随机 0–60 / 难度 ${c.check.dc}）</small>` : ''}</span></button>`).join('')}</div></div>`;
+					<div class="list">${ev.choices.map((c, i) => `<button class="row" data-choice="${i}"${c.cost && c.cost > s.cash ? ' disabled' : ''}><span class="body">${esc(choiceLabel(c))}${c.cost && c.cost > s.cash ? `<small>需要 $${c.cost}，钱不够</small>` : ''}${c.check ? `<small>${SKILL_META[c.check.skill].icon} ${SKILL_META[c.check.skill].name}检定（你 ${checkScore(s, c.check.skill).total} + 随机 0–60 / 难度 ${c.check.dc}）</small>` : ''}</span></button>`).join('')}</div></div>`;
 				modal.classList.remove('hidden');
 			}
 

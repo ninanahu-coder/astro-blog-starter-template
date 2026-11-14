@@ -72,8 +72,12 @@ function advance(state: PlayerState, minutes: number, region: Region, gains?: ()
 	weeklyTick(state, region);
 	if (!collapsed) return false;
 	collapse(state, region);
-	weeklyTick(state, region); // 住院又过了 12 小时：跨过结算日的话也要结算，不然醒来能抢在结算前卖房、退租
 	return true;
+}
+
+/** 事件选项显示给玩家的文字：要先付钱的选项一律带金额（文案里已经写了就不重复） */
+export function choiceLabel(c: { label: string; cost?: number }): string {
+	return c.cost && !c.label.includes(`$${c.cost}`) ? `${c.label}（$${c.cost}）` : c.label;
 }
 
 /** 体力耗尽：在医院醒来，付医药费（$100 + 现金的 10%，最多 $500；不删档） */
@@ -88,6 +92,8 @@ function collapse(state: PlayerState, region: Region) {
 	state.clock += 12 * 60;
 	addMoodlet(state, 'collapsed'); // 出院时才开始计时，醒来时剩满 48 小时
 	log(state, `你晕倒了，在${getLocation(region, state.loc)?.name ?? ''}的医院醒来，医药费 $${bill}。`);
+	// 住院又过了 12 小时：跨过结算日的话也要结算，不然醒来能抢在结算前卖房、退租。放在这里，饿晕和受伤致晕两条路都覆盖
+	weeklyTick(state, region);
 }
 
 /** 离当前位置最近、有医院的地点；没有就用区域默认医院 */

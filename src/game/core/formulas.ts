@@ -7,6 +7,7 @@
 //   - 吃东西：饱腹换算体力，体力的一部分再换成恢复（农场经营类游戏的「食物 → 体力 → 生命」比例）
 //   - 连练会酸痛、隔开练才有效：超量恢复
 //   - 两次定位推算速度过快就拒绝：真实地点类手游的防“瞬移”冷却
+import { ITEMS } from '../data/items.ts';
 import { activeMoodlets, costMult, mood } from './attributes.ts';
 import type { Effect, PlayerState, SkillKey, VenueTypeDef } from './types.ts';
 
@@ -138,12 +139,19 @@ export function drinkOutcome(state: PlayerState, tier: number): OpOutcome {
 	return { cost, notes, fx: { cash: -cost, needs: { social: 40, fun: 20, energy: -6 }, skills: { charisma: r1(1.5 * k) }, moodlet: 'good-time' } };
 }
 
-/** 采购：$14 买 3 根能量棒 + 3 瓶水（便利店要 $27） */
+/** 采购：$14 买 3 根能量棒 + 3 瓶水（便利店要 $27）。背包装不下的不买，按实际买到的数量计价；都满了就不能买 */
 export function groceriesOutcome(state: PlayerState): OpOutcome {
-	const cost = Math.round(14 * costMult(state));
-	const notes = [`$${cost}`, '能量棒 ×3、饮用水 ×3'];
+	const room = (id: string) => Math.max(0, Math.min(3, (ITEMS.find((i) => i.id === id)?.max ?? 0) - (state.inventory[id] ?? 0)));
+	const snack = room('snack');
+	const water = room('water');
+	const cost = Math.round(14 * costMult(state) * (snack + water) / 6);
+	const notes = [`$${cost}`, [snack ? `能量棒 ×${snack}` : '', water ? `饮用水 ×${water}` : ''].filter(Boolean).join('、') || '背包已满'];
+	if (!snack && !water) return { cost: 0, fx: {}, notes, blocked: '能量棒和饮用水都带满了' };
 	if (state.cash < cost) return { cost, fx: {}, notes, blocked: `需要 $${cost}` };
-	return { cost, notes, fx: { cash: -cost, items: { snack: 3, water: 3 } } };
+	const items: Record<string, number> = {};
+	if (snack) items.snack = snack;
+	if (water) items.water = water;
+	return { cost, notes, fx: { cash: -cost, items } };
 }
 
 /** 看病：健康 +35 × 恢复系数，$45 */

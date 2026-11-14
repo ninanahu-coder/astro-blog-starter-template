@@ -2,6 +2,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction } from '../../src/game/core/actions.ts';
+import { choiceLabel } from '../../src/game/core/engine.ts';
+import { VENUE_EVENTS } from '../../src/game/data/venue-events.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
 	activitiesAt, getPendingEvent, gpsCheckIn, performActivity, resolveEvent, travel, travelOptions,
@@ -141,4 +143,40 @@ test('苍蝇大军：买防蝇网帽真的拿到网帽', () => {
 	assert.equal(r.state.cash, 88);
 	assert.equal(r.state.inventory.flynet, 1);
 	assert.equal(r.state.pending, null);
+});
+
+test('要先付钱的事件选项，显示给玩家的文字一律带金额且只出现一次', () => {
+	let n = 0;
+	for (const ev of [...EVENTS, ...VENUE_EVENTS]) {
+		for (const c of ev.choices) {
+			const shown = choiceLabel(c);
+			if (!c.cost) { assert.equal(shown, c.label); continue; }
+			n++;
+			assert.equal(shown.split(`$${c.cost}`).length - 1, 1, `${ev.id}：${shown}`);
+		}
+	}
+	assert.ok(n >= 11, `检查了 ${n} 个付费选项`);
+	assert.equal(choiceLabel({ label: '叫道路救援', cost: 220 }), '叫道路救援（$220）');
+});
+
+test('受伤直接晕倒住院跨过结算日也要结算', () => {
+	const base = createCharacter({ id: 'hurt-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	const ev = EVENTS.find((e) => e.choices.some((c) => !c.cost && (c.fail?.fx.health ?? 0) <= -5))!;
+	const i = ev.choices.findIndex((c) => !c.cost && (c.fail?.fx.health ?? 0) <= -5);
+	// 第 6 天 23:30、只剩一丝血、租着房却身无分文；能力清零让检定必然失败
+	const s = {
+		...base, cash: 0, health: 0.5, clock: 6 * 1440 + 23 * 60 + 30, nextWeek: 7, pending: { eventId: ev.id },
+		skills: Object.fromEntries(Object.keys(base.skills).map((k) => [k, 0])) as typeof base.skills,
+		home: { type: 'room', loc: base.loc, furniture: {} },
+	};
+	let hit = false;
+	for (let seed = 1; seed <= 40 && !hit; seed++) {
+		const r = applyAction({ ...s, seed }, WA, { t: 'event', choice: i });
+		if (!r.collapsed) continue;
+		hit = true;
+		assert.ok(Math.floor(r.state.clock / 1440) >= 7);
+		assert.ok(r.state.nextWeek > Math.floor(r.state.clock / 1440), '住院后已补结算');
+		assert.equal(r.state.home, null, '付不起房租，房子已被收回');
+	}
+	assert.ok(hit, `${ev.id} 应能造成受伤晕倒`);
 });

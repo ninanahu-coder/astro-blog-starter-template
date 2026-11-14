@@ -570,6 +570,32 @@ test('存档校验：上班卡的职业字段只留已知职业，旧卡没有�
 	assert.deepEqual(ci({ venue: 't-cafe', at: 1000, career: 7 }), { venue: 't-cafe', at: 1000 });
 });
 
+test('采购按背包装得下的数量计价：装不下的不收钱，都满了不能买', () => {
+	const shop: Venue = { ...find('t-cafe'), id: 't-shop', type: 'supermarket' };
+	const R2 = { ...R, venues: [...R.venues, shop] };
+	const buy = (inventory: Record<string, number>) => venueAction(make({ cash: 100, inventory }), R2, { op: 'groceries', ...at(shop) }, T0);
+	const full = buy({});
+	assert.ok(full.ok, full.msg);
+	assert.equal(full.state.cash, 86);
+	assert.deepEqual([full.state.inventory.snack, full.state.inventory.water], [3, 3]);
+	// 水满了：只买能量棒，只收一半的钱
+	const half = buy({ water: 10 });
+	assert.ok(half.ok, half.msg);
+	assert.equal(half.state.cash, 93);
+	assert.deepEqual([half.state.inventory.snack, half.state.inventory.water], [3, 10]);
+	assert.doesNotMatch(half.msg, /饮用水/);
+	// 差一个满：各买到 1 个
+	const one = buy({ snack: 9, water: 9 });
+	assert.deepEqual([one.state.inventory.snack, one.state.inventory.water], [10, 10]);
+	assert.equal(one.state.cash, 100 - Math.round(14 * 2 / 6));
+	// 都满了：不能买，不扣钱、不进冷却、不耗时间
+	const none = buy({ snack: 10, water: 10 });
+	assert.ok(!none.ok);
+	assert.match(none.msg, /带满/);
+	assert.equal(none.state.cash, 100);
+	assert.equal(none.state.venueCd.groceries, undefined);
+});
+
 test('同一地点自己的过期卡：按钮说明和点下去的结果一致', () => {
 	const cafe = find('t-cafe');
 	const workOp = (s: PlayerState, now: number) => venuesNear(s, R, cafe.lat, cafe.lon, 10, now).find((n) => n.venue.id === cafe.id)!.ops.find((o) => o.op.id === 'work')!;
