@@ -715,15 +715,6 @@
       "source": "osm"
     },
     {
-      "id": "osm-node-13608789072",
-      "loc": "fremantle",
-      "name": "Prime Radiology",
-      "lat": -32.063445,
-      "lon": 115.780411,
-      "type": "clinic",
-      "source": "osm"
-    },
-    {
       "id": "osm-node-13722909376",
       "loc": "fremantle",
       "name": "Hecho En Mexico",
@@ -2233,15 +2224,6 @@
       "lat": -32.064542,
       "lon": 115.76829,
       "type": "park",
-      "source": "osm"
-    },
-    {
-      "id": "osm-way-32053519",
-      "loc": "fremantle",
-      "name": "Wally Hagan Basketball Stadium",
-      "lat": -32.080462,
-      "lon": 115.769443,
-      "type": "sports-centre",
       "source": "osm"
     },
     {

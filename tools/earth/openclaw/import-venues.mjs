@@ -6,7 +6,7 @@
 import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkVenue } from './checks.mjs';
+import { checkVenue, dedupeVenues } from './checks.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const inbox = join(here, 'inbox');
@@ -45,11 +45,14 @@ if (errors) {
 	console.error(`\n${errors} 处错误，未写入。`);
 	process.exit(1);
 }
+// 同一场所的重复记录（同类型、同名、几乎同一位置）只留一条
+const { kept, dropped } = dedupeVenues([...byId.values()]);
+for (const d of dropped) console.log(`重复：${d.venue.name}（${d.venue.id}）与 ${d.keep} 相距 ${d.meters} 米，只保留后者。`);
 const byType = {};
-for (const v of byId.values()) byType[v.type] = (byType[v.type] ?? 0) + 1;
-console.log(`校验通过：新增 ${added}，更新 ${updated}，合计 ${byId.size} 个地点。`, byType);
-if (!dryRun && files.length) {
-	current.venues = [...byId.values()].sort((a, b) => a.loc.localeCompare(b.loc) || a.id.localeCompare(b.id));
+for (const v of kept) byType[v.type] = (byType[v.type] ?? 0) + 1;
+console.log(`校验通过：新增 ${added}，更新 ${updated}，去掉重复 ${dropped.length}，合计 ${kept.length} 个地点。`, byType);
+if (!dryRun && (files.length || dropped.length)) {
+	current.venues = [...kept].sort((a, b) => a.loc.localeCompare(b.loc) || a.id.localeCompare(b.id));
 	writeFileSync(target, JSON.stringify(current, null, 2) + '\n');
 	console.log(`已写入 ${target}`);
 }

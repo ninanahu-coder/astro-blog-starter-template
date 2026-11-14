@@ -54,3 +54,23 @@ export function checkPoi(p) {
 	if (near?.id !== loc.id) return `坐标离 ${near?.id} 更近，运行时会归到那里，不能标成 ${loc.id}`;
 	return null;
 }
+
+/** 同一个场所在 OSM 里常有两条记录（一个点加一个轮廓，或重复录入）：同类型、同名、相距不超过这么多米就算同一个 */
+export const DUP_VENUE_M = 30;
+
+/**
+ * 去掉重复的真实地点。只按 OSM id 去重不够：同一场所的 node 和 way 是两个 id。
+ * 每组重复里保留 id 排序靠前的那条。返回留下的记录和被去掉的记录（附保留的是哪条、相距多少米）。不修改入参。
+ */
+export function dedupeVenues(venues) {
+	const norm = (s) => String(s).trim().toLowerCase().replace(/\s+/g, ' ');
+	const sorted = [...venues].sort((a, b) => a.id.localeCompare(b.id));
+	const kept = [];
+	const dropped = [];
+	for (const v of sorted) {
+		const twin = kept.find((k) => k.type === v.type && norm(k.name) === norm(v.name) && haversineKm(k.lat, k.lon, v.lat, v.lon) * 1000 <= DUP_VENUE_M);
+		if (twin) dropped.push({ venue: v, keep: twin.id, meters: Math.round(haversineKm(twin.lat, twin.lon, v.lat, v.lon) * 1000) });
+		else kept.push(v);
+	}
+	return { kept, dropped };
+}

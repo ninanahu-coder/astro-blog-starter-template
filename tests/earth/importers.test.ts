@@ -5,7 +5,7 @@ import { locateInRegion } from '../../src/game/core/geo.ts';
 import { WA } from '../../src/game/data/wa.ts';
 import venuesData from '../../src/game/data/wa.venues.json' with { type: 'json' };
 import poisData from '../../src/game/data/wa.pois.json' with { type: 'json' };
-import { checkPoi, checkVenue } from '../../tools/earth/openclaw/checks.mjs';
+import { checkPoi, checkVenue, dedupeVenues } from '../../tools/earth/openclaw/checks.mjs';
 
 const fre = WA.locations.find((l) => l.id === 'fremantle')!;
 const venue = (over = {}) => ({ id: 'osm-node-1', loc: 'fremantle', name: '测试咖啡馆', lat: fre.lat, lon: fre.lon, type: 'cafe', source: 'osm', ...over });
@@ -30,5 +30,20 @@ test('导入器：仓库里现有的地点和打卡点全部通过校验', () =>
 	const pois = (poisData as { pois: unknown[] }).pois;
 	for (const v of venues) assert.equal(checkVenue(v), null, JSON.stringify(v));
 	for (const p of pois) assert.equal(checkPoi(p), null, JSON.stringify(p));
-	assert.ok(venues.length >= 649 && pois.length >= 8);
+	assert.ok(venues.length >= 647 && pois.length >= 8);
+	assert.deepEqual(dedupeVenues(venues).dropped, [], '仓库里的地点没有重复记录');
+});
+
+test('导入器：同一场所的重复记录只留一条，不同的场所不误并', () => {
+	const a = venue({ id: 'osm-node-2', name: 'Prime Radiology', type: 'clinic' });
+	const sameSpot = { ...a, id: 'osm-node-1' };
+	const outline = { ...a, id: 'osm-way-9', name: ' prime  radiology ', lat: a.lat + 0.00003 }; // 约 3 米，名字只差大小写和空格
+	const otherType = { ...a, id: 'osm-node-3', type: 'cafe' };
+	const branch = { ...a, id: 'osm-node-4', lat: a.lat + 0.003 }; // 约 330 米外的同名分店
+	const otherName = { ...a, id: 'osm-node-5', name: 'Prime Dental' };
+	const input = [a, sameSpot, outline, otherType, branch, otherName];
+	const { kept, dropped } = dedupeVenues(input);
+	assert.deepEqual(kept.map((v: { id: string }) => v.id), ['osm-node-1', 'osm-node-3', 'osm-node-4', 'osm-node-5'], '每组留 id 靠前的');
+	assert.deepEqual(dropped.map((d: { venue: { id: string }; keep: string }) => [d.venue.id, d.keep]), [['osm-node-2', 'osm-node-1'], ['osm-way-9', 'osm-node-1']]);
+	assert.equal(input.length, 6, '不修改入参');
 });
