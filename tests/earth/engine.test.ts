@@ -1,6 +1,9 @@
 // 运行：npm test（Node ≥ 22.18 原生执行 TypeScript）
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { applyAction } from '../../src/game/core/actions.ts';
+import { choiceLabel } from '../../src/game/core/engine.ts';
+import { VENUE_EVENTS } from '../../src/game/data/venue-events.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
 	activitiesAt, getPendingEvent, gpsCheckIn, performActivity, resolveEvent, travel, travelOptions,
@@ -115,4 +118,182 @@ test('存档校验：拒绝畸形数据并钳制数值', () => {
 	assert.equal(clean.heat, 0);
 	assert.ok(!clean.name.includes('<'));
 	assert.deepEqual(sanitizeState(fresh(), locs), fresh());
+});
+
+test('身无分文不会卡死：每个地点都有不要钱、不挑时间、不要能力的收入', () => {
+	for (const l of WA.locations) {
+		const s = { ...fresh(), loc: l.id, cash: 0, vehicle: 'none' };
+		const earn = activitiesAt(s, WA).filter(({ act, blocked }) => (act.fx.cash ?? 0) > 0 && !act.requires && !act.hours && !blocked);
+		assert.ok(earn.length, `${l.id} 没钱时没有任何收入来源`);
+	}
+	// 波浪岩：没车没钱时所有路线都走不了，也没有职业，只能靠这个凑路费
+	const stuck = { ...fresh(), loc: 'wave-rock', cash: 0, vehicle: 'none', visited: { 'wave-rock': 1 } };
+	assert.ok(travelOptions(stuck, WA).every((o) => !o.available));
+	const r = performActivity(stuck, WA, 'recycle');
+	assert.ok(r.ok && r.state.cash > 0, r.msg);
+	// 收入垫底：不能比任何别的挣钱活动划算
+	const perHour = (id: string) => { const a = ACTIVITIES.find((x) => x.id === id)!; return (a.fx.cash ?? 0) / (a.minutes / 60); };
+	for (const a of ACTIVITIES) if ((a.fx.cash ?? 0) > 0 && a.id !== 'recycle') assert.ok(perHour(a.id) > perHour('recycle') * 2, a.id);
+});
+
+test('苍蝇大军：买防蝇网帽真的拿到网帽', () => {
+	const s = { ...createCharacter({ id: 'fly-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 }), cash: 100, pending: { eventId: 'flies' } };
+	const r = applyAction(s, WA, { t: 'event', choice: 0 });
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.cash, 88);
+	assert.equal(r.state.inventory.flynet, 1);
+	assert.equal(r.state.pending, null);
+});
+
+test('要先付钱的事件选项，显示给玩家的文字一律带金额且只出现一次', () => {
+	let n = 0;
+	for (const ev of [...EVENTS, ...VENUE_EVENTS]) {
+		for (const c of ev.choices) {
+			const shown = choiceLabel(c);
+			if (!c.cost) { assert.equal(shown, c.label); continue; }
+			n++;
+			assert.equal(shown.split(`$${c.cost}`).length - 1, 1, `${ev.id}：${shown}`);
+		}
+	}
+	assert.ok(n >= 11, `检查了 ${n} 个付费选项`);
+	assert.equal(choiceLabel({ label: '叫道路救援', cost: 220 }), '叫道路救援（$220）');
+});
+
+test('受伤直接晕倒住院跨过结算日也要结算', () => {
+	const base = createCharacter({ id: 'hurt-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	const ev = EVENTS.find((e) => e.choices.some((c) => !c.cost && (c.fail?.fx.health ?? 0) <= -5))!;
+	const i = ev.choices.findIndex((c) => !c.cost && (c.fail?.fx.health ?? 0) <= -5);
+	// 第 6 天 23:30、只剩一丝血、租着房却身无分文；能力清零让检定必然失败
+	const s = {
+		...base, cash: 0, health: 0.5, clock: 6 * 1440 + 23 * 60 + 30, nextWeek: 7, pending: { eventId: ev.id },
+		skills: Object.fromEntries(Object.keys(base.skills).map((k) => [k, 0])) as typeof base.skills,
+		home: { type: 'room', loc: base.loc, furniture: {} },
+	};
+	let hit = false;
+	for (let seed = 1; seed <= 40 && !hit; seed++) {
+		const r = applyAction({ ...s, seed }, WA, { t: 'event', choice: i });
+		if (!r.collapsed) continue;
+		hit = true;
+		assert.ok(Math.floor(r.state.clock / 1440) >= 7);
+		assert.ok(r.state.nextWeek > Math.floor(r.state.clock / 1440), '住院后已补结算');
+		assert.equal(r.state.home, null, '付不起房租，房子已被收回');
+	}
+	assert.ok(hit, `${ev.id} 应能造成受伤晕倒`);
+});
+
+test('存档校验：待处理事件不存在时清掉，不然所有动作都被挡住又没有界面能处理', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const base = createCharacter({ id: 'pend-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	const clean = (pending: unknown) => sanitizeState({ ...base, pending } as never, locs)!;
+	assert.deepEqual(clean({ eventId: EVENTS[0].id }).pending, { eventId: EVENTS[0].id }, '存在的事件保留');
+	assert.deepEqual(clean({ eventId: VENUE_EVENTS[0].id }).pending, { eventId: VENUE_EVENTS[0].id }, '到店事件也保留');
+	assert.equal(clean({ eventId: 'removed-event' }).pending, null);
+	assert.equal(clean({ eventId: 7 }).pending, null);
+	assert.equal(clean({}).pending, null);
+	// 清掉之后动作恢复正常
+	const r = applyAction(clean({ eventId: 'removed-event' }), WA, { t: 'activity', id: 'rest' });
+	assert.ok(r.ok, r.msg);
+});
+
+test('存档校验：当前所在地不存在时挪到安全落点，而不是判整份存档损坏', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const base = createCharacter({ id: 'loc-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	const lost = { ...base, loc: 'removed-loc', cash: 777, visited: { 'removed-loc': 3, fremantle: 2 } };
+	assert.equal(sanitizeState(lost, locs), null, '没给落点时仍然判损坏（客户端本地存档的旧行为）');
+	assert.equal(sanitizeState(lost, locs, { fallbackLoc: 'nowhere' }), null, '落点本身不存在也不行');
+	const moved = sanitizeState(lost, locs, { fallbackLoc: WA.spawn })!;
+	assert.equal(moved.loc, WA.spawn);
+	assert.equal(moved.cash, 777, '其余进度保留');
+	assert.deepEqual(Object.keys(moved.visited).sort(), ['fremantle', WA.spawn].sort());
+	assert.equal(lost.loc, 'removed-loc', '不修改入参');
+	assert.deepEqual(sanitizeState(moved, locs, { fallbackLoc: WA.spawn }), moved, '再校验一次不变');
+	assert.ok(applyAction(moved, WA, { t: 'activity', id: 'rest' }).ok);
+});
+
+test('存档校验：晚于服务端时间的定位、冷却、上班卡和每日奖励日期会被清掉', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const base = createCharacter({ id: 'time-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	const now = Date.UTC(2026, 10, 15, 4);
+	const today = Math.floor((now + 8 * 3_600_000) / 86_400_000);
+	const far = 1e15;
+	const bad = {
+		...base, fix: { lat: -31.95, lon: 115.86, at: far }, venueCd: { meal: far, train: now - 1000 }, venueEvAt: far,
+		clockIn: { venue: 'some-cafe', at: far }, daily: { day: 9_000_000, streak: 5 },
+	};
+	const clean = sanitizeState(bad, locs, { now })!;
+	assert.equal(clean.fix, null);
+	assert.deepEqual(clean.venueCd, { train: now - 1000 }, '未来的冷却清掉，正常的保留');
+	assert.equal(clean.venueEvAt, 0);
+	assert.equal(clean.clockIn, null);
+	assert.deepEqual(clean.daily, { day: today, streak: 0 }, '按今天已领处理，明天能正常领');
+	// 正常的时间不受影响（含一分钟内的时钟误差）
+	const ok = { ...base, fix: { lat: -31.95, lon: 115.86, at: now + 30_000 }, clockIn: { venue: 'some-cafe', at: now - 60_000 }, daily: { day: today, streak: 5 } };
+	const kept = sanitizeState(ok, locs, { now })!;
+	assert.equal(kept.fix?.at, now + 30_000);
+	assert.equal(kept.clockIn?.at, now - 60_000);
+	assert.deepEqual(kept.daily, { day: today, streak: 5 });
+	// 不传 now（客户端）时不做这项检查
+	assert.equal(sanitizeState(bad, locs)!.fix?.at, far);
+});
+
+test('动作结算的结果不越过存档校验的上限：校验一个刚结算完的状态不会改动它', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const base = createCharacter({ id: 'caps-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	// 各项都顶在上限上，再做一个会挣钱、涨声望、花时间的动作
+	const top = sanitizeState({ ...base, cash: 1e300, respect: 1e300, clock: 1e300, rev: 1e9 - 1, wishes: ['walk'], wishDay: 0 }, locs)!;
+	assert.deepEqual([top.cash, top.respect, top.clock, top.rev], [1e9, 1e6, 1e9, 1e9 - 1]);
+	const r = applyAction(top, WA, { t: 'activity', id: 'recycle' });
+	assert.ok(r.ok, r.msg);
+	assert.deepEqual([r.state.cash, r.state.respect, r.state.clock], [1e9, 1e6, 1e9], '不超过上限');
+	assert.equal(r.state.rev, 0, '版本号到上限回到 0');
+	assert.deepEqual(sanitizeState(r.state, locs), r.state, '再校验一次不变');
+	// 版本号超出范围的存档归零，而不是钳到上限
+	for (const rev of [1e9, 1e300, -1, NaN, '7']) assert.equal(sanitizeState({ ...base, rev } as never, locs)!.rev, 0, String(rev));
+	assert.equal(sanitizeState({ ...base, rev: 41.9 }, locs)!.rev, 41);
+	// 区域字段只认存在的区域
+	for (const region of ['constructor', '__proto__', 'mars', 7]) assert.equal(sanitizeState({ ...base, region } as never, locs)!.region, 'wa', String(region));
+});
+
+test('一次性奖励的记录被垃圾 id 塞满时，真实的记录不会被挤掉，奖励不能再领', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const base = createCharacter({ id: 'once-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	const junk = Array.from({ length: 2000 }, (_, i) => `junk-${i}`);
+	const poi = WA.pois.find((x) => x.loc === 'perth')!;
+	const dirty = sanitizeState({ ...base, checkins: junk, seen: junk.slice(0, 500) }, locs)!;
+	assert.deepEqual(dirty.checkins, [], '不存在的打卡点不保留');
+	assert.deepEqual(dirty.seen, []);
+	// 打卡一次，过一遍存档校验（服务端每次读取都会做），再打一次
+	const first = applyAction({ ...base, checkins: junk }, WA, { t: 'gps', lat: poi.lat, lon: poi.lon });
+	assert.ok(first.ok, first.msg);
+	assert.ok(first.state.respect > base.respect, '第一次有奖励');
+	const reloaded = sanitizeState(first.state, locs)!;
+	assert.ok(reloaded.checkins.includes(poi.id), '真实的打卡记录还在');
+	const second = applyAction(reloaded, WA, { t: 'gps', lat: poi.lat, lon: poi.lon });
+	assert.equal(second.state.respect, reloaded.respect, '第二次没有奖励');
+	// 一次性事件同理；重复的 id 去重
+	const once = EVENTS.find((e) => e.once)!;
+	const seen = sanitizeState({ ...base, seen: [...junk.slice(0, 500), once.id, once.id] }, locs)!.seen;
+	assert.deepEqual(seen, [once.id]);
+});
+
+test('每日奖励和欠息也不越过存档校验的上限', async () => {
+	const { claimDaily } = await import('../../src/game/core/daily.ts');
+	const { PROPERTIES } = await import('../../src/game/data/properties.ts');
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const base = createCharacter({ id: 'cap2-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	// 现金、声望、版本号都顶在上限：领第 7 天的大礼（加现金也加声望）
+	const top = sanitizeState({ ...base, cash: 1e300, respect: 1e300, rev: 1e9 - 1, daily: { day: 99, streak: 6 } }, locs)!;
+	const claim = claimDaily(top, 100)!;
+	assert.match(claim.msg, /满 7 天/);
+	assert.deepEqual([claim.state.cash, claim.state.respect, claim.state.rev], [1e9, 1e6, 0]);
+	assert.deepEqual(sanitizeState(claim.state, locs), claim.state, '再校验一次不变');
+	// 贷款已等于房价（只有损坏的存档会这样），付不起这周的钱：欠的利息不再往上加
+	const def = PROPERTIES[0];
+	const owner = sanitizeState({ ...base, cash: 0, clock: 6 * 1440 + 23 * 60, nextWeek: 7, properties: [{ id: def.id, loan: 1e300, rented: false, missed: 0 }] }, locs)!;
+	assert.equal(owner.properties[0].loan, def.price);
+	const r = applyAction(owner, WA, { t: 'activity', id: 'rest' });
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.properties[0].missed, 1, '这周确实欠款了');
+	assert.equal(r.state.properties[0].loan, def.price, '本金不超过房价');
+	assert.deepEqual(sanitizeState(r.state, locs), r.state);
 });

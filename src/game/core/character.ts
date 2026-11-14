@@ -11,9 +11,14 @@ import { VEHICLES } from '../data/vehicles.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { WISHES } from '../data/wishes.ts';
+import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
+import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
+import { realDayOf } from './daily.ts';
+import { getRegion } from '../data/wa.ts';
 import { COURSES } from '../data/courses.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
+import { EVENTS } from '../data/events.ts';
 import { validTraits } from './attributes.ts';
 
 export const NEED_META: Record<string, { name: string; icon: string }> = {
@@ -65,7 +70,7 @@ export function createCharacter(opts: {
 	origin: string;
 	region: string;
 	spawn: string;
-	seed?: number;
+	seed: number; // 随机种子由服务端生成后传入，引擎内不自己生成随机数
 	traits?: string[];
 }): PlayerState {
 	const origin = ORIGINS.find((o) => o.id === opts.origin) ?? ORIGINS[0];
@@ -97,14 +102,21 @@ export function createCharacter(opts: {
 		home: null,
 		properties: [],
 		nextWeek: 7,
+		moodlets: [],
 		wishes: [],
 		wishDay: -1,
 		daily: { day: 0, streak: 0 },
 		collected: [],
 		courseDays: {},
 		pending: null,
+		fix: null,
+		venueCd: {},
+		venueEvAt: 0,
+		clockIn: null,
+		realWork: { day: 0, min: 0 },
+		workDay: -1,
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
-		seed: (opts.seed ?? Math.floor(Math.random() * 2 ** 31)) >>> 0,
+		seed: opts.seed >>> 0,
 		rev: 0,
 	};
 }
@@ -120,16 +132,46 @@ const num = (v: unknown, lo: number, hi: number, dflt: number) =>
 const strList = (v: unknown, max: number) =>
 	Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length <= 64).slice(0, max) : [];
 
+/** 只留在 known 里的字符串，去重，保持原有顺序。长度天然不超过 known 的大小 */
+const knownList = (v: unknown, known: Set<string>) =>
+	Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && known.has(x)))] : [];
+
 /**
  * 校验并规范化一份不可信的存档（来自 localStorage 或网络）。
  * 结构不对返回 null；数值全部钳制到合法范围。服务端落盘前必须调用。
  */
-export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerState | null {
+/** 存档里几个只增不减的数的上限。sanitizeState() 和动作结算（capState）共用：动作的结果不能越过校验允许的范围 */
+export const CAPS = { clock: 1e9, cash: 1e9, respect: 1e6, rev: 1e9 };
+
+/** 下一个版本号：到上限就回到 0，永远落在校验允许的范围内 */
+export const nextRev = (rev: number) => (rev + 1 >= CAPS.rev ? 0 : rev + 1);
+
+/** 把动作结算后的状态钳回上限（原地修改，调用方传入的是引擎新建的对象）。正常游玩到不了这些上限，只有损坏的存档会碰到 */
+export function capState(state: PlayerState): PlayerState {
+	state.clock = Math.min(state.clock, CAPS.clock);
+	state.cash = Math.min(state.cash, CAPS.cash);
+	state.respect = Math.min(state.respect, CAPS.respect);
+	return state;
+}
+
+export interface SanitizeOpts {
+	/** 当前所在地已经不存在（地点被删或改名）时把人挪到这里，而不是判整份存档损坏 */
+	fallbackLoc?: string;
+	/** 可信的当前现实时间（毫秒，服务端传）：晚于它的定位、冷却、上班卡时间和每日奖励日期都是坏数据，清掉 */
+	now?: number;
+}
+
+export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: SanitizeOpts = {}): PlayerState | null {
 	if (!raw || typeof raw !== 'object') return null;
-	const r = raw as Record<string, any>;
-	if (r.v !== 1 || typeof r.id !== 'string' || typeof r.loc !== 'string') return null;
-	if (!/^[a-zA-Z0-9_-]{6,40}$/.test(r.id)) return null;
-	if (knownLocs && !knownLocs.has(r.loc)) return null;
+	const r0 = raw as Record<string, any>;
+	if (r0.v !== 1 || typeof r0.id !== 'string' || typeof r0.loc !== 'string') return null;
+	if (!/^[a-zA-Z0-9_-]{6,40}$/.test(r0.id)) return null;
+	let r = r0;
+	if (knownLocs && !knownLocs.has(r.loc)) {
+		if (!opts.fallbackLoc || !knownLocs.has(opts.fallbackLoc)) return null;
+		// 不修改入参：换一个浅拷贝，把人挪到安全落点并记为到访过
+		r = { ...r0, loc: opts.fallbackLoc, visited: { ...(r0.visited && typeof r0.visited === 'object' ? r0.visited : {}), [opts.fallbackLoc]: 1 } };
+	}
 	const needs = {} as Needs;
 	for (const k of NEED_KEYS) needs[k] = num(r.needs?.[k], 0, 100, 50);
 	const skills = {} as Skills;
@@ -146,25 +188,27 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 				.filter((j: any) => j && typeof j.text === 'string')
 				.map((j: any) => ({ t: num(j.t, 0, 1e9, 0), text: String(j.text).slice(0, 200) }))
 		: [];
-	return {
+	const out: PlayerState = {
 		v: 1,
 		id: r.id,
 		name: cleanName(r.name) || '旅人',
 		avatar: AVATARS.includes(r.avatar) ? r.avatar : AVATARS[0],
 		origin: ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id,
-		region: typeof r.region === 'string' ? r.region.slice(0, 16) : 'wa',
-		clock: num(r.clock, 0, 1e9, START_CLOCK),
+		region: getRegion(r.region) ? r.region : 'wa',
+		clock: num(r.clock, 0, CAPS.clock, START_CLOCK),
 		loc: r.loc,
-		cash: Math.round(num(r.cash, 0, 1e9, 0)),
+		cash: Math.round(num(r.cash, 0, CAPS.cash, 0)),
 		health: num(r.health, 0, 100, 100),
-		respect: num(r.respect, 0, 1e6, 0),
+		respect: num(r.respect, 0, CAPS.respect, 0),
 		heat: num(r.heat, 0, 100, 0),
 		needs,
 		skills,
 		vehicle: VEHICLES.some((v) => v.id === r.vehicle) ? r.vehicle : 'none',
 		visited,
-		checkins: strList(r.checkins, 2000),
-		seen: strList(r.seen, 500),
+		// 一次性奖励的记录只留现在还存在的 id、去重。不能只按长度截：列表被垃圾 id 塞满的话，
+		// 引擎新追加在末尾的真实 id 下次校验会被截掉，那份奖励就能再领一次
+		checkins: knownList(r.checkins, new Set((getRegion(r.region) ?? getRegion('wa'))!.pois.map((p) => p.id))),
+		seen: knownList(r.seen, new Set(EVENTS.map((e) => e.id))),
 		traits: (() => {
 			const t = strList(r.traits, MAX_TRAITS);
 			return validTraits(t, MAX_TRAITS) ? t : [];
@@ -172,6 +216,8 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 		inventory: cleanInventory(r.inventory),
 		relations: cleanRelations(r.relations),
 		job: cleanJob(r.job, knownLocs),
+		// 旧存档没有这个字段：用当前工作的 lastDay 补上
+		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
 		...cleanEstate(r, knownLocs),
 		nextWeek: (() => {
 			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周
@@ -179,9 +225,21 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 			const raw = typeof r.nextWeek === 'number' ? r.nextWeek : typeof r.home?.paidUntil === 'number' ? r.home.paidUntil : today + 7;
 			return Math.floor(num(raw, today - 7, today + 7, today + 7));
 		})(),
+		moodlets: (() => {
+			// 只保留已知状态；失效时间不能早于现在、也不能超过该状态的最长时长
+			const clock = num(r.clock, 0, 1e9, START_CLOCK);
+			const out: { id: string; until: number }[] = [];
+			for (const m of Array.isArray(r.moodlets) ? r.moodlets.slice(0, 50) : []) {
+				const def = MOODLETS.find((d) => d.id === m?.id);
+				if (!def || out.some((o) => o.id === def.id) || typeof m.until !== 'number' || !Number.isFinite(m.until)) continue;
+				if (m.until <= clock) continue;
+				out.push({ id: def.id, until: Math.floor(Math.min(m.until, clock + def.hours * 60)) });
+			}
+			return out.slice(-MOODLET_MAX);
+		})(),
 		wishes: [...new Set(strList(r.wishes, 10))].filter((id) => WISHES.some((w) => w.id === id)),
 		wishDay: Math.floor(num(r.wishDay, -1, 1e7, -1)),
-		daily: { day: Math.floor(num(r.daily?.day, 0, 1e7, 0)), streak: Math.floor(num(r.daily?.streak, 0, 1e6, 0)) },
+		daily: cleanDaily(r, opts.now),
 		collected: [...new Set(strList(r.collected, 200))].filter((id) => EXPERIENCES.some((e) => e.id === id)),
 		courseDays: (() => {
 			const out: Record<string, number> = {};
@@ -191,14 +249,55 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 			}
 			return out;
 		})(),
-		pending: r.pending && typeof r.pending.eventId === 'string' ? { eventId: r.pending.eventId.slice(0, 64) } : null,
+		// 只留还存在的事件：事件被删掉或改名后，界面弹不出来，但其他动作都会被「先处理眼前的事件」挡住
+		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
+		...cleanReal(r, opts.now),
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
-		rev: Math.floor(num(r.rev, 0, 1e9, 0)),
+		// 版本号超出范围说明存档坏了：归零而不是钳到上限。钳到上限的话，下一次动作加一又超出，再读又被钳回去，客户端每次都版本冲突
+		rev: typeof r.rev === 'number' && Number.isFinite(r.rev) && r.rev >= 0 && r.rev < CAPS.rev ? Math.floor(r.rev) : 0,
 	};
+	// 按职业打的上班卡必须对得上一份现有的工作，否则作废：不然重新应聘同一职业就能接着用旧卡
+	if (out.clockIn?.career && out.job?.career !== out.clockIn.career) out.clockIn = null;
+	return out;
 }
 
 export const JOURNAL_MAX = 40;
+
+const VENUE_ID = /^[a-z0-9][a-z0-9-]{2,63}$/;
+const finiteIn = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+
+/** 现实时间戳允许比服务端时间超前这么多（毫秒），再多就当坏数据 */
+const FUTURE_SLACK_MS = 60_000;
+
+/** 每日奖励：领取日在未来的话按「今天已领、连续天数归零」处理，不然要等到那一天才能再领 */
+function cleanDaily(r: any, now?: number): PlayerState['daily'] {
+	const daily = { day: Math.floor(num(r.daily?.day, 0, 1e7, 0)), streak: Math.floor(num(r.daily?.streak, 0, 1e6, 0)) };
+	if (now === undefined) return daily;
+	const today = realDayOf(now);
+	return daily.day > today ? { day: today, streak: 0 } : daily;
+}
+
+/** 真实定位相关字段：坐标只留 3 位小数，时间为非负整数且不能在未来，动作名只留已知的 */
+function cleanReal(r: any, now?: number): Pick<PlayerState, 'fix' | 'venueCd' | 'venueEvAt' | 'clockIn' | 'realWork'> {
+	const tMax = now === undefined ? 1e15 : now + FUTURE_SLACK_MS;
+	const f = r.fix;
+	const fix = f && finiteIn(f.lat, -90, 90) && finiteIn(f.lon, -180, 180) && finiteIn(f.at, 0, tMax)
+		? { lat: Math.round(f.lat * 1000) / 1000, lon: Math.round(f.lon * 1000) / 1000, at: Math.floor(f.at) }
+		: null;
+	const venueCd: PlayerState['venueCd'] = {};
+	for (const op of VENUE_OPS) {
+		const t = r.venueCd?.[op.id];
+		if (finiteIn(t, 0, tMax)) venueCd[op.id] = Math.floor(t);
+	}
+	const c = r.clockIn;
+	// career 只留已知的职业；旧存档的卡没有这个字段，按零工结算
+	const ciCareer = c && CAREERS.some((x) => x.id === c.career) ? { career: c.career as string } : {};
+	const clockIn = c && typeof c.venue === 'string' && VENUE_ID.test(c.venue) && finiteIn(c.at, 0, tMax) ? { venue: c.venue, at: Math.floor(c.at), ...ciCareer } : null;
+	const realWork = { day: Math.floor(num(r.realWork?.day, 0, 1e7, 0)), min: Math.floor(num(r.realWork?.min, 0, 1440, 0)) };
+	const venueEvAt = finiteIn(r.venueEvAt, 0, tMax) ? Math.floor(r.venueEvAt) : 0;
+	return { fix, venueCd, venueEvAt, clockIn, realWork };
+}
 
 function cleanJob(raw: any, knownLocs?: Set<string>): Job | null {
 	if (!raw || typeof raw !== 'object') return null;
@@ -226,6 +325,9 @@ function cleanEstate(r: any, knownLocs?: Set<string>): { properties: OwnedProper
 				loan: Math.round(num(raw.loan, 0, def.price, 0)),
 				rented: raw.rented === true,
 				missed: Math.floor(num(raw.missed, 0, FINANCE.graceWeeks, 0)),
+				...(raw.rented === true && raw.fresh === true ? { fresh: true } : {}),
+				// 旧存档没有 lived：正住在里面就算住过
+				...(raw.lived === true || r.home?.owned === def.id ? { lived: true } : {}),
 			});
 		}
 	}
@@ -249,19 +351,29 @@ function cleanHome(raw: any, knownLocs?: Set<string>): Home | null {
 	return { type: raw.type, loc: raw.loc, furniture };
 }
 
-/** 关系只保留已知 NPC，分数钳制，日期为非负整数 */
+/**
+ * 关系只保留已知 NPC，分数钳制，日期为非负整数；剧情门槛只保留该 NPC 真有的，物品只保留已知的。
+ * 旧存档没有 seen：按当前分数把已经越过的门槛记为看过（不补发回报），旧的 bonded 视为看过「好友」那一段。
+ */
 function cleanRelations(raw: unknown): Record<string, Relation> {
 	const out: Record<string, Relation> = {};
 	if (!raw || typeof raw !== 'object') return out;
+	const items = new Set(ITEMS.map((i) => i.id));
 	for (const npc of NPCS) {
 		const r = (raw as Record<string, any>)[npc.id];
 		if (!r || typeof r !== 'object') continue;
 		const last: Relation['last'] = {};
-		for (const k of ['chat', 'gift', 'help'] as const) {
+		for (const k of ['chat', 'gift', 'help', 'perk'] as const) {
 			const d = r.last?.[k];
 			if (typeof d === 'number' && Number.isFinite(d) && d >= 0) last[k] = Math.floor(d);
 		}
-		out[npc.id] = { score: num(r.score, -100, 100, 0), last, bonded: r.bonded === true };
+		const score = num(r.score, -100, 100, 0);
+		const gates = npc.stories.map((st) => st.at);
+		const seen = Array.isArray(r.seen)
+			? gates.filter((g) => r.seen.includes(g))
+			: gates.filter((g) => g <= score || (r.bonded === true && g <= 60));
+		const known = Array.isArray(r.known) ? [...new Set(r.known.filter((i: unknown) => typeof i === 'string' && items.has(i)))] as string[] : [];
+		out[npc.id] = { score, last, seen, known };
 	}
 	return out;
 }

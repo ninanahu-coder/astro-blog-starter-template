@@ -69,6 +69,12 @@ test('节日：只在当天开放专属体验；到场有提示', () => {
 
 	const arrive = travel(make({ loc: 'fremantle', clock: at(15, fireworksDay), cash: 500 }), WA, 'perth', 'road');
 	assert.ok(arrive.state.journal.some((j) => j.text.includes('天鹅河烟火夜')));
+	// 节日气氛还在时再进城不重复加娱乐
+	const from = make({ loc: 'fremantle', clock: at(15, fireworksDay), cash: 500, needs: { hunger: 80, energy: 80, hygiene: 80, fun: 40, social: 80 } });
+	const first = travel(from, WA, 'perth', 'road').state;
+	const again = travel({ ...from, moodlets: [{ id: 'festival', until: from.clock + 600 }] }, WA, 'perth', 'road').state;
+	assert.equal(Math.round(first.needs.fun - again.needs.fun), 10);
+	assert.ok(again.moodlets.some((m) => m.id === 'festival' && m.until > from.clock + 600), '状态时长照常刷新');
 });
 
 test('季节事件只在对应季节出现', () => {

@@ -4,7 +4,7 @@ import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { mood } from '../../src/game/core/attributes.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
-	applyJob, careersAt, homesAt, performActivity, promotionStatus, quitJob, rentHome, shiftBlocked, sleepHome, workShift,
+	applyJob, careersAt, homesAt, leaveHome, performActivity, promotionStatus, quitJob, rentHome, shiftBlocked, sleepHome, workShift,
 } from '../../src/game/core/engine.ts';
 import { CAREERS, PROMOTE_SHIFTS } from '../../src/game/data/careers.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
@@ -65,6 +65,7 @@ test('升职：上满班次、表现好、满足下一级要求', () => {
 	assert.equal(s.job!.shifts, 0, '新等级重新计数');
 	assert.equal(promotionStatus(s)!.next.title, '店长');
 	assert.match(promotionStatus(s)!.blocked ?? '', /声望/, '店长要声望');
+	assert.equal(quitJob({ ...s, pending: { eventId: 'heat-check' } }).ok, false, '有待处理事件时不能辞职');
 	assert.ok(quitJob(s).ok);
 	assert.equal(quitJob(s).state.job, null);
 });
@@ -105,6 +106,30 @@ test('动作协议支持职业与住房', () => {
 	assert.ok(r.ok && r.state.rev === 1);
 });
 
+test('上过班后辞职再应聘：当天不能再上一班，第二天可以', () => {
+	const hired = applyJob(rested(make({ clock: at(6) })), WA, 'barista');
+	assert.ok(hired.ok, hired.msg);
+	const first = workShift(rested(hired.state), WA);
+	assert.ok(first.ok, first.msg);
+	assert.equal(first.state.workDay, 0);
+	const again = applyJob(rested(quitJob({ ...first.state, pending: null }).state), WA, 'barista');
+	assert.ok(again.ok, again.msg);
+	assert.equal(shiftBlocked(rested(again.state)), '今天已经上过班了');
+	const second = workShift(rested(again.state), WA);
+	assert.ok(!second.ok);
+	assert.equal(second.state.cash, again.state.cash);
+	assert.notEqual(shiftBlocked(rested({ ...again.state, clock: at(7, 1) })), '今天已经上过班了');
+});
+
+test('存档校验：旧存档没有 workDay，用当前工作的 lastDay 补上', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const old = { ...make({ job: { career: 'barista', loc: 'perth', level: 0, shifts: 1, good: 0, lastDay: 3 } }) } as Record<string, unknown>;
+	delete old.workDay;
+	assert.equal(sanitizeState(old as never, locs)!.workDay, 3);
+	assert.equal(sanitizeState({ ...make(), workDay: 'x' } as never, locs)!.workDay, -1);
+	assert.equal(sanitizeState({ ...make(), workDay: 7 } as never, locs)!.workDay, 7);
+});
+
 test('存档校验：职业与住房', () => {
 	const locs = new Set(WA.locations.map((l) => l.id));
 	const dirty = make({
@@ -121,4 +146,11 @@ test('存档校验：职业与住房', () => {
 	const migrated = sanitizeState(old, locs)!;
 	assert.equal(migrated.job, null);
 	assert.equal(migrated.home, null);
+});
+
+test('有待处理事件时不能退房', () => {
+	const s = { ...make(), cash: 2000 };
+	const home = rentHome(s, WA, 'room').state;
+	assert.equal(leaveHome({ ...home, pending: { eventId: 'heat-check' } }).ok, false);
+	assert.ok(leaveHome(home).ok);
 });

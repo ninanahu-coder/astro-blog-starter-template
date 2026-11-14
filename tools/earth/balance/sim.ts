@@ -103,9 +103,12 @@ function headTo(b: Bot, dest: string): boolean {
 function step(b: Bot) {
 	const s = b.s;
 	const plan = b.plan;
-	if (getPendingEvent(s)) {
+	const ev = getPendingEvent(s);
+	if (ev) {
 		b.stats.events++;
-		tryAct(b, { t: 'event', choice: 0 });
+		// 选第一个付得起的选项（有些选项要先付钱）
+		const pick = Math.max(0, ev.choices.findIndex((c) => !c.cost || c.cost <= s.cash));
+		tryAct(b, { t: 'event', choice: pick });
 		return;
 	}
 	const h = hourOf(s.clock);
@@ -249,7 +252,7 @@ out(`# 数值平衡模拟报告`);
 out();
 out(`${DAYS} 个游戏日 × 每种策略 ${RUNS} 个随机种子。由 \`npm run earth:sim\` 生成。`);
 out();
-out('| 策略 | 第 7 天现金（中位） | 第 30 天 | 第 60 天 | 第 60 天 10%–90% | 日均净收入 | 第 60 天净资产 | 买房（中位天数） | 平均心情 | 晕倒/人 | 被收房或断供/人 | 升职/人 | 第 1 / 2 次升职（中位天数） | 破产天数占比 |');
+out('| 策略 | 第 7 天现金（中位） | 第 30 天 | 第 60 天 | 第 60 天 10%–90% | 日均净收入 | 期末净资产 | 买房（中位天数） | 平均心情 | 晕倒/人 | 被收房或断供/人 | 升职/人 | 第 1 / 2 次升职（中位天数） | 破产天数占比 |');
 out('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |');
 const flows: string[] = [];
 const skillRows: [string, number[]][] = [];

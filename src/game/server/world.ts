@@ -7,7 +7,7 @@ import { applyAction, parseAction, publicState } from '../core/actions.ts';
 import { claimDaily, realDayOf } from '../core/daily.ts';
 import { refreshWishes } from '../core/wishes.ts';
 import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
-import { REGIONS } from '../data/wa.ts';
+import { getRegion, REGIONS } from '../data/wa.ts';
 
 const SAVES_ROOM = '@SAVES';
 const MAX_CONNS = 200;
@@ -17,6 +17,7 @@ const IDLE_TIMEOUT_MS = 70000; // 客户端每 20s ping
 const CHAT_MAX = 120;
 const SAVE_BODY_MAX = 48 * 1024;
 const SAVE_WINDOW_MS = 60 * 1000;
+const CLOCK_BACK_MAX_MS = 24 * 60 * 60 * 1000; // 时钟回拨最多按这么久处理
 const SAVE_LIMIT = 90; // 每 IP 每分钟（每个动作一次请求）
 const EMOTES = ['👋', '🤝', '🍻', '📸', '❤️', '😂'];
 const ID_RE = /^[a-zA-Z0-9_-]{6,40}$/;
@@ -63,7 +64,7 @@ export class EarthWorld {
 		if ((request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
 			return new Response('expected websocket', { status: 426 });
 		}
-		const region = REGIONS[url.searchParams.get('region') || 'wa'];
+		const region = getRegion(url.searchParams.get('region') || 'wa');
 		if (!region) return new Response('unknown region', { status: 404 });
 		const id = url.searchParams.get('id') || '';
 		if (!ID_RE.test(id)) return new Response('bad id', { status: 400 });
@@ -218,7 +219,9 @@ export class EarthWorld {
 		}
 		// 同一存档串行处理：上一个请求结束后才开始下一个
 		const prev = this.locks.get(id) ?? Promise.resolve();
-		const run = prev.then(() => this.handleSaveLocked(body, id, key, now));
+		// 结算和存档校验用的时间在轮到这个请求时才取，不用请求到达时的时间：
+		// 上传得慢的请求可能排在后到的请求后面执行，拿着旧时间会把后者刚写入的时间戳当成「未来」清掉
+		const run = prev.then(() => this.handleSaveLocked(body, id, key, Date.now()));
 		const tail = run.catch(() => {});
 		this.locks.set(id, tail);
 		tail.then(() => {
@@ -227,10 +230,14 @@ export class EarthWorld {
 		return run;
 	}
 
-	private async handleSaveLocked(body: any, id: string, key: string, now: number): Promise<Response> {
+	private async handleSaveLocked(body: any, id: string, key: string, wall: number): Promise<Response> {
 		const keyHash = await sha256Hex(id + ':' + key);
 		const rec = await this.ctx.storage.get<{ keyHash: string; state: any; at: number }>('save:' + id);
 		if (rec && !timingSafeEqual(rec.keyHash, keyHash)) return json({ ok: false, msg: '同步码无效' }, 403);
+		// 同一存档的时间不倒退：服务器时钟回拨时沿用上次落盘的时间，不然跨午夜回拨能把刚领的每日奖励改回前一天再领一次，
+		// 回拨超过一分钟还会把合法的定位、冷却、上班卡当成「未来」清掉。落盘时间超前太多（超过一天）当作坏数据，不跟它走
+		const last = rec && Number.isFinite(rec.at) ? rec.at : 0;
+		const now = last > wall && last - wall <= CLOCK_BACK_MAX_MS ? last : wall;
 		const action = body.action;
 
 		if (action === 'create') {
@@ -255,26 +262,35 @@ export class EarthWorld {
 		}
 
 		if (!rec) return json({ ok: false, msg: '云端没有这个存档' }, 404);
-		const region = REGIONS[rec.state?.region] ?? REGIONS.wa;
-		const current = sanitizeState(rec.state, new Set(region.locations.map((l) => l.id)));
+		const region = getRegion(rec.state?.region) ?? REGIONS.wa;
+		const current = sanitizeState(rec.state, new Set(region.locations.map((l) => l.id)), { fallbackLoc: region.spawn, now });
 		if (!current) return json({ ok: false, msg: '云端存档已损坏' }, 500);
 
 		// 每日奖励：按现实日期（服务端时钟）每天第一次读取或行动时发放
+		// 落盘和返回之前统一再过一遍存档校验：存下来的永远是规范形式，不依赖每条规则各自守住上限
+		const locs = new Set(region.locations.map((l) => l.id));
+		const canon = (s: typeof current) => sanitizeState(s, locs, { fallbackLoc: region.spawn, now }) ?? s;
 		const claim = claimDaily(current, realDayOf(now));
-		const live = claim ? claim.state : current;
-		if (claim && action === 'get') await this.ctx.storage.put('save:' + id, { keyHash, state: live, at: now });
+		const live = claim ? canon(claim.state) : current;
+		// 校验时修过存档（挪了地点、清了未来的时间戳等）也要写回：不然只上线不操作的话，每次都重新修一遍，
+		// 被改成「今天已领」的每日奖励永远领不到
+		const migrated = JSON.stringify(current) !== JSON.stringify(rec.state);
+		if ((claim || migrated) && action === 'get') await this.ctx.storage.put('save:' + id, { keyHash, state: live, at: now });
 
 		if (action === 'get') return json({ ok: true, state: publicState(live), at: now, daily: claim?.msg });
 
 		if (action === 'act') {
 			// 客户端看到的版本落后（另一台设备刚玩过）：不执行，把最新存档还给它
-			if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: '进度已在另一台设备上更新', state: publicState(current) }, 409);
+			if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: '进度已在另一台设备上更新', state: publicState(current), at: now }, 409);
 			const act = parseAction(body.act);
 			if (!act) return json({ ok: false, msg: '动作无效' }, 400);
 			// 版本号按领奖前的存档比对（上面已检查），动作在领奖后的存档上执行
-			const r = applyAction(live, region, act);
-			if (r.state !== current) await this.ctx.storage.put('save:' + id, { keyHash, state: r.state, at: now });
-			return json({ ok: r.ok, msg: r.msg, state: publicState(r.state), daily: claim?.msg });
+			const r = applyAction(live, region, act, now);
+			const next = r.state !== live ? canon(r.state) : r.state;
+			if (next !== current) await this.ctx.storage.put('save:' + id, { keyHash, state: next, at: now });
+			// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
+			else if (migrated) await this.ctx.storage.put('save:' + id, { keyHash, state: current, at: now });
+			return json({ ok: r.ok, msg: r.msg, state: publicState(next), at: now, daily: claim?.msg });
 		}
 		return json({ ok: false, msg: '请求无效' }, 400);
 	}

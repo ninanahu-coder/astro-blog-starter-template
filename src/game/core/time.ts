@@ -26,6 +26,10 @@ export function isOpen(hours: Hours | undefined, clock: number): boolean {
 	return open < close ? h >= open && h < close : h >= open || h < close;
 }
 
+/** 星期：游戏第 1 天是周一。0 = 周一 … 6 = 周日 */
+export const WEEKDAYS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'] as const;
+export const weekdayOf = (clock: number) => ((dayOf(clock) % 7) + 7) % 7;
+
 export const hoursLabel = (hours: Hours) => `${hours[0]}:00–${hours[1] % 24}:00`;
 
 // ---------- 日历：一年四季，每季 28 天 ----------

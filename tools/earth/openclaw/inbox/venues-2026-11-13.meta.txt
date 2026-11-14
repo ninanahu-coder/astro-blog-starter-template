@@ -1,0 +1,42 @@
+来源：OpenStreetMap，经 Overpass API（https://overpass-api.de/api/interpreter）
+许可：ODbL，© OpenStreetMap contributors
+查询时间：2026-11-13T17:53:41.110Z
+地点：perth, fremantle；半径 5 km；每种类型每地最多 40 条（有 wikidata / website / opening_hours 的优先）
+perth：OSM 返回 1684，跳过 223，保留 346，数据版本 2026-11-13T17:12:53Z，{"restaurant":40,"fast-food":40,"cafe":40,"pub":40,"gym":40,"sports-centre":16,"pool":2,"park":40,"library":8,"supermarket":40,"clinic":40}
+fremantle：OSM 返回 601，跳过 49，保留 304，数据版本 2026-11-13T17:29:05Z，{"restaurant":40,"fast-food":40,"cafe":40,"pub":40,"gym":30,"sports-centre":14,"pool":1,"park":40,"library":7,"supermarket":20,"clinic":32}
+
+查询语句（每种类型一条，以第一个地点为例；矩形范围查询后按到地点中心的距离筛到半径内）：
+[out:json][timeout:90];
+nwr["amenity"="restaurant"]["name"](-31.99492,115.80707,-31.90508,115.91293);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"="fast_food"]["name"](-31.99492,115.80707,-31.90508,115.91293);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"="cafe"]["name"](-31.99492,115.80707,-31.90508,115.91293);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"~"^(pub|bar)$"]["name"](-31.99492,115.80707,-31.90508,115.91293);
+out center tags;
+[out:json][timeout:90];
+nwr["leisure"="fitness_centre"]["name"](-31.99492,115.80707,-31.90508,115.91293);
+out center tags;
+[out:json][timeout:90];
+nwr["leisure"="sports_centre"]["name"](-31.99492,115.80707,-31.90508,115.91293);
+out center tags;
+[out:json][timeout:90];
+nwr["leisure"="swimming_pool"]["access"!~"^(private|no|customers)$"]["name"](-31.99492,115.80707,-31.90508,115.91293);
+out center tags;
+[out:json][timeout:90];
+nwr["leisure"="park"]["name"](-31.99492,115.80707,-31.90508,115.91293);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"="library"]["name"](-31.99492,115.80707,-31.90508,115.91293);
+out center tags;
+[out:json][timeout:90];
+nwr["shop"="supermarket"]["name"](-31.99492,115.80707,-31.90508,115.91293);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"~"^(clinic|doctors|hospital)$"]["name"](-31.99492,115.80707,-31.90508,115.91293);
+out center tags;
+后处理：剔除 1 条已关闭的地点（osm-way-1304371421 Former Kaleeya Hospital）；脚本之后已加入已关闭/停用过滤。部分查询经备用镜像完成（overpass.private.coffee、maps.mail.ru），数据同源。
