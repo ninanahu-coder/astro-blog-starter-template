@@ -217,3 +217,40 @@ test('服务端：时钟回拨时同一存档的时间不倒退，每日奖励�
 	assert.equal(healed.data.at, clock);
 	assert.equal(healed.data.state.fix, null);
 });
+
+test('服务端：区域名是 constructor / toString / __proto__ 时不会报错', async () => {
+	const w = makeWorld();
+	await w.call({ action: 'create', ...cred, profile });
+	for (const region of ['constructor', 'toString', '__proto__', 'nowhere']) {
+		// 在线频道：未知区域一律 404，不能因为命中 Object.prototype 而抛异常
+		const res = await w.world.fetch(new Request(`https://example.test/api/earth/ws?region=${region}&id=${ID}`, { headers: { Upgrade: 'websocket' } }));
+		assert.equal(res.status, 404, region);
+		// 云存档里的区域字段损坏：退回西澳，存档照常能用，区域字段被改正
+		const rec = w.data.get('save:' + ID);
+		w.data.set('save:' + ID, { ...rec, state: { ...rec.state, region } });
+		const got = await w.call({ action: 'get', ...cred });
+		assert.equal(got.status, 200, `${region}: ${got.data.msg}`);
+		assert.equal(got.data.state.region, 'wa');
+		assert.equal(w.data.get('save:' + ID).state.region, 'wa', '改正后的区域已落盘');
+	}
+});
+
+test('服务端：版本号损坏的存档归零后能连续操作，不会每次都版本冲突', async () => {
+	const w = makeWorld();
+	await w.call({ action: 'create', ...cred, profile });
+	const rec = w.data.get('save:' + ID);
+	w.data.set('save:' + ID, { ...rec, state: { ...rec.state, rev: 1e300, cash: 1e300 } });
+	const got = await w.call({ action: 'get', ...cred });
+	assert.equal(got.data.state.rev, 0);
+	assert.equal(got.data.state.cash, 1e9, '现金钳到上限');
+	let rev = got.data.state.rev;
+	for (let i = 0; i < 3; i++) {
+		const r = await w.call({ action: 'act', ...cred, rev, act: { t: 'activity', id: 'recycle' } });
+		assert.equal(r.status, 200, `第 ${i + 1} 次动作：${r.data.msg}`);
+		assert.ok(r.data.ok, r.data.msg);
+		assert.equal(r.data.state.rev, rev + 1);
+		assert.equal(r.data.state.cash, 1e9, '已在上限，挣了钱也不超过上限');
+		rev = r.data.state.rev;
+		assert.equal(w.data.get('save:' + ID).state.rev, rev, '落盘的版本号和响应一致');
+	}
+});

@@ -7,7 +7,7 @@ import { applyAction, parseAction, publicState } from '../core/actions.ts';
 import { claimDaily, realDayOf } from '../core/daily.ts';
 import { refreshWishes } from '../core/wishes.ts';
 import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
-import { REGIONS } from '../data/wa.ts';
+import { getRegion, REGIONS } from '../data/wa.ts';
 
 const SAVES_ROOM = '@SAVES';
 const MAX_CONNS = 200;
@@ -64,7 +64,7 @@ export class EarthWorld {
 		if ((request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
 			return new Response('expected websocket', { status: 426 });
 		}
-		const region = REGIONS[url.searchParams.get('region') || 'wa'];
+		const region = getRegion(url.searchParams.get('region') || 'wa');
 		if (!region) return new Response('unknown region', { status: 404 });
 		const id = url.searchParams.get('id') || '';
 		if (!ID_RE.test(id)) return new Response('bad id', { status: 400 });
@@ -262,7 +262,7 @@ export class EarthWorld {
 		}
 
 		if (!rec) return json({ ok: false, msg: '云端没有这个存档' }, 404);
-		const region = REGIONS[rec.state?.region] ?? REGIONS.wa;
+		const region = getRegion(rec.state?.region) ?? REGIONS.wa;
 		const current = sanitizeState(rec.state, new Set(region.locations.map((l) => l.id)), { fallbackLoc: region.spawn, now });
 		if (!current) return json({ ok: false, msg: '云端存档已损坏' }, 500);
 

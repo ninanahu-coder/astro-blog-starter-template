@@ -95,3 +95,6 @@ export const WA: Region = {
 };
 
 export const REGIONS: Record<string, Region> = { wa: WA };
+
+/** 按 id 取区域。只认 REGIONS 自己的键：`constructor`、`toString`、`__proto__` 这类名字会命中 Object.prototype，不能直接用下标取 */
+export const getRegion = (id: unknown): Region | undefined => (typeof id === 'string' && Object.hasOwn(REGIONS, id) ? REGIONS[id] : undefined);

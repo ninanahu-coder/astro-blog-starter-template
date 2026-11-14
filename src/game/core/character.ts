@@ -15,6 +15,7 @@ import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { realDayOf } from './daily.ts';
+import { getRegion } from '../data/wa.ts';
 import { COURSES } from '../data/courses.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
 import { EVENTS } from '../data/events.ts';
@@ -135,6 +136,20 @@ const strList = (v: unknown, max: number) =>
  * 校验并规范化一份不可信的存档（来自 localStorage 或网络）。
  * 结构不对返回 null；数值全部钳制到合法范围。服务端落盘前必须调用。
  */
+/** 存档里几个只增不减的数的上限。sanitizeState() 和动作结算（capState）共用：动作的结果不能越过校验允许的范围 */
+export const CAPS = { clock: 1e9, cash: 1e9, respect: 1e6, rev: 1e9 };
+
+/** 下一个版本号：到上限就回到 0，永远落在校验允许的范围内 */
+export const nextRev = (rev: number) => (rev + 1 >= CAPS.rev ? 0 : rev + 1);
+
+/** 把动作结算后的状态钳回上限（原地修改，调用方传入的是引擎新建的对象）。正常游玩到不了这些上限，只有损坏的存档会碰到 */
+export function capState(state: PlayerState): PlayerState {
+	state.clock = Math.min(state.clock, CAPS.clock);
+	state.cash = Math.min(state.cash, CAPS.cash);
+	state.respect = Math.min(state.respect, CAPS.respect);
+	return state;
+}
+
 export interface SanitizeOpts {
 	/** 当前所在地已经不存在（地点被删或改名）时把人挪到这里，而不是判整份存档损坏 */
 	fallbackLoc?: string;
@@ -175,12 +190,12 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		name: cleanName(r.name) || '旅人',
 		avatar: AVATARS.includes(r.avatar) ? r.avatar : AVATARS[0],
 		origin: ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id,
-		region: typeof r.region === 'string' ? r.region.slice(0, 16) : 'wa',
-		clock: num(r.clock, 0, 1e9, START_CLOCK),
+		region: getRegion(r.region) ? r.region : 'wa',
+		clock: num(r.clock, 0, CAPS.clock, START_CLOCK),
 		loc: r.loc,
-		cash: Math.round(num(r.cash, 0, 1e9, 0)),
+		cash: Math.round(num(r.cash, 0, CAPS.cash, 0)),
 		health: num(r.health, 0, 100, 100),
-		respect: num(r.respect, 0, 1e6, 0),
+		respect: num(r.respect, 0, CAPS.respect, 0),
 		heat: num(r.heat, 0, 100, 0),
 		needs,
 		skills,
@@ -233,7 +248,8 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		...cleanReal(r, opts.now),
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
-		rev: Math.floor(num(r.rev, 0, 1e9, 0)),
+		// 版本号超出范围说明存档坏了：归零而不是钳到上限。钳到上限的话，下一次动作加一又超出，再读又被钳回去，客户端每次都版本冲突
+		rev: typeof r.rev === 'number' && Number.isFinite(r.rev) && r.rev >= 0 && r.rev < CAPS.rev ? Math.floor(r.rev) : 0,
 	};
 	// 按职业打的上班卡必须对得上一份现有的工作，否则作废：不然重新应聘同一职业就能接着用旧卡
 	if (out.clockIn?.career && out.job?.career !== out.clockIn.career) out.clockIn = null;

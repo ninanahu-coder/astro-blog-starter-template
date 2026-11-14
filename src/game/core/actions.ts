@@ -4,6 +4,7 @@ import {
 	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { refreshWishes, settleWishes } from './wishes.ts';
+import { capState, nextRev } from './character.ts';
 import { pruneMoodlets } from './engine.ts';
 import type { ActionResult, NpcAction, PlayerState, Region, TravelMode, VenueOp } from './types.ts';
 import { venueAction } from './venues.ts';
@@ -126,7 +127,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
 	}
-	return { ...r, msg, state: { ...r.state, rev: state.rev + 1 } };
+	return { ...r, msg, state: capState({ ...r.state, rev: nextRev(state.rev) }) };
 }
 
 /** 发给客户端的存档：隐去随机数种子，客户端无法预知检定结果 */

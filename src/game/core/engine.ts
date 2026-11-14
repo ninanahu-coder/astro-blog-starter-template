@@ -16,7 +16,7 @@ import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, weekdayOf } from './
 import { FESTIVALS } from '../data/festivals.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
-import { clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
+import { CAPS, clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
@@ -62,7 +62,7 @@ function advance(state: PlayerState, minutes: number, region: Region, gains?: ()
 		gains?.();
 		return false;
 	}
-	state.clock += minutes;
+	state.clock = Math.min(CAPS.clock, state.clock + minutes); // 上限只有损坏的存档会碰到；在这里钳住，后面的日志、状态到期时间都用钳过的时间
 	for (const k of NEED_KEYS) state.needs[k] = clamp100(state.needs[k] - DECAY[k] * decayMult(state, k) * minutes);
 	if (state.needs.hunger <= 0 || state.needs.energy <= 0) {
 		state.health = clamp100(state.health - STARVE_DMG * minutes);
@@ -89,7 +89,7 @@ function collapse(state: PlayerState, region: Region) {
 	for (const k of NEED_KEYS) state.needs[k] = Math.max(state.needs[k], 50);
 	state.loc = nearestHospital(state, region);
 	state.pending = null;
-	state.clock += 12 * 60;
+	state.clock = Math.min(CAPS.clock, state.clock + 12 * 60);
 	addMoodlet(state, 'collapsed'); // 出院时才开始计时，醒来时剩满 48 小时
 	log(state, `你晕倒了，在${getLocation(region, state.loc)?.name ?? ''}的医院醒来，医药费 $${bill}。`);
 	// 住院又过了 12 小时：跨过结算日的话也要结算，不然醒来能抢在结算前卖房、退租。放在这里，饿晕和受伤致晕两条路都覆盖

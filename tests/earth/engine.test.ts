@@ -235,3 +235,21 @@ test('存档校验：晚于服务端时间的定位、冷却、上班卡和每�
 	// 不传 now（客户端）时不做这项检查
 	assert.equal(sanitizeState(bad, locs)!.fix?.at, far);
 });
+
+test('动作结算的结果不越过存档校验的上限：校验一个刚结算完的状态不会改动它', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const base = createCharacter({ id: 'caps-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	// 各项都顶在上限上，再做一个会挣钱、涨声望、花时间的动作
+	const top = sanitizeState({ ...base, cash: 1e300, respect: 1e300, clock: 1e300, rev: 1e9 - 1, wishes: ['walk'], wishDay: 0 }, locs)!;
+	assert.deepEqual([top.cash, top.respect, top.clock, top.rev], [1e9, 1e6, 1e9, 1e9 - 1]);
+	const r = applyAction(top, WA, { t: 'activity', id: 'recycle' });
+	assert.ok(r.ok, r.msg);
+	assert.deepEqual([r.state.cash, r.state.respect, r.state.clock], [1e9, 1e6, 1e9], '不超过上限');
+	assert.equal(r.state.rev, 0, '版本号到上限回到 0');
+	assert.deepEqual(sanitizeState(r.state, locs), r.state, '再校验一次不变');
+	// 版本号超出范围的存档归零，而不是钳到上限
+	for (const rev of [1e9, 1e300, -1, NaN, '7']) assert.equal(sanitizeState({ ...base, rev } as never, locs)!.rev, 0, String(rev));
+	assert.equal(sanitizeState({ ...base, rev: 41.9 }, locs)!.rev, 41);
+	// 区域字段只认存在的区域
+	for (const region of ['constructor', '__proto__', 'mars', 7]) assert.equal(sanitizeState({ ...base, region } as never, locs)!.region, 'wa', String(region));
+});
