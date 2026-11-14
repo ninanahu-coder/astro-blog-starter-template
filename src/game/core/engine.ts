@@ -885,14 +885,17 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	if (prev.home.loc !== prev.loc) return fail(prev, '要回到住处才能睡。');
 	const def = getHome(prev.home.type)!;
 	const state = clone(prev);
+	// 睡这一觉用的是入睡时的住处：睡到一半跨过结算日，住处可能因为欠租或断供被收走（state.home 变成 null）
+	const furniture = Object.values(prev.home.furniture);
+	const cosy = homeComfort(prev) >= 3 || 'bed' in prev.home.furniture;
 	if (applyEffect(state, { minutes: 480, health: 15 + def.comfort, needs: { energy: 100, hygiene: 50 + def.comfort * 2, fun: 5 + def.comfort } }, region)) return collapsedResult(state);
-	for (const id of Object.values(state.home!.furniture)) {
+	for (const id of furniture) {
 		const extra = getFurniture(id)?.sleep;
 		if (extra && applyEffect(state, extra, region)) return collapsedResult(state);
 	}
-	if (homeComfort(state) >= 3 || Object.keys(state.home!.furniture).some((slot) => slot === 'bed')) addMoodlet(state, 'great-sleep');
+	if (cosy) addMoodlet(state, 'great-sleep');
 	log(state, `在${def.name}睡了一觉。`);
-	return { ok: true, state, msg: '睡了个好觉。' };
+	return { ok: true, state, msg: state.home ? '睡了个好觉。' : '睡了一觉，醒来时住处已经没了（详见日志）。' };
 }
 
 // ---------- 交通工具 ----------
