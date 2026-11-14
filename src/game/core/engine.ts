@@ -107,8 +107,13 @@ export function growSkill(state: PlayerState, k: SkillKey, d: number) {
 	state.skills[k] = clamp100(cur + delta);
 }
 
-export function applyEffect(state: PlayerState, fx: Effect, region: Region) {
-	if (fx.cash) state.cash = Math.max(0, Math.round(state.cash + fx.cash));
+/**
+ * 结算一份效果，返回途中是否晕倒（晕倒后原动作到此为止，调用方要停止后续结算）。
+ * 付出在前、收获在后：花的钱和用掉的物品先扣，收入等时间走完才到账，晕倒就拿不到；
+ * 能力成长仍在时间流逝前结算（学到的就是学到的）。
+ */
+export function applyEffect(state: PlayerState, fx: Effect, region: Region): boolean {
+	if (fx.cash && fx.cash < 0) state.cash = Math.max(0, Math.round(state.cash + fx.cash));
 	if (fx.respect) state.respect = Math.max(0, state.respect + fx.respect);
 	if (fx.heat) state.heat = clamp100(state.heat + (fx.heat > 0 ? fx.heat * heatMult(state) : fx.heat));
 	if (fx.vehicle) state.vehicle = fx.vehicle;
@@ -129,14 +134,24 @@ export function applyEffect(state: PlayerState, fx: Effect, region: Region) {
 	}
 	// 先流逝时间（会衰减需求），再结算需求增减，保证“睡 8 小时”后精力确实是满的
 	// 途中晕倒：原动作到此为止，后面的需求、状态、健康都不再结算（不然露营晕倒还会拿到「星空下醒来」）
-	if (fx.minutes && advance(state, fx.minutes, region)) return;
+	if (fx.minutes && advance(state, fx.minutes, region)) return true;
+	if (fx.cash && fx.cash > 0) state.cash = Math.round(state.cash + fx.cash);
 	if (fx.needs) for (const k of NEED_KEYS) if (fx.needs[k]) state.needs[k] = clamp100(state.needs[k] + fx.needs[k]!);
 	if (fx.moodlet) addMoodlet(state, fx.moodlet);
 	if (fx.health) {
 		if (fx.health <= -5) addMoodlet(state, 'hurt');
 		state.health = clamp100(state.health + (fx.health < 0 ? fx.health * hurtMult(state) : fx.health));
-		if (state.health <= 0) collapse(state, region);
+		if (state.health <= 0) {
+			collapse(state, region);
+			return true;
+		}
 	}
+	return false;
+}
+
+/** 动作途中晕倒时的统一结果 */
+export function collapsedResult(state: PlayerState): ActionResult {
+	return { ok: true, state, msg: '😵 体力耗尽，你晕倒了，在医院醒来。', collapsed: true };
 }
 
 // ---------- 出行 ----------
@@ -303,7 +318,7 @@ export function resolveEvent(prev: PlayerState, region: Region, choiceIdx: numbe
 		const passed = checkScore(state, choice.check.skill).total + roll(state) * 60 >= choice.check.dc;
 		if (!passed && choice.fail) outcome = choice.fail;
 	}
-	applyEffect(state, outcome.fx, region);
+	if (applyEffect(state, outcome.fx, region)) return collapsedResult(state);
 	log(state, `【${ev.title}】${outcome.text}`);
 	return { ok: true, state, msg: outcome.text };
 }
@@ -348,7 +363,7 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	const blocked = blockedReason(prev, act);
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);
-	applyEffect(state, { ...scaledFx(prev, act), minutes: act.minutes }, region);
+	if (applyEffect(state, { ...scaledFx(prev, act), minutes: act.minutes }, region)) return collapsedResult(state);
 	log(state, `在${loc.name}${act.name}。`);
 	return { ok: true, state, msg: `${act.icon} ${act.name}完成。` };
 }
@@ -414,7 +429,7 @@ export function buyItem(prev: PlayerState, region: Region, itemId: string): Acti
 	const state = clone(prev);
 	state.cash -= entry.price;
 	state.inventory[itemId] = (state.inventory[itemId] ?? 0) + 1;
-	advance(state, 5, region);
+	if (advance(state, 5, region)) return collapsedResult(state);
 	return { ok: true, state, msg: `买了${entry.item.name}。` };
 }
 
@@ -424,7 +439,7 @@ export function useItem(prev: PlayerState, region: Region, itemId: string): Acti
 	if (!def?.use) return fail(prev, '这个不能直接使用。');
 	if (!prev.inventory[itemId]) return fail(prev, '背包里没有。');
 	const state = clone(prev);
-	applyEffect(state, { ...def.use, items: { [itemId]: -1 } }, region);
+	if (applyEffect(state, { ...def.use, items: { [itemId]: -1 } }, region)) return collapsedResult(state);
 	return { ok: true, state, msg: `用了${def.name}。` };
 }
 
@@ -583,13 +598,13 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 	if (action === 'chat') {
 		const good = checkScore(state, 'charisma').total + roll(state) * 60 >= 45;
 		gain = good ? 7 : 3;
-		applyEffect(state, { minutes: 30, needs: { social: 18, fun: 5 }, skills: { charisma: 0.5 } }, region);
+		if (applyEffect(state, { minutes: 30, needs: { social: 18, fun: 5 }, skills: { charisma: 0.5 } }, region)) return collapsedResult(state);
 		text = good ? `和${npc.name}聊得很投机。` : `和${npc.name}寒暄了几句。`;
 	} else if (action === 'gift') {
 		const r = giftReaction(npc, gift!);
 		gain = GIFT_GAIN[r];
 		const name = getItem(gift!)!.name;
-		applyEffect(state, { minutes: 10, items: { [gift!]: -1 }, needs: { social: r === 'dislike' ? 0 : 8 }, moodlet: r === 'love' ? 'gift-loved' : r === 'dislike' ? 'gift-awkward' : undefined }, region);
+		if (applyEffect(state, { minutes: 10, items: { [gift!]: -1 }, needs: { social: r === 'dislike' ? 0 : 8 }, moodlet: r === 'love' ? 'gift-loved' : r === 'dislike' ? 'gift-awkward' : undefined }, region)) return collapsedResult(state);
 		text = {
 			love: `送给${npc.name}一份${name}，TA眼睛都亮了——这是TA的最爱。`,
 			like: `送给${npc.name}一份${name}，TA很高兴。`,
@@ -599,12 +614,12 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 		if (!rel.known.includes(gift!)) rel.known.push(gift!);
 	} else if (action === 'help') {
 		gain = 9;
-		applyEffect(state, { minutes: 120, respect: 1, needs: { energy: -18, social: 10 }, skills: { strength: 0.5, stamina: 0.5 } }, region);
+		if (applyEffect(state, { minutes: 120, respect: 1, needs: { energy: -18, social: 10 }, skills: { strength: 0.5, stamina: 0.5 } }, region)) return collapsedResult(state);
 		text = `帮${npc.name}干了两小时活。`;
 	} else {
 		const perk = npc.perk!;
 		gain = 2;
-		applyEffect(state, perk.fx, region);
+		if (applyEffect(state, perk.fx, region)) return collapsedResult(state);
 		text = `${perk.name}：${perk.desc}`;
 	}
 	rel.score = Math.max(-100, Math.min(100, rel.score + gain));
@@ -708,7 +723,7 @@ export function workShift(prev: PlayerState, region: Region): ActionResult {
 	const good = checkScore(state, c.skill).total + roll(state) * 60 >= SHIFT_DC[Math.min(job.level, SHIFT_DC.length - 1)];
 	const pay = Math.round(lv.pay * (good ? 1 + GOOD_BONUS : 1));
 	job.lastDay = dayOf(state.clock);
-	applyEffect(state, { ...c.shift, minutes: c.minutes, cash: pay }, region);
+	if (applyEffect(state, { ...c.shift, minutes: c.minutes, cash: pay }, region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
 	job.shifts++;
 	if (good) job.good++;
 	const msg = `${lv.title}上班 ${Math.round(c.minutes / 60)} 小时，收入 $${pay}${good ? '（表现出色，有奖金）' : ''}。` + tryPromote(state);
@@ -836,10 +851,10 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	if (prev.home.loc !== prev.loc) return fail(prev, '要回到住处才能睡。');
 	const def = getHome(prev.home.type)!;
 	const state = clone(prev);
-	applyEffect(state, { minutes: 480, health: 15 + def.comfort, needs: { energy: 100, hygiene: 50 + def.comfort * 2, fun: 5 + def.comfort } }, region);
+	if (applyEffect(state, { minutes: 480, health: 15 + def.comfort, needs: { energy: 100, hygiene: 50 + def.comfort * 2, fun: 5 + def.comfort } }, region)) return collapsedResult(state);
 	for (const id of Object.values(state.home!.furniture)) {
 		const extra = getFurniture(id)?.sleep;
-		if (extra) applyEffect(state, extra, region);
+		if (extra && applyEffect(state, extra, region)) return collapsedResult(state);
 	}
 	if (homeComfort(state) >= 3 || Object.keys(state.home!.furniture).some((slot) => slot === 'bed')) addMoodlet(state, 'great-sleep');
 	log(state, `在${def.name}睡了一觉。`);
@@ -910,7 +925,7 @@ export function sleepInVehicle(prev: PlayerState, region: Region): ActionResult 
 	const v = getVehicle(prev.vehicle);
 	if (!v?.sleep) return fail(prev, '你的车不能睡人。');
 	const state = clone(prev);
-	applyEffect(state, { ...v.sleep, minutes: 480 }, region);
+	if (applyEffect(state, { ...v.sleep, minutes: 480 }, region)) return collapsedResult(state);
 	log(state, `在${v.name}里睡了一觉。`);
 	return { ok: true, state, msg: '在车里睡了一觉。' };
 }
@@ -949,7 +964,7 @@ export function takeCourse(prev: PlayerState, region: Region, id: string): Actio
 	state.cash -= offer.price;
 	state.courseDays[c.id] = dayOf(prev.clock);
 	growSkill(state, c.skill, c.gain);
-	applyEffect(state, { minutes: c.minutes, needs: { energy: -Math.round(c.minutes / 12), fun: 3 } }, region);
+	if (applyEffect(state, { minutes: c.minutes, needs: { energy: -Math.round(c.minutes / 12), fun: 3 } }, region)) return collapsedResult(state);
 	const msg = `上了${c.name}，${SKILL_META[c.skill].name} +${(state.skills[c.skill] - before).toFixed(1)}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
@@ -988,11 +1003,12 @@ export function doExperience(prev: PlayerState, region: Region, id: string): Act
 	const titlesBefore = areaTitles(state);
 	state.cash -= e.price;
 	if (offer.first) {
-		applyEffect(state, { ...e.fx, minutes: e.minutes, respect: e.respect, moodlet: 'experience' }, region);
+		// 没体验完不收进收藏册
+		if (applyEffect(state, { ...e.fx, minutes: e.minutes, respect: e.respect, moodlet: 'experience' }, region)) return collapsedResult(state);
 		state.collected.push(e.id);
 	} else {
 		const fun = Math.round((e.fx.needs?.fun ?? 0) * REPEAT_FUN_SHARE);
-		applyEffect(state, { minutes: e.minutes, needs: { fun }, moodlet: 'good-time' }, region);
+		if (applyEffect(state, { minutes: e.minutes, needs: { fun }, moodlet: 'good-time' }, region)) return collapsedResult(state);
 	}
 	let msg = offer.first ? `体验了${e.name}，收进了收藏册（声望 +${e.respect}）。` : `又体验了一次${e.name}。`;
 	const gained = areaTitles(state).filter((t) => !titlesBefore.includes(t));
@@ -1073,7 +1089,7 @@ export function cookAtHome(prev: PlayerState, region: Region): ActionResult {
 	const why = homeActionBlocked(prev, 'cook');
 	if (why) return fail(prev, why);
 	const state = clone(prev);
-	applyEffect(state, { cash: -HOME_COOK.cost, minutes: HOME_COOK.minutes, needs: { hunger: HOME_COOK.hunger, fun: 3 }, moodlet: 'well-fed' }, region);
+	if (applyEffect(state, { cash: -HOME_COOK.cost, minutes: HOME_COOK.minutes, needs: { hunger: HOME_COOK.hunger, fun: 3 }, moodlet: 'well-fed' }, region)) return collapsedResult(state);
 	log(state, '在家做了顿饭。');
 	return { ok: true, state, msg: '🍳 在家吃了顿饭。' };
 }
@@ -1083,7 +1099,7 @@ export function relaxAtHome(prev: PlayerState, region: Region): ActionResult {
 	const why = homeActionBlocked(prev, 'relax');
 	if (why) return fail(prev, why);
 	const state = clone(prev);
-	applyEffect(state, { minutes: HOME_RELAX.minutes, needs: { fun: HOME_RELAX.fun, energy: 3 } }, region);
+	if (applyEffect(state, { minutes: HOME_RELAX.minutes, needs: { fun: HOME_RELAX.fun, energy: 3 } }, region)) return collapsedResult(state);
 	log(state, '在家放松了一会儿。');
 	return { ok: true, state, msg: '🎵 在家放松了一会儿。' };
 }

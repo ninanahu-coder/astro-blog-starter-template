@@ -80,6 +80,24 @@ test('引擎时刻：新地方、乔迁、受伤、晕倒', () => {
 	assert.ok(!ids(collapsed).includes('camp-calm'), '晕倒中止了原动作，不再拿露营的状态');
 });
 
+test('上班途中晕倒：不发工资、不计班次、心愿不算完成', () => {
+	const hired = applyAction(make({ clock: at(7), cash: 0 }), WA, { t: 'job', op: 'apply', career: 'barista' }).state;
+	const s = { ...hired, health: 1, wishes: ['work'], wishDay: 0, needs: { hunger: 0, energy: 90, hygiene: 80, fun: 60, social: 60 } };
+	const r = applyAction(s, WA, { t: 'job', op: 'work' });
+	assert.ok(r.ok && r.collapsed, r.msg);
+	assert.equal(r.state.loc, WA.hospital);
+	assert.equal(r.state.cash, 0, '没上完的班没有工资');
+	assert.equal(r.state.job!.shifts, 0);
+	assert.deepEqual(r.state.wishes, ['work'], '心愿还在');
+	assert.ok(!ids(r.state).includes('wish-done'));
+	// 对照：同样的人吃饱了上班，照常发工资、计班次、完成心愿
+	const fine = applyAction({ ...s, needs: { ...s.needs, hunger: 90 }, health: 80 }, WA, { t: 'job', op: 'work' });
+	assert.ok(fine.ok && !fine.collapsed);
+	assert.ok(fine.state.cash >= 120);
+	assert.equal(fine.state.job!.shifts, 1);
+	assert.ok(ids(fine.state).includes('wish-done'));
+});
+
 test('心愿达成留下状态；失败的动作不留', () => {
 	const s = make({ clock: at(12), wishes: ['eat-out'], wishDay: 0, needs: { hunger: 30, energy: 80, hygiene: 80, fun: 40, social: 40 } });
 	const r = applyAction(s, WA, { t: 'activity', id: 'eat' });

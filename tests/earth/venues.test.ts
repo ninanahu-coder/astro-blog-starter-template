@@ -292,6 +292,32 @@ test('事件选项的 cost：钱不够不能选、事件保留；够了先扣钱
 	}
 });
 
+test('先买后得的城镇事件：珍珠转手、道路救援也要先付钱，净收支不变', () => {
+	for (const [eventId, choice, cost] of [['pearl-offer', 0, 200], ['flat-tyre', 1, 220]] as const) {
+		const broke = applyAction(make({ cash: cost - 1, pending: { eventId } }), WA, { t: 'event', choice });
+		assert.ok(!broke.ok, eventId);
+		assert.equal(broke.state.cash, cost - 1, `${eventId}：钱不够不能白拿`);
+		assert.equal(broke.state.pending?.eventId, eventId);
+	}
+	assert.equal(applyAction(make({ cash: 300, pending: { eventId: 'flat-tyre' } }), WA, { t: 'event', choice: 1 }).state.cash, 80);
+	const outcomes = new Set<number>();
+	for (let seed = 1; seed <= 40; seed++) {
+		const s = { ...make({ cash: 300, pending: { eventId: 'pearl-offer' } }), seed };
+		outcomes.add(applyAction(s, WA, { t: 'event', choice: 0 }).state.cash);
+	}
+	assert.deepEqual([...outcomes].sort((a, b) => a - b), [100, 700], '真货净赚 $400，假货净亏 $200');
+});
+
+test('真实地点训练途中晕倒：没有肌肉酸痛、不抽到店事件，冷却照常', () => {
+	const s = make({ cash: 100, health: 1, needs: { hunger: 0, energy: 90, hygiene: 80, fun: 60, social: 60 } });
+	const r = venueAction(s, R, { op: 'train', ...at(find('t-gym')) }, T0);
+	assert.ok(r.ok && r.collapsed, r.msg);
+	const got = r.state.moodlets.map((m) => m.id);
+	assert.ok(got.includes('collapsed') && !got.includes('sore'), got.join());
+	assert.equal(r.state.pending, null);
+	assert.equal(r.state.venueCd.train, T0);
+});
+
 test('真实地点事件不会在到达城镇时被抽到', () => {
 	const ids = new Set(VENUE_EVENTS.map((e) => e.id));
 	for (let seed = 1; seed <= 200; seed++) {

@@ -448,4 +448,6 @@ export interface ActionResult {
 	ok: boolean;
 	state: PlayerState;
 	msg: string;
+	/** 动作途中晕倒被送医：原动作的后续结算（班次、升职、心愿、额外状态、到店事件）都不再发生 */
+	collapsed?: boolean;
 }

@@ -51,7 +51,7 @@ export const EVENTS: GameEvent[] = [
 		text: '快到的时候“砰”的一声，车子往一边歪。',
 		choices: [
 			{ label: '自己换备胎', check: { skill: 'strength', dc: 40 }, ok: { text: '二十分钟搞定，手上全是红土。', fx: { minutes: 20, needs: { hygiene: -10 }, skills: { strength: 2, survival: 1 } } }, fail: { text: '千斤顶打滑，折腾了两小时。', fx: { minutes: 120, needs: { energy: -15, hygiene: -15 }, skills: { strength: 1 } } } },
-			{ label: '叫道路救援', ok: { text: '救援三小时后才到，账单也不便宜。', fx: { minutes: 180, cash: -220 } } },
+			{ label: '叫道路救援', cost: 220, ok: { text: '救援三小时后才到，账单也不便宜。', fx: { minutes: 180 } } },
 		],
 	},
 	{
@@ -118,7 +118,8 @@ export const EVENTS: GameEvent[] = [
 		id: 'pearl-offer', title: '“便宜珍珠”', icon: '🦪', tags: ['pearl'], weight: 3,
 		text: '巷子里有人拉开外套：“南洋珠，店里十分之一的价。”',
 		choices: [
-			{ label: '买来转手', check: { skill: 'street', dc: 50 }, ok: { text: '你一眼挑出了真货，转手赚了一笔。', fx: { cash: 400, heat: 15, skills: { street: 3 } } }, fail: { text: '塑料珠子。钱没了。', fx: { cash: -200, heat: 10, skills: { street: 1 } } } },
+			// 先付 $200：真货转手拿回 $600（净赚 $400），假货钱就没了（净亏 $200）
+			{ label: '买来转手', cost: 200, check: { skill: 'street', dc: 50 }, ok: { text: '你一眼挑出了真货，转手赚了一笔。', fx: { cash: 600, heat: 15, skills: { street: 3 } } }, fail: { text: '塑料珠子。钱没了。', fx: { heat: 10, skills: { street: 1 } } } },
 			{ label: '摆手走开', ok: { text: '不惹麻烦。', fx: {} } },
 		],
 	},

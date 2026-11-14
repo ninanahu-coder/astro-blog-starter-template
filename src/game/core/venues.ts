@@ -1,7 +1,7 @@
 // 真实地点：玩家拿着手机真的走到某家餐馆、健身房、公园，就能在游戏里做对应的事。
 // 纯函数：现实时间 now（毫秒）由服务端传入，客户端无法伪造；坐标来自手机定位，可以伪造，所以做了精度、距离和速度三道检查。
 import { realDayOf } from './daily.ts';
-import { addMoodlet, applyEffect, clone, fail, getCareer, getLocation, log, pickVenueEvent, tryPromote } from './engine.ts';
+import { addMoodlet, applyEffect, clone, collapsedResult, fail, getCareer, getLocation, log, pickVenueEvent, tryPromote } from './engine.ts';
 import {
 	drinkOutcome, exerciseOutcome, groceriesOutcome, healOutcome, mealOutcome, relaxOutcome, studyOutcome, trainOutcome, workPay,
 	type OpOutcome,
@@ -160,9 +160,9 @@ function simpleOp(prev: PlayerState, region: Region, venue: Venue, type: VenueTy
 	if (out.blocked) return fail(prev, out.blocked);
 	const state = clone(prev);
 	// 先流逝时间再结算（applyEffect 内部顺序），所以时长单独传
-	applyEffect(state, { ...out.fx, minutes: op.minutes }, region);
+	state.venueCd[op.id] = now; // 晕倒也算来过一次，冷却照常
+	if (applyEffect(state, { ...out.fx, minutes: op.minutes }, region)) return collapsedResult(state);
 	if (op.id === 'train') addMoodlet(state, 'sore'); // 练完 12 小时内再练只有一半效果（超量恢复）
-	state.venueCd[op.id] = now;
 	const msg = `在${venue.name}${op.name}：${out.notes.join('，')}。`;
 	log(state, msg);
 	return { ok: true, state, msg: msg + venueEvent(state, type, now) };
@@ -206,8 +206,9 @@ function work(prev: PlayerState, region: Region, venue: Venue, type: VenueTypeDe
 	}
 	const w = workPay(state, terms.hourly, minutes, terms.skill);
 	const hours = minutes / 60;
-	applyEffect(state, { minutes, cash: w.pay, needs: { energy: -w.energy, fun: -Math.round(hours * 2), social: Math.round(hours * 3) } }, region);
 	state.realWork.min += minutes;
+	// 途中晕倒：工资不发、不算班次、不抽事件
+	if (applyEffect(state, { minutes, cash: w.pay, needs: { energy: -w.energy, fun: -Math.round(hours * 2), social: Math.round(hours * 3) } }, region)) return collapsedResult(state);
 	let msg = `在${venue.name}上班 ${Math.round(hours * 10) / 10} 小时，收入 $${w.pay}（${w.notes.join('，')}）。`;
 	const job = state.job;
 	const c = job ? getCareer(job.career) : undefined;

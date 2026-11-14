@@ -119,9 +119,11 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 	if (!changed) return r;
 	let msg = r.msg;
 	if (r.ok) {
-		// 成功的动作：结算心愿（r.state 是引擎新建的对象，可以原地改）
-		const done = settleWishes(state, r.state, a);
-		if (done.length) msg += ` ✨ 心愿达成：${done.join('、')}`;
+		// 成功的动作：结算心愿（r.state 是引擎新建的对象，可以原地改）；途中晕倒不算完成
+		if (!r.collapsed) {
+			const done = settleWishes(state, r.state, a);
+			if (done.length) msg += ` ✨ 心愿达成：${done.join('、')}`;
+		}
 		pruneMoodlets(r.state);
 	}
 	return { ...r, msg, state: { ...r.state, rev: state.rev + 1 } };
