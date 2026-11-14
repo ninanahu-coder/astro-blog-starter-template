@@ -51,6 +51,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif; }
 			#app { max-width: 560px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
 			.hidden { display: none !important; }
+			.moodchip { background: none; border: 0; padding: 0; font: inherit; font-size: 13px; color: var(--text); }
+			.mood-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+			.mood-row:last-child { border-bottom: 0; }
+			.mood-row .up { color: var(--ok); }
+			.mood-row .down { color: var(--bad); }
 			body.busy #panel, body.busy #modal { opacity: 0.6; pointer-events: none; }
 			button { font: inherit; color: var(--text); background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; cursor: pointer; }
 			button:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -144,17 +149,21 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 		<script>
 			import { AVATARS, NEED_META, ORIGINS, SKILL_META, formatClock, sanitizeState } from '../game/core/character.ts';
 			import type { GameAction } from '../game/core/actions.ts';
-			import { activitiesAt, festivalCalendar, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, npcsAt, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
+			import { activitiesAt, festivalCalendar, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { AREAS, EXPERIENCES } from '../game/data/experiences.ts';
 			import { FURNITURE_SLOTS, HOME_COOK } from '../game/data/furniture.ts';
 			import { FINANCE, loanPayment, saleProceeds, weeksToPayOff } from '../game/core/finance.ts';
 			import { dayOf, hoursLabel } from '../game/core/time.ts';
-			import { checkScore, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
+			import { checkScore, moodBreakdown, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
-			import { dateLabel, period } from '../game/core/time.ts';
+			import { dateLabel, period, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
 			import { getWish } from '../game/core/wishes.ts';
+			import { derivedStats } from '../game/core/formulas.ts';
+			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
+			import { FIX_RULES } from '../game/data/venues.ts';
+			import type { VenueOp } from '../game/core/types.ts';
 			import { DAILY } from '../game/core/daily.ts';
 			import { makeProjection } from '../game/core/geo.ts';
 			import { NEED_KEYS, SKILL_KEYS } from '../game/core/types.ts';
@@ -166,7 +175,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			const SAVE_KEY = 'earth.save.v1';
 			const CRED_KEY = 'earth.cred.v1';
 			const KIND_ICON: Record<string, string> = { city: '🏙️', port: '⚓', island: '🏝️', coast: '🌊', outback: '🏜️', mining: '⛏️', park: '🏞️', town: '🏘️' };
-			const TABS = [['place', '📍 地点'], ['go', '🧭 出行'], ['me', '👤 角色'], ['social', '💬 社交'], ['log', '📓 日志'], ['sync', '☁️ 同步']];
+			const TABS = [['place', '📍 地点'], ['near', '🛰️ 附近'], ['go', '🧭 出行'], ['me', '👤 角色'], ['social', '💬 社交'], ['log', '📓 日志'], ['sync', '☁️ 同步']];
 
 			type Cred = { id: string; key: string };
 			type Peer = { id: string; name: string; avatar: string; loc: string };
@@ -184,6 +193,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let chats: Chat[] = [];
 			let emotes: string[] = [];
 			let syncStatus = '未同步';
+			let nearFix: { lat: number; lon: number; acc: number; at: number } | null = null; // 只留在本机内存，不存盘
 			// 珀斯一带地点密集，标签手动错开：[dx, dy, anchor]
 			const LABEL: Record<string, [number, number, string]> = { perth: [8, -3, 'start'], fremantle: [-8, 9, 'end'], rottnest: [-9, -1, 'end'] };
 
@@ -214,9 +224,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (state) store.set(SAVE_KEY, JSON.stringify(state));
 			}
 			let dailyNote = '';
+			let clockSkew = 0; // 服务器时间 − 本机时间（毫秒）
+			const srvNow = () => Date.now() + clockSkew;
 			async function api(body: unknown) {
 				const res = await fetch('/api/earth/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 				const data = (await res.json()) as any;
+				// 冷却和上班卡都按服务器时间算：用服务器返回的时间校准，手机时钟不准也不影响
+				if (typeof data?.at === 'number' && Number.isFinite(data.at)) clockSkew = data.at - Date.now();
 				if (typeof data?.daily === 'string') dailyNote = data.daily;
 				return { status: res.status, data };
 			}
@@ -305,9 +319,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<span class="who">${s.avatar} ${esc(s.name)}</span>
 						<span class="stat">💵 $${s.cash.toLocaleString()}</span>
 						<span class="stat">Lv${level(s.respect).lv}</span>
-						<span class="stat" title="心情">${moodTier(mood(s)).name}</span>
+						<button class="stat moodchip" data-tab="me" title="看心情的来源">${moodTier(mood(s)).name} ${mood(s)}</button>
 						<span class="stat" title="通缉星级">${'★'.repeat(wantedStars(s.heat)) || '☆'}</span>
-						<span class="stat" title="${formatClock(s.clock)}">🕗 ${dateLabel(s.clock)} ${formatClock(s.clock).split(' ')[1]} ${period(s.clock).name}</span>
+						<span class="stat" title="${formatClock(s.clock)}">🕗 ${dateLabel(s.clock)} ${WEEKDAYS[weekdayOf(s.clock)]} ${formatClock(s.clock).split(' ')[1]} ${period(s.clock).name}</span>
 					</div>
 					<div class="needs">
 						<div class="need">❤️健康<div class="bar"><i class="${barCls(s.health)}" style="width:${s.health}%"></i></div></div>${needs}
@@ -359,12 +373,20 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const poiHtml = pois.length ? `<div class="card"><h3>打卡点</h3><p>人到现场、打开定位即可打卡（${pois.filter((p) => s.checkins.includes(p.id)).length}/${pois.length}）</p>
 					<div class="list" style="margin-top:8px">${pois.map((p) => `<div class="row"><span class="ico">${s.checkins.includes(p.id) ? '✅' : '📌'}</span><span class="body">${esc(p.name)}<small>${esc(p.category)}</small></span></div>`).join('')}</div></div>` : '';
 				const people = npcsAt(s, region);
-				const away = NPCS.filter((n) => n.loc === loc.id && !people.some((a) => a.npc.id === n.id));
-				const peopleHtml = people.length || away.length ? `<div class="card"><h3>这里的人</h3>${people.map(({ npc, rel, tier, blocked }) => `
+				const absent = NPCS.filter((n) => !people.some((a) => a.npc.id === n.id)).map((n) => ({ n, plan: npcPlan(n, s.clock) }))
+					.filter(({ n, plan }) => plan.loc === loc.id || n.loc === loc.id);
+				const bagIds = Object.keys(s.inventory).filter((id) => s.inventory[id] > 0 && getItem(id));
+				const giftLabel = (npcId: string, itemId: string) => {
+					const n = NPCS.find((x) => x.id === npcId)!;
+					return getRelation(s, npcId).known.includes(itemId) ? `（${GIFT_LABEL[giftReaction(n, itemId)]}）` : '';
+				};
+				const peopleHtml = people.length || absent.length ? `<div class="card"><h3>这里的人</h3>${people.map(({ npc, rel, tier, blocked, nextStory }) => `
 					<div style="margin-top:10px"><div class="row"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${esc(npc.bio)}</small></span><span class="meta">${tier}<br/>${Math.round(rel.score)}/100</span></div>
-					<div class="inline" style="margin-top:6px">${(['chat', 'gift', 'help'] as const).map((a) => `<button data-npc="${npc.id}" data-npc-act="${a}" ${blocked[a] ? `disabled title="${esc(blocked[a])}"` : ''}>${{ chat: '聊天', gift: '送礼', help: '帮忙' }[a]}</button>`).join('')}</div>
-					${Object.values(blocked).some(Boolean) ? `<p style="margin-top:4px">${esc([...new Set(Object.values(blocked).filter(Boolean))].join('；'))}</p>` : ''}</div>`).join('')}
-					${away.map((n) => `<p style="margin-top:8px">${esc(n.name)}（${esc(n.role)}）现在不在，通常 ${n.hours[0]}:00–${n.hours[1] % 24}:00 在这里。</p>`).join('')}</div>` : '';
+					<div class="inline" style="margin-top:6px">${(['chat', 'help'] as const).map((a) => `<button data-npc="${npc.id}" data-npc-act="${a}" ${blocked[a] ? `disabled title="${esc(blocked[a])}"` : ''}>${{ chat: '聊天', help: '帮忙' }[a]}</button>`).join('')}${npc.perk ? `<button data-npc="${npc.id}" data-npc-act="perk" ${blocked.perk ? `disabled title="${esc(blocked.perk)}"` : ''}>✨ ${esc(npc.perk.name)}</button>` : ''}</div>
+					${bagIds.length ? `<div class="inline" style="margin-top:6px"><span class="muted">送礼：</span>${bagIds.map((id) => `<button data-npc="${npc.id}" data-npc-act="gift" data-npc-item="${id}" ${blocked.gift ? `disabled title="${esc(blocked.gift)}"` : ''}>${getItem(id)!.icon} ${esc(getItem(id)!.name)}${giftLabel(npc.id, id)}</button>`).join('')}</div>` : ''}
+					${Object.values(blocked).some(Boolean) ? `<p style="margin-top:4px">${esc([...new Set(Object.values(blocked).filter(Boolean))].join('；'))}</p>` : ''}
+					${nextStory !== undefined ? `<p style="margin-top:4px" class="muted">关系到 ${nextStory}（${relationTier(nextStory)}）会有新故事。</p>` : ''}</div>`).join('')}
+					${absent.map(({ n, plan }) => `<p style="margin-top:8px">${esc(n.name)}（${esc(n.role)}）现在不在。${plan.loc === loc.id ? `今天 ${hoursLabel(plan.hours)} 在这里${plan.note ? `：${esc(plan.note)}` : ''}。` : `今天去了${esc(getLocation(region, plan.loc)?.name ?? '')}${plan.note ? `（${esc(plan.note)}）` : ''}，平时 ${hoursLabel(n.hours)} 在这里。`}</p>`).join('')}</div>` : '';
 				const job = s.job;
 				const career = job ? getCareer(job.career) : undefined;
 				const workHere = job && job.loc === loc.id && career;
@@ -452,6 +474,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const lv = level(s.respect);
 				const m = mood(s);
 				const tier = moodTier(m);
+				const mb = moodBreakdown(s);
 				const traits = s.traits.map((id) => getTrait(id)).filter(Boolean).map((t) => `<span class="tag" title="${esc(t!.desc)}">${esc(t!.name)}</span>`).join('');
 				const jc = s.job ? getCareer(s.job.career) : undefined;
 				const promo = promotionStatus(s);
@@ -474,8 +497,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const rels = Object.entries(s.relations).map(([id, r]) => {
 					const npc = NPCS.find((n) => n.id === id);
 					if (!npc) return '';
-					const where = getLocation(region, npc.loc)?.name ?? '';
-					return `<div class="skill"><span></span><div>${esc(npc.name)} <span class="muted">${esc(npc.role)} · ${esc(where)}</span><div class="bar"><i style="width:${Math.max(0, r.score)}%"></i></div></div><b title="${relationTier(r.score)}">${relationTier(r.score)}</b></div>`;
+					const plan = npcPlan(npc, s.clock);
+					const where = `今天在${getLocation(region, plan.loc)?.name ?? ''} ${hoursLabel(plan.hours)}`;
+					const known = r.known.map((i) => `${getItem(i)?.icon ?? ''}${GIFT_LABEL[giftReaction(npc, i)]}`).join(' ');
+					return `<div class="skill"><span></span><div>${esc(npc.name)} <span class="muted">${esc(npc.role)} · ${esc(where)} · 故事 ${r.seen.length}/${npc.stories.length}${known ? ` · ${esc(known)}` : ''}</span><div class="bar"><i style="width:${Math.max(0, r.score)}%"></i></div></div><b title="${relationTier(r.score)}">${relationTier(r.score)}</b></div>`;
 				}).join('');
 				const bag = Object.entries(s.inventory).map(([id, n]) => {
 					const it = getItem(id);
@@ -486,13 +511,29 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
 						<p>Lv${lv.lv} ${lv.title} · 声望 ${Math.floor(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
 						<div class="tags">${traits || '<span class="muted">没有性格特质</span>'}</div></div>
+					<div class="card"><h3>心情 ${mb.total}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</h3>
+						<div style="margin-top:6px">
+							<div class="mood-row"><span>生活需求（最低的一项拉低整体）</span><b>${mb.needs}</b></div>
+							${mb.traits ? `<div class="mood-row"><span>性格特质</span><b class="${mb.traits > 0 ? 'up' : 'down'}">${mb.traits > 0 ? '+' : ''}${mb.traits}</b></div>` : ''}
+							${mb.home ? `<div class="mood-row"><span>住处</span><b class="up">+${mb.home}</b></div>` : ''}
+							${mb.moodlets.map((x) => `<div class="mood-row"><span>${x.def.icon} ${esc(x.def.name)} <span class="muted">还剩 ${x.minutesLeft >= 120 ? Math.round(x.minutesLeft / 60) + ' 小时' : Math.max(1, Math.round(x.minutesLeft)) + ' 分钟'}</span></span><b class="${x.def.value > 0 ? 'up' : 'down'}">${x.def.value > 0 ? '+' : ''}${x.def.value}</b></div>`).join('')}
+						</div>
+						${mb.moodlets.length ? '' : '<p style="margin-top:6px">做点开心的事——好好吃一顿、睡个好觉、完成心愿、去新地方——会留下几小时到几天的好心情。</p>'}
+					</div>
 					<div class="card"><h3>每日奖励</h3><p>已连续上线 ${s.daily.streak} 天。每天第一次上线领取，连续越久越多（$${DAILY.base} 起，第 ${DAILY.cap} 天另加 $${DAILY.bonus}），断一天从头算。</p></div>
 					<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>
 					<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>
 					<div class="card"><h3>工作与住处</h3>${life}</div>
 					<div class="card"><h3>人际关系</h3>${rels || '<p>还没认识什么人。去各地看看谁在那里。</p>'}</div>
 					<div class="card"><h3>背包</h3>${bag || '<p>空的。在地点页的商店里买东西。</p>'}</div>
-					<div class="card"><h3>能力</h3><p>用得越多涨得越快。</p>${skills}</div>`;
+					<div class="card"><h3>能力</h3><p>用得越多涨得越快。</p>${skills}</div>
+					<div class="card"><h3>派生属性</h3>${(() => {
+						const d = derivedStats(s);
+						return `<p>体质 ${d.fitness}（体能 50% + 力量 30% + 游泳 20%）</p>
+							<p>吸引力 ${d.appeal}（魅力 + 体质 15% + 心情修正${s.needs.hygiene < 30 ? ' − 邋遢 10' : ''}）</p>
+							<p>体力消耗 ×${d.exertion} · 恢复 ×${d.recovery}</p>
+							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
+					})()}</div>`;
 			}
 
 			function panelSocial() {
@@ -512,6 +553,28 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return `<div class="card"><h3>人生日志</h3><div class="list" style="margin-top:8px">${rows}</div></div>`;
 			}
 
+			function panelNear() {
+				const s = state!;
+				const intro = `<div class="card"><h3>附近能做的事</h3><p>人在真实的餐馆、健身房、公园、图书馆、超市……打开定位，就能在游戏里吃饭、训练、打卡上班。服务端会检查定位精度、距离和移动速度。</p>
+					<div class="inline" style="margin-top:8px"><button data-locate>📍 ${nearFix ? '重新定位' : '定位'}</button></div>
+					${nearFix ? `<p style="margin-top:6px" class="muted">定位误差约 ${Math.round(nearFix.acc)} 米 · ${Math.max(0, Math.round((Date.now() - nearFix.at) / 60000))} 分钟前</p>` : ''}</div>`;
+				const ci = s.clockIn;
+				const ciVenue = ci ? region.venues.find((v) => v.id === ci.venue) : undefined;
+				const clockHtml = ci ? `<div class="card"><h3>💼 上班中</h3><p>${esc(ciVenue?.name ?? ci.venue)} · 已 ${Math.max(0, Math.round((srvNow() - ci.at) / 60000))} 分钟。${clockStale(s, srvNow()) ? '这张卡太久没打下班卡，已经过期，不计薪：在任何带上班按钮的地点点一下就会作废；那里还能上班的话，会顺便打一张新卡。' : `离开前在那里打下班卡（至少 ${FIX_RULES.clockInMinMin} 分钟，一次最多计 ${FIX_RULES.shiftMaxMin / 60} 小时）。`}</p></div>` : '';
+				if (!region.venues.length) return intro + clockHtml + '<div class="card"><p>这个区域的真实地点数据还在采集中（来自 OpenStreetMap）。</p></div>';
+				if (!nearFix) return intro + clockHtml;
+				const list = venuesNear(s, region, nearFix.lat, nearFix.lon, nearFix.acc, srvNow());
+				if (!list.length) return intro + clockHtml + '<div class="card"><p>1.5 公里内没有收录的地点。</p></div>';
+				const cards = list.slice(0, 20).map(({ venue, type, distM, inRange, ops }) => `<div class="card"><h3>${type.icon} ${esc(venue.name)} <span class="muted">${esc(type.name)} · ${distM} 米</span></h3>
+					${inRange ? ops.map(({ op, outcome, blocked, voids, renews }) => {
+						const clockOut = op.id === 'work' && s.clockIn?.venue === venue.id;
+						const label = op.id === 'work' ? (voids ? '作废上班卡' : renews ? '作废旧卡并重新打卡' : clockOut ? '打下班卡' : '打上班卡') : op.name;
+						const detail = blocked ?? (voids ? voids : renews ? renews : outcome ? outcome.notes.join(' · ') : op.desc);
+						return `<button class="row" data-venue="${esc(venue.id)}" data-venue-op="${op.id}" ${blocked ? 'disabled' : ''}><span class="ico">${op.icon}</span><span class="body">${label}<small>${esc(detail)}</small></span></button>`;
+					}).join('') : `<p>再走近 ${Math.max(0, distM - type.radiusM)} 米就能${ops.map((o) => o.op.name).join('、')}。</p>`}</div>`).join('');
+				return intro + clockHtml + cards;
+			}
+
 			function panelSync() {
 				return `<div class="card"><h3>多设备同步</h3><p>${esc(syncStatus)}</p>
 						<p style="margin-top:8px">在另一台手机或电脑打开本页，选择“用同步码恢复”，粘贴下面这串码即可接着玩。</p>
@@ -523,7 +586,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			function renderPanel() {
 				$('tabs').innerHTML = TABS.map(([id, label]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}">${label}</button>`).join('');
-				const html = { place: panelPlace, go: panelGo, me: panelMe, social: panelSocial, log: panelLog, sync: panelSync }[tab]!();
+				const html = { place: panelPlace, near: panelNear, go: panelGo, me: panelMe, social: panelSocial, log: panelLog, sync: panelSync }[tab]!();
 				$('panel').innerHTML = html;
 				const chat = document.getElementById('chat');
 				if (chat) chat.scrollTop = chat.scrollHeight;
@@ -536,7 +599,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const s = state!;
 				modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${hero('event:' + ev.id, ev.icon)}
 					<h2>${ev.icon} ${esc(ev.title)}</h2><p>${esc(ev.text)}</p>
-					<div class="list">${ev.choices.map((c, i) => `<button class="row" data-choice="${i}"><span class="body">${esc(c.label)}${c.check ? `<small>${SKILL_META[c.check.skill].icon} ${SKILL_META[c.check.skill].name}检定（你 ${checkScore(s, c.check.skill).total} + 随机 0–60 / 难度 ${c.check.dc}）</small>` : ''}</span></button>`).join('')}</div></div>`;
+					<div class="list">${ev.choices.map((c, i) => `<button class="row" data-choice="${i}"${c.cost && c.cost > s.cash ? ' disabled' : ''}><span class="body">${esc(c.label)}${c.cost && c.cost > s.cash ? `<small>需要 $${c.cost}，钱不够</small>` : ''}${c.check ? `<small>${SKILL_META[c.check.skill].icon} ${SKILL_META[c.check.skill].name}检定（你 ${checkScore(s, c.check.skill).total} + 随机 0–60 / 难度 ${c.check.dc}）</small>` : ''}</span></button>`).join('')}</div></div>`;
 				modal.classList.remove('hidden');
 			}
 
@@ -557,11 +620,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-emote],[data-copy],[data-pull],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) { tab = d.tab; renderPanel(); }
-				else if (d.npc && d.npcAct) act({ t: 'npc', npc: d.npc, act: d.npcAct as NpcAction }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.npc && d.npcAct) act(d.npcItem ? { t: 'npc', npc: d.npc, act: 'gift', item: d.npcItem } : { t: 'npc', npc: d.npc, act: d.npcAct as NpcAction }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.veh) {
 					if (d.veh === 'sell' && !confirm('确定把车卖掉？')) return;
 					const a: GameAction = d.veh === 'buy' ? { t: 'vehicle', op: 'buy', id: d.vehId! } : { t: 'vehicle', op: d.veh as 'sell' | 'sleep' };
@@ -612,6 +675,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				else if (d.loc) { selected = d.loc === state.loc ? null : d.loc; tab = selected ? 'go' : 'place'; renderMap(); renderPanel(); }
 				else if (d.choice) act({ t: 'event', choice: +d.choice }).then((r) => { if (r) { lastOutcome = r.msg; tab = 'place'; render(); } });
 				else if ('gps' in d) checkIn();
+				else if ('locate' in d) locate().then((f) => { if (f) renderPanel(); });
+				else if (d.venue && d.venueOp) venueDo(d.venue, d.venueOp as VenueOp);
 				else if (d.emote && d.to) { ws?.send(JSON.stringify({ t: 'emote', to: d.to, kind: d.emote })); toast(`你向对方 ${d.emote}`); }
 				else if ('copy' in d) navigator.clipboard?.writeText(`${cred!.id}.${cred!.key}`).then(() => toast('已复制'), () => toast('复制失败，请长按手动复制'));
 				else if ('pull' in d) pullCloud();
@@ -629,6 +694,32 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (text && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'chat', text }));
 				input.value = '';
 			});
+
+			/** 取一次高精度定位，存在本机内存里（不写 localStorage） */
+			function locate(): Promise<typeof nearFix> {
+				if (!navigator.geolocation) { toast('这台设备不支持定位'); return Promise.resolve(null); }
+				toast('正在定位…');
+				return new Promise((done) => navigator.geolocation.getCurrentPosition(
+					(pos) => { nearFix = { lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy, at: Date.now() }; done(nearFix); },
+					() => { toast('无法获取定位，请检查定位权限'); done(null); },
+					{ enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
+				));
+			}
+
+			/** 真实地点动作：先重新定位；游戏里不在那个地点时先用真实定位抵达 */
+			async function venueDo(venueId: string, op: VenueOp) {
+				const v = region.venues.find((x) => x.id === venueId);
+				if (!v || !getVenueType(v.type)) return;
+				const f = await locate();
+				if (!f || !state) return;
+				if (state.loc !== v.loc) {
+					const g = await act({ t: 'gps', lat: f.lat, lon: f.lon });
+					if (!g || state.pending) { render(); return; }
+				}
+				const r = await act({ t: 'venue', venue: venueId, op, lat: f.lat, lon: f.lon, acc: f.acc });
+				if (r) { lastOutcome = r.msg; toast(r.msg); }
+				render();
+			}
 
 			function checkIn() {
 				if (!navigator.geolocation) return toast('这台设备不支持定位');

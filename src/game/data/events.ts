@@ -1,6 +1,7 @@
 // 到达地点触发的事件。once=true 的是地标“签名事件”，首次到访优先触发。
 // 新增事件只需往数组里加一条；effects 全部走 engine.applyEffect，无需写逻辑代码。
 import type { GameEvent } from '../core/types.ts';
+import { VENUE_EVENTS } from './venue-events.ts';
 
 export const EVENTS: GameEvent[] = [
 	{
@@ -15,7 +16,7 @@ export const EVENTS: GameEvent[] = [
 		id: 'whale-shark', title: '鲸鲨', icon: '🦈', locs: ['exmouth'], once: true, weight: 10,
 		text: '船长喊：“鲸鲨！右舷！”一条八米长的影子从船底滑过。',
 		choices: [
-			{ label: '跳下去同游', check: { skill: 'swimming', dc: 45 }, ok: { text: '你和地球上最大的鱼并肩游了十分钟。', fx: { cash: -200, respect: 5, needs: { fun: 50 }, skills: { swimming: 4 } } }, fail: { text: '浪太大，你呛了几口水被拉回船上。', fx: { cash: -200, health: -8, needs: { fun: 10 }, skills: { swimming: 2 } } } },
+			{ label: '跳下去同游（$200）', cost: 200, check: { skill: 'swimming', dc: 45 }, ok: { text: '你和地球上最大的鱼并肩游了十分钟。', fx: { respect: 5, needs: { fun: 50 }, skills: { swimming: 4 } } }, fail: { text: '浪太大，你呛了几口水被拉回船上。', fx: { health: -8, needs: { fun: 10 }, skills: { swimming: 2 } } } },
 			{ label: '在甲板上看就好', ok: { text: '隔着水面也足够震撼。', fx: { needs: { fun: 20 } } } },
 		],
 	},
@@ -50,7 +51,7 @@ export const EVENTS: GameEvent[] = [
 		text: '快到的时候“砰”的一声，车子往一边歪。',
 		choices: [
 			{ label: '自己换备胎', check: { skill: 'strength', dc: 40 }, ok: { text: '二十分钟搞定，手上全是红土。', fx: { minutes: 20, needs: { hygiene: -10 }, skills: { strength: 2, survival: 1 } } }, fail: { text: '千斤顶打滑，折腾了两小时。', fx: { minutes: 120, needs: { energy: -15, hygiene: -15 }, skills: { strength: 1 } } } },
-			{ label: '叫道路救援', ok: { text: '救援三小时后才到，账单也不便宜。', fx: { minutes: 180, cash: -220 } } },
+			{ label: '叫道路救援', cost: 220, ok: { text: '救援三小时后才到，账单也不便宜。', fx: { minutes: 180 } } },
 		],
 	},
 	{
@@ -81,7 +82,7 @@ export const EVENTS: GameEvent[] = [
 		text: '街角的提琴手朝你点头，示意你加入。',
 		choices: [
 			{ label: '上！', check: { skill: 'charisma', dc: 30 }, ok: { text: '围观的人越来越多，琴盒满了。', fx: { cash: 80, respect: 1, needs: { social: 25, fun: 20 }, skills: { charisma: 2 } } }, fail: { text: '你跑调了，但大家笑得很开心。', fx: { needs: { social: 15, fun: 10 }, skills: { charisma: 1 } } } },
-			{ label: '投个硬币就走', ok: { text: '他冲你眨了眨眼。', fx: { cash: -2 } } },
+			{ label: '投个硬币就走', cost: 2, ok: { text: '他冲你眨了眨眼。', fx: {} } },
 		],
 	},
 	{
@@ -101,7 +102,7 @@ export const EVENTS: GameEvent[] = [
 		id: 'flies', title: '苍蝇大军', icon: '🪰', kinds: ['outback', 'park', 'mining'], weight: 2,
 		text: '下车三秒，脸上已经落了十几只苍蝇。',
 		choices: [
-			{ label: '买顶防蝇网帽', ok: { text: '丑，但管用。', fx: { cash: -12 } } },
+			{ label: '买顶防蝇网帽（$12）', cost: 12, ok: { text: '丑，但管用。', fx: {} } },
 			{ label: '练“澳式挥手”硬扛', ok: { text: '你学会了本地人的打招呼方式。', fx: { needs: { fun: -8, hygiene: -5 }, skills: { survival: 1 } } } },
 		],
 	},
@@ -117,7 +118,8 @@ export const EVENTS: GameEvent[] = [
 		id: 'pearl-offer', title: '“便宜珍珠”', icon: '🦪', tags: ['pearl'], weight: 3,
 		text: '巷子里有人拉开外套：“南洋珠，店里十分之一的价。”',
 		choices: [
-			{ label: '买来转手', check: { skill: 'street', dc: 50 }, ok: { text: '你一眼挑出了真货，转手赚了一笔。', fx: { cash: 400, heat: 15, skills: { street: 3 } } }, fail: { text: '塑料珠子。钱没了。', fx: { cash: -200, heat: 10, skills: { street: 1 } } } },
+			// 先付 $200：真货转手拿回 $600（净赚 $400），假货钱就没了（净亏 $200）
+			{ label: '买来转手', cost: 200, check: { skill: 'street', dc: 50 }, ok: { text: '你一眼挑出了真货，转手赚了一笔。', fx: { cash: 600, heat: 15, skills: { street: 3 } } }, fail: { text: '塑料珠子。钱没了。', fx: { heat: 10, skills: { street: 1 } } } },
 			{ label: '摆手走开', ok: { text: '不惹麻烦。', fx: {} } },
 		],
 	},
@@ -133,7 +135,7 @@ export const EVENTS: GameEvent[] = [
 		id: 'winter-swell', title: '冬季风暴', icon: '🌊', seasons: ['winter'], tags: ['beach'], weight: 4,
 		text: '南边来的风暴把海搅成了灰白色，浪头砸在防波堤上。',
 		choices: [
-			{ label: '躲进酒吧喝杯热的', ok: { text: '半个镇子的人都在这儿，壁炉烧得正旺。', fx: { cash: -15, needs: { social: 20, fun: 10 } } } },
+			{ label: '躲进酒吧喝杯热的（$15）', cost: 15, ok: { text: '半个镇子的人都在这儿，壁炉烧得正旺。', fx: { needs: { social: 20, fun: 10 } } } },
 			{ label: '裹紧外套去看浪', ok: { text: '浪花溅了你一身，但值得。', fx: { needs: { fun: 18, hygiene: -10 } } } },
 		],
 	},
@@ -145,4 +147,5 @@ export const EVENTS: GameEvent[] = [
 			{ label: '想办法溜走', check: { skill: 'stamina', dc: 60 }, ok: { text: '你拐进小巷甩掉了他们。', fx: { heat: -15, skills: { stamina: 2, street: 2 } } }, fail: { text: '没跑出五十米就被按住了。', fx: { cash: -500, health: -10, heat: -30 } } },
 		],
 	},
+	...VENUE_EVENTS,
 ];

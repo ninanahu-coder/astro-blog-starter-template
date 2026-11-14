@@ -33,10 +33,10 @@ test('特质选择校验', () => {
 test('心情：短板效应与档位', () => {
 	const s = make();
 	s.needs = { hunger: 100, energy: 100, hygiene: 100, fun: 100, social: 0 };
-	assert.equal(mood(s), 48, '一项见底会把心情拉到一般');
+	assert.equal(mood(s), 60, '一项见底：平均 80 × 0.75 + 最低 0 × 0.25，比需求全满低 40');
 	assert.equal(moodTier(10).check, -10);
 	assert.equal(moodTier(90).check, 10);
-	assert.equal(mood({ ...make(['easygoing']), needs: s.needs }), 56, '没心没肺 +8');
+	assert.equal(mood({ ...make(['easygoing']), needs: s.needs }), 68, '没心没肺 +8');
 });
 
 test('检定分 = 能力 + 特质 + 最高一件装备 + 心情', () => {

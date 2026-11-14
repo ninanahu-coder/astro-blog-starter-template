@@ -1,0 +1,5846 @@
+{
+  "region": "wa",
+  "venues": [
+    {
+      "id": "osm-node-1029226779",
+      "loc": "fremantle",
+      "name": "D'Angelo Cafe",
+      "lat": -32.053672,
+      "lon": 115.749625,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10297572193",
+      "loc": "fremantle",
+      "name": "Crosta",
+      "lat": -32.055434,
+      "lon": 115.743768,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10767859579",
+      "loc": "fremantle",
+      "name": "Fremantle Cafe",
+      "lat": -32.05326,
+      "lon": 115.780009,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10800537214",
+      "loc": "fremantle",
+      "name": "Simply Beautiful Buscuits Kitchen",
+      "lat": -32.015278,
+      "lon": 115.768716,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1112796032",
+      "loc": "fremantle",
+      "name": "Plated",
+      "lat": -32.047705,
+      "lon": 115.754197,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11393237125",
+      "loc": "fremantle",
+      "name": "Bloom",
+      "lat": -32.046911,
+      "lon": 115.751964,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11722296181",
+      "loc": "fremantle",
+      "name": "May Street Larder",
+      "lat": -32.041168,
+      "lon": 115.764938,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11740379421",
+      "loc": "fremantle",
+      "name": "Me Me Joans",
+      "lat": -32.041224,
+      "lon": 115.764452,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11799030342",
+      "loc": "fremantle",
+      "name": "Kricket Local",
+      "lat": -32.052745,
+      "lon": 115.765666,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11831943936",
+      "loc": "fremantle",
+      "name": "Amante & Co Coffee",
+      "lat": -32.062452,
+      "lon": 115.752073,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11832040646",
+      "loc": "fremantle",
+      "name": "Nine Seeds",
+      "lat": -32.04741,
+      "lon": 115.771048,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11890633269",
+      "loc": "fremantle",
+      "name": "T.O.P. Coffee and Tea",
+      "lat": -32.055047,
+      "lon": 115.748329,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12159304321",
+      "loc": "fremantle",
+      "name": "Flora & Fauna",
+      "lat": -32.05383,
+      "lon": 115.746561,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12307062505",
+      "loc": "fremantle",
+      "name": "Cassia",
+      "lat": -32.055207,
+      "lon": 115.749886,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12389475293",
+      "loc": "fremantle",
+      "name": "Rustic Spoon",
+      "lat": -32.056402,
+      "lon": 115.746922,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12787713186",
+      "loc": "fremantle",
+      "name": "Temptation",
+      "lat": -32.045017,
+      "lon": 115.753357,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13064860607",
+      "loc": "fremantle",
+      "name": "Il Brutto",
+      "lat": -32.056303,
+      "lon": 115.746115,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14247237246",
+      "loc": "fremantle",
+      "name": "Northport Cafe",
+      "lat": -32.052871,
+      "lon": 115.729494,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14352486609",
+      "loc": "fremantle",
+      "name": "Rubra Coffee Warehouse & Cafe",
+      "lat": -32.057743,
+      "lon": 115.786648,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2774072503",
+      "loc": "fremantle",
+      "name": "San Churro",
+      "lat": -32.055611,
+      "lon": 115.746775,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-342658341",
+      "loc": "fremantle",
+      "name": "Coast",
+      "lat": -32.034888,
+      "lon": 115.745663,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4364304694",
+      "loc": "fremantle",
+      "name": "Two Fat Wombats",
+      "lat": -32.053674,
+      "lon": 115.74582,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4646429190",
+      "loc": "fremantle",
+      "name": "Good Things",
+      "lat": -32.015272,
+      "lon": 115.768986,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5321921316",
+      "loc": "fremantle",
+      "name": "Culley's",
+      "lat": -32.05422,
+      "lon": 115.746908,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-600753458",
+      "loc": "fremantle",
+      "name": "Kazoomies",
+      "lat": -32.053388,
+      "lon": 115.742238,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6548951823",
+      "loc": "fremantle",
+      "name": "Two Dogs Laughing",
+      "lat": -32.063591,
+      "lon": 115.772224,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-662689900",
+      "loc": "fremantle",
+      "name": "Gino's",
+      "lat": -32.055597,
+      "lon": 115.747122,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7196223177",
+      "loc": "fremantle",
+      "name": "Broody Hen",
+      "lat": -32.046988,
+      "lon": 115.752531,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7866792296",
+      "loc": "fremantle",
+      "name": "La Vespa",
+      "lat": -32.068815,
+      "lon": 115.7525,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8787737910",
+      "loc": "fremantle",
+      "name": "Good Things",
+      "lat": -32.055262,
+      "lon": 115.746149,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8810194980",
+      "loc": "fremantle",
+      "name": "The Bistrot Cafe",
+      "lat": -32.056925,
+      "lon": 115.744605,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9420336204",
+      "loc": "fremantle",
+      "name": "Get Chunky",
+      "lat": -32.054693,
+      "lon": 115.748521,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-140484887",
+      "loc": "fremantle",
+      "name": "Lawley's Cafe & Bakery",
+      "lat": -32.059502,
+      "lon": 115.751724,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-256917795",
+      "loc": "fremantle",
+      "name": "Roasting Warehouse",
+      "lat": -32.06796,
+      "lon": 115.752857,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-27751933",
+      "loc": "fremantle",
+      "name": "Dôme",
+      "lat": -32.037595,
+      "lon": 115.761716,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-321448865",
+      "loc": "fremantle",
+      "name": "Cafe Lumos",
+      "lat": -32.060074,
+      "lon": 115.777342,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-47432324",
+      "loc": "fremantle",
+      "name": "Beach Street Cafe",
+      "lat": -32.041763,
+      "lon": 115.756771,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-50335043",
+      "loc": "fremantle",
+      "name": "South Beach Cafe",
+      "lat": -32.076135,
+      "lon": 115.752438,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-539400551",
+      "loc": "fremantle",
+      "name": "Ootong & Lincoln",
+      "lat": -32.065147,
+      "lon": 115.752637,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-971936968",
+      "loc": "fremantle",
+      "name": "Little Lefroy's",
+      "lat": -32.067667,
+      "lon": 115.752732,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10898666726",
+      "loc": "fremantle",
+      "name": "Hamilton Hill Medical Centre",
+      "lat": -32.074997,
+      "lon": 115.781265,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11342849423",
+      "loc": "fremantle",
+      "name": "House Of Derma",
+      "lat": -32.056506,
+      "lon": 115.744815,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11428248488",
+      "loc": "fremantle",
+      "name": "Travel Health Plus",
+      "lat": -32.063663,
+      "lon": 115.759536,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11736212907",
+      "loc": "fremantle",
+      "name": "Clinipath Pathology",
+      "lat": -32.042197,
+      "lon": 115.764527,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11914567264",
+      "loc": "fremantle",
+      "name": "Dr David Nelson",
+      "lat": -32.040862,
+      "lon": 115.769533,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11971880254",
+      "loc": "fremantle",
+      "name": "Hampton Medical Centre",
+      "lat": -32.074813,
+      "lon": 115.759172,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11971880255",
+      "loc": "fremantle",
+      "name": "Clinipath Pathology",
+      "lat": -32.074808,
+      "lon": 115.759122,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12049421828",
+      "loc": "fremantle",
+      "name": "The Skin Clinic Fremantle",
+      "lat": -32.0535,
+      "lon": 115.745124,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12626832118",
+      "loc": "fremantle",
+      "name": "Everything Skin",
+      "lat": -32.033901,
+      "lon": 115.792424,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13449365973",
+      "loc": "fremantle",
+      "name": "West End Medical",
+      "lat": -32.052357,
+      "lon": 115.746994,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13579308703",
+      "loc": "fremantle",
+      "name": "Prime Radiology",
+      "lat": -32.063445,
+      "lon": 115.780411,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13608789072",
+      "loc": "fremantle",
+      "name": "Prime Radiology",
+      "lat": -32.063445,
+      "lon": 115.780411,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8484248880",
+      "loc": "fremantle",
+      "name": "Clinipath Pathology",
+      "lat": -32.063431,
+      "lon": 115.780964,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8763158076",
+      "loc": "fremantle",
+      "name": "Gutworks Gastroenterology",
+      "lat": -32.063717,
+      "lon": 115.761941,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8788484936",
+      "loc": "fremantle",
+      "name": "CareDx",
+      "lat": -32.056046,
+      "lon": 115.746919,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8797088602",
+      "loc": "fremantle",
+      "name": "Fremantle Family Doctors",
+      "lat": -32.067536,
+      "lon": 115.774542,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8797088603",
+      "loc": "fremantle",
+      "name": "Momentum Physiotherapy and Pilates",
+      "lat": -32.067537,
+      "lon": 115.774667,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8797088604",
+      "loc": "fremantle",
+      "name": "Clinipath Pathology",
+      "lat": -32.067535,
+      "lon": 115.774417,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9273496520",
+      "loc": "fremantle",
+      "name": "Ellen Health South Fremantle",
+      "lat": -32.070741,
+      "lon": 115.757568,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9648369950",
+      "loc": "fremantle",
+      "name": "Dian Abdurachman",
+      "lat": -32.064063,
+      "lon": 115.752176,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9719772222",
+      "loc": "fremantle",
+      "name": "Apex Radiology",
+      "lat": -32.064202,
+      "lon": 115.797969,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9938417670",
+      "loc": "fremantle",
+      "name": "East Fremantle Medical Centre",
+      "lat": -32.042196,
+      "lon": 115.76457,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-119557633",
+      "loc": "fremantle",
+      "name": "Fremantle Family Doctors",
+      "lat": -32.063525,
+      "lon": 115.781028,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1273961258",
+      "loc": "fremantle",
+      "name": "Adfred Cove Child Health Centre",
+      "lat": -32.037262,
+      "lon": 115.777749,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-309011079",
+      "loc": "fremantle",
+      "name": "Canning Medical Centre",
+      "lat": -32.052988,
+      "lon": 115.752076,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-356715571",
+      "loc": "fremantle",
+      "name": "E. H. Gray Infant Health Centre",
+      "lat": -32.04121,
+      "lon": 115.760827,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-47125731",
+      "loc": "fremantle",
+      "name": "Fremantle Hospital and Health Service",
+      "lat": -32.057458,
+      "lon": 115.753003,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-510927567",
+      "loc": "fremantle",
+      "name": "Neira Psychology",
+      "lat": -32.060359,
+      "lon": 115.75389,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-510927569",
+      "loc": "fremantle",
+      "name": "Divergent Psychology",
+      "lat": -32.060123,
+      "lon": 115.753981,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-539400548",
+      "loc": "fremantle",
+      "name": "Eatfitlive Health",
+      "lat": -32.0656,
+      "lon": 115.752181,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-834616433",
+      "loc": "fremantle",
+      "name": "The Wellness Studio",
+      "lat": -32.062032,
+      "lon": 115.757766,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10744690842",
+      "loc": "fremantle",
+      "name": "Zedz Fish & Chips",
+      "lat": -32.063464,
+      "lon": 115.772973,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10800537220",
+      "loc": "fremantle",
+      "name": "Mosman Park Seafoods",
+      "lat": -32.015447,
+      "lon": 115.769241,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10898666727",
+      "loc": "fremantle",
+      "name": "Kim's Fish & Chips",
+      "lat": -32.075081,
+      "lon": 115.781265,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11322995004",
+      "loc": "fremantle",
+      "name": "Oakberry Açai",
+      "lat": -32.056074,
+      "lon": 115.748979,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11372902643",
+      "loc": "fremantle",
+      "name": "Pretzel",
+      "lat": -32.054878,
+      "lon": 115.746756,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1160725618",
+      "loc": "fremantle",
+      "name": "Domino's",
+      "lat": -32.040823,
+      "lon": 115.765843,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11722296180",
+      "loc": "fremantle",
+      "name": "Seabreeze Fish and Chips",
+      "lat": -32.041347,
+      "lon": 115.764467,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11765955396",
+      "loc": "fremantle",
+      "name": "Noodle Box",
+      "lat": -32.035231,
+      "lon": 115.790588,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11830923467",
+      "loc": "fremantle",
+      "name": "Taaj Cafe to Go",
+      "lat": -32.044913,
+      "lon": 115.779843,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12103819890",
+      "loc": "fremantle",
+      "name": "Ali Baba",
+      "lat": -32.055877,
+      "lon": 115.74814,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12105842086",
+      "loc": "fremantle",
+      "name": "CC Fried Chicken",
+      "lat": -32.05629,
+      "lon": 115.748937,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12105842087",
+      "loc": "fremantle",
+      "name": "Chibugan",
+      "lat": -32.056339,
+      "lon": 115.749003,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12112180808",
+      "loc": "fremantle",
+      "name": "Bicton Fish & Burger Grill",
+      "lat": -32.029728,
+      "lon": 115.782518,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12269939705",
+      "loc": "fremantle",
+      "name": "Staples",
+      "lat": -32.072436,
+      "lon": 115.752847,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12269939706",
+      "loc": "fremantle",
+      "name": "Two Stacks - South Fremantle",
+      "lat": -32.072243,
+      "lon": 115.752831,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12885540962",
+      "loc": "fremantle",
+      "name": "Autentici Pizza E Gelato",
+      "lat": -32.035214,
+      "lon": 115.753217,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14257069931",
+      "loc": "fremantle",
+      "name": "Gozbar",
+      "lat": -32.054387,
+      "lon": 115.747486,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3132316871",
+      "loc": "fremantle",
+      "name": "Marmaris",
+      "lat": -32.075316,
+      "lon": 115.781251,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3582217193",
+      "loc": "fremantle",
+      "name": "Run Amuk Hotdogs Unleashed",
+      "lat": -32.0723,
+      "lon": 115.753118,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3582236393",
+      "loc": "fremantle",
+      "name": "South Beach Fish & Chips",
+      "lat": -32.072241,
+      "lon": 115.753117,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4637125304",
+      "loc": "fremantle",
+      "name": "Zambrero",
+      "lat": -32.055318,
+      "lon": 115.747084,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5026468122",
+      "loc": "fremantle",
+      "name": "Sushi With Goons",
+      "lat": -32.055513,
+      "lon": 115.7479,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5026468222",
+      "loc": "fremantle",
+      "name": "Fremantle Kebab House",
+      "lat": -32.055189,
+      "lon": 115.748155,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5323344421",
+      "loc": "fremantle",
+      "name": "Grill'd",
+      "lat": -32.055908,
+      "lon": 115.747571,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5884627585",
+      "loc": "fremantle",
+      "name": "Subway",
+      "lat": -32.054296,
+      "lon": 115.746491,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6429413625",
+      "loc": "fremantle",
+      "name": "Piscari",
+      "lat": -32.06297,
+      "lon": 115.756815,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9357431310",
+      "loc": "fremantle",
+      "name": "Sealanes Fish & Chips",
+      "lat": -32.073051,
+      "lon": 115.752135,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9420336205",
+      "loc": "fremantle",
+      "name": "Roll'd",
+      "lat": -32.054869,
+      "lon": 115.748902,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9471058217",
+      "loc": "fremantle",
+      "name": "Sushi and Sandwich Bar",
+      "lat": -32.052838,
+      "lon": 115.747901,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9713146620",
+      "loc": "fremantle",
+      "name": "Angry Chicken",
+      "lat": -32.04954,
+      "lon": 115.794567,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9713147218",
+      "loc": "fremantle",
+      "name": "JM Burger",
+      "lat": -32.049577,
+      "lon": 115.794355,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9726645217",
+      "loc": "fremantle",
+      "name": "Crust",
+      "lat": -32.063578,
+      "lon": 115.772463,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9739201521",
+      "loc": "fremantle",
+      "name": "Subway",
+      "lat": -32.035244,
+      "lon": 115.790518,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9739201833",
+      "loc": "fremantle",
+      "name": "Melville Kebab House",
+      "lat": -32.034275,
+      "lon": 115.791462,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9741099083",
+      "loc": "fremantle",
+      "name": "Forno Antico Pizzeria",
+      "lat": -32.079693,
+      "lon": 115.761632,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-119557688",
+      "loc": "fremantle",
+      "name": "Hilton Pizza",
+      "lat": -32.063497,
+      "lon": 115.779972,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1248948568",
+      "loc": "fremantle",
+      "name": "Hungry Jack's",
+      "lat": -32.035393,
+      "lon": 115.790048,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1251431051",
+      "loc": "fremantle",
+      "name": "McDonald's",
+      "lat": -32.035541,
+      "lon": 115.785668,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-51144750",
+      "loc": "fremantle",
+      "name": "Subway",
+      "lat": -32.074459,
+      "lon": 115.760806,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-57746299",
+      "loc": "fremantle",
+      "name": "Red Rooster",
+      "lat": -32.075608,
+      "lon": 115.780105,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11815980799",
+      "loc": "fremantle",
+      "name": "F45 Training",
+      "lat": -32.037895,
+      "lon": 115.754279,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11830305651",
+      "loc": "fremantle",
+      "name": "Off The Wall Yoga",
+      "lat": -32.038607,
+      "lon": 115.775669,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11853669961",
+      "loc": "fremantle",
+      "name": "Young4Life Fitness",
+      "lat": -32.03939,
+      "lon": 115.776456,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11861489990",
+      "loc": "fremantle",
+      "name": "BSweat",
+      "lat": -32.028828,
+      "lon": 115.75278,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12101854640",
+      "loc": "fremantle",
+      "name": "Go Slo Studio",
+      "lat": -32.059496,
+      "lon": 115.751147,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12732692592",
+      "loc": "fremantle",
+      "name": "B Active East Fremantle",
+      "lat": -32.044799,
+      "lon": 115.768387,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12751784149",
+      "loc": "fremantle",
+      "name": "Loop Yoga",
+      "lat": -32.029548,
+      "lon": 115.751324,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12926848701",
+      "loc": "fremantle",
+      "name": "Mind Body & Soul",
+      "lat": -32.034064,
+      "lon": 115.793224,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13886542813",
+      "loc": "fremantle",
+      "name": "You Wellness Club",
+      "lat": -32.044631,
+      "lon": 115.779295,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14057577930",
+      "loc": "fremantle",
+      "name": "Plus Fitness",
+      "lat": -32.033883,
+      "lon": 115.791696,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14113959031",
+      "loc": "fremantle",
+      "name": "Heartbeat High",
+      "lat": -32.063083,
+      "lon": 115.771821,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14244687489",
+      "loc": "fremantle",
+      "name": "Pilates Centre WA",
+      "lat": -32.044192,
+      "lon": 115.761422,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14282840021",
+      "loc": "fremantle",
+      "name": "Pronto Pilates",
+      "lat": -32.043907,
+      "lon": 115.763442,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4127661407",
+      "loc": "fremantle",
+      "name": "Golds Gym",
+      "lat": -32.074782,
+      "lon": 115.761583,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4447001389",
+      "loc": "fremantle",
+      "name": "Fremantle Indoor",
+      "lat": -32.054379,
+      "lon": 115.79207,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5395983834",
+      "loc": "fremantle",
+      "name": "Jetts Fitness",
+      "lat": -32.074072,
+      "lon": 115.759215,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6282107287",
+      "loc": "fremantle",
+      "name": "SpringIntoFitness",
+      "lat": -32.055542,
+      "lon": 115.750721,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6282113686",
+      "loc": "fremantle",
+      "name": "real fitness",
+      "lat": -32.055669,
+      "lon": 115.793294,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6282118885",
+      "loc": "fremantle",
+      "name": "Jetts Fitness",
+      "lat": -32.063516,
+      "lon": 115.795818,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8889518252",
+      "loc": "fremantle",
+      "name": "Yogalab",
+      "lat": -32.053821,
+      "lon": 115.750207,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9713146818",
+      "loc": "fremantle",
+      "name": "Pursuit",
+      "lat": -32.054199,
+      "lon": 115.792819,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9713147319",
+      "loc": "fremantle",
+      "name": "Reps Movement",
+      "lat": -32.049772,
+      "lon": 115.79407,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9719771819",
+      "loc": "fremantle",
+      "name": "Revo Fitness",
+      "lat": -32.056972,
+      "lon": 115.792579,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9722015817",
+      "loc": "fremantle",
+      "name": "Spanda",
+      "lat": -32.066271,
+      "lon": 115.752312,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9724237118",
+      "loc": "fremantle",
+      "name": "mind body",
+      "lat": -32.033906,
+      "lon": 115.793054,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9739201522",
+      "loc": "fremantle",
+      "name": "Fitstop",
+      "lat": -32.034977,
+      "lon": 115.791517,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9741099084",
+      "loc": "fremantle",
+      "name": "Fitstop",
+      "lat": -32.073689,
+      "lon": 115.760114,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9837988021",
+      "loc": "fremantle",
+      "name": "SpeedFit",
+      "lat": -32.054019,
+      "lon": 115.749524,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-309011085",
+      "loc": "fremantle",
+      "name": "Float Fremantle",
+      "lat": -32.053074,
+      "lon": 115.753195,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-822483017",
+      "loc": "fremantle",
+      "name": "Rolloways Leisure Centre",
+      "lat": -32.061678,
+      "lon": 115.785344,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11929947871",
+      "loc": "fremantle",
+      "name": "The Little Library Box",
+      "lat": -32.033858,
+      "lon": 115.791766,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2409358109",
+      "loc": "fremantle",
+      "name": "Fremantle Library",
+      "lat": -32.054087,
+      "lon": 115.748345,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6899897533",
+      "loc": "fremantle",
+      "name": "Notre Dame Law Library",
+      "lat": -32.056674,
+      "lon": 115.744432,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7042992686",
+      "loc": "fremantle",
+      "name": "Roy and Amy Galvin Medical Library",
+      "lat": -32.056046,
+      "lon": 115.744721,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1016276510",
+      "loc": "fremantle",
+      "name": "Richmond Primary School Library",
+      "lat": -32.036109,
+      "lon": 115.770312,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-164418324",
+      "loc": "fremantle",
+      "name": "St Teresa's Library",
+      "lat": -32.056195,
+      "lon": 115.7442,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-229540675",
+      "loc": "fremantle",
+      "name": "Learning Centre / PROPEL",
+      "lat": -32.049194,
+      "lon": 115.757841,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9559511981",
+      "loc": "fremantle",
+      "name": "Manning Park",
+      "lat": -32.091919,
+      "lon": 115.76911,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1029332910",
+      "loc": "fremantle",
+      "name": "Anchorage Park",
+      "lat": -32.085095,
+      "lon": 115.757167,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1029332911",
+      "loc": "fremantle",
+      "name": "Reinforcement Park",
+      "lat": -32.085073,
+      "lon": 115.758827,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1029332912",
+      "loc": "fremantle",
+      "name": "Gage Park",
+      "lat": -32.08508,
+      "lon": 115.760229,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1029334643",
+      "loc": "fremantle",
+      "name": "Rollinson Park",
+      "lat": -32.081733,
+      "lon": 115.753678,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1031045809",
+      "loc": "fremantle",
+      "name": "Caledonia Park",
+      "lat": -32.098316,
+      "lon": 115.759616,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1031045810",
+      "loc": "fremantle",
+      "name": "Medina Park",
+      "lat": -32.09778,
+      "lon": 115.759873,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1051174248",
+      "loc": "fremantle",
+      "name": "Carnac Park",
+      "lat": -32.063201,
+      "lon": 115.75321,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-105683198",
+      "loc": "fremantle",
+      "name": "Bakers Square",
+      "lat": -32.079537,
+      "lon": 115.775902,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-107671557",
+      "loc": "fremantle",
+      "name": "Dixon Park",
+      "lat": -32.079824,
+      "lon": 115.769627,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-115107976",
+      "loc": "fremantle",
+      "name": "Mount Lyell Park",
+      "lat": -32.020636,
+      "lon": 115.761766,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-136149800",
+      "loc": "fremantle",
+      "name": "Gold Street Community Park",
+      "lat": -32.064401,
+      "lon": 115.753831,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-164770781",
+      "loc": "fremantle",
+      "name": "Princess May Park",
+      "lat": -32.05054,
+      "lon": 115.749103,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-27403445",
+      "loc": "fremantle",
+      "name": "Valley Park",
+      "lat": -32.060208,
+      "lon": 115.770052,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-27443916",
+      "loc": "fremantle",
+      "name": "Evan Davies Reserve",
+      "lat": -32.06069,
+      "lon": 115.763643,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-285421990",
+      "loc": "fremantle",
+      "name": "Rob Campbell Reserve",
+      "lat": -32.02965,
+      "lon": 115.778676,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-285421993",
+      "loc": "fremantle",
+      "name": "Fred Jones Reserve",
+      "lat": -32.037219,
+      "lon": 115.779133,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-30293433",
+      "loc": "fremantle",
+      "name": "Virginia Ryan Park",
+      "lat": -32.059604,
+      "lon": 115.760446,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-32053073",
+      "loc": "fremantle",
+      "name": "Bruce Lee Reserve",
+      "lat": -32.064542,
+      "lon": 115.76829,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-326318611",
+      "loc": "fremantle",
+      "name": "Fremantle Park",
+      "lat": -32.050021,
+      "lon": 115.753284,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-356715539",
+      "loc": "fremantle",
+      "name": "Lee Park",
+      "lat": -32.039159,
+      "lon": 115.774012,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-356715541",
+      "loc": "fremantle",
+      "name": "Woolshed Park",
+      "lat": -32.049435,
+      "lon": 115.779894,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-37064830",
+      "loc": "fremantle",
+      "name": "Wauhop Park",
+      "lat": -32.028539,
+      "lon": 115.767655,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-37064834",
+      "loc": "fremantle",
+      "name": "Gourley Park",
+      "lat": -32.034081,
+      "lon": 115.764302,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-37373284",
+      "loc": "fremantle",
+      "name": "Gilbert Fraser Reserve",
+      "lat": -32.03496,
+      "lon": 115.758627,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-376035154",
+      "loc": "fremantle",
+      "name": "Fremantle War Memorial",
+      "lat": -32.052219,
+      "lon": 115.757028,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-39020995",
+      "loc": "fremantle",
+      "name": "Sardelic Park",
+      "lat": -32.07402,
+      "lon": 115.764674,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-459911077",
+      "loc": "fremantle",
+      "name": "Mills and Wares Park",
+      "lat": -32.069034,
+      "lon": 115.753763,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-460517878",
+      "loc": "fremantle",
+      "name": "Salentina Ridge Park",
+      "lat": -32.069279,
+      "lon": 115.762908,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-47430607",
+      "loc": "fremantle",
+      "name": "Bicton Quarantine Park",
+      "lat": -32.028148,
+      "lon": 115.778909,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-488602449",
+      "loc": "fremantle",
+      "name": "Dinosaur Park",
+      "lat": -32.045542,
+      "lon": 115.779139,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-50436474",
+      "loc": "fremantle",
+      "name": "Booyeembara Park",
+      "lat": -32.055046,
+      "lon": 115.769565,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-544949386",
+      "loc": "fremantle",
+      "name": "Ulrich Park",
+      "lat": -32.035002,
+      "lon": 115.769787,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-544965079",
+      "loc": "fremantle",
+      "name": "W. H. Kitson Park",
+      "lat": -32.040971,
+      "lon": 115.760639,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-544965080",
+      "loc": "fremantle",
+      "name": "J Dolan Park",
+      "lat": -32.040781,
+      "lon": 115.759978,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-558401989",
+      "loc": "fremantle",
+      "name": "Emily Main Park",
+      "lat": -32.038759,
+      "lon": 115.782836,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-558401996",
+      "loc": "fremantle",
+      "name": "John O'Sullivan Park",
+      "lat": -32.047259,
+      "lon": 115.788116,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-700453698",
+      "loc": "fremantle",
+      "name": "Alfred Road Park",
+      "lat": -32.030339,
+      "lon": 115.755117,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-8031617",
+      "loc": "fremantle",
+      "name": "Esplanade Park",
+      "lat": -32.058034,
+      "lon": 115.744972,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-80963277",
+      "loc": "fremantle",
+      "name": "Minim Cove Park",
+      "lat": -32.023223,
+      "lon": 115.770929,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-285421995",
+      "loc": "fremantle",
+      "name": "Bicton Pool",
+      "lat": -32.028573,
+      "lon": 115.777181,
+      "type": "pool",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11648871728",
+      "loc": "fremantle",
+      "name": "Wild In The Street",
+      "lat": -32.072349,
+      "lon": 115.753139,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11652514903",
+      "loc": "fremantle",
+      "name": "Ode to Sirens",
+      "lat": -32.055486,
+      "lon": 115.743667,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11861651225",
+      "loc": "fremantle",
+      "name": "The Duke of George",
+      "lat": -32.044213,
+      "lon": 115.763541,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11885491569",
+      "loc": "fremantle",
+      "name": "Varsity Sports Bar",
+      "lat": -32.05427,
+      "lon": 115.748841,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11979311669",
+      "loc": "fremantle",
+      "name": "Honkey Tonk",
+      "lat": -32.054835,
+      "lon": 115.745614,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12064351239",
+      "loc": "fremantle",
+      "name": "Beaconsfield Wine Bar",
+      "lat": -32.067462,
+      "lon": 115.774937,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12088125686",
+      "loc": "fremantle",
+      "name": "The Flaming Galah",
+      "lat": -32.056703,
+      "lon": 115.748191,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12112180806",
+      "loc": "fremantle",
+      "name": "Terra Mave",
+      "lat": -32.029688,
+      "lon": 115.78252,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12384243129",
+      "loc": "fremantle",
+      "name": "FIYB Music Bar",
+      "lat": -32.045166,
+      "lon": 115.753268,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13810203548",
+      "loc": "fremantle",
+      "name": "Frankie's Bar",
+      "lat": -32.057188,
+      "lon": 115.749276,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2160594196",
+      "loc": "fremantle",
+      "name": "South Street Ale House",
+      "lat": -32.063411,
+      "lon": 115.78056,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3707644810",
+      "loc": "fremantle",
+      "name": "Beach Bar",
+      "lat": -32.034812,
+      "lon": 115.745692,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-482265348",
+      "loc": "fremantle",
+      "name": "Wray Hotel",
+      "lat": -32.062141,
+      "lon": 115.75717,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5724840321",
+      "loc": "fremantle",
+      "name": "Mojo's Bar",
+      "lat": -32.035414,
+      "lon": 115.753262,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6888022446",
+      "loc": "fremantle",
+      "name": "Jungle Bird",
+      "lat": -32.055083,
+      "lon": 115.744906,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6936814733",
+      "loc": "fremantle",
+      "name": "Beerpourium",
+      "lat": -32.055818,
+      "lon": 115.747342,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6936819594",
+      "loc": "fremantle",
+      "name": "Mons. O'Shea",
+      "lat": -32.055338,
+      "lon": 115.747127,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8163136285",
+      "loc": "fremantle",
+      "name": "Mrs Brown",
+      "lat": -32.035261,
+      "lon": 115.753245,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8943092309",
+      "loc": "fremantle",
+      "name": "Gorgeous George Tacos",
+      "lat": -32.054633,
+      "lon": 115.747139,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9352218072",
+      "loc": "fremantle",
+      "name": "Tolley's Lane",
+      "lat": -32.053761,
+      "lon": 115.744341,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9793971317",
+      "loc": "fremantle",
+      "name": "Varsity Freo",
+      "lat": -32.054279,
+      "lon": 115.748859,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9843343168",
+      "loc": "fremantle",
+      "name": "Malt'n Gold",
+      "lat": -32.059745,
+      "lon": 115.752241,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1013675205",
+      "loc": "fremantle",
+      "name": "Republic of Fremantle",
+      "lat": -32.053965,
+      "lon": 115.744284,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1027617303",
+      "loc": "fremantle",
+      "name": "Gage Roads Brewery",
+      "lat": -32.054052,
+      "lon": 115.740022,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-121515447",
+      "loc": "fremantle",
+      "name": "Fremantle Workers Club",
+      "lat": -32.051322,
+      "lon": 115.752036,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1251431073",
+      "loc": "fremantle",
+      "name": "Leopold Hotel",
+      "lat": -32.035885,
+      "lon": 115.784856,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-142222983",
+      "loc": "fremantle",
+      "name": "Buffalo Club",
+      "lat": -32.054883,
+      "lon": 115.744563,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-250481547",
+      "loc": "fremantle",
+      "name": "Old Courthouse",
+      "lat": -32.054817,
+      "lon": 115.749947,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-250488494",
+      "loc": "fremantle",
+      "name": "National Hotel",
+      "lat": -32.054427,
+      "lon": 115.74621,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-47124138",
+      "loc": "fremantle",
+      "name": "Norfolk Hotel",
+      "lat": -32.057133,
+      "lon": 115.749439,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-47124140",
+      "loc": "fremantle",
+      "name": "The Sail and Anchor",
+      "lat": -32.055992,
+      "lon": 115.748682,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-47125162",
+      "loc": "fremantle",
+      "name": "Clancy's Fish Pub",
+      "lat": -32.050393,
+      "lon": 115.749025,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-47432331",
+      "loc": "fremantle",
+      "name": "Left Bank Hotel",
+      "lat": -32.039355,
+      "lon": 115.761503,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-48592168",
+      "loc": "fremantle",
+      "name": "Federal Hotel",
+      "lat": -32.054788,
+      "lon": 115.747967,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-51207480",
+      "loc": "fremantle",
+      "name": "Ripple Brewing",
+      "lat": -32.072182,
+      "lon": 115.765562,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-52013671",
+      "loc": "fremantle",
+      "name": "Flight Club",
+      "lat": -32.055085,
+      "lon": 115.747065,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-521418222",
+      "loc": "fremantle",
+      "name": "Australia Hotel",
+      "lat": -32.04926,
+      "lon": 115.749065,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-876429011",
+      "loc": "fremantle",
+      "name": "The Local Hotel",
+      "lat": -32.066207,
+      "lon": 115.75272,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-949247758",
+      "loc": "fremantle",
+      "name": "Calamity's Rod",
+      "lat": -32.055482,
+      "lon": 115.746245,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-969492170",
+      "loc": "fremantle",
+      "name": "Running With Thieves",
+      "lat": -32.072238,
+      "lon": 115.752185,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10290813909",
+      "loc": "fremantle",
+      "name": "Pearla & Co",
+      "lat": -32.029286,
+      "lon": 115.750155,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10981950713",
+      "loc": "fremantle",
+      "name": "Palace Patisserie",
+      "lat": -32.055858,
+      "lon": 115.749801,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11594282969",
+      "loc": "fremantle",
+      "name": "Oops Pizza",
+      "lat": -32.029321,
+      "lon": 115.750407,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11676676196",
+      "loc": "fremantle",
+      "name": "Rym Tarn",
+      "lat": -32.037949,
+      "lon": 115.776203,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11730264078",
+      "loc": "fremantle",
+      "name": "Wild Dining",
+      "lat": -32.041213,
+      "lon": 115.764794,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11861539769",
+      "loc": "fremantle",
+      "name": "Sana Middle Eastern Restaurant",
+      "lat": -32.055677,
+      "lon": 115.746793,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11883376170",
+      "loc": "fremantle",
+      "name": "Frida Mexicana",
+      "lat": -32.055789,
+      "lon": 115.747116,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12096372901",
+      "loc": "fremantle",
+      "name": "Akira",
+      "lat": -32.056376,
+      "lon": 115.749068,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12307062506",
+      "loc": "fremantle",
+      "name": "Moon & Mary",
+      "lat": -32.055204,
+      "lon": 115.750171,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12732692587",
+      "loc": "fremantle",
+      "name": "carnaby's",
+      "lat": -32.04481,
+      "lon": 115.768286,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12743620399",
+      "loc": "fremantle",
+      "name": "The Bridge House",
+      "lat": -32.035412,
+      "lon": 115.753823,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13722909376",
+      "loc": "fremantle",
+      "name": "Hecho En Mexico",
+      "lat": -32.072533,
+      "lon": 115.753163,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13817953825",
+      "loc": "fremantle",
+      "name": "SetteBello Pizzeria Napoletana",
+      "lat": -32.038834,
+      "lon": 115.775703,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14102253276",
+      "loc": "fremantle",
+      "name": "Mandi Street",
+      "lat": -32.046646,
+      "lon": 115.753098,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1554231802",
+      "loc": "fremantle",
+      "name": "Joy Kitchen",
+      "lat": -32.059653,
+      "lon": 115.748565,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1717914346",
+      "loc": "fremantle",
+      "name": "Char Char Bull",
+      "lat": -32.058506,
+      "lon": 115.742691,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1717914348",
+      "loc": "fremantle",
+      "name": "Cicerello's",
+      "lat": -32.058516,
+      "lon": 115.743071,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-214886160",
+      "loc": "fremantle",
+      "name": "Little Creatures",
+      "lat": -32.059441,
+      "lon": 115.744661,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2240478504",
+      "loc": "fremantle",
+      "name": "Mussel Bar",
+      "lat": -32.059271,
+      "lon": 115.74386,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2535026161",
+      "loc": "fremantle",
+      "name": "La Lune",
+      "lat": -32.044208,
+      "lon": 115.760936,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3373110576",
+      "loc": "fremantle",
+      "name": "Bib and Tucker",
+      "lat": -32.029291,
+      "lon": 115.749136,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5321921314",
+      "loc": "fremantle",
+      "name": "Pizza Bella Roma",
+      "lat": -32.055458,
+      "lon": 115.747382,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-600753212",
+      "loc": "fremantle",
+      "name": "Kailis' Fish Market Café",
+      "lat": -32.058825,
+      "lon": 115.742363,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6936892718",
+      "loc": "fremantle",
+      "name": "Lions And Tigers",
+      "lat": -32.055362,
+      "lon": 115.745943,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7122134751",
+      "loc": "fremantle",
+      "name": "Piggy Food Co",
+      "lat": -32.03573,
+      "lon": 115.753242,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8163030689",
+      "loc": "fremantle",
+      "name": "Coast Port Beach",
+      "lat": -32.034717,
+      "lon": 115.745669,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8163136286",
+      "loc": "fremantle",
+      "name": "Flipside Burgers",
+      "lat": -32.03532,
+      "lon": 115.753249,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8889877249",
+      "loc": "fremantle",
+      "name": "Short Order",
+      "lat": -32.054362,
+      "lon": 115.747453,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9081800884",
+      "loc": "fremantle",
+      "name": "Pasta Addiction",
+      "lat": -32.05486,
+      "lon": 115.743137,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9376611481",
+      "loc": "fremantle",
+      "name": "Posh Pizza",
+      "lat": -32.037655,
+      "lon": 115.776851,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9660091888",
+      "loc": "fremantle",
+      "name": "Smash Grill",
+      "lat": -32.054766,
+      "lon": 115.748696,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1008047881",
+      "loc": "fremantle",
+      "name": "Big Rigz Burger Co.",
+      "lat": -32.067369,
+      "lon": 115.752288,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1248730264",
+      "loc": "fremantle",
+      "name": "Fong's Kitchen Chinese Restaurant",
+      "lat": -32.03632,
+      "lon": 115.78515,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1248730325",
+      "loc": "fremantle",
+      "name": "Al Dente Pasta",
+      "lat": -32.035569,
+      "lon": 115.78953,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-145373096",
+      "loc": "fremantle",
+      "name": "Saroor",
+      "lat": -32.072769,
+      "lon": 115.753226,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-228773942",
+      "loc": "fremantle",
+      "name": "Bread In Common",
+      "lat": -32.056218,
+      "lon": 115.745244,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-30466735",
+      "loc": "fremantle",
+      "name": "The Orange Box",
+      "lat": -32.028945,
+      "lon": 115.749118,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-339457415",
+      "loc": "fremantle",
+      "name": "Tippy's Pizza",
+      "lat": -32.067508,
+      "lon": 115.757287,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-47121747",
+      "loc": "fremantle",
+      "name": "Gage Roads Brew Co",
+      "lat": -32.054068,
+      "lon": 115.740033,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-993871059",
+      "loc": "fremantle",
+      "name": "Ruocco's Pizzeria",
+      "lat": -32.066805,
+      "lon": 115.752207,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13396887201",
+      "loc": "fremantle",
+      "name": "South Fremantle Football Club",
+      "lat": -32.056811,
+      "lon": 115.750498,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13979774602",
+      "loc": "fremantle",
+      "name": "East Fremantle Lacrosse Club",
+      "lat": -32.029913,
+      "lon": 115.772859,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-853304166",
+      "loc": "fremantle",
+      "name": "Wally Hagan Basketball Stadium",
+      "lat": -32.080431,
+      "lon": 115.769417,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9739203629",
+      "loc": "fremantle",
+      "name": "Carlile Swim",
+      "lat": -32.033495,
+      "lon": 115.791934,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1261413971",
+      "loc": "fremantle",
+      "name": "State Swim East Fremantle",
+      "lat": -32.040203,
+      "lon": 115.765355,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1281125599",
+      "loc": "fremantle",
+      "name": "Fremantle Rowing Club",
+      "lat": -32.026753,
+      "lon": 115.763825,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-166551581",
+      "loc": "fremantle",
+      "name": "North Fremantle Bowls Club",
+      "lat": -32.03393,
+      "lon": 115.753969,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-172796409",
+      "loc": "fremantle",
+      "name": "Fremantle Rugby League Club",
+      "lat": -32.071919,
+      "lon": 115.77777,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-249711618",
+      "loc": "fremantle",
+      "name": "Fremantle Police and Community Youth Centre",
+      "lat": -32.068257,
+      "lon": 115.781912,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-30736908",
+      "loc": "fremantle",
+      "name": "Fremantle Leisure Centre",
+      "lat": -32.048317,
+      "lon": 115.753025,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-32053519",
+      "loc": "fremantle",
+      "name": "Wally Hagan Basketball Stadium",
+      "lat": -32.080462,
+      "lon": 115.769443,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-44007476",
+      "loc": "fremantle",
+      "name": "Mosman Park Tennis Courts",
+      "lat": -32.022942,
+      "lon": 115.772102,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-700263640",
+      "loc": "fremantle",
+      "name": "FSC Dinghy Club",
+      "lat": -32.07043,
+      "lon": 115.749879,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-965811415",
+      "loc": "fremantle",
+      "name": "Portside Boulders",
+      "lat": -32.057826,
+      "lon": 115.785598,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10790414294",
+      "loc": "fremantle",
+      "name": "Naturally Fresh IGA",
+      "lat": -32.015719,
+      "lon": 115.769165,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11201558842",
+      "loc": "fremantle",
+      "name": "Forrest Supafoods Fresh",
+      "lat": -32.082435,
+      "lon": 115.782629,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12632889780",
+      "loc": "fremantle",
+      "name": "The Good Grocer IGA East Fremantle",
+      "lat": -32.041575,
+      "lon": 115.764727,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13005682896",
+      "loc": "fremantle",
+      "name": "Coles",
+      "lat": -32.052281,
+      "lon": 115.747058,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13130571338",
+      "loc": "fremantle",
+      "name": "Scarvaci IGA",
+      "lat": -32.082534,
+      "lon": 115.768904,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2583202922",
+      "loc": "fremantle",
+      "name": "Fresh Provisions",
+      "lat": -32.037608,
+      "lon": 115.776458,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2583203053",
+      "loc": "fremantle",
+      "name": "Woolworths",
+      "lat": -32.03876,
+      "lon": 115.777253,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5026436922",
+      "loc": "fremantle",
+      "name": "Mana Wholefoods & Café",
+      "lat": -32.065774,
+      "lon": 115.75258,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5037006321",
+      "loc": "fremantle",
+      "name": "ALDI",
+      "lat": -32.074205,
+      "lon": 115.758447,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-662688678",
+      "loc": "fremantle",
+      "name": "South Fremantle IGA",
+      "lat": -32.070499,
+      "lon": 115.757534,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-662688679",
+      "loc": "fremantle",
+      "name": "Peaches",
+      "lat": -32.071285,
+      "lon": 115.757591,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-662714517",
+      "loc": "fremantle",
+      "name": "Woolworths",
+      "lat": -32.074739,
+      "lon": 115.759378,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8879747124",
+      "loc": "fremantle",
+      "name": "The Grocer and the Chef",
+      "lat": -32.067982,
+      "lon": 115.774897,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9717067495",
+      "loc": "fremantle",
+      "name": "IGA",
+      "lat": -32.054498,
+      "lon": 115.749252,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9739204034",
+      "loc": "fremantle",
+      "name": "Coles",
+      "lat": -32.033956,
+      "lon": 115.791276,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1156834170",
+      "loc": "fremantle",
+      "name": "Coles",
+      "lat": -32.063746,
+      "lon": 115.781792,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-299445507",
+      "loc": "fremantle",
+      "name": "Woolworths",
+      "lat": -32.048158,
+      "lon": 115.794498,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-32052482",
+      "loc": "fremantle",
+      "name": "InStyle",
+      "lat": -32.070843,
+      "lon": 115.757496,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-57746295",
+      "loc": "fremantle",
+      "name": "IGA",
+      "lat": -32.075041,
+      "lon": 115.781993,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-638076463",
+      "loc": "fremantle",
+      "name": "Gilberts Fresh Food Market",
+      "lat": -32.06294,
+      "lon": 115.781767,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10312542180",
+      "loc": "perth",
+      "name": "Sherbet",
+      "lat": -31.928199,
+      "lon": 115.892794,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11036470398",
+      "loc": "perth",
+      "name": "Source Foods",
+      "lat": -31.944248,
+      "lon": 115.865796,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11062688600",
+      "loc": "perth",
+      "name": "The Acai Corner",
+      "lat": -31.933026,
+      "lon": 115.833458,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11092718805",
+      "loc": "perth",
+      "name": "Modus Coffee",
+      "lat": -31.936041,
+      "lon": 115.871473,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11245063962",
+      "loc": "perth",
+      "name": "Gusto Food",
+      "lat": -31.9808,
+      "lon": 115.863694,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11438441173",
+      "loc": "perth",
+      "name": "Modus",
+      "lat": -31.927398,
+      "lon": 115.82026,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11482214396",
+      "loc": "perth",
+      "name": "Chubby Boy",
+      "lat": -31.922727,
+      "lon": 115.884117,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11735473952",
+      "loc": "perth",
+      "name": "Coffee Anatomy",
+      "lat": -31.96818,
+      "lon": 115.814068,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11799149749",
+      "loc": "perth",
+      "name": "Trackside Bakery",
+      "lat": -31.951712,
+      "lon": 115.860429,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12169914028",
+      "loc": "perth",
+      "name": "Kumo",
+      "lat": -31.946126,
+      "lon": 115.861519,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12207959596",
+      "loc": "perth",
+      "name": "Chaffic",
+      "lat": -31.952114,
+      "lon": 115.860035,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12207959597",
+      "loc": "perth",
+      "name": "Sharetea",
+      "lat": -31.952398,
+      "lon": 115.857691,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12801680567",
+      "loc": "perth",
+      "name": "Swish Coffee Brewers",
+      "lat": -31.954871,
+      "lon": 115.855714,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1361264135",
+      "loc": "perth",
+      "name": "The Coffee Club",
+      "lat": -31.952471,
+      "lon": 115.857944,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13984693735",
+      "loc": "perth",
+      "name": "La Veen Mill Street",
+      "lat": -31.954995,
+      "lon": 115.852709,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14091777278",
+      "loc": "perth",
+      "name": "Chaffic",
+      "lat": -31.954424,
+      "lon": 115.857864,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1717885086",
+      "loc": "perth",
+      "name": "Dôme",
+      "lat": -31.95758,
+      "lon": 115.865579,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1818461155",
+      "loc": "perth",
+      "name": "Basilica",
+      "lat": -31.954588,
+      "lon": 115.854373,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2763159934",
+      "loc": "perth",
+      "name": "San Churro Northbridge",
+      "lat": -31.947995,
+      "lon": 115.857287,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-325262778",
+      "loc": "perth",
+      "name": "Peninsula Farm Cafe",
+      "lat": -31.942696,
+      "lon": 115.910002,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3823720857",
+      "loc": "perth",
+      "name": "Henry Saw Cafe",
+      "lat": -31.953079,
+      "lon": 115.860603,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-436781735",
+      "loc": "perth",
+      "name": "Cranked",
+      "lat": -31.938233,
+      "lon": 115.841525,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-439200028",
+      "loc": "perth",
+      "name": "Totally Thai",
+      "lat": -31.936304,
+      "lon": 115.841381,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4774711567",
+      "loc": "perth",
+      "name": "The Coffee Club",
+      "lat": -31.958337,
+      "lon": 115.868021,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4853505625",
+      "loc": "perth",
+      "name": "The Grind Hay St",
+      "lat": -31.947254,
+      "lon": 115.835594,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4879682510",
+      "loc": "perth",
+      "name": "Chinta Cafe",
+      "lat": -31.926342,
+      "lon": 115.849971,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-492489107",
+      "loc": "perth",
+      "name": "Chet's Cafe",
+      "lat": -31.949026,
+      "lon": 115.858935,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5209847345",
+      "loc": "perth",
+      "name": "Juice Station",
+      "lat": -31.95511,
+      "lon": 115.858795,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5318091387",
+      "loc": "perth",
+      "name": "La Veen",
+      "lat": -31.950681,
+      "lon": 115.855621,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6621576185",
+      "loc": "perth",
+      "name": "Offshoot Coffee",
+      "lat": -31.955534,
+      "lon": 115.86379,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6929398204",
+      "loc": "perth",
+      "name": "Saint Larry Café",
+      "lat": -31.955189,
+      "lon": 115.861112,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-737566444",
+      "loc": "perth",
+      "name": "Be Free",
+      "lat": -31.950792,
+      "lon": 115.871,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7557989074",
+      "loc": "perth",
+      "name": "Roma Republic",
+      "lat": -31.94359,
+      "lon": 115.823218,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8631185344",
+      "loc": "perth",
+      "name": "Florentina",
+      "lat": -31.929943,
+      "lon": 115.85787,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8852804468",
+      "loc": "perth",
+      "name": "Moss Black Cafe",
+      "lat": -31.947251,
+      "lon": 115.810267,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9572184225",
+      "loc": "perth",
+      "name": "Honey Beanz",
+      "lat": -31.944241,
+      "lon": 115.821813,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9708371619",
+      "loc": "perth",
+      "name": "Mimosa",
+      "lat": -31.948007,
+      "lon": 115.822246,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9818014410",
+      "loc": "perth",
+      "name": "Brew Ha: The Ritual",
+      "lat": -31.949476,
+      "lon": 115.824366,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-156091984",
+      "loc": "perth",
+      "name": "The Lincoln Nook",
+      "lat": -31.941389,
+      "lon": 115.869298,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1570183496",
+      "loc": "perth",
+      "name": "Ground and Co.",
+      "lat": -31.949005,
+      "lon": 115.860876,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10048641499",
+      "loc": "perth",
+      "name": "Perth Radiological Clinic",
+      "lat": -31.957401,
+      "lon": 115.845925,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11005481274",
+      "loc": "perth",
+      "name": "Heart Foundation",
+      "lat": -31.954245,
+      "lon": 115.824063,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11279794872",
+      "loc": "perth",
+      "name": "Western Diagnostic Pathology",
+      "lat": -31.947381,
+      "lon": 115.832834,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12082317215",
+      "loc": "perth",
+      "name": "Dr Tom Cunneen",
+      "lat": -31.947816,
+      "lon": 115.835876,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12082416559",
+      "loc": "perth",
+      "name": "Perth Laser Vision",
+      "lat": -31.947811,
+      "lon": 115.835344,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12082416563",
+      "loc": "perth",
+      "name": "Subi Derm",
+      "lat": -31.947805,
+      "lon": 115.834705,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12082416566",
+      "loc": "perth",
+      "name": "Aurora Imaging",
+      "lat": -31.9478,
+      "lon": 115.83418,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12082603610",
+      "loc": "perth",
+      "name": "Endovascular WA",
+      "lat": -31.947812,
+      "lon": 115.833792,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12249323293",
+      "loc": "perth",
+      "name": "Perth Medical Centre",
+      "lat": -31.954085,
+      "lon": 115.857545,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12473328701",
+      "loc": "perth",
+      "name": "Craig Boulton Podiatry",
+      "lat": -31.992735,
+      "lon": 115.867878,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12545520174",
+      "loc": "perth",
+      "name": "South Perth Medical Centre & After Hours GP",
+      "lat": -31.983536,
+      "lon": 115.875621,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12805584965",
+      "loc": "perth",
+      "name": "Akasha Wellness Clinic",
+      "lat": -31.921122,
+      "lon": 115.838036,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12846625701",
+      "loc": "perth",
+      "name": "Be Mindful Nutrition",
+      "lat": -31.94921,
+      "lon": 115.840949,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13057288641",
+      "loc": "perth",
+      "name": "Sexual Health Quarters",
+      "lat": -31.948796,
+      "lon": 115.856459,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13401433086",
+      "loc": "perth",
+      "name": "Clinipath Pathology Mount Hawthorn",
+      "lat": -31.920574,
+      "lon": 115.838639,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13526583736",
+      "loc": "perth",
+      "name": "National 360",
+      "lat": -31.933729,
+      "lon": 115.841102,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13982162457",
+      "loc": "perth",
+      "name": "East Perth Medical Centre",
+      "lat": -31.959367,
+      "lon": 115.87112,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14084935972",
+      "loc": "perth",
+      "name": "Derbal Yerrigan Health Service",
+      "lat": -31.952721,
+      "lon": 115.869116,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14094495727",
+      "loc": "perth",
+      "name": "SILK Laser Clinic",
+      "lat": -31.954417,
+      "lon": 115.857913,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14191963633",
+      "loc": "perth",
+      "name": "Luma",
+      "lat": -31.96069,
+      "lon": 115.816077,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14191963634",
+      "loc": "perth",
+      "name": "Precision Anaesthesia",
+      "lat": -31.960658,
+      "lon": 115.816077,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14219268957",
+      "loc": "perth",
+      "name": "Ultimate Aesthetics",
+      "lat": -31.948635,
+      "lon": 115.823522,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14245183055",
+      "loc": "perth",
+      "name": "Sam Cunneen",
+      "lat": -31.950332,
+      "lon": 115.84116,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14251946210",
+      "loc": "perth",
+      "name": "Language, Speech & Learning Services Subiaco",
+      "lat": -31.950182,
+      "lon": 115.82443,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2958422634",
+      "loc": "perth",
+      "name": "Southern Clinic",
+      "lat": -31.98374,
+      "lon": 115.87459,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4252916840",
+      "loc": "perth",
+      "name": "Vines GP Clinic",
+      "lat": -31.949346,
+      "lon": 115.859306,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4476377464",
+      "loc": "perth",
+      "name": "Northbridge Medical Centre",
+      "lat": -31.947356,
+      "lon": 115.863725,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7695569692",
+      "loc": "perth",
+      "name": "Perth Laser Vision",
+      "lat": -31.941245,
+      "lon": 115.826911,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8962331001",
+      "loc": "perth",
+      "name": "Cancer Council Shop",
+      "lat": -31.954132,
+      "lon": 115.824066,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9029271292",
+      "loc": "perth",
+      "name": "Sir Charles Gairdner Hospital",
+      "lat": -31.967636,
+      "lon": 115.815284,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9060953334",
+      "loc": "perth",
+      "name": "Hay Street Medical Centre",
+      "lat": -31.947229,
+      "lon": 115.832837,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9946245650",
+      "loc": "perth",
+      "name": "Perth Radiological Clinic",
+      "lat": -31.987687,
+      "lon": 115.863463,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-relation-21842576",
+      "loc": "perth",
+      "name": "Royal Perth Hospital",
+      "lat": -31.953765,
+      "lon": 115.866237,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-146222743",
+      "loc": "perth",
+      "name": "The Park Private Hospital",
+      "lat": -31.934342,
+      "lon": 115.874383,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-146355581",
+      "loc": "perth",
+      "name": "St John of God Mt Lawley Hospital",
+      "lat": -31.936712,
+      "lon": 115.884818,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-4827312",
+      "loc": "perth",
+      "name": "Queen Elizabeth II Medical Centre",
+      "lat": -31.967499,
+      "lon": 115.814346,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-669631283",
+      "loc": "perth",
+      "name": "Saint John of God Hospital Subiaco",
+      "lat": -31.941863,
+      "lon": 115.825416,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-697275819",
+      "loc": "perth",
+      "name": "Feet First Podiatry",
+      "lat": -31.994631,
+      "lon": 115.865688,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-940739663",
+      "loc": "perth",
+      "name": "Perth Children's Hospital",
+      "lat": -31.969334,
+      "lon": 115.817138,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-9518031",
+      "loc": "perth",
+      "name": "King Edward Memorial Hospital",
+      "lat": -31.949531,
+      "lon": 115.818779,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10720788732",
+      "loc": "perth",
+      "name": "Grill'd Healthy Burgers",
+      "lat": -31.952196,
+      "lon": 115.857812,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11002746687",
+      "loc": "perth",
+      "name": "Betty's Burgers",
+      "lat": -31.952093,
+      "lon": 115.859847,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11752061217",
+      "loc": "perth",
+      "name": "Zensaki Japanese Canteen",
+      "lat": -31.951883,
+      "lon": 115.850793,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11752061219",
+      "loc": "perth",
+      "name": "Mak Mak",
+      "lat": -31.951767,
+      "lon": 115.850838,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11752136178",
+      "loc": "perth",
+      "name": "Sushia",
+      "lat": -31.952943,
+      "lon": 115.853396,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11752136179",
+      "loc": "perth",
+      "name": "Meet and Eat",
+      "lat": -31.953041,
+      "lon": 115.853491,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13124898741",
+      "loc": "perth",
+      "name": "Pattysmiths Premium Burgers",
+      "lat": -31.910793,
+      "lon": 115.847609,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1362763287",
+      "loc": "perth",
+      "name": "McDonald's",
+      "lat": -31.953161,
+      "lon": 115.857366,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14074732312",
+      "loc": "perth",
+      "name": "Huxtaburger",
+      "lat": -31.95549,
+      "lon": 115.863846,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14080164108",
+      "loc": "perth",
+      "name": "McDonald's",
+      "lat": -31.946509,
+      "lon": 115.864931,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14080199834",
+      "loc": "perth",
+      "name": "McDonald's",
+      "lat": -31.954501,
+      "lon": 115.860535,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14094495721",
+      "loc": "perth",
+      "name": "Soul Origin",
+      "lat": -31.954477,
+      "lon": 115.857848,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14094495722",
+      "loc": "perth",
+      "name": "CP Curry House",
+      "lat": -31.954554,
+      "lon": 115.857972,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1952464898",
+      "loc": "perth",
+      "name": "Grill'd",
+      "lat": -31.954511,
+      "lon": 115.854879,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2054478022",
+      "loc": "perth",
+      "name": "Hungry Jack's",
+      "lat": -31.953015,
+      "lon": 115.857433,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2385138508",
+      "loc": "perth",
+      "name": "Grill'd",
+      "lat": -31.93729,
+      "lon": 115.841371,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3266865470",
+      "loc": "perth",
+      "name": "Guzman y Gomez",
+      "lat": -31.948784,
+      "lon": 115.858397,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3617550880",
+      "loc": "perth",
+      "name": "KFC",
+      "lat": -31.952963,
+      "lon": 115.857457,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4448946832",
+      "loc": "perth",
+      "name": "Domino's",
+      "lat": -31.948363,
+      "lon": 115.841509,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4774711566",
+      "loc": "perth",
+      "name": "Subway",
+      "lat": -31.957728,
+      "lon": 115.86596,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4917822935",
+      "loc": "perth",
+      "name": "Domino's",
+      "lat": -31.933376,
+      "lon": 115.841368,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-492489112",
+      "loc": "perth",
+      "name": "Subway",
+      "lat": -31.948967,
+      "lon": 115.858802,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-492489153",
+      "loc": "perth",
+      "name": "Zambrero",
+      "lat": -31.948077,
+      "lon": 115.857483,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5033613121",
+      "loc": "perth",
+      "name": "Domino's",
+      "lat": -31.94516,
+      "lon": 115.858356,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5274588122",
+      "loc": "perth",
+      "name": "Jaws",
+      "lat": -31.95753,
+      "lon": 115.86878,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5649721563",
+      "loc": "perth",
+      "name": "McDonald's",
+      "lat": -31.92666,
+      "lon": 115.851879,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5656162622",
+      "loc": "perth",
+      "name": "Domino's",
+      "lat": -31.917121,
+      "lon": 115.89196,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-570963407",
+      "loc": "perth",
+      "name": "Hungry Jack's",
+      "lat": -31.947382,
+      "lon": 115.822516,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-570963420",
+      "loc": "perth",
+      "name": "KFC",
+      "lat": -31.947428,
+      "lon": 115.82272,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6622438586",
+      "loc": "perth",
+      "name": "Subway",
+      "lat": -31.953222,
+      "lon": 115.855421,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6989196775",
+      "loc": "perth",
+      "name": "Jaws",
+      "lat": -31.953587,
+      "lon": 115.857493,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7863655132",
+      "loc": "perth",
+      "name": "Joey Zaza's Boss Sandwiches",
+      "lat": -31.955674,
+      "lon": 115.858948,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9708371622",
+      "loc": "perth",
+      "name": "Grill'd",
+      "lat": -31.945041,
+      "lon": 115.824173,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9708371623",
+      "loc": "perth",
+      "name": "Zambrero",
+      "lat": -31.944772,
+      "lon": 115.823643,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9708371624",
+      "loc": "perth",
+      "name": "Hello Harry",
+      "lat": -31.945518,
+      "lon": 115.823773,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9803321017",
+      "loc": "perth",
+      "name": "Crust",
+      "lat": -31.946887,
+      "lon": 115.821715,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9818014411",
+      "loc": "perth",
+      "name": "Subi Fish N' Chips",
+      "lat": -31.949544,
+      "lon": 115.824404,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-51367072",
+      "loc": "perth",
+      "name": "McDonald's",
+      "lat": -31.947198,
+      "lon": 115.812462,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-920866275",
+      "loc": "perth",
+      "name": "McDonald's",
+      "lat": -31.974614,
+      "lon": 115.883121,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-920866276",
+      "loc": "perth",
+      "name": "Oporto",
+      "lat": -31.974743,
+      "lon": 115.883358,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10720800637",
+      "loc": "perth",
+      "name": "Intense Fitness",
+      "lat": -31.945142,
+      "lon": 115.820599,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10882741263",
+      "loc": "perth",
+      "name": "Day56 Training",
+      "lat": -31.941023,
+      "lon": 115.849164,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10882741271",
+      "loc": "perth",
+      "name": "Inner City Fitness",
+      "lat": -31.941656,
+      "lon": 115.847617,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11041920877",
+      "loc": "perth",
+      "name": "Squash World Cambridge",
+      "lat": -31.940595,
+      "lon": 115.815556,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11041921493",
+      "loc": "perth",
+      "name": "Circuit Ten",
+      "lat": -31.940642,
+      "lon": 115.819326,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11166558638",
+      "loc": "perth",
+      "name": "Body Fit Training",
+      "lat": -31.943649,
+      "lon": 115.823318,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11245063963",
+      "loc": "perth",
+      "name": "Club Pilates",
+      "lat": -31.980779,
+      "lon": 115.863579,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11245063965",
+      "loc": "perth",
+      "name": "Snap Fitness",
+      "lat": -31.98066,
+      "lon": 115.863396,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11418690168",
+      "loc": "perth",
+      "name": "Blooming Yoga",
+      "lat": -31.943256,
+      "lon": 115.863433,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11482214399",
+      "loc": "perth",
+      "name": "S 30 Studio",
+      "lat": -31.922948,
+      "lon": 115.884327,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11736138883",
+      "loc": "perth",
+      "name": "QEII Social Club",
+      "lat": -31.967648,
+      "lon": 115.81369,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11770633854",
+      "loc": "perth",
+      "name": "North Perth Yoga Studio",
+      "lat": -31.923209,
+      "lon": 115.858341,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11925285963",
+      "loc": "perth",
+      "name": "Centre of Movement Studies & Yoga Moves",
+      "lat": -31.960216,
+      "lon": 115.810917,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12101735143",
+      "loc": "perth",
+      "name": "Niche",
+      "lat": -31.921656,
+      "lon": 115.840201,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12122555993",
+      "loc": "perth",
+      "name": "Strive Training Club",
+      "lat": -31.961194,
+      "lon": 115.813273,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12161132237",
+      "loc": "perth",
+      "name": "Body Mbrace",
+      "lat": -31.935159,
+      "lon": 115.858855,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12161144676",
+      "loc": "perth",
+      "name": "Studio Move Om",
+      "lat": -31.934884,
+      "lon": 115.859141,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12406923053",
+      "loc": "perth",
+      "name": "Jetts Fitness",
+      "lat": -31.910928,
+      "lon": 115.846641,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12536465664",
+      "loc": "perth",
+      "name": "Catalyst",
+      "lat": -31.920335,
+      "lon": 115.836431,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12597910051",
+      "loc": "perth",
+      "name": "KX Pilates",
+      "lat": -31.947679,
+      "lon": 115.821987,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12777370138",
+      "loc": "perth",
+      "name": "Anytime Fitness",
+      "lat": -31.970494,
+      "lon": 115.891965,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12777692517",
+      "loc": "perth",
+      "name": "Snap Fitness",
+      "lat": -31.951942,
+      "lon": 115.852454,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12787404374",
+      "loc": "perth",
+      "name": "LA Fit",
+      "lat": -31.947203,
+      "lon": 115.828255,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12805347438",
+      "loc": "perth",
+      "name": "Chaotic Energy",
+      "lat": -31.92042,
+      "lon": 115.837047,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12805584966",
+      "loc": "perth",
+      "name": "Move Health And Fitness",
+      "lat": -31.921288,
+      "lon": 115.838343,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12943968872",
+      "loc": "perth",
+      "name": "Cntre Space",
+      "lat": -31.927329,
+      "lon": 115.85272,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13157675436",
+      "loc": "perth",
+      "name": "Anytime Fitness",
+      "lat": -31.953304,
+      "lon": 115.860587,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13401488705",
+      "loc": "perth",
+      "name": "Revo Fitness Mount Hawthorn",
+      "lat": -31.925426,
+      "lon": 115.840936,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13887717517",
+      "loc": "perth",
+      "name": "Revo Fitness",
+      "lat": -31.94459,
+      "lon": 115.851885,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14049043901",
+      "loc": "perth",
+      "name": "Snap Fitness",
+      "lat": -31.93674,
+      "lon": 115.870462,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14137645701",
+      "loc": "perth",
+      "name": "STRONG Pilates Highgate",
+      "lat": -31.944626,
+      "lon": 115.873157,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14156709286",
+      "loc": "perth",
+      "name": "Sparq Fitness",
+      "lat": -31.94495,
+      "lon": 115.873114,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14218534986",
+      "loc": "perth",
+      "name": "Clear Mind Studio",
+      "lat": -31.923505,
+      "lon": 115.883027,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14219268954",
+      "loc": "perth",
+      "name": "Strength Lab Pilates",
+      "lat": -31.948253,
+      "lon": 115.824594,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4197214055",
+      "loc": "perth",
+      "name": "Plus Fitness",
+      "lat": -31.93158,
+      "lon": 115.859397,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8167030450",
+      "loc": "perth",
+      "name": "Stadium Fitness",
+      "lat": -31.950179,
+      "lon": 115.87654,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9726140917",
+      "loc": "perth",
+      "name": "CycleBar",
+      "lat": -31.947665,
+      "lon": 115.826691,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9928819926",
+      "loc": "perth",
+      "name": "Rumble Boxing",
+      "lat": -31.946889,
+      "lon": 115.822844,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9938842296",
+      "loc": "perth",
+      "name": "F45 Training",
+      "lat": -31.948035,
+      "lon": 115.821809,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-152674199",
+      "loc": "perth",
+      "name": "Body Fit Training",
+      "lat": -31.942435,
+      "lon": 115.839661,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1565971334",
+      "loc": "perth",
+      "name": "Maylands Public Library",
+      "lat": -31.930884,
+      "lon": 115.895127,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7736977349",
+      "loc": "perth",
+      "name": "City of South Perth Library",
+      "lat": -31.987979,
+      "lon": 115.866665,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-145972277",
+      "loc": "perth",
+      "name": "Inglewood Library",
+      "lat": -31.920929,
+      "lon": 115.885515,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-147035269",
+      "loc": "perth",
+      "name": "City of Perth Library",
+      "lat": -31.95517,
+      "lon": 115.861226,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-153026536",
+      "loc": "perth",
+      "name": "Vincent Library",
+      "lat": -31.934558,
+      "lon": 115.845296,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-155188890",
+      "loc": "perth",
+      "name": "Subiaco Library",
+      "lat": -31.950809,
+      "lon": 115.823723,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-188016457",
+      "loc": "perth",
+      "name": "Edith Cowan University Library Mount Lawley (Building 8)",
+      "lat": -31.919315,
+      "lon": 115.866548,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-42506693",
+      "loc": "perth",
+      "name": "State Library of Western Australia",
+      "lat": -31.948966,
+      "lon": 115.860566,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-relation-12949347",
+      "loc": "perth",
+      "name": "Kings Park",
+      "lat": -31.962286,
+      "lon": 115.832098,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-relation-21436013",
+      "loc": "perth",
+      "name": "Park Street Mini Park",
+      "lat": -31.949644,
+      "lon": 115.831243,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1169526267",
+      "loc": "perth",
+      "name": "Leederville Memorial Gardens",
+      "lat": -31.940457,
+      "lon": 115.83708,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1184632012",
+      "loc": "perth",
+      "name": "St Thomas Square Park",
+      "lat": -31.95351,
+      "lon": 115.829635,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1184797338",
+      "loc": "perth",
+      "name": "Redfern Street Mini Park",
+      "lat": -31.953334,
+      "lon": 115.81711,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1377045465",
+      "loc": "perth",
+      "name": "Trillo Road Park",
+      "lat": -31.945432,
+      "lon": 115.815369,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-146222738",
+      "loc": "perth",
+      "name": "Memorial Gardens",
+      "lat": -31.930718,
+      "lon": 115.87063,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-146477665",
+      "loc": "perth",
+      "name": "Warndoolier",
+      "lat": -31.94215,
+      "lon": 115.880969,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-148554755",
+      "loc": "perth",
+      "name": "Haig Park Place",
+      "lat": -31.954104,
+      "lon": 115.878878,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-148717270",
+      "loc": "perth",
+      "name": "Moort-ak Waadiny / Wellington Square",
+      "lat": -31.954587,
+      "lon": 115.871944,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-151266667",
+      "loc": "perth",
+      "name": "Western Australian Botanic Garden",
+      "lat": -31.964206,
+      "lon": 115.840175,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-153158820",
+      "loc": "perth",
+      "name": "Market Square",
+      "lat": -31.944359,
+      "lon": 115.82682,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-248822986",
+      "loc": "perth",
+      "name": "Read Park",
+      "lat": -31.976834,
+      "lon": 115.899199,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-29018621",
+      "loc": "perth",
+      "name": "Cliff Sadlier Reserve",
+      "lat": -31.951918,
+      "lon": 115.808281,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-29042919",
+      "loc": "perth",
+      "name": "Hickey Avenue Park",
+      "lat": -31.952805,
+      "lon": 115.810034,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-290875665",
+      "loc": "perth",
+      "name": "Memorial Gardens",
+      "lat": -31.971938,
+      "lon": 115.895855,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-35089473",
+      "loc": "perth",
+      "name": "Charles Paterson Park",
+      "lat": -31.967195,
+      "lon": 115.891429,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-35089487",
+      "loc": "perth",
+      "name": "Raphael Park",
+      "lat": -31.973043,
+      "lon": 115.887047,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-36954973",
+      "loc": "perth",
+      "name": "McCallum Park",
+      "lat": -31.969419,
+      "lon": 115.884792,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-36954975",
+      "loc": "perth",
+      "name": "Sir James Mitchell Park",
+      "lat": -31.973852,
+      "lon": 115.873277,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-36954977",
+      "loc": "perth",
+      "name": "Sir James Mitchell Park",
+      "lat": -31.974867,
+      "lon": 115.860368,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-36958134",
+      "loc": "perth",
+      "name": "Charles Paterson Park",
+      "lat": -31.965855,
+      "lon": 115.888978,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-36958410",
+      "loc": "perth",
+      "name": "Perth Park",
+      "lat": -31.956546,
+      "lon": 115.892694,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-36984900",
+      "loc": "perth",
+      "name": "Bardon Park",
+      "lat": -31.935636,
+      "lon": 115.889205,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-37396717",
+      "loc": "perth",
+      "name": "Dorrien Gardens",
+      "lat": -31.938694,
+      "lon": 115.854764,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-37396718",
+      "loc": "perth",
+      "name": "Robertson Park",
+      "lat": -31.940645,
+      "lon": 115.857208,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-37397186",
+      "loc": "perth",
+      "name": "Beatty Park",
+      "lat": -31.935703,
+      "lon": 115.8503,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-43699669",
+      "loc": "perth",
+      "name": "Cracknell Park",
+      "lat": -31.954664,
+      "lon": 115.903425,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-469596137",
+      "loc": "perth",
+      "name": "Russell Square",
+      "lat": -31.94611,
+      "lon": 115.855502,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-4938156",
+      "loc": "perth",
+      "name": "Langley Park",
+      "lat": -31.961491,
+      "lon": 115.869031,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-4938194",
+      "loc": "perth",
+      "name": "Hyde Park",
+      "lat": -31.938313,
+      "lon": 115.862802,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-4957439",
+      "loc": "perth",
+      "name": "Supreme Court Gardens",
+      "lat": -31.958151,
+      "lon": 115.860116,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-4957469",
+      "loc": "perth",
+      "name": "Queens Gardens",
+      "lat": -31.959313,
+      "lon": 115.87678,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-51367065",
+      "loc": "perth",
+      "name": "Jersey Street Park",
+      "lat": -31.949718,
+      "lon": 115.812105,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-514696966",
+      "loc": "perth",
+      "name": "Jack Ring Park",
+      "lat": -31.961703,
+      "lon": 115.909708,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-760904764",
+      "loc": "perth",
+      "name": "Richard Diggins Park",
+      "lat": -31.9494,
+      "lon": 115.827792,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-8076632",
+      "loc": "perth",
+      "name": "Mueller Park",
+      "lat": -31.94453,
+      "lon": 115.834368,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-8112592",
+      "loc": "perth",
+      "name": "Harold Boas Gardens",
+      "lat": -31.94631,
+      "lon": 115.844565,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-8112594",
+      "loc": "perth",
+      "name": "Stirling Gardens",
+      "lat": -31.95659,
+      "lon": 115.859953,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-8112692",
+      "loc": "perth",
+      "name": "Solidarity Park",
+      "lat": -31.951674,
+      "lon": 115.846229,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-319805045",
+      "loc": "perth",
+      "name": "Terry Tyzack",
+      "lat": -31.909026,
+      "lon": 115.869381,
+      "type": "pool",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-760912017",
+      "loc": "perth",
+      "name": "Subiaco Pool",
+      "lat": -31.951211,
+      "lon": 115.822266,
+      "type": "pool",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10239320524",
+      "loc": "perth",
+      "name": "Be Merry",
+      "lat": -31.948874,
+      "lon": 115.857831,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1072483859",
+      "loc": "perth",
+      "name": "JB O'Reilly's",
+      "lat": -31.940859,
+      "lon": 115.83548,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1093402697",
+      "loc": "perth",
+      "name": "Belgian Beer Cafe",
+      "lat": -31.951924,
+      "lon": 115.85535,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1113853154",
+      "loc": "perth",
+      "name": "Northbridge Brewing Company",
+      "lat": -31.947385,
+      "lon": 115.857284,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11259040613",
+      "loc": "perth",
+      "name": "Lyric's Bar",
+      "lat": -31.930146,
+      "lon": 115.892708,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11259073663",
+      "loc": "perth",
+      "name": "Henry on Eighth",
+      "lat": -31.929656,
+      "lon": 115.892954,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11751948535",
+      "loc": "perth",
+      "name": "Gramercy Bar and Kitchen",
+      "lat": -31.953421,
+      "lon": 115.856102,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11752061220",
+      "loc": "perth",
+      "name": "Tiny's",
+      "lat": -31.952174,
+      "lon": 115.851249,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12406988407",
+      "loc": "perth",
+      "name": "18 Knots Rooftop Bar",
+      "lat": -31.959381,
+      "lon": 115.859203,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13470395701",
+      "loc": "perth",
+      "name": "Glastonbury Bar & Kitchen",
+      "lat": -31.947866,
+      "lon": 115.859917,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13820458427",
+      "loc": "perth",
+      "name": "Sixty Cats",
+      "lat": -31.955468,
+      "lon": 115.858104,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1618963947",
+      "loc": "perth",
+      "name": "Mends Street Bar",
+      "lat": -31.97309,
+      "lon": 115.852282,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1665258529",
+      "loc": "perth",
+      "name": "Fenians",
+      "lat": -31.958773,
+      "lon": 115.867862,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2507811880",
+      "loc": "perth",
+      "name": "Universal Bar",
+      "lat": -31.948636,
+      "lon": 115.8594,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2829158974",
+      "loc": "perth",
+      "name": "The Charles Hotel",
+      "lat": -31.916766,
+      "lon": 115.848114,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3266588952",
+      "loc": "perth",
+      "name": "The Standard",
+      "lat": -31.94942,
+      "lon": 115.857794,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3266637590",
+      "loc": "perth",
+      "name": "i Darts NIX",
+      "lat": -31.947671,
+      "lon": 115.859631,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4264752595",
+      "loc": "perth",
+      "name": "Empire Bar",
+      "lat": -31.961069,
+      "lon": 115.902335,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4917949646",
+      "loc": "perth",
+      "name": "Naber",
+      "lat": -31.936705,
+      "lon": 115.84137,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-583478419",
+      "loc": "perth",
+      "name": "Ezra Pound",
+      "lat": -31.949189,
+      "lon": 115.858766,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6298507766",
+      "loc": "perth",
+      "name": "Victoria Park Hotel",
+      "lat": -31.979795,
+      "lon": 115.899637,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6923875324",
+      "loc": "perth",
+      "name": "Curate",
+      "lat": -31.948477,
+      "lon": 115.858329,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6924690426",
+      "loc": "perth",
+      "name": "Picabar",
+      "lat": -31.949839,
+      "lon": 115.860481,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-738800690",
+      "loc": "perth",
+      "name": "The Royal",
+      "lat": -31.952538,
+      "lon": 115.877849,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8008775386",
+      "loc": "perth",
+      "name": "43 Below",
+      "lat": -31.954768,
+      "lon": 115.859976,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9150552812",
+      "loc": "perth",
+      "name": "The Royal Hotel",
+      "lat": -31.951338,
+      "lon": 115.857852,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9708371620",
+      "loc": "perth",
+      "name": "BARK",
+      "lat": -31.946888,
+      "lon": 115.821866,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9710707917",
+      "loc": "perth",
+      "name": "Fenway Sports Bar",
+      "lat": -31.948634,
+      "lon": 115.823368,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-relation-2227999",
+      "loc": "perth",
+      "name": "Broken Hill Hotel",
+      "lat": -31.972529,
+      "lon": 115.896257,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1090698840",
+      "loc": "perth",
+      "name": "Little Things Gin",
+      "lat": -31.95273,
+      "lon": 115.813218,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1315975169",
+      "loc": "perth",
+      "name": "Paddington Ale House",
+      "lat": -31.922081,
+      "lon": 115.839732,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1317643600",
+      "loc": "perth",
+      "name": "Pirate Bar",
+      "lat": -31.914326,
+      "lon": 115.843418,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-147398686",
+      "loc": "perth",
+      "name": "The Queens Hotel",
+      "lat": -31.93824,
+      "lon": 115.870095,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-147917359",
+      "loc": "perth",
+      "name": "Grosvenor Hotel",
+      "lat": -31.957548,
+      "lon": 115.868243,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-147950122",
+      "loc": "perth",
+      "name": "Court Hotel",
+      "lat": -31.950252,
+      "lon": 115.862482,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-147958698",
+      "loc": "perth",
+      "name": "The Brass Monkey",
+      "lat": -31.948805,
+      "lon": 115.859231,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-148802769",
+      "loc": "perth",
+      "name": "The Globe",
+      "lat": -31.951618,
+      "lon": 115.858547,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-153184222",
+      "loc": "perth",
+      "name": "Subiaco Hotel",
+      "lat": -31.947266,
+      "lon": 115.824293,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-167089595",
+      "loc": "perth",
+      "name": "Windsor Hotel",
+      "lat": -31.97302,
+      "lon": 115.852429,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-361648624",
+      "loc": "perth",
+      "name": "Rosemount Hotel",
+      "lat": -31.930897,
+      "lon": 115.858886,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10136922182",
+      "loc": "perth",
+      "name": "Miss Chow's South Perth",
+      "lat": -31.971709,
+      "lon": 115.852952,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10220851256",
+      "loc": "perth",
+      "name": "Oyster Bar Elizabeth Quay",
+      "lat": -31.957257,
+      "lon": 115.856283,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10720788733",
+      "loc": "perth",
+      "name": "Hunter & Barrel",
+      "lat": -31.951882,
+      "lon": 115.857646,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11041920886",
+      "loc": "perth",
+      "name": "Bollywood Stories",
+      "lat": -31.940645,
+      "lon": 115.816235,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1114026447",
+      "loc": "perth",
+      "name": "Botanical Café",
+      "lat": -31.959899,
+      "lon": 115.843521,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11146280949",
+      "loc": "perth",
+      "name": "Brika",
+      "lat": -31.946885,
+      "lon": 115.865506,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11827284788",
+      "loc": "perth",
+      "name": "Neon Palms",
+      "lat": -31.947925,
+      "lon": 115.859885,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11896284769",
+      "loc": "perth",
+      "name": "成達越南粉",
+      "lat": -31.943867,
+      "lon": 115.862452,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12118031301",
+      "loc": "perth",
+      "name": "El Publico",
+      "lat": -31.938222,
+      "lon": 115.8696,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12470375502",
+      "loc": "perth",
+      "name": "Mela Indian",
+      "lat": -31.943819,
+      "lon": 115.862765,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12704481943",
+      "loc": "perth",
+      "name": "Delisio",
+      "lat": -31.94992,
+      "lon": 115.823881,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12894241586",
+      "loc": "perth",
+      "name": "Alba",
+      "lat": -31.950861,
+      "lon": 115.858839,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13113131264",
+      "loc": "perth",
+      "name": "La Cholita",
+      "lat": -31.947288,
+      "lon": 115.860285,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13159144035",
+      "loc": "perth",
+      "name": "Thai Orchard",
+      "lat": -31.971979,
+      "lon": 115.852668,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14014519901",
+      "loc": "perth",
+      "name": "Ming's BBQ House",
+      "lat": -31.947361,
+      "lon": 115.860239,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14023609345",
+      "loc": "perth",
+      "name": "Hangang Korean Dining & BBQ",
+      "lat": -31.95425,
+      "lon": 115.86261,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14023634078",
+      "loc": "perth",
+      "name": "Tipsy Cow Steak House",
+      "lat": -31.945957,
+      "lon": 115.863536,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14040731279",
+      "loc": "perth",
+      "name": "Balthazar",
+      "lat": -31.956568,
+      "lon": 115.858253,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14040843649",
+      "loc": "perth",
+      "name": "Angel Falls Grill",
+      "lat": -31.952004,
+      "lon": 115.853569,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14040843650",
+      "loc": "perth",
+      "name": "Wildflower",
+      "lat": -31.955676,
+      "lon": 115.86016,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14074732310",
+      "loc": "perth",
+      "name": "Garum",
+      "lat": -31.955034,
+      "lon": 115.86456,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14094495725",
+      "loc": "perth",
+      "name": "Sushia",
+      "lat": -31.954737,
+      "lon": 115.857955,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14180168128",
+      "loc": "perth",
+      "name": "漢宮",
+      "lat": -31.956501,
+      "lon": 115.872519,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14209378920",
+      "loc": "perth",
+      "name": "My Bayon",
+      "lat": -31.946454,
+      "lon": 115.860798,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1717885087",
+      "loc": "perth",
+      "name": "Sentinel Bar & Grill",
+      "lat": -31.954839,
+      "lon": 115.856242,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3143583007",
+      "loc": "perth",
+      "name": "Dolce & Salato",
+      "lat": -31.927471,
+      "lon": 115.852074,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3266588951",
+      "loc": "perth",
+      "name": "The Bonsai Restaurant & Cafe Lounge",
+      "lat": -31.949344,
+      "lon": 115.857666,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3266637592",
+      "loc": "perth",
+      "name": "Hakata Gensuke Chicken Ramen",
+      "lat": -31.949215,
+      "lon": 115.857264,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3424223365",
+      "loc": "perth",
+      "name": "Gordon Street Garage",
+      "lat": -31.948304,
+      "lon": 115.847271,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3794309092",
+      "loc": "perth",
+      "name": "Porkies Bar-b-que",
+      "lat": -31.921667,
+      "lon": 115.900836,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4118964089",
+      "loc": "perth",
+      "name": "Outback Jack's",
+      "lat": -31.948374,
+      "lon": 115.858138,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4195540247",
+      "loc": "perth",
+      "name": "Blue Elephant Thai Kitchen",
+      "lat": -31.927648,
+      "lon": 115.87918,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4252916832",
+      "loc": "perth",
+      "name": "Bivouac",
+      "lat": -31.949316,
+      "lon": 115.859334,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4252916836",
+      "loc": "perth",
+      "name": "Sauma",
+      "lat": -31.949229,
+      "lon": 115.859387,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4252916837",
+      "loc": "perth",
+      "name": "Shadow Wine Bar & Dinning Room",
+      "lat": -31.948864,
+      "lon": 115.859602,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4428444397",
+      "loc": "perth",
+      "name": "Uncle Billy's",
+      "lat": -31.949095,
+      "lon": 115.857403,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-493924852",
+      "loc": "perth",
+      "name": "Fraser's",
+      "lat": -31.959621,
+      "lon": 115.843575,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6460953570",
+      "loc": "perth",
+      "name": "C Restaurant",
+      "lat": -31.955048,
+      "lon": 115.859334,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6927203237",
+      "loc": "perth",
+      "name": "Billy Lee's",
+      "lat": -31.948869,
+      "lon": 115.857125,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-148789739",
+      "loc": "perth",
+      "name": "No Mafia",
+      "lat": -31.947933,
+      "lon": 115.860252,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13061046824",
+      "loc": "perth",
+      "name": "Hensman Park Tennis Club",
+      "lat": -31.983748,
+      "lon": 115.862436,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13355306201",
+      "loc": "perth",
+      "name": "Perth Soccer Club",
+      "lat": -31.938533,
+      "lon": 115.854539,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4197214056",
+      "loc": "perth",
+      "name": "Pot Black",
+      "lat": -31.930761,
+      "lon": 115.859479,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-436781712",
+      "loc": "perth",
+      "name": "Len Fletcher Sports Pavilion",
+      "lat": -31.933997,
+      "lon": 115.850999,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-492489139",
+      "loc": "perth",
+      "name": "Pot Black",
+      "lat": -31.948329,
+      "lon": 115.858038,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9470271275",
+      "loc": "perth",
+      "name": "The RISE",
+      "lat": -31.930567,
+      "lon": 115.895506,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1484894647",
+      "loc": "perth",
+      "name": "Mount Lawley Tennis Club",
+      "lat": -31.919005,
+      "lon": 115.875389,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-150809859",
+      "loc": "perth",
+      "name": "Next Generation Health Club",
+      "lat": -31.954076,
+      "lon": 115.839416,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-150809860",
+      "loc": "perth",
+      "name": "Royal Kings Park Tennis Club",
+      "lat": -31.954578,
+      "lon": 115.839716,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-153026578",
+      "loc": "perth",
+      "name": "Loftus Recreation Centre",
+      "lat": -31.935133,
+      "lon": 115.845318,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-153039329",
+      "loc": "perth",
+      "name": "Beatty Park Leisure Centre",
+      "lat": -31.935629,
+      "lon": 115.849073,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-188016483",
+      "loc": "perth",
+      "name": "Mt Lawley Sport and Fitness Centre (Building 21)",
+      "lat": -31.919979,
+      "lon": 115.87028,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-36983062",
+      "loc": "perth",
+      "name": "Yokine Districts Bowling Club",
+      "lat": -31.908606,
+      "lon": 115.855499,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-44955762",
+      "loc": "perth",
+      "name": "Recreation and Fitness Centre",
+      "lat": -31.976505,
+      "lon": 115.819409,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-47685045",
+      "loc": "perth",
+      "name": "Lords",
+      "lat": -31.94634,
+      "lon": 115.816226,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-61957883",
+      "loc": "perth",
+      "name": "Rosalie Park Tennis Club",
+      "lat": -31.961571,
+      "lon": 115.816865,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11041920884",
+      "loc": "perth",
+      "name": "Little Magic",
+      "lat": -31.940653,
+      "lon": 115.816021,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11982688703",
+      "loc": "perth",
+      "name": "The Good Grocer (Shenton Park IGA)",
+      "lat": -31.961062,
+      "lon": 115.813483,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12249795166",
+      "loc": "perth",
+      "name": "The Good Grocer",
+      "lat": -31.927514,
+      "lon": 115.878195,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13020082207",
+      "loc": "perth",
+      "name": "Foodie's Market",
+      "lat": -31.960924,
+      "lon": 115.874124,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1361238034",
+      "loc": "perth",
+      "name": "Woolworths",
+      "lat": -31.954697,
+      "lon": 115.857647,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13625195569",
+      "loc": "perth",
+      "name": "越興盛貿易公司",
+      "lat": -31.944266,
+      "lon": 115.862545,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13713683871",
+      "loc": "perth",
+      "name": "7 Fresh Supermarket",
+      "lat": -31.944153,
+      "lon": 115.862202,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14067556216",
+      "loc": "perth",
+      "name": "龙辉超市",
+      "lat": -31.945239,
+      "lon": 115.861907,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14209340097",
+      "loc": "perth",
+      "name": "Emma Seafood Yong Tofu",
+      "lat": -31.946338,
+      "lon": 115.86086,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1973347833",
+      "loc": "perth",
+      "name": "IGA Maylands",
+      "lat": -31.930245,
+      "lon": 115.895957,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1973347834",
+      "loc": "perth",
+      "name": "Coles",
+      "lat": -31.92978,
+      "lon": 115.89763,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-369959816",
+      "loc": "perth",
+      "name": "Woolworths",
+      "lat": -31.95301,
+      "lon": 115.860422,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4013749371",
+      "loc": "perth",
+      "name": "Golden Choice Subiaco Fresh Market",
+      "lat": -31.945572,
+      "lon": 115.825353,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4306802390",
+      "loc": "perth",
+      "name": "Rise",
+      "lat": -31.959884,
+      "lon": 115.871389,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4393253275",
+      "loc": "perth",
+      "name": "Coles",
+      "lat": -31.932215,
+      "lon": 115.858431,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4476377462",
+      "loc": "perth",
+      "name": "Supa IGA",
+      "lat": -31.947146,
+      "lon": 115.863793,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-560730916",
+      "loc": "perth",
+      "name": "Wembley IGA",
+      "lat": -31.94039,
+      "lon": 115.812528,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5649722133",
+      "loc": "perth",
+      "name": "Aldi",
+      "lat": -31.910821,
+      "lon": 115.846618,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5649806273",
+      "loc": "perth",
+      "name": "Woolworths",
+      "lat": -31.910411,
+      "lon": 115.847619,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5785330344",
+      "loc": "perth",
+      "name": "Coles",
+      "lat": -31.94385,
+      "lon": 115.822894,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-600291937",
+      "loc": "perth",
+      "name": "Coles",
+      "lat": -31.940941,
+      "lon": 115.833644,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-606771186",
+      "loc": "perth",
+      "name": "Woolworths",
+      "lat": -31.943915,
+      "lon": 115.823899,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6144120585",
+      "loc": "perth",
+      "name": "Woolworths",
+      "lat": -31.92251,
+      "lon": 115.883965,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6564104701",
+      "loc": "perth",
+      "name": "Perth Ceilling Fixers",
+      "lat": -31.921813,
+      "lon": 115.880145,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-729465529",
+      "loc": "perth",
+      "name": "IGA",
+      "lat": -31.921053,
+      "lon": 115.83786,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-738801163",
+      "loc": "perth",
+      "name": "Royal Street IGA",
+      "lat": -31.953363,
+      "lon": 115.877304,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-761868380",
+      "loc": "perth",
+      "name": "Woolworths",
+      "lat": -31.973471,
+      "lon": 115.898072,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9351616400",
+      "loc": "perth",
+      "name": "Aldi",
+      "lat": -31.92099,
+      "lon": 115.886955,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9436810444",
+      "loc": "perth",
+      "name": "Woolworths",
+      "lat": -31.942717,
+      "lon": 115.868158,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9754636120",
+      "loc": "perth",
+      "name": "Farmer Jack's",
+      "lat": -31.989839,
+      "lon": 115.870458,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1150051053",
+      "loc": "perth",
+      "name": "Coles",
+      "lat": -31.909721,
+      "lon": 115.848665,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1420201700",
+      "loc": "perth",
+      "name": "IGA Maylands",
+      "lat": -31.929043,
+      "lon": 115.89186,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1430520653",
+      "loc": "perth",
+      "name": "Farmer Jack's",
+      "lat": -31.949897,
+      "lon": 115.824814,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-145169229",
+      "loc": "perth",
+      "name": "Coles",
+      "lat": -31.916485,
+      "lon": 115.890316,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-147399138",
+      "loc": "perth",
+      "name": "Fresh Provisions",
+      "lat": -31.934185,
+      "lon": 115.871511,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-147409577",
+      "loc": "perth",
+      "name": "The Market Place",
+      "lat": -31.934993,
+      "lon": 115.871463,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-150825594",
+      "loc": "perth",
+      "name": "Tran's Emporium Oriental Supermarket",
+      "lat": -31.943148,
+      "lon": 115.855183,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1572329654",
+      "loc": "perth",
+      "name": "Coles",
+      "lat": -31.951254,
+      "lon": 115.857153,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-463590329",
+      "loc": "perth",
+      "name": "Coles",
+      "lat": -31.981075,
+      "lon": 115.862338,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-58756141",
+      "loc": "perth",
+      "name": "The Good Grocer",
+      "lat": -31.93665,
+      "lon": 115.840542,
+      "type": "supermarket",
+      "source": "osm"
+    }
+  ]
+}

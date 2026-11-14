@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // 校验 OpenClaw 采集的 POI 批次并合并进 src/game/data/wa.pois.json。
 // 用法：npm run earth:pois [-- --dry-run]
-// 输入：tools/earth/openclaw/inbox/*.json（格式见 poi.schema.json）
+// 输入：tools/earth/openclaw/inbox/*.json（格式见 poi.schema.json；venues-*、facts-* 开头的文件由别的脚本处理）
 import { readFileSync, readdirSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,7 +37,7 @@ function check(p) {
 
 const current = JSON.parse(readFileSync(target, 'utf8'));
 const byId = new Map(current.pois.map((p) => [p.id, p]));
-const files = existsSync(inbox) ? readdirSync(inbox).filter((f) => f.endsWith('.json')).sort() : [];
+const files = existsSync(inbox) ? readdirSync(inbox).filter((f) => f.endsWith('.json') && !/^(venues|facts)-/.test(f)).sort() : [];
 if (!files.length) {
 	console.log(`inbox 为空（${inbox}）。只校验现有数据。`);
 }

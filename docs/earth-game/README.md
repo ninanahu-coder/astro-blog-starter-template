@@ -14,9 +14,9 @@
 
 | 角色 | 工具 | 负责什么 | 产物落在哪里 | 不做什么 |
 | --- | --- | --- | --- | --- |
-| 架构 + 前端 | **Claude Code** | 类型、规则引擎、Durable Object、`/earth` 页面、测试 | `src/game/`、`src/pages/earth.astro`、`tests/earth/` | 不手写大批量地理数据、不生成图片 |
-| 数据采集 | **OpenClaw** | 按任务书采集 POI（OSM / Wikidata） | `tools/earth/openclaw/inbox/*.json` → `src/game/data/wa.pois.json` | 不改代码；只交 JSON |
-| 审查 | **Codex** | 审 PR：规则正确性、安全、数据许可 | PR review 评论（规则见仓库根 `AGENTS.md`） | 不直接推送主分支 |
+| 逻辑 + 前端 | **Claude Code** | 类型、规则引擎、Durable Object、`/earth` 页面、测试；按 Codex 的分析报告实施调参 | `src/game/`、`src/pages/earth.astro`、`tests/earth/` | 不手写大批量数据、不生成图片、不自己下平衡分析结论 |
+| 数据采集 | **OpenClaw** | 按任务书采集 POI、地点和节日的真实资料（OSM / Wikidata） | `tools/earth/openclaw/inbox/*.json` → `src/game/data/wa.pois.json` | 不改代码；只交 JSON |
+| 检查与分析 | **Codex** | 审 PR（规则正确性、安全、数据许可）；跑数值模拟并写平衡分析；分析 OpenClaw 的数据。任务书 [codex-tasks.md](codex-tasks.md) | PR 审查评论；`docs/earth-game/balance.md` 的分析小节 | 不写逻辑和前端；调参只提建议 |
 | CGI 素材 | **远程 ComfyUI** | 地点主视觉、事件插图 | `public/earth/cgi/*.png` + `manifest.json` | 不参与逻辑；缺图时前端自动用占位图 |
 
 四者之间只通过**仓库里的文件**交接，互不依赖对方在线：
@@ -25,6 +25,7 @@
 OpenClaw ──inbox/*.json──▶ npm run earth:pois ──▶ wa.pois.json ─┐
                                                                ├─▶ PR ──▶ Codex 审查 ──▶ 合并 ──▶ 部署
 Claude Code ──▶ src/game/** + earth.astro + tests ─────────────┤
+                                    Codex 跑 earth:sim ──▶ balance.md 分析 ──▶ Claude Code 按报告调参
                                                                │
 src/game/data/* ──▶ prompts.mjs ──▶ 远程 ComfyUI ──▶ cgi/*.png ─┘
 ```
@@ -37,10 +38,15 @@ src/game/
   core/character.ts   出身、初始属性、存档校验 sanitizeState()
   core/engine.ts      规则引擎：travel / performActivity / resolveEvent / gpsCheckIn（纯函数、确定性）
   core/geo.ts         距离、地图投影、真实坐标 → 游戏地点
+  core/formulas.ts    派生属性（体质、吸引力、状态系数……）与真实地点动作的公式
+  core/venues.ts      真实地点：附近列表、定位检查、吃饭/训练/打卡上班等结算
   data/wa.ts          西澳：18 个地点、路线图、海岸线轮廓
   data/wa.pois.json   打卡点（OpenClaw 写入）
+  data/venues.ts      真实地点的类型、动作和定位规则
+  data/wa.venues.json 真实地点（OpenClaw 从 OSM 采集写入）
   data/activities.ts  地点互动表（数值调参都在这里）
   data/events.ts      到达事件表（加事件只加数据，不写逻辑）
+  data/venue-events.ts 到店事件表：真实地点做完事后按地点类型触发（见 real-places.md §5）
   server/world.ts     Durable Object：在线位置、同地点聊天/表情、云存档
 src/pages/earth.astro 手机端单页客户端（只负责渲染和输入）
 tools/earth/openclaw/ 采集任务书、JSON Schema、校验合并脚本
@@ -48,7 +54,7 @@ tools/earth/comfyui/  提示词生成、工作流模板、远程出图脚本
 tests/earth/          引擎与数据自洽性测试
 ```
 
-人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)。
+人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。
 
 设计原则：
 
@@ -126,7 +132,7 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 
 | 阶段 | 内容 |
 | --- | --- |
-| **1（当前）** | 西澳 18 地点、21 种互动、17 个事件、云同步、在线状态与同地点聊天、数据/出图管线 |
+| **1（当前）** | 西澳 18 地点、23 种互动、17 个事件、云同步、在线状态与同地点聊天、数据/出图管线 |
 | 2 | ~~服务端权威结算~~（已完成）；账号体系；真实瓦片底图（MapLibre + OSM）；PWA 离线与推送 |
 | 3 | 玩家间交易/组队/共同事件；职业线与住房；昼夜与天气（接 BOM 开放数据） |
 | 4 | 新区域：按 `Region` 结构加数据文件即可（澳洲其他州 → 全球） |

@@ -2,7 +2,7 @@
 import { WISH_REWARD, WISHES, WISHES_PER_DAY } from '../data/wishes.ts';
 import type { GameAction } from './actions.ts';
 import { clamp100 } from './character.ts';
-import { addLog, rngRoll } from './engine.ts';
+import { addLog, addMoodlet, rngRoll } from './engine.ts';
 import { dayOf } from './time.ts';
 import type { PlayerState, WishDef } from './types.ts';
 
@@ -31,6 +31,11 @@ export function refreshWishes(state: PlayerState): boolean {
 
 /** 这个动作是否满足某个心愿 */
 export function wishMatches(w: WishDef, a: GameAction, before: PlayerState, after: PlayerState): boolean {
+	if (a.t === 'venue') {
+		if (!w.venue?.includes(a.op)) return false;
+		// 上班：只有下班结算时实际算了一个班次才算，打上班卡、清卡、零工都不算。看 workDay 而不是 shifts：升职会把 shifts 清零
+		return a.op !== 'work' || after.workDay !== before.workDay;
+	}
 	const d = w.done;
 	switch (d.t) {
 		case 'activity': return a.t === 'activity' && d.ids.includes(a.id);
@@ -58,6 +63,7 @@ export function settleWishes(before: PlayerState, after: PlayerState, a: GameAct
 		after.wishes = after.wishes.filter((x) => x !== id);
 		after.needs.fun = clamp100(after.needs.fun + WISH_REWARD.fun);
 		after.respect += WISH_REWARD.respect;
+		addMoodlet(after, 'wish-done');
 		addLog(after, `心愿达成：${w.text}。`);
 		done.push(w.text);
 	}

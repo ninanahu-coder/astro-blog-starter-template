@@ -116,3 +116,19 @@ test('存档校验：拒绝畸形数据并钳制数值', () => {
 	assert.ok(!clean.name.includes('<'));
 	assert.deepEqual(sanitizeState(fresh(), locs), fresh());
 });
+
+test('身无分文不会卡死：每个地点都有不要钱、不挑时间、不要能力的收入', () => {
+	for (const l of WA.locations) {
+		const s = { ...fresh(), loc: l.id, cash: 0, vehicle: 'none' };
+		const earn = activitiesAt(s, WA).filter(({ act, blocked }) => (act.fx.cash ?? 0) > 0 && !act.requires && !act.hours && !blocked);
+		assert.ok(earn.length, `${l.id} 没钱时没有任何收入来源`);
+	}
+	// 波浪岩：没车没钱时所有路线都走不了，也没有职业，只能靠这个凑路费
+	const stuck = { ...fresh(), loc: 'wave-rock', cash: 0, vehicle: 'none', visited: { 'wave-rock': 1 } };
+	assert.ok(travelOptions(stuck, WA).every((o) => !o.available));
+	const r = performActivity(stuck, WA, 'recycle');
+	assert.ok(r.ok && r.state.cash > 0, r.msg);
+	// 收入垫底：不能比任何别的挣钱活动划算
+	const perHour = (id: string) => { const a = ACTIVITIES.find((x) => x.id === id)!; return (a.fx.cash ?? 0) / (a.minutes / 60); };
+	for (const a of ACTIVITIES) if ((a.fx.cash ?? 0) > 0 && a.id !== 'recycle') assert.ok(perHour(a.id) > perHour('recycle') * 2, a.id);
+});

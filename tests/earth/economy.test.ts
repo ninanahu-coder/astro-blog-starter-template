@@ -237,3 +237,73 @@ test('阶段 B 的动作协议与旧存档迁移', () => {
 	assert.deepEqual(c.home!.furniture, { decor: 'plants' }, '家具必须放在自己的槽位');
 	assert.ok(c.nextWeek >= -7, '结算日不会落后太多，避免一次补扣几百周');
 });
+
+test('跨周结算前先发这一班的工资：工资够付刚到期的房租就不会被收房', () => {
+	const s = housed({ clock: at(9) });
+	const job = { career: 'barista', loc: s.loc, level: 0, shifts: 0, good: 0, lastDay: -1 };
+	const due = { ...s, job, cash: 50, clock: at(7, 6), nextWeek: 6, needs: { hunger: 90, energy: 90, hygiene: 80, fun: 60, social: 60 } };
+	const r = applyAction(due, WA, { t: 'job', op: 'work' });
+	assert.ok(r.ok && !r.collapsed, r.msg);
+	assert.ok(r.state.home, '$50 + 工资 ≥ 房租 $160，不该被收房');
+	assert.equal(r.state.nextWeek, 13);
+	assert.ok(r.state.cash < 50 + 200, '房租照扣');
+});
+
+test('直接耗时的动作途中晕倒也要停下：出行、买家具、应聘', () => {
+	const weak = { health: 0.2, needs: { hunger: 0, energy: 90, hygiene: 80, fun: 60, social: 60 } };
+	const trip = applyAction(make({ cash: 500, clock: at(9), wishes: ['road-trip'], wishDay: 0, ...weak }), WA, { t: 'travel', to: 'fremantle', mode: 'road' });
+	assert.ok(trip.ok && trip.collapsed, trip.msg);
+	assert.notEqual(trip.state.loc, 'fremantle', '没到达');
+	assert.ok(!trip.state.moodlets.some((m) => m.id === 'wish-done'), '出行心愿不算完成');
+	const home = housed();
+	const bed = applyAction({ ...home, ...weak }, WA, { t: 'furniture', op: 'buy', id: 'mattress' });
+	assert.ok(bed.ok && bed.collapsed, bed.msg);
+	assert.equal(bed.state.home?.furniture.bed, 'mattress', '已经成交的家具保留');
+	const hired = applyAction(make({ clock: at(9), ...weak }), WA, { t: 'job', op: 'apply', career: 'barista' });
+	assert.ok(hired.ok && hired.collapsed, hired.msg);
+});
+
+test('跨周结算在动作途中收走住处、房产时，任何动作都不会抛异常', async () => {
+	const { ACTIVITIES } = await import('../../src/game/data/activities.ts');
+	const { PROPERTIES } = await import('../../src/game/data/properties.ts');
+	const { FINANCE } = await import('../../src/game/core/finance.ts');
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const needs = { hunger: 80, energy: 80, hygiene: 80, fun: 80, social: 80 };
+	// 第 6 天 23:30，下一次结算在第 7 天：任何耗时动作都会跨过结算日
+	const base = { clock: 6 * 1440 + 23 * 60 + 30, nextWeek: 7, cash: 0, needs, job: { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } };
+	const flat = PROPERTIES.find((p) => p.loc === 'perth')!;
+	const scenarios: Record<string, PlayerState> = {
+		'租客付不起房租': make({ ...base, home: { type: 'room', loc: 'perth', furniture: { bed: FURNITURE.find((f) => f.slot === 'bed')!.id } } }),
+		'房主断供被强制卖房': make({ ...base, home: { type: flat.homeType, loc: 'perth', furniture: {}, owned: flat.id }, properties: [{ id: flat.id, loan: 50000, rented: false, missed: FINANCE.graceWeeks }] }),
+		'有车付不起保险': make({ ...base, vehicle: VEHICLES[0].id }),
+	};
+	const actions: unknown[] = [
+		{ t: 'home', op: 'sleep' }, { t: 'home', op: 'cook' }, { t: 'home', op: 'relax' }, { t: 'home', op: 'leave' },
+		{ t: 'vehicle', op: 'sleep' }, { t: 'vehicle', op: 'sell' }, { t: 'job', op: 'work' }, { t: 'job', op: 'quit' },
+		{ t: 'furniture', op: 'sell', slot: 'bed' }, { t: 'property', op: 'sell', id: flat.id }, { t: 'property', op: 'movein', id: flat.id },
+		...ACTIVITIES.map((a) => ({ t: 'activity', id: a.id })),
+		...COURSES.map((c) => ({ t: 'course', id: c.id })),
+		...EXPERIENCES.map((e) => ({ t: 'experience', id: e.id })),
+		...WA.routes.filter((r) => r.a === 'perth' || r.b === 'perth').map((r) => ({ t: 'travel', to: r.a === 'perth' ? r.b : r.a, mode: r.mode })),
+	];
+	for (const [name, s] of Object.entries(scenarios)) {
+		for (const raw of actions) {
+			const a = parseAction(raw);
+			if (!a) continue;
+			for (const cash of [0, 5000]) {
+				let r;
+				assert.doesNotThrow(() => { r = applyAction({ ...s, cash }, WA, a); }, `${name}：${JSON.stringify(raw)}（现金 ${cash}）`);
+				assert.ok(sanitizeState(r!.state, locs), `${name}：${JSON.stringify(raw)} 之后的存档仍然合法`);
+			}
+		}
+	}
+	// 确认场景真的触发了收房：睡一觉醒来住处没了，但这一觉照样算（带床的好觉）
+	for (const name of ['租客付不起房租', '房主断供被强制卖房']) {
+		const r = applyAction(scenarios[name], WA, { t: 'home', op: 'sleep' });
+		assert.ok(r.ok, r.msg);
+		assert.equal(r.state.home, null, name);
+		assert.match(r.msg, /住处已经没了/);
+		assert.equal(r.state.needs.energy, 100);
+	}
+	assert.ok(applyAction(scenarios['租客付不起房租'], WA, { t: 'home', op: 'sleep' }).state.moodlets.some((m) => m.id === 'great-sleep'));
+});
