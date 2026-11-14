@@ -102,7 +102,7 @@ export const EVENTS: GameEvent[] = [
 		id: 'flies', title: '苍蝇大军', icon: '🪰', kinds: ['outback', 'park', 'mining'], weight: 2,
 		text: '下车三秒，脸上已经落了十几只苍蝇。',
 		choices: [
-			{ label: '买顶防蝇网帽（$12）', cost: 12, ok: { text: '丑，但管用。', fx: {} } },
+			{ label: '买顶防蝇网帽（$12）', cost: 12, ok: { text: '丑，但管用。', fx: { items: { flynet: 1 } } } },
 			{ label: '练“澳式挥手”硬扛', ok: { text: '你学会了本地人的打招呼方式。', fx: { needs: { fun: -8, hygiene: -5 }, skills: { survival: 1 } } } },
 		],
 	},

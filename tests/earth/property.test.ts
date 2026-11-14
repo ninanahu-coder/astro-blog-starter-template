@@ -130,6 +130,66 @@ test('出租：收租金、偶尔空置和维修；搬进去就停止出租', ()
 	assert.equal(toggleRentOut(toggleRentOut(s, flat.id).state, flat.id).state.properties[0].rented, false, '再点一次停止出租');
 });
 
+test('出租从下一个结算期起算：结算前挂牌、结算后搬回，领不到租金', () => {
+	const rested = { needs: { hunger: 90, energy: 90, hygiene: 90, fun: 90, social: 90 }, health: 100 };
+	let s = buyProperty(make({ cash: 200000, clock: at(10) }), WA, flat.id, false).state;
+	s = moveIntoProperty(s, flat.id).state;
+	// 第 6 天晚上挂牌，睡一觉跨过第 7 天的结算
+	const listed = toggleRentOut({ ...s, ...rested, clock: at(20, 6) }, flat.id);
+	assert.match(listed.msg, /下个结算日之后开始收租/);
+	assert.equal(ownedProperty(listed.state, flat.id)!.fresh, true);
+	const w1 = passTo(listed.state, 6);
+	assert.ok(w1.nextWeek > 7, '已经过了一次结算');
+	assert.ok(w1.journal.some((j) => j.text.includes('刚挂牌')));
+	assert.ok(!w1.journal.some((j) => j.text.includes('租金收入') || j.text.includes('空置')), '第一期不计租');
+	assert.equal(ownedProperty(w1, flat.id)!.fresh, undefined);
+	assert.equal(w1.cash, listed.state.cash - flat.weekly, '只付了物业费，没有租金');
+	// 结算后立刻搬回：没领到任何租金
+	const back = moveIntoProperty(w1, flat.id).state;
+	assert.equal(back.cash, w1.cash);
+	// 一直租着：第二期开始正常计租（收租或空置）
+	const w2 = passTo({ ...w1, ...rested }, 13);
+	assert.ok(w2.journal.some((j) => j.text.includes('租金收入') || j.text.includes('空置')));
+	// 挂牌后在结算前取消，标记也清掉
+	assert.equal(ownedProperty(toggleRentOut(listed.state, flat.id).state, flat.id)!.fresh, undefined);
+});
+
+test('「乔迁之喜」每套房只给一次：搬出再搬回不能反复刷', () => {
+	let s = buyProperty(make({ cash: 200000, clock: at(10) }), WA, flat.id, false).state;
+	const first = moveIntoProperty(s, flat.id).state;
+	assert.ok(first.moodlets.some((m) => m.id === 'new-home'));
+	assert.equal(ownedProperty(first, flat.id)!.lived, true);
+	const out = applyAction({ ...first, moodlets: [] }, WA, { t: 'home', op: 'leave' }).state;
+	const again = moveIntoProperty(out, flat.id);
+	assert.ok(again.ok, again.msg);
+	assert.ok(!again.state.moodlets.some((m) => m.id === 'new-home'), '第二次搬进同一套房不再给');
+	// 旧存档没有 lived：正住在里面算住过，没住过的不算
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const strip = (st: PlayerState) => ({ ...st, properties: st.properties.map(({ lived: _l, fresh: _f, ...rest }) => rest) });
+	assert.equal(sanitizeState(strip(first), locs)!.properties[0].lived, true);
+	assert.equal(sanitizeState(strip(s), locs)!.properties[0].lived, undefined);
+	// fresh 只在出租中才保留
+	const listed = toggleRentOut(first, flat.id).state;
+	assert.equal(sanitizeState(listed, locs)!.properties[0].fresh, true);
+	assert.equal(sanitizeState({ ...listed, properties: [{ ...listed.properties[0], rented: false }] }, locs)!.properties[0].fresh, undefined);
+});
+
+test('晕倒住院跨过结算日也要结算：醒来不能抢在断供前卖房', () => {
+	let s = buyProperty(make({ cash: 9000, clock: at(10) }), WA, flat.id, true).state;
+	s = moveIntoProperty(s, flat.id).state;
+	// 已欠满宽限次数，第 6 天 22:30，快饿晕了；下一次结算在第 7 天
+	const weak: PlayerState = {
+		...s, cash: 0, clock: at(22, 6) + 30, nextWeek: 7, health: 0.5,
+		needs: { hunger: 0, energy: 60, hygiene: 60, fun: 60, social: 60 },
+		properties: [{ ...s.properties[0], missed: FINANCE.graceWeeks }],
+	};
+	const r = applyAction(weak, WA, { t: 'activity', id: 'rest' });
+	assert.ok(r.ok && r.collapsed, r.msg);
+	assert.ok(Math.floor(r.state.clock / 1440) >= 7, '醒来已经过了结算日');
+	assert.ok(r.state.nextWeek > Math.floor(r.state.clock / 1440), '结算已经做过，没有逾期未结的');
+	assert.equal(r.state.properties.length, 0, '断供的房子已被强制卖出');
+});
+
 test('断供：宽限两周，第三次欠款强制卖房，现金不会为负', () => {
 	let s = buyProperty(make({ cash: 9000, clock: at(10) }), WA, flat.id, true).state;
 	s = moveIntoProperty(s, flat.id).state;

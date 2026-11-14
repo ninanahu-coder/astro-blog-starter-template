@@ -183,6 +183,8 @@ export interface OwnedProperty {
 	loan: number; // 剩余贷款
 	rented: boolean; // 是否出租中
 	missed: number; // 连续欠款周数
+	fresh?: boolean; // 这个结算期内才挂牌出租：到下个结算日不计租
+	lived?: boolean; // 自己搬进去住过：「搬了新家」每套房只给一次
 }
 
 export interface FurnitureDef {

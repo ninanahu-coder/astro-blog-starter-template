@@ -1,6 +1,7 @@
 // 运行：npm test（Node ≥ 22.18 原生执行 TypeScript）
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { applyAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
 	activitiesAt, getPendingEvent, gpsCheckIn, performActivity, resolveEvent, travel, travelOptions,
@@ -131,4 +132,13 @@ test('身无分文不会卡死：每个地点都有不要钱、不挑时间、�
 	// 收入垫底：不能比任何别的挣钱活动划算
 	const perHour = (id: string) => { const a = ACTIVITIES.find((x) => x.id === id)!; return (a.fx.cash ?? 0) / (a.minutes / 60); };
 	for (const a of ACTIVITIES) if ((a.fx.cash ?? 0) > 0 && a.id !== 'recycle') assert.ok(perHour(a.id) > perHour('recycle') * 2, a.id);
+});
+
+test('苍蝇大军：买防蝇网帽真的拿到网帽', () => {
+	const s = { ...createCharacter({ id: 'fly-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 }), cash: 100, pending: { eventId: 'flies' } };
+	const r = applyAction(s, WA, { t: 'event', choice: 0 });
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.cash, 88);
+	assert.equal(r.state.inventory.flynet, 1);
+	assert.equal(r.state.pending, null);
 });

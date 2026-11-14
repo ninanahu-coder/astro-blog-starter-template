@@ -72,6 +72,7 @@ function advance(state: PlayerState, minutes: number, region: Region, gains?: ()
 	weeklyTick(state, region);
 	if (!collapsed) return false;
 	collapse(state, region);
+	weeklyTick(state, region); // 住院又过了 12 小时：跨过结算日的话也要结算，不然醒来能抢在结算前卖房、退租
 	return true;
 }
 
@@ -1159,7 +1160,11 @@ function settleProperties(state: PlayerState, region: Region) {
 	for (const p of [...state.properties]) {
 		const def = getProperty(p.id);
 		if (!def) continue;
-		if (p.rented) {
+		if (p.rented && p.fresh) {
+			// 这个结算期内才挂牌：不满一期不计租，下期起算。不然结算前挂牌、结算后搬回就能白领一周租金
+			Reflect.deleteProperty(p, 'fresh');
+			log(state, `周结算：${def.name}刚挂牌，下周起收租。`);
+		} else if (p.rented) {
 			if (roll(state) < FINANCE.vacancy) log(state, `周结算：${def.name}这周空置，没有租金。`);
 			else {
 				state.cash += def.rentIncome;
@@ -1268,9 +1273,13 @@ export function moveIntoProperty(prev: PlayerState, id: string): ActionResult {
 	if (prev.home?.owned === id) return fail(prev, '你已经住在这里。');
 	const state = clone(prev);
 	const sold = vacate(state);
-	ownedProperty(state, id)!.rented = false;
+	const mine = ownedProperty(state, id)!;
+	mine.rented = false;
+	Reflect.deleteProperty(mine, 'fresh');
 	state.home = { type: def.homeType, loc: def.loc, furniture: {}, owned: id };
-	addMoodlet(state, 'new-home');
+	// 「搬了新家」每套房只给一次：搬出再搬回不花钱也不花时间，不能拿来反复刷
+	if (!mine.lived) addMoodlet(state, 'new-home');
+	mine.lived = true;
 	const msg = `搬进了自己的${def.name}，以后不用交房租了${sold ? `；旧家具折现 $${sold}` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
@@ -1286,11 +1295,13 @@ export function toggleRentOut(prev: PlayerState, id: string): ActionResult {
 	let msg: string;
 	if (mine.rented) {
 		mine.rented = false;
+		Reflect.deleteProperty(mine, 'fresh');
 		msg = `${def.name}不再出租。`;
 	} else {
 		const sold = state.home?.owned === id ? vacate(state) : 0;
 		mine.rented = true;
-		msg = `${def.name}挂牌出租，每周租金 $${def.rentIncome}${sold ? `；搬出时家具折现 $${sold}` : ''}。`;
+		mine.fresh = true;
+		msg = `${def.name}挂牌出租，下个结算日之后开始收租，每周 $${def.rentIncome}${sold ? `；搬出时家具折现 $${sold}` : ''}。`;
 	}
 	log(state, msg);
 	return { ok: true, state, msg };

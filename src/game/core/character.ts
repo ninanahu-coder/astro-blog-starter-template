@@ -276,6 +276,9 @@ function cleanEstate(r: any, knownLocs?: Set<string>): { properties: OwnedProper
 				loan: Math.round(num(raw.loan, 0, def.price, 0)),
 				rented: raw.rented === true,
 				missed: Math.floor(num(raw.missed, 0, FINANCE.graceWeeks, 0)),
+				...(raw.rented === true && raw.fresh === true ? { fresh: true } : {}),
+				// 旧存档没有 lived：正住在里面就算住过
+				...(raw.lived === true || r.home?.owned === def.id ? { lived: true } : {}),
 			});
 		}
 	}
