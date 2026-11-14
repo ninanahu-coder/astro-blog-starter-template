@@ -101,7 +101,7 @@ export interface NearbyOp {
 	outcome: OpOutcome | null; // 上班为 null
 	blocked?: string;
 	voids?: string; // 上班：点一下只会作废旧卡（过期了但这里打不了新卡，或打卡时的身份没了）；值是给玩家看的说明
-	renews?: boolean; // 上班：点一下会作废过期的旧卡，并在这里打一张新的上班卡
+	renews?: string; // 上班：点一下会作废旧卡（过期的，或别处还没打下班卡的），并在这里打一张新的上班卡；值是给玩家看的说明
 }
 
 export interface NearbyVenue {
@@ -147,13 +147,19 @@ export function clockStale(state: PlayerState, now: number): boolean {
 
 /**
  * 上班按钮点下去会发生什么，和 work() 的分支一一对应：
- * 卡没过期 → 照常（能不能打卡 / 打下班卡）；卡过期了 → 这里上不了班就只作废旧卡（voids），上得了就作废旧卡并打新卡（renews）
+ * 身份没了的卡 → 只清卡（voids）；没有卡或这里自己的有效卡 → 照常；别处的有效卡 → 这里上得了班就换卡（renews），上不了就禁用；
+ * 过期的卡 → 这里上不了班就只作废旧卡（voids），上得了就作废旧卡并打新卡（renews）
  */
 function workPreview(state: PlayerState, type: VenueTypeDef, venue: Venue, now: number): Pick<NearbyOp, 'blocked' | 'voids' | 'renews'> {
 	if (cardDead(state, type, venue)) return { voids: DEAD_CARD };
-	if (!clockStale(state, now)) return { blocked: workBlocked(state, type, venue, now) };
+	const ci = state.clockIn;
+	const stale = clockStale(state, now);
+	// 没有卡，或是这里自己的、还没过期的卡：照常打上班卡 / 下班卡
+	if (!ci || (ci.venue === venue.id && !stale)) return { blocked: workBlocked(state, type, venue, now) };
+	// 手里有一张别处的卡或过期的卡：在这里打卡会让它作废
 	const why = workBlocked({ ...state, clockIn: null }, type, venue, now);
-	return why ? { voids: `${why}，打不了新卡` } : { renews: true };
+	if (!stale) return why ? { blocked: why } : { renews: '还有一张别处的上班卡没打下班卡：在这里打卡会让它作废、不计薪' };
+	return why ? { voids: `${why}，打不了新卡` } : { renews: '上一张卡太久没打下班卡，不计薪；这里会打一张新的上班卡' };
 }
 
 function workBlocked(state: PlayerState, type: VenueTypeDef, venue: Venue, now: number): string | undefined {

@@ -713,7 +713,7 @@ export function applyJob(prev: PlayerState, region: Region, careerId: string): A
 	const old = state.job ? getCareer(state.job.career) : null;
 	// 今天已经上过班的话，换了工作当天也不能再上一班
 	state.job = { career: careerId, loc: state.loc, level: 0, shifts: 0, good: 0, lastDay: state.workDay };
-	if (old) voidCareerCard(state);
+	voidCareerCard(state); // 不管之前有没有工作：存档里可能留着对不上工作的职业卡
 	if (advance(state, 30, region)) return collapsedResult(state);
 	const title = offer.career.levels[0].title;
 	const place = getLocation(region, state.loc)!.name;

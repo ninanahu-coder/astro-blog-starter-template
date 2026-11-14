@@ -155,7 +155,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 				.filter((j: any) => j && typeof j.text === 'string')
 				.map((j: any) => ({ t: num(j.t, 0, 1e9, 0), text: String(j.text).slice(0, 200) }))
 		: [];
-	return {
+	const out: PlayerState = {
 		v: 1,
 		id: r.id,
 		name: cleanName(r.name) || '旅人',
@@ -220,6 +220,9 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
 		rev: Math.floor(num(r.rev, 0, 1e9, 0)),
 	};
+	// 按职业打的上班卡必须对得上一份现有的工作，否则作废：不然重新应聘同一职业就能接着用旧卡
+	if (out.clockIn?.career && out.job?.career !== out.clockIn.career) out.clockIn = null;
+	return out;
 }
 
 export const JOURNAL_MAX = 40;

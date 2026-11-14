@@ -494,6 +494,45 @@ test('「附近」列表按地点所在的城镇判断工作地点，不看人�
 	assert.match(workOp('perth').blocked ?? '', /工作地点/, '在珀斯任职：弗里曼特尔的泳池上不了');
 });
 
+test('手里有别处没打下班卡的卡：预览说明会作废旧卡，点下去确实换卡', () => {
+	const cafe = find('t-cafe');
+	const diner = find('t-diner');
+	const workOp = (s: PlayerState, v: Venue, now: number) => venuesNear(s, R, v.lat, v.lon, 10, now).find((n) => n.venue.id === v.id)!.ops.find((o) => o.op.id === 'work')!;
+	const inn = venueAction(make(), R, { op: 'work', ...at(cafe) }, T0).state;
+	const now = T0 + 60 * MIN;
+	assert.match(workOp(inn, diner, now).renews ?? '', /别处.*作废/);
+	assert.equal(workOp(inn, cafe, now).renews, undefined, '自己的有效卡是普通下班卡');
+	assert.equal(workOp(make(), diner, now).renews, undefined, '没有卡是普通上班卡');
+	const swap = venueAction(inn, R, { op: 'work', ...at(diner) }, now);
+	assert.ok(swap.ok, swap.msg);
+	assert.match(swap.msg, /别处的上班卡作废/);
+	assert.equal(swap.state.clockIn?.venue, 't-diner');
+	assert.equal(swap.state.cash, inn.cash);
+	// 新地点上不了班（泳池要救生员）：按钮禁用，旧卡不动
+	const pool = find('t-pool');
+	assert.match(workOp(inn, pool, now).blocked ?? '', /职业/);
+	assert.equal(venueAction(inn, R, { op: 'work', ...at(pool) }, now).state.clockIn?.venue, 't-cafe');
+});
+
+test('存档校验和应聘：对不上现有工作的职业卡一律作废', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const cafe = find('t-cafe');
+	const barista = { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 };
+	const card = { venue: 't-cafe', at: T0, career: 'barista' };
+	const clean = (over: Partial<PlayerState>) => sanitizeState({ ...make(), ...over } as never, locs)!;
+	assert.deepEqual(clean({ job: barista, clockIn: card }).clockIn, card, '对得上：保留');
+	assert.equal(clean({ job: null, clockIn: card }).clockIn, null, '没有工作');
+	assert.equal(clean({ job: { ...barista, loc: 'atlantis' }, clockIn: card }).clockIn, null, '工作本身非法被清掉');
+	assert.equal(clean({ job: { ...barista, career: 'lifeguard' }, clockIn: card }).clockIn, null, '换了职业');
+	assert.deepEqual(clean({ job: null, clockIn: { venue: 't-cafe', at: T0 } }).clockIn, { venue: 't-cafe', at: T0 }, '零工卡不受影响');
+	// 就算这样的状态没经过存档校验：没有工作时应聘同一职业，旧职业卡也接不上
+	const again = applyAction(make({ job: null, clockIn: card }), R, { t: 'job', op: 'apply', career: 'barista' });
+	assert.ok(again.ok, again.msg);
+	assert.equal(again.state.clockIn, null);
+	const next = venueAction(again.state, R, { op: 'work', ...at(cafe) }, T0 + 200 * MIN);
+	assert.ok(next.ok && next.state.cash === again.state.cash && next.state.job!.shifts === 0, next.msg);
+});
+
 test('职业班次要在工作地点上：别处的同类地点只算零工', () => {
 	const cafe = find('t-cafe');
 	const away = make({ job: { career: 'barista', loc: 'fremantle', level: 0, shifts: 0, good: 0, lastDay: -1 } });
@@ -523,7 +562,8 @@ test('实地上班触发升职的那一班也完成「上班」心愿', () => {
 
 test('存档校验：上班卡的职业字段只留已知职业，旧卡没有这个字段', () => {
 	const locs = new Set(WA.locations.map((l) => l.id));
-	const ci = (clockIn: unknown) => sanitizeState({ ...make(), clockIn } as never, locs)!.clockIn;
+	const job = { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 };
+	const ci = (clockIn: unknown) => sanitizeState({ ...make({ job }), clockIn } as never, locs)!.clockIn;
 	assert.deepEqual(ci({ venue: 't-cafe', at: 1000 }), { venue: 't-cafe', at: 1000 });
 	assert.deepEqual(ci({ venue: 't-cafe', at: 1000, career: 'barista' }), { venue: 't-cafe', at: 1000, career: 'barista' });
 	assert.deepEqual(ci({ venue: 't-cafe', at: 1000, career: 'emperor' }), { venue: 't-cafe', at: 1000 });
@@ -538,7 +578,7 @@ test('同一地点自己的过期卡：按钮说明和点下去的结果一致',
 	// 没过期：普通的下班卡
 	assert.deepEqual({ ...workOp(inn, T0 + 60 * MIN), op: 0 }, { op: 0, outcome: null, blocked: undefined });
 	// 过期且还能上班：预览标 renews，点下去旧卡作废、打了新卡、不计薪
-	assert.equal(workOp(inn, late).renews, true);
+	assert.match(workOp(inn, late).renews ?? '', /太久没打下班卡/);
 	assert.equal(workOp(inn, late).voids, undefined);
 	const again = venueAction(inn, R, { op: 'work', ...at(cafe) }, late);
 	assert.ok(again.ok, again.msg);
