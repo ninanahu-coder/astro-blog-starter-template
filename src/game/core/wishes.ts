@@ -31,6 +31,11 @@ export function refreshWishes(state: PlayerState): boolean {
 
 /** 这个动作是否满足某个心愿 */
 export function wishMatches(w: WishDef, a: GameAction, before: PlayerState, after: PlayerState): boolean {
+	if (a.t === 'venue') {
+		if (!w.venue?.includes(a.op)) return false;
+		// 上班：只有下班结算时实际算了一个班次才算，打上班卡、清卡、零工都不算
+		return a.op !== 'work' || (!!before.job && !!after.job && after.job.shifts > before.job.shifts);
+	}
 	const d = w.done;
 	switch (d.t) {
 		case 'activity': return a.t === 'activity' && d.ids.includes(a.id);

@@ -385,6 +385,35 @@ test('过期的上班卡：辞职后去别处打卡，开始不了新班也要�
 	assert.match(workOp(T0 + 961 * MIN).voids ?? '', /职业/);
 });
 
+test('在真实地点做的事也能完成对应的心愿；上班要算了班次才算', () => {
+	const cafe = find('t-cafe');
+	const act = (s: PlayerState, v: Venue, op: string, now: number) => applyAction(s, R, { t: 'venue', op, ...at(v) } as never, now);
+	const wishing = (over: Partial<PlayerState> = {}) => make({ cash: 500, wishes: ['eat-out', 'work', 'chat'], wishDay: 0, ...over });
+	// 吃一顿完成「想在外面吃顿好的」，别的心愿不动
+	const meal = act(wishing(), cafe, 'meal', T0);
+	assert.ok(meal.ok, meal.msg);
+	assert.match(meal.msg, /心愿达成/);
+	assert.deepEqual(meal.state.wishes, ['work', 'chat']);
+	// 游泳、自习各自对上
+	assert.deepEqual(act(make({ wishes: ['swim', 'learn'], wishDay: 0 }), find('t-pool'), 'swim', T0).state.wishes, ['learn']);
+	assert.deepEqual(act(make({ wishes: ['swim', 'learn'], wishDay: 0 }), find('t-library'), 'study', T0).state.wishes, ['swim']);
+	// 训练不对应任何心愿
+	assert.deepEqual(act(wishing(), find('t-gym'), 'train', T0).state.wishes, ['eat-out', 'work', 'chat']);
+	// 上班：打上班卡不算；下班算了班次才算
+	const barista = wishing({ job: { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } });
+	const inn = act(barista, cafe, 'work', T0);
+	assert.ok(inn.ok && inn.state.wishes.includes('work'), '打上班卡不完成心愿');
+	const short = act(inn.state, cafe, 'work', T0 + 20 * MIN);
+	assert.ok(short.ok && short.state.job!.shifts === 0 && short.state.wishes.includes('work'), '没上满半班不算');
+	const out = act(inn.state, cafe, 'work', T0 + 200 * MIN);
+	assert.ok(out.ok && out.state.job!.shifts === 1, out.msg);
+	assert.ok(!out.state.wishes.includes('work'), '算了班次，心愿完成');
+	// 没有对应职业的零工不算
+	const gig = wishing({ job: { career: 'lifeguard', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } });
+	const gigOut = act(act(gig, cafe, 'work', T0).state, cafe, 'work', T0 + 200 * MIN);
+	assert.ok(gigOut.ok && gigOut.state.wishes.includes('work'), gigOut.msg);
+});
+
 test('同一地点自己的过期卡：按钮说明和点下去的结果一致', () => {
 	const cafe = find('t-cafe');
 	const workOp = (s: PlayerState, now: number) => venuesNear(s, R, cafe.lat, cafe.lon, 10, now).find((n) => n.venue.id === cafe.id)!.ops.find((o) => o.op.id === 'work')!;

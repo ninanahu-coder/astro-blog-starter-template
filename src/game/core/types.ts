@@ -376,6 +376,7 @@ export interface WishDef {
 	text: string;
 	needs?: 'job' | 'home'; // 有工作 / 有住处才会出现
 	done: WishDone;
+	venue?: VenueOp[]; // 在真实地点做这些事也算完成；work 要实际算了一个班次才算
 }
 
 export interface GameEvent {
