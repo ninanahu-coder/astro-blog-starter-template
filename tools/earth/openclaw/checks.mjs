@@ -1,4 +1,6 @@
-// 导入器的校验规则：纯函数，导入这个文件不会读写任何数据文件（import-venues.mjs / import-pois.mjs 和测试共用）。
+// 导入器的校验规则：纯函数。导入这个文件不会执行导入流程、不写任何文件；
+// 它依赖 wa.ts，所以会读取现有的 wa.pois.json / wa.venues.json（那两个文件损坏时这里也会加载失败）。
+// import-venues.mjs / import-pois.mjs 和测试共用。
 import { haversineKm, locateInRegion } from '../../../src/game/core/geo.ts';
 import { WA } from '../../../src/game/data/wa.ts';
 import { VENUE_TYPES } from '../../../src/game/data/venues.ts';

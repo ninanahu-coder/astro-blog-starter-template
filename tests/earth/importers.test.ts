@@ -1,4 +1,4 @@
-// 数据导入器的校验规则（tools/earth/openclaw/checks.mjs）。只导入校验函数，不会触发导入、不写任何文件。
+// 数据导入器的校验规则（tools/earth/openclaw/checks.mjs）。只导入校验函数，不会触发导入流程、不写任何文件。
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { locateInRegion } from '../../src/game/core/geo.ts';
