@@ -16,6 +16,7 @@ import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { COURSES } from '../data/courses.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
+import { EVENTS } from '../data/events.ts';
 import { validTraits } from './attributes.ts';
 
 export const NEED_META: Record<string, { name: string; icon: string }> = {
@@ -214,7 +215,8 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 			}
 			return out;
 		})(),
-		pending: r.pending && typeof r.pending.eventId === 'string' ? { eventId: r.pending.eventId.slice(0, 64) } : null,
+		// 只留还存在的事件：事件被删掉或改名后，界面弹不出来，但其他动作都会被「先处理眼前的事件」挡住
+		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
 		...cleanReal(r),
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,

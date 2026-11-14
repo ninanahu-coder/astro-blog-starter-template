@@ -180,3 +180,17 @@ test('受伤直接晕倒住院跨过结算日也要结算', () => {
 	}
 	assert.ok(hit, `${ev.id} 应能造成受伤晕倒`);
 });
+
+test('存档校验：待处理事件不存在时清掉，不然所有动作都被挡住又没有界面能处理', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const base = createCharacter({ id: 'pend-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	const clean = (pending: unknown) => sanitizeState({ ...base, pending } as never, locs)!;
+	assert.deepEqual(clean({ eventId: EVENTS[0].id }).pending, { eventId: EVENTS[0].id }, '存在的事件保留');
+	assert.deepEqual(clean({ eventId: VENUE_EVENTS[0].id }).pending, { eventId: VENUE_EVENTS[0].id }, '到店事件也保留');
+	assert.equal(clean({ eventId: 'removed-event' }).pending, null);
+	assert.equal(clean({ eventId: 7 }).pending, null);
+	assert.equal(clean({}).pending, null);
+	// 清掉之后动作恢复正常
+	const r = applyAction(clean({ eventId: 'removed-event' }), WA, { t: 'activity', id: 'rest' });
+	assert.ok(r.ok, r.msg);
+});
