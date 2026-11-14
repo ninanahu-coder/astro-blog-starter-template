@@ -5,6 +5,7 @@ import { createCharacter, sanitizeState } from '../../src/game/core/character.ts
 import { growSkill } from '../../src/game/core/engine.ts';
 import { derivedStats, efficiency, mealOutcome, trainOutcome, workPay } from '../../src/game/core/formulas.ts';
 import { fixProblem, venueAction, venuesNear } from '../../src/game/core/venues.ts';
+import { realDayOf } from '../../src/game/core/daily.ts';
 import { CAREERS } from '../../src/game/data/careers.ts';
 import { MOODLETS } from '../../src/game/data/moodlets.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
@@ -382,6 +383,29 @@ test('过期的上班卡：辞职后去别处打卡，开始不了新班也要�
 	assert.ok(workOp(T0 + 60 * MIN).blocked, '没过期：别处上不了班，按钮禁用');
 	assert.equal(workOp(T0 + 961 * MIN).blocked, undefined, '过期后能点');
 	assert.match(workOp(T0 + 961 * MIN).voids ?? '', /职业/);
+});
+
+test('同一地点自己的过期卡：按钮说明和点下去的结果一致', () => {
+	const cafe = find('t-cafe');
+	const workOp = (s: PlayerState, now: number) => venuesNear(s, R, cafe.lat, cafe.lon, 10, now).find((n) => n.venue.id === cafe.id)!.ops.find((o) => o.op.id === 'work')!;
+	const inn = venueAction(make(), R, { op: 'work', ...at(cafe) }, T0).state;
+	const late = T0 + 961 * MIN;
+	// 没过期：普通的下班卡
+	assert.deepEqual({ ...workOp(inn, T0 + 60 * MIN), op: 0 }, { op: 0, outcome: null, blocked: undefined });
+	// 过期且还能上班：预览标 renews，点下去旧卡作废、打了新卡、不计薪
+	assert.equal(workOp(inn, late).renews, true);
+	assert.equal(workOp(inn, late).voids, undefined);
+	const again = venueAction(inn, R, { op: 'work', ...at(cafe) }, late);
+	assert.ok(again.ok, again.msg);
+	assert.equal(again.state.clockIn?.at, late);
+	assert.equal(again.state.cash, inn.cash);
+	// 过期且今天已计满：预览标 voids，点下去只清卡
+	const full = { ...inn, realWork: { day: realDayOf(late), min: FIX_RULES.dayMaxMin } };
+	assert.match(workOp(full, late).voids ?? '', /计满/);
+	assert.equal(workOp(full, late).renews, undefined);
+	const voided = venueAction(full, R, { op: 'work', ...at(cafe) }, late);
+	assert.ok(voided.ok, voided.msg);
+	assert.equal(voided.state.clockIn, null);
 });
 
 test('实地上满半班后辞职再应聘：当天不能再上一班', () => {

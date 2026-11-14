@@ -268,13 +268,13 @@ export class EarthWorld {
 
 		if (action === 'act') {
 			// 客户端看到的版本落后（另一台设备刚玩过）：不执行，把最新存档还给它
-			if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: '进度已在另一台设备上更新', state: publicState(current) }, 409);
+			if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: '进度已在另一台设备上更新', state: publicState(current), at: now }, 409);
 			const act = parseAction(body.act);
 			if (!act) return json({ ok: false, msg: '动作无效' }, 400);
 			// 版本号按领奖前的存档比对（上面已检查），动作在领奖后的存档上执行
 			const r = applyAction(live, region, act, now);
 			if (r.state !== current) await this.ctx.storage.put('save:' + id, { keyHash, state: r.state, at: now });
-			return json({ ok: r.ok, msg: r.msg, state: publicState(r.state), daily: claim?.msg });
+			return json({ ok: r.ok, msg: r.msg, state: publicState(r.state), at: now, daily: claim?.msg });
 		}
 		return json({ ok: false, msg: '请求无效' }, 400);
 	}
