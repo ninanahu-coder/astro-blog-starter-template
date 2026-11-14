@@ -195,7 +195,12 @@ function work(prev: PlayerState, region: Region, venue: Venue, type: VenueTypeDe
 	const elapsed = Math.floor((now - ci.at) / 60_000);
 	if (elapsed < FIX_RULES.clockInMinMin) return fail(prev, `才待了 ${elapsed} 分钟，至少 ${FIX_RULES.clockInMinMin} 分钟才计薪。`);
 	const terms = workTerms(state, type);
-	if (!terms) return fail(prev, '这里需要对应的职业才能上班');
+	if (!terms) {
+		// 打上班卡之后辞职或换了工作：下班卡照常能打，只是不计薪，不然这张卡会一直挂着
+		state.clockIn = null;
+		log(state, `在${venue.name}打了下班卡，但你已经不在这里工作，这次不计薪。`);
+		return { ok: true, state, msg: '你已经不在这里工作，这次不计薪。' };
+	}
 	const today = realDayOf(now);
 	if (state.realWork.day !== today) state.realWork = { day: today, min: 0 };
 	const minutes = Math.min(elapsed, FIX_RULES.shiftMaxMin, FIX_RULES.dayMaxMin - state.realWork.min);

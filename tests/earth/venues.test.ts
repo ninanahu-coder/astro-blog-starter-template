@@ -24,6 +24,7 @@ const VENUES: Venue[] = [
 	V('t-park', 'park', 0.006, 0),
 	V('t-library', 'library', 0.009, 0),
 	V('t-fremantle-cafe', 'cafe', 0, 0),
+	V('t-pool', 'pool', 0.02, 0),
 ];
 VENUES[6] = { ...VENUES[6], loc: 'fremantle', lat: -32.055, lon: 115.745 };
 const R: Region = { ...WA, venues: VENUES };
@@ -334,4 +335,18 @@ test('真实地点事件不会在到达城镇时被抽到', () => {
 		const r = applyAction(s, WA, { t: 'travel', to: 'fremantle', mode: 'road' });
 		if (r.state.pending) assert.ok(!ids.has(r.state.pending.eventId), r.state.pending.eventId);
 	}
+});
+
+test('打了上班卡之后辞职：下班卡照常能打，不计薪，卡不会一直挂着', () => {
+	const pool = find('t-pool');
+	const guard = make({ job: { career: 'lifeguard', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } });
+	const inn = venueAction(guard, R, { op: 'work', ...at(pool) }, T0);
+	assert.ok(inn.ok && inn.state.clockIn?.venue === 't-pool', inn.msg);
+	const quit = applyAction(inn.state, R, { t: 'job', op: 'quit' }).state;
+	const out = venueAction(quit, R, { op: 'work', ...at(pool) }, T0 + 60 * MIN);
+	assert.ok(out.ok, out.msg);
+	assert.match(out.msg, /不计薪/);
+	assert.equal(out.state.clockIn, null);
+	assert.equal(out.state.cash, quit.cash);
+	assert.equal(out.state.clock, quit.clock, '没上班，游戏时间不流逝');
 });

@@ -4,7 +4,7 @@ import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { mood } from '../../src/game/core/attributes.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
-	applyJob, careersAt, homesAt, performActivity, promotionStatus, quitJob, rentHome, shiftBlocked, sleepHome, workShift,
+	applyJob, careersAt, homesAt, leaveHome, performActivity, promotionStatus, quitJob, rentHome, shiftBlocked, sleepHome, workShift,
 } from '../../src/game/core/engine.ts';
 import { CAREERS, PROMOTE_SHIFTS } from '../../src/game/data/careers.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
@@ -65,6 +65,7 @@ test('升职：上满班次、表现好、满足下一级要求', () => {
 	assert.equal(s.job!.shifts, 0, '新等级重新计数');
 	assert.equal(promotionStatus(s)!.next.title, '店长');
 	assert.match(promotionStatus(s)!.blocked ?? '', /声望/, '店长要声望');
+	assert.equal(quitJob({ ...s, pending: { eventId: 'heat-check' } }).ok, false, '有待处理事件时不能辞职');
 	assert.ok(quitJob(s).ok);
 	assert.equal(quitJob(s).state.job, null);
 });
@@ -121,4 +122,11 @@ test('存档校验：职业与住房', () => {
 	const migrated = sanitizeState(old, locs)!;
 	assert.equal(migrated.job, null);
 	assert.equal(migrated.home, null);
+});
+
+test('有待处理事件时不能退房', () => {
+	const s = { ...make(), cash: 2000 };
+	const home = rentHome(s, WA, 'room').state;
+	assert.equal(leaveHome({ ...home, pending: { eventId: 'heat-check' } }).ok, false);
+	assert.ok(leaveHome(home).ok);
 });

@@ -151,6 +151,11 @@ test('送礼：四档反应，送过一次就记住', () => {
 	assert.equal(getRelation(auto.state, 'mia').score, GIFT_GAIN.like);
 	assert.equal(interactNpc(base, WA, 'mia', 'gift', 'snack').ok, false, '没有的东西送不了');
 	assert.equal(interactNpc({ ...base, inventory: {} }, WA, 'mia', 'gift').ok, false);
+	// 随身装备不会被自动送出，明确指定才送
+	const geared = { ...base, inventory: { swag: 1 } };
+	assert.equal(npcsAt(geared, WA).find((a) => a.npc.id === 'mia')!.gift, undefined);
+	assert.equal(interactNpc(geared, WA, 'mia', 'gift').ok, false);
+	assert.ok(interactNpc(geared, WA, 'mia', 'gift', 'swag').ok);
 });
 
 test('剧情：一次跨过多档全部触发，各触发一次', () => {

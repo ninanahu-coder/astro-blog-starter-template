@@ -22,6 +22,7 @@ export const ACTIVITIES: Activity[] = [
 	{ id: 'clinic', name: '看医生', icon: '🏥', tags: ['hospital'], minutes: 60, fx: { cash: -80, health: 60 }, requires: { cash: 80 }, hours: [8, 20], desc: '恢复健康。' },
 	{ id: 'charity-meal', name: '慈善午餐', icon: '🥣', kinds: ['city', 'port', 'town'], hours: [12, 13], minutes: 60, fx: { needs: { hunger: 50, social: 5, fun: -5 } }, desc: '教会和社区中心的免费午饭，只在中午开放。' },
 	{ id: 'charity-dinner', name: '慈善晚餐', icon: '🍲', kinds: ['city', 'port', 'town'], hours: [18, 19], minutes: 60, fx: { needs: { hunger: 50, social: 5, fun: -5 } }, desc: '社区厨房的免费晚饭，傍晚开放。' },
+	{ id: 'recycle', name: '捡空瓶换押金', icon: '♻️', minutes: 120, fx: { cash: 8, needs: { energy: -8, hygiene: -10, fun: -6 } }, desc: '哪里都能做，挣得最少。身无分文时凑路费用。' },
 	{ id: 'rest', name: '歇一会儿', icon: '☕', minutes: 60, fx: { needs: { energy: 4 } }, desc: '找个阴凉地方坐一小时，等上班或等店开门。' },
 	{ id: 'lay-low', name: '低调几天', icon: '🕶️', minutes: 300, fx: { heat: -40, needs: { fun: -10, social: -10 } }, desc: '让麻烦值降下来。' },
 ];

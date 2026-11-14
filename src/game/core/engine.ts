@@ -266,8 +266,9 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 		addMoodlet(state, 'first-visit');
 	}
 	const fest = festivalsNow(state.clock).find((f) => f.loc === locId);
+	// 节日气氛还在身上时再进城不重复加娱乐，免得来回进出刷
+	if (fest && !state.moodlets.some((m) => m.id === 'festival' && m.until > state.clock)) state.needs.fun = clamp100(state.needs.fun + 10);
 	if (fest) {
-		state.needs.fun = clamp100(state.needs.fun + 10);
 		addMoodlet(state, 'festival');
 		log(state, `正赶上${fest.name}：${fest.desc}`);
 	}
@@ -548,9 +549,9 @@ export interface NpcAvailability {
 	nextStory?: number;
 }
 
-/** 不指定物品时挑哪件：最爱 > 喜欢 > 一般，讨厌的不挑 */
+/** 不指定物品时挑哪件：最爱 > 喜欢 > 一般，讨厌的不挑；随身装备（睡袋、冲浪板……）不会被自动送出，要送得明确指定 */
 function pickGift(state: PlayerState, npc: NpcDef): string | undefined {
-	const owned = ITEMS.filter((i) => state.inventory[i.id]).map((i) => i.id);
+	const owned = ITEMS.filter((i) => state.inventory[i.id] && !i.passive).map((i) => i.id);
 	for (const r of ['love', 'like', 'neutral'] as const) {
 		const hit = owned.find((id) => giftReaction(npc, id) === r);
 		if (hit) return hit;
@@ -720,6 +721,7 @@ export function applyJob(prev: PlayerState, region: Region, careerId: string): A
 }
 
 export function quitJob(prev: PlayerState): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	if (!prev.job) return fail(prev, '你还没有工作。');
 	const state = clone(prev);
 	const c = getCareer(state.job!.career)!;
@@ -855,6 +857,7 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string): Act
 }
 
 export function leaveHome(prev: PlayerState): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	if (!prev.home) return fail(prev, '你没有住处。');
 	const state = clone(prev);
 	const own = !!state.home!.owned;
@@ -867,7 +870,7 @@ export function leaveHome(prev: PlayerState): ActionResult {
 /** 回家睡觉：免费，恢复量随住房舒适度提高 */
 export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
-	if (!prev.home) return fail(prev, '你没有租房。');
+	if (!prev.home) return fail(prev, '你没有住处。');
 	if (prev.home.loc !== prev.loc) return fail(prev, '要回到住处才能睡。');
 	const def = getHome(prev.home.type)!;
 	const state = clone(prev);
