@@ -262,7 +262,10 @@ export class EarthWorld {
 		// 每日奖励：按现实日期（服务端时钟）每天第一次读取或行动时发放
 		const claim = claimDaily(current, realDayOf(now));
 		const live = claim ? claim.state : current;
-		if (claim && action === 'get') await this.ctx.storage.put('save:' + id, { keyHash, state: live, at: now });
+		// 校验时修过存档（挪了地点、清了未来的时间戳等）也要写回：不然只上线不操作的话，每次都重新修一遍，
+		// 被改成「今天已领」的每日奖励永远领不到
+		const migrated = JSON.stringify(current) !== JSON.stringify(rec.state);
+		if ((claim || migrated) && action === 'get') await this.ctx.storage.put('save:' + id, { keyHash, state: live, at: now });
 
 		if (action === 'get') return json({ ok: true, state: publicState(live), at: now, daily: claim?.msg });
 

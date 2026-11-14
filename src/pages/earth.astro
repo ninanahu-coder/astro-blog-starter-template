@@ -236,7 +236,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 			/** 采用服务器返回的存档；位置变了就通知在线频道 */
 			function adopt(remote: unknown, why?: string) {
-				const clean = sanitizeState(remote, LOC_IDS);
+				const clean = sanitizeState(remote, LOC_IDS, { fallbackLoc: region.spawn });
 				if (!clean) return false;
 				const moved = !state || state.loc !== clean.loc;
 				state = clean;
@@ -791,7 +791,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 启动 ----------
 			try { cred = JSON.parse(store.get(CRED_KEY) || 'null'); } catch {}
-			try { state = sanitizeState(JSON.parse(store.get(SAVE_KEY) || 'null'), LOC_IDS); } catch {}
+			// 本地缓存里的所在地如果已经不存在，先挪到出生点而不是判损坏：不然凭证会被清掉，连云端完好的存档都拉不回来
+			try { state = sanitizeState(JSON.parse(store.get(SAVE_KEY) || 'null'), LOC_IDS, { fallbackLoc: region.spawn }); } catch {}
 			if (!cred || !state || state.id !== cred.id) { state = null; cred = null; }
 			renderCreate();
 			render();
