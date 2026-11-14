@@ -19,7 +19,7 @@ function makeWorld(delayMs = 0) {
 		const res = await world.fetch(new Request('https://example.test/api/earth/save', { method: 'POST', body: JSON.stringify(body) }));
 		return { status: res.status, data: (await res.json()) as any };
 	};
-	return { data, call, puts: () => puts };
+	return { data, call, world, puts: () => puts };
 }
 const ID = 'server-test-player';
 const KEY = 'k'.repeat(24);
@@ -140,4 +140,40 @@ test('服务端：被规则拒绝的动作也会把修过的存档写回，但�
 	assert.deepEqual(saved.daily, { day: today, streak: 0 }, '修正后的日期已落盘');
 	assert.equal(saved.cash, rec.state.cash);
 	assert.equal(saved.rev, rec.state.rev, '动作没执行，版本号不变');
+});
+
+test('服务端：上传得慢的旧请求排到后面执行时，不会用旧时间冲掉后到请求写入的每日奖励', async (t) => {
+	const w = makeWorld();
+	await w.call({ action: 'create', ...cred, profile });
+	// 把时钟定在珀斯时间午夜前 30 秒
+	const realNow = Date.now;
+	t.after(() => { Date.now = realNow; });
+	const midnight = (realDayOf(realNow()) + 2) * 86_400_000 - 8 * 3_600_000;
+	let clock = midnight - 30_000;
+	Date.now = () => clock;
+	const day = realDayOf(clock);
+	const rec = w.data.get('save:' + ID);
+	w.data.set('save:' + ID, { ...rec, state: { ...rec.state, daily: { day, streak: 2 } } });
+	// 旧请求先到，但请求体迟迟没传完
+	let finish!: () => void;
+	const body = new ReadableStream<Uint8Array>({
+		start(c) { finish = () => { c.enqueue(new TextEncoder().encode(JSON.stringify({ action: 'get', ...cred }))); c.close(); }; },
+	});
+	const world = w.world;
+	const slow = world.fetch(new Request('https://example.test/api/earth/save', { method: 'POST', body, duplex: 'half' } as RequestInit));
+	// 两分钟后（已过午夜）另一个请求到达并领了新一天的奖励
+	clock += 120_000;
+	const fresh = await w.call({ action: 'get', ...cred });
+	assert.match(fresh.data.daily ?? '', /每日奖励/);
+	const claimed = w.data.get('save:' + ID).state;
+	assert.deepEqual(claimed.daily, { day: day + 1, streak: 3 });
+	// 这时旧请求才传完、开始执行
+	finish();
+	const late = (await (await slow).json()) as any;
+	assert.equal(late.daily, undefined, '不重复发奖');
+	const after = w.data.get('save:' + ID).state;
+	assert.deepEqual(after.daily, { day: day + 1, streak: 3 }, '领奖记录没有被旧请求改回去');
+	assert.equal(after.cash, claimed.cash);
+	// 同一天再读一次也领不到第二份
+	assert.equal((await w.call({ action: 'get', ...cred })).data.daily, undefined);
 });

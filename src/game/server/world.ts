@@ -218,7 +218,9 @@ export class EarthWorld {
 		}
 		// 同一存档串行处理：上一个请求结束后才开始下一个
 		const prev = this.locks.get(id) ?? Promise.resolve();
-		const run = prev.then(() => this.handleSaveLocked(body, id, key, now));
+		// 结算和存档校验用的时间在轮到这个请求时才取，不用请求到达时的时间：
+		// 上传得慢的请求可能排在后到的请求后面执行，拿着旧时间会把后者刚写入的时间戳当成「未来」清掉
+		const run = prev.then(() => this.handleSaveLocked(body, id, key, Date.now()));
 		const tail = run.catch(() => {});
 		this.locks.set(id, tail);
 		tail.then(() => {
