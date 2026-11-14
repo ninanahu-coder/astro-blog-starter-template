@@ -177,3 +177,43 @@ test('服务端：上传得慢的旧请求排到后面执行时，不会用旧�
 	// 同一天再读一次也领不到第二份
 	assert.equal((await w.call({ action: 'get', ...cred })).data.daily, undefined);
 });
+
+test('服务端：时钟回拨时同一存档的时间不倒退，每日奖励不重复发、定位和上班卡不被清', async (t) => {
+	const w = makeWorld();
+	await w.call({ action: 'create', ...cred, profile });
+	const realNow = Date.now;
+	t.after(() => { Date.now = realNow; });
+	const midnight = (realDayOf(realNow()) + 2) * 86_400_000 - 8 * 3_600_000;
+	const day = realDayOf(midnight - 1);
+	let clock = midnight + 100;
+	Date.now = () => clock;
+	const rec = w.data.get('save:' + ID);
+	w.data.set('save:' + ID, { ...rec, at: midnight - 5000, state: { ...rec.state, daily: { day, streak: 2 } } });
+	// 午夜后 100ms 领了新一天的奖励
+	const first = await w.call({ action: 'get', ...cred });
+	assert.match(first.data.daily ?? '', /每日奖励/);
+	const cash = w.data.get('save:' + ID).state.cash;
+	// 时钟回拨到午夜前，再回到午夜后：都不能再发
+	clock = midnight - 100;
+	assert.equal((await w.call({ action: 'get', ...cred })).data.daily, undefined);
+	assert.deepEqual(w.data.get('save:' + ID).state.daily, { day: day + 1, streak: 3 }, '领奖记录没有被改回前一天');
+	clock = midnight + 200;
+	assert.equal((await w.call({ action: 'get', ...cred })).data.daily, undefined);
+	assert.equal(w.data.get('save:' + ID).state.cash, cash);
+	// 回拨超过一分钟：刚写入的定位和上班卡仍然保留
+	const cur = w.data.get('save:' + ID);
+	const at = clock;
+	w.data.set('save:' + ID, { ...cur, at, state: { ...cur.state, fix: { lat: -31.95, lon: 115.86, at }, clockIn: { venue: 'some-cafe', at }, venueCd: { meal: at } } });
+	clock = at - 61_001;
+	const back = await w.call({ action: 'get', ...cred });
+	assert.equal(back.data.at, at, '响应里的时间也不倒退');
+	assert.equal(back.data.state.fix?.at, at);
+	assert.equal(back.data.state.clockIn?.at, at);
+	assert.equal(back.data.state.venueCd.meal, at);
+	// 落盘时间离谱地超前（坏数据）时不跟它走：按真实时间校验，未来的时间戳照常清掉
+	const bad = w.data.get('save:' + ID);
+	w.data.set('save:' + ID, { ...bad, at: 1e15, state: { ...bad.state, fix: { lat: -31.95, lon: 115.86, at: 1e15 } } });
+	const healed = await w.call({ action: 'get', ...cred });
+	assert.equal(healed.data.at, clock);
+	assert.equal(healed.data.state.fix, null);
+});

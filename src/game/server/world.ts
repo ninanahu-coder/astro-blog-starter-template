@@ -17,6 +17,7 @@ const IDLE_TIMEOUT_MS = 70000; // 客户端每 20s ping
 const CHAT_MAX = 120;
 const SAVE_BODY_MAX = 48 * 1024;
 const SAVE_WINDOW_MS = 60 * 1000;
+const CLOCK_BACK_MAX_MS = 24 * 60 * 60 * 1000; // 时钟回拨最多按这么久处理
 const SAVE_LIMIT = 90; // 每 IP 每分钟（每个动作一次请求）
 const EMOTES = ['👋', '🤝', '🍻', '📸', '❤️', '😂'];
 const ID_RE = /^[a-zA-Z0-9_-]{6,40}$/;
@@ -229,10 +230,14 @@ export class EarthWorld {
 		return run;
 	}
 
-	private async handleSaveLocked(body: any, id: string, key: string, now: number): Promise<Response> {
+	private async handleSaveLocked(body: any, id: string, key: string, wall: number): Promise<Response> {
 		const keyHash = await sha256Hex(id + ':' + key);
 		const rec = await this.ctx.storage.get<{ keyHash: string; state: any; at: number }>('save:' + id);
 		if (rec && !timingSafeEqual(rec.keyHash, keyHash)) return json({ ok: false, msg: '同步码无效' }, 403);
+		// 同一存档的时间不倒退：服务器时钟回拨时沿用上次落盘的时间，不然跨午夜回拨能把刚领的每日奖励改回前一天再领一次，
+		// 回拨超过一分钟还会把合法的定位、冷却、上班卡当成「未来」清掉。落盘时间超前太多（超过一天）当作坏数据，不跟它走
+		const last = rec && Number.isFinite(rec.at) ? rec.at : 0;
+		const now = last > wall && last - wall <= CLOCK_BACK_MAX_MS ? last : wall;
 		const action = body.action;
 
 		if (action === 'create') {
