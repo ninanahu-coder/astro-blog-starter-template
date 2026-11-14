@@ -194,3 +194,44 @@ test('存档校验：待处理事件不存在时清掉，不然所有动作都�
 	const r = applyAction(clean({ eventId: 'removed-event' }), WA, { t: 'activity', id: 'rest' });
 	assert.ok(r.ok, r.msg);
 });
+
+test('存档校验：当前所在地不存在时挪到安全落点，而不是判整份存档损坏', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const base = createCharacter({ id: 'loc-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	const lost = { ...base, loc: 'removed-loc', cash: 777, visited: { 'removed-loc': 3, fremantle: 2 } };
+	assert.equal(sanitizeState(lost, locs), null, '没给落点时仍然判损坏（客户端本地存档的旧行为）');
+	assert.equal(sanitizeState(lost, locs, { fallbackLoc: 'nowhere' }), null, '落点本身不存在也不行');
+	const moved = sanitizeState(lost, locs, { fallbackLoc: WA.spawn })!;
+	assert.equal(moved.loc, WA.spawn);
+	assert.equal(moved.cash, 777, '其余进度保留');
+	assert.deepEqual(Object.keys(moved.visited).sort(), ['fremantle', WA.spawn].sort());
+	assert.equal(lost.loc, 'removed-loc', '不修改入参');
+	assert.deepEqual(sanitizeState(moved, locs, { fallbackLoc: WA.spawn }), moved, '再校验一次不变');
+	assert.ok(applyAction(moved, WA, { t: 'activity', id: 'rest' }).ok);
+});
+
+test('存档校验：晚于服务端时间的定位、冷却、上班卡和每日奖励日期会被清掉', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const base = createCharacter({ id: 'time-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	const now = Date.UTC(2026, 10, 15, 4);
+	const today = Math.floor((now + 8 * 3_600_000) / 86_400_000);
+	const far = 1e15;
+	const bad = {
+		...base, fix: { lat: -31.95, lon: 115.86, at: far }, venueCd: { meal: far, train: now - 1000 }, venueEvAt: far,
+		clockIn: { venue: 'some-cafe', at: far }, daily: { day: 9_000_000, streak: 5 },
+	};
+	const clean = sanitizeState(bad, locs, { now })!;
+	assert.equal(clean.fix, null);
+	assert.deepEqual(clean.venueCd, { train: now - 1000 }, '未来的冷却清掉，正常的保留');
+	assert.equal(clean.venueEvAt, 0);
+	assert.equal(clean.clockIn, null);
+	assert.deepEqual(clean.daily, { day: today, streak: 0 }, '按今天已领处理，明天能正常领');
+	// 正常的时间不受影响（含一分钟内的时钟误差）
+	const ok = { ...base, fix: { lat: -31.95, lon: 115.86, at: now + 30_000 }, clockIn: { venue: 'some-cafe', at: now - 60_000 }, daily: { day: today, streak: 5 } };
+	const kept = sanitizeState(ok, locs, { now })!;
+	assert.equal(kept.fix?.at, now + 30_000);
+	assert.equal(kept.clockIn?.at, now - 60_000);
+	assert.deepEqual(kept.daily, { day: today, streak: 5 });
+	// 不传 now（客户端）时不做这项检查
+	assert.equal(sanitizeState(bad, locs)!.fix?.at, far);
+});

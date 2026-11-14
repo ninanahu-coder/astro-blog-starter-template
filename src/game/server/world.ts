@@ -256,7 +256,7 @@ export class EarthWorld {
 
 		if (!rec) return json({ ok: false, msg: '云端没有这个存档' }, 404);
 		const region = REGIONS[rec.state?.region] ?? REGIONS.wa;
-		const current = sanitizeState(rec.state, new Set(region.locations.map((l) => l.id)));
+		const current = sanitizeState(rec.state, new Set(region.locations.map((l) => l.id)), { fallbackLoc: region.spawn, now });
 		if (!current) return json({ ok: false, msg: '云端存档已损坏' }, 500);
 
 		// 每日奖励：按现实日期（服务端时钟）每天第一次读取或行动时发放

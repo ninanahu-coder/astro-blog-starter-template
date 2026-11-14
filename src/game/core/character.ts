@@ -14,6 +14,7 @@ import { WISHES } from '../data/wishes.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
+import { realDayOf } from './daily.ts';
 import { COURSES } from '../data/courses.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
 import { EVENTS } from '../data/events.ts';
@@ -134,12 +135,24 @@ const strList = (v: unknown, max: number) =>
  * 校验并规范化一份不可信的存档（来自 localStorage 或网络）。
  * 结构不对返回 null；数值全部钳制到合法范围。服务端落盘前必须调用。
  */
-export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerState | null {
+export interface SanitizeOpts {
+	/** 当前所在地已经不存在（地点被删或改名）时把人挪到这里，而不是判整份存档损坏 */
+	fallbackLoc?: string;
+	/** 可信的当前现实时间（毫秒，服务端传）：晚于它的定位、冷却、上班卡时间和每日奖励日期都是坏数据，清掉 */
+	now?: number;
+}
+
+export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: SanitizeOpts = {}): PlayerState | null {
 	if (!raw || typeof raw !== 'object') return null;
-	const r = raw as Record<string, any>;
-	if (r.v !== 1 || typeof r.id !== 'string' || typeof r.loc !== 'string') return null;
-	if (!/^[a-zA-Z0-9_-]{6,40}$/.test(r.id)) return null;
-	if (knownLocs && !knownLocs.has(r.loc)) return null;
+	const r0 = raw as Record<string, any>;
+	if (r0.v !== 1 || typeof r0.id !== 'string' || typeof r0.loc !== 'string') return null;
+	if (!/^[a-zA-Z0-9_-]{6,40}$/.test(r0.id)) return null;
+	let r = r0;
+	if (knownLocs && !knownLocs.has(r.loc)) {
+		if (!opts.fallbackLoc || !knownLocs.has(opts.fallbackLoc)) return null;
+		// 不修改入参：换一个浅拷贝，把人挪到安全落点并记为到访过
+		r = { ...r0, loc: opts.fallbackLoc, visited: { ...(r0.visited && typeof r0.visited === 'object' ? r0.visited : {}), [opts.fallbackLoc]: 1 } };
+	}
 	const needs = {} as Needs;
 	for (const k of NEED_KEYS) needs[k] = num(r.needs?.[k], 0, 100, 50);
 	const skills = {} as Skills;
@@ -205,7 +218,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 		})(),
 		wishes: [...new Set(strList(r.wishes, 10))].filter((id) => WISHES.some((w) => w.id === id)),
 		wishDay: Math.floor(num(r.wishDay, -1, 1e7, -1)),
-		daily: { day: Math.floor(num(r.daily?.day, 0, 1e7, 0)), streak: Math.floor(num(r.daily?.streak, 0, 1e6, 0)) },
+		daily: cleanDaily(r, opts.now),
 		collected: [...new Set(strList(r.collected, 200))].filter((id) => EXPERIENCES.some((e) => e.id === id)),
 		courseDays: (() => {
 			const out: Record<string, number> = {};
@@ -217,7 +230,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>): PlayerStat
 		})(),
 		// 只留还存在的事件：事件被删掉或改名后，界面弹不出来，但其他动作都会被「先处理眼前的事件」挡住
 		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
-		...cleanReal(r),
+		...cleanReal(r, opts.now),
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
 		rev: Math.floor(num(r.rev, 0, 1e9, 0)),
@@ -232,23 +245,35 @@ export const JOURNAL_MAX = 40;
 const VENUE_ID = /^[a-z0-9][a-z0-9-]{2,63}$/;
 const finiteIn = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
 
-/** 真实定位相关字段：坐标只留 3 位小数，时间为非负整数，动作名只留已知的 */
-function cleanReal(r: any): Pick<PlayerState, 'fix' | 'venueCd' | 'venueEvAt' | 'clockIn' | 'realWork'> {
+/** 现实时间戳允许比服务端时间超前这么多（毫秒），再多就当坏数据 */
+const FUTURE_SLACK_MS = 60_000;
+
+/** 每日奖励：领取日在未来的话按「今天已领、连续天数归零」处理，不然要等到那一天才能再领 */
+function cleanDaily(r: any, now?: number): PlayerState['daily'] {
+	const daily = { day: Math.floor(num(r.daily?.day, 0, 1e7, 0)), streak: Math.floor(num(r.daily?.streak, 0, 1e6, 0)) };
+	if (now === undefined) return daily;
+	const today = realDayOf(now);
+	return daily.day > today ? { day: today, streak: 0 } : daily;
+}
+
+/** 真实定位相关字段：坐标只留 3 位小数，时间为非负整数且不能在未来，动作名只留已知的 */
+function cleanReal(r: any, now?: number): Pick<PlayerState, 'fix' | 'venueCd' | 'venueEvAt' | 'clockIn' | 'realWork'> {
+	const tMax = now === undefined ? 1e15 : now + FUTURE_SLACK_MS;
 	const f = r.fix;
-	const fix = f && finiteIn(f.lat, -90, 90) && finiteIn(f.lon, -180, 180) && finiteIn(f.at, 0, 1e15)
+	const fix = f && finiteIn(f.lat, -90, 90) && finiteIn(f.lon, -180, 180) && finiteIn(f.at, 0, tMax)
 		? { lat: Math.round(f.lat * 1000) / 1000, lon: Math.round(f.lon * 1000) / 1000, at: Math.floor(f.at) }
 		: null;
 	const venueCd: PlayerState['venueCd'] = {};
 	for (const op of VENUE_OPS) {
 		const t = r.venueCd?.[op.id];
-		if (finiteIn(t, 0, 1e15)) venueCd[op.id] = Math.floor(t);
+		if (finiteIn(t, 0, tMax)) venueCd[op.id] = Math.floor(t);
 	}
 	const c = r.clockIn;
 	// career 只留已知的职业；旧存档的卡没有这个字段，按零工结算
 	const ciCareer = c && CAREERS.some((x) => x.id === c.career) ? { career: c.career as string } : {};
-	const clockIn = c && typeof c.venue === 'string' && VENUE_ID.test(c.venue) && finiteIn(c.at, 0, 1e15) ? { venue: c.venue, at: Math.floor(c.at), ...ciCareer } : null;
+	const clockIn = c && typeof c.venue === 'string' && VENUE_ID.test(c.venue) && finiteIn(c.at, 0, tMax) ? { venue: c.venue, at: Math.floor(c.at), ...ciCareer } : null;
 	const realWork = { day: Math.floor(num(r.realWork?.day, 0, 1e7, 0)), min: Math.floor(num(r.realWork?.min, 0, 1440, 0)) };
-	const venueEvAt = finiteIn(r.venueEvAt, 0, 1e15) ? Math.floor(r.venueEvAt) : 0;
+	const venueEvAt = finiteIn(r.venueEvAt, 0, tMax) ? Math.floor(r.venueEvAt) : 0;
 	return { fix, venueCd, venueEvAt, clockIn, realWork };
 }
 
