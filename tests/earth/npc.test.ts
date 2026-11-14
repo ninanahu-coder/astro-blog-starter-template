@@ -169,6 +169,28 @@ test('剧情：一次跨过多档全部触发，各触发一次', () => {
 	assert.deepEqual(getRelation(again.state, 'mia').seen, [10, 30]);
 });
 
+test('互动途中晕倒也算用掉了这一次：不能绕过每天一次和专属互动的冷却', () => {
+	const weak = { health: 0.5, needs: { hunger: 0, energy: 60, hygiene: 60, fun: 60, social: 60 } };
+	const leo = { ...make(), ...weak, loc: 'margaret-river', clock: on(2, 9), relations: { leo: { score: 65, last: {}, seen: [10, 30, 60], known: [] } } };
+	// 专属互动（每 3 天一次，带游泳成长）
+	const perk = interactNpc(leo, WA, 'leo', 'perk');
+	assert.ok(perk.ok && perk.collapsed, perk.msg);
+	assert.ok(perk.state.skills.swimming > leo.skills.swimming, '能力成长在晕倒前已经拿到');
+	assert.equal(getRelation(perk.state, 'leo').last.perk, 2, '冷却照常记');
+	assert.equal(getRelation(perk.state, 'leo').score, 65, '晕倒了不涨关系');
+	const healthy = { ...perk.state, loc: 'margaret-river', health: 80, needs: { hunger: 80, energy: 80, hygiene: 80, fun: 80, social: 80 } };
+	assert.equal(interactNpc({ ...healthy, clock: on(3, 9) }, WA, 'leo', 'perk').ok, false, '第二天还在冷却');
+	assert.ok(interactNpc({ ...healthy, clock: on(5, 9) }, WA, 'leo', 'perk').ok, '冷却过了才能再做');
+	// 聊天、帮忙（每天一次，带能力成长）
+	for (const act of ['chat', 'help'] as const) {
+		const r = interactNpc(leo, WA, 'leo', act);
+		assert.ok(r.ok && r.collapsed, `${act}: ${r.msg}`);
+		assert.equal(getRelation(r.state, 'leo').last[act], 2, act);
+		assert.equal(interactNpc({ ...r.state, loc: 'margaret-river', health: 80, needs: healthy.needs, clock: on(2, 10) }, WA, 'leo', act).ok, false, `${act} 当天不能再来一次`);
+	}
+	assert.deepEqual(leo.relations.leo.last, {}, '不修改入参');
+});
+
 test('专属互动：关系够了才解锁，有冷却', () => {
 	const leo = { ...make(), loc: 'margaret-river', clock: on(2, 9) };
 	const low = npcsAt({ ...leo, relations: { leo: { score: 40, last: {}, seen: [10, 30], known: [] } } }, WA)[0];

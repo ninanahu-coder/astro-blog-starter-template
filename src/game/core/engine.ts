@@ -621,6 +621,10 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 	const { npc } = here;
 	const state = clone(prev);
 	const rel: Relation = structuredClone(getRelation(state, npcId));
+	// 先记下这次互动的日期（按开始互动的那天计，跨午夜也不能当天重复），再结算效果：
+	// 能力成长在时间流逝前就拿到了，途中晕倒不记日期的话，可以绕过每天一次和专属互动的冷却反复领
+	rel.last[action] = dayOf(prev.clock);
+	state.relations[npcId] = rel;
 	let gain = 0;
 	let text = '';
 	if (action === 'chat') {
@@ -651,8 +655,6 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 		text = `${perk.name}：${perk.desc}`;
 	}
 	rel.score = Math.max(-100, Math.min(100, rel.score + gain));
-	rel.last[action] = dayOf(prev.clock); // 按开始互动的那天计，跨午夜也不能当天重复
-	state.relations[npcId] = rel;
 	log(state, text);
 	const stories = unlockStories(state, region, npc, rel);
 	if (stories.length) text += ' ' + stories.join(' ');
