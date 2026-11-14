@@ -273,6 +273,25 @@ test('真实地点事件：做完事按概率触发、只抽本类型、现实�
 	}
 });
 
+test('事件选项的 cost：钱不够不能选、事件保留；够了先扣钱再结算', () => {
+	const broke = make({ cash: 0, pending: { eventId: 'v-gym-trial' } });
+	const r = applyAction(broke, R, { t: 'event', choice: 0 });
+	assert.ok(!r.ok);
+	assert.match(r.msg, /需要 \$20/);
+	assert.equal(r.state.pending?.eventId, 'v-gym-trial', '事件还在，可以换个选项');
+	assert.deepEqual(r.state.skills, broke.skills, '没付钱就没有收益');
+	assert.ok(applyAction(broke, R, { t: 'event', choice: 1 }).ok, '免费选项照常能选');
+	const rich = make({ cash: 50, pending: { eventId: 'v-gym-trial' } });
+	const paid = applyAction(rich, R, { t: 'event', choice: 0 });
+	assert.ok(paid.ok);
+	assert.equal(paid.state.cash, 30);
+	// 所有带钱的选项：要么写成 cost，要么是罚款（结果里扣钱、选项本身不花钱）
+	for (const e of EVENTS) for (const c of e.choices) {
+		if (c.cost) assert.ok(c.cost > 0 && Number.isInteger(c.cost), e.id);
+		for (const o of [c.ok, c.fail]) if (o && (o.fx.cash ?? 0) < 0) assert.ok(!c.cost, `${e.id}: 选项已收 cost，结果不该再扣钱`);
+	}
+});
+
 test('真实地点事件不会在到达城镇时被抽到', () => {
 	const ids = new Set(VENUE_EVENTS.map((e) => e.id));
 	for (let seed = 1; seed <= 200; seed++) {

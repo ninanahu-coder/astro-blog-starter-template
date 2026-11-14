@@ -595,7 +595,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const s = state!;
 				modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true">${hero('event:' + ev.id, ev.icon)}
 					<h2>${ev.icon} ${esc(ev.title)}</h2><p>${esc(ev.text)}</p>
-					<div class="list">${ev.choices.map((c, i) => `<button class="row" data-choice="${i}"><span class="body">${esc(c.label)}${c.check ? `<small>${SKILL_META[c.check.skill].icon} ${SKILL_META[c.check.skill].name}检定（你 ${checkScore(s, c.check.skill).total} + 随机 0–60 / 难度 ${c.check.dc}）</small>` : ''}</span></button>`).join('')}</div></div>`;
+					<div class="list">${ev.choices.map((c, i) => `<button class="row" data-choice="${i}"${c.cost && c.cost > s.cash ? ' disabled' : ''}><span class="body">${esc(c.label)}${c.cost && c.cost > s.cash ? `<small>需要 $${c.cost}，钱不够</small>` : ''}${c.check ? `<small>${SKILL_META[c.check.skill].icon} ${SKILL_META[c.check.skill].name}检定（你 ${checkScore(s, c.check.skill).total} + 随机 0–60 / 难度 ${c.check.dc}）</small>` : ''}</span></button>`).join('')}</div></div>`;
 				modal.classList.remove('hidden');
 			}
 

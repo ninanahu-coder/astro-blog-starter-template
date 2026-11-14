@@ -347,6 +347,8 @@ export interface Outcome {
 
 export interface EventChoice {
 	label: string;
+	/** 选这一项要先付的钱（买东西、门票）。钱不够不能选；和结果里的罚款不同，罚款不够时扣到 0 为止 */
+	cost?: number;
 	check?: { skill: SkillKey; dc: number };
 	ok: Outcome;
 	fail?: Outcome;

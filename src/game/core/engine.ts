@@ -75,8 +75,8 @@ function collapse(state: PlayerState, region: Region) {
 	for (const k of NEED_KEYS) state.needs[k] = Math.max(state.needs[k], 50);
 	state.loc = nearestHospital(state, region);
 	state.pending = null;
-	addMoodlet(state, 'collapsed');
 	state.clock += 12 * 60;
+	addMoodlet(state, 'collapsed'); // 出院时才开始计时，醒来时剩满 48 小时
 	log(state, `你晕倒了，在${getLocation(region, state.loc)?.name ?? ''}的医院醒来，医药费 $${bill}。`);
 }
 
@@ -128,7 +128,8 @@ export function applyEffect(state: PlayerState, fx: Effect, region: Region) {
 		}
 	}
 	// 先流逝时间（会衰减需求），再结算需求增减，保证“睡 8 小时”后精力确实是满的
-	if (fx.minutes) advance(state, fx.minutes, region);
+	// 途中晕倒：原动作到此为止，后面的需求、状态、健康都不再结算（不然露营晕倒还会拿到「星空下醒来」）
+	if (fx.minutes && advance(state, fx.minutes, region)) return;
 	if (fx.needs) for (const k of NEED_KEYS) if (fx.needs[k]) state.needs[k] = clamp100(state.needs[k] + fx.needs[k]!);
 	if (fx.moodlet) addMoodlet(state, fx.moodlet);
 	if (fx.health) {
@@ -292,8 +293,10 @@ export function resolveEvent(prev: PlayerState, region: Region, choiceIdx: numbe
 	if (!ev) return { ok: false, state: prev.pending ? { ...prev, pending: null } : prev, msg: '没有待处理的事件。' };
 	const choice = ev.choices[choiceIdx];
 	if (!choice) return fail(prev, '无效的选择。');
+	if (choice.cost && prev.cash < choice.cost) return fail(prev, `需要 $${choice.cost}，钱不够。换个选项吧。`);
 	const state = clone(prev);
 	state.pending = null;
+	if (choice.cost) state.cash -= choice.cost;
 	if (ev.once && !state.seen.includes(ev.id)) state.seen.push(ev.id);
 	let outcome = choice.ok;
 	if (choice.check) {

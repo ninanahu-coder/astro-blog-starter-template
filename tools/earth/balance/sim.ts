@@ -103,9 +103,12 @@ function headTo(b: Bot, dest: string): boolean {
 function step(b: Bot) {
 	const s = b.s;
 	const plan = b.plan;
-	if (getPendingEvent(s)) {
+	const ev = getPendingEvent(s);
+	if (ev) {
 		b.stats.events++;
-		tryAct(b, { t: 'event', choice: 0 });
+		// 选第一个付得起的选项（有些选项要先付钱）
+		const pick = Math.max(0, ev.choices.findIndex((c) => !c.cost || c.cost <= s.cash));
+		tryAct(b, { t: 'event', choice: pick });
 		return;
 	}
 	const h = hourOf(s.clock);

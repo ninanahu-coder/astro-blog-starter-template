@@ -30,6 +30,7 @@ export function checkVenue(v) {
 	if (v.source !== 'osm') return 'source 只能是 osm';
 	if (v.tier !== undefined && (!Number.isInteger(v.tier) || v.tier < 1 || v.tier > 4)) return 'tier 只能是 1–4 的整数';
 	if (!Number.isFinite(v.lat) || !Number.isFinite(v.lon)) return '坐标不是数字';
+	if (v.lat < -90 || v.lat > 90 || v.lon < -180 || v.lon > 180) return '坐标超出经纬度范围';
 	const loc = locs.get(v.loc);
 	if (!loc) return `未知地点: ${v.loc}`;
 	const km = haversineKm(v.lat, v.lon, loc.lat, loc.lon);

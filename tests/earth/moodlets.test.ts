@@ -75,6 +75,9 @@ test('引擎时刻：新地方、乔迁、受伤、晕倒', () => {
 	const collapsed = applyAction({ ...s, health: 3, needs: { hunger: 0, energy: 0, hygiene: 50, fun: 50, social: 50 } }, WA, { t: 'activity', id: 'sleep-camp' }).state;
 	assert.equal(collapsed.loc, WA.hospital);
 	assert.ok(ids(collapsed).includes('collapsed'), '晕倒');
+	const left = collapsed.moodlets.find((m) => m.id === 'collapsed')!.until - collapsed.clock;
+	assert.equal(left, 48 * 60, '出院时「刚从医院出来」还剩满 48 小时');
+	assert.ok(!ids(collapsed).includes('camp-calm'), '晕倒中止了原动作，不再拿露营的状态');
 });
 
 test('心愿达成留下状态；失败的动作不留', () => {

@@ -34,7 +34,7 @@ export const VENUE_EVENTS: GameEvent[] = [
 		id: 'v-food-challenge', title: '大胃王挑战', icon: '🍔', venueTypes: ['fast-food', 'restaurant'], weight: 5,
 		text: '墙上贴着告示：二十分钟吃完超大份套餐，免单还上照片墙。',
 		choices: [
-			{ label: '接受挑战（$25）', check: { skill: 'stamina', dc: 45 }, ok: { text: '最后一口咽下去时全店鼓掌，钱退回来了，照片也挂上了墙。', fx: { needs: { hunger: 60, fun: 25 }, respect: 2, moodlet: 'good-time' } }, fail: { text: '吃到一半就投降了，撑得走不动。', fx: { cash: -25, needs: { hunger: 50, energy: -10 }, health: -2 } } },
+			{ label: '接受挑战（$25）', cost: 25, check: { skill: 'stamina', dc: 45 }, ok: { text: '最后一口咽下去时全店鼓掌，钱退回来了，照片也挂上了墙。', fx: { cash: 25, needs: { hunger: 60, fun: 25 }, respect: 2, moodlet: 'good-time' } }, fail: { text: '吃到一半就投降了，撑得走不动。', fx: { needs: { hunger: 50, energy: -10 }, health: -2 } } },
 			{ label: '看别人挑战就好', ok: { text: '一个大个子十五分钟就吃完了，你跟着鼓掌。', fx: { needs: { fun: 10 } } } },
 		],
 	},
@@ -52,7 +52,7 @@ export const VENUE_EVENTS: GameEvent[] = [
 		id: 'v-pub-shout', title: '轮到你请了', icon: '🍻', venueTypes: ['pub'], weight: 8,
 		text: '刚认识的几个人按本地规矩轮流请客（shout），这一轮该你了。',
 		choices: [
-			{ label: '爽快请一轮（$30）', ok: { text: '大家举杯，你在这儿算是混熟了。', fx: { cash: -30, needs: { social: 30 }, respect: 1, skills: { charisma: 1 } } } },
+			{ label: '爽快请一轮（$30）', cost: 30, ok: { text: '大家举杯，你在这儿算是混熟了。', fx: { needs: { social: 30 }, respect: 1, skills: { charisma: 1 } } } },
 			{ label: '说自己开车，只喝水', check: { skill: 'charisma', dc: 30 }, ok: { text: '大家表示理解，还夸你靠谱。', fx: { needs: { social: 10 } } } , fail: { text: '气氛冷了一下，没人再招呼你。', fx: { needs: { social: -5, fun: -5 } } } },
 		],
 	},
@@ -70,7 +70,7 @@ export const VENUE_EVENTS: GameEvent[] = [
 		id: 'v-gym-trial', title: '私教体验课', icon: '📋', venueTypes: ['gym'], weight: 7,
 		text: '前台在推私教课：今天体验价 $20，一对一一小时。',
 		choices: [
-			{ label: '上一节（$20）', ok: { text: '被练得腿软，但学到的动作很受用。', fx: { cash: -20, minutes: 60, needs: { energy: -15 }, skills: { strength: 1.5, stamina: 1 } } } },
+			{ label: '上一节（$20）', cost: 20, ok: { text: '被练得腿软，但学到的动作很受用。', fx: { minutes: 60, needs: { energy: -15 }, skills: { strength: 1.5, stamina: 1 } } } },
 			{ label: '不用了', ok: { text: '你自己练完，回家了。', fx: {} } },
 		],
 	},
@@ -150,7 +150,7 @@ export const VENUE_EVENTS: GameEvent[] = [
 		id: 'v-market-markdown', title: '黄色打折贴', icon: '🏷️', venueTypes: ['supermarket'], weight: 10,
 		text: '店员推着车在贴打折标签，今天到期的熟食半价。',
 		choices: [
-			{ label: '抢一份（$5）', check: { skill: 'street', dc: 20 }, ok: { text: '最后一份烤鸡归你了。', fx: { cash: -5, needs: { hunger: 40 }, moodlet: 'well-fed' } }, fail: { text: '慢了一步，只剩一盒沙拉。', fx: { cash: -5, needs: { hunger: 15 } } } },
+			{ label: '抢一份（$5）', cost: 5, check: { skill: 'street', dc: 20 }, ok: { text: '最后一份烤鸡归你了。', fx: { needs: { hunger: 40 }, moodlet: 'well-fed' } }, fail: { text: '慢了一步，只剩一盒沙拉。', fx: { needs: { hunger: 15 } } } },
 			{ label: '不凑热闹', ok: { text: '你推着车走了。', fx: {} } },
 		],
 	},
@@ -158,7 +158,7 @@ export const VENUE_EVENTS: GameEvent[] = [
 		id: 'v-market-sausage', title: '门口的香肠摊', icon: '🌭', venueTypes: ['supermarket'], weight: 8,
 		text: '本地社区组织在门口摆香肠摊募捐，香肠夹面包 $3。',
 		choices: [
-			{ label: '买一个（$3）', ok: { text: '洋葱放得很足，志愿者说钱会捐给社区足球队。', fx: { cash: -3, needs: { hunger: 20, social: 5 }, respect: 0.5 } } },
+			{ label: '买一个（$3）', cost: 3, ok: { text: '洋葱放得很足，志愿者说钱会捐给社区足球队。', fx: { needs: { hunger: 20, social: 5 }, respect: 0.5 } } },
 			{ label: '帮忙翻一会儿香肠', check: { skill: 'charisma', dc: 25 }, ok: { text: '你招呼了半小时客人，志愿者们请你吃了两根。', fx: { minutes: 30, needs: { hunger: 30, social: 20 }, respect: 1 } }, fail: { text: '翻焦了几根，被客气地请到一边。', fx: { minutes: 15, needs: { social: 5 } } } },
 		],
 	},

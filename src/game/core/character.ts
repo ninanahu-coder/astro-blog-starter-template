@@ -67,7 +67,7 @@ export function createCharacter(opts: {
 	origin: string;
 	region: string;
 	spawn: string;
-	seed?: number;
+	seed: number; // 随机种子由服务端生成后传入，引擎内不自己生成随机数
 	traits?: string[];
 }): PlayerState {
 	const origin = ORIGINS.find((o) => o.id === opts.origin) ?? ORIGINS[0];
@@ -112,7 +112,7 @@ export function createCharacter(opts: {
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
-		seed: (opts.seed ?? Math.floor(Math.random() * 2 ** 31)) >>> 0,
+		seed: opts.seed >>> 0,
 		rev: 0,
 	};
 }

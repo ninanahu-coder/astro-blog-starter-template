@@ -16,7 +16,7 @@ export const EVENTS: GameEvent[] = [
 		id: 'whale-shark', title: '鲸鲨', icon: '🦈', locs: ['exmouth'], once: true, weight: 10,
 		text: '船长喊：“鲸鲨！右舷！”一条八米长的影子从船底滑过。',
 		choices: [
-			{ label: '跳下去同游', check: { skill: 'swimming', dc: 45 }, ok: { text: '你和地球上最大的鱼并肩游了十分钟。', fx: { cash: -200, respect: 5, needs: { fun: 50 }, skills: { swimming: 4 } } }, fail: { text: '浪太大，你呛了几口水被拉回船上。', fx: { cash: -200, health: -8, needs: { fun: 10 }, skills: { swimming: 2 } } } },
+			{ label: '跳下去同游（$200）', cost: 200, check: { skill: 'swimming', dc: 45 }, ok: { text: '你和地球上最大的鱼并肩游了十分钟。', fx: { respect: 5, needs: { fun: 50 }, skills: { swimming: 4 } } }, fail: { text: '浪太大，你呛了几口水被拉回船上。', fx: { health: -8, needs: { fun: 10 }, skills: { swimming: 2 } } } },
 			{ label: '在甲板上看就好', ok: { text: '隔着水面也足够震撼。', fx: { needs: { fun: 20 } } } },
 		],
 	},
@@ -82,7 +82,7 @@ export const EVENTS: GameEvent[] = [
 		text: '街角的提琴手朝你点头，示意你加入。',
 		choices: [
 			{ label: '上！', check: { skill: 'charisma', dc: 30 }, ok: { text: '围观的人越来越多，琴盒满了。', fx: { cash: 80, respect: 1, needs: { social: 25, fun: 20 }, skills: { charisma: 2 } } }, fail: { text: '你跑调了，但大家笑得很开心。', fx: { needs: { social: 15, fun: 10 }, skills: { charisma: 1 } } } },
-			{ label: '投个硬币就走', ok: { text: '他冲你眨了眨眼。', fx: { cash: -2 } } },
+			{ label: '投个硬币就走', cost: 2, ok: { text: '他冲你眨了眨眼。', fx: {} } },
 		],
 	},
 	{
@@ -102,7 +102,7 @@ export const EVENTS: GameEvent[] = [
 		id: 'flies', title: '苍蝇大军', icon: '🪰', kinds: ['outback', 'park', 'mining'], weight: 2,
 		text: '下车三秒，脸上已经落了十几只苍蝇。',
 		choices: [
-			{ label: '买顶防蝇网帽', ok: { text: '丑，但管用。', fx: { cash: -12 } } },
+			{ label: '买顶防蝇网帽（$12）', cost: 12, ok: { text: '丑，但管用。', fx: {} } },
 			{ label: '练“澳式挥手”硬扛', ok: { text: '你学会了本地人的打招呼方式。', fx: { needs: { fun: -8, hygiene: -5 }, skills: { survival: 1 } } } },
 		],
 	},
@@ -134,7 +134,7 @@ export const EVENTS: GameEvent[] = [
 		id: 'winter-swell', title: '冬季风暴', icon: '🌊', seasons: ['winter'], tags: ['beach'], weight: 4,
 		text: '南边来的风暴把海搅成了灰白色，浪头砸在防波堤上。',
 		choices: [
-			{ label: '躲进酒吧喝杯热的', ok: { text: '半个镇子的人都在这儿，壁炉烧得正旺。', fx: { cash: -15, needs: { social: 20, fun: 10 } } } },
+			{ label: '躲进酒吧喝杯热的（$15）', cost: 15, ok: { text: '半个镇子的人都在这儿，壁炉烧得正旺。', fx: { needs: { social: 20, fun: 10 } } } },
 			{ label: '裹紧外套去看浪', ok: { text: '浪花溅了你一身，但值得。', fx: { needs: { fun: 18, hygiene: -10 } } } },
 		],
 	},
