@@ -2,6 +2,7 @@
 title: "FluffyWA Optimal Operations Plan (Evidence-Based)"
 description: "An evidence-based, most-effective kennel operations plan drawn from veterinary and animal-welfare authorities: vaccination & isolation, biosecurity zoning, disinfection, feeding & exercise, a staffing model, and staff retention"
 pubDate: "Jul 09 2026"
+updatedDate: "Jul 30 2026"
 heroImage: "/blog-placeholder-2.jpg"
 ---
 
@@ -18,6 +19,16 @@ The biggest hidden risk is **pre-clinical shedding** — parvo and kennel cough 
 - **Intake health check**: temperature, demeanour, any cough/diarrhoea; refuse any suspected infectious disease
 - **Register**: owner and vet contacts, vaccination proof, diet and medication, behaviour/health history, emergency authorisation
 
+**Intake "refuse-on-the-spot / divert-to-isolation" decision checklist** (front desk ticks each item; any hit escalates handling):
+
+- [ ] Coughing, sneezing, nasal/ocular discharge (purulent especially concerning) → suspected kennel cough, move to observation area, do not enter healthy housing
+- [ ] Vomiting, diarrhoea (especially bloody or foul-smelling), marked lethargy → suspected parvo/enteric disease, refuse and advise veterinary care
+- [ ] Visible live ticks, fleas, hair loss or scabbing → rule out parasites/skin disease before proceeding
+- [ ] C5 proof missing, expired, or under 14 days → do not admit (offer to rebook)
+- [ ] Bitch near whelping, unhealed post-surgery, lame and unable to bear weight → needs veterinary assessment
+
+> Front-desk script suggestion: frame a refusal as "to protect your dog and every dog in the facility", and proactively offer a rebooking plan after re-vaccination/re-check to reduce complaints.
+
 ## 2. Isolation Periods: by Pathogen (use the upper bound)
 
 | Situation | Isolation | Source |
@@ -26,8 +37,16 @@ The biggest hidden risk is **pre-clinical shedding** — parvo and kennel cough 
 | Kennel cough (CIRDC), symptomatic | **10–14 days** | Worms & Germs / UF |
 | Canine influenza H3N2 | **≥21 days** (sheds 3–4 weeks) | ASPCApro / AVMA |
 | Vomiting, diarrhoea or coughing | Isolate immediately, dedicated tools, cleaned last | ASV |
+| Distemper confirmed/suspected | Extend per veterinary guidance; neurological signs can shed persistently | ASV/Koret |
 
 Principle: where sources disagree, take the **longer period** as the operating standard.
+
+**Isolation practicalities**:
+
+- Isolation timing **restarts from the date of the last symptom**, not the intake date; a relapse midway resets the clock
+- Isolation dogs are handled by **dedicated staff, dedicated tools, last of the day**; when finished, go straight off shift or fully change and disinfect — do not return to healthy housing
+- Before release, a dog must be continuously symptom-free and re-examined, then the manager signs off on the monitoring sheet before it rejoins general housing
+- Post an "authorised staff only" sign at the isolation entrance and log every entry/exit with person and time for traceability
 
 ## 3. Biosecurity Zoning: Healthy First, Sick Last
 
@@ -54,6 +73,13 @@ Iron rule: **clean off organic matter first, then disinfect**; it only counts on
 
 - **Target ≥15 air changes per hour (ACH)** (AVMA/ASV suggest 10–20), and it must be **fresh outside air**, not just recirculation
 - Poor ventilation lets Bordetella, parainfluenza, adenovirus and canine flu spread by droplets in high-density runs — the breeding ground for a kennel-cough outbreak
+
+**Practical measures** (improvement without a major retrofit):
+
+- During cleaning peaks, after disinfection, and on stuffy afternoons, actively open windows/exhaust to cross-ventilate indoor and outdoor air — don't rely on air-conditioning recirculation alone
+- A noticeable ammonia smell (sharp urine odour) in the runs usually means ventilation or waste removal is inadequate — a signal to act on immediately
+- Isolation/sick areas should have separate ventilation or terminal exhaust where possible, to keep their return air from crossing into healthy housing
+- Stagger exercise release during high-density periods to lower the number of dogs in the runs per unit time — effectively increasing fresh air per dog
 
 ## 6. Feeding: Two Meals for Adults, More for Puppies
 
@@ -100,7 +126,7 @@ Food intake/water, urination and defecation (presence and consistency), demeanou
 
 ## 11. Retain Staff: No Effective Plan Works Without People
 
-Animal-care roles carry high compassion-fatigue and burnout risk, and **understaffing and unstable rosters are the main drivers of turnover**. Evidence-based retention levers (by importance):
+Animal-care roles carry high compassion-fatigue and burnout risk, and **understaffing and unstable rosters are the main drivers of turnover**. Spot the early signs of burnout: present but disengaged (presenteeism), loss of empathy for the dogs, irritability, frequent short leave, declining record quality — when these show up, lighten the load first, discuss everything else after. Evidence-based retention levers (by importance):
 
 1. **Fair, transparent, market-matched pay** (published bands, paid under the Animal Care Award)
 2. **Manage workload**: census must not exceed available staff-hours (Capacity for Care) — don't chronically stretch the team
@@ -108,6 +134,21 @@ Animal-care roles carry high compassion-fatigue and burnout risk, and **understa
 4. **Recognition** of hard work; **decompression time** after difficult events
 5. **Career path + paid training**: floater → site keeper → site lead; mentorship pairing new with experienced staff
 6. **Culture**: respect, team connection, train everyone to spot burnout in each other
+
+## 12. Operational KPIs: Turn Standards into Measurable Numbers
+
+A standard on paper is useless unless it can be measured daily/weekly. The KPIs below map directly onto the evidence-based standards above, using exactly the same definitions as the text:
+
+| Metric | Definition | Target | Source |
+| --- | --- | --- | --- |
+| Exercise compliance rate | Dogs meeting ≥30 min out-of-kennel exercise (or two sessions of ≥20 min) that day ÷ dogs on site | ≥95% | Exercise log |
+| Health-observation compliance rate | Dogs completing ≥3 health observations that day ÷ dogs on site | 100% | Monitoring sheet |
+| Record completeness rate | Share of dogs with intake/water/elimination/medication/abnormality all filled in per day | 100% | Per-dog log |
+| Isolation compliance rate | Share of suspected cases isolated for the upper-bound period without early release | 100% | Isolation register |
+| Baseline-husbandry hours gap | Actual available staff-hours − (dogs on site × 15 min/dog/day baseline husbandry) | ≥0 (not negative) | Roster vs census |
+| Intake-refusal recording rate | Share of visits hitting the refusal checklist that have a written record and rebooking plan | 100% | Front-desk register |
+
+> How to use: the amber/red checklists watch the **individual**, the KPIs watch the **system**. Any KPI sliding for several periods in a row usually precedes an outbreak or complaints — the earliest warning.
 
 ---
 

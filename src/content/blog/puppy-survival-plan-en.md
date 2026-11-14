@@ -2,6 +2,7 @@
 title: "Improving Puppy Survival Rates (Evidence-Based Edition)"
 description: "An evidence-based plan for improving puppy survival, compiled from authoritative veterinary sources: thermoregulation, colostrum and feeding, weight monitoring, parvovirus control and immunization, sanitation, balancing socialization, and warning signs requiring veterinary care"
 pubDate: "Jul 09 2026"
+updatedDate: "Jul 30 2026"
 heroImage: "/blog-placeholder-1.jpg"
 ---
 
@@ -31,6 +32,15 @@ Puppies **cannot regulate their own body temperature before about 4 weeks of age
 - A **core body temperature below 35°C** leads to a drop in heart rate, loss of the sucking reflex, hypoglycemia, gut stasis, and multi-organ failure
 - **Never feed a chilled puppy**: hypothermia causes the gut to shut down, so milk sits undigested → reflux and aspiration, which can be fatal. You must **first rewarm the puppy slowly over 30–60 minutes** (rewarming too fast causes dehydration), and only feed once the puppy feels warm to the touch and can suckle
 
+**Key points for keeping puppies warm**:
+
+- **The heat source must not touch the body directly**: have the heating pad/lamp cover only one side of the whelping box, leaving a cool retreat zone the dam and puppies can actively move to, to prevent overheating and burns; always lay a cloth over the pad so puppies never touch the heating surface directly
+- **Judge temperature by huddling behavior**: puppies that **huddle in a pile, stack on top of the heat source, and cry continuously** = too cold; **spread apart, away from one another, and panting** = too hot; **sleeping loosely on their own** = the temperature is right
+- **How to measure temperature**: use a digital rectal thermometer with lubricant, inserted gently, to measure core body temperature; feeling whether the ear tips, foot pads, and mouth are warm works as a quick first screen but cannot replace an actual reading
+- **How to rewarm**: warm slowly by wrapping the puppy against the body plus a warm environment (incubator/heating pad); skin-to-skin contact with the dam can be provided at the same time. Reassess every 15 minutes during rewarming, and reassess the sucking reflex once the puppy is back up to temperature
+
+> ⚠️ **Warning**: Damp cold is an invisible killer. A puppy that is not dried off after birth, or bedding soaked with urine and milk, will make a puppy lose heat rapidly—keeping bedding dry and changing it promptly is as important as keeping warm.
+
 ## 2. Colostrum and Feeding: Seize the Immunity Window, Prevent Hypoglycemia
 
 **Colostrum (passive immunity)**:
@@ -46,7 +56,17 @@ Puppies **cannot regulate their own body temperature before about 4 weeks of age
 - **Feed every 2–3 hours in the first week** (equivalent to natural nursing 8–10 times per day) to prevent hypoglycemia, then gradually extend to every 3–4 hours, then every 4–6 hours
 - **Weaning**: begin introducing gruel from a shallow dish at 3–4 weeks, completing the transition to puppy food by 6–8 weeks
 
+**Hand-feeding technique details**:
+
+- **Posture**: feed the puppy **lying on its belly with its head slightly raised** (the posture in which it naturally suckles from the dam), **never on its back facing up**—feeding on the back very easily leads to milk entering the trachea and causing aspiration pneumonia
+- **Milk temperature**: after mixing, warm the milk replacer to **about body temperature (37–38°C)**; a drop on the inside of your wrist should feel warm but not hot; mix fresh for each feeding, and do not refrigerate mixed milk for more than 24 hours
+- **Teat**: size the opening so that when the bottle is inverted the milk **drips out slowly, one drop at a time**; an opening that is too large gives a fast flow that causes choking; gently squeeze the bottle to control the flow while feeding
+- **Burp + stimulate elimination after feeding**: after each feeding, gently wipe the perineal area with a warm, damp cotton ball to mimic the dam's licking and stimulate urination and defecation (puppies cannot eliminate on their own until about 3 weeks of age)
+- **Signs of overfeeding**: excessive abdominal distension after feeding, diarrhea, or milk coming back out of the nostrils indicate feeding too much too fast—reduce the amount and slow down
+
 **Hypoglycemia control**: Neonatal puppies have almost no glycogen reserves; without feeding, their liver glycogen is depleted in about 24 hours (faster in sick or weak puppies). Signs: weakness, trembling, persistent crying, a cold body, and going limp. Reference blood glucose: normal is about 90–200 mg/dL; **on the first day, <92 mg/dL raises the risk of death, and <40 mg/dL is severe hypoglycemia** (defer to veterinary judgment). Prevention relies on **frequent feeding + warmth**.
+
+> ⚠️ **On-the-spot first aid for weak pups / suspected hypoglycemia (act while calling the vet)**: ① Warm the puppy at the same time, and never force-feed a cold puppy; ② if the puppy **still has a swallowing reflex**, you can rub a small amount of glucose water or honey/corn syrup onto the gums/under the tongue (simply pouring in liquid carries an aspiration risk, so keep the amount small); ③ **never give sugar by mouth to a puppy that is already unconscious or has no swallowing reflex**—take it straight to the vet for intravenous glucose; ④ the three big killers (hypothermia, hypoglycemia, dehydration) compound one another into a "fading spiral," so they must all be corrected at once, not just one of them.
 
 ## 3. Weight Monitoring: The Most Sensitive Early Warning
 
@@ -55,6 +75,16 @@ A daily weight chart is the single best tool for catching problems early—weigh
 - Weigh once at 12 hours and once at 24 hours after birth, then **weigh at the same time every day** (using a gram scale), continuing for at least the first 2–3 weeks
 - **Normal weight gain: about 5–10% of birth weight per day**; **birth weight should roughly double by days 7–10**
 - **Red-flag signs (require intervention/contacting the vet)**: no weight gain, stalled weight, **any weight loss**; a **weight loss of more than about 4%** significantly raises the risk; a puppy that is weak, cold, not seeking the nipple, or crying persistently
+
+**Weighing record sheet (one per litter, posted next to the whelping box)**:
+
+| Puppy ID (collar color/mark) | Birth weight | Day 1 | Day 2 | Day 3 | … | Daily change | Notes |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| e.g. Red | ___ g | ___ g | ___ g | ___ g | | +/- % | Alertness/suckling |
+
+- **Give each puppy a unique ID**: mark them with a non-toxic, safe colored collar thread or a dot of nail polish, to avoid mixing them up when weighing
+- **Weigh under fixed conditions**: weigh **at the same time, on the same gram scale, before feeding** each day to reduce error
+- **Compare within the litter**: the one that consistently lags at the bottom of the litter and is clearly lighter than its littermates (the "weak pup") should be watched closely—it is often the first to run into trouble
 
 ## 4. Parvovirus Control and Immunization: Crossing the "Window of Susceptibility"
 
