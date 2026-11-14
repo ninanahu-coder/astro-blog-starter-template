@@ -183,9 +183,21 @@ function work(prev: PlayerState, region: Region, venue: Venue, type: VenueTypeDe
 	const state = clone(prev);
 	const ci = state.clockIn;
 	const stale = ci && now - ci.at > FIX_RULES.clockInStaleMin * 60_000;
+	if (ci && ci.venue === venue.id && !workTerms(state, type)) {
+		// 打上班卡之后辞职或换了工作：不管待了多久、卡有没有过期，下班卡都能打，只是不计薪，不然这张卡会一直挂着
+		state.clockIn = null;
+		log(state, `在${venue.name}打了下班卡，但你已经不在这里工作，这次不计薪。`);
+		return { ok: true, state, msg: '你已经不在这里工作，这次不计薪。' };
+	}
 	if (!ci || ci.venue !== venue.id || stale) {
 		const why = workBlocked({ ...state, clockIn: null }, type, venue, now);
-		if (why) return fail(prev, why);
+		if (why) {
+			if (!stale) return fail(prev, why);
+			// 过期的卡不管能不能开始新的一班都作废
+			state.clockIn = null;
+			log(state, '上一张上班卡太久没打下班卡，作废了。');
+			return { ok: true, state, msg: `上一张上班卡太久没打下班卡，作废了。${why}，没有打上新的卡。` };
+		}
 		const voided = ci ? (stale ? '上一张上班卡太久没打下班卡，作废了。' : '上一张别处的上班卡作废了。') : '';
 		state.clockIn = { venue: venue.id, at: now };
 		const msg = `${voided}在${venue.name}打了上班卡。离开前在这里再打一次下班卡，至少待 ${FIX_RULES.clockInMinMin} 分钟。`;
@@ -194,13 +206,7 @@ function work(prev: PlayerState, region: Region, venue: Venue, type: VenueTypeDe
 	}
 	const elapsed = Math.floor((now - ci.at) / 60_000);
 	if (elapsed < FIX_RULES.clockInMinMin) return fail(prev, `才待了 ${elapsed} 分钟，至少 ${FIX_RULES.clockInMinMin} 分钟才计薪。`);
-	const terms = workTerms(state, type);
-	if (!terms) {
-		// 打上班卡之后辞职或换了工作：下班卡照常能打，只是不计薪，不然这张卡会一直挂着
-		state.clockIn = null;
-		log(state, `在${venue.name}打了下班卡，但你已经不在这里工作，这次不计薪。`);
-		return { ok: true, state, msg: '你已经不在这里工作，这次不计薪。' };
-	}
+	const terms = workTerms(state, type)!; // 没有任职资格的情况在上面已经清卡返回
 	const today = realDayOf(now);
 	if (state.realWork.day !== today) state.realWork = { day: today, min: 0 };
 	const minutes = Math.min(elapsed, FIX_RULES.shiftMaxMin, FIX_RULES.dayMaxMin - state.realWork.min);

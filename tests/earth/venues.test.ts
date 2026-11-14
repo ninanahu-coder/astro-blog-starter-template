@@ -349,4 +349,32 @@ test('打了上班卡之后辞职：下班卡照常能打，不计薪，卡不�
 	assert.equal(out.state.clockIn, null);
 	assert.equal(out.state.cash, quit.cash);
 	assert.equal(out.state.clock, quit.clock, '没上班，游戏时间不流逝');
+	// 不满 15 分钟、刚好 15 分钟、刚好 16 小时、超过 16 小时（卡已过期）都要能清掉
+	for (const min of [5, 15, 960, 961]) {
+		const r = venueAction(quit, R, { op: 'work', ...at(pool) }, T0 + min * MIN);
+		assert.ok(r.ok, `${min} 分钟：${r.msg}`);
+		assert.match(r.msg, /不计薪/, `${min} 分钟应按下班卡处理`);
+		assert.equal(r.state.clockIn, null, `${min} 分钟后卡应清掉`);
+		assert.equal(r.state.cash, quit.cash, `${min} 分钟不计薪`);
+	}
+});
+
+test('过期的上班卡：辞职后去别处打卡，开始不了新班也要作废旧卡', () => {
+	const pool = find('t-pool');
+	const guard = make({ job: { career: 'lifeguard', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } });
+	const inn = venueAction(guard, R, { op: 'work', ...at(pool) }, T0);
+	assert.ok(inn.ok, inn.msg);
+	const quit = applyAction(inn.state, R, { t: 'job', op: 'quit' }).state;
+	const other = { ...pool, id: 't-pool-2' };
+	const R2 = { ...R, venues: [...R.venues, other] };
+	// 卡还没过期：别处上不了班，旧卡保留
+	const early = venueAction(quit, R2, { op: 'work', ...at(other), venue: other.id }, T0 + 60 * MIN);
+	assert.ok(!early.ok, early.msg);
+	assert.equal(early.state.clockIn?.venue, 't-pool');
+	// 卡过期了：照样上不了班，但旧卡作废
+	const late = venueAction(quit, R2, { op: 'work', ...at(other), venue: other.id }, T0 + 961 * MIN);
+	assert.ok(late.ok, late.msg);
+	assert.match(late.msg, /作废/);
+	assert.equal(late.state.clockIn, null);
+	assert.equal(late.state.cash, quit.cash);
 });
