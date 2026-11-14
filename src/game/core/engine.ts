@@ -1196,7 +1196,7 @@ function settleProperties(state: PlayerState, region: Region) {
 			continue;
 		}
 		p.missed++;
-		p.loan += interest; // 没付的利息计入本金
+		p.loan = Math.min(def.price, p.loan + interest); // 没付的利息计入本金；不超过房价（存档校验的上限，正常买房到不了）
 		if (p.missed <= FINANCE.graceWeeks) {
 			log(state, `付不起${def.name}这周的 $${due}（第 ${p.missed} 次欠款，超过 ${FINANCE.graceWeeks} 次将被强制卖房）。`);
 			continue;

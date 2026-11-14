@@ -253,3 +253,47 @@ test('动作结算的结果不越过存档校验的上限：校验一个刚结�
 	// 区域字段只认存在的区域
 	for (const region of ['constructor', '__proto__', 'mars', 7]) assert.equal(sanitizeState({ ...base, region } as never, locs)!.region, 'wa', String(region));
 });
+
+test('一次性奖励的记录被垃圾 id 塞满时，真实的记录不会被挤掉，奖励不能再领', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const base = createCharacter({ id: 'once-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	const junk = Array.from({ length: 2000 }, (_, i) => `junk-${i}`);
+	const poi = WA.pois.find((x) => x.loc === 'perth')!;
+	const dirty = sanitizeState({ ...base, checkins: junk, seen: junk.slice(0, 500) }, locs)!;
+	assert.deepEqual(dirty.checkins, [], '不存在的打卡点不保留');
+	assert.deepEqual(dirty.seen, []);
+	// 打卡一次，过一遍存档校验（服务端每次读取都会做），再打一次
+	const first = applyAction({ ...base, checkins: junk }, WA, { t: 'gps', lat: poi.lat, lon: poi.lon });
+	assert.ok(first.ok, first.msg);
+	assert.ok(first.state.respect > base.respect, '第一次有奖励');
+	const reloaded = sanitizeState(first.state, locs)!;
+	assert.ok(reloaded.checkins.includes(poi.id), '真实的打卡记录还在');
+	const second = applyAction(reloaded, WA, { t: 'gps', lat: poi.lat, lon: poi.lon });
+	assert.equal(second.state.respect, reloaded.respect, '第二次没有奖励');
+	// 一次性事件同理；重复的 id 去重
+	const once = EVENTS.find((e) => e.once)!;
+	const seen = sanitizeState({ ...base, seen: [...junk.slice(0, 500), once.id, once.id] }, locs)!.seen;
+	assert.deepEqual(seen, [once.id]);
+});
+
+test('每日奖励和欠息也不越过存档校验的上限', async () => {
+	const { claimDaily } = await import('../../src/game/core/daily.ts');
+	const { PROPERTIES } = await import('../../src/game/data/properties.ts');
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const base = createCharacter({ id: 'cap2-player', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 3 });
+	// 现金、声望、版本号都顶在上限：领第 7 天的大礼（加现金也加声望）
+	const top = sanitizeState({ ...base, cash: 1e300, respect: 1e300, rev: 1e9 - 1, daily: { day: 99, streak: 6 } }, locs)!;
+	const claim = claimDaily(top, 100)!;
+	assert.match(claim.msg, /满 7 天/);
+	assert.deepEqual([claim.state.cash, claim.state.respect, claim.state.rev], [1e9, 1e6, 0]);
+	assert.deepEqual(sanitizeState(claim.state, locs), claim.state, '再校验一次不变');
+	// 贷款已等于房价（只有损坏的存档会这样），付不起这周的钱：欠的利息不再往上加
+	const def = PROPERTIES[0];
+	const owner = sanitizeState({ ...base, cash: 0, clock: 6 * 1440 + 23 * 60, nextWeek: 7, properties: [{ id: def.id, loan: 1e300, rented: false, missed: 0 }] }, locs)!;
+	assert.equal(owner.properties[0].loan, def.price);
+	const r = applyAction(owner, WA, { t: 'activity', id: 'rest' });
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.properties[0].missed, 1, '这周确实欠款了');
+	assert.equal(r.state.properties[0].loan, def.price, '本金不超过房价');
+	assert.deepEqual(sanitizeState(r.state, locs), r.state);
+});

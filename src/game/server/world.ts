@@ -267,8 +267,11 @@ export class EarthWorld {
 		if (!current) return json({ ok: false, msg: '云端存档已损坏' }, 500);
 
 		// 每日奖励：按现实日期（服务端时钟）每天第一次读取或行动时发放
+		// 落盘和返回之前统一再过一遍存档校验：存下来的永远是规范形式，不依赖每条规则各自守住上限
+		const locs = new Set(region.locations.map((l) => l.id));
+		const canon = (s: typeof current) => sanitizeState(s, locs, { fallbackLoc: region.spawn, now }) ?? s;
 		const claim = claimDaily(current, realDayOf(now));
-		const live = claim ? claim.state : current;
+		const live = claim ? canon(claim.state) : current;
 		// 校验时修过存档（挪了地点、清了未来的时间戳等）也要写回：不然只上线不操作的话，每次都重新修一遍，
 		// 被改成「今天已领」的每日奖励永远领不到
 		const migrated = JSON.stringify(current) !== JSON.stringify(rec.state);
@@ -283,10 +286,11 @@ export class EarthWorld {
 			if (!act) return json({ ok: false, msg: '动作无效' }, 400);
 			// 版本号按领奖前的存档比对（上面已检查），动作在领奖后的存档上执行
 			const r = applyAction(live, region, act, now);
-			if (r.state !== current) await this.ctx.storage.put('save:' + id, { keyHash, state: r.state, at: now });
+			const next = r.state !== live ? canon(r.state) : r.state;
+			if (next !== current) await this.ctx.storage.put('save:' + id, { keyHash, state: next, at: now });
 			// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
 			else if (migrated) await this.ctx.storage.put('save:' + id, { keyHash, state: current, at: now });
-			return json({ ok: r.ok, msg: r.msg, state: publicState(r.state), at: now, daily: claim?.msg });
+			return json({ ok: r.ok, msg: r.msg, state: publicState(next), at: now, daily: claim?.msg });
 		}
 		return json({ ok: false, msg: '请求无效' }, 400);
 	}

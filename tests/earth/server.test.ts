@@ -254,3 +254,32 @@ test('服务端：版本号损坏的存档归零后能连续操作，不会每�
 		assert.equal(w.data.get('save:' + ID).state.rev, rev, '落盘的版本号和响应一致');
 	}
 });
+
+test('服务端：落盘的存档永远是规范形式（再校验一次不变），响应和落盘一致', async () => {
+	const { sanitizeState } = await import('../../src/game/core/character.ts');
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const w = makeWorld();
+	const created = await w.call({ action: 'create', ...cred, profile });
+	const rec = w.data.get('save:' + ID);
+	// 班次计数顶在校验上限上（只有损坏的存档会这样），再上一个班会让它越过上限
+	w.data.set('save:' + ID, { ...rec, state: { ...rec.state, job: { career: 'barista', loc: 'perth', level: 0, shifts: 1e300, good: 0, lastDay: -1 } } });
+	const got = await w.call({ action: 'get', ...cred });
+	assert.equal(got.data.state.job.shifts, 1e6);
+	const r = await w.call({ action: 'act', ...cred, rev: got.data.state.rev, act: { t: 'job', op: 'work' } });
+	assert.ok(r.data.ok, r.data.msg);
+	const saved = w.data.get('save:' + ID).state;
+	assert.ok(saved.job.shifts <= 1e6, `班次 ${saved.job.shifts} 不越过上限`);
+	assert.deepEqual(sanitizeState(saved, locs, { fallbackLoc: WA.spawn, now: Date.now() }), saved, '落盘的存档再校验一次不变');
+	assert.deepEqual({ ...r.data.state, seed: saved.seed }, saved, '响应和落盘一致（除了隐藏的种子）');
+	assert.equal(created.data.state.rev + 1, saved.rev);
+	// 垃圾 id 塞满打卡记录的存档：真实打卡点的奖励只能领一次
+	const poi = WA.pois.find((x) => x.loc === 'perth')!;
+	const cur = w.data.get('save:' + ID);
+	w.data.set('save:' + ID, { ...cur, state: { ...cur.state, checkins: Array.from({ length: 2000 }, (_, i) => `junk-${i}`) } });
+	const gps = { t: 'gps', lat: poi.lat, lon: poi.lon };
+	const a = await w.call({ action: 'act', ...cred, rev: saved.rev, act: gps });
+	assert.ok(a.data.ok, a.data.msg);
+	const b = await w.call({ action: 'act', ...cred, rev: a.data.state.rev, act: gps });
+	assert.equal(b.data.state.respect, a.data.state.respect, '第二次打卡没有再加声望');
+	assert.deepEqual(w.data.get('save:' + ID).state.checkins.filter((x: string) => x === poi.id), [poi.id]);
+});

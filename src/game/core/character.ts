@@ -132,6 +132,10 @@ const num = (v: unknown, lo: number, hi: number, dflt: number) =>
 const strList = (v: unknown, max: number) =>
 	Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length <= 64).slice(0, max) : [];
 
+/** 只留在 known 里的字符串，去重，保持原有顺序。长度天然不超过 known 的大小 */
+const knownList = (v: unknown, known: Set<string>) =>
+	Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string' && known.has(x)))] : [];
+
 /**
  * 校验并规范化一份不可信的存档（来自 localStorage 或网络）。
  * 结构不对返回 null；数值全部钳制到合法范围。服务端落盘前必须调用。
@@ -201,8 +205,10 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		skills,
 		vehicle: VEHICLES.some((v) => v.id === r.vehicle) ? r.vehicle : 'none',
 		visited,
-		checkins: strList(r.checkins, 2000),
-		seen: strList(r.seen, 500),
+		// 一次性奖励的记录只留现在还存在的 id、去重。不能只按长度截：列表被垃圾 id 塞满的话，
+		// 引擎新追加在末尾的真实 id 下次校验会被截掉，那份奖励就能再领一次
+		checkins: knownList(r.checkins, new Set((getRegion(r.region) ?? getRegion('wa'))!.pois.map((p) => p.id))),
+		seen: knownList(r.seen, new Set(EVENTS.map((e) => e.id))),
 		traits: (() => {
 			const t = strList(r.traits, MAX_TRAITS);
 			return validTraits(t, MAX_TRAITS) ? t : [];
