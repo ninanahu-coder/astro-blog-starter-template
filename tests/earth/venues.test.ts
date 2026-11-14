@@ -596,6 +596,22 @@ test('采购按背包装得下的数量计价：装不下的不收钱，都满�
 	assert.equal(none.state.venueCd.groceries, undefined);
 });
 
+test('打了上班卡不满 15 分钟：下班按钮禁用并说明还要多久，和点下去的结果一致', () => {
+	const cafe = find('t-cafe');
+	const inn = venueAction(make(), R, { op: 'work', ...at(cafe) }, T0).state;
+	const workOp = (now: number) => venuesNear(inn, R, cafe.lat, cafe.lon, 10, now).find((n) => n.venue.id === cafe.id)!.ops.find((o) => o.op.id === 'work')!;
+	for (const [min, left] of [[0, 15], [14, 1]]) {
+		const now = T0 + min * MIN;
+		assert.match(workOp(now).blocked ?? '', new RegExp(`还要 ${left} 分钟`), `${min} 分钟的预览`);
+		const r = venueAction(inn, R, { op: 'work', ...at(cafe) }, now);
+		assert.ok(!r.ok, `${min} 分钟点下去也被拒绝`);
+		assert.equal(r.msg, workOp(now).blocked, '提示和预览一字不差');
+		assert.equal(r.state, inn, '状态不变');
+	}
+	assert.equal(workOp(T0 + 15 * MIN).blocked, undefined, '满 15 分钟可以打下班卡');
+	assert.ok(venueAction(inn, R, { op: 'work', ...at(cafe) }, T0 + 15 * MIN).ok);
+});
+
 test('同一地点自己的过期卡：按钮说明和点下去的结果一致', () => {
 	const cafe = find('t-cafe');
 	const workOp = (s: PlayerState, now: number) => venuesNear(s, R, cafe.lat, cafe.lon, 10, now).find((n) => n.venue.id === cafe.id)!.ops.find((o) => o.op.id === 'work')!;

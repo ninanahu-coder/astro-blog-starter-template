@@ -287,6 +287,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				sock.onclose = () => { if (ws === sock) { ws = null; peers.clear(); setTimeout(connect, 5000); } };
 			}
 			setInterval(() => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'ping' })); }, 20000);
+			// 「附近」页的按钮状态随现实时间变化（上班满 15 分钟才能打下班卡、各动作的冷却）：有这类倒计时的时候每半分钟刷新一次
+			setInterval(() => {
+				if (tab !== 'near' || document.hidden || !state || state.pending) return;
+				if (state.clockIn || Object.keys(state.venueCd).length) renderPanel();
+			}, 30000);
 
 			// ---------- 动作（发给服务器结算） ----------
 			let busy = false;

@@ -140,6 +140,13 @@ function cardDead(state: PlayerState, type: VenueTypeDef, venue: Venue): boolean
 	return !!ci && ci.venue === venue.id && !settleTerms(state, type, venue, ci);
 }
 
+/** 打了上班卡还没待够最短时长：返回给玩家看的原因；待够了返回 undefined。work() 和预览共用 */
+function clockOutTooSoon(ci: NonNullable<PlayerState['clockIn']>, now: number): string | undefined {
+	const elapsed = Math.floor((now - ci.at) / 60_000);
+	if (elapsed >= FIX_RULES.clockInMinMin) return undefined;
+	return `才待了 ${Math.max(0, elapsed)} 分钟，至少 ${FIX_RULES.clockInMinMin} 分钟才计薪，还要 ${FIX_RULES.clockInMinMin - Math.max(0, elapsed)} 分钟。`;
+}
+
 /** 上班卡是否已经过期（太久没打下班卡） */
 export function clockStale(state: PlayerState, now: number): boolean {
 	return !!state.clockIn && now - state.clockIn.at > FIX_RULES.clockInStaleMin * 60_000;
@@ -155,7 +162,10 @@ function workPreview(state: PlayerState, type: VenueTypeDef, venue: Venue, now: 
 	const ci = state.clockIn;
 	const stale = clockStale(state, now);
 	// 没有卡，或是这里自己的、还没过期的卡：照常打上班卡 / 下班卡
-	if (!ci || (ci.venue === venue.id && !stale)) return { blocked: workBlocked(state, type, venue, now) };
+	if (!ci || (ci.venue === venue.id && !stale)) {
+		const short = ci ? clockOutTooSoon(ci, now) : undefined;
+		return { blocked: short ?? workBlocked(state, type, venue, now) };
+	}
 	// 手里有一张别处的卡或过期的卡：在这里打卡会让它作废
 	const why = workBlocked({ ...state, clockIn: null }, type, venue, now);
 	if (!stale) return why ? { blocked: why } : { renews: '还有一张别处的上班卡没打下班卡：在这里打卡会让它作废、不计薪' };
@@ -254,8 +264,9 @@ function work(prev: PlayerState, region: Region, venue: Venue, type: VenueTypeDe
 		log(state, `在${venue.name}打了上班卡。`);
 		return { ok: true, state, msg };
 	}
+	const short = clockOutTooSoon(ci, now);
+	if (short) return fail(prev, short);
 	const elapsed = Math.floor((now - ci.at) / 60_000);
-	if (elapsed < FIX_RULES.clockInMinMin) return fail(prev, `才待了 ${elapsed} 分钟，至少 ${FIX_RULES.clockInMinMin} 分钟才计薪。`);
 	const terms = settleTerms(state, type, venue, ci)!; // 结算不了的情况在上面已经清卡返回
 	const today = realDayOf(now);
 	if (state.realWork.day !== today) state.realWork = { day: today, min: 0 };
