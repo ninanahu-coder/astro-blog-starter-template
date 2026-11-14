@@ -32,13 +32,13 @@ function gigTerms(type: VenueTypeDef): WorkTerms | null {
 }
 
 /**
- * 在这个地点上班的条件：有对应职业、且人在工作地点（和游戏内上班一样）时，按职业工资折算时薪（不低于零工时薪）再加到岗加成；
+ * 在这个地点上班的条件：有对应职业、且这个地点就在工作所在地（和游戏内上班一样；看地点而不是人现在在哪，「附近」列表在抵达前就要判断对）时，按职业工资折算时薪（不低于零工时薪）再加到岗加成；
  * 否则用零工时薪；都没有返回 null
  */
-export function workTerms(state: PlayerState, type: VenueTypeDef): WorkTerms | null {
+export function workTerms(state: PlayerState, type: VenueTypeDef, venue: Venue): WorkTerms | null {
 	const job = state.job;
 	const c = job ? getCareer(job.career) : undefined;
-	if (job && job.loc === state.loc && c?.venues?.includes(type.id)) {
+	if (job && job.loc === venue.loc && c?.venues?.includes(type.id)) {
 		const base = Math.max(c.levels[job.level].pay / (c.minutes / 60), type.gigRate ?? 0);
 		return { hourly: Math.round(base * ON_SITE_BONUS * 10) / 10, skill: c.skill, career: true };
 	}
@@ -49,9 +49,9 @@ export function workTerms(state: PlayerState, type: VenueTypeDef): WorkTerms | n
  * 下班结算用哪套条件：以打上班卡时的身份为准，不能事后变更。
  * 按职业打的卡 → 现在还是同一份职业才按职业结算，否则不计薪；按零工打的卡（含旧存档的卡）→ 只按零工结算，不算班次
  */
-function settleTerms(state: PlayerState, type: VenueTypeDef, ci: NonNullable<PlayerState['clockIn']>): WorkTerms | null {
+function settleTerms(state: PlayerState, type: VenueTypeDef, venue: Venue, ci: NonNullable<PlayerState['clockIn']>): WorkTerms | null {
 	if (!ci.career) return gigTerms(type);
-	const now = workTerms(state, type);
+	const now = workTerms(state, type, venue);
 	return now?.career && state.job?.career === ci.career ? now : null;
 }
 
@@ -100,7 +100,7 @@ export interface NearbyOp {
 	op: VenueOpDef;
 	outcome: OpOutcome | null; // 上班为 null
 	blocked?: string;
-	voids?: string; // 上班：这里打不了新卡，但点一下能作废过期的旧卡；值是打不了新卡的原因
+	voids?: string; // 上班：点一下只会作废旧卡（过期了但这里打不了新卡，或打卡时的身份没了）；值是给玩家看的说明
 	renews?: boolean; // 上班：点一下会作废过期的旧卡，并在这里打一张新的上班卡
 }
 
@@ -132,6 +132,14 @@ export function venuesNear(state: PlayerState, region: Region, lat: number, lon:
 	return out.sort((a, b) => a.distM - b.distM);
 }
 
+const DEAD_CARD = '你已经不在这里工作，这次不计薪';
+
+/** 这个地点的上班卡已经结算不了（打卡时的身份没了）：点一下只清卡、不计薪。work() 和预览都先查这个 */
+function cardDead(state: PlayerState, type: VenueTypeDef, venue: Venue): boolean {
+	const ci = state.clockIn;
+	return !!ci && ci.venue === venue.id && !settleTerms(state, type, venue, ci);
+}
+
 /** 上班卡是否已经过期（太久没打下班卡） */
 export function clockStale(state: PlayerState, now: number): boolean {
 	return !!state.clockIn && now - state.clockIn.at > FIX_RULES.clockInStaleMin * 60_000;
@@ -142,14 +150,15 @@ export function clockStale(state: PlayerState, now: number): boolean {
  * 卡没过期 → 照常（能不能打卡 / 打下班卡）；卡过期了 → 这里上不了班就只作废旧卡（voids），上得了就作废旧卡并打新卡（renews）
  */
 function workPreview(state: PlayerState, type: VenueTypeDef, venue: Venue, now: number): Pick<NearbyOp, 'blocked' | 'voids' | 'renews'> {
+	if (cardDead(state, type, venue)) return { voids: DEAD_CARD };
 	if (!clockStale(state, now)) return { blocked: workBlocked(state, type, venue, now) };
 	const why = workBlocked({ ...state, clockIn: null }, type, venue, now);
-	return why ? { voids: why } : { renews: true };
+	return why ? { voids: `${why}，打不了新卡` } : { renews: true };
 }
 
 function workBlocked(state: PlayerState, type: VenueTypeDef, venue: Venue, now: number): string | undefined {
 	if (state.clockIn?.venue === venue.id) return undefined; // 可以打下班卡
-	if (!workTerms(state, type)) return '这里需要在你的工作地点有对应的职业才能上班';
+	if (!workTerms(state, type, venue)) return '这里需要在你的工作地点有对应的职业才能上班';
 	const today = realDayOf(now);
 	if (state.realWork.day === today && state.realWork.min >= FIX_RULES.dayMaxMin) return `今天已经计满 ${FIX_RULES.dayMaxMin / 60} 小时`;
 	return undefined;
@@ -217,11 +226,11 @@ function work(prev: PlayerState, region: Region, venue: Venue, type: VenueTypeDe
 	const state = clone(prev);
 	const ci = state.clockIn;
 	const stale = clockStale(state, now);
-	if (ci && ci.venue === venue.id && !settleTerms(state, type, ci)) {
+	if (cardDead(state, type, venue)) {
 		// 打上班卡之后辞职或换了工作：不管待了多久、卡有没有过期，下班卡都能打，只是不计薪，不然这张卡会一直挂着
 		state.clockIn = null;
 		log(state, `在${venue.name}打了下班卡，但你已经不在这里工作，这次不计薪。`);
-		return { ok: true, state, msg: '你已经不在这里工作，这次不计薪。' };
+		return { ok: true, state, msg: `${DEAD_CARD}。` };
 	}
 	if (!ci || ci.venue !== venue.id || stale) {
 		const why = workBlocked({ ...state, clockIn: null }, type, venue, now);
@@ -234,14 +243,14 @@ function work(prev: PlayerState, region: Region, venue: Venue, type: VenueTypeDe
 		}
 		const voided = ci ? (stale ? '上一张上班卡太久没打下班卡，作废了。' : '上一张别处的上班卡作废了。') : '';
 		// 记下是按职业还是按零工打的卡，下班时按这个身份结算
-		state.clockIn = workTerms(state, type)!.career ? { venue: venue.id, at: now, career: state.job!.career } : { venue: venue.id, at: now };
+		state.clockIn = workTerms(state, type, venue)!.career ? { venue: venue.id, at: now, career: state.job!.career } : { venue: venue.id, at: now };
 		const msg = `${voided}在${venue.name}打了上班卡。离开前在这里再打一次下班卡，至少待 ${FIX_RULES.clockInMinMin} 分钟。`;
 		log(state, `在${venue.name}打了上班卡。`);
 		return { ok: true, state, msg };
 	}
 	const elapsed = Math.floor((now - ci.at) / 60_000);
 	if (elapsed < FIX_RULES.clockInMinMin) return fail(prev, `才待了 ${elapsed} 分钟，至少 ${FIX_RULES.clockInMinMin} 分钟才计薪。`);
-	const terms = settleTerms(state, type, ci)!; // 结算不了的情况在上面已经清卡返回
+	const terms = settleTerms(state, type, venue, ci)!; // 结算不了的情况在上面已经清卡返回
 	const today = realDayOf(now);
 	if (state.realWork.day !== today) state.realWork = { day: today, min: 0 };
 	const minutes = Math.min(elapsed, FIX_RULES.shiftMaxMin, FIX_RULES.dayMaxMin - state.realWork.min);

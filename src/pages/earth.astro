@@ -568,8 +568,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const cards = list.slice(0, 20).map(({ venue, type, distM, inRange, ops }) => `<div class="card"><h3>${type.icon} ${esc(venue.name)} <span class="muted">${esc(type.name)} · ${distM} 米</span></h3>
 					${inRange ? ops.map(({ op, outcome, blocked, voids, renews }) => {
 						const clockOut = op.id === 'work' && s.clockIn?.venue === venue.id;
-						const label = op.id === 'work' ? (voids ? '作废过期的上班卡' : renews ? '作废旧卡并重新打卡' : clockOut ? '打下班卡' : '打上班卡') : op.name;
-						const detail = blocked ?? (voids ? `${voids}，打不了新卡` : renews ? '上一张卡太久没打下班卡，不计薪；这里会打一张新的上班卡' : outcome ? outcome.notes.join(' · ') : op.desc);
+						const label = op.id === 'work' ? (voids ? '作废上班卡' : renews ? '作废旧卡并重新打卡' : clockOut ? '打下班卡' : '打上班卡') : op.name;
+						const detail = blocked ?? (voids ? voids : renews ? '上一张卡太久没打下班卡，不计薪；这里会打一张新的上班卡' : outcome ? outcome.notes.join(' · ') : op.desc);
 						return `<button class="row" data-venue="${esc(venue.id)}" data-venue-op="${op.id}" ${blocked ? 'disabled' : ''}><span class="ico">${op.icon}</span><span class="body">${label}<small>${esc(detail)}</small></span></button>`;
 					}).join('') : `<p>再走近 ${Math.max(0, distM - type.radiusM)} 米就能${ops.map((o) => o.op.name).join('、')}。</p>`}</div>`).join('');
 				return intro + clockHtml + cards;

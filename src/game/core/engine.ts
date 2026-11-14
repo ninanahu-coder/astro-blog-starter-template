@@ -713,6 +713,7 @@ export function applyJob(prev: PlayerState, region: Region, careerId: string): A
 	const old = state.job ? getCareer(state.job.career) : null;
 	// 今天已经上过班的话，换了工作当天也不能再上一班
 	state.job = { career: careerId, loc: state.loc, level: 0, shifts: 0, good: 0, lastDay: state.workDay };
+	if (old) voidCareerCard(state);
 	if (advance(state, 30, region)) return collapsedResult(state);
 	const title = offer.career.levels[0].title;
 	const place = getLocation(region, state.loc)!.name;
@@ -721,14 +722,23 @@ export function applyJob(prev: PlayerState, region: Region, careerId: string): A
 	return { ok: true, state, msg };
 }
 
+/** 辞职或换工作时，按职业打的上班卡当场作废：之后再应聘同一职业也不能接着用这张卡 */
+function voidCareerCard(state: PlayerState): string {
+	if (!state.clockIn?.career) return '';
+	state.clockIn = null;
+	log(state, '还没打下班卡的那一班作废了，不计薪。');
+	return '还没打下班卡的那一班作废了，不计薪。';
+}
+
 export function quitJob(prev: PlayerState): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	if (!prev.job) return fail(prev, '你还没有工作。');
 	const state = clone(prev);
 	const c = getCareer(state.job!.career)!;
 	state.job = null;
+	const voided = voidCareerCard(state);
 	log(state, `辞去了${c.name}的工作。`);
-	return { ok: true, state, msg: '已辞职。' };
+	return { ok: true, state, msg: `已辞职。${voided}` };
 }
 
 /**

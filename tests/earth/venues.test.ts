@@ -343,7 +343,7 @@ test('打了上班卡之后辞职：下班卡照常能打，不计薪，卡不�
 	const guard = make({ job: { career: 'lifeguard', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } });
 	const inn = venueAction(guard, R, { op: 'work', ...at(pool) }, T0);
 	assert.ok(inn.ok && inn.state.clockIn?.venue === 't-pool', inn.msg);
-	const quit = applyAction(inn.state, R, { t: 'job', op: 'quit' }).state;
+	const quit: PlayerState = { ...inn.state, job: null }; // 辞职时卡会当场作废；这里直接构造「卡还在、工作没了」的状态（旧存档会有），测兜底
 	const out = venueAction(quit, R, { op: 'work', ...at(pool) }, T0 + 60 * MIN);
 	assert.ok(out.ok, out.msg);
 	assert.match(out.msg, /不计薪/);
@@ -365,7 +365,7 @@ test('过期的上班卡：辞职后去别处打卡，开始不了新班也要�
 	const guard = make({ job: { career: 'lifeguard', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } });
 	const inn = venueAction(guard, R, { op: 'work', ...at(pool) }, T0);
 	assert.ok(inn.ok, inn.msg);
-	const quit = applyAction(inn.state, R, { t: 'job', op: 'quit' }).state;
+	const quit: PlayerState = { ...inn.state, job: null }; // 辞职时卡会当场作废；这里直接构造「卡还在、工作没了」的状态（旧存档会有），测兜底
 	const other = { ...pool, id: 't-pool-2' };
 	const R2 = { ...R, venues: [...R.venues, other] };
 	// 卡还没过期：别处上不了班，旧卡保留
@@ -421,7 +421,7 @@ test('上班身份以打上班卡时为准：不能事后变更', () => {
 	// 按职业打卡 → 辞职 → 下班：不计薪（咖啡馆有零工时薪也不能退回按零工领）
 	const inn = w(make({ job: barista }), T0);
 	assert.equal(inn.state.clockIn?.career, 'barista');
-	const quit = applyAction(inn.state, R, { t: 'job', op: 'quit' }).state;
+	const quit: PlayerState = { ...inn.state, job: null }; // 辞职时卡会当场作废；这里直接构造「卡还在、工作没了」的状态（旧存档会有），测兜底
 	const out = w(quit, T0 + 200 * MIN);
 	assert.ok(out.ok, out.msg);
 	assert.match(out.msg, /不计薪/);
@@ -437,6 +437,61 @@ test('上班身份以打上班卡时为准：不能事后变更', () => {
 	assert.equal(gigOut.state.cash - hired.cash, pureGig.state.cash - gigIn.state.cash, '和一直是零工拿得一样多');
 	assert.equal(gigOut.state.job!.shifts, 0);
 	assert.doesNotMatch(gigOut.msg, /算作一个班次/);
+});
+
+test('辞职或换工作：按职业打的上班卡当场作废，再应聘同一职业也接不上', () => {
+	const cafe = find('t-cafe');
+	const barista = { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 };
+	const w = (s: PlayerState, now: number) => applyAction(s, R, { t: 'venue', op: 'work', ...at(cafe) } as never, now);
+	const inn = w(make({ job: barista, wishes: ['work'], wishDay: 0 }), T0);
+	assert.equal(inn.state.clockIn?.career, 'barista');
+	const quit = applyAction(inn.state, R, { t: 'job', op: 'quit' });
+	assert.ok(quit.ok, quit.msg);
+	assert.match(quit.msg, /作废/);
+	assert.equal(quit.state.clockIn, null);
+	// 再应聘同一职业：200 分钟后点的是一张新的上班卡，不是给旧卡结算
+	const again = applyAction(quit.state, R, { t: 'job', op: 'apply', career: 'barista' });
+	assert.ok(again.ok, again.msg);
+	const next = w(again.state, T0 + 200 * MIN);
+	assert.ok(next.ok, next.msg);
+	assert.equal(next.state.clockIn?.at, T0 + 200 * MIN);
+	assert.equal(next.state.cash, again.state.cash);
+	assert.equal(next.state.job!.shifts, 0);
+	assert.ok(next.state.wishes.includes('work') || next.state.wishDay !== 0, '没算班次，心愿不完成');
+	// 换工作（不先辞职）同样作废
+	const swap = applyAction({ ...inn.state, skills: { ...inn.state.skills, swimming: 90, stamina: 90 } }, R, { t: 'job', op: 'apply', career: 'lifeguard' });
+	assert.ok(swap.ok, swap.msg);
+	assert.equal(swap.state.clockIn, null);
+	// 按零工打的卡不受辞职影响
+	const gigCard = w(make({ job: { ...barista, loc: 'fremantle' } }), T0).state;
+	assert.equal(gigCard.clockIn?.career, undefined);
+	assert.ok(applyAction(gigCard, R, { t: 'job', op: 'quit' }).state.clockIn, '零工卡保留');
+});
+
+test('工作没了但职业卡还在（旧存档）：预览和点下去一致，没过期和过期都只清卡', () => {
+	const cafe = find('t-cafe');
+	const inn = venueAction(make({ job: { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } }), R, { op: 'work', ...at(cafe) }, T0).state;
+	const dead: PlayerState = { ...inn, job: null };
+	for (const min of [60, 961]) {
+		const op = venuesNear(dead, R, cafe.lat, cafe.lon, 10, T0 + min * MIN).find((n) => n.venue.id === cafe.id)!.ops.find((o) => o.op.id === 'work')!;
+		assert.match(op.voids ?? '', /不计薪/, `${min} 分钟的预览`);
+		assert.equal(op.renews, undefined);
+		assert.equal(op.blocked, undefined);
+		const r = venueAction(dead, R, { op: 'work', ...at(cafe) }, T0 + min * MIN);
+		assert.ok(r.ok, r.msg);
+		assert.equal(r.state.clockIn, null, `${min} 分钟只清卡，不打新卡`);
+		assert.equal(r.state.cash, dead.cash);
+	}
+});
+
+test('「附近」列表按地点所在的城镇判断工作地点，不看人现在在游戏里的哪', () => {
+	const fpool: Venue = { ...find('t-pool'), id: 't-fpool', loc: 'fremantle' };
+	const R2 = { ...R, venues: [...R.venues, fpool] };
+	const workOp = (jobLoc: string) => venuesNear(make({ job: { career: 'lifeguard', loc: jobLoc, level: 0, shifts: 0, good: 0, lastDay: -1 } }), R2, fpool.lat, fpool.lon, 10, T0)
+		.find((n) => n.venue.id === fpool.id)!.ops.find((o) => o.op.id === 'work')!;
+	assert.equal(make().loc, 'perth');
+	assert.equal(workOp('fremantle').blocked, undefined, '在弗里曼特尔任职：弗里曼特尔的泳池能上班（抵达后服务端也允许）');
+	assert.match(workOp('perth').blocked ?? '', /工作地点/, '在珀斯任职：弗里曼特尔的泳池上不了');
 });
 
 test('职业班次要在工作地点上：别处的同类地点只算零工', () => {
