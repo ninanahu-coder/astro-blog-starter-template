@@ -277,6 +277,8 @@ export class EarthWorld {
 			// 版本号按领奖前的存档比对（上面已检查），动作在领奖后的存档上执行
 			const r = applyAction(live, region, act, now);
 			if (r.state !== current) await this.ctx.storage.put('save:' + id, { keyHash, state: r.state, at: now });
+			// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
+			else if (migrated) await this.ctx.storage.put('save:' + id, { keyHash, state: current, at: now });
 			return json({ ok: r.ok, msg: r.msg, state: publicState(r.state), at: now, daily: claim?.msg });
 		}
 		return json({ ok: false, msg: '请求无效' }, 400);
