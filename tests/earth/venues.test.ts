@@ -414,6 +414,67 @@ test('在真实地点做的事也能完成对应的心愿；上班要算了班�
 	assert.ok(gigOut.ok && gigOut.state.wishes.includes('work'), gigOut.msg);
 });
 
+test('上班身份以打上班卡时为准：不能事后变更', () => {
+	const cafe = find('t-cafe');
+	const barista = { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 };
+	const w = (s: PlayerState, now: number) => venueAction(s, R, { op: 'work', ...at(cafe) }, now);
+	// 按职业打卡 → 辞职 → 下班：不计薪（咖啡馆有零工时薪也不能退回按零工领）
+	const inn = w(make({ job: barista }), T0);
+	assert.equal(inn.state.clockIn?.career, 'barista');
+	const quit = applyAction(inn.state, R, { t: 'job', op: 'quit' }).state;
+	const out = w(quit, T0 + 200 * MIN);
+	assert.ok(out.ok, out.msg);
+	assert.match(out.msg, /不计薪/);
+	assert.equal(out.state.cash, quit.cash);
+	assert.equal(out.state.clockIn, null);
+	// 按零工打卡 → 应聘咖啡师 → 下班：只按零工结算，不算班次
+	const gigIn = w(make(), T0);
+	assert.equal(gigIn.state.clockIn?.career, undefined);
+	const hired = { ...gigIn.state, job: barista };
+	const gigOut = w(hired, T0 + 200 * MIN);
+	const pureGig = w(gigIn.state, T0 + 200 * MIN);
+	assert.ok(gigOut.ok && pureGig.ok, gigOut.msg);
+	assert.equal(gigOut.state.cash - hired.cash, pureGig.state.cash - gigIn.state.cash, '和一直是零工拿得一样多');
+	assert.equal(gigOut.state.job!.shifts, 0);
+	assert.doesNotMatch(gigOut.msg, /算作一个班次/);
+});
+
+test('职业班次要在工作地点上：别处的同类地点只算零工', () => {
+	const cafe = find('t-cafe');
+	const away = make({ job: { career: 'barista', loc: 'fremantle', level: 0, shifts: 0, good: 0, lastDay: -1 } });
+	const inn = venueAction(away, R, { op: 'work', ...at(cafe) }, T0);
+	assert.ok(inn.ok, inn.msg);
+	assert.equal(inn.state.clockIn?.career, undefined, '不在工作地点，按零工打卡');
+	const out = venueAction(inn.state, R, { op: 'work', ...at(cafe) }, T0 + 200 * MIN);
+	assert.ok(out.ok && out.state.job!.shifts === 0, out.msg);
+	// 没有零工时薪的地点（泳池）直接上不了
+	const guard = make({ job: { career: 'lifeguard', loc: 'fremantle', level: 0, shifts: 0, good: 0, lastDay: -1 } });
+	const pool = venueAction(guard, R, { op: 'work', ...at(find('t-pool')) }, T0);
+	assert.ok(!pool.ok);
+	assert.match(pool.msg, /工作地点/);
+});
+
+test('实地上班触发升职的那一班也完成「上班」心愿', () => {
+	const cafe = find('t-cafe');
+	const s = make({ wishes: ['work'], wishDay: 0, job: { career: 'barista', loc: 'perth', level: 0, shifts: 7, good: 7, lastDay: -1 } });
+	s.skills = { ...s.skills, charisma: 60 };
+	const inn = applyAction(s, R, { t: 'venue', op: 'work', ...at(cafe) } as never, T0);
+	const out = applyAction(inn.state, R, { t: 'venue', op: 'work', ...at(cafe) } as never, T0 + 200 * MIN);
+	assert.ok(out.ok, out.msg);
+	assert.equal(out.state.job!.level, 1, out.msg);
+	assert.equal(out.state.job!.shifts, 0, '升职后班次清零');
+	assert.ok(!out.state.wishes.includes('work'), '心愿完成');
+});
+
+test('存档校验：上班卡的职业字段只留已知职业，旧卡没有这个字段', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const ci = (clockIn: unknown) => sanitizeState({ ...make(), clockIn } as never, locs)!.clockIn;
+	assert.deepEqual(ci({ venue: 't-cafe', at: 1000 }), { venue: 't-cafe', at: 1000 });
+	assert.deepEqual(ci({ venue: 't-cafe', at: 1000, career: 'barista' }), { venue: 't-cafe', at: 1000, career: 'barista' });
+	assert.deepEqual(ci({ venue: 't-cafe', at: 1000, career: 'emperor' }), { venue: 't-cafe', at: 1000 });
+	assert.deepEqual(ci({ venue: 't-cafe', at: 1000, career: 7 }), { venue: 't-cafe', at: 1000 });
+});
+
 test('同一地点自己的过期卡：按钮说明和点下去的结果一致', () => {
 	const cafe = find('t-cafe');
 	const workOp = (s: PlayerState, now: number) => venuesNear(s, R, cafe.lat, cafe.lon, 10, now).find((n) => n.venue.id === cafe.id)!.ops.find((o) => o.op.id === 'work')!;

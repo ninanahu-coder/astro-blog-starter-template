@@ -239,7 +239,9 @@ function cleanReal(r: any): Pick<PlayerState, 'fix' | 'venueCd' | 'venueEvAt' | 
 		if (finiteIn(t, 0, 1e15)) venueCd[op.id] = Math.floor(t);
 	}
 	const c = r.clockIn;
-	const clockIn = c && typeof c.venue === 'string' && VENUE_ID.test(c.venue) && finiteIn(c.at, 0, 1e15) ? { venue: c.venue, at: Math.floor(c.at) } : null;
+	// career 只留已知的职业；旧存档的卡没有这个字段，按零工结算
+	const ciCareer = c && CAREERS.some((x) => x.id === c.career) ? { career: c.career as string } : {};
+	const clockIn = c && typeof c.venue === 'string' && VENUE_ID.test(c.venue) && finiteIn(c.at, 0, 1e15) ? { venue: c.venue, at: Math.floor(c.at), ...ciCareer } : null;
 	const realWork = { day: Math.floor(num(r.realWork?.day, 0, 1e7, 0)), min: Math.floor(num(r.realWork?.min, 0, 1440, 0)) };
 	const venueEvAt = finiteIn(r.venueEvAt, 0, 1e15) ? Math.floor(r.venueEvAt) : 0;
 	return { fix, venueCd, venueEvAt, clockIn, realWork };
