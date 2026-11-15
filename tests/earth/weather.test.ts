@@ -65,3 +65,32 @@ test('天气：风暴天只取消海上的活动，其他天照常', () => {
 	assert.equal(activitiesAt(calmDay, WA).find((x) => x.act.id === 'swim')!.blocked, undefined);
 	assert.ok(applyAction(calmDay, WA, { t: 'activity', id: 'swim' }).ok);
 });
+
+test('天气相册：抵达时按当天天气收一张，同一张不重复；清洗只留合法的照片 id', async () => {
+	const { sanitizeState } = await import('../../src/game/core/character.ts');
+	const LOCS = new Set(WA.locations.map((l) => l.id));
+	const s = createCharacter({ id: 'photo-album', name: '相册', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed: 5 });
+	assert.deepEqual(s.photos, []);
+	const fre = WA.locations.find((l) => l.id === 'fremantle')!;
+	const a = applyAction(s, WA, { t: 'gps', lat: fre.lat, lon: fre.lon });
+	assert.ok(a.ok, a.msg);
+	const shot = `fremantle|${weatherOn('fremantle', Math.floor(a.state.clock / 1440)).id}`;
+	assert.deepEqual(a.state.photos, [shot]);
+	assert.deepEqual(s.photos, [], '不改入参');
+	// 处理掉可能的到达事件后，同一天再来一次不重复收
+	let st = a.state;
+	while (st.pending) st = applyAction(st, WA, { t: 'event', choice: 0 }).state;
+	const per = WA.locations.find((l) => l.id === 'perth')!;
+	st = applyAction(st, WA, { t: 'gps', lat: per.lat, lon: per.lon }).state;
+	while (st.pending) st = applyAction(st, WA, { t: 'event', choice: 0 }).state;
+	if (Math.floor(st.clock / 1440) === Math.floor(a.state.clock / 1440)) {
+		const b = applyAction(st, WA, { t: 'gps', lat: fre.lat, lon: fre.lon });
+		assert.equal(b.state.photos.filter((p) => p === shot).length, 1);
+	}
+	// 清洗：未知地点、未知天气、重复、非字符串都丢掉；旧存档没有这个字段时为空
+	const dirty = sanitizeState({ ...s, photos: [shot, shot, 'atlantis|sunny', 'perth|snow', 7] }, LOCS);
+	assert.deepEqual(dirty!.photos, [shot]);
+	const old = { ...s } as Record<string, unknown>;
+	delete old.photos;
+	assert.deepEqual(sanitizeState(old, LOCS)!.photos, []);
+});

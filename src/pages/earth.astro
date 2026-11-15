@@ -253,6 +253,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.trail button { padding: 6px 4px; font-size: 13px; line-height: 1.3; background: var(--card2); color: var(--dim); }
 			.trail button.been { background: var(--tint-blue); color: var(--tint-blue-ink); border-color: transparent; font-weight: 600; }
 			.trail small { display: block; font-size: 11px; font-weight: 400; }
+			.album { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+			.album-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+			.album-row:last-child { border-bottom: 0; }
+			.album-row i { font-style: normal; font-size: 16px; margin-left: 4px; opacity: 0.18; filter: grayscale(1); }
+			.album-row i.got { opacity: 1; filter: none; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -292,6 +297,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { getWish } from '../game/core/wishes.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
 			import { weatherAt, weatherOn } from '../game/core/weather.ts';
+			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
 			import { FIX_RULES } from '../game/data/venues.ts';
@@ -834,7 +840,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				// 足迹：全部地点，去过的标出次数；点一下看去那里的走法（当前所在地回今天页）
 				const placesVisited = region.locations.filter((l) => s.visited[l.id]).length;
 				const trailHtml = `<div class="card"><h3>足迹 ${placesVisited}/${region.locations.length}</h3><div class="trail">${region.locations.map((l) => `<button class="${s.visited[l.id] ? 'been' : ''}" data-loc="${l.id}">${KIND_ICON[l.kind]} ${esc(l.name)}${s.visited[l.id] ? `<small>${l.id === s.loc ? '在这里' : `${s.visited[l.id]} 次`}</small>` : '<small>没去过</small>'}</button>`).join('')}</div></div>`;
+				// 天气相册：每个地点一行，五种天气，拍到的点亮
+				const photos = new Set(s.photos);
+				const photoHtml = `<div class="card"><h3>天气相册 ${s.photos.length}/${region.locations.length * WEATHERS.length}</h3><p>抵达一个地方时，会按当天的天气收一张照片。同一个地方换个天气再来，能收到不一样的。</p>
+					<div class="album">${region.locations.map((l) => `<div class="album-row"><span>${esc(l.name)}</span><span>${WEATHERS.map((w) => `<i class="${photos.has(`${l.id}|${w.id}`) ? 'got' : ''}" title="${esc(w.name)}">${w.icon}</i>`).join('')}</span><span class="sr">${WEATHERS.filter((w) => photos.has(`${l.id}|${w.id}`)).map((w) => w.name).join('、') || '还没有'}</span></div>`).join('')}</div></div>`;
 				const card = {
+					photo: photoHtml,
 					trail: trailHtml,
 					ach: achHtml,
 					me: `<div class="card"><h3>${s.avatar} ${esc(s.name)}</h3><p>${origin.icon} ${origin.name} · 座驾：${veh}</p>
@@ -873,7 +884,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
 					})()}</div>`,
 				};
-				const sections: Record<string, string[]> = { overview: ['me', 'mood', 'ach', 'trail', 'daily', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
+				const sections: Record<string, string[]> = { overview: ['me', 'mood', 'ach', 'trail', 'daily', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album', 'photo'], people: ['rels'] };
 				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}</button>`).join('')}</div>`;
 				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
 				return seg + bodyHtml;

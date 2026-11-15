@@ -30,7 +30,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 | 身份 | `id` `name` `avatar` `origin` `traits` | — | 出身决定开局；特质创建时选 2 个，之后不可改 |
 | 生活需求 | `needs.hunger/energy/hygiene/fun/social` | 0–100 | 随游戏时间下降；饱食或精力为 0 时持续掉健康 |
 | 能力 | `skills.stamina/strength/driving/swimming/charisma/survival/street` | 0–100 | 靠行为成长，边际递减：增长 = 原值 × 特质倍率 × 0.35 × (1 − 当前值/110) |
-| 收藏 | `collected` `courseDays` | — | 已完成的体验；每门课最近一次上课的游戏日 |
+| 收藏 | `collected` `courseDays` `photos` | — | 已完成的体验；每门课最近一次上课的游戏日；天气相册（`地点|天气`，抵达时按当天天气收集，只是收藏） |
 | 状态 | `cash` `health` `respect` `heat` `vehicle` | 见下 | 现金 ≥0；健康 0–100；声望 ≥0；麻烦值 0–100 |
 | 物品 | `inventory` | 每种 1..上限 | `itemId → 数量` |
 | 职业 | `job` | — | `{ career, loc, level, shifts, good, lastDay }`：雇主、工作地点、等级、本级已上班次与表现好的班次、最近上班日 |

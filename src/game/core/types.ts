@@ -424,6 +424,7 @@ export interface PlayerState {
 	vehicle: Vehicle;
 	visited: Record<string, number>; // locId -> 到访次数
 	checkins: string[]; // 已 GPS 打卡的 POI id
+	photos: string[]; // 天气相册：'地点id|天气id'，抵达时按当天天气收集（只是收藏，不发奖励）
 	seen: string[]; // 已触发的 once 事件
 	traits: string[]; // 性格特质 id，创建时选定
 	inventory: Record<string, number>; // itemId -> 数量

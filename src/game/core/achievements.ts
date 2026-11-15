@@ -6,7 +6,7 @@ import type { PlayerState, Region } from './types.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
 import { ACHIEVEMENTS } from '../data/achievements.ts';
 
-export type AchievementMetric = 'places' | 'checkins' | 'collected' | 'friends' | 'besties' | 'home' | 'properties' | 'topJob' | 'worth' | 'level';
+export type AchievementMetric = 'places' | 'checkins' | 'collected' | 'friends' | 'besties' | 'home' | 'properties' | 'topJob' | 'worth' | 'level' | 'photos' | 'stormPhotos';
 
 export interface AchievementDef {
 	id: string;
@@ -43,6 +43,8 @@ export function achievementMetric(state: PlayerState, region: Region, m: Achieve
 		}
 		case 'worth': return Math.max(0, Math.floor(netWorth(state)));
 		case 'level': return level(state.respect).lv;
+		case 'photos': return state.photos.length;
+		case 'stormPhotos': return state.photos.filter((p) => p.endsWith('|storm')).length;
 	}
 }
 

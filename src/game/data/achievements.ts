@@ -19,4 +19,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
 	{ id: 'worth-10k', icon: '💵', name: '小有积蓄', desc: '净资产达到 $10,000', metric: 'worth', goal: 10_000 },
 	{ id: 'worth-100k', icon: '💰', name: '十万身家', desc: '净资产达到 $100,000', metric: 'worth', goal: 100_000 },
 	{ id: 'level-5', icon: '⭐', name: '本地通', desc: '等级达到 5', metric: 'level', goal: 5 },
+	{ id: 'photo-10', icon: '📷', name: '随手拍', desc: '天气相册里有 10 张照片', metric: 'photos', goal: 10 },
+	{ id: 'photo-30', icon: '🖼️', name: '四季西澳', desc: '天气相册里有 30 张照片', metric: 'photos', goal: 30 },
+	{ id: 'storm-3', icon: '⛈️', name: '追风者', desc: '在 3 个地方拍到风暴', metric: 'stormPhotos', goal: 3 },
 ];

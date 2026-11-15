@@ -1,6 +1,6 @@
 // 游戏规则引擎：纯函数、确定性（随机数来自存档里的 seed），前后端与测试共用。
 // 所有动作返回新的 PlayerState，不修改入参。
-import { weatherAt } from './weather.ts';
+import { weatherAt, weatherOn } from './weather.ts';
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
@@ -269,6 +269,13 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 	state.loc = locId;
 	state.visited[locId] = (state.visited[locId] ?? 0) + 1;
 	log(state, first ? `第一次来到${loc.name}。${loc.blurb}` : `回到${loc.name}。`);
+	// 天气相册：这个地点在这种天气下的照片还没有，就收一张
+	const w = weatherOn(locId, dayOf(state.clock));
+	const photo = `${locId}|${w.id}`;
+	if (!state.photos.includes(photo)) {
+		state.photos.push(photo);
+		log(state, `相册里多了一张${loc.name}的${w.icon}${w.name}。`);
+	}
 	if (first) {
 		state.respect += 1;
 		addMoodlet(state, 'first-visit');
