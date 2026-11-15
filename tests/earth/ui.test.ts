@@ -95,7 +95,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	};
 	// 在线频道：连上就算打开，记下发出去的消息
 	const sent: string[] = [];
-	let lastWs: { onmessage: ((e: { data: string }) => void) | null } | null = null;
+	type FakeWs = { onmessage: ((e: { data: string }) => void) | null };
+	let lastWs = null as FakeWs | null;
 	g.WebSocket = class { static OPEN = 1; readyState = 1; onmessage: ((e: { data: string }) => void) | null = null; onclose: (() => void) | null = null; constructor() { lastWs = this; } send(m: string) { sent.push(m); } close() {} };
 	g.confirm = () => true;
 	// 页面里的心跳、附近页刷新是 setInterval，会让测试进程一直不退出：测试期间不执行
@@ -187,6 +188,11 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ tab: 'social' });
 		assert.ok(!panel().includes('<img src=x') && !panel().includes('<script>bad'), '聊天内容没有转义');
 		assert.match(panel(), /&lt;img src=x onerror=alert\(1\)&gt;/);
+		// 同地点有其他玩家时，社交标签显示人数
+		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: 'peer-1', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
+		assert.match(el('tabs').innerHTML, /class="badge"[^>]*>1</, '社交标签显示 1 位');
+		lastWs!.onmessage!({ data: JSON.stringify({ t: 'leave', id: 'peer-1' }) });
+		assert.doesNotMatch(el('tabs').innerHTML, /class="badge"/);
 		// 社交页的快捷短语：点一下发到本地频道
 		await click({ tab: 'social' });
 		assert.match(panel(), /data-quick="0"/);

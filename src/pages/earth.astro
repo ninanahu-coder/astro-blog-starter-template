@@ -271,6 +271,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.log-row .t { color: var(--dim); font-variant-numeric: tabular-nums; flex: none; width: 3.2em; }
 			.skill .train { display: block; font-size: 11px; color: var(--dim); }
 			.warn-text { color: var(--tint-red-ink); font-weight: 600; }
+			#tabs button { position: relative; }
+			#tabs .badge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--warm); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -486,6 +488,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					else if (m.t === 'emote') toast(`${m.name} 向你 ${m.kind}`);
 					else return;
 					renderMap();
+					renderTabs();
 					if (tab === 'social') renderPanel();
 				};
 				sock.onclose = () => { if (ws === sock) { ws = null; peers.clear(); setTimeout(connect, 5000); } };
@@ -1042,8 +1045,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<div class="card"><h3>重新开始</h3><p>清除本机存档并创建新角色（云端旧档仍可用同步码找回）。</p><button data-reset style="margin-top:8px">删除本机存档</button></div>`;
 			}
 
+			/** 底部标签栏；社交标签上显示同地点在线的其他玩家数 */
+			function renderTabs() {
+				const hereCount = state ? [...peers.values()].filter((p) => p.loc === state!.loc && p.id !== myPeerId).length : 0;
+				$('tabs').innerHTML = `<div class="tabs-in">${TABS.map(([id, label, icon]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}" ${tab === id ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}${id === 'social' && hereCount ? `<span class="badge" aria-label="这里有 ${hereCount} 位玩家在线">${hereCount}</span>` : ''}</button>`).join('')}</div>`;
+			}
+
 			function renderPanel() {
-				$('tabs').innerHTML = `<div class="tabs-in">${TABS.map(([id, label, icon]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}" ${tab === id ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}</button>`).join('')}</div>`;
+				renderTabs();
 				// 地图只在「出行」页显示
 				$('map-wrap').classList.toggle('hidden', tab !== 'go');
 				renderMap();
