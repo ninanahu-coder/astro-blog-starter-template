@@ -375,7 +375,7 @@ export type WishDone =
 	| { t: 'activity'; ids: string[] }
 	| { t: 'npc'; acts: NpcAction[] }
 	| { t: 'home'; ops: string[] }
-	| { t: 'job' | 'course' | 'experience' | 'buy' | 'travel' | 'newplace' };
+	| { t: 'job' | 'course' | 'experience' | 'buy' | 'travel' | 'newplace' | 'photo' };
 
 export interface WishDef {
 	id: string;

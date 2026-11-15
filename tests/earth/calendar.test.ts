@@ -97,7 +97,7 @@ test('季节事件只在对应季节出现', () => {
 test('心愿数据：每条都能被某个动作满足', () => {
 	assert.equal(new Set(WISHES.map((w) => w.id)).size, WISHES.length);
 	const s = make();
-	const visitedMore = { ...s, loc: 'fremantle', visited: { ...s.visited, fremantle: 1 } };
+	const visitedMore = { ...s, loc: 'fremantle', visited: { ...s.visited, fremantle: 1 }, photos: [...s.photos, 'fremantle|sunny'] };
 	const probes = [
 		{ t: 'activity', id: 'eat' }, { t: 'activity', id: 'swim' }, { t: 'activity', id: 'pub' }, { t: 'activity', id: 'hike' },
 		{ t: 'npc', npc: 'mia', act: 'chat' }, { t: 'npc', npc: 'mia', act: 'gift' }, { t: 'npc', npc: 'mia', act: 'help' },

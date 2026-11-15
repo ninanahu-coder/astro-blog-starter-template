@@ -111,3 +111,16 @@ test('看风暴：只在风暴天的海滩出现、能做；其他天气不显�
 	assert.equal(r.ok, false);
 	assert.match(r.msg, /天气/);
 });
+
+test('心愿「想拍一张没拍过的照片」：抵达时收到新照片才算完成', async () => {
+	const { wishMatches, getWish } = await import('../../src/game/core/wishes.ts');
+	const w = getWish('photo')!;
+	assert.ok(w, '有这条心愿');
+	const s = createCharacter({ id: 'photo-wisher', name: '拍照', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed: 2 });
+	const fre = WA.locations.find((l) => l.id === 'fremantle')!;
+	const a = { t: 'gps', lat: fre.lat, lon: fre.lon } as const;
+	const r = applyAction(s, WA, a);
+	assert.ok(r.ok);
+	assert.equal(wishMatches(w, a, s, r.state), true, '收到新照片算完成');
+	assert.equal(wishMatches(w, a, r.state, r.state), false, '没收到新照片不算');
+});
