@@ -249,6 +249,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.streak .dot { height: 34px; border-radius: 10px; background: var(--soft); color: var(--dim); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
 			.streak .dot.on { background: var(--tint-green); color: var(--tint-green-ink); }
 			.streak .dot.big { font-size: 16px; }
+			.trail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+			.trail button { padding: 6px 4px; font-size: 13px; line-height: 1.3; background: var(--card2); color: var(--dim); }
+			.trail button.been { background: var(--tint-blue); color: var(--tint-blue-ink); border-color: transparent; font-weight: 600; }
+			.trail small { display: block; font-size: 11px; font-weight: 400; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -827,7 +831,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const ach = achievements(s, region);
 				const achDone = ach.filter((a) => a.done).length;
 				const achHtml = `<div class="card"><h3>成就 ${achDone}/${ach.length}</h3><div class="ach-grid">${ach.map((a) => `<div class="ach${a.done ? ' done' : ''}"><span class="ach-ico" aria-hidden="true">${a.def.icon}</span><span><b>${esc(a.def.name)}</b><small>${esc(a.def.desc)}${a.done ? '' : ` · ${a.cur.toLocaleString()}/${a.goal.toLocaleString()}`}</small></span><span class="sr">${a.done ? '（已达成）' : '（未达成）'}</span></div>`).join('')}</div></div>`;
+				// 足迹：全部地点，去过的标出次数；点一下看去那里的走法（当前所在地回今天页）
+				const placesVisited = region.locations.filter((l) => s.visited[l.id]).length;
+				const trailHtml = `<div class="card"><h3>足迹 ${placesVisited}/${region.locations.length}</h3><div class="trail">${region.locations.map((l) => `<button class="${s.visited[l.id] ? 'been' : ''}" data-loc="${l.id}">${KIND_ICON[l.kind]} ${esc(l.name)}${s.visited[l.id] ? `<small>${l.id === s.loc ? '在这里' : `${s.visited[l.id]} 次`}</small>` : '<small>没去过</small>'}</button>`).join('')}</div></div>`;
 				const card = {
+					trail: trailHtml,
 					ach: achHtml,
 					me: `<div class="card"><h3>${s.avatar} ${esc(s.name)}</h3><p>${origin.icon} ${origin.name} · 座驾：${veh}</p>
 					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
@@ -865,7 +873,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
 					})()}</div>`,
 				};
-				const sections: Record<string, string[]> = { overview: ['me', 'mood', 'ach', 'daily', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
+				const sections: Record<string, string[]> = { overview: ['me', 'mood', 'ach', 'trail', 'daily', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
 				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}</button>`).join('')}</div>`;
 				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
 				return seg + bodyHtml;
