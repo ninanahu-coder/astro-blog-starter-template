@@ -37,6 +37,38 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
+		id: 'pinnacles-dusk', title: '石阵黄昏', icon: '🌅', locs: ['pinnacles'], once: true, weight: 10,
+		text: '太阳落到石柱后面，几千根影子在黄沙上一起拉长。一只鸸鹋站在不远处盯着你。',
+		choices: [
+			{ label: '留下来等星星出来', check: { skill: 'survival', dc: 35 }, ok: { text: '没有一点光污染，银河从地平线一直铺到头顶。', fx: { minutes: 120, respect: 3, needs: { fun: 40, energy: -10 }, skills: { survival: 2 } } }, fail: { text: '天一黑就找不到回停车场的路，绕了半天才出来。', fx: { minutes: 150, needs: { fun: 15, energy: -20 }, skills: { survival: 1 } } } },
+			{ label: '拍完照就走', ok: { text: '照片里的石柱像一片外星城市。', fx: { needs: { fun: 20 } } } },
+		],
+	},
+	{
+		id: 'lucky-bay-roos', title: '白沙滩上的袋鼠', icon: '🦘', locs: ['esperance'], once: true, weight: 10,
+		text: '海水是透明的蓝，沙子白得晃眼，几只袋鼠正懒洋洋地躺在沙滩上晒太阳。',
+		choices: [
+			{ label: '在旁边下海游一圈', check: { skill: 'swimming', dc: 30 }, ok: { text: '冰凉的海水，回头就能看见袋鼠在岸上发呆。', fx: { respect: 3, needs: { fun: 40, hygiene: 15, energy: -10 }, skills: { swimming: 2 } } }, fail: { text: '南大洋的水比想象中冷得多，你哆嗦着跑回岸上。', fx: { health: -3, needs: { fun: 15 }, skills: { swimming: 1 } } } },
+			{ label: '远远地看着就好', ok: { text: '袋鼠翻了个身，继续晒。', fx: { needs: { fun: 25 } } } },
+		],
+	},
+	{
+		id: 'albany-whales', title: '海湾里的鲸', icon: '🐋', locs: ['albany'], once: true, weight: 10,
+		text: '码头上有人指着海湾大喊：一对座头鲸母子正从港口外经过，喷出的水雾在阳光里闪。',
+		choices: [
+			{ label: '跳上最后一班观鲸船（$60）', cost: 60, ok: { text: '小鲸跃出水面的那一刻，整船人都叫了起来。', fx: { minutes: 150, respect: 4, needs: { fun: 50, social: 15 } } } },
+			{ label: '在岸边的山头上看', check: { skill: 'stamina', dc: 30 }, ok: { text: '爬到山顶正好赶上它们转身，看得清清楚楚。', fx: { minutes: 60, respect: 2, needs: { fun: 30, energy: -10 }, skills: { stamina: 1.5 } } }, fail: { text: '爬到一半就喘不过气，只看到远处的水花。', fx: { minutes: 60, needs: { fun: 10, energy: -15 }, skills: { stamina: 1 } } } },
+		],
+	},
+	{
+		id: 'wave-rock-top', title: '浪尖上', icon: '🌊', locs: ['wave-rock'], once: true, weight: 10,
+		text: '十五米高的花岗岩像一道凝固的巨浪。顶上有人朝你挥手，说上面的风景更好。',
+		choices: [
+			{ label: '沿着石坡爬上去', check: { skill: 'stamina', dc: 35 }, ok: { text: '站在浪尖上，四周的麦田一直铺到天边。', fx: { minutes: 60, respect: 3, needs: { fun: 35, energy: -15 }, skills: { stamina: 2 } } }, fail: { text: '石坡比看起来陡，你在半路坐下来歇了很久。', fx: { minutes: 60, needs: { fun: 10, energy: -20 }, skills: { stamina: 1 } } } },
+			{ label: '在浪底下摆个冲浪的姿势拍照', ok: { text: '经典游客照，到此一游。', fx: { needs: { fun: 20, social: 5 } } } },
+		],
+	},
+	{
 		id: 'dolphin-visit', title: '海豚来了', icon: '🐬', tags: ['dolphin'], once: true, weight: 10,
 		text: '清晨的浅滩，三只野生宽吻海豚游到了你膝盖边。',
 		choices: [{ label: '站着别动', ok: { text: '其中一只侧过身，看了你一眼。', fx: { respect: 2, needs: { fun: 35 } } } }],
