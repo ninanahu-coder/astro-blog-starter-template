@@ -165,7 +165,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ tab: 'go' });
 		await click({ go: 'fremantle', mode: 'road' });
 		await pause(30);
-		for (let i = 0; i < 3 && !el('modal').classList.contains('hidden'); i++) { await click({ choice: '0' }); await pause(30); }
+		for (let i = 0; i < 6 && !el('modal').classList.contains('hidden'); i++) {
+			await click(el('modal').innerHTML.includes('data-result-close') ? { resultClose: '' } : { choice: '0' });
+			await pause(30);
+		}
 		await click({ tab: 'go' });
 		await click({ go: 'rottnest', mode: 'ferry' });
 		await pause(30);
@@ -176,7 +179,12 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.ok(!panel().includes('class="next"'), '有待处理事件时不给下一步按钮');
 		await click({ choice: '1' });
 		await pause(30);
-		assert.equal(el('modal').classList.contains('hidden'), true, '选完事件弹窗关闭');
+		// 选完先看结果页：弹窗还开着、仍然锁住背后，点「继续」才关闭
+		assert.match(el('modal').innerHTML, /结果/);
+		assert.match(el('modal').innerHTML, /data-result-close/);
+		assert.equal(el('game').inert, true, '结果页也锁住背后');
+		await click({ resultClose: '' });
+		assert.equal(el('modal').classList.contains('hidden'), true, '点继续后弹窗关闭');
 		assert.equal(el('game').inert, false, '弹窗关闭后解锁');
 		assert.equal((data.get('save:' + cred.id) as any).state.loc, 'rottnest');
 	} finally {

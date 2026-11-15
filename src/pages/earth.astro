@@ -945,10 +945,26 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (chat) chat.scrollTop = chat.scrollHeight;
 			}
 
+			// 事件选完后的结果页（在弹窗里），点「继续」关闭；只在本机内存里
+			let eventResult: { title: string; icon: string; text: string; delta: { text: string; up: boolean }[] } | null = null;
 			function renderEvent() {
 				const ev = state ? getPendingEvent(state) : null;
 				const modal = $('modal');
 				const game = $('game') as HTMLElement & { inert: boolean };
+				if (!ev && eventResult) {
+					// 没有下一个待处理事件时，显示刚才那个事件的结果
+					const wasOpen = !modal.classList.contains('hidden');
+					const r = eventResult;
+					modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
+						<div class="ev-hero"><span class="kicker">结果</span><h2 id="ev-title">${r.icon} ${esc(r.title)}</h2></div>
+						<div class="ev-body"><p>${esc(r.text)}</p>
+						${r.delta.length ? `<div class="pills">${r.delta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
+						<button class="primary" data-result-close>继续</button></div></div>`;
+					modal.classList.remove('hidden');
+					game.inert = true;
+					if (!wasOpen) modal.querySelector<HTMLElement>('button')?.focus();
+					return;
+				}
 				if (!ev) { modal.classList.add('hidden'); game.inert = false; return; }
 				const s = state!;
 				const loc = getLocation(region, s.loc);
@@ -990,7 +1006,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) { tab = d.tab; if (t.classList.contains('moodchip')) meTab = 'overview'; renderPanel(); window.scrollTo({ top: 0 }); }
@@ -1052,7 +1068,18 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					tab = here ? 'place' : 'go';
 					renderMap(); renderPanel();
 				}
-				else if (d.choice) act({ t: 'event', choice: +d.choice }).then((r) => { if (r) { lastOutcome = r.msg; tab = 'place'; render(); } });
+				else if (d.choice) {
+					const ev = getPendingEvent(state);
+					act({ t: 'event', choice: +d.choice }).then((r) => {
+						if (r) {
+							lastOutcome = r.msg;
+							if (ev) eventResult = { title: ev.title, icon: ev.icon, text: r.msg, delta: lastDelta };
+							tab = 'place';
+							render();
+						}
+					});
+				}
+				else if ('resultClose' in d) { eventResult = null; renderEvent(); }
 				else if ('gps' in d) checkIn();
 				else if ('locate' in d) locate().then((f) => { if (f) renderPanel(); });
 				else if (d.venue && d.venueOp) venueDo(d.venue, d.venueOp as VenueOp);
