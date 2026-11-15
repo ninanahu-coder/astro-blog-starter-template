@@ -22,4 +22,5 @@ export const WISHES: WishDef[] = [
 	{ id: 'stay-in', text: '想在家待一会儿', needs: 'home', done: { t: 'home', ops: ['relax', 'sleep'] } },
 	{ id: 'shopping', text: '想买点东西', done: { t: 'buy' }, venue: ['groceries'] },
 	{ id: 'road-trip', text: '想出趟门', done: { t: 'travel' } },
+	{ id: 'photo', text: '想拍一张没拍过的照片', done: { t: 'photo' } },
 ];

@@ -47,6 +47,7 @@ export function wishMatches(w: WishDef, a: GameAction, before: PlayerState, afte
 		case 'buy': return a.t === 'buy' || (a.t === 'furniture' && a.op === 'buy');
 		case 'travel': return (a.t === 'travel' || a.t === 'gps') && after.loc !== before.loc;
 		case 'newplace': return Object.keys(after.visited).length > Object.keys(before.visited).length;
+		case 'photo': return after.photos.length > before.photos.length;
 	}
 }
 

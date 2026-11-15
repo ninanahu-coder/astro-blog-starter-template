@@ -97,7 +97,7 @@ test('季节事件只在对应季节出现', () => {
 test('心愿数据：每条都能被某个动作满足', () => {
 	assert.equal(new Set(WISHES.map((w) => w.id)).size, WISHES.length);
 	const s = make();
-	const visitedMore = { ...s, loc: 'fremantle', visited: { ...s.visited, fremantle: 1 } };
+	const visitedMore = { ...s, loc: 'fremantle', visited: { ...s.visited, fremantle: 1 }, photos: [...s.photos, 'fremantle|sunny'] };
 	const probes = [
 		{ t: 'activity', id: 'eat' }, { t: 'activity', id: 'swim' }, { t: 'activity', id: 'pub' }, { t: 'activity', id: 'hike' },
 		{ t: 'npc', npc: 'mia', act: 'chat' }, { t: 'npc', npc: 'mia', act: 'gift' }, { t: 'npc', npc: 'mia', act: 'help' },
@@ -172,4 +172,12 @@ test('存档校验：心愿与每日奖励', () => {
 	for (const k of ['wishes', 'wishDay', 'daily']) Reflect.deleteProperty(old, k);
 	const m = sanitizeState(old)!;
 	assert.deepEqual([m.wishes, m.wishDay, m.daily], [[], -1, { day: 0, streak: 0 }]);
+});
+
+test('每日奖励金额：第 1 天 $30，每天 +$10，第 7 天封顶并另加 $150，之后按周循环', async () => {
+	const { dailyReward, DAILY } = await import('../../src/game/core/daily.ts');
+	assert.deepEqual([1, 2, 6, 7, 8, 14, 15].map((n) => dailyReward(n).cash), [30, 40, 80, 90 + DAILY.bonus, 90, 90 + DAILY.bonus, 90]);
+	assert.equal(dailyReward(7).full, true);
+	assert.equal(dailyReward(8).full, false);
+	assert.equal(dailyReward(0).cash, 30, '异常输入按第 1 天算');
 });

@@ -412,3 +412,24 @@ test('服务端：榜单记录损坏时跳过那一条，不影响其他人', as
 	assert.equal(r.data.total, 1);
 	assert.equal(r.data.me.rank, 1);
 });
+
+test('服务端：旧存档没有天气相册字段时读取后补上；抵达后照片落盘', async () => {
+	const w = makeWorld();
+	await w.call({ action: 'create', ...cred, profile });
+	// 模拟上线前的旧存档：没有 photos 字段
+	const rec = w.data.get('save:' + ID);
+	const old = { ...rec.state };
+	delete old.photos;
+	w.data.set('save:' + ID, { ...rec, state: old });
+	const got = await w.call({ action: 'get', ...cred });
+	assert.equal(got.status, 200, got.data.msg);
+	assert.deepEqual(got.data.state.photos, []);
+	assert.deepEqual(w.data.get('save:' + ID).state.photos, [], '修正后写回');
+	// 真实定位抵达弗里曼特尔：收一张照片并落盘
+	const fre = WA.locations.find((l) => l.id === 'fremantle')!;
+	const r = await w.call({ action: 'act', ...cred, rev: got.data.state.rev, act: { t: 'gps', lat: fre.lat, lon: fre.lon } });
+	assert.ok(r.data.ok, r.data.msg);
+	assert.equal(r.data.state.photos.length, 1);
+	assert.match(r.data.state.photos[0], /^fremantle\|/);
+	assert.deepEqual(w.data.get('save:' + ID).state.photos, r.data.state.photos);
+});

@@ -93,6 +93,8 @@ export interface NpcPerk {
 	desc: string;
 	every: number;
 	fx: Effect;
+	/** 'sea'：要出海或下海，风暴天做不了 */
+	exposed?: 'sea';
 }
 
 export interface NpcDef {
@@ -339,6 +341,10 @@ export interface Activity {
 	fx: Effect;
 	requires?: { cash?: number; skill?: Partial<Skills>; vehicle?: Vehicle[] };
 	hours?: Hours; // 不写表示全天可做
+	/** 'sea'：海上的活动，风暴天取消（见 data/weather.ts） */
+	exposed?: 'sea';
+	/** 只在这些天气出现（当天天气不符时列表里不显示、也不能做） */
+	weather?: string[];
 	desc: string;
 }
 
@@ -352,6 +358,8 @@ export interface EventChoice {
 	/** 选这一项要先付的钱（买东西、门票）。钱不够不能选；和结果里的罚款不同，罚款不够时扣到 0 为止 */
 	cost?: number;
 	check?: { skill: SkillKey; dc: number };
+	/** 'sea'：要下海或出海，风暴天不能选（事件里必须还有别的选项） */
+	exposed?: 'sea';
 	ok: Outcome;
 	fail?: Outcome;
 }
@@ -371,7 +379,7 @@ export type WishDone =
 	| { t: 'activity'; ids: string[] }
 	| { t: 'npc'; acts: NpcAction[] }
 	| { t: 'home'; ops: string[] }
-	| { t: 'job' | 'course' | 'experience' | 'buy' | 'travel' | 'newplace' };
+	| { t: 'job' | 'course' | 'experience' | 'buy' | 'travel' | 'newplace' | 'photo' };
 
 export interface WishDef {
 	id: string;
@@ -383,6 +391,7 @@ export interface WishDef {
 
 export interface GameEvent {
 	seasons?: string[]; // 只在这些季节出现
+	weather?: string[]; // 只在抵达地点当天是这些天气时出现
 	id: string;
 	title: string;
 	icon: string;
@@ -422,6 +431,7 @@ export interface PlayerState {
 	vehicle: Vehicle;
 	visited: Record<string, number>; // locId -> 到访次数
 	checkins: string[]; // 已 GPS 打卡的 POI id
+	photos: string[]; // 天气相册：'地点id|天气id'，抵达时按当天天气收集（只是收藏，不发奖励）
 	seen: string[]; // 已触发的 once 事件
 	traits: string[]; // 性格特质 id，创建时选定
 	inventory: Record<string, number>; // itemId -> 数量

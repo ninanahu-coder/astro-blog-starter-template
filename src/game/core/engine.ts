@@ -1,5 +1,6 @@
 // 游戏规则引擎：纯函数、确定性（随机数来自存档里的 seed），前后端与测试共用。
 // 所有动作返回新的 PlayerState，不修改入参。
+import { weatherAt, weatherOn } from './weather.ts';
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
@@ -268,6 +269,13 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 	state.loc = locId;
 	state.visited[locId] = (state.visited[locId] ?? 0) + 1;
 	log(state, first ? `第一次来到${loc.name}。${loc.blurb}` : `回到${loc.name}。`);
+	// 天气相册：这个地点在这种天气下的照片还没有，就收一张
+	const w = weatherOn(locId, dayOf(state.clock));
+	const photo = `${locId}|${w.id}`;
+	if (!state.photos.includes(photo)) {
+		state.photos.push(photo);
+		log(state, `相册里多了一张${loc.name}的${w.icon}${w.name}。`);
+	}
 	if (first) {
 		state.respect += 1;
 		addMoodlet(state, 'first-visit');
@@ -289,6 +297,7 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null, clock: number): boolean {
 	if (ev.venueTypes) return false; // 真实地点事件只由 pickVenueEvent 抽
 	if (ev.seasons && !ev.seasons.includes(dateOf(clock).season)) return false;
+	if (ev.weather && !ev.weather.includes(weatherOn(loc.id, dayOf(clock)).id)) return false;
 	if (ev.arrivedBy && (!mode || !ev.arrivedBy.includes(mode))) return false;
 	const scoped = ev.locs || ev.tags || ev.kinds;
 	if (!scoped) return true;
@@ -336,6 +345,7 @@ export function resolveEvent(prev: PlayerState, region: Region, choiceIdx: numbe
 	if (!ev) return { ok: false, state: prev.pending ? { ...prev, pending: null } : prev, msg: '没有待处理的事件。' };
 	const choice = ev.choices[choiceIdx];
 	if (!choice) return fail(prev, '无效的选择。');
+	if (choice.exposed === 'sea' && weatherAt(prev).closesSea) return fail(prev, '今天有风暴，下不了海。换个选项吧。');
 	if (choice.cost && prev.cash < choice.cost) return fail(prev, `需要 $${choice.cost}，钱不够。换个选项吧。`);
 	const state = clone(prev);
 	state.pending = null;
@@ -360,11 +370,13 @@ export function activityAvailableAt(act: Activity, loc: GameLocation): boolean {
 export function activitiesAt(state: PlayerState, region: Region): { act: Activity; blocked?: string }[] {
 	const loc = getLocation(region, state.loc);
 	if (!loc) return [];
-	return ACTIVITIES.filter((a) => activityAvailableAt(a, loc)).map((act) => ({ act, blocked: blockedReason(state, act) }));
+	const today = weatherAt(state).id;
+	return ACTIVITIES.filter((a) => activityAvailableAt(a, loc) && (!a.weather || a.weather.includes(today))).map((act) => ({ act, blocked: blockedReason(state, act) }));
 }
 
 function blockedReason(state: PlayerState, act: Activity): string | undefined {
 	if (!isOpen(act.hours, state.clock)) return `营业时间 ${hoursLabel(act.hours!)}`;
+	if (act.exposed === 'sea' && weatherAt(state).closesSea) return '今天有风暴，海上的活动取消了';
 	const req = act.requires;
 	if (!req) return undefined;
 	if (req.cash && state.cash < req.cash) return `需要 $${req.cash}`;
@@ -388,6 +400,7 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	const loc = getLocation(region, prev.loc);
 	const act = ACTIVITIES.find((a) => a.id === activityId);
 	if (!loc || !act || !activityAvailableAt(act, loc)) return fail(prev, '这里做不了这件事。');
+	if (act.weather && !act.weather.includes(weatherAt(prev).id)) return fail(prev, '今天的天气做不了这件事。');
 	const blocked = blockedReason(prev, act);
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);
@@ -521,12 +534,23 @@ export function npcPlan(npc: NpcDef, clock: number): NpcPlan {
 }
 
 /** 跨午夜的作息（如 20:00–6:00）在凌晨时算前一天的安排 */
-function planNow(npc: NpcDef, clock: number): NpcPlan {
-	const today = npcPlan(npc, clock);
-	const [open, close] = today.hours;
-	if (open < close || hourOf(clock) >= open) return today;
+/** NPC 此刻适用的安排：凌晨时沿用前一天跨午夜的作息（和「在不在场」的判断一致，界面也用它） */
+export function planNow(npc: NpcDef, clock: number): NpcPlan {
+	// 只有凌晨还在昨天那个跨午夜班次里（早于它的收工时间）时才沿用昨天；否则就是今天的安排
 	const yesterday = npcPlan(npc, clock - 1440);
-	return yesterday.hours[0] >= yesterday.hours[1] ? yesterday : today;
+	const [yo, yc] = yesterday.hours;
+	if (yo >= yc && hourOf(clock) < yc) return yesterday;
+	return npcPlan(npc, clock);
+}
+
+/** NPC 此刻相对当前安排的状态：在那里 / 还没到时间 / 今天已经走了 */
+export function npcStatus(npc: NpcDef, clock: number): { plan: NpcPlan; state: 'there' | 'before' | 'after' } {
+	const plan = planNow(npc, clock);
+	if (isOpen(plan.hours, clock)) return { plan, state: 'there' };
+	const [open, close] = plan.hours;
+	const h = hourOf(clock);
+	// 不跨午夜的作息：开工前算「还没到」，收工后算「已经走了」；跨午夜的作息此刻不在就是还没到
+	return { plan, state: open < close && h >= close ? 'after' : 'before' };
 }
 
 /** NPC 此刻是否在某地点 */
@@ -536,9 +560,10 @@ export function npcPresent(npc: NpcDef, loc: string, clock: number): boolean {
 }
 
 /** 专属互动不能做的原因；undefined 表示可以做。没有专属互动的 NPC 返回 null */
-function perkBlocked(npc: NpcDef, rel: Relation, today: number): string | null | undefined {
+function perkBlocked(npc: NpcDef, rel: Relation, today: number, stormy: boolean): string | null | undefined {
 	if (!npc.perk) return null;
 	if (rel.score < npc.perk.at) return `关系达到「${relationTier(npc.perk.at)}」后解锁`;
+	if (npc.perk.exposed === 'sea' && stormy) return '今天有风暴，出不了海';
 	const last = rel.last.perk;
 	if (last !== undefined && today - last < npc.perk.every) return `${npc.perk.every - (today - last)} 天后可以再来`;
 	return undefined;
@@ -580,7 +605,7 @@ export function npcsAt(state: PlayerState, region: Region): NpcAvailability[] {
 			gift: used('gift') ?? (anyItem ? undefined : '背包里没有能送的东西'),
 			help: used('help') ?? (state.needs.energy < 25 ? '太累了' : undefined),
 		};
-		const perk = perkBlocked(npc, rel, today);
+		const perk = perkBlocked(npc, rel, today, !!weatherAt(state).closesSea);
 		if (perk !== null) blocked.perk = perk;
 		const nextStory = npc.stories.find((st) => !rel.seen.includes(st.at))?.at;
 		return { npc, rel, tier: relationTier(rel.score), gift, blocked, nextStory };

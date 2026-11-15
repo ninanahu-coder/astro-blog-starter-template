@@ -16,7 +16,7 @@ export const EVENTS: GameEvent[] = [
 		id: 'whale-shark', title: '鲸鲨', icon: '🦈', locs: ['exmouth'], once: true, weight: 10,
 		text: '船长喊：“鲸鲨！右舷！”一条八米长的影子从船底滑过。',
 		choices: [
-			{ label: '跳下去同游（$200）', cost: 200, check: { skill: 'swimming', dc: 45 }, ok: { text: '你和地球上最大的鱼并肩游了十分钟。', fx: { respect: 5, needs: { fun: 50 }, skills: { swimming: 4 } } }, fail: { text: '浪太大，你呛了几口水被拉回船上。', fx: { health: -8, needs: { fun: 10 }, skills: { swimming: 2 } } } },
+			{ label: '跳下去同游（$200）', cost: 200, exposed: 'sea', check: { skill: 'swimming', dc: 45 }, ok: { text: '你和地球上最大的鱼并肩游了十分钟。', fx: { respect: 5, needs: { fun: 50 }, skills: { swimming: 4 } } }, fail: { text: '浪太大，你呛了几口水被拉回船上。', fx: { health: -8, needs: { fun: 10 }, skills: { swimming: 2 } } } },
 			{ label: '在甲板上看就好', ok: { text: '隔着水面也足够震撼。', fx: { needs: { fun: 20 } } } },
 		],
 	},
@@ -34,6 +34,77 @@ export const EVENTS: GameEvent[] = [
 		choices: [
 			{ label: '坐下来看完', ok: { text: '全镇的人都安静了。', fx: { minutes: 60, respect: 2, needs: { fun: 40, social: 20 } } } },
 			{ label: '趁人多去夜市摆摊', check: { skill: 'charisma', dc: 40 }, ok: { text: '生意出奇的好。', fx: { cash: 260, skills: { charisma: 3 } } }, fail: { text: '没人看你，都在看月亮。', fx: { needs: { fun: -5 } } } },
+		],
+	},
+	{
+		id: 'pinnacles-dusk', title: '石阵黄昏', icon: '🌅', locs: ['pinnacles'], once: true, weight: 10,
+		text: '太阳落到石柱后面，几千根影子在黄沙上一起拉长。一只鸸鹋站在不远处盯着你。',
+		choices: [
+			{ label: '留下来等星星出来', check: { skill: 'survival', dc: 35 }, ok: { text: '没有一点光污染，银河从地平线一直铺到头顶。', fx: { minutes: 120, respect: 3, needs: { fun: 40, energy: -10 }, skills: { survival: 2 } } }, fail: { text: '天一黑就找不到回停车场的路，绕了半天才出来。', fx: { minutes: 150, needs: { fun: 15, energy: -20 }, skills: { survival: 1 } } } },
+			{ label: '拍完照就走', ok: { text: '照片里的石柱像一片外星城市。', fx: { needs: { fun: 20 } } } },
+		],
+	},
+	{
+		id: 'lucky-bay-roos', title: '白沙滩上的袋鼠', icon: '🦘', locs: ['esperance'], once: true, weight: 10,
+		text: '海水是透明的蓝，沙子白得晃眼，几只袋鼠正懒洋洋地躺在沙滩上晒太阳。',
+		choices: [
+			{ label: '在旁边下海游一圈', exposed: 'sea', check: { skill: 'swimming', dc: 30 }, ok: { text: '冰凉的海水，回头就能看见袋鼠在岸上发呆。', fx: { respect: 3, needs: { fun: 40, hygiene: 15, energy: -10 }, skills: { swimming: 2 } } }, fail: { text: '南大洋的水比想象中冷得多，你哆嗦着跑回岸上。', fx: { health: -3, needs: { fun: 15 }, skills: { swimming: 1 } } } },
+			{ label: '远远地看着就好', ok: { text: '袋鼠翻了个身，继续晒。', fx: { needs: { fun: 25 } } } },
+		],
+	},
+	{
+		id: 'albany-whales', title: '海湾里的鲸', icon: '🐋', locs: ['albany'], once: true, weight: 10,
+		text: '码头上有人指着海湾大喊：一对座头鲸母子正从港口外经过，喷出的水雾在阳光里闪。',
+		choices: [
+			{ label: '跳上最后一班观鲸船（$60）', cost: 60, exposed: 'sea', ok: { text: '小鲸跃出水面的那一刻，整船人都叫了起来。', fx: { minutes: 150, respect: 4, needs: { fun: 50, social: 15 } } } },
+			{ label: '在岸边的山头上看', check: { skill: 'stamina', dc: 30 }, ok: { text: '爬到山顶正好赶上它们转身，看得清清楚楚。', fx: { minutes: 60, respect: 2, needs: { fun: 30, energy: -10 }, skills: { stamina: 1.5 } } }, fail: { text: '爬到一半就喘不过气，只看到远处的水花。', fx: { minutes: 60, needs: { fun: 10, energy: -15 }, skills: { stamina: 1 } } } },
+		],
+	},
+	{
+		id: 'natures-window', title: '自然之窗', icon: '🪟', locs: ['kalbarri'], once: true, weight: 10,
+		text: '红色砂岩被风蚀出一个天然的窗洞，窗外是弯弯曲曲的默奇森河峡谷。清晨的光正好从洞里斜照进来。',
+		choices: [
+			{ label: '沿着峡谷边的步道走一圈', check: { skill: 'stamina', dc: 35 }, ok: { text: '走完一圈，太阳刚好升到峡谷上方，整条河都亮了。', fx: { minutes: 120, respect: 3, needs: { fun: 35, energy: -15 }, skills: { stamina: 2 } } }, fail: { text: '太阳一出来就热得受不了，走了一半就折回来了。', fx: { minutes: 90, needs: { fun: 10, energy: -20 }, skills: { stamina: 1 } } } },
+			{ label: '坐在窗洞里拍张照', ok: { text: '经典的窗框构图，背后是两百米深的峡谷。', fx: { needs: { fun: 20, social: 5 } } } },
+		],
+	},
+	{
+		id: 'spider-walk', title: '蜘蛛步', icon: '🕷️', locs: ['karijini'], once: true, weight: 10,
+		text: '峡谷窄到两边岩壁只隔一臂宽，下面是流水。要往前走，只能像蜘蛛一样两手两脚撑着两边的石壁。',
+		choices: [
+			{ label: '撑着岩壁过去', check: { skill: 'strength', dc: 40 }, ok: { text: '过了最窄的那段，眼前豁然开朗：一汪碧绿的水潭。', fx: { minutes: 90, respect: 4, needs: { fun: 40, energy: -20 }, skills: { strength: 2, survival: 1 } } }, fail: { text: '脚一滑掉进了水里，好在不深，只是浑身湿透。', fx: { minutes: 60, health: -4, needs: { fun: 15, hygiene: 10 }, skills: { strength: 1 } } } },
+			{ label: '在入口看别人过', ok: { text: '有人卡在中间进退两难，你决定下次再来。', fx: { needs: { fun: 12 } } } },
+		],
+	},
+	{
+		id: 'beehive-domes', title: '蜂巢山', icon: '🐝', locs: ['kununurra'], once: true, weight: 10,
+		text: '一架小飞机愿意带你飞过邦格尔邦格尔山脉：橙黑相间的圆顶石丘，像一片巨大的蜂巢。',
+		choices: [
+			{ label: '上飞机看看（$180）', cost: 180, ok: { text: '从空中看下去，几万个圆顶一直排到地平线。', fx: { minutes: 120, respect: 5, needs: { fun: 50 } } } },
+			{ label: '跟车队开进山脚下走走', check: { skill: 'driving', dc: 40 }, ok: { text: '土路颠了三个小时，但站在圆顶中间抬头看，一点也不后悔。', fx: { minutes: 240, respect: 3, needs: { fun: 35, energy: -20 }, skills: { driving: 2, survival: 1 } } }, fail: { text: '车陷在沙里，等了两个小时才有人路过帮你拖出来。', fx: { minutes: 180, needs: { fun: -5, energy: -25 }, skills: { driving: 1 } } } },
+		],
+	},
+	{
+		id: 'wave-rock-top', title: '浪尖上', icon: '🌊', locs: ['wave-rock'], once: true, weight: 10,
+		text: '十五米高的花岗岩像一道凝固的巨浪。顶上有人朝你挥手，说上面的风景更好。',
+		choices: [
+			{ label: '沿着石坡爬上去', check: { skill: 'stamina', dc: 35 }, ok: { text: '站在浪尖上，四周的麦田一直铺到天边。', fx: { minutes: 60, respect: 3, needs: { fun: 35, energy: -15 }, skills: { stamina: 2 } } }, fail: { text: '石坡比看起来陡，你在半路坐下来歇了很久。', fx: { minutes: 60, needs: { fun: 10, energy: -20 }, skills: { stamina: 1 } } } },
+			{ label: '在浪底下摆个冲浪的姿势拍照', ok: { text: '经典游客照，到此一游。', fx: { needs: { fun: 20, social: 5 } } } },
+		],
+	},
+	{
+		id: 'rain-shelter', title: '躲雨', icon: '☔', kinds: ['city', 'town', 'port'], weather: ['rain'], weight: 4,
+		text: '雨突然下大了，你和几个陌生人挤在同一个屋檐下。',
+		choices: [
+			{ label: '跟旁边的人聊几句', check: { skill: 'charisma', dc: 30 }, ok: { text: '雨停的时候，你们已经约好了改天一起喝咖啡。', fx: { minutes: 30, needs: { social: 25 }, skills: { charisma: 1.5 } } }, fail: { text: '对方戴着耳机，冲你礼貌地笑了笑。', fx: { minutes: 30, needs: { social: 5 } } } },
+			{ label: '冒雨跑回去', ok: { text: '浑身湿透，但莫名地开心。', fx: { needs: { hygiene: -10, fun: 10 } } } },
+		],
+	},
+	{
+		id: 'rainbow', title: '雨后彩虹', icon: '🌈', kinds: ['coast', 'park', 'island'], weather: ['rain'], weight: 4,
+		text: '一阵雨刚过，一道完整的双彩虹横跨天边。',
+		choices: [
+			{ label: '停下来看完', ok: { text: '直到彩虹慢慢淡掉，你才继续上路。', fx: { minutes: 20, needs: { fun: 20 } } } },
 		],
 	},
 	{

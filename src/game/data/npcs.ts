@@ -38,7 +38,7 @@ export const NPCS: NpcDef[] = [
 			{ at: 60, title: '成了好友', text: '老杰克把他年轻时的冲浪板送给了你。', fx: { items: { surfboard: 1 }, moodlet: 'new-friend' } },
 			{ at: 90, title: '船的名字', text: '老杰克说他的船一直没有名字，问你愿不愿意给它起一个。', fx: { respect: 3, moodlet: 'best-friend' } },
 		],
-		perk: { at: 60, name: '跟船出海', desc: '跟老杰克出海收了一上午网，分到一条鱼。', every: 3, fx: { minutes: 180, needs: { fun: 25, hunger: 20, energy: -12 }, skills: { swimming: 1, survival: 1 } } },
+		perk: { at: 60, exposed: 'sea', name: '跟船出海', desc: '跟老杰克出海收了一上午网，分到一条鱼。', every: 3, fx: { minutes: 180, needs: { fun: 25, hunger: 20, energy: -12 }, skills: { swimming: 1, survival: 1 } } },
 	},
 	{
 		id: 'linda', name: '琳达', role: '护林员', loc: 'rottnest', hours: [8, 17],
@@ -69,7 +69,7 @@ export const NPCS: NpcDef[] = [
 			{ at: 60, title: '成了好友', text: '里奥免费给你上了一整天私教课。', fx: { skills: { swimming: 5, stamina: 3 }, moodlet: 'new-friend' } },
 			{ at: 90, title: '秘密浪点', text: '里奥开车带你去了一个他从不告诉别人的浪点。', fx: { skills: { swimming: 3 }, moodlet: 'best-friend' } },
 		],
-		perk: { at: 60, name: '私教冲浪课', desc: '里奥陪你在浪里泡了两个小时。', every: 3, fx: { minutes: 120, needs: { fun: 20, energy: -15 }, skills: { swimming: 1.5 } } },
+		perk: { at: 60, exposed: 'sea', name: '私教冲浪课', desc: '里奥陪你在浪里泡了两个小时。', every: 3, fx: { minutes: 120, needs: { fun: 20, energy: -15 }, skills: { swimming: 1.5 } } },
 	},
 	{
 		id: 'nan', name: '南希', role: '民宿老板娘', loc: 'esperance', hours: [7, 21],
@@ -115,7 +115,7 @@ export const NPCS: NpcDef[] = [
 			{ at: 60, title: '成了好友', text: '萨姆带你潜了一次游客去不了的礁区。', fx: { respect: 3, skills: { swimming: 6 }, moodlet: 'new-friend' } },
 			{ at: 90, title: '同一片海', text: '萨姆在日志里写下你的名字，旁边画了一条鲸鲨。', fx: { moodlet: 'best-friend' } },
 		],
-		perk: { at: 60, name: '带你浮潜', desc: '萨姆带你在近岸礁区浮潜了两个小时。', every: 3, fx: { minutes: 120, needs: { fun: 25, energy: -10 }, skills: { swimming: 1.5 } } },
+		perk: { at: 60, exposed: 'sea', name: '带你浮潜', desc: '萨姆带你在近岸礁区浮潜了两个小时。', every: 3, fx: { minutes: 120, needs: { fun: 25, energy: -10 }, skills: { swimming: 1.5 } } },
 	},
 	{
 		id: 'dave', name: '戴夫', role: '长途卡车司机', loc: 'port-hedland', hours: [20, 6],
@@ -147,5 +147,33 @@ export const NPCS: NpcDef[] = [
 			{ at: 90, title: '祖父的珠子', text: '由纪把祖父留下的一颗小珍珠串成链子送给了你。', fx: { respect: 3, moodlet: 'best-friend' } },
 		],
 		perk: { at: 60, name: '珍珠鉴别课', desc: '由纪拿出一盘珠子让你挑真货。', every: 3, fx: { minutes: 60, needs: { fun: 10 }, skills: { street: 1, charisma: 0.5 } } },
+	},	{
+		id: 'tom', name: '汤姆', role: '龙虾船船长', loc: 'geraldton', hours: [5, 14],
+		bio: '天不亮就出海，中午回港卸完货就去码头边的长椅上晒太阳。',
+		schedule: [
+			{ weekdays: [5, 6], loc: 'kalbarri', hours: [9, 16], note: '周末开船带游客看卡尔巴里的海崖' },
+		],
+		gifts: { love: ['coffee'], like: ['water', 'firstaid'], dislike: ['surfboard'] },
+		stories: [
+			{ at: 10, title: '码头上的招呼', text: '汤姆冲你扬了扬下巴：「新来的？风大的日子别靠近防波堤。」' },
+			{ at: 30, title: '一筐龙虾', text: '汤姆从船上拎下一只最大的龙虾塞给你：「卖相不好的，自己吃。」', fx: { needs: { hunger: 40, social: 15 } } },
+			{ at: 60, title: '成了好友', text: '汤姆带你出了一趟海，教你看风向、打绳结、收笼子。', fx: { skills: { survival: 4, swimming: 2 }, moodlet: 'new-friend' } },
+			{ at: 90, title: '船舱里的名字', text: '汤姆在船舱的木板上刻下了你的名字，旁边是他父亲和他自己的。', fx: { respect: 3, moodlet: 'best-friend' } },
+		],
+		perk: { at: 60, exposed: 'sea', name: '清晨收笼', desc: '跟汤姆天亮前出海收了一趟龙虾笼。', every: 3, fx: { minutes: 180, needs: { fun: 20, hunger: 15, energy: -15 }, skills: { survival: 1, strength: 1 } } },
+	},	{
+		id: 'harry', name: '哈利', role: '码头博物馆讲解员', loc: 'albany', hours: [9, 17],
+		bio: '退休前是灯塔看守人，现在每天在博物馆给游客讲这座港口一百多年的故事。',
+		schedule: [
+			{ weekdays: [6], loc: 'albany', hours: [6, 9], note: '周日一早在海边的山头上看日出' },
+		],
+		gifts: { love: ['snack'], like: ['coffee', 'water'], dislike: ['jerrycan'] },
+		stories: [
+			{ at: 10, title: '多问了一句', text: '你多问了一句展柜里的旧船票，哈利眼睛一亮，讲了半个钟头。' },
+			{ at: 30, title: '灯塔的钥匙', text: '哈利给你看他留下来的那把灯塔钥匙，说起风暴夜里守灯的日子。', fx: { needs: { social: 15, fun: 10 } } },
+			{ at: 60, title: '成了好友', text: '哈利带你去了游客不去的老炮台，教你怎么跟陌生人讲一个好故事。', fx: { respect: 3, skills: { charisma: 3 }, moodlet: 'new-friend' } },
+			{ at: 90, title: '留言簿', text: '哈利把博物馆留言簿翻到他写的那一页，最后一行写着你的名字。', fx: { respect: 3, moodlet: 'best-friend' } },
+		],
+		perk: { at: 60, name: '码头讲古', desc: '跟着哈利在码头走了一圈，听他讲这座港口的故事。', every: 3, fx: { minutes: 90, needs: { fun: 20, social: 20 }, skills: { charisma: 1 } } },
 	},
 ];

@@ -222,3 +222,37 @@ test('存档校验：剧情门槛和已知物品只留合法的', () => {
 	const legacy = { ...make(), relations: { mia: { score: 45, last: {}, bonded: true } } };
 	assert.deepEqual(sanitizeState(legacy)!.relations.mia.seen, [10, 30, 60], '旧存档领过好友回报的不再发');
 });
+
+test('NPC 状态：和在场判断一致；跨午夜沿用前一天，收工后算「今天已经走了」', async () => {
+	const { npcStatus, npcPresent } = await import('../../src/game/core/engine.ts');
+	const { NPCS } = await import('../../src/game/data/npcs.ts');
+	const tom = NPCS.find((n) => n.id === 'tom')!;
+	const dave = NPCS.find((n) => n.id === 'dave')!;
+	// 周一（day 0）：汤姆 5–14 点在杰拉尔顿
+	assert.equal(npcStatus(tom, 4 * 60).state, 'before');
+	assert.equal(npcStatus(tom, 10 * 60).state, 'there');
+	assert.equal(npcStatus(tom, 16 * 60).state, 'after');
+	// 戴夫 20:00–6:00 跨午夜：凌晨 1 点的安排沿用前一天，并且和 npcPresent 一致
+	for (let d = 1; d < 15; d++) {
+		const clock = d * 1440 + 60;
+		const st = npcStatus(dave, clock);
+		assert.equal(st.state === 'there', npcPresent(dave, st.plan.loc, clock), `第 ${d} 天凌晨`);
+	}
+});
+
+test('NPC 跨午夜班次：戴夫周五夜里在布鲁姆、周六夜里回黑德兰港，凌晨和白天的地点与状态都对', async () => {
+	const { npcStatus } = await import('../../src/game/core/engine.ts');
+	const { NPCS } = await import('../../src/game/data/npcs.ts');
+	const dave = NPCS.find((n) => n.id === 'dave')!;
+	// 第 4 天是周五（第 0 天周一），第 5 天周六
+	const at = (day: number, hour: number) => npcStatus(dave, day * 1440 + hour * 60);
+	const fri = 4, sat = 5;
+	assert.deepEqual([at(fri, 21).plan.loc, at(fri, 21).state], ['broome', 'there'], '周五 21 点在布鲁姆');
+	assert.deepEqual([at(sat, 1).plan.loc, at(sat, 1).state], ['broome', 'there'], '周六 1 点还在周五的班次里');
+	assert.deepEqual([at(sat, 10).plan.loc, at(sat, 10).state], ['port-hedland', 'before'], '周六 10 点：今天的夜班还没开始');
+	assert.deepEqual([at(sat, 20).plan.loc, at(sat, 20).state], ['port-hedland', 'there'], '周六 20 点在黑德兰港');
+	assert.deepEqual([at(fri, 10).plan.loc, at(fri, 10).state], ['broome', 'before'], '周五 10 点：周四的班次已结束，今晚去布鲁姆');
+	// 白天作息的人不受影响
+	const tom = NPCS.find((n) => n.id === 'tom')!;
+	assert.equal(npcStatus(tom, 1 * 1440 + 3 * 60).plan.loc, 'geraldton');
+});

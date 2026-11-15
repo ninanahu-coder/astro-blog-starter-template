@@ -20,6 +20,10 @@ import { COURSES } from '../data/courses.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
 import { EVENTS } from '../data/events.ts';
 import { validTraits } from './attributes.ts';
+import { WEATHERS } from '../data/weather.ts';
+
+/** 天气相册里所有合法的照片 id：地点 × 天气 */
+export const photoIds = (locIds: string[]) => new Set(locIds.flatMap((l) => WEATHERS.map((w) => `${l}|${w.id}`)));
 
 export const NEED_META: Record<string, { name: string; icon: string }> = {
 	hunger: { name: '饱食', icon: '🍔' },
@@ -94,6 +98,7 @@ export function createCharacter(opts: {
 		vehicle: origin.vehicle,
 		visited: { [opts.spawn]: 1 },
 		checkins: [],
+		photos: [],
 		seen: [],
 		traits: validTraits(opts.traits ?? [], MAX_TRAITS) ? [...(opts.traits ?? [])] : [],
 		inventory: { water: 2, snack: 1 },
@@ -209,6 +214,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		// 引擎新追加在末尾的真实 id 下次校验会被截掉，那份奖励就能再领一次
 		checkins: knownList(r.checkins, new Set((getRegion(r.region) ?? getRegion('wa'))!.pois.map((p) => p.id))),
 		seen: knownList(r.seen, new Set(EVENTS.map((e) => e.id))),
+		photos: knownList(r.photos, photoIds((getRegion(r.region) ?? getRegion('wa'))!.locations.map((l) => l.id))),
 		traits: (() => {
 			const t = strList(r.traits, MAX_TRAITS);
 			return validTraits(t, MAX_TRAITS) ? t : [];

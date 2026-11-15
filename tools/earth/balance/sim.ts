@@ -13,6 +13,7 @@ import {
 	activitiesAt, careersAt, coursesAt, dealerAt, netWorth, propertiesAt, furnitureAt, furnitureValue, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, resaleValue, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
+import { weatherAt } from '../../../src/game/core/weather.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
@@ -106,9 +107,10 @@ function step(b: Bot) {
 	const ev = getPendingEvent(s);
 	if (ev) {
 		b.stats.events++;
-		// 选第一个付得起的选项（有些选项要先付钱）
-		const pick = Math.max(0, ev.choices.findIndex((c) => !c.cost || c.cost <= s.cash));
-		tryAct(b, { t: 'event', choice: pick });
+		// 选第一个现在能选的选项：付得起、风暴天不下海（和引擎的限制一致）
+		const stormy = !!weatherAt(s).closesSea;
+		const pick = ev.choices.findIndex((c) => (!c.cost || c.cost <= s.cash) && !(c.exposed === 'sea' && stormy));
+		if (pick < 0 || !tryAct(b, { t: 'event', choice: pick })) throw new Error(`机器人卡在事件 ${ev.id}（${plan.id}，第 ${dayOf(s.clock)} 天）`);
 		return;
 	}
 	const h = hourOf(s.clock);
@@ -222,7 +224,8 @@ function runBot(plan: Plan, seed: number): Bot {
 	};
 	const end = s.clock + DAYS * 1440;
 	let lastDay = dayOf(s.clock);
-	for (let i = 0; i < 50000 && b.s.clock < end; i++) {
+	let i = 0;
+	for (; i < 50000 && b.s.clock < end; i++) {
 		const before = b.s.clock;
 		step(b);
 		if (b.s.clock === before && !getPendingEvent(b.s)) act(b, 'rest'); // 防止原地打转
@@ -235,6 +238,8 @@ function runBot(plan: Plan, seed: number): Bot {
 			if (b.s.cash < 20) b.stats.daysBroke++;
 		}
 	}
+	// 每个机器人都必须跑满目标天数：卡住的运行会让汇总失真（缺的天按最后一个样本补、分母却按满天数算）
+	if (b.s.clock < end) throw new Error(`机器人没跑满 ${DAYS} 天：${plan.id} 种子 ${seed} 停在第 ${dayOf(b.s.clock)} 天（${i} 步）`);
 	return b;
 }
 
