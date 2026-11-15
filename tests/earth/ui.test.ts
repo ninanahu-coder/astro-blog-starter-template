@@ -152,6 +152,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		for (const mt of ['overview', 'assets', 'people', 'log', 'sync']) {
 			await click({ metab: mt });
 			assert.match(panel(), new RegExp(`data-metab="${mt}" class="on"`), mt);
+			if (mt === 'log') assert.match(panel(), /class="log-day">第 1 天 · 春季第 1 天/, '日志按天分组');
 		}
 
 		// 分享进度：没有系统分享时复制到剪贴板；只含展示信息，不含存档 id 和同步码

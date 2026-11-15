@@ -265,6 +265,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.help dd { margin: 2px 0 0; color: var(--dim); font-size: 13px; }
 			.quick { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 8px; }
 			.quick button { flex: none; border-radius: 22px; font-size: 14px; padding: 6px 12px; }
+			.log-day { margin: 14px 0 4px; font-size: 13px; color: var(--dim); font-weight: 700; }
+			.log-row { display: flex; gap: 10px; font-size: 14px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+			.log-row .t { color: var(--dim); font-variant-numeric: tabular-nums; flex: none; width: 3.2em; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -955,8 +958,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 
 			function panelLog() {
-				const rows = [...state!.journal].reverse().map((j) => `<div class="row"><span class="body">${esc(j.text)}<small>${formatClock(j.t)}</small></span></div>`).join('');
-				return `<div class="card"><h3>人生日志</h3><div class="list" style="margin-top:8px">${rows}</div></div>`;
+				// 按游戏日分组，新的在上面；每组一个日期标题
+				const groups = new Map<number, typeof state.journal>();
+				for (const j of [...state!.journal].reverse()) {
+					const d = dayOf(j.t);
+					if (!groups.has(d)) groups.set(d, []);
+					groups.get(d)!.push(j);
+				}
+				const rows = [...groups].map(([d, items]) => `<h4 class="log-day">第 ${d + 1} 天 · ${dateLabel(d * 1440)}</h4>${items.map((j) => `<div class="log-row"><span class="t">${formatClock(j.t).split(' ')[1] ?? ''}</span><span>${esc(j.text)}</span></div>`).join('')}`).join('');
+				return `<div class="card"><h3>人生日志</h3><p>最近 ${state!.journal.length} 条</p>${rows}</div>`;
 			}
 
 			function panelNear() {
