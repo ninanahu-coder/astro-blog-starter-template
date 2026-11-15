@@ -61,6 +61,30 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
+		id: 'natures-window', title: '自然之窗', icon: '🪟', locs: ['kalbarri'], once: true, weight: 10,
+		text: '红色砂岩被风蚀出一个天然的窗洞，窗外是弯弯曲曲的默奇森河峡谷。清晨的光正好从洞里斜照进来。',
+		choices: [
+			{ label: '沿着峡谷边的步道走一圈', check: { skill: 'stamina', dc: 35 }, ok: { text: '走完一圈，太阳刚好升到峡谷上方，整条河都亮了。', fx: { minutes: 120, respect: 3, needs: { fun: 35, energy: -15 }, skills: { stamina: 2 } } }, fail: { text: '太阳一出来就热得受不了，走了一半就折回来了。', fx: { minutes: 90, needs: { fun: 10, energy: -20 }, skills: { stamina: 1 } } } },
+			{ label: '坐在窗洞里拍张照', ok: { text: '经典的窗框构图，背后是两百米深的峡谷。', fx: { needs: { fun: 20, social: 5 } } } },
+		],
+	},
+	{
+		id: 'spider-walk', title: '蜘蛛步', icon: '🕷️', locs: ['karijini'], once: true, weight: 10,
+		text: '峡谷窄到两边岩壁只隔一臂宽，下面是流水。要往前走，只能像蜘蛛一样两手两脚撑着两边的石壁。',
+		choices: [
+			{ label: '撑着岩壁过去', check: { skill: 'strength', dc: 40 }, ok: { text: '过了最窄的那段，眼前豁然开朗：一汪碧绿的水潭。', fx: { minutes: 90, respect: 4, needs: { fun: 40, energy: -20 }, skills: { strength: 2, survival: 1 } } }, fail: { text: '脚一滑掉进了水里，好在不深，只是浑身湿透。', fx: { minutes: 60, health: -4, needs: { fun: 15, hygiene: 10 }, skills: { strength: 1 } } } },
+			{ label: '在入口看别人过', ok: { text: '有人卡在中间进退两难，你决定下次再来。', fx: { needs: { fun: 12 } } } },
+		],
+	},
+	{
+		id: 'beehive-domes', title: '蜂巢山', icon: '🐝', locs: ['kununurra'], once: true, weight: 10,
+		text: '一架小飞机愿意带你飞过邦格尔邦格尔山脉：橙黑相间的圆顶石丘，像一片巨大的蜂巢。',
+		choices: [
+			{ label: '上飞机看看（$180）', cost: 180, ok: { text: '从空中看下去，几万个圆顶一直排到地平线。', fx: { minutes: 120, respect: 5, needs: { fun: 50 } } } },
+			{ label: '跟车队开进山脚下走走', check: { skill: 'driving', dc: 40 }, ok: { text: '土路颠了三个小时，但站在圆顶中间抬头看，一点也不后悔。', fx: { minutes: 240, respect: 3, needs: { fun: 35, energy: -20 }, skills: { driving: 2, survival: 1 } } }, fail: { text: '车陷在沙里，等了两个小时才有人路过帮你拖出来。', fx: { minutes: 180, needs: { fun: -5, energy: -25 }, skills: { driving: 1 } } } },
+		],
+	},
+	{
 		id: 'wave-rock-top', title: '浪尖上', icon: '🌊', locs: ['wave-rock'], once: true, weight: 10,
 		text: '十五米高的花岗岩像一道凝固的巨浪。顶上有人朝你挥手，说上面的风景更好。',
 		choices: [
