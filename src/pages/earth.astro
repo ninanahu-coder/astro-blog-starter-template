@@ -230,6 +230,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.card.warn h3 { color: var(--tint-red-ink); }
 			.card.warn p { color: var(--text); }
 			.offline { margin-top: 8px; padding: 8px 12px; border-radius: 12px; background: var(--tint-amber); color: var(--tint-amber-ink); font-size: 13px; font-weight: 600; }
+			.streak { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+			.streak .dot { height: 34px; border-radius: 10px; background: var(--soft); color: var(--dim); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
+			.streak .dot.on { background: var(--tint-green); color: var(--tint-green-ink); }
+			.streak .dot.big { font-size: 16px; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -272,7 +276,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
 			import { FIX_RULES } from '../game/data/venues.ts';
 			import type { VenueOp } from '../game/core/types.ts';
-			import { DAILY } from '../game/core/daily.ts';
+			import { DAILY, dailyReward } from '../game/core/daily.ts';
 			import { makeProjection } from '../game/core/geo.ts';
 			import { NEED_KEYS, SKILL_KEYS } from '../game/core/types.ts';
 			import type { NpcAction, PlayerState, TravelMode } from '../game/core/types.ts';
@@ -820,7 +824,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						</div>
 						${mb.moodlets.length ? '' : '<p style="margin-top:6px">做点开心的事——好好吃一顿、睡个好觉、完成心愿、去新地方——会留下几小时到几天的好心情。</p>'}
 					</div>`,
-					daily: `<div class="card"><h3>每日奖励</h3><p>已连续上线 ${s.daily.streak} 天。每天第一次上线领取，连续越久越多（$${DAILY.base} 起，第 ${DAILY.cap} 天另加 $${DAILY.bonus}），断一天从头算。</p></div>`,
+					daily: (() => {
+						// 一周 7 格：今天在第几格；明天接着来能领多少
+						const pos = ((Math.max(1, s.daily.streak) - 1) % DAILY.cap) + 1;
+						const tomorrow = dailyReward(s.daily.streak + 1);
+						const dots = Array.from({ length: DAILY.cap }, (_, i) => `<span class="dot${i < pos ? ' on' : ''}${i === DAILY.cap - 1 ? ' big' : ''}" aria-hidden="true">${i === DAILY.cap - 1 ? '🎁' : i + 1}</span>`).join('');
+						return `<div class="card"><h3>每日奖励 · 连续 ${s.daily.streak} 天</h3><div class="streak" role="img" aria-label="这一轮 7 天里已到第 ${pos} 天">${dots}</div>
+							<p style="margin-top:8px">明天接着来能领 $${tomorrow.cash}${tomorrow.full ? `（满 ${DAILY.cap} 天大礼，含额外 $${DAILY.bonus}）` : ''}。断一天从头算（$${DAILY.base} 起）。</p></div>`;
+					})(),
 					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>`,
 					album: `<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>`,
 					life: `<div class="card"><h3>工作与住处</h3>${life}</div>`,

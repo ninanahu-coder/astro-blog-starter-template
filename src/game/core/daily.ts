@@ -21,12 +21,18 @@ export interface DailyClaim {
 	msg: string;
 }
 
+/** 连续第 streak 天能领多少（含满 7 天的额外奖励） */
+export function dailyReward(streak: number): { cash: number; full: boolean } {
+	const n = Math.max(1, Math.floor(streak));
+	const full = n % DAILY.cap === 0;
+	return { cash: DAILY.base + DAILY.step * (Math.min(n, DAILY.cap) - 1) + (full ? DAILY.bonus : 0), full };
+}
+
 /** 今天还没领就发奖励并更新连续天数；已经领过返回 null。不修改入参 */
 export function claimDaily(prev: PlayerState, realDay: number): DailyClaim | null {
 	if (!Number.isInteger(realDay) || prev.daily.day >= realDay) return null;
 	const streak = prev.daily.day === realDay - 1 ? prev.daily.streak + 1 : 1;
-	const full = streak % DAILY.cap === 0;
-	const cash = DAILY.base + DAILY.step * (Math.min(streak, DAILY.cap) - 1) + (full ? DAILY.bonus : 0);
+	const { cash, full } = dailyReward(streak);
 	const msg = `每日奖励 $${cash}（连续 ${streak} 天${full ? '，满 7 天大礼' : ''}）`;
 	const state: PlayerState = {
 		...prev,

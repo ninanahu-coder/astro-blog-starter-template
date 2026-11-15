@@ -173,3 +173,11 @@ test('存档校验：心愿与每日奖励', () => {
 	const m = sanitizeState(old)!;
 	assert.deepEqual([m.wishes, m.wishDay, m.daily], [[], -1, { day: 0, streak: 0 }]);
 });
+
+test('每日奖励金额：第 1 天 $30，每天 +$10，第 7 天封顶并另加 $150，之后按周循环', async () => {
+	const { dailyReward, DAILY } = await import('../../src/game/core/daily.ts');
+	assert.deepEqual([1, 2, 6, 7, 8, 14, 15].map((n) => dailyReward(n).cash), [30, 40, 80, 90 + DAILY.bonus, 90, 90 + DAILY.bonus, 90]);
+	assert.equal(dailyReward(7).full, true);
+	assert.equal(dailyReward(8).full, false);
+	assert.equal(dailyReward(0).cash, 30, '异常输入按第 1 天算');
+});
