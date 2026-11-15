@@ -83,9 +83,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.hud-row .who { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
 			.hud-row .stat { white-space: nowrap; font-size: 13px; color: var(--dim); }
 			.hud-row .cash { font-weight: 800; color: var(--text); font-size: 15px; }
-			.moodchip { min-height: 32px; padding: 2px 10px; border-radius: 16px; border: 0; background: #e6f2ea; color: #1f6b40; font-size: 13px; font-weight: 600; }
-			.moodchip.mid { background: #fbf0dc; color: #7a4f0f; }
-			.moodchip.low { background: #fbe4e4; color: #9b2c2c; }
+			/* 按钮本身 44px 高（点按区），胶囊外观画在里面的 span 上 */
+			.moodchip { min-height: 44px; padding: 0; border: 0; background: none; display: inline-flex; align-items: center; justify-content: flex-end; }
+			.moodchip > span { padding: 4px 10px; border-radius: 16px; background: #e6f2ea; color: #1f6b40; font-size: 13px; font-weight: 600; white-space: nowrap; }
+			.moodchip.mid > span { background: #fbf0dc; color: #7a4f0f; }
+			.moodchip.low > span { background: #fbe4e4; color: #9b2c2c; }
 			.hud-time { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--dim); margin-top: 2px; }
 			.sync-dot { display: inline-flex; align-items: center; gap: 5px; }
 			.sync-dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
@@ -148,7 +150,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.inline { display: flex; gap: 8px; flex-wrap: wrap; }
 			.inline button { flex: none; }
 			.code { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; background: var(--soft); padding: 10px; border-radius: 10px; margin: 8px 0; user-select: all; }
-			.emotes button { padding: 4px 8px; font-size: 16px; min-height: 40px; }
+			.emotes button { padding: 4px 8px; font-size: 16px; min-height: 44px; min-width: 44px; }
 			.mood-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 			.mood-row:last-child { border-bottom: 0; }
 			.mood-row .up { color: var(--ok); }
@@ -408,7 +410,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<span class="who">${s.avatar} ${esc(s.name)} <span class="stat">Lv${level(s.respect).lv}</span></span>
 						${stars ? `<span class="stat" title="通缉星级（麻烦值 ${Math.round(s.heat)}）">${'★'.repeat(stars)}</span>` : ''}
 						<span class="cash">$${s.cash.toLocaleString()}</span>
-						<button class="moodchip${moodCls(m)}" data-tab="me" title="看心情的来源">${moodTier(m).name} ${m}</button>
+						<button class="moodchip${moodCls(m)}" data-tab="me" title="看心情的来源"><span>${moodTier(m).name} ${m}</span></button>
 					</div>
 					<div class="hud-time"><span title="${formatClock(s.clock)}">${dateLabel(s.clock)} · ${WEEKDAYS[weekdayOf(s.clock)]} ${formatClock(s.clock).split(' ')[1]} ${period(s.clock).name}</span><span class="sync-dot${online ? '' : ' off'}">${online ? '已同步' : '离线'}</span></div>
 					${mini}`;
@@ -456,11 +458,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return `<div class="card me-card">
 					<div class="me-head"><span class="avatar">${s.avatar}</span>
 						<span class="name"><b>${esc(s.name)}</b><span>Lv${lv.lv} ${esc(lv.title)}${origin ? ` · ${esc(origin.name)}` : ''}</span></span>
-						<span class="money"><b>$${s.cash.toLocaleString()}</b><button class="moodchip${moodCls(m)}" data-tab="me">心情 ${moodTier(m).name} ${m}</button></span></div>
+						<span class="money"><b>$${s.cash.toLocaleString()}</b><button class="moodchip${moodCls(m)}" data-tab="me"><span>心情 ${moodTier(m).name} ${m}</span></button></span></div>
 					<div class="needs-grid">${needList(s).map((n) => `<div class="need"><div class="top"><span>${n.icon} ${n.name}</span><b class="${barCls(n.v)}">${n.v}</b></div><div class="bar"><i class="${barCls(n.v)}" style="width:${n.v}%"></i></div></div>`).join('')}</div></div>`;
 			}
 			/** 「下一步」：最缺的那项需求 → 这里能补它最多的事；需求都还行时提示上班或出门。只是建议，结算仍由服务器做 */
 			function nextCard(s: PlayerState, homeHere: boolean, canWork: boolean) {
+				// 有没处理的事件时什么都做不了（引擎会拒绝），不给按钮
+				if (s.pending) return '';
 				const loc = getLocation(region, s.loc)!;
 				const vals: [string, string, number][] = [['health', '健康', s.health], ...NEED_KEYS.map((k) => [k, NEED_META[k].name, s.needs[k]] as [string, string, number])];
 				const [key, name, v] = vals.reduce((a, b) => (b[2] < a[2] ? b : a));
@@ -741,7 +745,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			function renderEvent() {
 				const ev = state ? getPendingEvent(state) : null;
 				const modal = $('modal');
-				if (!ev) { modal.classList.add('hidden'); return; }
+				const game = $('game') as HTMLElement & { inert: boolean };
+				if (!ev) { modal.classList.add('hidden'); game.inert = false; return; }
 				const s = state!;
 				const loc = getLocation(region, s.loc);
 				// 成功率：检定分 + 随机 0–60 ≥ 难度（和引擎同一个公式，只用于显示）
@@ -758,7 +763,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						].join('');
 						return `<button class="row choice" data-choice="${i}"${poor ? ' disabled' : ''}><span class="label">${esc(choiceLabel(c))}</span>${pills ? `<span class="pills">${pills}</span>` : ''}</button>`;
 					}).join('')}</div></div></div>`;
+				const wasOpen = !modal.classList.contains('hidden');
 				modal.classList.remove('hidden');
+				// 弹窗打开期间背后的页面不可点、不可聚焦；刚打开时把焦点移到第一个能选的选项
+				game.inert = true;
+				if (!wasOpen) modal.querySelector<HTMLElement>('button:not([disabled])')?.focus();
 			}
 
 			function render() {
