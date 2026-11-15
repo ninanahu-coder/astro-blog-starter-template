@@ -880,7 +880,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const photos = new Set(s.photos);
 				const photoHtml = `<div class="card"><h3>天气相册 ${s.photos.length}/${region.locations.length * WEATHERS.length}</h3><p>抵达一个地方时，会按当天的天气收一张照片。同一个地方换个天气再来，能收到不一样的。</p>
 					<div class="album">${region.locations.map((l) => `<div class="album-row"><span>${esc(l.name)}</span><span>${WEATHERS.map((w) => `<i class="${photos.has(`${l.id}|${w.id}`) ? 'got' : ''}" title="${esc(w.name)}">${w.icon}</i>`).join('')}</span><span class="sr">${WEATHERS.filter((w) => photos.has(`${l.id}|${w.id}`)).map((w) => w.name).join('、') || '还没有'}</span></div>`).join('')}</div></div>`;
+				// 见闻录：一次性的专属事件，见过的显示标题，没见过的只提示在哪
+				const onceEvents = EVENTS.filter((e) => e.once && !e.venueTypes);
+				const seenOnce = onceEvents.filter((e) => s.seen.includes(e.id)).length;
+				const where = (e: (typeof onceEvents)[number]) => (e.locs?.length ? e.locs.map((id) => getLocation(region, id)?.name ?? '').join('、') : '某个地方');
+				const storyHtml = `<div class="card"><h3>见闻录 ${seenOnce}/${onceEvents.length}</h3><p>只会遇到一次的事。没见过的只告诉你在哪。</p><div class="ach-grid">${onceEvents.map((e) => s.seen.includes(e.id)
+					? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${e.icon}</span><span><b>${esc(e.title)}</b><small>${esc(where(e))}</small></span></div>`
+					: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc(where(e))}</small></span><span class="sr">（还没遇到）</span></div>`).join('')}</div></div>`;
 				const card = {
+					story: storyHtml,
 					photo: photoHtml,
 					trail: trailHtml,
 					ach: achHtml,
@@ -920,7 +928,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
 					})()}</div>`,
 				};
-				const sections: Record<string, string[]> = { overview: ['me', 'mood', 'ach', 'trail', 'daily', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album', 'photo'], people: ['rels'] };
+				const sections: Record<string, string[]> = { overview: ['me', 'mood', 'ach', 'story', 'trail', 'daily', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album', 'photo'], people: ['rels'] };
 				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}</button>`).join('')}</div>`;
 				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
 				return seg + bodyHtml;

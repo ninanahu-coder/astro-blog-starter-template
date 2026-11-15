@@ -171,6 +171,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ metab: 'overview' });
 		// 足迹：18 个地点；点一个没去过的地方跳到出行页并选中它
 		assert.match(panel(), /足迹 1\/18/);
+		assert.match(panel(), /见闻录 0\/\d+/);
+		assert.match(panel(), /？？？/);
 		await click({ loc: 'broome' });
 		assert.match(el('tabs').innerHTML, /data-tab="go" class="on"/);
 		assert.match(panel(), /card dest/);
