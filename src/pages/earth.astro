@@ -275,6 +275,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			#tabs button { position: relative; }
 			#tabs .badge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--warm); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
 			#modal .ach-line { margin: 0; font-size: 15px; font-weight: 700; color: var(--tint-cost-ink); }
+			button.wide { display: block; width: 100%; margin-top: 10px; min-height: 52px; font-size: 16px; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -1011,7 +1012,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			function panelNear() {
 				const s = state!;
 				const intro = `<div class="card"><h3>附近能做的事</h3><p>人在真实的餐馆、健身房、公园、图书馆、超市……打开定位，就能在游戏里吃饭、训练、打卡上班。服务端会检查定位精度、距离和移动速度。</p>
-					<div class="inline" style="margin-top:8px"><button data-locate>📍 ${nearFix ? '重新定位' : '定位'}</button></div>
+					${nearFix ? '<div class="inline" style="margin-top:8px"><button data-locate>📍 重新定位</button></div>' : '<button class="primary wide" data-locate>📍 打开定位，看看附近</button><p style="margin-top:6px">定位只留在这台设备的内存里，只用来判断你是不是在店里。</p>'}
 					${nearFix ? `<p style="margin-top:6px" class="muted">定位误差约 ${Math.round(nearFix.acc)} 米 · ${Math.max(0, Math.round((Date.now() - nearFix.at) / 60000))} 分钟前</p>` : ''}</div>`;
 				const ci = s.clockIn;
 				const ciVenue = ci ? region.venues.find((v) => v.id === ci.venue) : undefined;
