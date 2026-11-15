@@ -259,6 +259,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.album-row:last-child { border-bottom: 0; }
 			.album-row i { font-style: normal; font-size: 16px; margin-left: 4px; opacity: 0.18; filter: grayscale(1); }
 			.album-row i.got { opacity: 1; filter: none; }
+			.help { margin: 8px 0 0; }
+			.help dt { font-weight: 700; font-size: 14px; margin-top: 10px; }
+			.help dt:first-child { margin-top: 0; }
+			.help dd { margin: 2px 0 0; color: var(--dim); font-size: 13px; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -986,8 +990,18 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return intro + clockCard(outBtn) + cards;
 			}
 
+			// 玩法说明（静态文字，放在「设置」里）
+			const HELP: [string, string][] = [
+				['生活需求', '饱食、精力、清洁、娱乐、社交会随时间下降，最低的那项最影响心情；饱食或精力见底会掉健康。今天页的「下一步」会告诉你先做什么。'],
+				['出行与事件', '在「出行」选地方和交通方式。第一次到一个地方常有专属事件，选项上标了花费和成功率。'],
+				['真实地点', '本人走进真实的餐馆、健身房、公园、超市，在「附近」打开定位就能在游戏里吃饭、训练、打卡上班。'],
+				['工作与住处', '在城镇应聘、每天上一个班；租房后回家睡觉恢复更多。每 7 天一次周结算，付房租、房贷和车辆保险。'],
+				['天气', '每个地方每天的天气不一样，所有玩家看到的一样。风暴天海上活动取消，但可以去海边看风暴；抵达时会按天气收一张照片。'],
+				['多设备', '同步码等同于密码：在另一台设备选「用同步码恢复」就能接着玩。所有结算都在服务器上，改本机数据没有用。'],
+			];
 			function panelSync() {
-				return `<div class="card"><h3>多设备同步</h3><p>${esc(syncStatus)}</p>
+				return `<div class="card"><h3>玩法说明</h3><dl class="help">${HELP.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
+					<div class="card"><h3>多设备同步</h3><p>${esc(syncStatus)}</p>
 						<p style="margin-top:8px">在另一台手机或电脑打开本页，选择“用同步码恢复”，粘贴下面这串码即可接着玩。</p>
 						<div class="code">${esc(cred!.id)}.${esc(cred!.key)}</div>
 						<div class="inline"><button data-copy>复制同步码</button><button data-pull>立即同步</button></div>
