@@ -133,6 +133,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await pause(50);
 		assert.equal((data.get('save:' + cred.id) as any).state.rev, rev0 + 1, '点了下一步，服务端结算了一次');
 		assert.match(panel(), /aria-label="刚才的变化"/, '显示数值变化');
+		// 吃饱以后，下一步改成先挣钱应付周结算（推荐这里收入最高、现在能做的事）
+		const next2 = panel().match(/<div class="next">[\s\S]*?<\/div>/)?.[0] ?? '';
+		assert.match(next2, /周结算钱不够/);
+		assert.match(next2, /data-(act|job)=/);
 
 		// 其他标签都能渲染；地图只在出行页
 		for (const t of ['go', 'near', 'social', 'me']) {

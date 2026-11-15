@@ -593,27 +593,38 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const loc = getLocation(region, s.loc)!;
 				const vals: [string, string, number][] = [['health', '健康', s.health], ...NEED_KEYS.map((k) => [k, NEED_META[k].name, s.needs[k]] as [string, string, number])];
 				const [key, name, v] = vals.reduce((a, b) => (b[2] < a[2] ? b : a));
-				let title: string, text: string, btn: string, attr: string;
-				if (v < 60) {
+				let title = '', text = '', btn = '', attr = '';
+				const open = activitiesAt(s, region).filter((x) => !x.blocked).map((x) => x.act);
+				const costLabel = (c?: number) => (c ? (c > 0 ? '+' : '') + '$' + Math.abs(c) : '免费');
+				const suggestAct = (act: (typeof open)[number]) => { btn = `${esc(act.name)} · ${costLabel(act.fx.cash)} · ${minutesLabel(act.minutes)}`; attr = `data-act="${act.id}"`; };
+				/** 最缺的那项需求：推荐补它最多的事（精力在家就回家睡） */
+				const fixNeed = () => {
 					title = NEED_LOW[key];
-					const best = activitiesAt(s, region)
-						.filter((x) => !x.blocked)
-						.map((x) => ({ act: x.act, gain: key === 'health' ? x.act.fx.health ?? 0 : x.act.fx.needs?.[key as keyof typeof s.needs] ?? 0 }))
+					const best = open
+						.map((act) => ({ act, gain: key === 'health' ? act.fx.health ?? 0 : act.fx.needs?.[key as keyof typeof s.needs] ?? 0 }))
 						.filter((x) => x.gain > 0)
-						.sort((a, b) => b.gain - a.gain)[0];
+						.sort((x, y) => y.gain - x.gain)[0];
 					if (key === 'energy' && homeHere) {
 						text = `精力只剩 ${Math.round(v)}，回家睡一觉能回满`; btn = '回家睡觉'; attr = 'data-home="sleep"';
 					} else if (best) {
-						const cost = best.act.fx.cash ? (best.act.fx.cash > 0 ? '+' : '') + '$' + Math.abs(best.act.fx.cash) : '免费';
-						text = `${name}只剩 ${Math.round(v)}，在${esc(loc.name)}${esc(best.act.name)}能补回来`; btn = `${esc(best.act.name)} · ${cost} · ${minutesLabel(best.act.minutes)}`; attr = `data-act="${best.act.id}"`;
+						text = `${name}只剩 ${Math.round(v)}，在${esc(loc.name)}${esc(best.act.name)}能补回来`; suggestAct(best.act);
 					} else {
 						text = `${name}只剩 ${Math.round(v)}，这里没有能补的事，换个地方看看`; btn = '去出行'; attr = 'data-tab="go"';
 					}
-				} else if (canWork) {
-					title = '该上班了'; text = '状态不错，正好在工作的地方'; btn = '上班'; attr = 'data-job="work"';
-				} else {
-					title = '状态不错'; text = s.wishes.length ? `今天还有 ${s.wishes.length} 个心愿没完成` : '出去走走，看看会遇到什么'; btn = '去出行'; attr = 'data-tab="go"';
-				}
+				};
+				// 周结算钱不够：能上班就上班，否则推荐这里最赚钱的事
+				const wc = weeklyCosts(s);
+				const short = wc.total > 0 && s.nextWeek - dayOf(s.clock) <= 2 && s.cash < wc.total ? wc.total - s.cash : 0;
+				const earner = open.filter((act) => (act.fx.cash ?? 0) > 0).sort((x, y) => (y.fx.cash ?? 0) - (x.fx.cash ?? 0))[0];
+				// 今天的心愿里有在这里就能完成的
+				const wishAct = s.wishes.map((id) => getWish(id)).flatMap((w) => (w && w.done.t === 'activity' ? w.done.ids.map((aid) => ({ w, act: open.find((x) => x.id === aid) })) : [])).find((x) => x.act);
+				if (v < 40) fixNeed();
+				else if (short && canWork) { title = '周结算钱不够'; text = `还差 $${short.toLocaleString()}，正好在工作的地方，先上个班`; btn = '上班'; attr = 'data-job="work"'; }
+				else if (short && earner) { title = '周结算钱不够'; text = `还差 $${short.toLocaleString()}，在${esc(loc.name)}${esc(earner.name)}能挣一点`; suggestAct(earner); }
+				else if (v < 60) fixNeed();
+				else if (canWork) { title = '该上班了'; text = '状态不错，正好在工作的地方'; btn = '上班'; attr = 'data-job="work"'; }
+				else if (wishAct) { title = '完成一个心愿'; text = `「${esc(wishAct.w!.text)}」在这里就能做到`; suggestAct(wishAct.act!); }
+				else { title = '状态不错'; text = s.wishes.length ? `今天还有 ${s.wishes.length} 个心愿没完成` : '出去走走，看看会遇到什么'; btn = '去出行'; attr = 'data-tab="go"'; }
 				return `<div class="next"><span class="lbl">下一步</span><h2>${title}</h2><p>${text}</p><button ${attr}>${btn}</button></div>`;
 			}
 
