@@ -157,6 +157,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			#map text { font-size: 9px; fill: var(--text); paint-order: stroke; stroke: var(--halo); stroke-width: 2.6px; pointer-events: none; }
 			#map text.cnt, #map tspan.cnt { fill: var(--warm); font-weight: 700; }
 			#map .hit { fill: transparent; cursor: pointer; }
+			#map tspan.wx { font-size: 8px; }
 
 			#tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: center; background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
 			#tabs .tabs-in { display: flex; width: 100%; max-width: 560px; }
@@ -561,7 +562,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const n = counts.get(l.id);
 					return `${here ? `<circle class="pulse" cx="${x}" cy="${y}" r="7"/>` : ''}
 						<circle class="${cls}" cx="${x}" cy="${y}" r="${here ? 6 : 4.5}"/>
-						<text x="${x + dx}" y="${y + dy}" text-anchor="${anchor}">${esc(l.name)}${n ? ` <tspan class="cnt">👥${n}</tspan>` : ''}</text>
+						<text x="${x + dx}" y="${y + dy}" text-anchor="${anchor}">${esc(l.name)}<tspan class="wx">${weatherOn(l.id, dayOf(s.clock)).icon}</tspan>${n ? ` <tspan class="cnt">👥${n}</tspan>` : ''}</text>
 						<circle class="hit" data-loc="${l.id}" cx="${x}" cy="${y}" r="15"/>`;
 				}).join('');
 				const map = $('map');
