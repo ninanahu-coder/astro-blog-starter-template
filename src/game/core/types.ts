@@ -93,6 +93,8 @@ export interface NpcPerk {
 	desc: string;
 	every: number;
 	fx: Effect;
+	/** 'sea'：要出海或下海，风暴天做不了 */
+	exposed?: 'sea';
 }
 
 export interface NpcDef {
@@ -356,6 +358,8 @@ export interface EventChoice {
 	/** 选这一项要先付的钱（买东西、门票）。钱不够不能选；和结果里的罚款不同，罚款不够时扣到 0 为止 */
 	cost?: number;
 	check?: { skill: SkillKey; dc: number };
+	/** 'sea'：要下海或出海，风暴天不能选（事件里必须还有别的选项） */
+	exposed?: 'sea';
 	ok: Outcome;
 	fail?: Outcome;
 }

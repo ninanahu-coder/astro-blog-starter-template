@@ -16,7 +16,7 @@ export const EVENTS: GameEvent[] = [
 		id: 'whale-shark', title: '鲸鲨', icon: '🦈', locs: ['exmouth'], once: true, weight: 10,
 		text: '船长喊：“鲸鲨！右舷！”一条八米长的影子从船底滑过。',
 		choices: [
-			{ label: '跳下去同游（$200）', cost: 200, check: { skill: 'swimming', dc: 45 }, ok: { text: '你和地球上最大的鱼并肩游了十分钟。', fx: { respect: 5, needs: { fun: 50 }, skills: { swimming: 4 } } }, fail: { text: '浪太大，你呛了几口水被拉回船上。', fx: { health: -8, needs: { fun: 10 }, skills: { swimming: 2 } } } },
+			{ label: '跳下去同游（$200）', cost: 200, exposed: 'sea', check: { skill: 'swimming', dc: 45 }, ok: { text: '你和地球上最大的鱼并肩游了十分钟。', fx: { respect: 5, needs: { fun: 50 }, skills: { swimming: 4 } } }, fail: { text: '浪太大，你呛了几口水被拉回船上。', fx: { health: -8, needs: { fun: 10 }, skills: { swimming: 2 } } } },
 			{ label: '在甲板上看就好', ok: { text: '隔着水面也足够震撼。', fx: { needs: { fun: 20 } } } },
 		],
 	},
@@ -48,7 +48,7 @@ export const EVENTS: GameEvent[] = [
 		id: 'lucky-bay-roos', title: '白沙滩上的袋鼠', icon: '🦘', locs: ['esperance'], once: true, weight: 10,
 		text: '海水是透明的蓝，沙子白得晃眼，几只袋鼠正懒洋洋地躺在沙滩上晒太阳。',
 		choices: [
-			{ label: '在旁边下海游一圈', check: { skill: 'swimming', dc: 30 }, ok: { text: '冰凉的海水，回头就能看见袋鼠在岸上发呆。', fx: { respect: 3, needs: { fun: 40, hygiene: 15, energy: -10 }, skills: { swimming: 2 } } }, fail: { text: '南大洋的水比想象中冷得多，你哆嗦着跑回岸上。', fx: { health: -3, needs: { fun: 15 }, skills: { swimming: 1 } } } },
+			{ label: '在旁边下海游一圈', exposed: 'sea', check: { skill: 'swimming', dc: 30 }, ok: { text: '冰凉的海水，回头就能看见袋鼠在岸上发呆。', fx: { respect: 3, needs: { fun: 40, hygiene: 15, energy: -10 }, skills: { swimming: 2 } } }, fail: { text: '南大洋的水比想象中冷得多，你哆嗦着跑回岸上。', fx: { health: -3, needs: { fun: 15 }, skills: { swimming: 1 } } } },
 			{ label: '远远地看着就好', ok: { text: '袋鼠翻了个身，继续晒。', fx: { needs: { fun: 25 } } } },
 		],
 	},
@@ -56,7 +56,7 @@ export const EVENTS: GameEvent[] = [
 		id: 'albany-whales', title: '海湾里的鲸', icon: '🐋', locs: ['albany'], once: true, weight: 10,
 		text: '码头上有人指着海湾大喊：一对座头鲸母子正从港口外经过，喷出的水雾在阳光里闪。',
 		choices: [
-			{ label: '跳上最后一班观鲸船（$60）', cost: 60, ok: { text: '小鲸跃出水面的那一刻，整船人都叫了起来。', fx: { minutes: 150, respect: 4, needs: { fun: 50, social: 15 } } } },
+			{ label: '跳上最后一班观鲸船（$60）', cost: 60, exposed: 'sea', ok: { text: '小鲸跃出水面的那一刻，整船人都叫了起来。', fx: { minutes: 150, respect: 4, needs: { fun: 50, social: 15 } } } },
 			{ label: '在岸边的山头上看', check: { skill: 'stamina', dc: 30 }, ok: { text: '爬到山顶正好赶上它们转身，看得清清楚楚。', fx: { minutes: 60, respect: 2, needs: { fun: 30, energy: -10 }, skills: { stamina: 1.5 } } }, fail: { text: '爬到一半就喘不过气，只看到远处的水花。', fx: { minutes: 60, needs: { fun: 10, energy: -15 }, skills: { stamina: 1 } } } },
 		],
 	},

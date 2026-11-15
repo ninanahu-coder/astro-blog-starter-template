@@ -38,7 +38,7 @@ export const NPCS: NpcDef[] = [
 			{ at: 60, title: '成了好友', text: '老杰克把他年轻时的冲浪板送给了你。', fx: { items: { surfboard: 1 }, moodlet: 'new-friend' } },
 			{ at: 90, title: '船的名字', text: '老杰克说他的船一直没有名字，问你愿不愿意给它起一个。', fx: { respect: 3, moodlet: 'best-friend' } },
 		],
-		perk: { at: 60, name: '跟船出海', desc: '跟老杰克出海收了一上午网，分到一条鱼。', every: 3, fx: { minutes: 180, needs: { fun: 25, hunger: 20, energy: -12 }, skills: { swimming: 1, survival: 1 } } },
+		perk: { at: 60, exposed: 'sea', name: '跟船出海', desc: '跟老杰克出海收了一上午网，分到一条鱼。', every: 3, fx: { minutes: 180, needs: { fun: 25, hunger: 20, energy: -12 }, skills: { swimming: 1, survival: 1 } } },
 	},
 	{
 		id: 'linda', name: '琳达', role: '护林员', loc: 'rottnest', hours: [8, 17],
@@ -69,7 +69,7 @@ export const NPCS: NpcDef[] = [
 			{ at: 60, title: '成了好友', text: '里奥免费给你上了一整天私教课。', fx: { skills: { swimming: 5, stamina: 3 }, moodlet: 'new-friend' } },
 			{ at: 90, title: '秘密浪点', text: '里奥开车带你去了一个他从不告诉别人的浪点。', fx: { skills: { swimming: 3 }, moodlet: 'best-friend' } },
 		],
-		perk: { at: 60, name: '私教冲浪课', desc: '里奥陪你在浪里泡了两个小时。', every: 3, fx: { minutes: 120, needs: { fun: 20, energy: -15 }, skills: { swimming: 1.5 } } },
+		perk: { at: 60, exposed: 'sea', name: '私教冲浪课', desc: '里奥陪你在浪里泡了两个小时。', every: 3, fx: { minutes: 120, needs: { fun: 20, energy: -15 }, skills: { swimming: 1.5 } } },
 	},
 	{
 		id: 'nan', name: '南希', role: '民宿老板娘', loc: 'esperance', hours: [7, 21],
@@ -115,7 +115,7 @@ export const NPCS: NpcDef[] = [
 			{ at: 60, title: '成了好友', text: '萨姆带你潜了一次游客去不了的礁区。', fx: { respect: 3, skills: { swimming: 6 }, moodlet: 'new-friend' } },
 			{ at: 90, title: '同一片海', text: '萨姆在日志里写下你的名字，旁边画了一条鲸鲨。', fx: { moodlet: 'best-friend' } },
 		],
-		perk: { at: 60, name: '带你浮潜', desc: '萨姆带你在近岸礁区浮潜了两个小时。', every: 3, fx: { minutes: 120, needs: { fun: 25, energy: -10 }, skills: { swimming: 1.5 } } },
+		perk: { at: 60, exposed: 'sea', name: '带你浮潜', desc: '萨姆带你在近岸礁区浮潜了两个小时。', every: 3, fx: { minutes: 120, needs: { fun: 25, energy: -10 }, skills: { swimming: 1.5 } } },
 	},
 	{
 		id: 'dave', name: '戴夫', role: '长途卡车司机', loc: 'port-hedland', hours: [20, 6],
@@ -160,7 +160,7 @@ export const NPCS: NpcDef[] = [
 			{ at: 60, title: '成了好友', text: '汤姆带你出了一趟海，教你看风向、打绳结、收笼子。', fx: { skills: { survival: 4, swimming: 2 }, moodlet: 'new-friend' } },
 			{ at: 90, title: '船舱里的名字', text: '汤姆在船舱的木板上刻下了你的名字，旁边是他父亲和他自己的。', fx: { respect: 3, moodlet: 'best-friend' } },
 		],
-		perk: { at: 60, name: '清晨收笼', desc: '跟汤姆天亮前出海收了一趟龙虾笼。', every: 3, fx: { minutes: 180, needs: { fun: 20, hunger: 15, energy: -15 }, skills: { survival: 1, strength: 1 } } },
+		perk: { at: 60, exposed: 'sea', name: '清晨收笼', desc: '跟汤姆天亮前出海收了一趟龙虾笼。', every: 3, fx: { minutes: 180, needs: { fun: 20, hunger: 15, energy: -15 }, skills: { survival: 1, strength: 1 } } },
 	},	{
 		id: 'harry', name: '哈利', role: '码头博物馆讲解员', loc: 'albany', hours: [9, 17],
 		bio: '退休前是灯塔看守人，现在每天在博物馆给游客讲这座港口一百多年的故事。',

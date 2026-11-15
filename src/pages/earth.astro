@@ -293,6 +293,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 		<script>
 			import { AVATARS, NEED_META, ORIGINS, SKILL_META, START_CLOCK, formatClock, nextRev, sanitizeState } from '../game/core/character.ts';
 			import type { GameAction } from '../game/core/actions.ts';
+			import { npcStatus } from '../game/core/engine.ts';
 			import { activitiesAt, choiceLabel, festivalCalendar, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { AREAS, EXPERIENCES } from '../game/data/experiences.ts';
@@ -790,7 +791,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (dest) {
 					const w = weatherOn(dest.id, dayOf(s.clock));
 					const sig = EVENTS.some((e) => e.once && e.locs?.includes(dest.id) && !s.seen.includes(e.id));
-					const people = NPCS.filter((n) => npcPlan(n, s.clock).loc === dest.id).map((n) => esc(n.name));
+					const people = NPCS.filter((n) => { const x = npcStatus(n, s.clock); return x.plan.loc === dest.id && x.state !== 'after'; }).map((n) => esc(n.name));
 					const ways = opts.filter((o) => o.to === dest.id);
 					note = `<div class="card dest"><div class="dest-head"><h3>${KIND_ICON[dest.kind]} ${esc(dest.name)} <span class="muted">${esc(dest.en)}</span></h3><button data-loc="${dest.id}" aria-label="关闭">✕</button></div>
 						<p>${esc(dest.blurb)}</p>
@@ -940,14 +941,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					.filter((x): x is { npc: (typeof NPCS)[number]; r: (typeof s.relations)[string] } => !!x.npc)
 					.sort((a, b) => b.r.score - a.r.score);
 				const knownHtml = known.length ? `<div class="card"><h3>认识的人今天在哪</h3><div class="list" style="margin-top:8px">${known.map(({ npc, r }) => {
-					const plan = npcPlan(npc, s.clock);
+					// 和引擎同一套判断（跨午夜沿用前一天的作息）
+					const { plan, state: st } = npcStatus(npc, s.clock);
 					const where = getLocation(region, plan.loc)?.name ?? '';
 					const here = presentIds.has(npc.id);
-					const sub = `${relationTier(r.score)} ${Math.round(r.score)} · ${here ? '就在这里' : `今天在${esc(where)} ${hoursLabel(plan.hours)}`}${plan.note ? ` · ${esc(plan.note)}` : ''}`;
+					const sub = `${relationTier(r.score)} ${Math.round(r.score)} · ${here ? '就在这里' : `${esc(where)} ${hoursLabel(plan.hours)}${st === 'after' ? '（今天已经走了）' : ''}`}${plan.note ? ` · ${esc(plan.note)}` : ''}`;
 					return here
 						? `<button class="row" data-tab="place"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta"><b>去打招呼</b></span></button>`
 						: plan.loc === s.loc
-							? `<div class="row"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta">还没到时间</span></div>`
+							? `<div class="row"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta">${st === 'after' ? '今天已经走了' : '还没到时间'}</span></div>`
 							: `<button class="row" data-loc="${plan.loc}"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta"><b>怎么去</b></span></button>`;
 				}).join('')}</div></div>` : '';
 				return `${knownHtml}<div class="card"><h3>${esc(getLocation(region, s.loc)!.name)}的人</h3><p>${online ? `全区在线 ${peers.size} 人` : '未连接，稍后自动重连…'}</p><div class="list" style="margin-top:8px">${people}</div></div>
@@ -1075,11 +1077,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<div class="ev-body"><p>${esc(ev.text)}</p>
 					<div class="list">${ev.choices.map((c, i) => {
 						const poor = !!c.cost && c.cost > s.cash;
+						const stormBlocked = c.exposed === 'sea' && !!weatherAt(s).closesSea;
 						const pills = [
+							stormBlocked ? '<span class="pill bad">今天有风暴，下不了海</span>' : '',
 							c.cost ? `<span class="pill ${poor ? 'bad' : 'cost'}">${poor ? `需要 $${c.cost}，钱不够` : `$${c.cost}`}</span>` : '',
 							c.check ? `<span class="pill" title="你 ${checkScore(s, c.check.skill).total} + 随机 0–60，难度 ${c.check.dc}">${SKILL_META[c.check.skill].icon} ${SKILL_META[c.check.skill].name}检定 · 成功率约 ${odds(c.check.skill, c.check.dc)}%</span>` : '',
 						].join('');
-						return `<button class="row choice" data-choice="${i}"${poor ? ' disabled' : ''}><span class="label">${esc(choiceLabel(c))}</span>${pills ? `<span class="pills">${pills}</span>` : ''}</button>`;
+						return `<button class="row choice" data-choice="${i}"${poor || stormBlocked ? ' disabled' : ''}><span class="label">${esc(choiceLabel(c))}</span>${pills ? `<span class="pills">${pills}</span>` : ''}</button>`;
 					}).join('')}</div></div></div>`;
 				const wasOpen = !modal.classList.contains('hidden');
 				modal.classList.remove('hidden');

@@ -5,7 +5,7 @@
 // 页面引用的构建文件（/_astro/ 下，文件名带内容哈希）从页面 HTML 里现场解析：
 // 安装时连同页面一起预缓存，全部成功才算装好；之后每次联网打开页面都按最新 HTML 补齐，
 // 并删掉新页面不再引用的旧构建文件，缓存不会随部署无限增长。
-const VERSION = 'earth-shell-v2';
+const VERSION = 'earth-shell-v3';
 const PAGE = '/earth/';
 const STATIC = ['/earth/manifest.webmanifest', '/earth/icon-192.png', '/earth/icon.svg'];
 
@@ -57,13 +57,15 @@ self.addEventListener('fetch', (event) => {
 			const cache = await caches.open(VERSION);
 			try {
 				const res = await fetch(req);
-				if (res.ok && url.pathname.startsWith(PAGE)) {
+				// 只有真正的首页才拿来刷新外壳：以页面方式打开 /earth/ 下的图标等文件不能把外壳换掉
+				if (res.ok && url.pathname === PAGE) {
 					const copy = res.clone();
 					event.waitUntil(copy.clone().text().then((html) => refreshFrom(cache, html, copy)).catch(() => {}));
 				}
 				return res;
 			} catch (e) {
-				const hit = await cache.match(PAGE);
+				// 断网：首页用缓存的外壳；其他地址先找它自己的缓存
+				const hit = url.pathname === PAGE ? await cache.match(PAGE) : await cache.match(req);
 				if (hit) return hit;
 				throw e;
 			}

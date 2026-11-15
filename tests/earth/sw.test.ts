@@ -36,7 +36,8 @@ function setup() {
 					if (got.some((r) => !r.ok)) throw new TypeError('addAll failed');
 					list.forEach((u, i) => m.set(key(u), got[i]));
 				},
-				async put(r: string | { url: string }, res: Res) { m.set(key(r), res); },
+				// 写入要过一会儿才生效：不交给 waitUntil 的写入，fire() 返回时还看不到
+				async put(r: string | { url: string }, res: Res) { await new Promise((ok) => setTimeout(ok, 5)); m.set(key(r), res); },
 				async match(r: string | { url: string }) { return m.get(key(r)); },
 				async keys() { return [...m.keys()].map((url) => ({ url })); },
 				async delete(r: { url: string }) { return m.delete(key(r)); },
@@ -48,6 +49,7 @@ function setup() {
 	const listeners: Record<string, (e: any) => void> = {};
 	const self = { location: { origin: ORIGIN }, addEventListener: (t: string, f: (e: any) => void) => (listeners[t] = f), skipWaiting: async () => {}, clients: { claim: async () => {} } };
 	vm.runInNewContext(SW, { self, caches, fetch, URL, Promise, Set, Error, TypeError });
+	// 模拟浏览器：响应给出后只等 waitUntil 托管的任务，其余的后台工作在 worker 被回收时丢失
 	const fire = async (type: string, extra: Record<string, unknown> = {}) => {
 		const waits: Promise<unknown>[] = [];
 		let responded: Promise<Res> | null = null;
@@ -56,9 +58,17 @@ function setup() {
 		await Promise.all(waits);
 		return res as Res | string | null;
 	};
+	/** 只等响应、不等 waitUntil：用来确认缓存写入确实交给了 waitUntil */
+	const fireNoWait = async (type: string, extra: Record<string, unknown> = {}) => {
+		const waits: Promise<unknown>[] = [];
+		let responded: Promise<Res> | null = null;
+		listeners[type]({ ...extra, waitUntil: (p: Promise<unknown>) => waits.push(p), respondWith: (p: Promise<Res>) => (responded = p) });
+		const res = responded ? await (responded as Promise<Res>) : null;
+		return { res, waits };
+	};
 	const req = (path: string, o: { method?: string; mode?: string } = {}) => ({ url: ORIGIN + path, method: o.method ?? 'GET', mode: o.mode ?? 'cors' });
-	const cached = () => [...(stores.get('earth-shell-v2')?.keys() ?? [])].map((u) => new URL(u).pathname).sort();
-	return { stores, net, fire, req, cached };
+	const cached = () => [...(stores.get('earth-shell-v3')?.keys() ?? [])].map((u) => new URL(u).pathname).sort();
+	return { stores, net, fire, fireNoWait, req, cached };
 }
 
 const page = (js: string, css: string) => `<html><link rel="stylesheet" href="/_astro/${css}"><script type="module" src="/_astro/${js}"></script></html>`;
@@ -67,11 +77,11 @@ test('离线外壳：安装时预缓存页面和它引用的构建文件；断�
 	const t = setup();
 	t.net.files.set('/earth/', page('a1.js', 'a1.css'));
 	for (const f of ['/_astro/a1.js', '/_astro/a1.css', '/earth/manifest.webmanifest', '/earth/icon-192.png', '/earth/icon.svg']) t.net.files.set(f, 'x');
-	t.stores.set('earth-shell-v1', new Map()); // 旧版本的缓存
+	t.stores.set('earth-shell-v2', new Map()); // 旧版本的缓存
 	await t.fire('install');
 	assert.deepEqual(t.cached(), ['/_astro/a1.css', '/_astro/a1.js', '/earth/', '/earth/icon-192.png', '/earth/icon.svg', '/earth/manifest.webmanifest']);
 	await t.fire('activate');
-	assert.equal(t.stores.has('earth-shell-v1'), false, '旧版本缓存被删除');
+	assert.equal(t.stores.has('earth-shell-v2'), false, '旧版本缓存被删除');
 	// 不拦截：接口、POST、其他域名
 	assert.equal(await t.fire('fetch', { request: t.req('/api/earth/save') }), null);
 	assert.equal(await t.fire('fetch', { request: t.req('/earth/', { method: 'POST' }) }), null);
@@ -112,4 +122,30 @@ test('离线外壳：部署新版本后联网打开，补齐新构建文件、�
 	const off = await t.fire('fetch', { request: t.req('/earth/', { mode: 'navigate' }) });
 	assert.ok(off instanceof Res && off.body.includes('v2.js'));
 	assert.ok((await t.fire('fetch', { request: t.req('/_astro/v2.js') })) instanceof Res);
+});
+
+test('离线外壳：以页面方式打开图标等文件不会把外壳换掉；缓存写入都交给 waitUntil', async () => {
+	const t = setup();
+	t.net.files.set('/earth/', page('c1.js', 'c1.css'));
+	for (const f of ['/_astro/c1.js', '/_astro/c1.css', '/earth/manifest.webmanifest', '/earth/icon-192.png', '/earth/icon.svg']) t.net.files.set(f, 'x');
+	await t.fire('install');
+	await t.fire('activate');
+	// 直接打开图标（导航请求）
+	t.net.files.set('/earth/icon.svg', '<svg/>');
+	const icon = await t.fire('fetch', { request: t.req('/earth/icon.svg', { mode: 'navigate' }) });
+	assert.ok(icon instanceof Res && icon.body === '<svg/>');
+	t.net.online = false;
+	const off = await t.fire('fetch', { request: t.req('/earth/', { mode: 'navigate' }) });
+	assert.ok(off instanceof Res && off.body.includes('c1.js'), '外壳仍是游戏首页');
+	assert.deepEqual(t.cached().filter((p) => p.startsWith('/_astro/')), ['/_astro/c1.css', '/_astro/c1.js'], '构建文件没被清掉');
+	// 联网打开首页：响应先回来，缓存更新在 waitUntil 里完成
+	t.net.online = true;
+	t.net.files.set('/earth/', page('c2.js', 'c2.css'));
+	t.net.files.set('/_astro/c2.js', 'x');
+	t.net.files.set('/_astro/c2.css', 'x');
+	const { res, waits } = await t.fireNoWait('fetch', { request: t.req('/earth/', { mode: 'navigate' }) });
+	assert.ok(res instanceof Res && res.body.includes('c2.js'));
+	assert.ok(waits.length > 0, '缓存更新交给了 waitUntil');
+	await Promise.all(waits);
+	assert.deepEqual(t.cached().filter((p) => p.startsWith('/_astro/')), ['/_astro/c2.css', '/_astro/c2.js']);
 });
