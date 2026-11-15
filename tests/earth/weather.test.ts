@@ -153,3 +153,21 @@ test('风暴天：事件里下海的选项不能选（换别的选项能结算�
 	assert.equal(applyAction(gs, WA, { t: 'npc', npc: 'tom', act: 'perk' }).ok, false);
 	assert.ok(NPCS.find((n) => n.id === 'tom')!.perk!.exposed === 'sea');
 });
+
+test('看星星：只在内陆和公园、晚上 20 点到凌晨 2 点、不下雨的夜里能做', () => {
+	let clear = -1, wet = -1;
+	for (let d = 0; d < YEAR_DAYS * 3 && (clear < 0 || wet < 0); d++) {
+		const w = weatherOn('pinnacles', d).id;
+		if (['sunny', 'cloudy', 'hot'].includes(w) && clear < 0) clear = d;
+		if (['rain', 'storm'].includes(w) && wet < 0) wet = d;
+	}
+	const base = createCharacter({ id: 'star-gazer', name: '星星', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'pinnacles', seed: 6 });
+	const at = (day: number, hour: number) => ({ ...base, clock: day * 1440 + hour * 60 });
+	const has = (s: ReturnType<typeof at>) => activitiesAt(s, WA).find((x) => x.act.id === 'stargaze');
+	assert.ok(has(at(clear, 22)) && !has(at(clear, 22))!.blocked, '晴夜 22 点可以');
+	assert.ok(applyAction(at(clear, 22), WA, { t: 'activity', id: 'stargaze' }).ok);
+	assert.match(has(at(clear, 14))?.blocked ?? '', /营业时间|20/, '白天不行');
+	assert.equal(has(at(wet, 22)), undefined, '下雨的夜里列表里没有');
+	const city = createCharacter({ id: 'star-city', name: '城里', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed: 6 });
+	assert.equal(activitiesAt({ ...city, clock: clear * 1440 + 22 * 60 }, WA).find((x) => x.act.id === 'stargaze'), undefined, '城市里没有');
+});
