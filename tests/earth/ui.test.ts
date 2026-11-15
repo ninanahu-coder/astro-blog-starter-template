@@ -83,7 +83,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	const g = globalThis as any;
 	const saved = { setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, fetch: g.fetch, WebSocket: g.WebSocket, confirm: g.confirm, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
 	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => (docListeners[t] = f), body: { classList: new ClassList() }, hidden: false };
-	g.window = { setTimeout, scrollTo() {} };
+	const winListeners: Record<string, (e: unknown) => void> = {};
+	g.window = { setTimeout, scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => (winListeners[t] = f) };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', reload() {} };
 	g.fetch = async (u: string, o?: RequestInit) => {
@@ -147,6 +148,19 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(copied, /地球人生/);
 		assert.match(copied, /https?:\/\/game\.test\/earth\//);
 		assert.ok(!copied.includes(cred.id) && !copied.includes(cred.key), '分享文字不能带凭证');
+		// 断网：动作失败后顶栏出现离线横幅；恢复网络后自动同步、横幅消失
+		const realFetch = g.fetch;
+		g.fetch = async () => { throw new TypeError('offline'); };
+		await click({ tab: 'place' });
+		const anyAct = panel().match(/data-act="([^"]+)"/)?.[1];
+		assert.ok(anyAct);
+		await click({ act: anyAct! });
+		await pause(30);
+		assert.match(el('hud').innerHTML, /现在离线/);
+		g.fetch = realFetch;
+		winListeners.online?.({});
+		await pause(60);
+		assert.doesNotMatch(el('hud').innerHTML, /现在离线/);
 		// 出行到罗特尼斯岛（先到弗里曼特尔坐渡轮）：第一次抵达有事件，弹窗打开时锁住背后
 		await click({ tab: 'go' });
 		await click({ go: 'fremantle', mode: 'road' });

@@ -229,6 +229,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.card.warn { background: var(--tint-red); box-shadow: inset 0 0 0 1px var(--bad); }
 			.card.warn h3 { color: var(--tint-red-ink); }
 			.card.warn p { color: var(--text); }
+			.offline { margin-top: 8px; padding: 8px 12px; border-radius: 12px; background: var(--tint-amber); color: var(--tint-amber-ink); font-size: 13px; font-weight: 600; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -474,7 +475,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					if (!data.ok) { toast(data.msg || '操作失败'); render(); return null; }
 					return { ok: true, msg: data.msg };
 				} catch {
+					syncStatus = '离线：可以查看，联网后才能行动';
 					toast('网络断开了，联网后才能行动');
+					renderHud();
 					return null;
 				} finally {
 					busy = false;
@@ -504,6 +507,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<button class="moodchip${moodCls(m)}" data-tab="me" title="看心情的来源"><span>${moodTier(m).name} ${m}</span></button>
 					</div>
 					<div class="hud-time"><span title="${formatClock(s.clock)}">${weatherAt(s).icon} ${dateLabel(s.clock)} · ${WEEKDAYS[weekdayOf(s.clock)]} ${formatClock(s.clock).split(' ')[1]} ${period(s.clock).name}</span><span class="sync-dot${online ? '' : ' off'}">${online ? '已同步' : '离线'}</span></div>
+					${syncStatus.startsWith('离线') ? '<div class="offline" role="status">现在离线：可以查看，联网后才能行动</div>' : ''}
 					${mini}`;
 			}
 
@@ -1175,6 +1179,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			fetch('/earth/cgi/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: any) => { cgi = m.images || {}; if (state) { renderPanel(); renderEvent(); } }).catch(() => {});
 			if (state) { connect(); pullCloud(); }
 			document.addEventListener('visibilitychange', () => { if (!document.hidden && state) { connect(); pullCloud(); } });
+			// 手机断网时立刻显示离线，恢复后自动重连并同步
+			if (typeof window.addEventListener === 'function') {
+				window.addEventListener('offline', () => { syncStatus = '离线：可以查看，联网后才能行动'; if (state) renderHud(); });
+				window.addEventListener('online', () => { if (state) { connect(); pullCloud(); } });
+			}
 			// 离线外壳：能「添加到主屏幕」、断网时也能打开查看。注册失败不影响游戏
 			if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/earth/sw.js', { scope: '/earth/' }).catch(() => {});
 		</script>
