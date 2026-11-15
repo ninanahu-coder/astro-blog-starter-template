@@ -548,6 +548,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			const proj = makeProjection(region);
 			function renderMap() {
+				// 地图只在「出行」页显示：其他页不画，切到出行页时 renderPanel 会补画
+				if (tab !== 'go' || !state) return;
 				const s = state!;
 				const pt = (id: string) => { const l = getLocation(region, id)!; return proj.project(l.lon, l.lat); };
 				const outline = region.outline.map(([lon, lat]) => proj.project(lon, lat).join(',')).join(' ');
@@ -1013,6 +1015,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				$('tabs').innerHTML = `<div class="tabs-in">${TABS.map(([id, label, icon]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}" ${tab === id ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}</button>`).join('')}</div>`;
 				// 地图只在「出行」页显示
 				$('map-wrap').classList.toggle('hidden', tab !== 'go');
+				renderMap();
 				renderHud();
 				const html = { place: panelPlace, near: panelNear, go: panelGo, me: panelMe, social: panelSocial }[tab]!();
 				$('panel').innerHTML = html;
@@ -1068,9 +1071,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (!state) { $('game').classList.add('hidden'); $('create').classList.remove('hidden'); return; }
 				$('create').classList.add('hidden');
 				$('game').classList.remove('hidden');
-				renderHud();
-				renderMap();
-				renderPanel();
+				renderPanel(); // 里面会画顶栏和（出行页的）地图
 				renderEvent();
 				if (dailyNote) {
 					const note = dailyNote;
@@ -1141,7 +1142,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const here = d.loc === state.loc;
 					selected = here || d.loc === selected ? null : d.loc;
 					tab = here ? 'place' : 'go';
-					renderMap(); renderPanel();
+					renderPanel();
 				}
 				else if (d.choice) {
 					const ev = getPendingEvent(state);

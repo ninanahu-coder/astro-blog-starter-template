@@ -139,10 +139,13 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(next2, /data-(act|job)=/);
 
 		// 其他标签都能渲染；地图只在出行页
+		// 地图只在出行页画：今天页时 SVG 还是空的
+		assert.equal(el('map').innerHTML, '', '今天页不画地图');
 		for (const t of ['go', 'near', 'social', 'me']) {
 			await click({ tab: t });
 			assert.ok(strip(panel()).length > 20, `${t} 页是空的`);
 			assert.equal(el('map-wrap').classList.contains('hidden'), t !== 'go', `${t} 页地图显示不对`);
+			if (t === 'go') assert.match(el('map').innerHTML, /class="land"/, '出行页画了地图');
 		}
 		for (const mt of ['overview', 'assets', 'people', 'log', 'sync']) {
 			await click({ metab: mt });
