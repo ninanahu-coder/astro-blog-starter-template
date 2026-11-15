@@ -226,6 +226,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.bar.dark i { background: var(--accent); }
 			.dest-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 			.dest-head button { min-width: 44px; min-height: 44px; border: 0; background: var(--soft); border-radius: 22px; padding: 0; }
+			.card.warn { background: var(--tint-red); box-shadow: inset 0 0 0 1px var(--bad); }
+			.card.warn h3 { color: var(--tint-red-ink); }
+			.card.warn p { color: var(--text); }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -596,6 +599,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<ol>${steps.map(([done, title, hint]) => `<li class="${done ? 'done' : ''}"><span class="tick" aria-hidden="true">${done ? '✓' : ''}</span><span>${title}<small>${hint}</small></span><span class="sr">${done ? '（已完成）' : ''}</span></li>`).join('')}</ol></div>`;
 			}
 
+			/** 周结算预警：两天内要结算、现金不够付这周的固定开销时提醒（出租收入不计入，按最坏情况算） */
+			function settleCard(s: PlayerState) {
+				const wc = weeklyCosts(s);
+				const days = Math.max(0, s.nextWeek - dayOf(s.clock));
+				if (!wc.total || days > 2 || s.cash >= wc.total) return '';
+				const parts = [wc.rent ? `房租 $${wc.rent}` : '', wc.property ? `房产 $${wc.property}` : '', wc.vehicle ? `车辆 $${wc.vehicle}` : ''].filter(Boolean).join(' + ');
+				const risks = [wc.rent ? '付不起房租会被收回住处（家具半价折现）' : '', wc.property ? `房产连续欠款超过 ${FINANCE.graceWeeks} 次会被强制卖掉` : '', wc.vehicle ? '付不起车辆保险麻烦值 +8' : ''].filter(Boolean).join('；');
+				return `<div class="card warn" role="status"><h3>${days ? `${days} 天后` : '今天'}周结算，钱不够</h3><p>要付 $${wc.total.toLocaleString()}（${parts}），现在只有 $${s.cash.toLocaleString()}，还差 $${(wc.total - s.cash).toLocaleString()}。</p><p style="margin-top:4px">${risks}。</p></div>`;
+			}
+
 			function panelPlace() {
 				const s = state!;
 				const loc = getLocation(region, s.loc)!;
@@ -670,6 +683,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const festHtml = `<div class="card"><h3>${festHere ? `🎉 ${esc(festHere.festival.name)}进行中` : '节日'}</h3>${festHere ? `<p>${esc(festHere.festival.desc)} 节日专属体验在下面的「体验」里。</p>` : ''}
 					${festSoon.map((c) => `<p style="margin-top:4px">${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(c.festival.name)} · ${esc(getLocation(region, c.festival.loc)!.name)}</p>`).join('')}</div>`;
 				return `
+					${settleCard(s)}
 					${guideCard(s)}
 					${meCard(s)}
 					${nextCard(s, !!homeHere, !!workHere && !shiftWhy)}

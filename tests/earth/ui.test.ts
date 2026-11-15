@@ -63,6 +63,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	// 让「下一步」有明确的建议：服务端存档的饱食改低
 	const rec = data.get('save:' + cred.id) as any;
 	rec.state.needs.hunger = 15;
+	// 租着合租房间、现金只有 $120、明天周结算：今天页应该出预警
+	rec.state.home = { type: 'room', loc: rec.state.loc, furniture: {} };
+	rec.state.cash = 120;
+	rec.state.nextWeek = Math.floor(rec.state.clock / 1440) + 1;
 	data.set('save:' + cred.id, rec);
 
 	const els = new Map<string, El>();
@@ -111,6 +115,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.equal(el('map-wrap').classList.contains('hidden'), true, '今天页不显示地图');
 		// 名字里的 HTML 被转义（服务端可能已清洗掉尖括号；无论如何不能原样出现）
 		for (const h of [panel(), el('hud').innerHTML]) assert.ok(!h.includes('<b>阿测</b>'), '名字没有转义');
+		assert.match(panel(), /1 天后周结算，钱不够/, '周结算预警');
+		assert.match(panel(), /要付 \$160（房租 \$160），现在只有 \$120，还差 \$40/);
 		// 「下一步」：饱食最低 → 吃饭
 		const next = panel().match(/<div class="next">[\s\S]*?<\/div>/)?.[0] ?? '';
 		assert.match(next, /肚子有点饿了/);
