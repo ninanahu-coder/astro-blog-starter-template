@@ -2,7 +2,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction } from '../../src/game/core/actions.ts';
-import { choiceLabel } from '../../src/game/core/engine.ts';
+import { choiceLabel, netWorth } from '../../src/game/core/engine.ts';
+import { boardEntry, rankBoard } from '../../src/game/core/board.ts';
 import { VENUE_EVENTS } from '../../src/game/data/venue-events.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
@@ -296,4 +297,20 @@ test('每日奖励和欠息也不越过存档校验的上限', async () => {
 	assert.equal(r.state.properties[0].missed, 1, '这周确实欠款了');
 	assert.equal(r.state.properties[0].loan, def.price, '本金不超过房价');
 	assert.deepEqual(sanitizeState(r.state, locs), r.state);
+});
+
+test('排行榜：排名规则（净资产、先达到者、稳定）和名次截取', () => {
+	const e = (worth: number, at: number, name = 'x') => ({ name, avatar: '🧑', worth, day: 3, at });
+	const entries: [string, unknown][] = [['rank:b', e(500, 2, '乙')], ['rank:a', e(900, 5, '甲')], ['rank:c', e(500, 1, '丙')], ['rank:d', e(500, 1, '丁')], ['rank:bad', { worth: NaN }]];
+	const b = rankBoard(entries, 'rank:d', 3);
+	assert.deepEqual(b.top.map((r) => r.name), ['甲', '丙', '丁'], '同样 500：先达到的在前，同时达到的按键排');
+	assert.equal(b.total, 4, '坏记录不计');
+	assert.deepEqual(b.me, { rank: 3, name: '丁', avatar: '🧑', worth: 500, day: 3, me: true });
+	assert.equal(rankBoard(entries, 'rank:b', 2).me?.rank, 4, '在前几名之外也能拿到自己的名次');
+	assert.equal(rankBoard(entries, 'rank:zzz').me, null, '没上榜');
+	assert.equal(rankBoard([], 'rank:a').total, 0);
+	// 榜单记录就是净资产，只放展示用的字段
+	const s = createCharacter({ id: 'board-player', name: '榜', avatar: '🧑', origin: 'fifo', region: 'wa', spawn: WA.spawn, seed: 3 });
+	assert.deepEqual(Object.keys(boardEntry(s, 123)).sort(), ['at', 'avatar', 'day', 'name', 'worth']);
+	assert.equal(boardEntry(s, 123).worth, Math.round(netWorth(s)));
 });

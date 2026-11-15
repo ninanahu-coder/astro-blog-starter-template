@@ -7,6 +7,8 @@ import { applyAction, parseAction, publicState } from '../core/actions.ts';
 import { claimDaily, realDayOf } from '../core/daily.ts';
 import { refreshWishes } from '../core/wishes.ts';
 import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
+import { boardEntry, rankBoard } from '../core/board.ts';
+import type { PlayerState } from '../core/types.ts';
 import { getRegion, REGIONS } from '../data/wa.ts';
 
 const SAVES_ROOM = '@SAVES';
@@ -53,6 +55,7 @@ export class EarthWorld {
 	private saveRate = new Map<string, { n: number; resetAt: number }>();
 	private sweeper: ReturnType<typeof setInterval> | null = null;
 	private locks = new Map<string, Promise<unknown>>(); // 同一存档的请求排队执行，避免并发读改写
+	private board: [string, unknown][] | null = null; // 榜单记录的内存缓存；所有存档都写在这个实例里，写入时作废
 
 	constructor(ctx: DurableObjectState, _env: unknown) {
 		this.ctx = ctx;
@@ -195,6 +198,7 @@ export class EarthWorld {
 	//   create { id, key, profile: { name, avatar, origin, traits } }  新建角色（id 未被占用时）
 	//   get    { id, key }                                             读取存档
 	//   act    { id, key, rev, act: GameAction }                       执行一个动作；rev 与服务端不一致返回 409
+	//   board  { id, key }                                             净资产排行榜（前 20 名和自己的名次），只读
 	private async handleSave(request: Request): Promise<Response> {
 		if (request.method !== 'POST') return json({ ok: false, msg: '请求无效' }, 405);
 		const ip = request.headers.get('CF-Connecting-IP') || 'local';
@@ -230,6 +234,13 @@ export class EarthWorld {
 		return run;
 	}
 
+	/** 存档落盘，同时更新这名玩家的榜单记录。榜单用 id 的哈希前缀做键（和在线状态一样），真实 id 是凭证的一部分，不能外露 */
+	private async persist(id: string, keyHash: string, state: PlayerState, now: number): Promise<void> {
+		const pub = (await sha256Hex(id)).slice(0, 12);
+		await this.ctx.storage.put({ ['save:' + id]: { keyHash, state, at: now }, ['rank:' + pub]: boardEntry(state, now) });
+		this.board = null;
+	}
+
 	private async handleSaveLocked(body: any, id: string, key: string, wall: number): Promise<Response> {
 		const keyHash = await sha256Hex(id + ':' + key);
 		const rec = await this.ctx.storage.get<{ keyHash: string; state: any; at: number }>('save:' + id);
@@ -239,6 +250,13 @@ export class EarthWorld {
 		const last = rec && Number.isFinite(rec.at) ? rec.at : 0;
 		const now = last > wall && last - wall <= CLOCK_BACK_MAX_MS ? last : wall;
 		const action = body.action;
+
+		if (action === 'board') {
+			if (!rec) return json({ ok: false, msg: '云端没有这个存档' }, 404);
+			if (!this.board) this.board = [...(await this.ctx.storage.list({ prefix: 'rank:' })).entries()];
+			const me = 'rank:' + (await sha256Hex(id)).slice(0, 12);
+			return json({ ok: true, ...rankBoard(this.board, me), at: now });
+		}
 
 		if (action === 'create') {
 			if (rec) return json({ ok: false, msg: '这个存档已存在' }, 409);
@@ -257,7 +275,7 @@ export class EarthWorld {
 			refreshWishes(state);
 			const first = claimDaily(state, realDayOf(now));
 			const created = first ? { ...first.state, rev: 0 } : state;
-			await this.ctx.storage.put('save:' + id, { keyHash, state: created, at: now });
+			await this.persist(id, keyHash, created, now);
 			return json({ ok: true, state: publicState(created), at: now, daily: first?.msg });
 		}
 
@@ -275,7 +293,7 @@ export class EarthWorld {
 		// 校验时修过存档（挪了地点、清了未来的时间戳等）也要写回：不然只上线不操作的话，每次都重新修一遍，
 		// 被改成「今天已领」的每日奖励永远领不到
 		const migrated = JSON.stringify(current) !== JSON.stringify(rec.state);
-		if ((claim || migrated) && action === 'get') await this.ctx.storage.put('save:' + id, { keyHash, state: live, at: now });
+		if ((claim || migrated) && action === 'get') await this.persist(id, keyHash, live, now);
 
 		if (action === 'get') return json({ ok: true, state: publicState(live), at: now, daily: claim?.msg });
 
@@ -287,9 +305,9 @@ export class EarthWorld {
 			// 版本号按领奖前的存档比对（上面已检查），动作在领奖后的存档上执行
 			const r = applyAction(live, region, act, now);
 			const next = r.state !== live ? canon(r.state) : r.state;
-			if (next !== current) await this.ctx.storage.put('save:' + id, { keyHash, state: next, at: now });
+			if (next !== current) await this.persist(id, keyHash, next, now);
 			// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
-			else if (migrated) await this.ctx.storage.put('save:' + id, { keyHash, state: current, at: now });
+			else if (migrated) await this.persist(id, keyHash, current, now);
 			return json({ ok: r.ok, msg: r.msg, state: publicState(next), at: now, daily: claim?.msg });
 		}
 		return json({ ok: false, msg: '请求无效' }, 400);

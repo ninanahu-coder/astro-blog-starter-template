@@ -40,6 +40,7 @@ src/game/
   core/geo.ts         距离、地图投影、真实坐标 → 游戏地点
   core/formulas.ts    派生属性（体质、吸引力、状态系数……）与真实地点动作的公式
   core/venues.ts      真实地点：附近列表、定位检查、吃饭/训练/打卡上班等结算
+  core/board.ts       净资产排行榜：榜单记录与排名
   data/wa.ts          西澳：18 个地点、路线图、海岸线轮廓
   data/wa.pois.json   打卡点（OpenClaw 写入）
   data/venues.ts      真实地点的类型、动作和定位规则
@@ -47,7 +48,7 @@ src/game/
   data/activities.ts  地点互动表（数值调参都在这里）
   data/events.ts      到达事件表（加事件只加数据，不写逻辑）
   data/venue-events.ts 到店事件表：真实地点做完事后按地点类型触发（见 real-places.md §5）
-  server/world.ts     Durable Object：在线位置、同地点聊天/表情、云存档
+  server/world.ts     Durable Object：在线位置、同地点聊天/表情、云存档、排行榜
 src/pages/earth.astro 手机端单页客户端（只负责渲染和输入）
 tools/earth/openclaw/ 采集任务书、JSON Schema、校验合并脚本
 tools/earth/comfyui/  提示词生成、工作流模板、远程出图脚本
@@ -89,7 +90,7 @@ tests/earth/          引擎与数据自洽性测试
 | 接口 | 作用 |
 | --- | --- |
 | `GET /api/earth/ws?region=wa&id&name&avatar&loc`（WebSocket） | 区域在线状态：`hello / join / leave / move / chat / emote`。聊天和表情只发给同一地点的玩家 |
-| `POST /api/earth/save` `{action:'create'|'get'|'act', id, key, …}` | **服务端权威结算**。`create` 由服务器创建角色；`act` 发送一个动作（`{ rev, act: GameAction }`），服务器调用规则引擎结算、保存并返回新存档；客户端版本落后时返回 409 和最新存档。服务端只存 key 的哈希，不接受客户端上传存档 |
+| `POST /api/earth/save` `{action:'create'|'get'|'act'|'board', id, key, …}` | **服务端权威结算**。`create` 由服务器创建角色；`act` 发送一个动作（`{ rev, act: GameAction }`），服务器调用规则引擎结算、保存并返回新存档；客户端版本落后时返回 409 和最新存档。服务端只存 key 的哈希，不接受客户端上传存档 |
 
 - **同步码** = `id.key`，在“同步”页复制，到另一台设备粘贴即可恢复。等同密码。
 - 每个动作都发给服务器结算，成功后 `rev + 1`。同一存档的请求在服务器上排队执行。
@@ -97,6 +98,7 @@ tests/earth/          引擎与数据自洽性测试
 - 服务器返回的存档隐去了随机数种子，客户端无法预知检定结果。
 - 本机 `localStorage` 只缓存最近一次的服务器存档用于显示；联网时一律以服务器为准，改缓存没有作用。
 - 断网时可以查看，但不能行动；创建角色也需要联网。
+- `board` 返回全服净资产前 20 名和自己的名次（只读）。榜单记录在每次存档落盘时由服务端顺带更新，只含名字、头像、净资产和游戏天数。
 
 ## 5. 数据采集（OpenClaw）
 

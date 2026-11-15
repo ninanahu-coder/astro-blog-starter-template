@@ -12,7 +12,16 @@ function makeWorld(delayMs = 0) {
 	const wait = () => (delayMs ? new Promise((done) => setTimeout(done, delayMs)) : Promise.resolve());
 	const storage = {
 		get: async (k: string) => { await wait(); return data.has(k) ? structuredClone(data.get(k)) : undefined; },
-		put: async (k: string, v: unknown) => { await wait(); puts++; data.set(k, structuredClone(v)); },
+		put: async (k: string | Record<string, unknown>, v?: unknown) => {
+			await wait();
+			puts++;
+			if (typeof k === 'string') data.set(k, structuredClone(v));
+			else for (const [kk, vv] of Object.entries(k)) data.set(kk, structuredClone(vv));
+		},
+		list: async ({ prefix = '' }: { prefix?: string } = {}) => {
+			await wait();
+			return new Map([...data].filter(([k]) => k.startsWith(prefix)).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => [k, structuredClone(v)]));
+		},
 	};
 	const world = new EarthWorld({ storage } as never, {});
 	const call = async (body: Record<string, unknown>) => {
@@ -282,4 +291,58 @@ test('服务端：落盘的存档永远是规范形式（再校验一次不变�
 	const b = await w.call({ action: 'act', ...cred, rev: a.data.state.rev, act: gps });
 	assert.equal(b.data.state.respect, a.data.state.respect, '第二次打卡没有再加声望');
 	assert.deepEqual(w.data.get('save:' + ID).state.checkins.filter((x: string) => x === poi.id), [poi.id]);
+});
+
+test('服务端：净资产排行榜按净资产排名，标出自己，不泄露 id、同步码和种子', async () => {
+	const w = makeWorld();
+	const players = [
+		{ id: 'board-alice-01', key: 'a'.repeat(24), name: '阿丽', cash: 5000 },
+		{ id: 'board-bob-0002', key: 'b'.repeat(24), name: '阿博', cash: 900 },
+		{ id: 'board-cat-0003', key: 'c'.repeat(24), name: '阿凯', cash: 20000 },
+	];
+	for (const p of players) {
+		await w.call({ action: 'create', id: p.id, key: p.key, profile: { ...profile, name: p.name } });
+		const rec = w.data.get('save:' + p.id);
+		w.data.set('save:' + p.id, { ...rec, state: { ...rec.state, cash: p.cash } });
+		await w.call({ action: 'act', id: p.id, key: p.key, rev: rec.state.rev, act: { t: 'activity', id: 'rest' } });
+	}
+	const before = w.puts();
+	const r = await w.call({ action: 'board', id: players[1].id, key: players[1].key });
+	assert.equal(r.status, 200, r.data.msg);
+	assert.equal(w.puts(), before, '看榜不写入任何东西');
+	assert.deepEqual(r.data.top.map((x: { name: string }) => x.name), ['阿凯', '阿丽', '阿博']);
+	assert.deepEqual(r.data.top.map((x: { rank: number }) => x.rank), [1, 2, 3]);
+	assert.deepEqual(r.data.top.map((x: { me: boolean }) => x.me), [false, false, true]);
+	assert.equal(r.data.me.rank, 3);
+	assert.equal(r.data.total, 3);
+	assert.ok(r.data.top[0].worth > r.data.top[1].worth);
+	const text = JSON.stringify(r.data);
+	for (const p of players) {
+		assert.ok(!text.includes(p.id), '不含存档 id');
+		assert.ok(!text.includes(p.key), '不含同步码');
+		assert.ok(!text.includes(w.data.get('save:' + p.id).keyHash), '不含同步码哈希');
+	}
+	assert.ok(!/seed/.test(text), '不含种子');
+	// 净资产变化后榜单跟着变：阿博发财了
+	const bob = w.data.get('save:' + players[1].id);
+	w.data.set('save:' + players[1].id, { ...bob, state: { ...bob.state, cash: 99999 } });
+	await w.call({ action: 'act', id: players[1].id, key: players[1].key, rev: bob.state.rev, act: { t: 'activity', id: 'rest' } });
+	const r2 = await w.call({ action: 'board', id: players[0].id, key: players[0].key });
+	assert.deepEqual(r2.data.top.map((x: { name: string }) => x.name), ['阿博', '阿凯', '阿丽']);
+	assert.equal(r2.data.me.rank, 3);
+	assert.equal(r2.data.total, 3, '每人只占一条');
+	// 同步码不对看不了，没有存档看不了
+	assert.equal((await w.call({ action: 'board', id: players[0].id, key: 'x'.repeat(24) })).status, 403);
+	assert.equal((await w.call({ action: 'board', id: 'nobody-here-9', key: 'x'.repeat(24) })).status, 404);
+});
+
+test('服务端：榜单记录损坏时跳过那一条，不影响其他人', async () => {
+	const w = makeWorld();
+	await w.call({ action: 'create', ...cred, profile });
+	w.data.set('rank:broken00001', { name: 7, worth: 'lots' });
+	w.data.set('rank:broken00002', { name: '<b>坏</b>', avatar: '🧑', worth: Infinity, day: 1, at: 1 });
+	const r = await w.call({ action: 'board', ...cred });
+	assert.equal(r.status, 200);
+	assert.equal(r.data.total, 1);
+	assert.equal(r.data.me.rank, 1);
 });
