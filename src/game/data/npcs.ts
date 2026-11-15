@@ -161,5 +161,19 @@ export const NPCS: NpcDef[] = [
 			{ at: 90, title: '船舱里的名字', text: '汤姆在船舱的木板上刻下了你的名字，旁边是他父亲和他自己的。', fx: { respect: 3, moodlet: 'best-friend' } },
 		],
 		perk: { at: 60, name: '清晨收笼', desc: '跟汤姆天亮前出海收了一趟龙虾笼。', every: 3, fx: { minutes: 180, needs: { fun: 20, hunger: 15, energy: -15 }, skills: { survival: 1, strength: 1 } } },
+	},	{
+		id: 'harry', name: '哈利', role: '码头博物馆讲解员', loc: 'albany', hours: [9, 17],
+		bio: '退休前是灯塔看守人，现在每天在博物馆给游客讲这座港口一百多年的故事。',
+		schedule: [
+			{ weekdays: [6], loc: 'albany', hours: [6, 9], note: '周日一早在海边的山头上看日出' },
+		],
+		gifts: { love: ['snack'], like: ['coffee', 'water'], dislike: ['jerrycan'] },
+		stories: [
+			{ at: 10, title: '多问了一句', text: '你多问了一句展柜里的旧船票，哈利眼睛一亮，讲了半个钟头。' },
+			{ at: 30, title: '灯塔的钥匙', text: '哈利给你看他留下来的那把灯塔钥匙，说起风暴夜里守灯的日子。', fx: { needs: { social: 15, fun: 10 } } },
+			{ at: 60, title: '成了好友', text: '哈利带你去了游客不去的老炮台，教你怎么跟陌生人讲一个好故事。', fx: { respect: 3, skills: { charisma: 3 }, moodlet: 'new-friend' } },
+			{ at: 90, title: '留言簿', text: '哈利把博物馆留言簿翻到他写的那一页，最后一行写着你的名字。', fx: { respect: 3, moodlet: 'best-friend' } },
+		],
+		perk: { at: 60, name: '码头讲古', desc: '跟着哈利在码头走了一圈，听他讲这座港口的故事。', every: 3, fx: { minutes: 90, needs: { fun: 20, social: 20 }, skills: { charisma: 1 } } },
 	},
 ];
