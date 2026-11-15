@@ -1012,7 +1012,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			function panelNear() {
 				const s = state!;
 				const intro = `<div class="card"><h3>附近能做的事</h3><p>人在真实的餐馆、健身房、公园、图书馆、超市……打开定位，就能在游戏里吃饭、训练、打卡上班。服务端会检查定位精度、距离和移动速度。</p>
-					${nearFix ? '<div class="inline" style="margin-top:8px"><button data-locate>📍 重新定位</button></div>' : '<button class="primary wide" data-locate>📍 打开定位，看看附近</button><p style="margin-top:6px">定位只留在这台设备的内存里，只用来判断你是不是在店里。</p>'}
+					${nearFix ? '<div class="inline" style="margin-top:8px"><button data-locate>📍 重新定位</button></div>' : '<button class="primary wide" data-locate>📍 打开定位，看看附近</button><p style="margin-top:6px">点店里的动作时，定位会发给服务器核对你是不是在店里；存档只记最近一次的大致位置（约 100 米），用来检查移动速度。</p>'}
 					${nearFix ? `<p style="margin-top:6px" class="muted">定位误差约 ${Math.round(nearFix.acc)} 米 · ${Math.max(0, Math.round((Date.now() - nearFix.at) / 60000))} 分钟前</p>` : ''}</div>`;
 				const ci = s.clockIn;
 				const ciVenue = ci ? region.venues.find((v) => v.id === ci.venue) : undefined;
