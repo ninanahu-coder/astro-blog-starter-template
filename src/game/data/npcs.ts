@@ -147,5 +147,19 @@ export const NPCS: NpcDef[] = [
 			{ at: 90, title: '祖父的珠子', text: '由纪把祖父留下的一颗小珍珠串成链子送给了你。', fx: { respect: 3, moodlet: 'best-friend' } },
 		],
 		perk: { at: 60, name: '珍珠鉴别课', desc: '由纪拿出一盘珠子让你挑真货。', every: 3, fx: { minutes: 60, needs: { fun: 10 }, skills: { street: 1, charisma: 0.5 } } },
+	},	{
+		id: 'tom', name: '汤姆', role: '龙虾船船长', loc: 'geraldton', hours: [5, 14],
+		bio: '天不亮就出海，中午回港卸完货就去码头边的长椅上晒太阳。',
+		schedule: [
+			{ weekdays: [5, 6], loc: 'kalbarri', hours: [9, 16], note: '周末开船带游客看卡尔巴里的海崖' },
+		],
+		gifts: { love: ['coffee'], like: ['water', 'firstaid'], dislike: ['surfboard'] },
+		stories: [
+			{ at: 10, title: '码头上的招呼', text: '汤姆冲你扬了扬下巴：「新来的？风大的日子别靠近防波堤。」' },
+			{ at: 30, title: '一筐龙虾', text: '汤姆从船上拎下一只最大的龙虾塞给你：「卖相不好的，自己吃。」', fx: { needs: { hunger: 40, social: 15 } } },
+			{ at: 60, title: '成了好友', text: '汤姆带你出了一趟海，教你看风向、打绳结、收笼子。', fx: { skills: { survival: 4, swimming: 2 }, moodlet: 'new-friend' } },
+			{ at: 90, title: '船舱里的名字', text: '汤姆在船舱的木板上刻下了你的名字，旁边是他父亲和他自己的。', fx: { respect: 3, moodlet: 'best-friend' } },
+		],
+		perk: { at: 60, name: '清晨收笼', desc: '跟汤姆天亮前出海收了一趟龙虾笼。', every: 3, fx: { minutes: 180, needs: { fun: 20, hunger: 15, energy: -15 }, skills: { survival: 1, strength: 1 } } },
 	},
 ];
