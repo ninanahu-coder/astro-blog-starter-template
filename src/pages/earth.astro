@@ -609,6 +609,28 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return `<div class="card warn" role="status"><h3>${days ? `${days} 天后` : '今天'}周结算，钱不够</h3><p>要付 $${wc.total.toLocaleString()}（${parts}），现在只有 $${s.cash.toLocaleString()}，还差 $${(wc.total - s.cash).toLocaleString()}。</p><p style="margin-top:4px">${risks}。</p></div>`;
 			}
 
+			/** 分享用的一段文字：只放展示信息，不含存档 id 和同步码 */
+			function shareText(s: PlayerState) {
+				const lv = level(s.respect);
+				const places = region.locations.filter((l) => s.visited[l.id]).length;
+				const ach = achievements(s, region);
+				return `我在「地球人生 · 西澳」里是 ${s.name}（Lv${lv.lv} ${lv.title}），过了 ${dayOf(s.clock) + 1} 天，去过 ${places}/${region.locations.length} 个地方，净资产 $${Math.round(netWorth(s)).toLocaleString()}，成就 ${ach.filter((a) => a.done).length}/${ach.length}。`;
+			}
+			async function shareProgress() {
+				const s = state!;
+				const text = shareText(s);
+				const url = `${location.protocol}//${location.host}/earth/`;
+				const nav = navigator as Navigator & { share?: (d: { title: string; text: string; url: string }) => Promise<void> };
+				try {
+					if (nav.share) { await nav.share({ title: '地球人生', text, url }); return; }
+					await navigator.clipboard.writeText(`${text} ${url}`);
+					toast('已复制，可以粘贴给朋友');
+				} catch (e) {
+					// 用户取消分享不提示；其他失败（不支持剪贴板）给出文字让人手动复制
+					if ((e as Error)?.name !== 'AbortError') toast('分享失败，可以在「设置」里手动复制');
+				}
+			}
+
 			function panelPlace() {
 				const s = state!;
 				const loc = getLocation(region, s.loc)!;
@@ -783,7 +805,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					me: `<div class="card"><h3>${s.avatar} ${esc(s.name)}</h3><p>${origin.icon} ${origin.name} · 座驾：${veh}</p>
 					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
 						<p>Lv${lv.lv} ${lv.title} · 声望 ${Math.floor(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
-						<div class="tags">${traits || '<span class="muted">没有性格特质</span>'}</div></div>`,
+						<div class="tags">${traits || '<span class="muted">没有性格特质</span>'}</div>
+						<div class="inline" style="margin-top:10px"><button data-share>分享我的进度</button></div></div>`,
 					mood: `<div class="card"><h3>心情 ${mb.total}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</h3>
 						<div style="margin-top:6px">
 							<div class="mood-row"><span>生活需求（最低的一项拉低整体）</span><b>${mb.needs}</b></div>
@@ -963,12 +986,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) { tab = d.tab; if (t.classList.contains('moodchip')) meTab = 'overview'; renderPanel(); window.scrollTo({ top: 0 }); }
 				else if (d.metab) { meTab = d.metab; renderPanel(); }
 				else if ('guideClose' in d) { store.set(GUIDE_KEY, 'done'); renderPanel(); }
+				else if ('share' in d) shareProgress();
 				else if (d.npc && d.npcAct) act(d.npcItem ? { t: 'npc', npc: d.npc, act: 'gift', item: d.npcItem } : { t: 'npc', npc: d.npc, act: d.npcAct as NpcAction }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.veh) {
 					if (d.veh === 'sell' && !confirm('确定把车卖掉？')) return;

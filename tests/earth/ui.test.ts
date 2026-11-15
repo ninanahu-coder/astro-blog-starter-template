@@ -94,7 +94,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	g.confirm = () => true;
 	// 页面里的心跳、附近页刷新是 setInterval，会让测试进程一直不退出：测试期间不执行
 	g.setInterval = () => 0;
-	Object.defineProperty(g, 'navigator', { value: { geolocation: null, clipboard: null }, configurable: true });
+	let copied = '';
+	Object.defineProperty(g, 'navigator', { value: { geolocation: null, clipboard: { writeText: async (t: string) => { copied = t; } } }, configurable: true });
 
 	const dir = mkdtempSync(join(tmpdir(), 'earth-ui-'));
 	try {
@@ -139,6 +140,13 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			assert.match(panel(), new RegExp(`data-metab="${mt}" class="on"`), mt);
 		}
 
+		// 分享进度：没有系统分享时复制到剪贴板；只含展示信息，不含存档 id 和同步码
+		await click({ metab: 'overview' });
+		await click({ share: '' });
+		await pause(20);
+		assert.match(copied, /地球人生/);
+		assert.match(copied, /https?:\/\/game\.test\/earth\//);
+		assert.ok(!copied.includes(cred.id) && !copied.includes(cred.key), '分享文字不能带凭证');
 		// 出行到罗特尼斯岛（先到弗里曼特尔坐渡轮）：第一次抵达有事件，弹窗打开时锁住背后
 		await click({ tab: 'go' });
 		await click({ go: 'fremantle', mode: 'road' });
