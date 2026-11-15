@@ -267,6 +267,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { checkScore, moodBreakdown, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
+			import { ACTIVITIES } from '../game/data/activities.ts';
 			import { EVENTS } from '../game/data/events.ts';
 			import { dateLabel, period, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
 			import { getWish } from '../game/core/wishes.ts';
@@ -706,7 +707,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const shopHtml = shop.length ? `<div class="card"><h3>商店</h3><div class="list" style="margin-top:8px">${shop.map(({ item, price, blocked }) => `
 					<button class="row" data-buy="${item.id}" ${blocked ? 'disabled' : ''}><span class="ico">${item.icon}</span>
 					<span class="body">${esc(item.name)}${s.inventory[item.id] ? ` ×${s.inventory[item.id]}` : ''}<small>${esc(blocked ?? item.desc)}</small></span><span class="meta">$${price}</span></button>`).join('')}</div></div>` : '';
-				const wishHtml = s.wishes.length ? `<div class="card"><h3>今天的心愿</h3><p>做到了加心情和声望，过了今天会换一批。</p><div class="tags">${s.wishes.map((id) => `<span class="tag">✨ ${esc(getWish(id)?.text ?? '')}</span>`).join('')}</div></div>` : '';
+				// 风暴天这里的海上活动做不了：和海上活动有关的心愿给个提示（去别处海边还能完成）
+				const seaClosed = weatherAt(s).closesSea;
+				const seaWish = (id: string) => { const w = getWish(id); return !!w && w.done.t === 'activity' && w.done.ids.some((a) => ACTIVITIES.find((x) => x.id === a)?.exposed === 'sea'); };
+				const wishHtml = s.wishes.length ? `<div class="card"><h3>今天的心愿</h3><p>做到了加心情和声望，过了今天会换一批。</p><div class="tags">${s.wishes.map((id) => `<span class="tag">✨ ${esc(getWish(id)?.text ?? '')}${seaClosed && seaWish(id) ? '（这里今天有风暴，换个海边）' : ''}</span>`).join('')}</div></div>` : '';
 				const cal = festivalCalendar(s.clock);
 				const festHere = cal.find((c) => c.active && c.festival.loc === loc.id);
 				const festSoon = cal.filter((c) => c !== festHere).slice(0, 2);
@@ -720,7 +724,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					${wishHtml}
 					<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
 						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
-						<p style="margin-top:6px">今天${weatherAt(s).icon} ${esc(weatherAt(s).name)}：${esc(weatherAt(s).desc)}</p>
+						<p style="margin-top:6px">今天${weatherAt(s).icon} ${esc(weatherAt(s).name)}：${esc(weatherAt(s).desc)} 明天${weatherOn(s.loc, dayOf(s.clock) + 1).icon} ${esc(weatherOn(s.loc, dayOf(s.clock) + 1).name)}。</p>
 						${lastOutcome ? `<p style="margin-top:8px;color:var(--text)">💡 ${esc(lastOutcome)}</p>` : ''}
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
