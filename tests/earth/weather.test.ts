@@ -193,3 +193,24 @@ test('天气事件：只在抵达地点当天下雨时出现', async () => {
 	assert.equal(dryHits, 0, '不下雨的日子出现了下雨事件');
 	assert.ok(wetHits > 0, '下雨天应该能抽到下雨事件');
 });
+
+test('天气相关数据自洽：活动和事件里写的天气都存在，exposed 只能是 sea，限定天气的活动至少有一种天气', async () => {
+	const { ACTIVITIES } = await import('../../src/game/data/activities.ts');
+	const { EVENTS } = await import('../../src/game/data/events.ts');
+	const { NPCS } = await import('../../src/game/data/npcs.ts');
+	const ids = new Set(WEATHERS.map((w) => w.id));
+	for (const a of ACTIVITIES) {
+		if (a.weather) {
+			assert.ok(a.weather.length > 0, a.id);
+			for (const w of a.weather) assert.ok(ids.has(w), `${a.id} 的天气 ${w} 不存在`);
+		}
+		if (a.exposed !== undefined) assert.equal(a.exposed, 'sea', a.id);
+	}
+	for (const e of EVENTS) {
+		for (const w of e.weather ?? []) assert.ok(ids.has(w), `${e.id} 的天气 ${w} 不存在`);
+		for (const c of e.choices) if (c.exposed !== undefined) assert.equal(c.exposed, 'sea', `${e.id}：${c.label}`);
+	}
+	for (const n of NPCS) if (n.perk?.exposed !== undefined) assert.equal(n.perk.exposed, 'sea', n.id);
+	// 只有风暴会关海：如果以后有别的天气 closesSea，这里提醒检查文案
+	assert.deepEqual(WEATHERS.filter((w) => w.closesSea).map((w) => w.id), ['storm']);
+});
