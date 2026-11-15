@@ -31,8 +31,12 @@ export interface Board {
 	total: number; // 上榜人数
 }
 
-export function boardEntry(state: PlayerState, now: number): BoardEntry {
-	return { name: state.name, avatar: state.avatar, worth: Math.round(netWorth(state)), day: dayOf(state.clock), at: now };
+/** prev 是这名玩家上一条榜单记录：净资产（取整后）没变就沿用它的时间，「同分先达到的在前」才不会被普通动作打乱 */
+export function boardEntry(state: PlayerState, now: number, prev?: unknown): BoardEntry {
+	const worth = Math.round(netWorth(state));
+	const old = cleanEntry(prev);
+	const at = old && old.worth === worth && old.at <= now ? old.at : now;
+	return { name: state.name, avatar: state.avatar, worth, day: dayOf(state.clock), at };
 }
 
 /** 存储里读出来的记录不可全信（旧版本、损坏）：字段不合法的整条丢掉 */

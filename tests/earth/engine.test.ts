@@ -313,4 +313,11 @@ test('排行榜：排名规则（净资产、先达到者、稳定）和名次�
 	const s = createCharacter({ id: 'board-player', name: '榜', avatar: '🧑', origin: 'fifo', region: 'wa', spawn: WA.spawn, seed: 3 });
 	assert.deepEqual(Object.keys(boardEntry(s, 123)).sort(), ['at', 'avatar', 'day', 'name', 'worth']);
 	assert.equal(boardEntry(s, 123).worth, Math.round(netWorth(s)));
+	// 净资产没变时沿用上一条记录的时间；变了、旧记录损坏或时间在未来，都用这次的时间
+	const w0 = Math.round(netWorth(s));
+	assert.equal(boardEntry(s, 500, e(w0, 100)).at, 100, '同样的净资产，保留先达到的时间');
+	assert.equal(boardEntry(s, 500, e(w0 + 1, 100)).at, 500, '净资产变了，换成这次的时间');
+	assert.equal(boardEntry(s, 500, e(w0, 900)).at, 500, '旧时间在未来，不沿用');
+	assert.equal(boardEntry(s, 500, { worth: w0 }).at, 500, '旧记录损坏，不沿用');
+	assert.equal(boardEntry(s, 500, undefined).at, 500);
 });

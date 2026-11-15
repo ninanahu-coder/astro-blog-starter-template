@@ -56,6 +56,7 @@ export class EarthWorld {
 	private sweeper: ReturnType<typeof setInterval> | null = null;
 	private locks = new Map<string, Promise<unknown>>(); // 同一存档的请求排队执行，避免并发读改写
 	private board: [string, unknown][] | null = null; // 榜单记录的内存缓存；所有存档都写在这个实例里，写入时作废
+	private boardGen = 0; // 每次写入加一：读榜期间有写入时，读到的旧列表不放进缓存
 
 	constructor(ctx: DurableObjectState, _env: unknown) {
 		this.ctx = ctx;
@@ -236,8 +237,11 @@ export class EarthWorld {
 
 	/** 存档落盘，同时更新这名玩家的榜单记录。榜单用 id 的哈希前缀做键（和在线状态一样），真实 id 是凭证的一部分，不能外露 */
 	private async persist(id: string, keyHash: string, state: PlayerState, now: number): Promise<void> {
-		const pub = (await sha256Hex(id)).slice(0, 12);
-		await this.ctx.storage.put({ ['save:' + id]: { keyHash, state, at: now }, ['rank:' + pub]: boardEntry(state, now) });
+		const rankKey = 'rank:' + (await sha256Hex(id)).slice(0, 12);
+		// 净资产没变时沿用上一条记录的时间，「同分先达到的在前」才成立
+		const prev = await this.ctx.storage.get(rankKey);
+		await this.ctx.storage.put({ ['save:' + id]: { keyHash, state, at: now }, [rankKey]: boardEntry(state, now, prev) });
+		this.boardGen++;
 		this.board = null;
 	}
 
@@ -253,9 +257,15 @@ export class EarthWorld {
 
 		if (action === 'board') {
 			if (!rec) return json({ ok: false, msg: '云端没有这个存档' }, 404);
-			if (!this.board) this.board = [...(await this.ctx.storage.list({ prefix: 'rank:' })).entries()];
+			// 先算好自己的键；拿到列表后立刻排名，中间不再等待，别的存档写入清掉缓存也不影响这次
 			const me = 'rank:' + (await sha256Hex(id)).slice(0, 12);
-			return json({ ok: true, ...rankBoard(this.board, me), at: now });
+			let rows = this.board;
+			if (!rows) {
+				const gen = this.boardGen;
+				rows = [...(await this.ctx.storage.list({ prefix: 'rank:' })).entries()];
+				if (gen === this.boardGen) this.board = rows;
+			}
+			return json({ ok: true, ...rankBoard(rows, me), at: now });
 		}
 
 		if (action === 'create') {
