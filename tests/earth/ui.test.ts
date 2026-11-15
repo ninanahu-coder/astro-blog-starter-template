@@ -82,7 +82,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	const store = new Map<string, string>([['earth.cred.v1', JSON.stringify(cred)], ['earth.save.v1', JSON.stringify(made.json.state)]]);
 	const g = globalThis as any;
 	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, fetch: g.fetch, WebSocket: g.WebSocket, confirm: g.confirm, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
-	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => (docListeners[t] = f), body: { classList: new ClassList() }, hidden: false };
+	const rootClasses = new ClassList();
+	rootClasses.remove('hidden');
+	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => (docListeners[t] = f), body: { classList: new ClassList() }, documentElement: { classList: rootClasses }, hidden: false };
 	const winListeners: Record<string, (e: unknown) => void> = {};
 	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => (winListeners[t] = f) };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
@@ -153,6 +155,13 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			await click({ metab: mt });
 			assert.match(panel(), new RegExp(`data-metab="${mt}" class="on"`), mt);
 			if (mt === 'log') assert.match(panel(), /class="log-day">第 1 天 · 春季第 1 天/, '日志按天分组');
+			if (mt === 'sync') {
+				await click({ big: '' });
+				assert.equal(rootClasses.contains('big'), true, '开启大字模式');
+				assert.equal(store.get('earth.big.v1'), '1');
+				await click({ big: '' });
+				assert.equal(rootClasses.contains('big'), false, '再点关闭');
+			}
 		}
 
 		// 分享进度：没有系统分享时复制到剪贴板；只含展示信息，不含存档 id 和同步码
