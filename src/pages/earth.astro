@@ -198,7 +198,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.next h2 { margin: 0; font-size: 21px; }
 			.next p { margin: 0; color: #d3dae1; font-size: 14px; }
 			.next button { min-height: 52px; border: 0; border-radius: 14px; background: var(--accent); color: var(--accent-ink); font-size: 17px; font-weight: 700; }
-			.seg { display: flex; gap: 4px; padding: 4px; background: var(--seg-bg); border-radius: 14px; position: sticky; top: calc(84px + env(safe-area-inset-top)); z-index: 4; }
+			.seg { display: flex; gap: 4px; padding: 4px; background: var(--seg-bg); border-radius: 14px; }
 			.seg button { flex: 1; min-height: 44px; border: 0; border-radius: 10px; background: transparent; font-size: 14px; color: var(--text2); padding: 0 4px; }
 			.seg button.on { background: var(--card); color: var(--text); font-weight: 700; box-shadow: 0 1px 2px var(--shadow); }
 			.guide-head { display: flex; justify-content: space-between; align-items: center; }
@@ -248,7 +248,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 		</style>
 
 		<script>
-			import { AVATARS, NEED_META, ORIGINS, SKILL_META, START_CLOCK, formatClock, sanitizeState } from '../game/core/character.ts';
+			import { AVATARS, NEED_META, ORIGINS, SKILL_META, START_CLOCK, formatClock, nextRev, sanitizeState } from '../game/core/character.ts';
 			import type { GameAction } from '../game/core/actions.ts';
 			import { activitiesAt, choiceLabel, festivalCalendar, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
@@ -393,6 +393,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const clean = sanitizeState(remote, LOC_IDS, { fallbackLoc: region.spawn });
 				if (!clean) return false;
 				const moved = !state || state.loc !== clean.loc;
+				if (state && clean.rev !== state.rev && !busy) lastDelta = [];
 				state = clean;
 				syncStatus = `已同步 · 版本 ${clean.rev}`;
 				cache();
@@ -454,16 +455,19 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (!state || !cred || busy) return null;
 				busy = true;
 				document.body.classList.add('busy');
+				// 动作前的存档：请求期间后台同步可能替换 state，所以在发请求前记下
+				const before = state;
 				try {
-					const { status, data } = await api({ action: 'act', id: cred.id, key: cred.key, rev: state.rev, act: a });
-					if (status === 409 && data.state) { adopt(data.state, data.msg); render(); return null; }
-					const before = state;
+					const { status, data } = await api({ action: 'act', id: cred.id, key: cred.key, rev: before.rev, act: a });
+					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, data.msg); render(); return null; }
 					if (data.state) adopt(data.state);
-					if (data.ok && state && before && state !== before) {
+					// 只有返回的正好是动作前那一版的下一版，变化才是这个动作带来的
+					if (data.ok && state && state.rev === nextRev(before.rev)) {
 						lastDelta = stateDelta(before, state);
 						const got = newAchievements(before, state, region);
 						if (got.length) setTimeout(() => toast(`🏅 达成成就：${got.map((d) => d.name).join('、')}`), 1200);
 					}
+					else lastDelta = [];
 					if (!data.ok) { toast(data.msg || '操作失败'); render(); return null; }
 					return { ok: true, msg: data.msg };
 				} catch {
