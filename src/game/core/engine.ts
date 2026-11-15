@@ -536,11 +536,11 @@ export function npcPlan(npc: NpcDef, clock: number): NpcPlan {
 /** 跨午夜的作息（如 20:00–6:00）在凌晨时算前一天的安排 */
 /** NPC 此刻适用的安排：凌晨时沿用前一天跨午夜的作息（和「在不在场」的判断一致，界面也用它） */
 export function planNow(npc: NpcDef, clock: number): NpcPlan {
-	const today = npcPlan(npc, clock);
-	const [open, close] = today.hours;
-	if (open < close || hourOf(clock) >= open) return today;
+	// 只有凌晨还在昨天那个跨午夜班次里（早于它的收工时间）时才沿用昨天；否则就是今天的安排
 	const yesterday = npcPlan(npc, clock - 1440);
-	return yesterday.hours[0] >= yesterday.hours[1] ? yesterday : today;
+	const [yo, yc] = yesterday.hours;
+	if (yo >= yc && hourOf(clock) < yc) return yesterday;
+	return npcPlan(npc, clock);
 }
 
 /** NPC 此刻相对当前安排的状态：在那里 / 还没到时间 / 今天已经走了 */

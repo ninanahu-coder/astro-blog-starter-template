@@ -726,7 +726,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const poiHtml = pois.length ? `<div class="card"><h3>打卡点</h3><p>人到现场、打开定位即可打卡（${pois.filter((p) => s.checkins.includes(p.id)).length}/${pois.length}）</p>
 					<div class="list" style="margin-top:8px">${pois.map((p) => `<div class="row"><span class="ico">${s.checkins.includes(p.id) ? '✅' : '📌'}</span><span class="body">${esc(p.name)}<small>${esc(p.category)}</small></span></div>`).join('')}</div></div>` : '';
 				const people = npcsAt(s, region);
-				const absent = NPCS.filter((n) => !people.some((a) => a.npc.id === n.id)).map((n) => ({ n, plan: npcPlan(n, s.clock) }))
+				const absent = NPCS.filter((n) => !people.some((a) => a.npc.id === n.id)).map((n) => ({ n, plan: npcStatus(n, s.clock).plan }))
 					.filter(({ n, plan }) => plan.loc === loc.id || n.loc === loc.id);
 				const bagIds = Object.keys(s.inventory).filter((id) => s.inventory[id] > 0 && getItem(id));
 				const giftLabel = (npcId: string, itemId: string) => {
@@ -878,7 +878,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const rels = Object.entries(s.relations).map(([id, r]) => {
 					const npc = NPCS.find((n) => n.id === id);
 					if (!npc) return '';
-					const plan = npcPlan(npc, s.clock);
+					const plan = npcStatus(npc, s.clock).plan;
 					const where = `今天在${getLocation(region, plan.loc)?.name ?? ''} ${hoursLabel(plan.hours)}`;
 					const known = r.known.map((i) => `${getItem(i)?.icon ?? ''}${GIFT_LABEL[giftReaction(npc, i)]}`).join(' ');
 					return `<div class="skill"><span></span><div>${esc(npc.name)} <span class="muted">${esc(npc.role)} · ${esc(where)} · 故事 ${r.seen.length}/${npc.stories.length}${known ? ` · ${esc(known)}` : ''}</span><div class="bar"><i style="width:${Math.max(0, r.score)}%"></i></div></div><b title="${relationTier(r.score)}">${relationTier(r.score)}</b></div>`;
