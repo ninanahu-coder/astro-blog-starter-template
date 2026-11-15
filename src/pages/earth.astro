@@ -194,6 +194,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.pills { display: flex; flex-wrap: wrap; gap: 6px; }
 			.pill { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 8px; background: #eef3fb; color: #1d4fa8; }
 			.pill.cost { background: #fdede3; color: #a2400f; }
+			.pill.up { background: #e6f2ea; color: #1f6b40; }
 			.pill.bad { background: #fbe4e4; color: #9b2c2c; }
 			#toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: rgba(23, 33, 43, 0.92); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 14px; z-index: 30; max-width: 88vw; text-align: center; }
 		</style>
@@ -249,6 +250,25 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let tab = 'place';
 			let selected: string | null = null;
 			let lastOutcome: string | null = null;
+			// 上一个成功动作带来的数值变化，显示在今天页（只在本机内存里）
+			let lastDelta: { text: string; up: boolean }[] = [];
+			/** 对比动作前后的存档，列出看得见的变化：现金、健康、声望、需求、能力、用掉的时间 */
+			function stateDelta(a: PlayerState, b: PlayerState) {
+				const out: { text: string; up: boolean }[] = [];
+				const push = (name: string, d: number, min: number, digits = 0, money = false) => {
+					if (Math.abs(d) < min) return;
+					const v = digits ? Math.abs(d).toFixed(digits) : String(Math.round(Math.abs(d)));
+					out.push({ text: `${name} ${d > 0 ? '+' : '−'}${money ? '$' : ''}${money ? Math.round(Math.abs(d)).toLocaleString() : v}`, up: d > 0 });
+				};
+				push('现金', b.cash - a.cash, 1, 0, true);
+				push('健康', b.health - a.health, 1);
+				push('声望', b.respect - a.respect, 0.5, 1);
+				for (const k of NEED_KEYS) push(NEED_META[k].name, b.needs[k] - a.needs[k], 1);
+				for (const k of SKILL_KEYS) push(SKILL_META[k].name, b.skills[k] - a.skills[k], 0.1, 1);
+				const mins = b.clock - a.clock;
+				if (mins > 0) out.push({ text: `用时 ${mins >= 60 ? Math.floor(mins / 60) + ' 小时' + (mins % 60 ? ' ' + (mins % 60) + ' 分' : '') : mins + ' 分钟'}`, up: true });
+				return out;
+			}
 			let cgi: Record<string, string> = {};
 			let ws: WebSocket | null = null;
 			let myPeerId = '';
@@ -386,7 +406,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				try {
 					const { status, data } = await api({ action: 'act', id: cred.id, key: cred.key, rev: state.rev, act: a });
 					if (status === 409 && data.state) { adopt(data.state, data.msg); render(); return null; }
+					const before = state;
 					if (data.state) adopt(data.state);
+					if (data.ok && state && before && state !== before) lastDelta = stateDelta(before, state);
 					if (!data.ok) { toast(data.msg || '操作失败'); render(); return null; }
 					return { ok: true, msg: data.msg };
 				} catch {
@@ -579,6 +601,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
 						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
 						${lastOutcome ? `<p style="margin-top:8px;color:var(--text)">💡 ${esc(lastOutcome)}</p>` : ''}
+						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
 					${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${courseHtml}${shopHtml}${dealerHtml}${propHtml}${poiHtml}`;
