@@ -51,7 +51,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				<header id="hud"></header>
 				<div id="map-wrap"><svg id="map" role="img" aria-label="西澳地图：点地点看去那里的走法；下面的列表是同样的内容"></svg></div>
 				<nav id="tabs"></nav>
-				<main id="panel"></main>
+				<main id="panel" tabindex="-1" aria-live="off"></main>
 			</section>
 		</div>
 		<div id="modal" class="hidden"></div>
@@ -165,6 +165,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			#tabs button { flex: 1; border: 0; border-radius: 0; background: none; min-height: var(--nav-h); padding: 6px 0; font-size: 11px; font-weight: 600; color: var(--dim); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
 			#tabs button.on { color: var(--accent); }
 			#tabs svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+			#panel:focus { outline: none; }
 			#panel { flex: 1; padding: 12px 16px calc(var(--nav-h) + 28px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
 			.card { background: var(--card); border-radius: 20px; padding: 16px; box-shadow: 0 1px 2px var(--shadow); }
 			.card h3 { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
@@ -1135,7 +1136,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
-				if (d.tab) { tab = d.tab; if (t.classList.contains('moodchip')) meTab = 'overview'; renderPanel(); window.scrollTo({ top: 0 }); }
+				if (d.tab) {
+					tab = d.tab;
+					if (t.classList.contains('moodchip')) meTab = 'overview';
+					renderPanel();
+					window.scrollTo({ top: 0 });
+					// 键盘和读屏用户：焦点移到新页面的内容上
+					($('panel') as HTMLElement).focus?.({ preventScroll: true });
+				}
 				else if (d.metab) { meTab = d.metab; renderPanel(); }
 				else if ('guideClose' in d) { store.set(GUIDE_KEY, 'done'); renderPanel(); }
 				else if ('share' in d) shareProgress();
