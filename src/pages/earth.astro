@@ -224,6 +224,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.next.clock button { background: #fff; color: var(--ink); }
 			.bar.dark { background: #2e3b48; }
 			.bar.dark i { background: var(--accent); }
+			.dest-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+			.dest-head button { min-width: 44px; min-height: 44px; border: 0; background: var(--soft); border-radius: 22px; padding: 0; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -257,6 +259,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { checkScore, moodBreakdown, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
+			import { EVENTS } from '../game/data/events.ts';
 			import { dateLabel, period, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
 			import { getWish } from '../game/core/wishes.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
@@ -680,8 +683,20 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			function panelGo() {
 				const s = state!;
 				const opts = travelOptions(s, region);
-				const note = selected && selected !== s.loc && !opts.some((o) => o.to === selected)
-					? `<p class="muted">从这里没有直达${esc(getLocation(region, selected)!.name)}的路线，需要中转。</p>` : '';
+				// 点了地图上的某个地点：先给一张目的地卡片（介绍、今天的天气、谁在那里、签名事件、从这里怎么去）
+				const dest = selected && selected !== s.loc ? getLocation(region, selected) : undefined;
+				let note = '';
+				if (dest) {
+					const w = weatherOn(dest.id, dayOf(s.clock));
+					const sig = EVENTS.some((e) => e.once && e.locs?.includes(dest.id) && !s.seen.includes(e.id));
+					const people = NPCS.filter((n) => npcPlan(n, s.clock).loc === dest.id).map((n) => esc(n.name));
+					const ways = opts.filter((o) => o.to === dest.id);
+					note = `<div class="card dest"><div class="dest-head"><h3>${KIND_ICON[dest.kind]} ${esc(dest.name)} <span class="muted">${esc(dest.en)}</span></h3><button data-loc="${dest.id}" aria-label="关闭">✕</button></div>
+						<p>${esc(dest.blurb)}</p>
+						<div class="pills" style="margin-top:8px"><span class="pill">${w.icon} 今天${esc(w.name)}</span>${s.visited[dest.id] ? `<span class="pill up">去过 ${s.visited[dest.id]} 次</span>` : '<span class="pill cost">没去过</span>'}${sig ? '<span class="pill cost">首次到达有专属事件</span>' : ''}${people.length ? `<span class="pill">今天在那里：${people.join('、')}</span>` : ''}</div>
+						${ways.length ? `<div class="list" style="margin-top:10px">${ways.map((o) => `<button class="row" data-go="${o.to}" data-mode="${o.mode}" ${o.available ? '' : 'disabled'}><span class="body">${o.label}<small>${o.km} km${o.reason ? ' · ' + esc(o.reason) : ''}</small></span><span class="meta"><b>$${o.cost}</b>${minutesLabel(o.minutes)}</span></button>`).join('')}</div>`
+							: `<p style="margin-top:8px">从${esc(getLocation(region, s.loc)!.name)}没有直达的路线，需要先到别处中转。</p>`}</div>`;
+				}
 				const rows = opts.map((o) => {
 					const to = getLocation(region, o.to)!;
 					const h = Math.floor(o.minutes / 60), m = o.minutes % 60;
@@ -967,7 +982,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				else if (d.go) {
 					act({ t: 'travel', to: d.go, mode: d.mode as TravelMode }).then((r) => { if (r) { selected = null; lastOutcome = null; tab = 'place'; if (!state!.pending) toast(r.msg); render(); window.scrollTo({ top: 0 }); } });
 				}
-				else if (d.loc) { selected = d.loc === state.loc ? null : d.loc; tab = selected ? 'go' : 'place'; renderMap(); renderPanel(); }
+				else if (d.loc) {
+					// 点当前所在地回今天页；再点一次已选中的地点（或卡片上的关闭）取消选择、留在出行页
+					const here = d.loc === state.loc;
+					selected = here || d.loc === selected ? null : d.loc;
+					tab = here ? 'place' : 'go';
+					renderMap(); renderPanel();
+				}
 				else if (d.choice) act({ t: 'event', choice: +d.choice }).then((r) => { if (r) { lastOutcome = r.msg; tab = 'place'; render(); } });
 				else if ('gps' in d) checkIn();
 				else if ('locate' in d) locate().then((f) => { if (f) renderPanel(); });
