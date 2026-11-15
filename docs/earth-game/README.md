@@ -41,6 +41,8 @@ src/game/
   core/formulas.ts    派生属性（体质、吸引力、状态系数……）与真实地点动作的公式
   core/venues.ts      真实地点：附近列表、定位检查、吃饭/训练/打卡上班等结算
   core/board.ts       净资产排行榜：榜单记录与排名
+  core/achievements.ts 成就：由存档现算的里程碑（不进存档、不发奖励）
+  data/achievements.ts 成就表（选指标和目标值即可加一条）
   data/wa.ts          西澳：18 个地点、路线图、海岸线轮廓
   data/wa.pois.json   打卡点（OpenClaw 写入）
   data/venues.ts      真实地点的类型、动作和定位规则

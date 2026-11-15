@@ -194,6 +194,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.guide .tick { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #c9c1b4; flex: none; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #fff; }
 			.guide li.done .tick { background: var(--ok); border-color: var(--ok); }
 			.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+			.ach-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+			.ach { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); font-size: 13px; opacity: 0.75; }
+			.ach.done { opacity: 1; background: #fff6ef; border-color: #f2cdb4; }
+			.ach .ach-ico { font-size: 20px; filter: grayscale(1); }
+			.ach.done .ach-ico { filter: none; }
+			.ach b { display: block; font-size: 13px; }
+			.ach small { display: block; color: var(--dim); font-size: 11px; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: #3a4550; }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -229,6 +236,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { NPCS } from '../game/data/npcs.ts';
 			import { dateLabel, period, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
 			import { getWish } from '../game/core/wishes.ts';
+			import { achievements, newAchievements } from '../game/core/achievements.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
 			import { FIX_RULES } from '../game/data/venues.ts';
@@ -424,7 +432,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					if (status === 409 && data.state) { adopt(data.state, data.msg); render(); return null; }
 					const before = state;
 					if (data.state) adopt(data.state);
-					if (data.ok && state && before && state !== before) lastDelta = stateDelta(before, state);
+					if (data.ok && state && before && state !== before) {
+						lastDelta = stateDelta(before, state);
+						const got = newAchievements(before, state, region);
+						if (got.length) setTimeout(() => toast(`🏅 达成成就：${got.map((d) => d.name).join('、')}`), 1200);
+					}
 					if (!data.ok) { toast(data.msg || '操作失败'); render(); return null; }
 					return { ok: true, msg: data.msg };
 				} catch {
@@ -705,7 +717,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					if (!it) return '';
 					return `<div class="row" style="margin-top:8px"><span class="ico">${it.icon}</span><span class="body">${esc(it.name)} ×${n}<small>${esc(it.desc)}</small></span>${it.use ? `<button data-use="${it.id}">使用</button>` : '<span class="meta">装备中</span>'}</div>`;
 				}).join('');
+				const ach = achievements(s, region);
+				const achDone = ach.filter((a) => a.done).length;
+				const achHtml = `<div class="card"><h3>成就 ${achDone}/${ach.length}</h3><div class="ach-grid">${ach.map((a) => `<div class="ach${a.done ? ' done' : ''}"><span class="ach-ico" aria-hidden="true">${a.def.icon}</span><span><b>${esc(a.def.name)}</b><small>${esc(a.def.desc)}${a.done ? '' : ` · ${a.cur.toLocaleString()}/${a.goal.toLocaleString()}`}</small></span><span class="sr">${a.done ? '（已达成）' : '（未达成）'}</span></div>`).join('')}</div></div>`;
 				const card = {
+					ach: achHtml,
 					me: `<div class="card"><h3>${s.avatar} ${esc(s.name)}</h3><p>${origin.icon} ${origin.name} · 座驾：${veh}</p>
 					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
 						<p>Lv${lv.lv} ${lv.title} · 声望 ${Math.floor(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
@@ -734,7 +750,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
 					})()}</div>`,
 				};
-				const sections: Record<string, string[]> = { overview: ['me', 'mood', 'daily', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
+				const sections: Record<string, string[]> = { overview: ['me', 'mood', 'ach', 'daily', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
 				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}</button>`).join('')}</div>`;
 				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
 				return seg + bodyHtml;
