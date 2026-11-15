@@ -173,6 +173,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(panel(), /足迹 1\/18/);
 		assert.match(panel(), /见闻录 0\/\d+/);
 		assert.match(panel(), /？？？/);
+		assert.doesNotMatch(panel(), /某个地方/, '每个一次性事件都能提示在哪');
 		await click({ loc: 'broome' });
 		assert.match(el('tabs').innerHTML, /data-tab="go" class="on"/);
 		assert.match(panel(), /card dest/);
@@ -200,6 +201,11 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(panel(), /data-quick="0"/);
 		await click({ quick: '1' });
 		assert.ok(sent.some((m) => JSON.parse(m).t === 'chat' && JSON.parse(m).text === '有人一起吗？'), '快捷短语发出去了');
+		// 断开连接时角标也要清掉
+		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: 'peer-2', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
+		assert.match(el('tabs').innerHTML, /class="badge"/);
+		(lastWs as unknown as { onclose: () => void }).onclose();
+		assert.doesNotMatch(el('tabs').innerHTML, /class="badge"/, '断开后角标清掉');
 		// 断网：动作失败后顶栏出现离线横幅；恢复网络后自动同步、横幅消失
 		const realFetch = g.fetch;
 		g.fetch = async () => { throw new TypeError('offline'); };

@@ -244,7 +244,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 - **新房产**：在 `data/properties.ts` 加一条；租金和物业费要让 `expectedYield()` 落在 0–4%，否则测试不过。
 - **新职业 / 新房型**：在 `data/careers.ts` / `data/housing.ts` 加一条。
 - **新 NPC**：在 `data/npcs.ts` 加一条，填常驻地点和作息、日程（可选）、送礼喜好（至少一件最爱，同一件物品只能在一档）、剧情（必须有 60 那段）、专属互动（可选）。
-- **新互动 / 新事件**：见 `docs/earth-game/README.md`。和天气有关的三个可选字段：
+- **新互动 / 新事件**：见 `docs/earth-game/README.md`。和天气有关的两个可选字段和一项约束：
   - `weather: ['storm']`：只在这些天气出现。普通互动在天气不符时列表里不显示、引擎也拒绝；事件在天气不符时不会被抽到（和 `seasons` 一样）。
   - `exposed: 'sea'`：要下海或出海，风暴天做不了。可以写在普通互动、事件选项、NPC 专属互动上；事件里有这种选项时必须还有别的选项（测试会检查）。
   - 天气 id 必须是 `data/weather.ts` 里有的（测试会检查）。

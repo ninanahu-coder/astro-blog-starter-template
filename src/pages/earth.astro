@@ -496,7 +496,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					renderTabs();
 					if (tab === 'social') renderPanel();
 				};
-				sock.onclose = () => { if (ws === sock) { ws = null; peers.clear(); setTimeout(connect, 5000); } };
+				sock.onclose = () => {
+					if (ws !== sock) return;
+					ws = null;
+					peers.clear();
+					// 断开后在线人数清零：标签角标、地图和社交页跟着更新
+					renderTabs();
+					renderMap();
+					if (tab === 'social') renderPanel();
+					setTimeout(connect, 5000);
+				};
 			}
 			setInterval(() => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'ping' })); }, 20000);
 			// 「附近」页的按钮状态随现实时间变化（上班满 15 分钟才能打下班卡、各动作的冷却）：有这类倒计时的时候每半分钟刷新一次
@@ -901,7 +910,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				// 见闻录：一次性的专属事件，见过的显示标题，没见过的只提示在哪
 				const onceEvents = EVENTS.filter((e) => e.once && !e.venueTypes);
 				const seenOnce = onceEvents.filter((e) => s.seen.includes(e.id)).length;
-				const where = (e: (typeof onceEvents)[number]) => (e.locs?.length ? e.locs.map((id) => getLocation(region, id)?.name ?? '').join('、') : '某个地方');
+				// 和事件触发相同的匹配规则（地点、标签、类型任一命中）
+				const where = (e: (typeof onceEvents)[number]) => region.locations.filter((l) => e.locs?.includes(l.id) || e.tags?.some((t) => l.tags.includes(t)) || e.kinds?.includes(l.kind)).map((l) => l.name).join('、') || '某个地方';
 				const storyHtml = `<div class="card"><h3>见闻录 ${seenOnce}/${onceEvents.length}</h3><p>只会遇到一次的事。没见过的只告诉你在哪。</p><div class="ach-grid">${onceEvents.map((e) => s.seen.includes(e.id)
 					? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${e.icon}</span><span><b>${esc(e.title)}</b><small>${esc(where(e))}</small></span></div>`
 					: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc(where(e))}</small></span><span class="sr">（还没遇到）</span></div>`).join('')}</div></div>`;
