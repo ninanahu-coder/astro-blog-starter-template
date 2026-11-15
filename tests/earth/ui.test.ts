@@ -239,6 +239,19 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.equal(el('modal').classList.contains('hidden'), true, '点继续后弹窗关闭');
 		assert.equal(el('game').inert, false, '弹窗关闭后解锁');
 		assert.equal((data.get('save:' + cred.id) as any).state.loc, 'rottnest');
+		// 夜里精力不满、其他都还行：下一步建议找地方过夜
+		const night = data.get('save:' + cred.id) as any;
+		night.state.clock = Math.floor(night.state.clock / 1440) * 1440 + 23 * 60;
+		for (const k of Object.keys(night.state.needs)) night.state.needs[k] = 90;
+		night.state.needs.energy = 70;
+		night.state.health = 100;
+		night.state.cash = 5000;
+		night.state.pending = null;
+		data.set('save:' + cred.id, night);
+		docListeners.visibilitychange({});
+		await pause(60);
+		await click({ tab: 'place' });
+		assert.match(panel().match(/<div class="next">[\s\S]*?<\/div>/)?.[0] ?? '', /夜深了/);
 	} finally {
 		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });

@@ -637,11 +637,23 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const short = wc.total > 0 && s.nextWeek - dayOf(s.clock) <= 2 && s.cash < wc.total ? wc.total - s.cash : 0;
 				const earner = open.filter((act) => (act.fx.cash ?? 0) > 0).sort((x, y) => (y.fx.cash ?? 0) - (x.fx.cash ?? 0))[0];
 				// 今天的心愿里有在这里就能完成的
+				const hr = Math.floor((s.clock % 1440) / 60);
+				const night = hr >= 22 || hr < 6;
 				const wishAct = s.wishes.map((id) => getWish(id)).flatMap((w) => (w && w.done.t === 'activity' ? w.done.ids.map((aid) => ({ w, act: open.find((x) => x.id === aid) })) : [])).find((x) => x.act);
 				if (v < 40) fixNeed();
 				else if (short && canWork) { title = '周结算钱不够'; text = `还差 $${short.toLocaleString()}，正好在工作的地方，先上个班`; btn = '上班'; attr = 'data-job="work"'; }
 				else if (short && earner) { title = '周结算钱不够'; text = `还差 $${short.toLocaleString()}，在${esc(loc.name)}${esc(earner.name)}能挣一点`; suggestAct(earner); }
 				else if (v < 60) fixNeed();
+				else if (night && s.needs.energy < 80) {
+					// 夜深了：有家回家睡，有露营车睡车里，否则找这里能补精力最多的（旅馆、露营）
+					title = '夜深了';
+					const van = getVehicle(s.vehicle)?.sleep;
+					const bed = open.filter((act) => (act.fx.needs?.energy ?? 0) > 0).sort((x, y) => (y.fx.needs?.energy ?? 0) - (x.fx.needs?.energy ?? 0))[0];
+					if (homeHere) { text = '回家睡一觉，明天精神满满'; btn = '回家睡觉'; attr = 'data-home="sleep"'; }
+					else if (van) { text = '在车里睡一晚，不花钱'; btn = '在车里睡'; attr = 'data-veh="sleep"'; }
+					else if (bed) { text = `在${esc(loc.name)}找个地方过夜`; suggestAct(bed); }
+					else { text = '这里没地方过夜，换个地方看看'; btn = '去出行'; attr = 'data-tab="go"'; }
+				}
 				else if (canWork) { title = '该上班了'; text = '状态不错，正好在工作的地方'; btn = '上班'; attr = 'data-job="work"'; }
 				else if (wishAct) { title = '完成一个心愿'; text = `「${esc(wishAct.w!.text)}」在这里就能做到`; suggestAct(wishAct.act!); }
 				else { title = '状态不错'; text = s.wishes.length ? `今天还有 ${s.wishes.length} 个心愿没完成` : '出去走走，看看会遇到什么'; btn = '去出行'; attr = 'data-tab="go"'; }
