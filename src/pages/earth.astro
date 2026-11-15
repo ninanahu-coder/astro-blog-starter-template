@@ -49,13 +49,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			<section id="game" class="hidden">
 				<header id="hud"></header>
-				<div id="map-wrap"><svg id="map" role="img" aria-label="西澳地图"></svg></div>
+				<div id="map-wrap"><svg id="map" role="img" aria-label="西澳地图：点地点看去那里的走法；下面的列表是同样的内容"></svg></div>
 				<nav id="tabs"></nav>
 				<main id="panel"></main>
 			</section>
 		</div>
 		<div id="modal" class="hidden"></div>
-		<div id="toast" class="hidden"></div>
+		<div id="toast" class="hidden" role="status" aria-live="polite"></div>
 
 		<style is:global>
 			:root {
@@ -895,7 +895,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const online = ws?.readyState === WebSocket.OPEN;
 				const here = [...peers.values()].filter((p) => p.loc === s.loc && p.id !== myPeerId);
 				const people = here.length ? here.map((p) => `<div class="row"><span class="ico">${esc(p.avatar)}</span><span class="body">${esc(p.name)}</span>
-					<span class="emotes">${emotes.map((e) => `<button data-emote="${e}" data-to="${esc(p.id)}">${e}</button>`).join(' ')}</span></div>`).join('') : '<p class="muted">这里暂时只有你一个人。</p>';
+					<span class="emotes">${emotes.map((e) => `<button data-emote="${esc(e)}" data-to="${esc(p.id)}" aria-label="向${esc(p.name)}发送 ${esc(e)}">${esc(e)}</button>`).join(' ')}</span></div>`).join('') : '<p class="muted">这里暂时只有你一个人。</p>';
 				// 认识的当地人今天在哪：就在这里的标出来，在别处的可以直接看去那里的走法
 				const presentIds = new Set(npcsAt(s, region).map((x) => x.npc.id));
 				const known = Object.entries(s.relations)
@@ -1184,12 +1184,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let pickOrigin = ORIGINS[0].id;
 			let pickTraits: string[] = [];
 			function renderCreate() {
-				$('c-avatars').innerHTML = AVATARS.map((a) => `<button class="chip${a === pickAvatar ? ' on' : ''}" data-avatar="${a}">${a}</button>`).join('');
-				$('c-origins').innerHTML = ORIGINS.map((o) => `<button class="origin${o.id === pickOrigin ? ' on' : ''}" data-origin="${o.id}">${o.icon} ${o.name} · 起始 $${o.cash}${o.vehicle !== 'none' ? ' · 有车' : ''}<small>${o.desc}</small></button>`).join('');
+				$('c-avatars').innerHTML = AVATARS.map((a) => `<button class="chip${a === pickAvatar ? ' on' : ''}" data-avatar="${a}" aria-pressed="${a === pickAvatar}" aria-label="形象 ${a}">${a}</button>`).join('');
+				$('c-origins').innerHTML = ORIGINS.map((o) => `<button class="origin${o.id === pickOrigin ? ' on' : ''}" data-origin="${o.id}" aria-pressed="${o.id === pickOrigin}">${o.icon} ${o.name} · 起始 $${o.cash}${o.vehicle !== 'none' ? ' · 有车' : ''}<small>${o.desc}</small></button>`).join('');
 				$('c-traits').innerHTML = TRAITS.map((t) => {
 					const on = pickTraits.includes(t.id);
 					const ok = on || validTraits([...pickTraits, t.id], MAX_TRAITS);
-					return `<button class="trait${on ? ' on' : ''}" data-trait="${t.id}" ${ok ? '' : 'disabled'}>${esc(t.name)}<small>${esc(t.desc)}</small></button>`;
+					return `<button class="trait${on ? ' on' : ''}" data-trait="${t.id}" aria-pressed="${on}" ${ok ? '' : 'disabled'}>${esc(t.name)}<small>${esc(t.desc)}</small></button>`;
 				}).join('');
 				($('c-start') as HTMLButtonElement).disabled = pickTraits.length !== MAX_TRAITS;
 				$('c-start').textContent = pickTraits.length === MAX_TRAITS ? '开始生活' : `再选 ${MAX_TRAITS - pickTraits.length} 个性格特质`;
