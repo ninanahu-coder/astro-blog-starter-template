@@ -151,6 +151,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			assert.ok(strip(panel()).length > 20, `${t} 页是空的`);
 			assert.equal(el('map-wrap').classList.contains('hidden'), t !== 'go', `${t} 页地图显示不对`);
 			if (t === 'go') assert.match(el('map').innerHTML, /class="land"/, '出行页画了地图');
+			if (t === 'go') assert.match(panel(), /去了周结算会不够/, '周结算前的路费提醒');
 		}
 		for (const mt of ['overview', 'assets', 'people', 'log', 'sync']) {
 			await click({ metab: mt });

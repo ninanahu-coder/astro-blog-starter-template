@@ -270,6 +270,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.log-row { display: flex; gap: 10px; font-size: 14px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 			.log-row .t { color: var(--dim); font-variant-numeric: tabular-nums; flex: none; width: 3.2em; }
 			.skill .train { display: block; font-size: 11px; color: var(--dim); }
+			.warn-text { color: var(--tint-red-ink); font-weight: 600; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -800,13 +801,17 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						${ways.length ? `<div class="list" style="margin-top:10px">${ways.map((o) => `<button class="row" data-go="${o.to}" data-mode="${o.mode}" ${o.available ? '' : 'disabled'}><span class="body">${o.label}<small>${o.km} km${o.reason ? ' · ' + esc(o.reason) : ''}</small></span><span class="meta"><b>$${o.cost}</b>${minutesLabel(o.minutes)}</span></button>`).join('')}</div>`
 							: `<p style="margin-top:8px">从${esc(getLocation(region, s.loc)!.name)}没有直达的路线，需要先到别处中转。</p>`}</div>`;
 				}
+				// 周结算两天内到：路费付完会不够付这周固定开销的，提醒一下
+				const wcGo = weeklyCosts(s);
+				const settleSoon = wcGo.total > 0 && s.nextWeek - dayOf(s.clock) <= 2;
 				const rows = opts.map((o) => {
 					const to = getLocation(region, o.to)!;
+					const tight = settleSoon && o.available && s.cash - o.cost < wcGo.total;
 					const h = Math.floor(o.minutes / 60), m = o.minutes % 60;
 					const fresh = !s.visited[o.to];
 					return `<button class="row${selected === o.to ? ' sel' : ''}${fresh && o.available ? ' new' : ''}" data-go="${o.to}" data-mode="${o.mode}" ${o.available ? '' : 'disabled'}>
 						<span class="ico">${KIND_ICON[to.kind]}</span>
-						<span class="body">${esc(to.name)} <span title="今天的天气">${weatherOn(o.to, dayOf(s.clock)).icon}</span><small>${fresh ? '没去过 · ' : ''}${o.label} · ${o.km} km${o.reason ? ' · ' + esc(o.reason) : ''}</small></span>
+						<span class="body">${esc(to.name)} <span title="今天的天气">${weatherOn(o.to, dayOf(s.clock)).icon}</span><small>${fresh ? '没去过 · ' : ''}${o.label} · ${o.km} km${o.reason ? ' · ' + esc(o.reason) : ''}${tight ? ` · <span class="warn-text">去了周结算会不够（要付 $${wcGo.total}）</span>` : ''}</small></span>
 						<span class="meta"><b>$${o.cost}</b>${h ? h + ' 小时 ' : ''}${m} 分</span></button>`;
 				}).join('');
 				return `${note}<p class="section-title">从${esc(getLocation(region, s.loc)!.name)}出发</p><div class="list">${rows}</div><p class="muted">点地图上的地点可以高亮对应路线。虚线是航班，长虚线是越野土路（需四驱），橙色点是没去过的地方。</p>`;
