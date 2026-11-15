@@ -42,6 +42,7 @@ src/game/
   core/venues.ts      真实地点：附近列表、定位检查、吃饭/训练/打卡上班等结算
   core/board.ts       净资产排行榜：榜单记录与排名
   core/achievements.ts 成就：由存档现算的里程碑（不进存档、不发奖励）
+  core/weather.ts     天气：由地点和游戏日确定（人人一样），风暴天取消海上的活动
   data/achievements.ts 成就表（选指标和目标值即可加一条）
   data/wa.ts          西澳：18 个地点、路线图、海岸线轮廓
   data/wa.pois.json   打卡点（OpenClaw 写入）

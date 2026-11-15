@@ -237,6 +237,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { dateLabel, period, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
 			import { getWish } from '../game/core/wishes.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
+			import { weatherAt, weatherOn } from '../game/core/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
 			import { FIX_RULES } from '../game/data/venues.ts';
@@ -469,7 +470,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<span class="cash">$${s.cash.toLocaleString()}</span>
 						<button class="moodchip${moodCls(m)}" data-tab="me" title="看心情的来源"><span>${moodTier(m).name} ${m}</span></button>
 					</div>
-					<div class="hud-time"><span title="${formatClock(s.clock)}">${dateLabel(s.clock)} · ${WEEKDAYS[weekdayOf(s.clock)]} ${formatClock(s.clock).split(' ')[1]} ${period(s.clock).name}</span><span class="sync-dot${online ? '' : ' off'}">${online ? '已同步' : '离线'}</span></div>
+					<div class="hud-time"><span title="${formatClock(s.clock)}">${weatherAt(s).icon} ${dateLabel(s.clock)} · ${WEEKDAYS[weekdayOf(s.clock)]} ${formatClock(s.clock).split(' ')[1]} ${period(s.clock).name}</span><span class="sync-dot${online ? '' : ' off'}">${online ? '已同步' : '离线'}</span></div>
 					${mini}`;
 			}
 
@@ -645,6 +646,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					${wishHtml}
 					<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
 						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
+						<p style="margin-top:6px">今天${weatherAt(s).icon} ${esc(weatherAt(s).name)}：${esc(weatherAt(s).desc)}</p>
 						${lastOutcome ? `<p style="margin-top:8px;color:var(--text)">💡 ${esc(lastOutcome)}</p>` : ''}
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
@@ -663,7 +665,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const fresh = !s.visited[o.to];
 					return `<button class="row${selected === o.to ? ' sel' : ''}${fresh && o.available ? ' new' : ''}" data-go="${o.to}" data-mode="${o.mode}" ${o.available ? '' : 'disabled'}>
 						<span class="ico">${KIND_ICON[to.kind]}</span>
-						<span class="body">${esc(to.name)}<small>${fresh ? '没去过 · ' : ''}${o.label} · ${o.km} km${o.reason ? ' · ' + esc(o.reason) : ''}</small></span>
+						<span class="body">${esc(to.name)} <span title="今天的天气">${weatherOn(o.to, dayOf(s.clock)).icon}</span><small>${fresh ? '没去过 · ' : ''}${o.label} · ${o.km} km${o.reason ? ' · ' + esc(o.reason) : ''}</small></span>
 						<span class="meta"><b>$${o.cost}</b>${h ? h + ' 小时 ' : ''}${m} 分</span></button>`;
 				}).join('');
 				return `${note}<p class="section-title">从${esc(getLocation(region, s.loc)!.name)}出发</p><div class="list">${rows}</div><p class="muted">点地图上的地点可以高亮对应路线。虚线是航班，长虚线是越野土路（需四驱），橙色点是没去过的地方。</p>`;

@@ -339,6 +339,8 @@ export interface Activity {
 	fx: Effect;
 	requires?: { cash?: number; skill?: Partial<Skills>; vehicle?: Vehicle[] };
 	hours?: Hours; // 不写表示全天可做
+	/** 'sea'：海上的活动，风暴天取消（见 data/weather.ts） */
+	exposed?: 'sea';
 	desc: string;
 }
 
