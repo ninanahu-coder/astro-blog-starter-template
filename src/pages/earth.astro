@@ -274,6 +274,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.warn-text { color: var(--tint-red-ink); font-weight: 600; }
 			#tabs button { position: relative; }
 			#tabs .badge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--warm); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+			#modal .ach-line { margin: 0; font-size: 15px; font-weight: 700; color: var(--tint-cost-ink); }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -354,6 +355,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let lastOutcome: string | null = null;
 			// 上一个成功动作带来的数值变化，显示在今天页（只在本机内存里）
 			let lastDelta: { text: string; up: boolean }[] = [];
+			// 上一个成功动作新达成的成就（事件结果页显示）
+			let lastAch: string[] = [];
 			/** 对比动作前后的存档，列出看得见的变化：现金、健康、声望、需求、能力、用掉的时间 */
 			function stateDelta(a: PlayerState, b: PlayerState) {
 				const out: { text: string; up: boolean }[] = [];
@@ -517,9 +520,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					if (data.ok && state && state.rev === nextRev(before.rev)) {
 						lastDelta = stateDelta(before, state);
 						const got = newAchievements(before, state, region);
+						lastAch = got.map((d) => `${d.icon} ${d.name}`);
 						if (got.length) setTimeout(() => toast(`🏅 达成成就：${got.map((d) => d.name).join('、')}`), 1200);
 					}
-					else lastDelta = [];
+					else { lastDelta = []; lastAch = []; }
 					if (!data.ok) { toast(data.msg || '操作失败'); render(); return null; }
 					return { ok: true, msg: data.msg };
 				} catch {
@@ -1085,7 +1089,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 
 			// 事件选完后的结果页（在弹窗里），点「继续」关闭；只在本机内存里
-			let eventResult: { title: string; icon: string; text: string; delta: { text: string; up: boolean }[] } | null = null;
+			let eventResult: { title: string; icon: string; text: string; delta: { text: string; up: boolean }[]; ach: string[] } | null = null;
 			function renderEvent() {
 				const ev = state ? getPendingEvent(state) : null;
 				const modal = $('modal');
@@ -1098,6 +1102,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<div class="ev-hero"><span class="kicker">结果</span><h2 id="ev-title">${r.icon} ${esc(r.title)}</h2></div>
 						<div class="ev-body"><p>${esc(r.text)}</p>
 						${r.delta.length ? `<div class="pills">${r.delta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
+						${r.ach.length ? `<p class="ach-line">🏅 达成成就：${r.ach.map(esc).join('、')}</p>` : ''}
 						<button class="primary" data-result-close>继续</button></div></div>`;
 					modal.classList.remove('hidden');
 					game.inert = true;
@@ -1224,7 +1229,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					act({ t: 'event', choice: +d.choice }).then((r) => {
 						if (r) {
 							lastOutcome = r.msg;
-							if (ev) eventResult = { title: ev.title, icon: ev.icon, text: r.msg, delta: lastDelta };
+							if (ev) eventResult = { title: ev.title, icon: ev.icon, text: r.msg, delta: lastDelta, ach: lastAch };
 							tab = 'place';
 							render();
 						}
