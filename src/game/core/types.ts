@@ -341,6 +341,8 @@ export interface Activity {
 	hours?: Hours; // 不写表示全天可做
 	/** 'sea'：海上的活动，风暴天取消（见 data/weather.ts） */
 	exposed?: 'sea';
+	/** 只在这些天气出现（当天天气不符时列表里不显示、也不能做） */
+	weather?: string[];
 	desc: string;
 }
 

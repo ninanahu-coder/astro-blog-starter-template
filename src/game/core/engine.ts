@@ -368,7 +368,8 @@ export function activityAvailableAt(act: Activity, loc: GameLocation): boolean {
 export function activitiesAt(state: PlayerState, region: Region): { act: Activity; blocked?: string }[] {
 	const loc = getLocation(region, state.loc);
 	if (!loc) return [];
-	return ACTIVITIES.filter((a) => activityAvailableAt(a, loc)).map((act) => ({ act, blocked: blockedReason(state, act) }));
+	const today = weatherAt(state).id;
+	return ACTIVITIES.filter((a) => activityAvailableAt(a, loc) && (!a.weather || a.weather.includes(today))).map((act) => ({ act, blocked: blockedReason(state, act) }));
 }
 
 function blockedReason(state: PlayerState, act: Activity): string | undefined {
@@ -397,6 +398,7 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	const loc = getLocation(region, prev.loc);
 	const act = ACTIVITIES.find((a) => a.id === activityId);
 	if (!loc || !act || !activityAvailableAt(act, loc)) return fail(prev, '这里做不了这件事。');
+	if (act.weather && !act.weather.includes(weatherAt(prev).id)) return fail(prev, '今天的天气做不了这件事。');
 	const blocked = blockedReason(prev, act);
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);

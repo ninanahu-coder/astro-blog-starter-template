@@ -94,3 +94,20 @@ test('天气相册：抵达时按当天天气收一张，同一张不重复；�
 	delete old.photos;
 	assert.deepEqual(sanitizeState(old, LOCS)!.photos, []);
 });
+
+test('看风暴：只在风暴天的海滩出现、能做；其他天气不显示也不能做', () => {
+	let storm = -1, calm = -1;
+	for (let d = 0; d < YEAR_DAYS * 3 && (storm < 0 || calm < 0); d++) {
+		const w = weatherOn('perth', d);
+		if (w.id === 'storm' && storm < 0) storm = d;
+		if (w.id !== 'storm' && calm < 0) calm = d;
+	}
+	const base = createCharacter({ id: 'storm-watcher', name: '看浪', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed: 9 });
+	const at = (day: number) => ({ ...base, clock: day * 1440 + 11 * 60 });
+	assert.ok(activitiesAt(at(storm), WA).some((x) => x.act.id === 'storm-watch' && !x.blocked), '风暴天的珀斯海滩可以看风暴');
+	assert.ok(applyAction(at(storm), WA, { t: 'activity', id: 'storm-watch' }).ok);
+	assert.ok(!activitiesAt(at(calm), WA).some((x) => x.act.id === 'storm-watch'), '其他天气列表里没有');
+	const r = applyAction(at(calm), WA, { t: 'activity', id: 'storm-watch' });
+	assert.equal(r.ok, false);
+	assert.match(r.msg, /天气/);
+});
