@@ -171,3 +171,25 @@ test('看星星：只在内陆和公园、晚上 20 点到凌晨 2 点、不下�
 	const city = createCharacter({ id: 'star-city', name: '城里', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed: 6 });
 	assert.equal(activitiesAt({ ...city, clock: clear * 1440 + 22 * 60 }, WA).find((x) => x.act.id === 'stargaze'), undefined, '城市里没有');
 });
+
+test('天气事件：只在抵达地点当天下雨时出现', async () => {
+	const { EVENTS } = await import('../../src/game/data/events.ts');
+	const rainOnly = EVENTS.filter((e) => e.weather?.includes('rain'));
+	assert.ok(rainOnly.length >= 2);
+	// 在弗里曼特尔找一个下雨天和一个不下雨的天，让「躲雨」成为唯一可能的事件来源之一：
+	// 直接检查事件池过滤——不下雨的日子永远不会抽到下雨事件
+	const base = createCharacter({ id: 'rain-check', name: '雨', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed: 1 });
+	const fre = WA.locations.find((l) => l.id === 'fremantle')!;
+	let dryHits = 0, wetHits = 0;
+	for (let d = 1; d < YEAR_DAYS * 2; d++) {
+		const wet = weatherOn('fremantle', d).id === 'rain';
+		for (let seed = 0; seed < 6; seed++) {
+			const s = { ...base, seed: seed * 7919 + d, clock: d * 1440 + 9 * 60, visited: { ...base.visited, fremantle: 1 } };
+			const r = applyAction(s, WA, { t: 'gps', lat: fre.lat, lon: fre.lon });
+			const id = r.state.pending?.eventId;
+			if (id && rainOnly.some((e) => e.id === id)) { if (wet) wetHits++; else dryHits++; }
+		}
+	}
+	assert.equal(dryHits, 0, '不下雨的日子出现了下雨事件');
+	assert.ok(wetHits > 0, '下雨天应该能抽到下雨事件');
+});

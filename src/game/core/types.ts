@@ -391,6 +391,7 @@ export interface WishDef {
 
 export interface GameEvent {
 	seasons?: string[]; // 只在这些季节出现
+	weather?: string[]; // 只在抵达地点当天是这些天气时出现
 	id: string;
 	title: string;
 	icon: string;

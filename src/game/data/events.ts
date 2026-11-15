@@ -93,6 +93,21 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
+		id: 'rain-shelter', title: '躲雨', icon: '☔', kinds: ['city', 'town', 'port'], weather: ['rain'], weight: 4,
+		text: '雨突然下大了，你和几个陌生人挤在同一个屋檐下。',
+		choices: [
+			{ label: '跟旁边的人聊几句', check: { skill: 'charisma', dc: 30 }, ok: { text: '雨停的时候，你们已经约好了改天一起喝咖啡。', fx: { minutes: 30, needs: { social: 25 }, skills: { charisma: 1.5 } } }, fail: { text: '对方戴着耳机，冲你礼貌地笑了笑。', fx: { minutes: 30, needs: { social: 5 } } } },
+			{ label: '冒雨跑回去', ok: { text: '浑身湿透，但莫名地开心。', fx: { needs: { hygiene: -10, fun: 10 } } } },
+		],
+	},
+	{
+		id: 'rainbow', title: '雨后彩虹', icon: '🌈', kinds: ['coast', 'park', 'island'], weather: ['rain'], weight: 4,
+		text: '一阵雨刚过，一道完整的双彩虹横跨天边。',
+		choices: [
+			{ label: '停下来看完', ok: { text: '直到彩虹慢慢淡掉，你才继续上路。', fx: { minutes: 20, needs: { fun: 20 } } } },
+		],
+	},
+	{
 		id: 'dolphin-visit', title: '海豚来了', icon: '🐬', tags: ['dolphin'], once: true, weight: 10,
 		text: '清晨的浅滩，三只野生宽吻海豚游到了你膝盖边。',
 		choices: [{ label: '站着别动', ok: { text: '其中一只侧过身，看了你一眼。', fx: { respect: 2, needs: { fun: 35 } } } }],
