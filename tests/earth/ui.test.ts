@@ -81,10 +81,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	const docListeners: Record<string, (e: unknown) => void> = {};
 	const store = new Map<string, string>([['earth.cred.v1', JSON.stringify(cred)], ['earth.save.v1', JSON.stringify(made.json.state)]]);
 	const g = globalThis as any;
-	const saved = { setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, fetch: g.fetch, WebSocket: g.WebSocket, confirm: g.confirm, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
+	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, fetch: g.fetch, WebSocket: g.WebSocket, confirm: g.confirm, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
 	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => (docListeners[t] = f), body: { classList: new ClassList() }, hidden: false };
 	const winListeners: Record<string, (e: unknown) => void> = {};
-	g.window = { setTimeout, scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => (winListeners[t] = f) };
+	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => (winListeners[t] = f) };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', reload() {} };
 	g.fetch = async (u: string, o?: RequestInit) => {
@@ -95,6 +95,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	g.confirm = () => true;
 	// 页面里的心跳、附近页刷新是 setInterval，会让测试进程一直不退出：测试期间不执行
 	g.setInterval = () => 0;
+	// 页面里的延时提示（toast 等）在测试结束后还会触发：记下来，结束时全部取消
+	const timers = new Set<ReturnType<typeof setTimeout>>();
+	const realSetTimeout = saved.setTimeout;
+	g.setTimeout = (f: () => void, ms?: number) => { const id = realSetTimeout(f, ms); timers.add(id); return id; };
 	let copied = '';
 	Object.defineProperty(g, 'navigator', { value: { geolocation: null, clipboard: { writeText: async (t: string) => { copied = t; } } }, configurable: true });
 
@@ -188,6 +192,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.equal(el('game').inert, false, '弹窗关闭后解锁');
 		assert.equal((data.get('save:' + cred.id) as any).state.loc, 'rottnest');
 	} finally {
+		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });
 		for (const [k, v] of Object.entries(saved)) {
 			if (k === 'navigator') { if (v) Object.defineProperty(g, 'navigator', v as PropertyDescriptor); continue; }
@@ -196,3 +201,68 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	}
 });
 
+
+test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {
+	const { data, world } = makeWorld();
+	const els = new Map<string, El>();
+	const el = (id: string): El => {
+		if (!els.has(id)) els.set(id, {
+			id, innerHTML: '', textContent: '', value: '', disabled: false, inert: false, classList: new ClassList(), attrs: {}, ls: {}, focused: 0, scrollTop: 0, scrollHeight: 0,
+			setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.ls[t] = f; },
+			querySelector() { return null; },
+		});
+		return els.get(id)!;
+	};
+	const store = new Map<string, string>();
+	const g = globalThis as any;
+	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
+	g.document = { getElementById: el, addEventListener: () => {}, body: { classList: new ClassList() }, hidden: false };
+	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener() {} };
+	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
+	g.location = { protocol: 'http:', host: 'game.test', reload() {} };
+	g.fetch = async (u: string, o?: RequestInit) => (String(u) === '/api/earth/save' ? world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: o?.body as string })) : new Response('{}', { status: 404 }));
+	g.WebSocket = class { static OPEN = 1; readyState = 0; send() {} close() {} };
+	g.setInterval = () => 0;
+	// 页面里的延时提示（toast 等）在测试结束后还会触发：记下来，结束时全部取消
+	const timers = new Set<ReturnType<typeof setTimeout>>();
+	const realSetTimeout = saved.setTimeout;
+	g.setTimeout = (f: () => void, ms?: number) => { const id = realSetTimeout(f, ms); timers.add(id); return id; };
+	Object.defineProperty(g, 'navigator', { value: { geolocation: null, clipboard: null }, configurable: true });
+	const dir = mkdtempSync(join(tmpdir(), 'earth-ui-'));
+	try {
+		const file = join(dir, 'page.mjs');
+		writeFileSync(file, await bundlePage());
+		await import(pathToFileURL(file).href);
+		await pause(30);
+		assert.equal(el('create').classList.contains('hidden'), false, '没有存档时显示创建页');
+		assert.equal(el('game').classList.contains('hidden'), true);
+		const pickIn = (box: string, attr: string) => {
+			const ids = [...el(box).innerHTML.matchAll(new RegExp(`<button class="[^"]*" data-${attr}="([^"]+)"(?![^>]*disabled)`, 'g'))].map((m) => m[1]);
+			return ids;
+		};
+		const tap = async (dataset: Record<string, string>) => { el('create').ls.click({ target: { dataset, disabled: false, closest() { return this; } } }); await pause(5); };
+		assert.equal(el('c-start').disabled, true, '没选够特质不能开始');
+		await tap({ origin: pickIn('c-origins', 'origin')[1] });
+		await tap({ avatar: pickIn('c-avatars', 'avatar')[2] });
+		await tap({ trait: pickIn('c-traits', 'trait')[0] });
+		const second = pickIn('c-traits', 'trait').find((t) => !el('c-traits').innerHTML.includes(`trait on" data-trait="${t}"`));
+		await tap({ trait: second! });
+		assert.equal(el('c-start').disabled, false, '选够两个特质可以开始');
+		el('c-name').value = '新来的';
+		el('c-start').ls.click({});
+		await pause(80);
+		assert.equal(el('game').classList.contains('hidden'), false, '创建后进入游戏');
+		const cred = JSON.parse(store.get('earth.cred.v1') ?? 'null');
+		assert.ok(cred?.id && cred?.key, '凭证存到本机');
+		const rec = data.get('save:' + cred.id) as any;
+		assert.equal(rec.state.name, '新来的');
+		assert.equal(rec.state.traits.length, 2);
+	} finally {
+		for (const id of timers) clearTimeout(id);
+		rmSync(dir, { recursive: true, force: true });
+		for (const [k, v] of Object.entries(saved)) {
+			if (k === 'navigator') { if (v) Object.defineProperty(g, 'navigator', v as PropertyDescriptor); continue; }
+			if (v === undefined) delete g[k]; else g[k] = v;
+		}
+	}
+});

@@ -25,12 +25,20 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 	<body>
 		<div id="app">
 			<section id="create" class="hidden">
-				<h1>🌏 地球人生</h1>
-				<p class="sub">第一阶段 · 西澳大利亚</p>
-				<label class="field">名字<input id="c-name" maxlength="12" placeholder="给自己起个名字" autocomplete="off" /></label>
-				<div class="field">形象<div id="c-avatars" class="chips"></div></div>
-				<div class="field">出身<div id="c-origins"></div></div>
-				<div class="field">性格特质（选 2 个）<div id="c-traits" class="chips"></div></div>
+				<div class="cover">
+					<img src="/earth/icon.svg" alt="" width="64" height="64" />
+					<h1>地球人生</h1>
+					<p class="sub">在真实的西澳大利亚过另一种人生</p>
+					<ul class="points">
+						<li><b>真实地图</b>18 个西澳地点，出行、打工、租房买房</li>
+						<li><b>人到现场</b>本人走进真实的餐馆、健身房、公园，游戏里也能做事</li>
+						<li><b>多端同步</b>手机电脑用同一个存档，和同地点的玩家聊天</li>
+					</ul>
+				</div>
+				<label class="field"><span class="step">1</span>名字<input id="c-name" maxlength="12" placeholder="给自己起个名字" autocomplete="off" /></label>
+				<div class="field"><span class="step">2</span>形象<div id="c-avatars" class="chips"></div></div>
+				<div class="field"><span class="step">3</span>出身<div id="c-origins"></div></div>
+				<div class="field"><span class="step">4</span>性格特质（选 2 个）<div id="c-traits" class="chips"></div></div>
 				<button id="c-start" class="primary">开始生活</button>
 				<details class="import">
 					<summary>已有存档？用同步码恢复</summary>
@@ -84,7 +92,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			input { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px; width: 100%; min-width: 0; min-height: 44px; }
 
 			#create { padding: 28px 20px calc(28px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 16px; }
-			#create h1 { margin: 16px 0 0; font-size: 30px; font-weight: 900; }
+			#create h1 { margin: 10px 0 0; font-size: 30px; font-weight: 900; }
+			.cover { background: var(--card); border-radius: 24px; padding: 22px 20px; box-shadow: 0 1px 2px var(--shadow); }
+			.cover img { display: block; border-radius: 16px; }
+			.cover .points { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+			.cover .points li { font-size: 14px; color: var(--dim); padding-left: 14px; border-left: 3px solid var(--accent); }
+			.cover .points b { display: block; color: var(--text); font-size: 15px; }
+			.field .step { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700; align-items: center; justify-content: center; margin-right: 6px; }
+			#c-start { min-height: 52px; font-size: 17px; }
 			.sub { margin: 0; color: var(--dim); }
 			.field { display: flex; flex-direction: column; gap: 8px; color: var(--dim); font-size: 13px; font-weight: 600; }
 			.chips { display: flex; flex-wrap: wrap; gap: 8px; }
