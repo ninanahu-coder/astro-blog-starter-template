@@ -6,13 +6,26 @@ import { realDayOf } from '../../src/game/core/daily.ts';
 import { WA } from '../../src/game/data/wa.ts';
 
 /** delayMs > 0 时每次读写都真的等一会儿，让同时到的请求在没有锁的情况下一定会交错（读到同一份旧存档） */
-function makeWorld(delayMs = 0) {
+/** hooks 让测试精确安排先后：put 写入前先等 hooks.put()，list 读完、返回前等 hooks.list() */
+function makeWorld(delayMs = 0, hooks: { put?: () => Promise<void>; list?: () => unknown } = {}) {
 	const data = new Map<string, any>();
 	let puts = 0;
 	const wait = () => (delayMs ? new Promise((done) => setTimeout(done, delayMs)) : Promise.resolve());
 	const storage = {
 		get: async (k: string) => { await wait(); return data.has(k) ? structuredClone(data.get(k)) : undefined; },
-		put: async (k: string, v: unknown) => { await wait(); puts++; data.set(k, structuredClone(v)); },
+		put: async (k: string | Record<string, unknown>, v?: unknown) => {
+			await wait();
+			if (hooks.put) await hooks.put();
+			puts++;
+			if (typeof k === 'string') data.set(k, structuredClone(v));
+			else for (const [kk, vv] of Object.entries(k)) data.set(kk, structuredClone(vv));
+		},
+		list: async ({ prefix = '' }: { prefix?: string } = {}) => {
+			await wait();
+			const out = new Map([...data].filter(([k]) => k.startsWith(prefix)).sort(([a], [b]) => (a < b ? -1 : 1)).map(([k, v]) => [k, structuredClone(v)]));
+			await hooks.list?.();
+			return out;
+		},
 	};
 	const world = new EarthWorld({ storage } as never, {});
 	const call = async (body: Record<string, unknown>) => {
@@ -282,4 +295,120 @@ test('服务端：落盘的存档永远是规范形式（再校验一次不变�
 	const b = await w.call({ action: 'act', ...cred, rev: a.data.state.rev, act: gps });
 	assert.equal(b.data.state.respect, a.data.state.respect, '第二次打卡没有再加声望');
 	assert.deepEqual(w.data.get('save:' + ID).state.checkins.filter((x: string) => x === poi.id), [poi.id]);
+});
+
+test('服务端：净资产排行榜按净资产排名，标出自己，不泄露 id、同步码和种子', async () => {
+	const w = makeWorld();
+	const players = [
+		{ id: 'board-alice-01', key: 'a'.repeat(24), name: '阿丽', cash: 5000 },
+		{ id: 'board-bob-0002', key: 'b'.repeat(24), name: '阿博', cash: 900 },
+		{ id: 'board-cat-0003', key: 'c'.repeat(24), name: '阿凯', cash: 20000 },
+	];
+	for (const p of players) {
+		await w.call({ action: 'create', id: p.id, key: p.key, profile: { ...profile, name: p.name } });
+		const rec = w.data.get('save:' + p.id);
+		w.data.set('save:' + p.id, { ...rec, state: { ...rec.state, cash: p.cash } });
+		await w.call({ action: 'act', id: p.id, key: p.key, rev: rec.state.rev, act: { t: 'activity', id: 'rest' } });
+	}
+	const before = w.puts();
+	const r = await w.call({ action: 'board', id: players[1].id, key: players[1].key });
+	assert.equal(r.status, 200, r.data.msg);
+	assert.equal(w.puts(), before, '看榜不写入任何东西');
+	assert.deepEqual(r.data.top.map((x: { name: string }) => x.name), ['阿凯', '阿丽', '阿博']);
+	assert.deepEqual(r.data.top.map((x: { rank: number }) => x.rank), [1, 2, 3]);
+	assert.deepEqual(r.data.top.map((x: { me: boolean }) => x.me), [false, false, true]);
+	assert.equal(r.data.me.rank, 3);
+	assert.equal(r.data.total, 3);
+	assert.ok(r.data.top[0].worth > r.data.top[1].worth);
+	const text = JSON.stringify(r.data);
+	for (const p of players) {
+		assert.ok(!text.includes(p.id), '不含存档 id');
+		assert.ok(!text.includes(p.key), '不含同步码');
+		assert.ok(!text.includes(w.data.get('save:' + p.id).keyHash), '不含同步码哈希');
+	}
+	assert.ok(!/seed/.test(text), '不含种子');
+	// 净资产变化后榜单跟着变：阿博发财了
+	const bob = w.data.get('save:' + players[1].id);
+	w.data.set('save:' + players[1].id, { ...bob, state: { ...bob.state, cash: 99999 } });
+	await w.call({ action: 'act', id: players[1].id, key: players[1].key, rev: bob.state.rev, act: { t: 'activity', id: 'rest' } });
+	const r2 = await w.call({ action: 'board', id: players[0].id, key: players[0].key });
+	assert.deepEqual(r2.data.top.map((x: { name: string }) => x.name), ['阿博', '阿凯', '阿丽']);
+	assert.equal(r2.data.me.rank, 3);
+	assert.equal(r2.data.total, 3, '每人只占一条');
+	// 同步码不对看不了，没有存档看不了
+	assert.equal((await w.call({ action: 'board', id: players[0].id, key: 'x'.repeat(24) })).status, 403);
+	assert.equal((await w.call({ action: 'board', id: 'nobody-here-9', key: 'x'.repeat(24) })).status, 404);
+});
+
+test('服务端：净资产没变的动作不会让同分的先到者掉到后面', async () => {
+	const w = makeWorld();
+	const a = { id: 'board-first-01', key: 'f'.repeat(24) };
+	const b = { id: 'board-later-02', key: 'l'.repeat(24) };
+	for (const p of [a, b]) await w.call({ action: 'create', ...p, profile: { ...profile, name: p === a ? '先到' : '后到' } });
+	// 两人净资产一样，先到的记录时间更早
+	const ranks = [...w.data.keys()].filter((k) => k.startsWith('rank:'));
+	assert.equal(ranks.length, 2);
+	const order = async () => (await w.call({ action: 'board', ...a })).data.top.map((x: { name: string }) => x.name);
+	for (const k of ranks) w.data.set(k, { ...w.data.get(k), at: w.data.get(k).name === '先到' ? 1000 : 2000 });
+	assert.equal(w.data.get(ranks[0]).worth, w.data.get(ranks[1]).worth);
+	w.world['board'] = null;
+	assert.deepEqual(await order(), ['先到', '后到']);
+	// 先到的人做一个不改变净资产的动作
+	const worth = w.data.get(ranks.find((k) => w.data.get(k).name === '先到')!).worth;
+	const rec = w.data.get('save:' + a.id);
+	const r = await w.call({ action: 'act', ...a, rev: rec.state.rev, act: { t: 'activity', id: 'rest' } });
+	assert.ok(r.data.ok, r.data.msg);
+	const mine = w.data.get(ranks.find((k) => w.data.get(k).name === '先到')!);
+	assert.equal(mine.worth, worth, '休息不改变净资产');
+	assert.equal(mine.at, 1000, '沿用先达到的时间');
+	assert.deepEqual(await order(), ['先到', '后到']);
+});
+
+test('服务端：看榜读列表时别人的存档正好写完，不出错，也不把旧列表留在缓存里', async () => {
+	// 乙的动作停在写入前 → 甲看榜，列表读完的那一刻放行乙的写入。两种先后都要对：
+	// late：乙写完、作废缓存时，甲的看榜还没排完（旧写法这里会拿着被清空的缓存排名而报错）
+	// early：列表还没交给甲，乙就写完了（甲拿到的是旧列表，不能放进缓存）
+	for (const order of ['late', 'early'] as const) {
+		let armed = false;
+		let release = () => {};
+		let parked = () => {};
+		const parkedP = new Promise<void>((done) => (parked = done));
+		const gate = new Promise<void>((done) => (release = done));
+		const w = makeWorld(0, {
+			put: () => (armed ? (parked(), gate) : Promise.resolve()),
+			list: () => {
+				if (!armed) return;
+				release();
+				if (order === 'early') return new Promise((done) => setTimeout(done, 5));
+			},
+		});
+		const a = { id: 'board-race-001', key: 'r'.repeat(24) };
+		const b = { id: 'board-race-002', key: 's'.repeat(24) };
+		await w.call({ action: 'create', ...a, profile });
+		await w.call({ action: 'create', ...b, profile });
+		const rec = w.data.get('save:' + b.id);
+		w.data.set('save:' + b.id, { ...rec, state: { ...rec.state, cash: 77777 } });
+		w.world['board'] = null;
+		armed = true;
+		const act = w.call({ action: 'act', ...b, rev: rec.state.rev, act: { t: 'activity', id: 'rest' } });
+		await parkedP;
+		const board = await w.call({ action: 'board', ...a });
+		armed = false;
+		assert.equal(board.status, 200, order + ': ' + board.data.msg);
+		assert.ok((await act).data.ok);
+		// 乙的写入已经完成，再看榜必须是新数据
+		const after = await w.call({ action: 'board', ...a });
+		assert.ok(after.data.top[0].worth > 70000, order + '：缓存里不能是读榜期间拿到的旧列表');
+	}
+});
+
+test('服务端：榜单记录损坏时跳过那一条，不影响其他人', async () => {
+	const w = makeWorld();
+	await w.call({ action: 'create', ...cred, profile });
+	w.data.set('rank:broken00001', { name: 7, worth: 'lots' });
+	w.data.set('rank:broken00002', { name: '<b>坏</b>', avatar: '🧑', worth: Infinity, day: 1, at: 1 });
+	const r = await w.call({ action: 'board', ...cred });
+	assert.equal(r.status, 200);
+	assert.equal(r.data.total, 1);
+	assert.equal(r.data.me.rank, 1);
 });

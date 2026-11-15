@@ -225,6 +225,26 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 			let dailyNote = '';
 			let clockSkew = 0; // 服务器时间 − 本机时间（毫秒）
+			// 净资产排行榜：打开「社交」页时拉取，一分钟内不重复拉
+			type BoardRow = { rank: number; name: string; avatar: string; worth: number; day: number; me: boolean };
+			let board: { top: BoardRow[]; me: BoardRow | null; total: number } | null = null;
+			let boardAt = 0;
+			let boardLoading = false;
+			let boardError = '';
+			async function loadBoard(force = false) {
+				if (!cred || boardLoading || (!force && Date.now() - boardAt < 60_000)) return;
+				boardLoading = true;
+				try {
+					const { data } = await api({ action: 'board', id: cred.id, key: cred.key });
+					if (data?.ok && Array.isArray(data.top)) { board = { top: data.top, me: data.me ?? null, total: data.total ?? 0 }; boardError = ''; }
+					else boardError = data?.msg || '排行榜暂时拿不到';
+				} catch {
+					boardError = '排行榜需要联网';
+				}
+				boardAt = Date.now();
+				boardLoading = false;
+				if (tab === 'social') renderPanel();
+			}
 			const srvNow = () => Date.now() + clockSkew;
 			async function api(body: unknown) {
 				const res = await fetch('/api/earth/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -541,6 +561,17 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					})()}</div>`;
 			}
 
+			function boardCard() {
+				loadBoard();
+				const row = (r: BoardRow) => `<div class="row"><span class="ico">${r.rank}</span><span class="body">${esc(r.avatar)} ${r.me ? `<b>${esc(r.name)}（你）</b>` : esc(r.name)}<small>净资产 $${r.worth.toLocaleString()} · 第 ${r.day + 1} 天</small></span></div>`;
+				const body = board
+					? `${board.top.map(row).join('') || '<p class="muted">还没有人上榜。</p>'}${board.me && !board.top.some((r) => r.me) ? `<p class="muted" style="margin:6px 0">……</p>${row(board.me)}` : ''}`
+					: `<p class="muted">${boardLoading ? '正在加载…' : esc(boardError || '正在加载…')}</p>`;
+				return `<div class="card"><h3>🏆 净资产排行</h3><p>全服按净资产排名（现金 + 车 + 家具 + 房产 − 贷款），结果由服务端计算。${board ? `共 ${board.total} 人上榜。` : ''}</p>
+					<div class="list" style="margin-top:8px">${body}</div>
+					<div class="inline" style="margin-top:8px"><button data-board ${boardLoading ? 'disabled' : ''}>刷新</button></div></div>`;
+			}
+
 			function panelSocial() {
 				const s = state!;
 				const online = ws?.readyState === WebSocket.OPEN;
@@ -550,7 +581,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return `<div class="card"><h3>${esc(getLocation(region, s.loc)!.name)}的人</h3><p>${online ? `全区在线 ${peers.size} 人` : '未连接，稍后自动重连…'}</p><div class="list" style="margin-top:8px">${people}</div></div>
 					<div class="card"><h3>本地频道</h3><p>只有同一地点的玩家能看到。</p>
 						<div class="chat" id="chat">${chats.map((c) => `<div>${esc(c.avatar)} <b>${esc(c.name)}</b> ${esc(c.text)}</div>`).join('')}</div>
-						<form class="inline" id="chat-form"><input id="chat-input" maxlength="120" placeholder="说点什么…" autocomplete="off" ${online ? '' : 'disabled'} /><button class="primary" ${online ? '' : 'disabled'}>发送</button></form></div>`;
+						<form class="inline" id="chat-form"><input id="chat-input" maxlength="120" placeholder="说点什么…" autocomplete="off" ${online ? '' : 'disabled'} /><button class="primary" ${online ? '' : 'disabled'}>发送</button></form></div>
+					${boardCard()}`;
 			}
 
 			function panelLog() {
@@ -625,7 +657,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) { tab = d.tab; renderPanel(); }
@@ -685,6 +717,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				else if (d.emote && d.to) { ws?.send(JSON.stringify({ t: 'emote', to: d.to, kind: d.emote })); toast(`你向对方 ${d.emote}`); }
 				else if ('copy' in d) navigator.clipboard?.writeText(`${cred!.id}.${cred!.key}`).then(() => toast('已复制'), () => toast('复制失败，请长按手动复制'));
 				else if ('pull' in d) pullCloud();
+				else if ('board' in d) loadBoard(true);
 				else if ('reset' in d) {
 					if (!confirm('确定删除本机存档？请先记下同步码。')) return;
 					try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(CRED_KEY); } catch {}
