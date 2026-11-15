@@ -11,7 +11,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 		<meta name="theme-color" content="#f5f2ec" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<link rel="icon" type="image/svg+xml" href="/earth/icon.svg" />
+		<link rel="manifest" href="/earth/manifest.webmanifest" />
+		<link rel="apple-touch-icon" href="/earth/icon-180.png" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-title" content="地球人生" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 		<title>{title}</title>
 		<meta name="description" content={description} />
 	</head>
@@ -1004,6 +1010,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			fetch('/earth/cgi/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: any) => { cgi = m.images || {}; if (state) { renderPanel(); renderEvent(); } }).catch(() => {});
 			if (state) { connect(); pullCloud(); }
 			document.addEventListener('visibilitychange', () => { if (!document.hidden && state) { connect(); pullCloud(); } });
+			// 离线外壳：能「添加到主屏幕」、断网时也能打开查看。注册失败不影响游戏
+			if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/earth/sw.js', { scope: '/earth/' }).catch(() => {});
 		</script>
 	</body>
 </html>

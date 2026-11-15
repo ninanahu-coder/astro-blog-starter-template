@@ -1,0 +1,17 @@
+{
+  "name": "地球人生 · 西澳",
+  "short_name": "地球人生",
+  "description": "在真实地图上生活的在线人生模拟：出行、打工、探索，到达地点触发事件，多端云同步。",
+  "lang": "zh-CN",
+  "start_url": "/earth/",
+  "scope": "/earth/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f2ec",
+  "theme_color": "#f5f2ec",
+  "icons": [
+    { "src": "/earth/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/earth/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/earth/icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
