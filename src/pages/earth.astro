@@ -175,6 +175,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.next h2 { margin: 0; font-size: 21px; }
 			.next p { margin: 0; color: #d3dae1; font-size: 14px; }
 			.next button { min-height: 52px; border: 0; border-radius: 14px; background: var(--accent); color: #fff; font-size: 17px; font-weight: 700; }
+			.seg { display: flex; gap: 4px; padding: 4px; background: #e9e3d8; border-radius: 14px; position: sticky; top: calc(84px + env(safe-area-inset-top)); z-index: 4; }
+			.seg button { flex: 1; min-height: 44px; border: 0; border-radius: 10px; background: transparent; font-size: 14px; color: #3a4550; padding: 0 4px; }
+			.seg button.on { background: var(--card); color: var(--text); font-weight: 700; box-shadow: 0 1px 2px rgba(23, 33, 43, 0.08); }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: #3a4550; }
 
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
@@ -232,6 +235,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				['social', '社交', '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c1.8.7 3 2.4 3.5 5.2"/>'],
 				['me', '我', '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.2 4-6.5 8-6.5s7 2.3 8 6.5"/>'],
 			];
+
+			// 「我」页的分栏
+			const ME_TABS: [string, string][] = [['overview', '概况'], ['assets', '资产'], ['people', '关系'], ['log', '日志'], ['sync', '设置']];
+			let meTab = 'overview';
 
 			type Cred = { id: string; key: string };
 			type Peer = { id: string; name: string; avatar: string; loc: string };
@@ -642,11 +649,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					if (!it) return '';
 					return `<div class="row" style="margin-top:8px"><span class="ico">${it.icon}</span><span class="body">${esc(it.name)} ×${n}<small>${esc(it.desc)}</small></span>${it.use ? `<button data-use="${it.id}">使用</button>` : '<span class="meta">装备中</span>'}</div>`;
 				}).join('');
-				return `<div class="card"><h3>${s.avatar} ${esc(s.name)}</h3><p>${origin.icon} ${origin.name} · 座驾：${veh}</p>
+				const card = {
+					me: `<div class="card"><h3>${s.avatar} ${esc(s.name)}</h3><p>${origin.icon} ${origin.name} · 座驾：${veh}</p>
 					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
 						<p>Lv${lv.lv} ${lv.title} · 声望 ${Math.floor(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
-						<div class="tags">${traits || '<span class="muted">没有性格特质</span>'}</div></div>
-					<div class="card"><h3>心情 ${mb.total}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</h3>
+						<div class="tags">${traits || '<span class="muted">没有性格特质</span>'}</div></div>`,
+					mood: `<div class="card"><h3>心情 ${mb.total}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</h3>
 						<div style="margin-top:6px">
 							<div class="mood-row"><span>生活需求（最低的一项拉低整体）</span><b>${mb.needs}</b></div>
 							${mb.traits ? `<div class="mood-row"><span>性格特质</span><b class="${mb.traits > 0 ? 'up' : 'down'}">${mb.traits > 0 ? '+' : ''}${mb.traits}</b></div>` : ''}
@@ -654,21 +662,26 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							${mb.moodlets.map((x) => `<div class="mood-row"><span>${x.def.icon} ${esc(x.def.name)} <span class="muted">还剩 ${x.minutesLeft >= 120 ? Math.round(x.minutesLeft / 60) + ' 小时' : Math.max(1, Math.round(x.minutesLeft)) + ' 分钟'}</span></span><b class="${x.def.value > 0 ? 'up' : 'down'}">${x.def.value > 0 ? '+' : ''}${x.def.value}</b></div>`).join('')}
 						</div>
 						${mb.moodlets.length ? '' : '<p style="margin-top:6px">做点开心的事——好好吃一顿、睡个好觉、完成心愿、去新地方——会留下几小时到几天的好心情。</p>'}
-					</div>
-					<div class="card"><h3>每日奖励</h3><p>已连续上线 ${s.daily.streak} 天。每天第一次上线领取，连续越久越多（$${DAILY.base} 起，第 ${DAILY.cap} 天另加 $${DAILY.bonus}），断一天从头算。</p></div>
-					<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>
-					<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>
-					<div class="card"><h3>工作与住处</h3>${life}</div>
-					<div class="card"><h3>人际关系</h3>${rels || '<p>还没认识什么人。去各地看看谁在那里。</p>'}</div>
-					<div class="card"><h3>背包</h3>${bag || '<p>空的。在地点页的商店里买东西。</p>'}</div>
-					<div class="card"><h3>能力</h3><p>用得越多涨得越快。</p>${skills}</div>
-					<div class="card"><h3>派生属性</h3>${(() => {
+					</div>`,
+					daily: `<div class="card"><h3>每日奖励</h3><p>已连续上线 ${s.daily.streak} 天。每天第一次上线领取，连续越久越多（$${DAILY.base} 起，第 ${DAILY.cap} 天另加 $${DAILY.bonus}），断一天从头算。</p></div>`,
+					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>`,
+					album: `<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>`,
+					life: `<div class="card"><h3>工作与住处</h3>${life}</div>`,
+					rels: `<div class="card"><h3>人际关系</h3>${rels || '<p>还没认识什么人。去各地看看谁在那里。</p>'}</div>`,
+					bag: `<div class="card"><h3>背包</h3>${bag || '<p>空的。在地点页的商店里买东西。</p>'}</div>`,
+					skills: `<div class="card"><h3>能力</h3><p>用得越多涨得越快。</p>${skills}</div>`,
+					derived: `<div class="card"><h3>派生属性</h3>${(() => {
 						const d = derivedStats(s);
 						return `<p>体质 ${d.fitness}（体能 50% + 力量 30% + 游泳 20%）</p>
 							<p>吸引力 ${d.appeal}（魅力 + 体质 15% + 心情修正${s.needs.hygiene < 30 ? ' − 邋遢 10' : ''}）</p>
 							<p>体力消耗 ×${d.exertion} · 恢复 ×${d.recovery}</p>
 							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
-					})()}</div>`;
+					})()}</div>`,
+				};
+				const sections: Record<string, string[]> = { overview: ['me', 'mood', 'daily', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
+				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}</button>`).join('')}</div>`;
+				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
+				return seg + bodyHtml;
 			}
 
 			function boardCard() {
@@ -736,7 +749,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				// 地图只在「出行」页显示
 				$('map-wrap').classList.toggle('hidden', tab !== 'go');
 				renderHud();
-				const html = { place: panelPlace, near: panelNear, go: panelGo, me: () => panelMe() + panelSync() + panelLog(), social: panelSocial }[tab]!();
+				const html = { place: panelPlace, near: panelNear, go: panelGo, me: panelMe, social: panelSocial }[tab]!();
 				$('panel').innerHTML = html;
 				const chat = document.getElementById('chat');
 				if (chat) chat.scrollTop = chat.scrollHeight;
@@ -787,10 +800,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
-				if (d.tab) { tab = d.tab; renderPanel(); window.scrollTo({ top: 0 }); }
+				if (d.tab) { tab = d.tab; if (t.classList.contains('moodchip')) meTab = 'overview'; renderPanel(); window.scrollTo({ top: 0 }); }
+				else if (d.metab) { meTab = d.metab; renderPanel(); }
 				else if (d.npc && d.npcAct) act(d.npcItem ? { t: 'npc', npc: d.npc, act: 'gift', item: d.npcItem } : { t: 'npc', npc: d.npc, act: d.npcAct as NpcAction }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.veh) {
 					if (d.veh === 'sell' && !confirm('确定把车卖掉？')) return;
