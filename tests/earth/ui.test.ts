@@ -91,7 +91,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		if (String(u) === '/api/earth/save') return world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: o?.body as string }));
 		return new Response('{}', { status: 404 });
 	};
-	g.WebSocket = class { static OPEN = 1; readyState = 0; send() {} close() {} };
+	// 在线频道：连上就算打开，记下发出去的消息
+	const sent: string[] = [];
+	g.WebSocket = class { static OPEN = 1; readyState = 1; onmessage: ((e: { data: string }) => void) | null = null; onclose: (() => void) | null = null; send(m: string) { sent.push(m); } close() {} };
 	g.confirm = () => true;
 	// 页面里的心跳、附近页刷新是 setInterval，会让测试进程一直不退出：测试期间不执行
 	g.setInterval = () => 0;
@@ -167,6 +169,11 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(copied, /地球人生/);
 		assert.match(copied, /https?:\/\/game\.test\/earth\//);
 		assert.ok(!copied.includes(cred.id) && !copied.includes(cred.key), '分享文字不能带凭证');
+		// 社交页的快捷短语：点一下发到本地频道
+		await click({ tab: 'social' });
+		assert.match(panel(), /data-quick="0"/);
+		await click({ quick: '1' });
+		assert.ok(sent.some((m) => JSON.parse(m).t === 'chat' && JSON.parse(m).text === '有人一起吗？'), '快捷短语发出去了');
 		// 断网：动作失败后顶栏出现离线横幅；恢复网络后自动同步、横幅消失
 		const realFetch = g.fetch;
 		g.fetch = async () => { throw new TypeError('offline'); };
