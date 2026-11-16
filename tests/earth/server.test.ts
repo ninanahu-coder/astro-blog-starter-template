@@ -739,3 +739,28 @@ test('送礼：收下和撤回同时到，只有一个生效', async () => {
 	const total = (w.data.get('save:' + A.id).state.inventory.snack ?? 0) + (w.data.get('save:' + B.id).state.inventory.snack ?? 0);
 	assert.equal(total, 2 + (b0.inventory.snack ?? 0), '东西不多不少');
 });
+
+test('二手摊：价格在商店价 50%–150% 之间；同地点的人都能买，买方付钱给卖方，一次写入；别处的人看不到', async () => {
+	const w = makeWorld();
+	const { A, B, a0, b0 } = await twoPlayers(w, 4, { firstaid: 1 });
+	const C = { id: 'trade-far-4', key: 'c'.repeat(24) };
+	const c0 = (await w.call({ action: 'create', ...C, profile })).data.state;
+	assert.ok((await w.call({ action: 'act', ...C, rev: c0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
+	assert.match((await w.call({ action: 'trade', op: 'sale', ...A, item: 'firstaid', price: 60 })).data.msg, /\$18–\$52/);
+	assert.match((await w.call({ action: 'trade', op: 'sale', ...A, item: 'firstaid', price: 20.5 })).data.msg, /之间/);
+	const up = await w.call({ action: 'trade', op: 'sale', ...A, item: 'firstaid', price: 40 });
+	assert.ok(up.data.ok, up.data.msg);
+	const oid = up.data.offers[0].id;
+	assert.equal((await w.call({ action: 'trade', op: 'list', ...C })).data.offers.length, 0, '别处看不到');
+	assert.equal((await w.call({ action: 'trade', op: 'accept', ...A, offer: oid, rev: a0.rev })).data.ok, false, '不能买自己的');
+	const seen = await w.call({ action: 'trade', op: 'list', ...B });
+	assert.deepEqual([seen.data.offers[0].kind, seen.data.offers[0].price, seen.data.offers[0].mine], ['sale', 40, false]);
+	const bought = await w.call({ action: 'trade', op: 'accept', ...B, offer: oid, rev: b0.rev });
+	assert.ok(bought.data.ok, bought.data.msg);
+	assert.equal(bought.data.state.cash, b0.cash - 40);
+	assert.equal(bought.data.state.inventory.firstaid, (b0.inventory.firstaid ?? 0) + 1);
+	const aSave = w.data.get('save:' + A.id).state;
+	assert.equal(aSave.cash, a0.cash + 40);
+	assert.equal(aSave.inventory.firstaid ?? 0, 0);
+	assert.match(aSave.journal.at(-1).text, /卖给了阿乙/);
+});

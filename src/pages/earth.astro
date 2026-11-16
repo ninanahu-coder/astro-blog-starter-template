@@ -555,6 +555,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let tradeAt = 0;
 			let tradeLoading = false;
 			let giftTo: { hash: string; name: string } | null = null; // 正在选要送什么
+			let sellPick = false; // 正在选要摆到二手摊的东西
 			const myOffersSeen = new Set<string>(); // 我挂出去的单：消失了（被收下或买走）就拉一次最新进度
 			const myCancelled = new Set<string>();
 			function takeTrade(data: any) {
@@ -597,7 +598,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					}
 					takeTrade(data);
 					tradeAt = Date.now();
-					if (data.ok) giftTo = null;
+					if (data.ok) { giftTo = null; sellPick = false; }
 					if (data.msg) toast(data.msg);
 					if (data.ok && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'trade' }));
 				} catch {
@@ -1220,9 +1221,19 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				loadTrade();
 				const day = realDayOf(srvNow());
 				const parts: string[] = [];
+				const owned = Object.entries(s.inventory).filter(([, n]) => n > 0).map(([id]) => getItem(id)).filter((x): x is NonNullable<typeof x> => !!x);
+				if (sellPick) {
+					// 每件给三个价：最低、商店价、最高（在 50%–150% 之间）
+					const rows = owned.map((it) => {
+						const why = giveBlocked(s, it.id, day);
+						const r = saleRange(it.id)!;
+						const prices = [...new Set([r.min, Math.min(r.max, Math.max(r.min, it.price)), r.max])];
+						return `<div class="row"><span class="ico">${it.icon}</span><span class="body">${esc(it.name)} ×${s.inventory[it.id]}<small>${why ? esc(why) : `商店价 $${it.price}`}</small></span><span class="meta">${prices.map((pr) => `<button data-trade="sale" data-item="${it.id}" data-price="${pr}" ${why ? 'disabled' : ''}>$${pr}</button>`).join(' ')}</span></div>`;
+					}).join('');
+					parts.push(`<div class="trade-pick"><b>摆到${esc(getLocation(region, s.loc)!.name)}的二手摊，卖多少？</b>${rows ? `<div class="list" style="margin-top:8px">${rows}</div>` : '<p class="muted">背包里没有能卖的东西。</p>'}<div class="inline" style="margin-top:8px"><button data-trade="pickcancel">不卖了</button></div></div>`);
+				}
 				if (giftTo) {
-					const items = Object.entries(s.inventory).filter(([, n]) => n > 0).map(([id]) => getItem(id)).filter((x): x is NonNullable<typeof x> => !!x);
-					const rows = items.map((it) => {
+					const rows = owned.map((it) => {
 						const why = giveBlocked(s, it.id, day);
 						return `<button class="row" data-trade="gift" data-item="${it.id}" ${why ? 'disabled' : ''}><span class="ico">${it.icon}</span><span class="body">${esc(it.name)} ×${s.inventory[it.id]}${why ? `<small>${esc(why)}</small>` : ''}</span></button>`;
 					}).join('');
@@ -1239,10 +1250,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					} else if (o.kind === 'gift') {
 						const why = takeBlocked(s, o.item, 0, day);
 						parts.push(`<div class="row"><span class="ico">${esc(o.avatar)}</span><span class="body">${esc(o.name)}想送你 ${it.icon} ${esc(it.name)}${why ? `<small>${esc(why)}</small>` : ''}</span><span class="meta"><button class="primary" data-trade="accept" data-offer="${lid}" ${why || o.taking ? 'disabled' : ''}>收下</button> <button data-trade="decline" data-offer="${lid}" ${o.taking ? 'disabled' : ''}>不要</button></span></div>`);
+					} else {
+						const why = takeBlocked(s, o.item, o.price, day);
+						parts.push(`<div class="row"><span class="ico">${esc(o.avatar)}</span><span class="body">${esc(o.name)}的二手摊 · ${it.icon} ${esc(it.name)}<small>${why ? esc(why) : `商店价 $${it.price}`}</small></span><span class="meta"><button class="primary" data-trade="accept" data-offer="${lid}" ${why || o.taking ? 'disabled' : ''}>$${o.price} 买下</button></span></div>`);
 					}
 				}
-				if (!parts.length) return '';
-				return `<div class="card trade"><h3>🎁 送礼</h3><p class="muted">每人每天最多送出、收下各 5 次；挂着的单 30 分钟没人接就撤下。</p>${parts.join('')}</div>`;
+				const sellBtn = !sellPick && !giftTo && owned.length ? `<div class="inline" style="margin-top:8px"><button data-trade="sellpick">摆个二手摊</button></div>` : '';
+				if (!parts.length && !sellBtn) return '';
+				return `<div class="card trade"><h3>🎁 送礼与二手摊</h3><p class="muted">每人每天最多送出、收下各 5 次（买卖也算）；挂着的单 30 分钟没人接就撤下，价格在商店价的一半到一倍半之间。</p>${parts.join('')}${sellBtn}</div>`;
 			}
 
 			function boardCard() {
@@ -1542,9 +1557,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				else if ('copy' in d) navigator.clipboard?.writeText(`${cred!.id}.${cred!.key}`).then(() => toast('已复制'), () => toast('复制失败，请长按手动复制'));
 				else if ('pull' in d) pullCloud();
 				else if ('board' in d) loadBoard(true);
-				else if (d.giftpick !== undefined) { giftTo = d.giftpick ? { hash: d.giftpick, name: d.giftName ?? '' } : null; renderPanel(); }
+				else if (d.giftpick !== undefined) { giftTo = d.giftpick ? { hash: d.giftpick, name: d.giftName ?? '' } : null; sellPick = false; renderPanel(); }
 				else if (d.trade) {
-					if (d.trade === 'pickcancel') { giftTo = null; renderPanel(); }
+					if (d.trade === 'pickcancel') { giftTo = null; sellPick = false; renderPanel(); }
+					else if (d.trade === 'sellpick') { sellPick = true; giftTo = null; renderPanel(); }
 					else if (d.trade === 'gift' && giftTo) tradeOp('gift', { to: giftTo.hash, toName: giftTo.name, item: d.item });
 					else if (d.trade === 'sale') tradeOp('sale', { item: d.item, price: Number(d.price) });
 					else if (d.trade === 'accept' || d.trade === 'decline' || d.trade === 'cancel') tradeOp(d.trade, { offer: d.offer });

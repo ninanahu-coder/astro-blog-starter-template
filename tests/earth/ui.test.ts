@@ -260,6 +260,18 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ trade: 'cancel', offer: offerId! });
 		await pause(30);
 		assert.doesNotMatch(panel(), /等b小王/);
+		// 二手摊：选一件、点一个价格挂上，单子出现在卡里
+		await click({ trade: 'sellpick' });
+		assert.match(panel(), /卖多少/);
+		const price = panel().match(/data-trade="sale" data-item="water" data-price="(\d+)"/)?.[1];
+		assert.ok(price, '有价格按钮');
+		await click({ trade: 'sale', item: 'water', price: price! });
+		await pause(30);
+		assert.ok(panel().includes(`二手摊上的 💧 饮用水 · $${price}`), '挂上了');
+		const saleId = panel().match(/data-trade="cancel" data-offer="([a-f0-9]{10})"/)?.[1];
+		await click({ trade: 'cancel', offer: saleId! });
+		await pause(30);
+		assert.doesNotMatch(panel(), /二手摊上的/);
 		// 断开连接时角标也要清掉
 		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: 'peer-2', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
 		assert.match(el('tabs').innerHTML, /class="badge"/);
