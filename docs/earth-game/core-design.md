@@ -92,7 +92,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 | 家具 `FurnitureDef` | `data/furniture.ts` | 槽位、价格、心情加成、睡眠加成、解锁的在家活动 | 5 个槽位各放一件；同槽位换新时旧的半价折现 |
 | 房产 `PropertyDef` | `data/properties.ts` | 地点、自住房型、房价、物业费、出租周租金 | 4 套；每人每套只能买一次 |
 | 心情状态 `MoodletDef` | `data/moodlets.ts` | 名称、加减值、持续小时 | 24 种；效果里写 `moodlet` 或由引擎在升职、晕倒、被收房等时刻发放；同种刷新不叠加 |
-| 节日 `FestivalDef` | `data/festivals.ts` | 地点、季节、开始日、持续天数 | 5 个；节日期间当地开放专属体验，到场加娱乐 |
+| 节日 `FestivalDef` | `data/festivals.ts` | 地点、季节、开始日、持续天数 | 9 个；节日期间当地开放专属体验，到场加娱乐 |
 | 心愿 `WishDef` | `data/wishes.ts` | 文字、出现条件、哪种动作算完成 | 15 条；每个游戏日随机 3 条 |
 | 物品 `ItemDef` | `data/items.ts` | 价格、携带上限、售卖地点、`use` 或 `passive` | 消耗品用掉减一；装备持有即生效，同技能只取最高一件 |
 

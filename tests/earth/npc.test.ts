@@ -256,3 +256,14 @@ test('NPC 跨午夜班次：戴夫周五夜里在布鲁姆、周六夜里回黑�
 	const tom = NPCS.find((n) => n.id === 'tom')!;
 	assert.equal(npcStatus(tom, 1 * 1440 + 3 * 60).plan.loc, 'geraldton');
 });
+
+test('新 NPC 的去处：鲁比夏天去黑德兰港，罗莎周日去玛格丽特河，麦克冬天周六去布鲁姆', () => {
+	const at = (day: number, hour: number) => day * 1440 + hour * 60;
+	const get = (id: string) => NPCS.find((n) => n.id === id)!;
+	assert.equal(npcPlan(get('ruby'), at(2, 10)).loc, 'karijini', '春天在峡谷');
+	assert.equal(npcPlan(get('ruby'), at(28 + 2, 10)).loc, 'port-hedland', '夏天去办公室');
+	assert.equal(npcPlan(get('rosa'), at(6, 11)).loc, 'margaret-river', '第 7 天是周日');
+	assert.equal(npcPlan(get('rosa'), at(7, 11)).loc, 'bunbury');
+	assert.equal(npcPlan(get('mack'), at(84 + 5, 10)).loc, 'broome', '冬季第 6 天是周六');
+	assert.equal(npcPlan(get('mack'), at(5, 10)).loc, 'kununurra', '春天周六还在农场');
+});
