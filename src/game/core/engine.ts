@@ -33,7 +33,7 @@ const ARRIVAL_EVENT_CHANCE = 0.55;
 const HEAT_CHECK_AT = 60;
 
 // ---------- 随机数（mulberry32，状态存于 state.seed） ----------
-function roll(state: PlayerState): number {
+export function roll(state: PlayerState): number {
 	let t = (state.seed = (state.seed + 0x6d2b79f5) >>> 0);
 	t = Math.imul(t ^ (t >>> 15), t | 1);
 	t ^= t + Math.imul(t ^ (t >>> 7), t | 61);

@@ -18,6 +18,7 @@ import { realDayOf } from './daily.ts';
 import { getRegion } from '../data/wa.ts';
 import { COURSES } from '../data/courses.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
+import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
 import { validTraits } from './attributes.ts';
 import { WEATHERS } from '../data/weather.ts';
@@ -113,6 +114,7 @@ export function createCharacter(opts: {
 		daily: { day: 0, streak: 0 },
 		collected: [],
 		courseDays: {},
+		coopDays: {},
 		pending: null,
 		fix: null,
 		venueCd: {},
@@ -251,6 +253,14 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			const out: Record<string, number> = {};
 			for (const c of COURSES) {
 				const d = r.courseDays?.[c.id];
+				if (typeof d === 'number' && Number.isFinite(d) && d >= 0) out[c.id] = Math.floor(d);
+			}
+			return out;
+		})(),
+		coopDays: (() => {
+			const out: Record<string, number> = {};
+			for (const c of COOP_EVENTS) {
+				const d = r.coopDays?.[c.id];
 				if (typeof d === 'number' && Number.isFinite(d) && d >= 0) out[c.id] = Math.floor(d);
 			}
 			return out;

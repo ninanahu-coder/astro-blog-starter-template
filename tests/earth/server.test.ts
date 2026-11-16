@@ -7,7 +7,7 @@ import { WA } from '../../src/game/data/wa.ts';
 
 /** delayMs > 0 时每次读写都真的等一会儿，让同时到的请求在没有锁的情况下一定会交错（读到同一份旧存档） */
 /** hooks 让测试精确安排先后：put 写入前先等 hooks.put()，list 读完、返回前等 hooks.list() */
-function makeWorld(delayMs = 0, hooks: { put?: () => Promise<void>; list?: () => unknown } = {}) {
+function makeWorld(delayMs = 0, hooks: { put?: (k: string | Record<string, unknown>) => Promise<void>; list?: () => unknown } = {}) {
 	const data = new Map<string, any>();
 	let puts = 0;
 	const wait = () => (delayMs ? new Promise((done) => setTimeout(done, delayMs)) : Promise.resolve());
@@ -15,7 +15,7 @@ function makeWorld(delayMs = 0, hooks: { put?: () => Promise<void>; list?: () =>
 		get: async (k: string) => { await wait(); return data.has(k) ? structuredClone(data.get(k)) : undefined; },
 		put: async (k: string | Record<string, unknown>, v?: unknown) => {
 			await wait();
-			if (hooks.put) await hooks.put();
+			if (hooks.put) await hooks.put(k);
 			puts++;
 			if (typeof k === 'string') data.set(k, structuredClone(v));
 			else for (const [kk, vv] of Object.entries(k)) data.set(kk, structuredClone(vv));
@@ -432,4 +432,229 @@ test('服务端：旧存档没有天气相册字段时读取后补上；抵达�
 	assert.equal(r.data.state.photos.length, 1);
 	assert.match(r.data.state.photos[0], /^fremantle\|/);
 	assert.deepEqual(w.data.get('save:' + ID).state.photos, r.data.state.photos);
+});
+
+test('共同事件：发起、加入、只有发起人能开始、人够才开始，结算写进所有成员的存档，结果给队友留着', async () => {
+	const w = makeWorld();
+	const A = { id: 'coop-host-1', key: 'a'.repeat(24) };
+	const B = { id: 'coop-mate-1', key: 'b'.repeat(24) };
+	const a0 = (await w.call({ action: 'create', ...A, profile: { ...profile, name: '阿甲' } })).data.state;
+	const b0 = (await w.call({ action: 'create', ...B, profile: { ...profile, name: '阿乙' } })).data.state;
+	// 发起：珀斯有海滩
+	const opened = await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 });
+	assert.ok(opened.data.ok, opened.data.msg);
+	assert.equal(opened.data.lobbies.length, 1);
+	assert.equal(opened.data.lobbies[0].host, true);
+	const lobby = opened.data.lobbies[0].id;
+	assert.match(lobby, /^[a-f0-9]{8}$/);
+	assert.equal((await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 1 })).data.msg, '你已经在一个队伍里了');
+	assert.equal((await w.call({ action: 'coop', op: 'open', ...A, coop: 'nope', role: 0 })).data.ok, false);
+	// 队友看到的大厅：有名字和分工，没有真实 id
+	const seen = await w.call({ action: 'coop', op: 'list', ...B });
+	assert.equal(seen.data.lobbies[0].mine, false);
+	assert.equal(seen.data.lobbies[0].members[0].name, '阿甲');
+	assert.ok(!JSON.stringify(seen.data).includes(A.id), '不能把别人的存档 id 发出去');
+	// 一个人开始不了；不是发起人也开始不了
+	assert.match((await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev })).data.msg, /人不够/);
+	assert.equal((await w.call({ action: 'coop', op: 'start', ...B, lobby, rev: b0.rev })).data.msg, '只有发起人能开始');
+	assert.equal((await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 9 })).data.msg, '分工无效');
+	const joined = await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 1 });
+	assert.ok(joined.data.ok, joined.data.msg);
+	assert.equal(joined.data.lobbies[0].members.length, 2);
+	assert.equal((await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 1 })).data.msg, '你已经在这个队伍里了');
+	// 版本落后不执行
+	const stale = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev + 5 });
+	assert.equal(stale.status, 409);
+	assert.match(stale.data.msg, /队友/, '冲突提示要说明可能是队友发起的共同事件');
+	const started = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev });
+	assert.ok(started.data.ok, started.data.msg);
+	assert.match(started.data.msg, /海滩清洁/);
+	assert.equal(started.data.state.seed, 0, '种子不外泄');
+	assert.equal(started.data.state.rev, a0.rev + 1);
+	const bSave = w.data.get('save:' + B.id).state;
+	assert.equal(bSave.rev, b0.rev + 1, '队友的存档也结算了');
+	assert.match(bSave.journal.at(-1).text, /和阿甲一起/);
+	assert.match(w.data.get('save:' + A.id).state.journal.at(-1).text, /和阿乙一起/);
+	// 结束后大厅不再列出，结果留给队友拉取；不能再开始一次
+	const after = await w.call({ action: 'coop', op: 'list', ...B });
+	assert.equal(after.data.lobbies.length, 0);
+	assert.equal(after.data.results.length, 1);
+	assert.equal(after.data.results[0].id, lobby);
+	assert.equal((await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev + 1 })).status, 404);
+	// 冷却：同一种共同事件每个游戏日一次
+	const again = await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 });
+	assert.equal(again.data.ok, false);
+	assert.match(again.data.msg, /今天已经做过/);
+	assert.ok(Number.isInteger(w.data.get('save:' + B.id).state.coopDays['beach-cleanup']), '队友也记下了今天做过');
+	assert.equal((await w.call({ action: 'coop', op: 'list', id: A.id, key: 'x'.repeat(24) })).status, 403, '同步码不对');
+});
+
+test('共同事件：发起人退出就解散；不在同一地点不能加入', async () => {
+	const w = makeWorld();
+	const A = { id: 'coop-host-2', key: 'a'.repeat(24) };
+	const C = { id: 'coop-far-2', key: 'c'.repeat(24) };
+	await w.call({ action: 'create', ...A, profile });
+	const c0 = (await w.call({ action: 'create', ...C, profile })).data.state;
+	const lobby = (await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 })).data.lobbies[0].id;
+	const moved = await w.call({ action: 'act', ...C, rev: c0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } });
+	assert.ok(moved.data.ok, moved.data.msg);
+	assert.equal((await w.call({ action: 'coop', op: 'join', ...C, lobby, role: 0 })).data.msg, '要在同一个地点才能加入');
+	assert.equal((await w.call({ action: 'coop', op: 'list', ...C })).data.lobbies.length, 0, '别的地点的队伍不列出');
+	const left = await w.call({ action: 'coop', op: 'leave', ...A, lobby });
+	assert.equal(left.data.msg, '队伍已解散');
+	assert.equal(left.data.lobbies.length, 0);
+});
+
+test('共同事件：开始时锁住所有成员的存档，队友同时做的动作不会丢', async () => {
+	const w = makeWorld(3);
+	const A = { id: 'coop-host-3', key: 'a'.repeat(24) };
+	const B = { id: 'coop-mate-3', key: 'b'.repeat(24) };
+	const a0 = (await w.call({ action: 'create', ...A, profile })).data.state;
+	const b0 = (await w.call({ action: 'create', ...B, profile })).data.state;
+	const lobby = (await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 })).data.lobbies[0].id;
+	await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 0 });
+	// 开始和队友的动作同时到：两件事都要落进队友的存档
+	const [s, act] = await Promise.all([
+		w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev }),
+		w.call({ action: 'act', ...B, rev: b0.rev, act: { t: 'activity', id: 'rest' } }),
+	]);
+	assert.ok(s.data.ok, s.data.msg);
+	const final = w.data.get('save:' + B.id).state;
+	const texts = final.journal.map((j: { text: string }) => j.text).join('\n');
+	assert.match(texts, /海滩清洁/, '共同事件写进去了');
+	if (act.data.ok) assert.equal(final.rev, b0.rev + 2, '两次都生效');
+	else assert.equal(act.status, 409, '没生效的只能是版本冲突（不能静默丢失）');
+});
+
+test('在线频道：共同事件提醒只转给同一地点的其他人，不带内容', () => {
+	const w = makeWorld();
+	const world = w.world as any;
+	const box = (loc: string) => ({ got: [] as string[], loc, send(m: string) { this.got.push(m); } });
+	const me = box('perth'), mate = box('perth'), far = box('broome');
+	for (const [ws, id] of [[me, 'aaaaaaaaaaaa'], [mate, 'bbbbbbbbbbbb'], [far, 'cccccccccccc']] as const) world.sockets.set(ws, { id, name: id, avatar: '🧑', loc: ws.loc });
+	const locs = new Set(WA.locations.map((l) => l.id));
+	world.onMessage(me, JSON.stringify({ t: 'coop', secret: 'x' }), locs);
+	world.onMessage(me, JSON.stringify({ t: 'coop' }), locs);
+	world.onMessage(me, JSON.stringify({ t: 'coop' }), locs);
+	assert.deepEqual(mate.got.map((m) => JSON.parse(m)), [{ t: 'coop' }], '连发的提醒 1 秒内只转一次');
+	assert.equal(me.got.length, 0, '不发回给自己');
+	assert.equal(far.got.length, 0, '别的地点收不到');
+});
+
+async function twoInLobby(w: ReturnType<typeof makeWorld>, n: number) {
+	const A = { id: `coop-host-${n}`, key: 'a'.repeat(24) };
+	const B = { id: `coop-mate-${n}`, key: 'b'.repeat(24) };
+	const a0 = (await w.call({ action: 'create', ...A, profile: { ...profile, name: '阿甲' } })).data.state;
+	const b0 = (await w.call({ action: 'create', ...B, profile: { ...profile, name: '阿乙' } })).data.state;
+	const lobby = (await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 })).data.lobbies[0].id;
+	assert.ok((await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 1 })).data.ok);
+	return { A, B, a0, b0, lobby };
+}
+
+test('共同事件：所有成员一次写入；写入失败谁都没拿到，重试只结算一次', async () => {
+	let failNext = false;
+	const w = makeWorld(0, {
+		put: async (k) => {
+			if (failNext && typeof k === 'object' && Object.keys(k).filter((x) => x.startsWith('save:')).length > 1) {
+				failNext = false;
+				throw new Error('storage down');
+			}
+		},
+	});
+	const { A, B, a0, b0, lobby } = await twoInLobby(w, 4);
+	failNext = true;
+	await assert.rejects(w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev }));
+	assert.equal(w.data.get('save:' + A.id).state.rev, a0.rev, '发起人没结算');
+	assert.equal(w.data.get('save:' + B.id).state.rev, b0.rev, '队友也没结算');
+	const listed = await w.call({ action: 'coop', op: 'list', ...B });
+	assert.equal(listed.data.lobbies.length, 1, '队伍还在');
+	assert.equal(listed.data.lobbies[0].starting, false, '失败后解除冻结');
+	const ok = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev });
+	assert.ok(ok.data.ok, ok.data.msg);
+	assert.equal(w.data.get('save:' + A.id).state.rev, a0.rev + 1);
+	assert.equal(w.data.get('save:' + B.id).state.rev, b0.rev + 1);
+	assert.equal((await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev })).status, 404, '不能再结算一次');
+	assert.equal(w.data.get('save:' + B.id).state.rev, b0.rev + 1);
+});
+
+test('共同事件：开始已经排队时，别人加入、退出都被拒绝，不会显示已加入却被排除', async () => {
+	const w = makeWorld(3);
+	const { A, B, a0, lobby } = await twoInLobby(w, 5);
+	const C = { id: 'coop-late-5', key: 'c'.repeat(24) };
+	const c0 = (await w.call({ action: 'create', ...C, profile })).data.state;
+	const [started, late, quit] = await Promise.all([
+		w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev }),
+		w.call({ action: 'coop', op: 'join', ...C, lobby, role: 0 }),
+		w.call({ action: 'coop', op: 'leave', ...B, lobby }),
+	]);
+	assert.ok(started.data.ok, started.data.msg);
+	assert.equal(late.data.ok, false, '晚到的加入不能报成功');
+	assert.equal(late.status, 409);
+	assert.equal(quit.data.ok, false, '队友的退出排在结算后面，队伍已经结束');
+	assert.equal(w.data.get('save:' + C.id).state.rev, c0.rev, '没参加的人存档不动');
+});
+
+test('共同事件：走开以后还能看到自己的队伍并退出', async () => {
+	const w = makeWorld();
+	const { A, B, a0, b0, lobby } = await twoInLobby(w, 6);
+	assert.ok((await w.call({ action: 'act', ...B, rev: b0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
+	const seen = await w.call({ action: 'coop', op: 'list', ...B });
+	assert.equal(seen.data.lobbies.length, 1);
+	assert.equal(seen.data.lobbies[0].mine, true);
+	assert.equal(seen.data.lobbies[0].away, true);
+	assert.match((await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev })).data.msg, /人不够/, '走开的人不结算');
+	assert.equal((await w.call({ action: 'coop', op: 'leave', ...B, lobby })).data.msg, '已退出');
+	assert.equal((await w.call({ action: 'coop', op: 'list', ...B })).data.lobbies.length, 0);
+});
+
+test('共同事件：每个队友用自己存档的时间落盘，不被发起人那边的时间带偏', async () => {
+	const w = makeWorld();
+	const { A, B, a0, lobby } = await twoInLobby(w, 7);
+	// 模拟服务器时钟回拨：队友上次落盘的时间比现在晚 1 小时
+	const ahead = Date.now() + 3600_000;
+	const recB = w.data.get('save:' + B.id);
+	w.data.set('save:' + B.id, { ...recB, at: ahead });
+	const started = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev });
+	assert.ok(started.data.ok, started.data.msg);
+	assert.ok(w.data.get('save:' + B.id).at >= ahead, '队友的时间不倒退');
+	assert.ok(w.data.get('save:' + A.id).at < ahead, '发起人用自己的时间');
+});
+
+test('共同事件：开始失败的响应里队伍已经解冻，界面不会停在「正在开始」', async () => {
+	const w = makeWorld();
+	const { A, B, a0, b0, lobby } = await twoInLobby(w, 8);
+	assert.ok((await w.call({ action: 'act', ...B, rev: b0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
+	const few = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev });
+	assert.match(few.data.msg, /人不够/);
+	assert.equal(few.data.lobbies[0].starting, false, '人不够');
+	const stale = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev + 3 });
+	assert.equal(stale.status, 409);
+	assert.equal(stale.data.lobbies[0].starting, false, '版本冲突');
+});
+
+test('共同事件：结算途中队伍到了 5 分钟也不被过期清掉，队友能拉到结果', async () => {
+	let during: (() => Promise<unknown>) | null = null;
+	const w = makeWorld(0, {
+		put: async (k) => {
+			// 正在写所有成员存档的那一刻：队伍刚好过期，旁人（存档没被锁）来拉列表，会触发过期清理
+			if (during && typeof k === 'object' && Object.keys(k).filter((x) => x.startsWith('save:')).length > 1) {
+				const f = during;
+				during = null;
+				await f();
+			}
+		},
+	});
+	const { A, B, a0, lobby } = await twoInLobby(w, 9);
+	const C = { id: 'coop-other-9', key: 'c'.repeat(24) };
+	await w.call({ action: 'create', ...C, profile });
+	const lobbies = (w.world as any).lobbies as Map<string, { at: number }>;
+	during = async () => {
+		lobbies.get(lobby)!.at = 0;
+		await w.call({ action: 'coop', op: 'list', ...C });
+	};
+	const started = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev });
+	assert.ok(started.data.ok, started.data.msg);
+	assert.equal(during, null, '旁人确实在结算途中拉了列表');
+	assert.equal(started.data.results.length, 1, '发起人的响应里有结果');
+	assert.equal((await w.call({ action: 'coop', op: 'list', ...B })).data.results.length, 1, '队友拉得到结果');
 });
