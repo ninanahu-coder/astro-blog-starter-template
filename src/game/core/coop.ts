@@ -2,7 +2,7 @@
 // 服务端负责凑人（大厅）和调用这里；客户端只用 coopsAt / coopBlocked 显示。
 import { checkScore } from './attributes.ts';
 import { applyEffect, clone, collapsedResult, getLocation, log, roll } from './engine.ts';
-import { hoursLabel, isOpen } from './time.ts';
+import { dayOf, hoursLabel, isOpen } from './time.ts';
 import type { ActionResult, CoopDef, GameLocation, PlayerState, Region } from './types.ts';
 import { weatherAt } from './weather.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
@@ -18,6 +18,7 @@ export function coopAvailableAt(def: CoopDef, loc: GameLocation): boolean {
 /** 这个人现在能不能参加（发起、加入、开始时都要检查）；能参加返回 undefined */
 export function coopBlocked(state: PlayerState, region: Region, def: CoopDef): string | undefined {
 	if (state.pending) return '先处理眼前的事件。';
+	if (state.coopDays?.[def.id] === dayOf(state.clock)) return '今天已经做过这件事，明天再来。';
 	const loc = getLocation(region, state.loc);
 	if (!loc || !coopAvailableAt(def, loc)) return '这里做不了这件事。';
 	if (def.weather && !def.weather.includes(weatherAt(state).id)) return '今天的天气做不了这件事。';
@@ -61,6 +62,8 @@ export function resolveCoop(def: CoopDef, region: Region, members: CoopMember[])
 	const results = states.map((s, i): ActionResult => {
 		const others = members.filter((_, j) => j !== i).map((m) => m.name).join('、');
 		const role = def.roles[members[i].role] ?? def.roles[0];
+		// 每种共同事件每人每个游戏日一次（按开始那天算，成败、晕倒都算做过）
+		s.coopDays = { ...s.coopDays, [def.id]: dayOf(members[i].state.clock) };
 		if (applyEffect(s, out.fx, region)) return collapsedResult(s);
 		log(s, `【${def.title}】和${others}一起，你负责${role.label}。${out.text}`);
 		return { ok: true, state: s, msg: `${def.icon} ${def.title}：${out.text}` };

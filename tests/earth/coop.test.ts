@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyCoop } from '../../src/game/core/actions.ts';
-import { createCharacter } from '../../src/game/core/character.ts';
+import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import { COOP_TEAM_BONUS, coopAvailableAt, coopBlocked, coopsAt, resolveCoop } from '../../src/game/core/coop.ts';
 import { SKILL_KEYS } from '../../src/game/core/types.ts';
 import { COOP_EVENTS, getCoop } from '../../src/game/data/coop.ts';
@@ -65,4 +65,35 @@ test('applyCoop：每个人的版本号加一，数值钳制在合法范围', ()
 	const r = applyCoop(def, WA, [{ state: a, role: 0, name: 'A' }, { state: b, role: 1, name: 'B' }]);
 	assert.deepEqual(r.results.map((x) => x.state.rev), [6, 10]);
 	for (const x of r.results) for (const v of Object.values(x.state.needs)) assert.ok(v >= 0 && v <= 100);
+});
+
+test('冷却：同一种共同事件每个游戏日一次，第二天又能做；成败都算做过', () => {
+	const def = getCoop('beach-cleanup')!;
+	const a = mk('coop-a', 11), b = mk('coop-b', 12);
+	const r = applyCoop(def, WA, [{ state: a, role: 0, name: 'A' }, { state: b, role: 1, name: 'B' }]);
+	for (const x of r.results) {
+		assert.match(coopBlocked(x.state, WA, def)!, /今天已经做过/);
+		assert.equal(coopBlocked({ ...x.state, clock: x.state.clock + 1440 }, WA, def), undefined, '第二天可以');
+	}
+	assert.equal(coopBlocked(r.results[0].state, WA, getCoop('busk-band')!)?.includes('今天已经做过') ?? false, false, '别的共同事件不受影响');
+});
+
+test('applyCoop：做到跨过午夜时换成新一天的心愿', () => {
+	const def = getCoop('beach-cleanup')!;
+	const late = (s: ReturnType<typeof mk>) => ({ ...s, clock: 1440 - 30, wishes: ['old'], wishDay: 0 });
+	const r = applyCoop(def, WA, [{ state: late(mk('coop-a', 5)), role: 0, name: 'A' }, { state: late(mk('coop-b', 6)), role: 0, name: 'B' }]);
+	for (const x of r.results) {
+		assert.ok(x.state.clock >= 1440, '确实跨日了');
+		assert.equal(x.state.wishDay, 1);
+		assert.ok(!x.state.wishes.includes('old'));
+	}
+});
+
+test('存档校验：coopDays 只留存在的共同事件，旧存档补空', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const a = { ...mk('coop-a'), coopDays: { 'beach-cleanup': 2.7, nope: 1, 'push-car': -1 } };
+	assert.deepEqual(sanitizeState(a, locs, { fallbackLoc: 'perth', now: Date.now() })!.coopDays, { 'beach-cleanup': 2 });
+	const old: Record<string, unknown> = { ...mk('coop-a') };
+	delete old.coopDays;
+	assert.deepEqual(sanitizeState(old, locs, { fallbackLoc: 'perth', now: Date.now() })!.coopDays, {});
 });

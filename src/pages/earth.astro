@@ -483,7 +483,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (tab === 'social') renderPanel();
 			}
 			// 共同事件：同一地点的大厅列表（服务端为准）；打开社交页和收到在线频道的提醒时拉取
-			type CoopLobby = { id: string; coop: string; host: boolean; mine: boolean; members: { name: string; avatar: string; role: number; me: boolean }[] };
+			type CoopLobby = { id: string; coop: string; loc?: string; host: boolean; mine: boolean; away?: boolean; starting?: boolean; members: { name: string; avatar: string; role: number; me: boolean }[] };
 			let coopLobbies: CoopLobby[] = [];
 			let coopAt = 0;
 			let coopLoading = false;
@@ -502,6 +502,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					pullCloud();
 				}
 				coopPrimed = true;
+			}
+			// 在线频道的「队伍有变化」提醒：合并成最多每 3 秒拉一次，别人刷提醒也不会让我不停请求服务器
+			let coopHintTimer: ReturnType<typeof setTimeout> | 0 = 0;
+			function coopHint() {
+				if (coopHintTimer) return;
+				coopHintTimer = setTimeout(() => { coopHintTimer = 0; loadCoop(true); }, Math.max(300, 3000 - (Date.now() - coopAt)));
 			}
 			async function loadCoop(force = false) {
 				if (!cred || !state || coopLoading || (!force && Date.now() - coopAt < 15_000)) return;
@@ -598,7 +604,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					else if (m.t === 'move') { const p = peers.get(m.id); if (p) p.loc = m.loc; }
 					else if (m.t === 'chat') { chats.push(m); chats = chats.slice(-50); if (tab !== 'social') toast(`${m.name}: ${m.text}`); }
 					else if (m.t === 'emote') toast(`${m.name} 向你 ${m.kind}`);
-					else if (m.t === 'coop') { loadCoop(true); return; }
+					else if (m.t === 'coop') { coopHint(); return; }
 					else return;
 					renderMap();
 					renderTabs();
@@ -1130,7 +1136,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const members = l.members.map((m) => `<span class="tag">${esc(m.avatar)} ${esc(m.name)}${m.me ? '（你）' : ''} · ${esc(def.roles[m.role]?.label ?? '')}</span>`).join('');
 					const canStart = l.host && l.members.length >= def.min;
 					const lid = esc(l.id);
-					const actions = l.mine
+					const where = l.loc ? getLocation(region, l.loc)?.name ?? '' : '';
+					const actions = l.starting
+						? '<span class="muted">正在开始…</span>'
+						: l.mine && l.away
+						? `<span class="muted">队伍在${esc(where)}，你已经走开了，回去才能参加</span><button data-coop="leave" data-lobby="${lid}">${l.host ? '解散' : '退出'}</button>`
+						: l.mine
 						? `${l.host ? `<button class="primary" data-coop="start" data-lobby="${lid}" ${canStart ? '' : 'disabled'}>${canStart ? `开始（${l.members.length} 人）` : `等人加入（至少 ${def.min} 人）`}</button>` : '<span class="muted">等发起人开始</span>'}<button data-coop="leave" data-lobby="${lid}">${l.host ? '解散' : '退出'}</button>`
 						: l.members.length >= def.max ? '<span class="muted">人满了</span>'
 						: inLobby ? '<span class="muted">你已经在别的队伍里</span>'
@@ -1345,7 +1356,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {

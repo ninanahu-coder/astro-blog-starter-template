@@ -50,6 +50,12 @@ async function bundlePage(): Promise<string> {
 const strip = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
 const pause = (ms = 0) => new Promise((r) => setTimeout(r, ms));
 
+// 假元素的 closest：和真浏览器一样只认选择器名单里的 [data-xxx]，名单漏了就返回 null（点不动）
+function fakeClosest(this: { dataset: Record<string, string> }, sel: string) {
+	const keys = [...sel.matchAll(/\[data-([a-z0-9-]+)\]/g)].map((m) => m[1].replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase()));
+	return keys.some((k) => k in this.dataset) ? this : null;
+}
+
 test('界面：五个标签、子栏、下一步、事件弹窗和转义', async () => {
 	const { data, world } = makeWorld();
 	const call = async (body: unknown) => {
@@ -115,7 +121,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await import(pathToFileURL(file).href);
 		await pause(50);
 		const click = async (dataset: Record<string, string>, cls = '') => {
-			docListeners.click({ target: { dataset, disabled: false, classList: { contains: (c: string) => c === cls }, closest() { return this; } } });
+			docListeners.click({ target: { dataset, disabled: false, classList: { contains: (c: string) => c === cls }, closest: fakeClosest } });
 			await pause(20);
 		};
 		const panel = () => el('panel').innerHTML;
@@ -196,10 +202,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(panel(), /路费后剩 \$\d+，1 天后周结算要付 \$160，会不够/);
 		assert.match(panel(), /data-go="fremantle" data-mode="[a-z]+">出发去弗里曼特尔/);
 		const alt = panel().match(/class="tile" data-dmode="([a-z]+)" data-dest="fremantle" aria-pressed="false" >/)?.[1];
-		if (alt) {
-			await click({ dmode: alt, dest: 'fremantle' });
-			assert.match(panel(), new RegExp(`data-go="fremantle" data-mode="${alt}">出发去`), '换一种走法，出发按钮跟着换');
-		}
+		assert.equal(alt, undefined, '这时钱只够走陆路（换走法在最后用卡尔古利测）');
 		await click({ loc: 'fremantle' });
 		await click({ tab: 'me' });
 		await click({ metab: 'overview' });
@@ -298,6 +301,19 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ tab: 'go' });
 		assert.match(el('map').innerHTML, /class="star"/, '夜里地图有星星');
 		await click({ tab: 'place' });
+		// 换交通方式：回到珀斯、钱够，卡尔古利能坐飞机也能走陆路，点另一块方块后出发按钮跟着换
+		const back = data.get('save:' + cred.id) as any;
+		back.state.loc = 'perth';
+		data.set('save:' + cred.id, back);
+		docListeners.visibilitychange({});
+		await pause(60);
+		await click({ tab: 'go' });
+		await click({ loc: 'kalgoorlie' });
+		const other = panel().match(/class="tile" data-dmode="([a-z]+)" data-dest="kalgoorlie" aria-pressed="false" >/)?.[1];
+		assert.ok(other, `卡尔古利应有第二种能选的走法：${panel().match(/data-dmode="[^>]+>/g)}`);
+		await click({ dmode: other!, dest: 'kalgoorlie' });
+		assert.match(panel(), new RegExp(`class="tile on" data-dmode="${other}" data-dest="kalgoorlie"`), '点中的方块变成选中');
+		assert.match(panel(), new RegExp(`data-go="kalgoorlie" data-mode="${other}">出发去`), '出发按钮跟着换');
 	} finally {
 		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });
@@ -347,7 +363,7 @@ test('界面：没有存档时显示创建页，选完四步能创建角色并�
 			const ids = [...el(box).innerHTML.matchAll(new RegExp(`<button class="[^"]*" data-${attr}="([^"]+)"(?![^>]*disabled)`, 'g'))].map((m) => m[1]);
 			return ids;
 		};
-		const tap = async (dataset: Record<string, string>) => { el('create').ls.click({ target: { dataset, disabled: false, closest() { return this; } } }); await pause(5); };
+		const tap = async (dataset: Record<string, string>) => { el('create').ls.click({ target: { dataset, disabled: false, closest: fakeClosest } }); await pause(5); };
 		assert.equal(el('c-start').disabled, true, '没选够特质不能开始');
 		await tap({ origin: pickIn('c-origins', 'origin')[1] });
 		await tap({ avatar: pickIn('c-avatars', 'avatar')[2] });

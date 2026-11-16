@@ -468,6 +468,7 @@ export interface PlayerState {
 	daily: { day: number; streak: number }; // 每日奖励：最近领取的现实日序号、连续天数
 	collected: string[]; // 已完成的收费体验 id
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
+	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每个游戏日一次）
 	pending: { eventId: string } | null;
 	fix: { lat: number; lon: number; at: number } | null; // 最近一次真实定位（坐标保留 3 位小数，约 100 米；at 为服务端时间）
 	venueCd: Partial<Record<VenueOp, number>>; // 每种真实地点动作最近一次的服务端时间（毫秒）

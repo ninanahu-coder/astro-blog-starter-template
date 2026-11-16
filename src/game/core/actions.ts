@@ -133,12 +133,13 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 
 /**
  * 共同事件的结算（只由服务端在凑齐人后调用，客户端不能直接发起）：团队检定后，每个人的结果走和 applyAction 一样的收尾
- * ——清理过期心情、钳制数值、版本号加一。成员事先由调用方用 coopBlocked 检查过。
+ * ——清理过期心情、钳制数值、版本号加一；跨日时换新心愿；记下当天做过（每种每天一次）。成员事先由调用方用 coopBlocked 检查过。
  */
 export function applyCoop(def: CoopDef, region: Region, members: CoopMember[]): CoopResult {
 	const r = resolveCoop(def, region, members);
 	const results = r.results.map((x, i) => {
-		if (x.collapsed) refreshWishes(x.state);
+		// 共同事件不算任何心愿，但跨过午夜时要换成新一天的心愿（同一天时 refreshWishes 什么也不做）
+		refreshWishes(x.state);
 		pruneMoodlets(x.state);
 		return { ...x, state: capState({ ...x.state, rev: nextRev(members[i].state.rev) }) };
 	});
