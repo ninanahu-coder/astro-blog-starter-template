@@ -933,7 +933,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const wishHtml = s.wishes.length ? `<div class="card"><h3>今天的心愿</h3><p>做到了加心情和声望，过了今天会换一批。</p><div class="tags">${s.wishes.map((id) => `<span class="tag">✨ ${esc(getWish(id)?.text ?? '')}${seaClosed && seaWish(id) ? '（这里今天有风暴，换个海边）' : ''}</span>`).join('')}</div></div>` : '';
 				const cal = festivalCalendar(s.clock);
 				const festHere = cal.find((c) => c.active && c.festival.loc === loc.id);
-				const festSoon = cal.filter((c) => c !== festHere).slice(0, 2);
+				// 近 14 天内的都列出来（至少列 2 个，让人知道下一个在哪）
+				const others = cal.filter((c) => c !== festHere);
+				const festSoon = others.filter((c, i) => i < 2 || c.startsIn <= 14);
 				const festHtml = `<div class="card"><h3>${festHere ? `🎉 ${esc(festHere.festival.name)}进行中` : '节日'}</h3>${festHere ? `<p>${esc(festHere.festival.desc)} 节日专属体验在下面的「体验」里。</p>` : ''}
 					${festSoon.map((c) => `<p style="margin-top:4px">${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(c.festival.name)} · ${esc(getLocation(region, c.festival.loc)!.name)}</p>`).join('')}</div>`;
 				return `

@@ -32,6 +32,10 @@ export const EXPERIENCES: ExperienceDef[] = [
 	{ id: 'fest-race-day', name: '赛马日', loc: 'kalgoorlie', area: 'festival', festival: 'goldfields-cup', price: 60, minutes: 240, respect: 5, hours: [11, 18], fx: { needs: { fun: 40, social: 30 } }, desc: '看台、礼帽和冰镇香槟。' },
 	{ id: 'fest-skyshow', name: '河岸烟火', loc: 'perth', area: 'festival', festival: 'skyshow', price: 0, minutes: 180, respect: 5, hours: [18, 23], fx: { needs: { fun: 45, social: 25 } }, desc: '带块野餐垫，等第一朵烟火升起来。' },
 	{ id: 'fest-surf-final', name: '大师赛决赛日', loc: 'margaret-river', area: 'festival', festival: 'surf-pro', price: 40, minutes: 240, respect: 5, hours: [7, 16], fx: { needs: { fun: 42, social: 15 } }, desc: '站在悬崖上看世界冠军冲三米高的浪。' },
+	{ id: 'fest-long-table', name: '酒庄长桌宴', loc: 'margaret-river', area: 'festival', festival: 'gourmet-escape', price: 70, minutes: 180, respect: 5, hours: [12, 20], fx: { needs: { fun: 38, social: 30, hunger: 60 } }, desc: '和陌生人挨着坐，一道道本地菜吃到太阳下山。' },
+	{ id: 'fest-street-show', name: '老街看杂耍', loc: 'fremantle', area: 'festival', festival: 'street-arts', price: 0, minutes: 150, respect: 5, hours: [10, 21], fx: { needs: { fun: 42, social: 20 } }, desc: '往帽子里扔几个硬币，看他们把火把抛到三米高。' },
+	{ id: 'fest-ocean-cinema', name: '海边露天电影', loc: 'exmouth', area: 'festival', festival: 'whale-shark', price: 15, minutes: 150, respect: 5, hours: [18, 23], fx: { needs: { fun: 40, social: 20 } }, desc: '躺在沙地上看纪录片，银幕后面就是海。' },
+	{ id: 'fest-whale-watch', name: '捕鲸站观鲸', loc: 'albany', area: 'festival', festival: 'whale-season', price: 0, minutes: 180, respect: 5, hours: [8, 16], fx: { needs: { fun: 42, social: 15 } }, desc: '站在当年的瞭望台上，看鲸鱼一次次喷出水柱。' },
 	{ id: 'fest-lantern-walk', name: '灯笼游行', loc: 'broome', area: 'festival', festival: 'pearl-festival', price: 20, minutes: 150, respect: 5, hours: [17, 22], fx: { needs: { fun: 42, social: 25 } }, desc: '提着纸灯笼跟着龙舞走过老唐人街。' },
 ];
 

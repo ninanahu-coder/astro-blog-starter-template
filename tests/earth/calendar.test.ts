@@ -181,3 +181,14 @@ test('每日奖励金额：第 1 天 $30，每天 +$10，第 7 天封顶并另�
 	assert.equal(dailyReward(8).full, false);
 	assert.equal(dailyReward(0).cash, 30, '异常输入按第 1 天算');
 });
+
+test('节日分布：每个季节至少一个，同一天最多两个；体验时段里有节日', () => {
+	for (const season of ['spring', 'summer', 'autumn', 'winter']) assert.ok(FESTIVALS.some((f) => f.season === season), season);
+	for (let d = 0; d < 112; d++) assert.ok(festivalsNow(at(12, d)).length <= 2, `第 ${d} 天节日太多`);
+	for (const f of FESTIVALS) {
+		const start = ['spring', 'summer', 'autumn', 'winter'].indexOf(f.season) * 28 + f.day - 1;
+		const exp = EXPERIENCES.filter((e) => e.festival === f.id);
+		const s = make({ loc: f.loc, clock: at(exp[0].hours ? exp[0].hours[0] + 1 : 12, start), cash: 500 });
+		assert.ok(experiencesAt(s, WA).some((o) => o.exp.id === exp[0].id && !o.blocked), `${f.id} 当天能做 ${exp[0].id}`);
+	}
+});
