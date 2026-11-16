@@ -594,8 +594,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				document.body.classList.add('busy');
 				const before = state;
 				try {
-					if (op === 'cancel' && typeof extra.offer === 'string') myCancelled.add(extra.offer);
 					const { status, data } = await api({ action: 'trade', op, id: cred.id, key: cred.key, rev: before.rev, ...extra });
+					// 撤回成功才算主动撤下；撤回失败而单子没了（被人拿走了），交给 takeTrade 去拉最新存档
+					if (op === 'cancel' && data.ok && typeof extra.offer === 'string') myCancelled.add(extra.offer);
 					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, data.msg); }
 					else if (data.state) {
 						adopt(data.state);

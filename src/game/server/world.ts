@@ -7,7 +7,8 @@ import { applyAction, applyCoop, applyTrade, applyWeeklyClaim, parseAction, publ
 import { addWeekly, goalOfWeek, weekDaysLeft, weeklyMine, weekOf, type WeeklyMetric } from '../core/weekly.ts';
 import { giveBlocked, saleRange } from '../core/trade.ts';
 import { noteMet } from '../core/social.ts';
-import { cleanNote, NOTES_PER_DAY, NOTES_PER_LOC } from '../core/notes.ts';
+import { cleanNote, NOTES_LOC_DAY, NOTES_PER_DAY, NOTES_PER_LOC } from '../core/notes.ts';
+import { EXPERIENCES } from '../data/experiences.ts';
 import { getItem } from '../core/attributes.ts';
 import { coopBlocked } from '../core/coop.ts';
 import { getCoop } from '../data/coop.ts';
@@ -43,6 +44,8 @@ const HASH_RE = /^[a-f0-9]{12}$/;
 const OFFER_TTL_MS = 30 * 60 * 1000; // 送礼、二手摊的挂单 30 分钟没人接就撤下
 const OFFER_MAX = 500;
 const OFFER_PER_PLAYER = 3; // 每人同时挂着的送礼 + 二手摊最多 3 件
+const OFFER_PER_TARGET = 3; // 每人同时最多收到 3 份待收的礼物
+const OFFER_PER_LOC = 30; // 每个地点同时最多 30 张挂单
 const KEY_RE = /^[a-zA-Z0-9]{16,64}$/;
 
 /** 共同事件大厅：只在 '@SAVES' 实例的内存里（实例重启就没了，最多影响几分钟内没开始的大厅）。成员 id 是真实存档 id，绝不发给客户端 */
@@ -69,6 +72,8 @@ interface Offer {
 	fromName: string;
 	fromAvatar: string;
 	to: string | null;
+	/** 送礼的收件人真实存档 id（服务端按哈希查到并核对过存档在同一地点），只在服务端用 */
+	toId: string | null;
 	toName: string;
 	item: string;
 	price: number;
@@ -366,12 +371,16 @@ export class EarthWorld {
 		return this.week.count;
 	}
 
-	/** 这类事是不是这周目标算的；是的话全服加 k。先改内存（单线程里不会丢计数），再落盘 */
-	private async bumpWeek(week: number, metric: WeeklyMetric, k: number): Promise<void> {
-		if (goalOfWeek(week).metric !== metric || k <= 0) return;
+	/**
+	 * 这类事是不是这周目标算的；是的话在内存里先把全服计数加 k（单线程里同步加，不会丢别人同时加的），
+	 * 返回要和存档一起写入的条目；存档写入失败时调用方用 undo 退回。
+	 */
+	private async reserveWeek(week: number, metric: WeeklyMetric, k: number): Promise<{ entry: Record<string, unknown>; undo: () => void } | null> {
+		if (goalOfWeek(week).metric !== metric || k <= 0) return null;
 		await this.weekCount(week);
-		this.week!.count += k;
-		await this.ctx.storage.put('week:' + week, this.week!.count);
+		const w = this.week!;
+		w.count += k;
+		return { entry: { ['week:' + week]: w.count }, undo: () => { if (this.week === w) w.count = Math.max(0, w.count - k); } };
 	}
 
 	private async notesAt(loc: string): Promise<Note[]> {
@@ -395,13 +404,16 @@ export class EarthWorld {
 	}
 
 	/** 多个存档在同一次 put 里写入（Durable Object 存储对单次多键 put 保证全写或全不写）：共同事件不会出现一部分人拿到奖励 */
-	private async persistMany(saves: { id: string; keyHash: string; state: PlayerState; at: number }[]): Promise<void> {
-		const entries: Record<string, unknown> = {};
+	private async persistMany(saves: { id: string; keyHash: string; state: PlayerState; at: number }[], extra: Record<string, unknown> = {}): Promise<void> {
+		const entries: Record<string, unknown> = { ...extra };
 		for (const x of saves) {
-			const rankKey = 'rank:' + (await sha256Hex(x.id)).slice(0, 12);
+			const h = (await sha256Hex(x.id)).slice(0, 12);
+			const rankKey = 'rank:' + h;
 			// 净资产没变时沿用上一条记录的时间，「同分先达到的在前」才成立
 			const prev = await this.ctx.storage.get(rankKey);
 			entries['save:' + x.id] = { keyHash: x.keyHash, state: x.state, at: x.at };
+			// 在线状态里的 id 哈希 -> 真实 id：送礼时按哈希找到收件人。只存在服务端存储里，从不发给客户端
+			entries['h:' + h] = x.id;
 			entries[rankKey] = boardEntry(x.state, x.at, prev);
 		}
 		await this.ctx.storage.put(entries);
@@ -484,15 +496,23 @@ export class EarthWorld {
 			// 版本号按领奖前的存档比对（上面已检查），动作在领奖后的存档上执行
 			const r = applyAction(live, region, act, now);
 			// 全服周目标：出行抵达新地点、完成收费体验各算一次（只算这周目标对应的那类）
-			const week = weekOf(realDayOf(wall));
-			const metric: WeeklyMetric | null = !r.ok || r.collapsed ? null : act.t === 'travel' && r.state.loc !== live.loc ? 'travel' : act.t === 'experience' ? 'experience' : null;
-			const counted = metric !== null && goalOfWeek(week).metric === metric;
-			const after = counted ? addWeekly(r.state, week) : r.state;
+			// 周和现实日都按这个存档单调不倒退的时间算（防时钟回拨把旧周重开）
+			const week = weekOf(realDayOf(now));
+			const paid = act.t === 'experience' && (EXPERIENCES.find((e) => e.id === act.id)?.price ?? 0) > 0; // 免费的节日体验不算「收费体验」
+			const metric: WeeklyMetric | null = !r.ok || r.collapsed ? null : act.t === 'travel' && r.state.loc !== live.loc ? 'travel' : paid ? 'experience' : null;
+			const after = metric !== null && goalOfWeek(week).metric === metric ? addWeekly(r.state, week) : r.state;
+			const counted = after !== r.state;
 			const next = after !== live ? canon(after) : after;
-			if (next !== current) await this.persist(id, keyHash, next, now);
-			// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
-			else if (migrated) await this.persist(id, keyHash, current, now);
-			if (counted) await this.bumpWeek(week, metric!, 1);
+			const res = counted ? await this.reserveWeek(week, metric!, 1) : null;
+			try {
+				// 存档和全服周计数一次写入
+				if (next !== current) await this.persistMany([{ id, keyHash, state: next, at: now }], res?.entry);
+				// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
+				else if (migrated) await this.persist(id, keyHash, current, now);
+			} catch (e) {
+				res?.undo();
+				throw e;
+			}
 			return json({ ok: r.ok, msg: r.msg, state: publicState(next), at: now, daily: claim?.msg });
 		}
 		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, wall, locked);
@@ -501,7 +521,7 @@ export class EarthWorld {
 			// notes { op: 'list' }：这个地点的留言；{ op: 'post', text }：留一句；{ op: 'delete', note }：删自己的
 			const loc = current.loc;
 			const hash = (await sha256Hex(id)).slice(0, 12);
-			const day = realDayOf(wall);
+			const day = realDayOf(now);
 			const list = await this.notesAt(loc);
 			const view = () => ({ notes: list.map((n) => ({ id: n.id, name: n.name, avatar: n.avatar, text: n.text, at: n.at, mine: n.author === hash })).reverse() });
 			if (body.op === 'list') return json({ ok: true, ...view(), at: now });
@@ -509,6 +529,7 @@ export class EarthWorld {
 				const c = cleanNote(body.text);
 				if ('error' in c) return json({ ok: false, msg: c.error, ...view(), at: now }, 400);
 				if (list.some((n) => n.author === hash && n.day === day)) return json({ ok: false, msg: '今天已经在这里留过言了，明天再来。', ...view(), at: now }, 429);
+				if (list.filter((n) => n.day === day).length >= NOTES_LOC_DAY) return json({ ok: false, msg: '今天这里的留言已经很多了，明天再来。', ...view(), at: now }, 429);
 				const cd = await this.ctx.storage.get<{ day: number; n: number }>('notecd:' + hash);
 				const used = cd && cd.day === day ? cd.n : 0;
 				if (used >= NOTES_PER_DAY) return json({ ok: false, msg: `今天已经留了 ${NOTES_PER_DAY} 条，明天再来。`, ...view(), at: now }, 429);
@@ -532,7 +553,7 @@ export class EarthWorld {
 		}
 		if (action === 'weekly') {
 			// weekly { op: 'status' }：这周的目标、全服进度、我出了几份力；{ op: 'claim', rev }：达成后领奖
-			const day = realDayOf(wall);
+			const day = realDayOf(now);
 			const week = weekOf(day);
 			const count = await this.weekCount(week);
 			const view = (st: PlayerState) => ({ week: { week, goal: goalOfWeek(week), count, daysLeft: weekDaysLeft(day), mine: weeklyMine(st, week) } });
@@ -653,18 +674,24 @@ export class EarthWorld {
 			// 常遇见的人：每个成员记下其他成员（用 id 哈希前缀，和在线状态一致）
 			const hashes = await Promise.all(ready.map(async (m) => (await sha256Hex(m.id)).slice(0, 12)));
 			const people = ready.map((m, i) => ({ hash: hashes[i], name: m.name, avatar: m.state.avatar }));
-			const coopDay = realDayOf(wall);
+			const coopDay = realDayOf(now);
 			const week = weekOf(coopDay);
-			const coopCounts = goalOfWeek(week).metric === 'coop';
+			let counted = 0;
 			const saves = ready.map((m, i) => {
 				const noted = noteMet(r.results[i].state, people.filter((_, j) => j !== i), coopDay);
-				const met = coopCounts ? addWeekly(noted, week) : noted;
+				const met = goalOfWeek(week).metric === 'coop' ? addWeekly(noted, week) : noted;
+				if (met !== noted) counted++;
 				return { id: m.id, keyHash: m.keyHash, at: m.now, state: sanitizeState(met, locs, { fallbackLoc: region.spawn, now: m.now }) ?? met };
 			});
-			// 所有人一次写入：写失败就谁都没拿到，队伍还在、可以重试；写成功后大厅标记结束，版本号也都变了，重复开始会被拒绝
-			await this.persistMany(saves);
+			// 所有人和全服周计数一次写入：写失败就谁都没拿到，队伍还在、可以重试；写成功后大厅标记结束，版本号也都变了，重复开始会被拒绝
+			const res = await this.reserveWeek(week, 'coop', counted);
+			try {
+				await this.persistMany(saves, res?.entry);
+			} catch (e) {
+				res?.undo();
+				throw e;
+			}
 			const mine = saves.find((x) => x.id === id)!.state;
-			if (coopCounts) await this.bumpWeek(week, 'coop', ready.length);
 			const text = (r.success ? def.ok : def.fail).text;
 			l.done = { at: wall, success: r.success, text, ids: ready.map((m) => m.id) };
 			return json({ ok: true, msg: `${def.icon} ${def.title}：${text}`, success: r.success, state: publicState(mine), ...this.coopView(id, mine.loc), at: now });
@@ -712,21 +739,29 @@ export class EarthWorld {
 			// 同一件物品挂的单不能超过背包里的数量
 			const pending = [...this.offers.values()].filter((o) => o.from === id && o.item === item.id).length;
 			if (pending >= (live.inventory[item.id] ?? 0)) return no('这件东西已经都挂出去了');
+			if ([...this.offers.values()].filter((o) => o.loc === current.loc).length >= OFFER_PER_LOC) return no('这里挂着的东西太多了，稍后再试');
 			let to: string | null = null;
+			let toId: string | null = null;
 			let toName = '';
 			let price = 0;
 			if (op === 'gift') {
 				if (typeof body.to !== 'string' || !HASH_RE.test(body.to)) return no('要送给谁？');
 				if (body.to === hash) return no('不能送给自己');
+				// 收件人必须是真实存在、现在就在这个地点的玩家
+				const target = await this.ctx.storage.get<string>('h:' + body.to);
+				const trec = typeof target === 'string' ? await this.ctx.storage.get<{ state: any }>('save:' + target) : undefined;
+				if (!target || !trec || trec.state?.loc !== current.loc) return no('对方不在这里，送不了');
+				if ([...this.offers.values()].filter((o) => o.toId === target).length >= OFFER_PER_TARGET) return no('对方还有好几份礼物没收，等等再送');
 				to = body.to;
-				toName = cleanName(body.toName) || '旅人';
+				toId = target;
+				toName = cleanName(trec.state?.name) || '旅人';
 			} else {
 				const range = saleRange(item.id)!;
 				if (!Number.isInteger(body.price) || body.price < range.min || body.price > range.max) return no(`价格要在 $${range.min}–$${range.max} 之间`);
 				price = body.price;
 			}
 			const oid = newId();
-			this.offers.set(oid, { id: oid, kind: op, from: id, fromName: current.name, fromAvatar: current.avatar, to, toName, item: item.id, price, loc: current.loc, at: wall });
+			this.offers.set(oid, { id: oid, kind: op, from: id, fromName: current.name, fromAvatar: current.avatar, to, toId, toName, item: item.id, price, loc: current.loc, at: wall });
 			return reply({ msg: op === 'gift' ? `${item.icon} 等${toName}收下${item.name}` : `${item.icon} ${item.name}挂上二手摊了，$${price}` });
 		}
 		const o = typeof body.offer === 'string' && OFFER_RE.test(body.offer) ? this.offers.get(body.offer) : undefined;
@@ -746,7 +781,7 @@ export class EarthWorld {
 		}
 		if (op === 'accept') {
 			if (o.from === id) return no('不能收下自己挂的');
-			if (o.kind === 'gift' && o.to !== hash) return no('这不是给你的');
+			if (o.kind === 'gift' && o.toId !== id) return no('这不是给你的');
 			if (o.loc !== current.loc) return no('要在同一个地点才能拿');
 			if (!locked.has(o.from)) return no('正在处理，稍后再试', 409);
 			if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: CONFLICT_MSG, state: publicState(current), ...view(current), at: now }, 409);
@@ -758,6 +793,11 @@ export class EarthWorld {
 				this.offers.delete(o.id);
 				return no('对方的存档不在了');
 			}
+			// 送礼和摆摊都要挂单人还在这里：人走了单子就撤下（东西一直在他背包里，没有托管）
+			if (fromState.loc !== o.loc) {
+				this.offers.delete(o.id);
+				return no(o.kind === 'gift' ? '对方已经离开这里了' : '摊主已经走了，这个摊收了');
+			}
 			const r = applyTrade(fromState, live, o.item, o.price, day, { from: o.fromName, to: current.name });
 			if (typeof r === 'string') {
 				// 对方已经没有这件东西（或今天给出去太多次）：这张单作废
@@ -766,16 +806,23 @@ export class EarthWorld {
 			}
 			const canon = (st: PlayerState, t: number) => sanitizeState(st, locs, { fallbackLoc: region.spawn, now: t }) ?? st;
 			const fromHash = (await sha256Hex(o.from)).slice(0, 12);
-			const week = weekOf(realDayOf(wall));
+			const week = weekOf(day);
 			const tradeCounts = goalOfWeek(week).metric === 'trade';
 			const wk = (st: PlayerState) => (tradeCounts ? addWeekly(st, week) : st);
-			const mine = canon(wk(noteMet(r.to, [{ hash: fromHash, name: o.fromName, avatar: o.fromAvatar }], day)), now);
-			await this.persistMany([
-				{ id: o.from, keyHash: rec.keyHash, state: canon(wk(noteMet(r.from, [{ hash, name: current.name, avatar: current.avatar }], day)), fNow), at: fNow },
-				{ id, keyHash, state: mine, at: now },
-			]);
+			const toAfter = wk(noteMet(r.to, [{ hash: fromHash, name: o.fromName, avatar: o.fromAvatar }], day));
+			const mine = canon(toAfter, now);
+			// 一笔交易算一次（双方都记一份力）；和双方存档一次写入
+			const res = toAfter.weekly !== r.to.weekly ? await this.reserveWeek(week, 'trade', 1) : null;
+			try {
+				await this.persistMany([
+					{ id: o.from, keyHash: rec.keyHash, state: canon(wk(noteMet(r.from, [{ hash, name: current.name, avatar: current.avatar }], day)), fNow), at: fNow },
+					{ id, keyHash, state: mine, at: now },
+				], res?.entry);
+			} catch (e) {
+				res?.undo();
+				throw e;
+			}
 			this.offers.delete(o.id);
-			if (tradeCounts) await this.bumpWeek(week, 'trade', 1);
 			const msg = o.price > 0 ? `${item.icon} 花 $${o.price} 买下了${item.name}` : `${item.icon} 收下了${o.fromName}送的${item.name}`;
 			return json({ ok: true, msg, state: publicState(mine), ...view(mine), at: now });
 		}

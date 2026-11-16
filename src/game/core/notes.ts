@@ -4,6 +4,7 @@
 export const NOTE_MAX = 60;
 export const NOTES_PER_LOC = 20; // 每个地点只留最近 20 条
 export const NOTES_PER_DAY = 3; // 每人每个现实日最多留 3 条，同一个地点一天一条
+export const NOTES_LOC_DAY = 10; // 每个地点每个现实日最多新增 10 条，防止一批新号把留言板刷掉
 
 /** 清洗留言：合格返回 { text }，否则返回 { error } */
 export function cleanNote(raw: unknown): { text: string } | { error: string } {
@@ -14,7 +15,10 @@ export function cleanNote(raw: unknown): { text: string } | { error: string } {
 		.trim();
 	if (!text) return { error: '写点什么再留言。' };
 	if ([...text].length > NOTE_MAX) return { error: `最多 ${NOTE_MAX} 个字。` };
-	if (/https?:|www\.|\.(com|net|org|au|cn|io|me|xyz)\b/i.test(text)) return { error: '留言里不能带网址。' };
-	if (/\d[\d\s-]{5,}\d/.test(text) || /[@＠]\w/.test(text)) return { error: '留言里不能带电话、账号这类联系方式。' };
+	// 检测用的副本：全角转半角（NFKC）、小写，再去掉空白和常见分隔符，防止「h t t p」「0412.345.678」这类绕过
+	const plain = text.normalize('NFKC').toLowerCase();
+	const squeezed = plain.replace(/[\s.\-_·•,，。、:：/\\|()（）\[\]【】]+/g, '');
+	if (/https?|www|\.(com|net|org|au|cn|io|me|xyz|top|link)\b/.test(plain) || /(com|net|org|cn|xyz)$/.test(squeezed) && /[a-z]{3,}(com|net|org|cn|xyz)$/.test(squeezed) || /https?|www/.test(squeezed)) return { error: '留言里不能带网址。' };
+	if (/\p{Nd}{6,}/u.test(squeezed) || /@[\p{L}\p{N}]/u.test(plain) || /(微信|vx|wx|qq|whatsapp|telegram|电报|ig|instagram)[号:：]?\s*[\p{L}\p{N}]{4,}/iu.test(plain)) return { error: '留言里不能带电话、账号这类联系方式。' };
 	return { text };
 }

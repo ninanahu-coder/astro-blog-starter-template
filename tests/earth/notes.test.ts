@@ -1,7 +1,7 @@
 // 地点留言板：文字规则（纯函数）和服务端的发帖、限额、删除
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cleanNote, NOTE_MAX, NOTES_PER_DAY, NOTES_PER_LOC } from '../../src/game/core/notes.ts';
+import { cleanNote, NOTE_MAX, NOTES_LOC_DAY, NOTES_PER_DAY, NOTES_PER_LOC } from '../../src/game/core/notes.ts';
 import { EarthWorld } from '../../src/game/server/world.ts';
 
 test('留言文字：去掉控制字符和多余空白；空的、太长的、带网址或联系方式的不收', () => {
@@ -12,6 +12,9 @@ test('留言文字：去掉控制字符和多余空白；空的、太长的、�
 	assert.deepEqual(cleanNote('好'.repeat(NOTE_MAX)), { text: '好'.repeat(NOTE_MAX) });
 	for (const bad of ['看 https://x.y', 'www.abc', '加我 shop.com', '电话 0412 345 678', '微信@someone', '找我 ＠abc']) assert.ok('error' in cleanNote(bad), bad);
 	assert.ok('text' in cleanNote('等了 20 分钟才看到海豚'), '短数字可以');
+	// 审查问题 6：全角数字、点号分隔、拆开的网址、中文账号
+	for (const bad of ['电话 ０４１２３４５６７８', '电话 0412.345.678', 'h t t p s : / / e x a m p l e . c o m', '微信 @微信号', 'w w w . a b c', '加微信 abcd1234']) assert.ok('error' in cleanNote(bad), bad);
+	assert.ok('text' in cleanNote('2026 年第一次来，日落 6 点半'), '正常的年份和时间可以');
 });
 
 function world() {
@@ -68,13 +71,16 @@ test('留言板：同地点能看到，别处看不到；不发作者 id；同�
 	assert.deepEqual(data.get('notes:perth'), []);
 });
 
-test('留言板：每个地点只留最近 20 条；同时来的留言都不丢', async () => {
+test('留言板：每个地点每天最多新增 10 条，同时来的不丢、不超；只留最近 20 条', async () => {
 	const { data, call } = world();
-	const ids = Array.from({ length: NOTES_PER_LOC + 3 }, (_, i) => ({ id: `notes-crowd-${String(i).padStart(2, '0')}`, key: 'c'.repeat(24) }));
+	const ids = Array.from({ length: NOTES_LOC_DAY + 3 }, (_, i) => ({ id: `notes-crowd-${String(i).padStart(2, '0')}`, key: 'c'.repeat(24) }));
 	for (const p of ids) await call({ action: 'create', ...p, profile });
+	// 先放 19 条以前的留言：今天再加 10 条后只留最近 20 条
+	data.set('notes:perth', Array.from({ length: 19 }, (_, i) => ({ id: i.toString(16).padStart(8, '0'), author: 'eeeeeeeeeeee', name: '旧', avatar: '🧑', text: `旧 ${i}`, at: 0, day: 1 })));
 	const res = await Promise.all(ids.map((p, i) => call({ action: 'notes', op: 'post', ...p, text: `第 ${i} 位` })));
-	assert.ok(res.every((r) => r.data.ok));
-	const stored = data.get('notes:perth') as { text: string }[];
+	assert.equal(res.filter((r) => r.data.ok).length, NOTES_LOC_DAY, '每天最多 10 条');
+	assert.ok(res.filter((r) => !r.data.ok).every((r) => r.status === 429));
+	const stored = data.get('notes:perth') as { text: string; day: number }[];
 	assert.equal(stored.length, NOTES_PER_LOC);
-	assert.equal(stored.at(-1)!.text, `第 ${ids.length - 1} 位`);
+	assert.equal(stored.filter((n) => n.day !== 1).length, NOTES_LOC_DAY, '今天的 10 条都在');
 });

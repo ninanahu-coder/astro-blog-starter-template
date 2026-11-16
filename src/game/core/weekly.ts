@@ -28,8 +28,9 @@ export function weeklyMine(state: PlayerState, week: number): { n: number; claim
 	return w && w.week === week ? { n: w.n, claimed: w.claimed } : { n: 0, claimed: false };
 }
 
-/** 记一份力（跨周自动归零）。返回新存档，不改入参 */
+/** 记一份力（跨周自动归零）。返回新存档，不改入参。周序号只往前走：比存档里记的还早的周（服务器时钟回拨）不记，免得把已领过的周冲掉 */
 export function addWeekly(state: PlayerState, week: number, k = 1): PlayerState {
+	if ((state.weekly?.week ?? 0) > week) return state;
 	const m = weeklyMine(state, week);
 	return { ...state, weekly: { week, n: m.n + k, claimed: m.claimed } };
 }
@@ -37,6 +38,7 @@ export function addWeekly(state: PlayerState, week: number, k = 1): PlayerState 
 /** 能不能领：全服达成、我出过力、这周没领过 */
 export function weeklyBlocked(state: PlayerState, week: number, count: number): string | undefined {
 	const goal = goalOfWeek(week);
+	if ((state.weekly?.week ?? 0) > week) return '这一周已经过去了。';
 	const m = weeklyMine(state, week);
 	if (m.claimed) return '这周的奖励已经领过了。';
 	if (count < goal.target) return `全服还差 ${goal.target - count} 次。`;

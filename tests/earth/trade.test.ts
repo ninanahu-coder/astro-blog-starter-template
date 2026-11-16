@@ -83,3 +83,9 @@ test('常遇见的人：次数累加、名字跟着更新、超过上限丢最�
 	const dirty = sanitizeState({ ...a, met: { 'not-a-hash': { name: 'x' }, bbbbbbbbbbbb: { name: '<b>坏</b>', avatar: '<img>', n: -3, last: 4.5 } } }, locs, { fallbackLoc: 'perth', now: Date.now() })!;
 	assert.deepEqual(dirty.met, { bbbbbbbbbbbb: { name: 'b坏/b', avatar: 'img', n: 1, last: 4 } });
 });
+
+test('有待处理事件时不能收礼或买东西（审查问题 4）', () => {
+	const b = mk('trade-bb', { pending: { eventId: 'quokka-selfie' } });
+	assert.match(takeBlocked(b, 'snack', 0, DAY)!, /事件/);
+	assert.match(applyTrade(mk('trade-aa', { inventory: { snack: 1 } }), b, 'snack', 0, DAY, { from: 'A', to: 'B' }) as string, /事件/);
+});

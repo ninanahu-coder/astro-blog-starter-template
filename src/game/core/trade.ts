@@ -36,6 +36,7 @@ export function giveBlocked(state: PlayerState, itemId: string, day: number): st
 export function takeBlocked(state: PlayerState, itemId: string, price: number, day: number): string | undefined {
 	const item = getItem(itemId);
 	if (!item) return '没有这件东西。';
+	if (state.pending) return '先处理眼前的事件。';
 	if ((state.inventory[itemId] ?? 0) >= item.max) return `${item.name}已经带满了。`;
 	if (price > 0 && state.cash < price) return `需要 $${price}。`;
 	if (tradesToday(state, day).in >= TRADE_DAILY) return `今天已经收下 ${TRADE_DAILY} 次了，明天再来。`;

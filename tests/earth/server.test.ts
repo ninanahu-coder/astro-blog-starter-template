@@ -863,3 +863,85 @@ test('全服周目标：实例重启后从存储读回这周的累计数；并�
 	assert.equal(x.data.week.count, 7);
 	assert.equal(y.data.week.count, 7);
 });
+
+test('送礼：收件人必须是真实存在、在同一地点的玩家；每人最多 3 份待收；送礼人走了就作废（审查问题 1、5）', async () => {
+	const w = makeWorld();
+	const { A, B, b0 } = await twoPlayers(w, 6, { water: 6 });
+	await w.call({ action: 'get', ...B }); // 落过一次盘，服务端才有哈希到存档的对应
+	assert.match((await w.call({ action: 'trade', op: 'gift', ...A, to: 'aaaaaaaaaaaa', item: 'water' })).data.msg, /不在这里/, '不存在的哈希');
+	const C = { id: 'trade-far-6', key: 'c'.repeat(24) };
+	const c0 = (await w.call({ action: 'create', ...C, profile })).data.state;
+	assert.ok((await w.call({ action: 'act', ...C, rev: c0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
+	assert.match((await w.call({ action: 'trade', op: 'gift', ...A, to: await peerHash(C.id), item: 'water' })).data.msg, /不在这里/, '别处的人');
+	const toB = await peerHash(B.id);
+	const D = { id: 'trade-also-6', key: 'd'.repeat(24) };
+	await w.call({ action: 'create', ...D, profile });
+	const recD = w.data.get('save:' + D.id);
+	recD.state.inventory = { water: 2 };
+	w.data.set('save:' + D.id, recD);
+	for (let i = 0; i < 3; i++) assert.ok((await w.call({ action: 'trade', op: 'gift', ...(i < 2 ? A : D), to: toB, toName: '随便写', item: 'water' })).data.ok);
+	const sent = await w.call({ action: 'trade', op: 'gift', ...D, to: toB, item: 'water' });
+	assert.match(sent.data.msg, /好几份礼物没收/, '每人最多 3 份待收');
+	assert.ok(sent.data.offers.every((o: { mine: boolean; toName: string }) => !o.mine || o.toName === '阿乙'), '收件人名字以服务端存档为准');
+	// A 送完就走了：B 收不了，单子撤下
+	const offers = (await w.call({ action: 'trade', op: 'list', ...B })).data.offers as { id: string; name: string }[];
+	const fromA = offers.find((o) => o.name === '阿甲')!;
+	const aRev = w.data.get('save:' + A.id).state.rev;
+	assert.ok((await w.call({ action: 'act', ...A, rev: aRev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
+	const late = await w.call({ action: 'trade', op: 'accept', ...B, offer: fromA.id, rev: b0.rev });
+	assert.match(late.data.msg, /离开/);
+	assert.equal(w.data.get('save:' + B.id).state.rev, b0.rev, '没成交');
+	assert.ok(!late.data.offers.some((o: { id: string }) => o.id === fromA.id), '单子撤下');
+});
+
+/** 把时间往后挪到这类目标当值的那一周 */
+function shiftToGoal(metric: string): () => void {
+	const realNow = Date.now;
+	for (let k = 0; k < 8; k++) {
+		const shift = k * 7 * 86_400_000;
+		if (goalOfWeek(weekOf(realDayOf(realNow() + shift))).metric === metric) {
+			Date.now = () => realNow() + shift;
+			return () => { Date.now = realNow; };
+		}
+	}
+	throw new Error('找不到 ' + metric);
+}
+
+test('全服周目标：存档和全服计数一次写入，写失败时两边都不变（审查问题 3）', async () => {
+	const restore = shiftToGoal('travel');
+	try {
+		let fail = false;
+		const w = makeWorld(0, { put: async (k) => { if (fail && typeof k === 'object' && Object.keys(k).some((x) => x.startsWith('week:'))) throw new Error('storage down'); } });
+		const A = { id: 'weekly-atomic-1', key: 'a'.repeat(24) };
+		const a0 = (await w.call({ action: 'create', ...A, profile })).data.state;
+		fail = true;
+		await assert.rejects(w.call({ action: 'act', ...A, rev: a0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } }));
+		assert.equal(w.data.get('save:' + A.id).state.loc, 'perth', '存档没写');
+		assert.equal((w.world as any).week.count, 0, '内存里预留的计数退回了');
+		fail = false;
+		assert.ok((await w.call({ action: 'act', ...A, rev: a0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
+		const week = weekOf(realDayOf(Date.now()));
+		assert.equal(w.data.get('week:' + week), 1);
+		assert.equal(w.data.get('save:' + A.id).state.weekly.n, 1);
+	} finally {
+		restore();
+	}
+});
+
+test('全服周目标：免费的节日体验不算「收费体验」（审查问题 7）', async () => {
+	const restore = shiftToGoal('experience');
+	try {
+		const w = makeWorld();
+		const A = { id: 'weekly-free-1', key: 'a'.repeat(24) };
+		const a0 = (await w.call({ action: 'create', ...A, profile })).data.state;
+		const rec = w.data.get('save:' + A.id);
+		rec.state.clock = (28 + 13) * 1440 + 19 * 60; // 夏季第 14 天 19 点，天鹅河烟火夜
+		w.data.set('save:' + A.id, rec);
+		const r = await w.call({ action: 'act', ...A, rev: a0.rev, act: { t: 'experience', id: 'fest-skyshow' } });
+		assert.ok(r.data.ok, r.data.msg);
+		assert.equal(r.data.state.weekly.n, 0, '免费体验不记');
+		assert.equal((await w.call({ action: 'weekly', op: 'status', ...A })).data.week.count, 0);
+	} finally {
+		restore();
+	}
+});

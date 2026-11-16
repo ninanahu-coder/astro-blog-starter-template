@@ -52,3 +52,12 @@ test('存档校验：weekly 钳到合法范围，旧存档补默认值', () => {
 	delete old.weekly;
 	assert.deepEqual(sanitizeState(old, locs, { fallbackLoc: 'perth', now: Date.now() })!.weekly, { week: 0, n: 0, claimed: false });
 });
+
+test('周序号只往前走：服务器时钟回拨到上一周时不记旧周、也不能领旧周（审查问题 2）', () => {
+	const goal = goalOfWeek(10);
+	const claimed = applyWeeklyClaim(addWeekly(mk(), 10), 10, goal.target).state;
+	const next = addWeekly(claimed, 11);
+	assert.equal(addWeekly(next, 10), next, '回拨到第 10 周：不把第 11 周的记录冲掉');
+	assert.match(weeklyBlocked(next, 10, goalOfWeek(10).target)!, /过去/);
+	assert.equal(applyWeeklyClaim(next, 10, goalOfWeek(10).target).ok, false, '不能重领第 10 周');
+});
