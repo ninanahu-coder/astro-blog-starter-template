@@ -471,6 +471,7 @@ export interface PlayerState {
 	areas: string[]; // 已获得称号的体验片区 id：集齐时记下，之后加了新体验也不收回、不重复发奖
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
 	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每个游戏日一次）
+	trades: { day: number; out: number; in: number }; // 玩家之间交易：这个现实日已送出 / 收下的次数
 	pending: { eventId: string } | null;
 	fix: { lat: number; lon: number; at: number } | null; // 最近一次真实定位（坐标保留 3 位小数，约 100 米；at 为服务端时间）
 	venueCd: Partial<Record<VenueOp, number>>; // 每种真实地点动作最近一次的服务端时间（毫秒）

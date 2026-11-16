@@ -8,6 +8,7 @@ import { capState, nextRev } from './character.ts';
 import { pruneMoodlets } from './engine.ts';
 import type { ActionResult, CoopDef, NpcAction, PlayerState, Region, TravelMode, VenueOp } from './types.ts';
 import { resolveCoop, type CoopMember, type CoopResult } from './coop.ts';
+import { resolveTrade } from './trade.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 
@@ -144,6 +145,20 @@ export function applyCoop(def: CoopDef, region: Region, members: CoopMember[]): 
 		return { ...x, state: capState({ ...x.state, rev: nextRev(members[i].state.rev) }) };
 	});
 	return { ...r, results };
+}
+
+/**
+ * 玩家之间的一次交易（送礼 price=0、二手摊 price>0）。只由服务端在锁住双方存档后调用。
+ * 双方各自走 applyAction 一样的收尾：清理心情、钳制数值、版本号加一。失败返回原因字符串。
+ */
+export function applyTrade(from: PlayerState, to: PlayerState, itemId: string, price: number, day: number, names: { from: string; to: string }): { from: PlayerState; to: PlayerState } | string {
+	const r = resolveTrade(from, to, itemId, price, day, names);
+	if (typeof r === 'string') return r;
+	const fin = (s: PlayerState, prev: PlayerState) => {
+		pruneMoodlets(s);
+		return capState({ ...s, rev: nextRev(prev.rev) });
+	};
+	return { from: fin(r.from, from), to: fin(r.to, to) };
 }
 
 /** 发给客户端的存档：隐去随机数种子，客户端无法预知检定结果 */

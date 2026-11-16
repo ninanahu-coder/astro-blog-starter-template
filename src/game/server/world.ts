@@ -3,7 +3,9 @@
 // 另有保留实例 '@SAVES' 负责云存档（跨设备同步）。
 // 权威结算：客户端只发送动作（create / act），由本实例调用规则引擎结算并保存；
 // 客户端不能上传存档，改本地数据不会影响服务器上的进度。
-import { applyAction, applyCoop, parseAction, publicState } from '../core/actions.ts';
+import { applyAction, applyCoop, applyTrade, parseAction, publicState } from '../core/actions.ts';
+import { giveBlocked, saleRange } from '../core/trade.ts';
+import { getItem } from '../core/attributes.ts';
 import { coopBlocked } from '../core/coop.ts';
 import { getCoop } from '../data/coop.ts';
 import { claimDaily, realDayOf } from '../core/daily.ts';
@@ -31,7 +33,12 @@ const COOP_DONE_MS = 3 * 60 * 1000; // 结果保留 3 分钟，给没在线的�
 const COOP_MAX_LOBBIES = 200;
 const COOP_PER_LOC = 4;
 const COOP_HINT_MS = 1000; // 同一连接的「队伍有变化」提醒最多 1 秒转发一次（客户端另外合并成 3 秒一拉），防止刷提醒让别人不停拉列表
-const CONFLICT_MSG = '进度刚刚更新过（另一台设备，或队友发起的共同事件），已载入最新进度，请再操作一次';
+const CONFLICT_MSG = '进度刚刚更新过（另一台设备，或别的玩家和你一起做的事、和你的交易），已载入最新进度，请再操作一次';
+const OFFER_RE = /^[a-f0-9]{10}$/;
+const HASH_RE = /^[a-f0-9]{12}$/;
+const OFFER_TTL_MS = 30 * 60 * 1000; // 送礼、二手摊的挂单 30 分钟没人接就撤下
+const OFFER_MAX = 500;
+const OFFER_PER_PLAYER = 3; // 每人同时挂着的送礼 + 二手摊最多 3 件
 const KEY_RE = /^[a-zA-Z0-9]{16,64}$/;
 
 /** 共同事件大厅：只在 '@SAVES' 实例的内存里（实例重启就没了，最多影响几分钟内没开始的大厅）。成员 id 是真实存档 id，绝不发给客户端 */
@@ -45,6 +52,26 @@ interface Lobby {
 	/** 发起人的「开始」已经排队：这时不再接受加入、退出，免得加入的人被悄悄排除在外 */
 	starting?: boolean;
 	done?: { at: number; success: boolean; text: string; ids: string[] };
+}
+
+/**
+ * 送礼和二手摊的挂单：只在 '@SAVES' 实例的内存里，物品在成交前一直留在卖方背包里（实例重启只会丢挂单，不会丢东西）。
+ * from 是真实存档 id，绝不发给客户端；送礼的收件人用在线状态里同样的 id 哈希前缀（to）指定。
+ */
+interface Offer {
+	id: string;
+	kind: 'gift' | 'sale';
+	from: string;
+	fromName: string;
+	fromAvatar: string;
+	to: string | null;
+	toName: string;
+	item: string;
+	price: number;
+	loc: string;
+	at: number;
+	/** 有人接单的请求已经排队：这时不能撤回、拒绝或再被别人接 */
+	taking?: boolean;
 }
 
 interface Presence {
@@ -80,7 +107,8 @@ export class EarthWorld {
 	private board: [string, unknown][] | null = null; // 榜单记录的内存缓存；所有存档都写在这个实例里，写入时作废
 	private boardGen = 0; // 每次写入加一：读榜期间有写入时，读到的旧列表不放进缓存
 	private lobbies = new Map<string, Lobby>();
-	private coopHintAt = new WeakMap<WebSocket, number>();
+	private hintAt = new WeakMap<WebSocket, Record<string, number>>();
+	private offers = new Map<string, Offer>();
 
 	constructor(ctx: DurableObjectState, _env: unknown) {
 		this.ctx = ctx;
@@ -159,11 +187,14 @@ export class EarthWorld {
 				break;
 			}
 			case 'coop':
-				// 共同事件大厅有变化：只提醒同一地点的其他人去拉一次列表，不带任何内容（内容以服务端为准）
-				if (now - (this.coopHintAt.get(ws) ?? 0) < COOP_HINT_MS) break;
-				this.coopHintAt.set(ws, now);
-				for (const [sock, p] of this.sockets) if (p.loc === me.loc && sock !== ws) this.send(sock, { t: 'coop' });
+			case 'trade': {
+				// 共同事件大厅或交易挂单有变化：只提醒同一地点的其他人去拉一次列表，不带任何内容（内容以服务端为准）
+				const last = this.hintAt.get(ws) ?? {};
+				if (now - (last[m.t] ?? 0) < COOP_HINT_MS) break;
+				this.hintAt.set(ws, { ...last, [m.t]: now });
+				for (const [sock, p] of this.sockets) if (p.loc === me.loc && sock !== ws) this.send(sock, { t: m.t });
 				break;
+			}
 			case 'emote':
 				if (EMOTES.includes(m.kind) && typeof m.to === 'string') {
 					// 只能对同一地点的玩家互动
@@ -264,12 +295,27 @@ export class EarthWorld {
 				starting = l;
 			}
 		}
+		// 接单（收下礼物、买下）要改双方的存档：同时锁住挂单人的存档，并冻结这张挂单
+		let taking: Offer | undefined;
+		if (body.action === 'trade' && body.op === 'accept' && typeof body.offer === 'string') {
+			const o = this.offers.get(body.offer);
+			if (o && !o.taking && o.from !== id) {
+				ids.push(o.from);
+				o.taking = true;
+				taking = o;
+			}
+		}
 		// 结算和存档校验用的时间在轮到这个请求时才取，不用请求到达时的时间：
 		// 上传得慢的请求可能排在后到的请求后面执行，拿着旧时间会把后者刚写入的时间戳当成「未来」清掉
 		const run = this.runLocked(ids, () => this.handleSaveLocked(body, id, key, Date.now(), new Set(ids)));
 		if (starting) {
 			const lobby = starting;
 			const unfreeze = () => { lobby.starting = false; };
+			run.then(unfreeze, unfreeze);
+		}
+		if (taking) {
+			const offer = taking;
+			const unfreeze = () => { offer.taking = false; };
 			run.then(unfreeze, unfreeze);
 		}
 		return run;
@@ -388,6 +434,7 @@ export class EarthWorld {
 			return json({ ok: r.ok, msg: r.msg, state: publicState(next), at: now, daily: claim?.msg });
 		}
 		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, wall, locked);
+		if (action === 'trade') return this.handleTrade(body, id, keyHash, current, live, region, now, wall, locked);
 		return json({ ok: false, msg: '请求无效' }, 400);
 	}
 
@@ -498,6 +545,111 @@ export class EarthWorld {
 			const text = (r.success ? def.ok : def.fail).text;
 			l.done = { at: wall, success: r.success, text, ids: ready.map((m) => m.id) };
 			return json({ ok: true, msg: `${def.icon} ${def.title}：${text}`, success: r.success, state: publicState(mine), ...this.coopView(id, mine.loc), at: now });
+		}
+		return no('请求无效');
+	}
+
+	// ---------- 送礼与二手摊 ----------
+	// trade { op: 'list' }                         这里给我的礼物、这里的二手摊，和我挂出去的
+	// trade { op: 'gift', to, toName, item }        送给同一地点的某位玩家（to 是在线状态里的 id 哈希）
+	// trade { op: 'sale', item, price }             挂到这里的二手摊
+	// trade { op: 'cancel', offer }                 撤回自己挂的
+	// trade { op: 'decline', offer }                不要别人送的
+	// trade { op: 'accept', offer, rev }            收下礼物 / 买下：锁住双方存档后重新检查，一次写入
+	private pruneOffers(wall: number) {
+		for (const [k, o] of this.offers) if (!o.taking && wall - o.at > OFFER_TTL_MS) this.offers.delete(k);
+	}
+
+	private tradeView(id: string, hash: string, loc: string) {
+		const offers = [...this.offers.values()]
+			.filter((o) => o.from === id || (o.loc === loc && (o.kind === 'sale' || o.to === hash)))
+			.map((o) => ({ id: o.id, kind: o.kind, item: o.item, price: o.price, name: o.fromName, avatar: o.fromAvatar, toName: o.from === id ? o.toName : '', loc: o.loc, mine: o.from === id, taking: !!o.taking }));
+		return { offers };
+	}
+
+	private async handleTrade(body: any, id: string, keyHash: string, current: PlayerState, live: PlayerState, region: Region, now: number, wall: number, locked: Set<string>): Promise<Response> {
+		this.pruneOffers(wall);
+		const hash = (await sha256Hex(id)).slice(0, 12);
+		const day = realDayOf(now);
+		const op = body.op;
+		const view = (st: PlayerState) => this.tradeView(id, hash, st.loc);
+		const reply = (extra: Record<string, unknown> = {}) => json({ ok: true, ...view(current), at: now, ...extra });
+		const no = (msg: string, status = 400) => json({ ok: false, msg, ...view(current), at: now }, status);
+		const mineOpen = () => [...this.offers.values()].filter((o) => o.from === id).length;
+		const newId = () => [...crypto.getRandomValues(new Uint8Array(5))].map((b) => b.toString(16).padStart(2, '0')).join('');
+
+		if (op === 'list') return reply();
+		if (op === 'gift' || op === 'sale') {
+			const item = typeof body.item === 'string' ? getItem(body.item) : undefined;
+			if (!item) return no('没有这件东西');
+			const why = giveBlocked(live, item.id, day);
+			if (why) return no(why);
+			if (mineOpen() >= OFFER_PER_PLAYER) return no(`同时最多挂 ${OFFER_PER_PLAYER} 件，先撤回一件`);
+			if (this.offers.size >= OFFER_MAX) return no('现在挂单太多了，稍后再试');
+			// 同一件物品挂的单不能超过背包里的数量
+			const pending = [...this.offers.values()].filter((o) => o.from === id && o.item === item.id).length;
+			if (pending >= (live.inventory[item.id] ?? 0)) return no('这件东西已经都挂出去了');
+			let to: string | null = null;
+			let toName = '';
+			let price = 0;
+			if (op === 'gift') {
+				if (typeof body.to !== 'string' || !HASH_RE.test(body.to)) return no('要送给谁？');
+				if (body.to === hash) return no('不能送给自己');
+				to = body.to;
+				toName = cleanName(body.toName) || '旅人';
+			} else {
+				const range = saleRange(item.id)!;
+				if (!Number.isInteger(body.price) || body.price < range.min || body.price > range.max) return no(`价格要在 $${range.min}–$${range.max} 之间`);
+				price = body.price;
+			}
+			const oid = newId();
+			this.offers.set(oid, { id: oid, kind: op, from: id, fromName: current.name, fromAvatar: current.avatar, to, toName, item: item.id, price, loc: current.loc, at: wall });
+			return reply({ msg: op === 'gift' ? `${item.icon} 等${toName}收下${item.name}` : `${item.icon} ${item.name}挂上二手摊了，$${price}` });
+		}
+		const o = typeof body.offer === 'string' && OFFER_RE.test(body.offer) ? this.offers.get(body.offer) : undefined;
+		if (!o) return no('这件东西已经被拿走或撤回了', 404);
+		const item = getItem(o.item)!;
+		if (op === 'cancel') {
+			if (o.from !== id) return no('只能撤回自己挂的');
+			if (o.taking) return no('对方正在收下，撤不回来了', 409);
+			this.offers.delete(o.id);
+			return reply({ msg: '已撤回' });
+		}
+		if (op === 'decline') {
+			if (o.kind !== 'gift' || o.to !== hash) return no('这不是给你的');
+			if (o.taking) return no('正在处理，稍后再试', 409);
+			this.offers.delete(o.id);
+			return reply({ msg: `没有收下${item.name}` });
+		}
+		if (op === 'accept') {
+			if (o.from === id) return no('不能收下自己挂的');
+			if (o.kind === 'gift' && o.to !== hash) return no('这不是给你的');
+			if (o.loc !== current.loc) return no('要在同一个地点才能拿');
+			if (!locked.has(o.from)) return no('正在处理，稍后再试', 409);
+			if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: CONFLICT_MSG, state: publicState(current), ...view(current), at: now }, 409);
+			const locs = new Set(region.locations.map((x) => x.id));
+			const rec = await this.ctx.storage.get<{ keyHash: string; state: any; at: number }>('save:' + o.from);
+			const fNow = EarthWorld.saveNow(rec, wall);
+			const fromState = rec ? sanitizeState(rec.state, locs, { fallbackLoc: region.spawn, now: fNow }) : null;
+			if (!rec || !fromState) {
+				this.offers.delete(o.id);
+				return no('对方的存档不在了');
+			}
+			const r = applyTrade(fromState, live, o.item, o.price, day, { from: o.fromName, to: current.name });
+			if (typeof r === 'string') {
+				// 对方已经没有这件东西（或今天给出去太多次）：这张单作废
+				if (giveBlocked(fromState, o.item, day)) this.offers.delete(o.id);
+				return no(r);
+			}
+			const canon = (st: PlayerState, t: number) => sanitizeState(st, locs, { fallbackLoc: region.spawn, now: t }) ?? st;
+			const mine = canon(r.to, now);
+			await this.persistMany([
+				{ id: o.from, keyHash: rec.keyHash, state: canon(r.from, fNow), at: fNow },
+				{ id, keyHash, state: mine, at: now },
+			]);
+			this.offers.delete(o.id);
+			const msg = o.price > 0 ? `${item.icon} 花 $${o.price} 买下了${item.name}` : `${item.icon} 收下了${o.fromName}送的${item.name}`;
+			return json({ ok: true, msg, state: publicState(mine), ...view(mine), at: now });
 		}
 		return no('请求无效');
 	}

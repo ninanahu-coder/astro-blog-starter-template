@@ -116,6 +116,7 @@ export function createCharacter(opts: {
 		areas: [],
 		courseDays: {},
 		coopDays: {},
+		trades: { day: 0, out: 0, in: 0 },
 		pending: null,
 		fix: null,
 		venueCd: {},
@@ -265,6 +266,11 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			}
 			return out;
 		})(),
+		trades: {
+			day: Math.floor(num(r.trades?.day, 0, 1e7, 0)),
+			out: Math.floor(num(r.trades?.out, 0, 1000, 0)),
+			in: Math.floor(num(r.trades?.in, 0, 1000, 0)),
+		},
 		coopDays: (() => {
 			const out: Record<string, number> = {};
 			for (const c of COOP_EVENTS) {

@@ -356,6 +356,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { NPCS } from '../game/data/npcs.ts';
 			import { coopBlocked, coopCostLabel, coopsAt } from '../game/core/coop.ts';
 			import { getCoop } from '../game/data/coop.ts';
+			import { giveBlocked, saleRange, takeBlocked } from '../game/core/trade.ts';
+			import { realDayOf } from '../game/core/daily.ts';
 			import { ACTIVITIES } from '../game/data/activities.ts';
 			import { EVENTS } from '../game/data/events.ts';
 			import { dateLabel, period, PERIOD_IDS, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
@@ -547,6 +549,66 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 				render();
 			}
+			// 送礼与二手摊：挂单以服务端为准；打开社交页、收到在线频道的 trade 提醒时拉取
+			type Offer = { id: string; kind: 'gift' | 'sale'; item: string; price: number; name: string; avatar: string; toName: string; loc: string; mine: boolean; taking: boolean };
+			let tradeOffers: Offer[] = [];
+			let tradeAt = 0;
+			let tradeLoading = false;
+			let giftTo: { hash: string; name: string } | null = null; // 正在选要送什么
+			const myOffersSeen = new Set<string>(); // 我挂出去的单：消失了（被收下或买走）就拉一次最新进度
+			const myCancelled = new Set<string>();
+			function takeTrade(data: any) {
+				if (!Array.isArray(data?.offers)) return;
+				tradeOffers = data.offers;
+				const now = new Set(tradeOffers.filter((o) => o.mine).map((o) => o.id));
+				let gone = false;
+				for (const id of myOffersSeen) if (!now.has(id)) { myOffersSeen.delete(id); if (!myCancelled.delete(id)) gone = true; }
+				for (const id of now) myOffersSeen.add(id);
+				if (gone) pullCloud(); // 可能是过期撤下，也可能被拿走了：以服务端存档为准
+			}
+			async function loadTrade(force = false) {
+				if (!cred || !state || tradeLoading || (!force && Date.now() - tradeAt < 15_000)) return;
+				tradeLoading = true;
+				try {
+					const { data } = await api({ action: 'trade', op: 'list', id: cred.id, key: cred.key });
+					takeTrade(data);
+				} catch {}
+				tradeAt = Date.now();
+				tradeLoading = false;
+				if (tab === 'social') renderPanel();
+			}
+			let tradeHintTimer: ReturnType<typeof setTimeout> | 0 = 0;
+			function tradeHint() {
+				if (tradeHintTimer) return;
+				tradeHintTimer = setTimeout(() => { tradeHintTimer = 0; loadTrade(true); }, Math.max(300, 3000 - (Date.now() - tradeAt)));
+			}
+			async function tradeOp(op: string, extra: Record<string, unknown>) {
+				if (!state || !cred || busy) return;
+				busy = true;
+				document.body.classList.add('busy');
+				const before = state;
+				try {
+					if (op === 'cancel' && typeof extra.offer === 'string') myCancelled.add(extra.offer);
+					const { status, data } = await api({ action: 'trade', op, id: cred.id, key: cred.key, rev: before.rev, ...extra });
+					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, data.msg); }
+					else if (data.state) {
+						adopt(data.state);
+						if (data.ok && state && state.rev === nextRev(before.rev)) { lastDelta = stateDelta(before, state); lastOutcome = data.msg; }
+					}
+					takeTrade(data);
+					tradeAt = Date.now();
+					if (data.ok) giftTo = null;
+					if (data.msg) toast(data.msg);
+					if (data.ok && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'trade' }));
+				} catch {
+					syncStatus = '离线：可以查看，联网后才能行动';
+					toast('网络断开了，联网后才能行动');
+				} finally {
+					busy = false;
+					document.body.classList.remove('busy');
+				}
+				render();
+			}
 			const srvNow = () => Date.now() + clockSkew;
 			async function api(body: unknown) {
 				const res = await fetch('/api/earth/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -605,6 +667,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					else if (m.t === 'chat') { chats.push(m); chats = chats.slice(-50); if (tab !== 'social') toast(`${m.name}: ${m.text}`); }
 					else if (m.t === 'emote') toast(`${m.name} 向你 ${m.kind}`);
 					else if (m.t === 'coop') { coopHint(); return; }
+					else if (m.t === 'trade') { tradeHint(); return; }
 					else return;
 					renderMap();
 					renderTabs();
@@ -1152,6 +1215,36 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					${lobbies}${open}<div class="inline" style="margin-top:10px"><button data-coop="list" ${coopLoading ? 'disabled' : ''}>刷新</button></div></div>`;
 			}
 
+			/** 送礼与二手摊：选要送的东西、别人送我的、我挂出去的 */
+			function tradeCard(s: PlayerState) {
+				loadTrade();
+				const day = realDayOf(srvNow());
+				const parts: string[] = [];
+				if (giftTo) {
+					const items = Object.entries(s.inventory).filter(([, n]) => n > 0).map(([id]) => getItem(id)).filter((x): x is NonNullable<typeof x> => !!x);
+					const rows = items.map((it) => {
+						const why = giveBlocked(s, it.id, day);
+						return `<button class="row" data-trade="gift" data-item="${it.id}" ${why ? 'disabled' : ''}><span class="ico">${it.icon}</span><span class="body">${esc(it.name)} ×${s.inventory[it.id]}${why ? `<small>${esc(why)}</small>` : ''}</span></button>`;
+					}).join('');
+					parts.push(`<div class="trade-pick"><b>送给${esc(giftTo.name)}什么？</b>${rows ? `<div class="list" style="margin-top:8px">${rows}</div>` : '<p class="muted">背包里没有能送的东西。</p>'}<div class="inline" style="margin-top:8px"><button data-trade="pickcancel">不送了</button></div></div>`);
+				}
+				for (const o of tradeOffers) {
+					const it = getItem(o.item);
+					if (!it) continue;
+					const lid = esc(o.id);
+					if (o.mine) {
+						const where = o.loc !== s.loc ? `（在${esc(getLocation(region, o.loc)?.name ?? '')}）` : '';
+						const what = o.kind === 'gift' ? `等${esc(o.toName)}收下 ${it.icon} ${esc(it.name)}` : `二手摊上的 ${it.icon} ${esc(it.name)} · $${o.price}`;
+						parts.push(`<div class="row"><span class="body">${what}${where}</span><span class="meta">${o.taking ? '正在交接…' : `<button data-trade="cancel" data-offer="${lid}">撤回</button>`}</span></div>`);
+					} else if (o.kind === 'gift') {
+						const why = takeBlocked(s, o.item, 0, day);
+						parts.push(`<div class="row"><span class="ico">${esc(o.avatar)}</span><span class="body">${esc(o.name)}想送你 ${it.icon} ${esc(it.name)}${why ? `<small>${esc(why)}</small>` : ''}</span><span class="meta"><button class="primary" data-trade="accept" data-offer="${lid}" ${why || o.taking ? 'disabled' : ''}>收下</button> <button data-trade="decline" data-offer="${lid}" ${o.taking ? 'disabled' : ''}>不要</button></span></div>`);
+					}
+				}
+				if (!parts.length) return '';
+				return `<div class="card trade"><h3>🎁 送礼</h3><p class="muted">每人每天最多送出、收下各 5 次；挂着的单 30 分钟没人接就撤下。</p>${parts.join('')}</div>`;
+			}
+
 			function boardCard() {
 				loadBoard();
 				const row = (r: BoardRow) => `<div class="row"><span class="ico">${r.rank}</span><span class="body">${esc(r.avatar)} ${r.me ? `<b>${esc(r.name)}（你）</b>` : esc(r.name)}<small>净资产 $${r.worth.toLocaleString()} · 第 ${r.day + 1} 天</small></span></div>`;
@@ -1170,7 +1263,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const online = ws?.readyState === WebSocket.OPEN;
 				const here = [...peers.values()].filter((p) => p.loc === s.loc && p.id !== myPeerId);
 				const people = here.length ? here.map((p) => `<div class="row"><span class="ico">${esc(p.avatar)}</span><span class="body">${esc(p.name)}</span>
-					<span class="emotes">${emotes.map((e) => `<button data-emote="${esc(e)}" data-to="${esc(p.id)}" aria-label="向${esc(p.name)}发送 ${esc(e)}">${esc(e)}</button>`).join(' ')}</span></div>`).join('') : '<p class="muted">这里暂时只有你一个人。</p>';
+					<span class="emotes">${emotes.map((e) => `<button data-emote="${esc(e)}" data-to="${esc(p.id)}" aria-label="向${esc(p.name)}发送 ${esc(e)}">${esc(e)}</button>`).join(' ')} <button data-giftpick="${esc(p.id)}" data-gift-name="${esc(p.name)}" aria-label="送${esc(p.name)}一件东西">🎁</button></span></div>`).join('') : '<p class="muted">这里暂时只有你一个人。</p>';
 				// 认识的当地人今天在哪：就在这里的标出来，在别处的可以直接看去那里的走法
 				const presentIds = new Set(npcsAt(s, region).map((x) => x.npc.id));
 				const known = Object.entries(s.relations)
@@ -1190,6 +1283,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							: `<button class="row" data-loc="${plan.loc}"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta"><b>怎么去</b></span></button>`;
 				}).join('')}</div></div>` : '';
 				return `${knownHtml}<div class="card"><h3>${esc(getLocation(region, s.loc)!.name)}的人</h3><p>${online ? `全区在线 ${peers.size} 人` : '未连接，稍后自动重连…'}</p><div class="list" style="margin-top:8px">${people}</div></div>
+					${tradeCard(s)}
 					${coopCard(s)}
 					<div class="card"><h3>本地频道</h3><p>只有同一地点的玩家能看到。</p>
 						<div class="chat" id="chat">${chats.map((c) => `<div>${esc(c.avatar)} <b>${esc(c.name)}</b> ${esc(c.text)}</div>`).join('')}</div>
@@ -1354,7 +1448,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -1448,6 +1542,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				else if ('copy' in d) navigator.clipboard?.writeText(`${cred!.id}.${cred!.key}`).then(() => toast('已复制'), () => toast('复制失败，请长按手动复制'));
 				else if ('pull' in d) pullCloud();
 				else if ('board' in d) loadBoard(true);
+				else if (d.giftpick !== undefined) { giftTo = d.giftpick ? { hash: d.giftpick, name: d.giftName ?? '' } : null; renderPanel(); }
+				else if (d.trade) {
+					if (d.trade === 'pickcancel') { giftTo = null; renderPanel(); }
+					else if (d.trade === 'gift' && giftTo) tradeOp('gift', { to: giftTo.hash, toName: giftTo.name, item: d.item });
+					else if (d.trade === 'sale') tradeOp('sale', { item: d.item, price: Number(d.price) });
+					else if (d.trade === 'accept' || d.trade === 'decline' || d.trade === 'cancel') tradeOp(d.trade, { offer: d.offer });
+				}
 				else if (d.coop) {
 					if (d.coop === 'list') loadCoop(true);
 					else if (d.coop === 'open') coopOp('open', { coop: d.coopId, role: Number(d.role) });

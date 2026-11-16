@@ -239,6 +239,27 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ coop: 'leave', lobby: lob! });
 		await pause(30);
 		assert.doesNotMatch(panel(), /等人加入/);
+		// 送礼：点在场的人旁边的 🎁，选背包里的东西送出，单子出现在送礼卡里，可以撤回
+		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: '0123456789ab', name: '<b>小王</b>', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
+		const giftSave = data.get('save:' + cred.id) as any;
+		giftSave.state.inventory = { ...giftSave.state.inventory, water: 2 };
+		data.set('save:' + cred.id, giftSave);
+		await click({ pull: '' });
+		await pause(30);
+		await click({ tab: 'social' });
+		assert.match(panel(), /data-giftpick="0123456789ab"/);
+		await click({ giftpick: '0123456789ab', giftName: '<b>小王</b>' });
+		assert.match(panel(), /送给&lt;b&gt;小王&lt;\/b&gt;什么/, '名字转义');
+		assert.match(panel(), /data-trade="gift" data-item="water"/);
+		await click({ trade: 'gift', item: 'water' });
+		await pause(30);
+		assert.match(panel(), /等b小王\/b收下 💧 饮用水/, "服务端清洗过名字");
+		assert.ok(sent.some((m) => JSON.parse(m).t === 'trade'), '提醒同地点的人');
+		const offerId = panel().match(/data-trade="cancel" data-offer="([a-f0-9]{10})"/)?.[1];
+		assert.ok(offerId, '有撤回按钮');
+		await click({ trade: 'cancel', offer: offerId! });
+		await pause(30);
+		assert.doesNotMatch(panel(), /等b小王/);
 		// 断开连接时角标也要清掉
 		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: 'peer-2', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
 		assert.match(el('tabs').innerHTML, /class="badge"/);
