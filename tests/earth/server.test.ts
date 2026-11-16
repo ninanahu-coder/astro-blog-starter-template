@@ -433,3 +433,100 @@ test('服务端：旧存档没有天气相册字段时读取后补上；抵达�
 	assert.match(r.data.state.photos[0], /^fremantle\|/);
 	assert.deepEqual(w.data.get('save:' + ID).state.photos, r.data.state.photos);
 });
+
+test('共同事件：发起、加入、只有发起人能开始、人够才开始，结算写进所有成员的存档，结果给队友留着', async () => {
+	const w = makeWorld();
+	const A = { id: 'coop-host-1', key: 'a'.repeat(24) };
+	const B = { id: 'coop-mate-1', key: 'b'.repeat(24) };
+	const a0 = (await w.call({ action: 'create', ...A, profile: { ...profile, name: '阿甲' } })).data.state;
+	const b0 = (await w.call({ action: 'create', ...B, profile: { ...profile, name: '阿乙' } })).data.state;
+	// 发起：珀斯有海滩
+	const opened = await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 });
+	assert.ok(opened.data.ok, opened.data.msg);
+	assert.equal(opened.data.lobbies.length, 1);
+	assert.equal(opened.data.lobbies[0].host, true);
+	const lobby = opened.data.lobbies[0].id;
+	assert.match(lobby, /^[a-f0-9]{8}$/);
+	assert.equal((await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 1 })).data.msg, '你已经在一个队伍里了');
+	assert.equal((await w.call({ action: 'coop', op: 'open', ...A, coop: 'nope', role: 0 })).data.ok, false);
+	// 队友看到的大厅：有名字和分工，没有真实 id
+	const seen = await w.call({ action: 'coop', op: 'list', ...B });
+	assert.equal(seen.data.lobbies[0].mine, false);
+	assert.equal(seen.data.lobbies[0].members[0].name, '阿甲');
+	assert.ok(!JSON.stringify(seen.data).includes(A.id), '不能把别人的存档 id 发出去');
+	// 一个人开始不了；不是发起人也开始不了
+	assert.match((await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev })).data.msg, /人不够/);
+	assert.equal((await w.call({ action: 'coop', op: 'start', ...B, lobby, rev: b0.rev })).data.msg, '只有发起人能开始');
+	assert.equal((await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 9 })).data.msg, '分工无效');
+	const joined = await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 1 });
+	assert.ok(joined.data.ok, joined.data.msg);
+	assert.equal(joined.data.lobbies[0].members.length, 2);
+	assert.equal((await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 1 })).data.msg, '你已经在这个队伍里了');
+	// 版本落后不执行
+	assert.equal((await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev + 5 })).status, 409);
+	const started = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev });
+	assert.ok(started.data.ok, started.data.msg);
+	assert.match(started.data.msg, /海滩清洁/);
+	assert.equal(started.data.state.seed, 0, '种子不外泄');
+	assert.equal(started.data.state.rev, a0.rev + 1);
+	const bSave = w.data.get('save:' + B.id).state;
+	assert.equal(bSave.rev, b0.rev + 1, '队友的存档也结算了');
+	assert.match(bSave.journal.at(-1).text, /和阿甲一起/);
+	assert.match(w.data.get('save:' + A.id).state.journal.at(-1).text, /和阿乙一起/);
+	// 结束后大厅不再列出，结果留给队友拉取；不能再开始一次
+	const after = await w.call({ action: 'coop', op: 'list', ...B });
+	assert.equal(after.data.lobbies.length, 0);
+	assert.equal(after.data.results.length, 1);
+	assert.equal(after.data.results[0].id, lobby);
+	assert.equal((await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev + 1 })).status, 404);
+	assert.equal((await w.call({ action: 'coop', op: 'list', id: A.id, key: 'x'.repeat(24) })).status, 403, '同步码不对');
+});
+
+test('共同事件：发起人退出就解散；不在同一地点不能加入', async () => {
+	const w = makeWorld();
+	const A = { id: 'coop-host-2', key: 'a'.repeat(24) };
+	const C = { id: 'coop-far-2', key: 'c'.repeat(24) };
+	await w.call({ action: 'create', ...A, profile });
+	const c0 = (await w.call({ action: 'create', ...C, profile })).data.state;
+	const lobby = (await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 })).data.lobbies[0].id;
+	const moved = await w.call({ action: 'act', ...C, rev: c0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } });
+	assert.ok(moved.data.ok, moved.data.msg);
+	assert.equal((await w.call({ action: 'coop', op: 'join', ...C, lobby, role: 0 })).data.msg, '要在同一个地点才能加入');
+	assert.equal((await w.call({ action: 'coop', op: 'list', ...C })).data.lobbies.length, 0, '别的地点的队伍不列出');
+	const left = await w.call({ action: 'coop', op: 'leave', ...A, lobby });
+	assert.equal(left.data.msg, '队伍已解散');
+	assert.equal(left.data.lobbies.length, 0);
+});
+
+test('共同事件：开始时锁住所有成员的存档，队友同时做的动作不会丢', async () => {
+	const w = makeWorld(3);
+	const A = { id: 'coop-host-3', key: 'a'.repeat(24) };
+	const B = { id: 'coop-mate-3', key: 'b'.repeat(24) };
+	const a0 = (await w.call({ action: 'create', ...A, profile })).data.state;
+	const b0 = (await w.call({ action: 'create', ...B, profile })).data.state;
+	const lobby = (await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 })).data.lobbies[0].id;
+	await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 0 });
+	// 开始和队友的动作同时到：两件事都要落进队友的存档
+	const [s, act] = await Promise.all([
+		w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev }),
+		w.call({ action: 'act', ...B, rev: b0.rev, act: { t: 'activity', id: 'rest' } }),
+	]);
+	assert.ok(s.data.ok, s.data.msg);
+	const final = w.data.get('save:' + B.id).state;
+	const texts = final.journal.map((j: { text: string }) => j.text).join('\n');
+	assert.match(texts, /海滩清洁/, '共同事件写进去了');
+	if (act.data.ok) assert.equal(final.rev, b0.rev + 2, '两次都生效');
+	else assert.equal(act.status, 409, '没生效的只能是版本冲突（不能静默丢失）');
+});
+
+test('在线频道：共同事件提醒只转给同一地点的其他人，不带内容', () => {
+	const w = makeWorld();
+	const world = w.world as any;
+	const box = (loc: string) => ({ got: [] as string[], loc, send(m: string) { this.got.push(m); } });
+	const me = box('perth'), mate = box('perth'), far = box('broome');
+	for (const [ws, id] of [[me, 'aaaaaaaaaaaa'], [mate, 'bbbbbbbbbbbb'], [far, 'cccccccccccc']] as const) world.sockets.set(ws, { id, name: id, avatar: '🧑', loc: ws.loc });
+	world.onMessage(me, JSON.stringify({ t: 'coop', secret: 'x' }), new Set(WA.locations.map((l) => l.id)));
+	assert.deepEqual(mate.got.map((m) => JSON.parse(m)), [{ t: 'coop' }]);
+	assert.equal(me.got.length, 0, '不发回给自己');
+	assert.equal(far.got.length, 0, '别的地点收不到');
+});

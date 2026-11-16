@@ -3,12 +3,14 @@
 // 另有保留实例 '@SAVES' 负责云存档（跨设备同步）。
 // 权威结算：客户端只发送动作（create / act），由本实例调用规则引擎结算并保存；
 // 客户端不能上传存档，改本地数据不会影响服务器上的进度。
-import { applyAction, parseAction, publicState } from '../core/actions.ts';
+import { applyAction, applyCoop, parseAction, publicState } from '../core/actions.ts';
+import { coopBlocked } from '../core/coop.ts';
+import { getCoop } from '../data/coop.ts';
 import { claimDaily, realDayOf } from '../core/daily.ts';
 import { refreshWishes } from '../core/wishes.ts';
 import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
 import { boardEntry, rankBoard } from '../core/board.ts';
-import type { PlayerState } from '../core/types.ts';
+import type { PlayerState, Region } from '../core/types.ts';
 import { getRegion, REGIONS } from '../data/wa.ts';
 
 const SAVES_ROOM = '@SAVES';
@@ -23,7 +25,23 @@ const CLOCK_BACK_MAX_MS = 24 * 60 * 60 * 1000; // 时钟回拨最多按这么久
 const SAVE_LIMIT = 90; // 每 IP 每分钟（每个动作一次请求）
 const EMOTES = ['👋', '🤝', '🍻', '📸', '❤️', '😂'];
 const ID_RE = /^[a-zA-Z0-9_-]{6,40}$/;
+const LOBBY_RE = /^[a-f0-9]{8}$/;
+const COOP_OPEN_MS = 5 * 60 * 1000; // 没开始的共同事件大厅 5 分钟后解散
+const COOP_DONE_MS = 3 * 60 * 1000; // 结果保留 3 分钟，给没在线的队友拉取
+const COOP_MAX_LOBBIES = 200;
+const COOP_PER_LOC = 4;
 const KEY_RE = /^[a-zA-Z0-9]{16,64}$/;
+
+/** 共同事件大厅：只在 '@SAVES' 实例的内存里（实例重启就没了，最多影响几分钟内没开始的大厅）。成员 id 是真实存档 id，绝不发给客户端 */
+interface Lobby {
+	id: string;
+	coop: string;
+	loc: string;
+	host: string;
+	at: number;
+	members: { id: string; name: string; avatar: string; role: number }[];
+	done?: { at: number; success: boolean; text: string; ids: string[] };
+}
 
 interface Presence {
 	id: string;
@@ -57,6 +75,7 @@ export class EarthWorld {
 	private locks = new Map<string, Promise<unknown>>(); // 同一存档的请求排队执行，避免并发读改写
 	private board: [string, unknown][] | null = null; // 榜单记录的内存缓存；所有存档都写在这个实例里，写入时作废
 	private boardGen = 0; // 每次写入加一：读榜期间有写入时，读到的旧列表不放进缓存
+	private lobbies = new Map<string, Lobby>();
 
 	constructor(ctx: DurableObjectState, _env: unknown) {
 		this.ctx = ctx;
@@ -134,6 +153,10 @@ export class EarthWorld {
 				if (text) this.broadcastAt(me.loc, { t: 'chat', id: me.id, name: me.name, avatar: me.avatar, text, at: now });
 				break;
 			}
+			case 'coop':
+				// 共同事件大厅有变化：只提醒同一地点的其他人去拉一次列表，不带任何内容（内容以服务端为准）
+				for (const [sock, p] of this.sockets) if (p.loc === me.loc && sock !== ws) this.send(sock, { t: 'coop' });
+				break;
 			case 'emote':
 				if (EMOTES.includes(m.kind) && typeof m.to === 'string') {
 					// 只能对同一地点的玩家互动
@@ -222,15 +245,25 @@ export class EarthWorld {
 		if (typeof id !== 'string' || !ID_RE.test(id) || typeof key !== 'string' || !KEY_RE.test(key)) {
 			return json({ ok: false, msg: '同步码无效' }, 400);
 		}
-		// 同一存档串行处理：上一个请求结束后才开始下一个
-		const prev = this.locks.get(id) ?? Promise.resolve();
+		// 同一存档串行处理：上一个请求结束后才开始下一个。共同事件开始时要改所有成员的存档，同时排在每个成员的队列后面
+		const ids = [id];
+		if (body.action === 'coop' && body.op === 'start' && typeof body.lobby === 'string') {
+			const l = this.lobbies.get(body.lobby);
+			if (l && l.host === id) ids.push(...l.members.map((m) => m.id));
+		}
 		// 结算和存档校验用的时间在轮到这个请求时才取，不用请求到达时的时间：
 		// 上传得慢的请求可能排在后到的请求后面执行，拿着旧时间会把后者刚写入的时间戳当成「未来」清掉
-		const run = prev.then(() => this.handleSaveLocked(body, id, key, Date.now()));
-		const tail = run.catch(() => {});
-		this.locks.set(id, tail);
+		return this.runLocked(ids, () => this.handleSaveLocked(body, id, key, Date.now(), new Set(ids)));
+	}
+
+	private runLocked<T>(ids: string[], fn: () => Promise<T>): Promise<T> {
+		const uniq = [...new Set(ids)];
+		const prev = Promise.all(uniq.map((i) => this.locks.get(i) ?? Promise.resolve()));
+		const run = prev.then(fn);
+		const tail = run.then(() => {}, () => {});
+		for (const i of uniq) this.locks.set(i, tail);
 		tail.then(() => {
-			if (this.locks.get(id) === tail) this.locks.delete(id);
+			for (const i of uniq) if (this.locks.get(i) === tail) this.locks.delete(i);
 		});
 		return run;
 	}
@@ -245,7 +278,7 @@ export class EarthWorld {
 		this.board = null;
 	}
 
-	private async handleSaveLocked(body: any, id: string, key: string, wall: number): Promise<Response> {
+	private async handleSaveLocked(body: any, id: string, key: string, wall: number, locked = new Set([id])): Promise<Response> {
 		const keyHash = await sha256Hex(id + ':' + key);
 		const rec = await this.ctx.storage.get<{ keyHash: string; state: any; at: number }>('save:' + id);
 		if (rec && !timingSafeEqual(rec.keyHash, keyHash)) return json({ ok: false, msg: '同步码无效' }, 403);
@@ -320,7 +353,107 @@ export class EarthWorld {
 			else if (migrated) await this.persist(id, keyHash, current, now);
 			return json({ ok: r.ok, msg: r.msg, state: publicState(next), at: now, daily: claim?.msg });
 		}
+		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, locked);
 		return json({ ok: false, msg: '请求无效' }, 400);
+	}
+
+	// ---------- 共同事件 ----------
+	// coop { op: 'list' }                       这个地点的大厅，和我参加过、刚结束的结果
+	// coop { op: 'open', coop, role }            发起（要求现在能参加）
+	// coop { op: 'join', lobby, role }           加入同一地点的大厅
+	// coop { op: 'leave', lobby }                退出；发起人退出就解散
+	// coop { op: 'start', lobby, rev }           发起人开始：重新检查每个成员，人够就结算并写所有人的存档
+	private pruneLobbies(now: number) {
+		for (const [k, l] of this.lobbies) if (l.done ? now - l.done.at > COOP_DONE_MS : now - l.at > COOP_OPEN_MS) this.lobbies.delete(k);
+	}
+
+	private coopView(id: string, loc: string) {
+		const lobbies = [...this.lobbies.values()].filter((l) => !l.done && l.loc === loc).map((l) => ({
+			id: l.id,
+			coop: l.coop,
+			host: l.host === id,
+			mine: l.members.some((m) => m.id === id),
+			members: l.members.map((m) => ({ name: m.name, avatar: m.avatar, role: m.role, me: m.id === id })),
+		}));
+		const results = [...this.lobbies.values()].filter((l) => l.done?.ids.includes(id)).map((l) => ({ id: l.id, coop: l.coop, success: l.done!.success, text: l.done!.text, at: l.done!.at }));
+		return { lobbies, results };
+	}
+
+	private async handleCoop(body: any, id: string, keyHash: string, current: PlayerState, live: PlayerState, region: Region, now: number, locked: Set<string>): Promise<Response> {
+		this.pruneLobbies(now);
+		const op = body.op;
+		const reply = (extra: Record<string, unknown> = {}, status = 200) => json({ ok: true, ...this.coopView(id, current.loc), at: now, ...extra }, status);
+		const no = (msg: string, status = 400) => json({ ok: false, msg, ...this.coopView(id, current.loc), at: now }, status);
+		const inOpen = () => [...this.lobbies.values()].find((l) => !l.done && l.members.some((m) => m.id === id));
+		const role = (def: { roles: unknown[] }) => (Number.isInteger(body.role) && body.role >= 0 && body.role < def.roles.length ? (body.role as number) : -1);
+
+		if (op === 'list') return reply();
+		if (op === 'open') {
+			const def = typeof body.coop === 'string' ? getCoop(body.coop) : undefined;
+			if (!def) return no('没有这件事');
+			const r = role(def);
+			if (r < 0) return no('分工无效');
+			const why = coopBlocked(current, region, def);
+			if (why) return no(why);
+			if (inOpen()) return no('你已经在一个队伍里了');
+			if (this.lobbies.size >= COOP_MAX_LOBBIES || [...this.lobbies.values()].filter((l) => !l.done && l.loc === current.loc).length >= COOP_PER_LOC) return no('这里的队伍太多了，加入一个吧');
+			const lid = [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, '0')).join('');
+			this.lobbies.set(lid, { id: lid, coop: def.id, loc: current.loc, host: id, at: now, members: [{ id, name: current.name, avatar: current.avatar, role: r }] });
+			return reply({ msg: `已发起「${def.title}」，等人加入` });
+		}
+		const l = typeof body.lobby === 'string' && LOBBY_RE.test(body.lobby) ? this.lobbies.get(body.lobby) : undefined;
+		if (!l || l.done) return no('这个队伍已经解散或结束了', 404);
+		const def = getCoop(l.coop)!;
+		if (op === 'join') {
+			const r = role(def);
+			if (r < 0) return no('分工无效');
+			if (l.members.some((m) => m.id === id)) return no('你已经在这个队伍里了');
+			if (l.loc !== current.loc) return no('要在同一个地点才能加入');
+			if (l.members.length >= def.max) return no('人已经满了');
+			const why = coopBlocked(current, region, def);
+			if (why) return no(why);
+			if (inOpen()) return no('你已经在一个队伍里了');
+			l.members.push({ id, name: current.name, avatar: current.avatar, role: r });
+			return reply({ msg: `已加入「${def.title}」` });
+		}
+		if (op === 'leave') {
+			if (!l.members.some((m) => m.id === id)) return no('你不在这个队伍里');
+			if (l.host === id) this.lobbies.delete(l.id);
+			else l.members = l.members.filter((m) => m.id !== id);
+			return reply({ msg: l.host === id ? '队伍已解散' : '已退出' });
+		}
+		if (op === 'start') {
+			if (l.host !== id) return no('只有发起人能开始');
+			if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: '进度已在另一台设备上更新', state: publicState(current), ...this.coopView(id, current.loc), at: now }, 409);
+			// 重新读每个成员的存档（已在锁内），还在这里、现在能参加的才算数
+			const locs = new Set(region.locations.map((x) => x.id));
+			const members: { id: string; keyHash: string; state: PlayerState; name: string; role: number }[] = [];
+			// 只结算排队时已经锁住的成员：之后才加入的人存档没锁，不能动
+			for (const m of l.members.filter((x) => locked.has(x.id))) {
+				if (m.id === id) {
+					members.push({ id, keyHash, state: live, name: m.name, role: m.role });
+					continue;
+				}
+				const rec = await this.ctx.storage.get<{ keyHash: string; state: any; at: number }>('save:' + m.id);
+				const st = rec ? sanitizeState(rec.state, locs, { fallbackLoc: region.spawn, now }) : null;
+				if (rec && st) members.push({ id: m.id, keyHash: rec.keyHash, state: st, name: m.name, role: m.role });
+			}
+			const ready = members.filter((m) => m.state.loc === l.loc && !coopBlocked(m.state, region, def));
+			if (!ready.some((m) => m.id === id)) return no(coopBlocked(live, region, def) ?? '你现在不能参加');
+			if (ready.length < def.min) return no(`人不够：至少要 ${def.min} 个人在这里、现在能参加`);
+			const r = applyCoop(def, region, ready.map((m) => ({ state: m.state, role: m.role, name: m.name })));
+			const canon = (st: PlayerState) => sanitizeState(st, locs, { fallbackLoc: region.spawn, now }) ?? st;
+			let mine = live;
+			for (let i = 0; i < ready.length; i++) {
+				const next = canon(r.results[i].state);
+				await this.persist(ready[i].id, ready[i].keyHash, next, now);
+				if (ready[i].id === id) mine = next;
+			}
+			const text = (r.success ? def.ok : def.fail).text;
+			l.done = { at: now, success: r.success, text, ids: ready.map((m) => m.id) };
+			return json({ ok: true, msg: `${def.icon} ${def.title}：${text}`, success: r.success, state: publicState(mine), ...this.coopView(id, mine.loc), at: now });
+		}
+		return no('请求无效');
 	}
 }
 

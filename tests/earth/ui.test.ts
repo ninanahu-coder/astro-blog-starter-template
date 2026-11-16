@@ -224,6 +224,18 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(panel(), /data-quick="0"/);
 		await click({ quick: '1' });
 		assert.ok(sent.some((m) => JSON.parse(m).t === 'chat' && JSON.parse(m).text === '有人一起吗？'), '快捷短语发出去了');
+		// 共同事件：社交页能发起；发起后显示等人加入、提醒同地点的人；发起人可以解散
+		assert.match(panel(), /一起做点什么/);
+		assert.match(panel(), /data-coop="open" data-coop-id="beach-cleanup" data-role="0"/);
+		await click({ coop: 'open', coopId: 'beach-cleanup', role: '0' });
+		await pause(30);
+		assert.match(panel(), /等人加入（至少 2 人）/);
+		assert.ok(sent.some((m) => JSON.parse(m).t === 'coop'), '提醒同地点的人');
+		const lob = panel().match(/data-coop="leave" data-lobby="([a-f0-9]{8})"/)?.[1];
+		assert.ok(lob, '有解散按钮');
+		await click({ coop: 'leave', lobby: lob! });
+		await pause(30);
+		assert.doesNotMatch(panel(), /等人加入/);
 		// 断开连接时角标也要清掉
 		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: 'peer-2', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
 		assert.match(el('tabs').innerHTML, /class="badge"/);

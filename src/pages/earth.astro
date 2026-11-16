@@ -226,6 +226,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.chat { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; font-size: 14px; margin: 8px 0; }
 			.chat b { color: var(--accent); font-weight: 600; }
 			.inline { display: flex; gap: 8px; flex-wrap: wrap; }
+			.coop-item { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+			.coop-item p { margin: 0; }
+			.coop-item .inline button { min-height: 44px; }
 			.inline button { flex: none; }
 			.code { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; background: var(--soft); padding: 10px; border-radius: 10px; margin: 8px 0; user-select: all; }
 			.emotes button { padding: 4px 8px; font-size: 16px; min-height: 44px; min-width: 44px; }
@@ -351,6 +354,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { checkScore, moodBreakdown, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
+			import { coopBlocked, coopsAt } from '../game/core/coop.ts';
+			import { getCoop } from '../game/data/coop.ts';
 			import { ACTIVITIES } from '../game/data/activities.ts';
 			import { EVENTS } from '../game/data/events.ts';
 			import { dateLabel, period, PERIOD_IDS, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
@@ -477,6 +482,65 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				boardLoading = false;
 				if (tab === 'social') renderPanel();
 			}
+			// 共同事件：同一地点的大厅列表（服务端为准）；打开社交页和收到在线频道的提醒时拉取
+			type CoopLobby = { id: string; coop: string; host: boolean; mine: boolean; members: { name: string; avatar: string; role: number; me: boolean }[] };
+			let coopLobbies: CoopLobby[] = [];
+			let coopAt = 0;
+			let coopLoading = false;
+			let coopPrimed = false; // 第一次拉到的旧结果只记下，不弹提示
+			const coopSeen = new Set<string>();
+			function takeCoop(data: any) {
+				if (Array.isArray(data?.lobbies)) coopLobbies = data.lobbies;
+				for (const r of Array.isArray(data?.results) ? data.results : []) {
+					if (typeof r?.id !== 'string' || coopSeen.has(r.id)) continue;
+					coopSeen.add(r.id);
+					const def = getCoop(String(r.coop));
+					if (!def || !coopPrimed) continue;
+					// 队友开始的：结果已经写进我的存档，拉一次最新进度
+					lastOutcome = `${def.icon} ${def.title}：${String(r.text ?? '')}`;
+					toast(lastOutcome);
+					pullCloud();
+				}
+				coopPrimed = true;
+			}
+			async function loadCoop(force = false) {
+				if (!cred || !state || coopLoading || (!force && Date.now() - coopAt < 15_000)) return;
+				coopLoading = true;
+				try {
+					const { data } = await api({ action: 'coop', op: 'list', id: cred.id, key: cred.key });
+					takeCoop(data);
+				} catch {}
+				coopAt = Date.now();
+				coopLoading = false;
+				if (tab === 'social') renderPanel();
+			}
+			async function coopOp(op: string, extra: Record<string, unknown>) {
+				if (!state || !cred || busy) return;
+				busy = true;
+				document.body.classList.add('busy');
+				const before = state;
+				try {
+					if (op === 'start' && typeof extra.lobby === 'string') coopSeen.add(extra.lobby); // 自己开始的，结果直接在这次返回里
+					const { status, data } = await api({ action: 'coop', op, id: cred.id, key: cred.key, rev: before.rev, ...extra });
+					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, data.msg); }
+					else if (data.state) {
+						adopt(data.state);
+						if (data.ok && state && state.rev === nextRev(before.rev)) { lastDelta = stateDelta(before, state); lastOutcome = data.msg; }
+					}
+					takeCoop(data);
+					coopAt = Date.now();
+					if (data.msg) toast(data.msg);
+					// 提醒同一地点的人去拉一次列表
+					if (data.ok && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'coop' }));
+				} catch {
+					syncStatus = '离线：可以查看，联网后才能行动';
+					toast('网络断开了，联网后才能行动');
+				} finally {
+					busy = false;
+					document.body.classList.remove('busy');
+				}
+				render();
+			}
 			const srvNow = () => Date.now() + clockSkew;
 			async function api(body: unknown) {
 				const res = await fetch('/api/earth/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -534,6 +598,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					else if (m.t === 'move') { const p = peers.get(m.id); if (p) p.loc = m.loc; }
 					else if (m.t === 'chat') { chats.push(m); chats = chats.slice(-50); if (tab !== 'social') toast(`${m.name}: ${m.text}`); }
 					else if (m.t === 'emote') toast(`${m.name} 向你 ${m.kind}`);
+					else if (m.t === 'coop') { loadCoop(true); return; }
 					else return;
 					renderMap();
 					renderTabs();
@@ -1050,6 +1115,34 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return head + seg + bodyHtml;
 			}
 
+			/** 共同事件：这里的队伍（加入/开始/退出）和这里能发起的事 */
+			function coopCard(s: PlayerState) {
+				loadCoop();
+				const loc = getLocation(region, s.loc)!;
+				const others = [...peers.values()].filter((p) => p.loc === s.loc && p.id !== myPeerId).length;
+				const defs = coopsAt(s, region);
+				const inLobby = coopLobbies.some((l) => l.mine);
+				if (!defs.length && !coopLobbies.length) return `<div class="card coop"><h3>一起做点什么</h3><p class="muted">${esc(loc.name)}没有能和别人一起做的事。海滩、城里、内陆和海豚湾都有。</p></div>`;
+				const lobbies = coopLobbies.map((l) => {
+					const def = getCoop(l.coop);
+					if (!def) return '';
+					const blocked = coopBlocked(s, region, def);
+					const members = l.members.map((m) => `<span class="tag">${esc(m.avatar)} ${esc(m.name)}${m.me ? '（你）' : ''} · ${esc(def.roles[m.role]?.label ?? '')}</span>`).join('');
+					const canStart = l.host && l.members.length >= def.min;
+					const lid = esc(l.id);
+					const actions = l.mine
+						? `${l.host ? `<button class="primary" data-coop="start" data-lobby="${lid}" ${canStart ? '' : 'disabled'}>${canStart ? `开始（${l.members.length} 人）` : `等人加入（至少 ${def.min} 人）`}</button>` : '<span class="muted">等发起人开始</span>'}<button data-coop="leave" data-lobby="${lid}">${l.host ? '解散' : '退出'}</button>`
+						: l.members.length >= def.max ? '<span class="muted">人满了</span>'
+						: inLobby ? '<span class="muted">你已经在别的队伍里</span>'
+						: def.roles.map((r, i) => `<button data-coop="join" data-lobby="${lid}" data-role="${i}" ${blocked ? 'disabled' : ''}>加入：${esc(r.label)}</button>`).join('');
+					return `<div class="coop-item"><b>${def.icon} ${esc(def.title)}</b> <span class="muted">${l.members.length}/${def.max} 人</span><div class="tags">${members}</div>${blocked && !l.mine ? `<p class="muted">${esc(blocked)}</p>` : ''}<div class="inline">${actions}</div></div>`;
+				}).join('');
+				const open = inLobby ? '' : defs.filter(({ def }) => !coopLobbies.some((l) => l.coop === def.id)).map(({ def, blocked }) => `<div class="coop-item"><b>${def.icon} ${esc(def.title)}</b> <span class="muted">${def.min}–${def.max} 人</span><p>${esc(def.text)}</p>${blocked ? `<p class="muted">${esc(blocked)}</p>` : ''}
+					<div class="inline">${def.roles.map((r, i) => `<button data-coop="open" data-coop-id="${def.id}" data-role="${i}" ${blocked ? 'disabled' : ''}>发起：${esc(r.label)}</button>`).join('')}</div></div>`).join('');
+				return `<div class="card coop"><h3>一起做点什么</h3><p>和同一地点的玩家一起做：每人选一个分工，合起来检定，人越多越容易成功。${others ? `这里现在有 ${others} 位其他玩家。` : '这里暂时没有其他玩家：可以先发起，5 分钟内有人来就能开始。'}</p>
+					${lobbies}${open}<div class="inline" style="margin-top:10px"><button data-coop="list" ${coopLoading ? 'disabled' : ''}>刷新</button></div></div>`;
+			}
+
 			function boardCard() {
 				loadBoard();
 				const row = (r: BoardRow) => `<div class="row"><span class="ico">${r.rank}</span><span class="body">${esc(r.avatar)} ${r.me ? `<b>${esc(r.name)}（你）</b>` : esc(r.name)}<small>净资产 $${r.worth.toLocaleString()} · 第 ${r.day + 1} 天</small></span></div>`;
@@ -1088,6 +1181,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							: `<button class="row" data-loc="${plan.loc}"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta"><b>怎么去</b></span></button>`;
 				}).join('')}</div></div>` : '';
 				return `${knownHtml}<div class="card"><h3>${esc(getLocation(region, s.loc)!.name)}的人</h3><p>${online ? `全区在线 ${peers.size} 人` : '未连接，稍后自动重连…'}</p><div class="list" style="margin-top:8px">${people}</div></div>
+					${coopCard(s)}
 					<div class="card"><h3>本地频道</h3><p>只有同一地点的玩家能看到。</p>
 						<div class="chat" id="chat">${chats.map((c) => `<div>${esc(c.avatar)} <b>${esc(c.name)}</b> ${esc(c.text)}</div>`).join('')}</div>
 						<div class="quick">${QUICK_CHAT.map((q, i) => `<button data-quick="${i}" ${online ? '' : 'disabled'}>${q}</button>`).join('')}</div>
@@ -1345,6 +1439,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				else if ('copy' in d) navigator.clipboard?.writeText(`${cred!.id}.${cred!.key}`).then(() => toast('已复制'), () => toast('复制失败，请长按手动复制'));
 				else if ('pull' in d) pullCloud();
 				else if ('board' in d) loadBoard(true);
+				else if (d.coop) {
+					if (d.coop === 'list') loadCoop(true);
+					else if (d.coop === 'open') coopOp('open', { coop: d.coopId, role: Number(d.role) });
+					else if (d.coop === 'join') coopOp('join', { lobby: d.lobby, role: Number(d.role) });
+					else if (d.coop === 'leave' || d.coop === 'start') coopOp(d.coop, { lobby: d.lobby });
+				}
 				else if ('reset' in d) {
 					if (!confirm('确定删除本机存档？请先记下同步码。')) return;
 					try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(CRED_KEY); } catch {}

@@ -353,6 +353,27 @@ export interface Outcome {
 	fx: Effect;
 }
 
+/** 共同事件：同一地点两名以上玩家一起做；每人选一个分工（用自己那项能力），合起来做一次团队检定，所有人拿同一个结果 */
+export interface CoopDef {
+	id: string;
+	title: string;
+	icon: string;
+	text: string;
+	/** 在哪能做：地点 / tag / kind 任一命中；都不写为到处都能做 */
+	locs?: string[];
+	tags?: string[];
+	kinds?: LocationKind[];
+	weather?: string[];
+	hours?: Hours;
+	min: number;
+	max: number;
+	/** 团队分 = 每人（检定分 + 随机 0–60）的平均值 + 每多一人 +6，达到 dc 就成功 */
+	dc: number;
+	roles: { label: string; skill: SkillKey }[];
+	ok: Outcome;
+	fail: Outcome;
+}
+
 export interface EventChoice {
 	label: string;
 	/** 选这一项要先付的钱（买东西、门票）。钱不够不能选；和结果里的罚款不同，罚款不够时扣到 0 为止 */
