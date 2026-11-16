@@ -118,6 +118,29 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			#game { flex: 1; display: flex; flex-direction: column; min-height: 100dvh; }
 			#hud { padding: calc(10px + env(safe-area-inset-top)) 16px 10px; background: var(--bg); position: sticky; top: 0; z-index: 5; border-bottom: 1px solid transparent; }
+			.hud-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+			.hud-title { display: flex; flex-direction: column; min-width: 0; }
+			.hud-sub { font-size: 12px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+			#hud h1 { margin: 0; font-size: 22px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+			.hud-right { display: flex; align-items: center; gap: 6px; flex: none; }
+			.wx-pill { flex: none; padding: 6px 10px; border-radius: 999px; background: var(--tint-blue); color: var(--tint-blue-ink); font-size: 13px; font-weight: 600; white-space: nowrap; }
+			.wx-pill.storm { background: var(--tint-red); color: var(--tint-red-ink); }
+			.hud-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-variant-numeric: tabular-nums; }
+			.chip { padding: 4px 10px; border-radius: 8px; background: var(--soft); color: var(--text); font-size: 13px; white-space: nowrap; }
+			.chip.cash { background: var(--tint-green); color: var(--tint-green-ink); font-weight: 700; }
+			.hud-chips .moodchip { min-height: 32px; }
+			.hud-chips .sync-dot { margin-left: auto; font-size: 12px; color: var(--dim); }
+			em.lack { font-style: normal; font-size: 11px; font-weight: 700; color: var(--low-ink); }
+			.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 10px; }
+			.tile { min-height: 64px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card2); color: var(--text); text-align: left; }
+			.tile b { font-size: 14px; }
+			.tile small { font-size: 12px; color: var(--dim); }
+			.tile.on { border: 2px solid var(--accent); background: var(--tint-blue); }
+			.tile.on small { color: var(--tint-blue-ink); }
+			.tile:disabled { opacity: 0.55; }
+			.budget { margin-top: 10px; padding: 8px 10px; border-radius: 8px; background: var(--tint-amber); color: var(--tint-amber-ink); font-size: 13px; }
+			.budget.tight { background: var(--tint-red); color: var(--tint-red-ink); }
+			.dest .primary.wide { margin-top: 10px; }
 			.hud-row { display: flex; align-items: center; gap: 10px; font-variant-numeric: tabular-nums; min-height: 32px; }
 			.hud-row .who { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
 			.hud-row .stat { white-space: nowrap; font-size: 13px; color: var(--dim); }
@@ -211,11 +234,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.needs-grid .need .top { display: flex; justify-content: space-between; }
 			.needs-grid .need b.low { color: var(--low-ink); }
 			.needs-grid .need b.mid { color: var(--mid-ink); }
-			.next { background: var(--ink); color: #fff; border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
-			.next .lbl { font-size: 12px; font-weight: 600; letter-spacing: 1px; color: var(--ink-dim); }
+			/* 「下一步」：主色底、白字，按钮反过来用卡片底色（草图样式）；上班计时卡仍是深色 */
+			.next { background: var(--accent); color: var(--accent-ink); border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+			.next .lbl { font-size: 12px; font-weight: 600; letter-spacing: 1px; color: var(--accent-ink); }
 			.next h2 { margin: 0; font-size: 21px; }
-			.next p { margin: 0; color: #d3dae1; font-size: 14px; }
-			.next button { min-height: 52px; border: 0; border-radius: 14px; background: var(--accent); color: var(--accent-ink); font-size: 17px; font-weight: 700; }
+			.next p { margin: 0; color: var(--accent-ink); font-size: 14px; }
+			.next button { min-height: 52px; border: 0; border-radius: 14px; background: var(--card); color: var(--accent); font-size: 17px; font-weight: 700; }
+			.next.clock { background: var(--ink); color: #fff; }
+			.next.clock .lbl { color: var(--ink-dim); }
+			.next.clock p { color: #d3dae1; }
 			.seg { display: flex; gap: 4px; padding: 4px; background: var(--seg-bg); border-radius: 14px; }
 			.seg button { flex: 1; min-height: 44px; border: 0; border-radius: 10px; background: transparent; font-size: 14px; color: var(--text2); padding: 0 4px; }
 			.seg button.on { background: var(--card); color: var(--text); font-weight: 700; box-shadow: 0 1px 2px var(--shadow); }
@@ -353,6 +380,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let cred: Cred | null = null;
 			let tab = 'place';
 			let selected: string | null = null;
+			// 目的地卡上选中的交通方式（只对那个目的地有效）
+			let destMode: { dest: string; mode: string } | null = null;
 			let lastOutcome: string | null = null;
 			// 上一个成功动作带来的数值变化，显示在今天页（只在本机内存里）
 			let lastDelta: { text: string; up: boolean }[] = [];
@@ -559,18 +588,38 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const m = mood(s);
 				const stars = wantedStars(s.heat);
 				const online = !/失败|离线|未同步/.test(syncStatus);
-				// 今天页有完整的角色卡，顶栏只留一行；其他页加一条迷你需求条
-				const mini = tab === 'place' ? '' : `<div class="mini-needs">${needList(s).map((n) => `<div class="need" title="${n.name} ${n.v}">${n.icon}<div class="bar"><i class="${barCls(n.v)}" style="width:${n.v}%"></i></div></div>`).join('')}</div>`;
-				$('hud').innerHTML = `
-					<div class="hud-row">
-						<span class="who">${s.avatar} ${esc(s.name)} <span class="stat">Lv${level(s.respect).lv}</span></span>
-						${stars ? `<span class="stat" title="通缉星级（麻烦值 ${Math.round(s.heat)}）">${'★'.repeat(stars)}</span>` : ''}
-						<span class="cash">$${s.cash.toLocaleString()}</span>
-						<button class="moodchip${moodCls(m)}" data-tab="me" title="看心情的来源"><span>${moodTier(m).name} ${m}</span></button>
-					</div>
-					<div class="hud-time"><span title="${formatClock(s.clock)}">${weatherAt(s).icon} ${dateLabel(s.clock)} · ${WEEKDAYS[weekdayOf(s.clock)]} ${formatClock(s.clock).split(' ')[1]} ${period(s.clock).name}</span><span class="sync-dot${online ? '' : ' off'}">${online ? '已同步' : '离线'}</span></div>
-					${syncStatus.startsWith('离线') ? '<div class="offline" role="status">现在离线：可以查看，联网后才能行动</div>' : ''}
-					${mini}`;
+				const loc = getLocation(region, s.loc)!;
+				const w = weatherAt(s);
+				const time = `${dateLabel(s.clock)} · ${WEEKDAYS[weekdayOf(s.clock)]} ${formatClock(s.clock).split(' ')[1]} ${period(s.clock).name}`;
+				const sync = `<span class="sync-dot${online ? '' : ' off'}">${online ? '已同步' : '离线'}</span>`;
+				const cash = `<span class="chip cash">$${s.cash.toLocaleString()}</span>`;
+				const moodBtn = `<button class="moodchip${moodCls(m)}" data-tab="me" title="看心情的来源"><span>心情 ${moodTier(m).name} ${m}</span></button>`;
+				const starHtml = stars ? `<span class="chip" title="通缉星级（麻烦值 ${Math.round(s.heat)}）">${'★'.repeat(stars)}</span>` : '';
+				let top: string;
+				if (tab === 'place') {
+					// 今天页：时间 + 地点大标题 + 天气；下面一排现金、工作/等级、心情（需求条在页面里）
+					const career = s.job ? getCareer(s.job.career) : undefined;
+					const lv = level(s.respect);
+					const role = career ? `${career.name} · ${career.levels[s.job!.level]?.title ?? ''}` : `Lv${lv.lv} ${lv.title}`;
+					top = `<div class="hud-top"><div class="hud-title"><span class="hud-sub" title="${formatClock(s.clock)}">${time}</span><h1>${esc(loc.name)}</h1></div>
+						<span class="wx-pill${w.closesSea ? ' storm' : ''}">${w.icon} ${esc(w.name)}${w.closesSea ? ' · 海上关闭' : ''}</span></div>
+						<div class="hud-chips">${cash}<span class="chip">${esc(role)}</span>${starHtml}${moodBtn}${sync}</div>`;
+				} else {
+					// 其他页：副标题 + 页名；右边现金和心情，下面一条迷你需求条
+					const here = [...peers.values()].filter((p) => p.loc === s.loc && p.id !== myPeerId).length;
+					const sub: Record<string, string> = {
+						go: `从${loc.name}出发 · ${time}`,
+						near: '真实地点 · 本人到场才能用',
+						social: `${loc.name} · ${here ? `${here} 位玩家在线` : '没有其他玩家在线'}`,
+						me: `${dateLabel(s.clock)} · 已过 ${dayOf(s.clock) + 1} 天`,
+					};
+					const title = TABS.find(([id]) => id === tab)?.[1] ?? '';
+					top = `<div class="hud-top"><div class="hud-title"><span class="hud-sub">${esc(sub[tab] ?? time)}</span><h1>${title}</h1></div>
+						<div class="hud-right">${cash}${starHtml}</div></div>
+						<div class="hud-chips">${moodBtn}${sync}</div>
+						<div class="mini-needs">${needList(s).map((n) => `<div class="need" title="${n.name} ${n.v}">${n.icon}<div class="bar"><i class="${barCls(n.v)}" style="width:${n.v}%"></i></div></div>`).join('')}</div>`;
+				}
+				$('hud').innerHTML = `${top}${syncStatus.startsWith('离线') ? '<div class="offline" role="status">现在离线：可以查看，联网后才能行动</div>' : ''}`;
 			}
 
 			const proj = makeProjection(region);
@@ -609,16 +658,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			const minutesLabel = (m: number) => (m >= 60 ? (m / 60).toFixed(m % 60 ? 1 : 0) + ' 小时' : m + ' 分钟');
 			const NEED_LOW: Record<string, string> = { health: '身体不太舒服', hunger: '肚子有点饿了', energy: '有点累了', hygiene: '该洗个澡了', fun: '有点无聊', social: '想找人说说话' };
-			/** 今天页的角色卡：头像、等级、现金、心情、6 条需求 */
-			function meCard(s: PlayerState) {
-				const lv = level(s.respect);
-				const origin = ORIGINS.find((o) => o.id === s.origin);
-				const m = mood(s);
-				return `<div class="card me-card">
-					<div class="me-head"><span class="avatar">${s.avatar}</span>
-						<span class="name"><b>${esc(s.name)}</b><span>Lv${lv.lv} ${esc(lv.title)}${origin ? ` · ${esc(origin.name)}` : ''}</span></span>
-						<span class="money"><b>$${s.cash.toLocaleString()}</b><button class="moodchip${moodCls(m)}" data-tab="me"><span>心情 ${moodTier(m).name} ${m}</span></button></span></div>
-					<div class="needs-grid">${needList(s).map((n) => `<div class="need"><div class="top"><span>${n.icon} ${n.name}</span><b class="${barCls(n.v)}">${n.v}</b></div><div class="bar"><i class="${barCls(n.v)}" style="width:${n.v}%"></i></div></div>`).join('')}</div></div>`;
+			/** 今天页的状态卡：健康 + 5 项需求；低于 60 的最低一项标「最缺」（名字、现金、心情在顶栏） */
+			function needsCard(s: PlayerState) {
+				const list = needList(s);
+				const min = Math.min(...list.map((n) => n.v));
+				return `<div class="card"><h3>状态</h3><div class="needs-grid">${list.map((n) => `<div class="need"><div class="top"><span>${n.icon} ${n.name}${n.v === min && min < 60 ? ' <em class="lack">最缺</em>' : ''}</span><b class="${barCls(n.v)}">${n.v}</b></div><div class="bar"><i class="${barCls(n.v)}" style="width:${n.v}%"></i></div></div>`).join('')}</div></div>`;
 			}
 			/** 「下一步」：最缺的那项需求 → 这里能补它最多的事；需求都还行时提示上班或出门。只是建议，结算仍由服务器做 */
 			function nextCard(s: PlayerState, homeHere: boolean, canWork: boolean) {
@@ -799,10 +843,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const festHtml = `<div class="card"><h3>${festHere ? `🎉 ${esc(festHere.festival.name)}进行中` : '节日'}</h3>${festHere ? `<p>${esc(festHere.festival.desc)} 节日专属体验在下面的「体验」里。</p>` : ''}
 					${festSoon.map((c) => `<p style="margin-top:4px">${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(c.festival.name)} · ${esc(getLocation(region, c.festival.loc)!.name)}</p>`).join('')}</div>`;
 				return `
+					${nextCard(s, !!homeHere, !!workHere && !shiftWhy)}
 					${settleCard(s)}
 					${guideCard(s)}
-					${meCard(s)}
-					${nextCard(s, !!homeHere, !!workHere && !shiftWhy)}
+					${needsCard(s)}
 					${wishHtml}
 					<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
 						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
@@ -812,6 +856,26 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
 					${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${courseHtml}${shopHtml}${dealerHtml}${propHtml}${poiHtml}`;
+			}
+
+			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
+			function waysHtml(s: PlayerState, destId: string, ways: ReturnType<typeof travelOptions>) {
+				const open = ways.filter((o) => o.available);
+				const cheapest = [...open].sort((a, b) => a.cost - b.cost)[0];
+				const chosen = (destMode?.dest === destId && open.find((o) => o.mode === destMode!.mode)) || cheapest;
+				const tiles = ways.map((o) => {
+					const on = o === chosen;
+					return `<button class="tile${on ? ' on' : ''}" data-dmode="${o.mode}" data-dest="${destId}" aria-pressed="${on}" ${o.available ? '' : 'disabled'}><b>${o.label}</b><small>$${o.cost} · ${minutesLabel(o.minutes)}</small>${o.reason ? `<small>${esc(o.reason)}</small>` : ''}</button>`;
+				}).join('');
+				if (!chosen) return `<div class="tiles">${tiles}</div>`;
+				const left = s.cash - chosen.cost;
+				const wc = weeklyCosts(s);
+				const days = s.nextWeek - dayOf(s.clock);
+				const settle = wc.total > 0 && days <= 2 ? `，${days ? `${days} 天后` : '今天'}周结算要付 $${wc.total.toLocaleString()}${left < wc.total ? '，会不够' : '，还够'}` : '';
+				const name = getLocation(region, destId)!.name;
+				return `<div class="tiles">${tiles}</div>
+					<p class="budget${settle && left < wc.total ? ' tight' : ''}">${esc(chosen.label)}路费后剩 $${left.toLocaleString()}${settle}。</p>
+					<button class="primary wide" data-go="${destId}" data-mode="${chosen.mode}">出发去${esc(name)} · ${esc(chosen.label)} $${chosen.cost}</button>`;
 			}
 
 			function panelGo() {
@@ -828,7 +892,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					note = `<div class="card dest"><div class="dest-head"><h3>${KIND_ICON[dest.kind]} ${esc(dest.name)} <span class="muted">${esc(dest.en)}</span></h3><button data-loc="${dest.id}" aria-label="关闭">✕</button></div>
 						<p>${esc(dest.blurb)}</p>
 						<div class="pills" style="margin-top:8px"><span class="pill">${w.icon} 今天${esc(w.name)}</span>${s.visited[dest.id] ? `<span class="pill up">去过 ${s.visited[dest.id]} 次</span>` : '<span class="pill cost">没去过</span>'}${sig ? '<span class="pill cost">首次到达有专属事件</span>' : ''}${people.length ? `<span class="pill">今天在那里：${people.join('、')}</span>` : ''}</div>
-						${ways.length ? `<div class="list" style="margin-top:10px">${ways.map((o) => `<button class="row" data-go="${o.to}" data-mode="${o.mode}" ${o.available ? '' : 'disabled'}><span class="body">${o.label}<small>${o.km} km${o.reason ? ' · ' + esc(o.reason) : ''}</small></span><span class="meta"><b>$${o.cost}</b>${minutesLabel(o.minutes)}</span></button>`).join('')}</div>`
+						${ways.length ? waysHtml(s, dest.id, ways)
 							: `<p style="margin-top:8px">从${esc(getLocation(region, s.loc)!.name)}没有直达的路线，需要先到别处中转。</p>`}</div>`;
 				}
 				// 周结算两天内到：路费付完会不够付这周固定开销的，提醒一下
@@ -920,7 +984,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					photo: photoHtml,
 					trail: trailHtml,
 					ach: achHtml,
-					me: `<div class="card"><h3>${s.avatar} ${esc(s.name)}</h3><p>${origin.icon} ${origin.name} · 座驾：${veh}</p>
+					me: `<div class="card"><h3>档案</h3><p>${origin.icon} ${origin.name} · 座驾：${veh}</p>
 					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
 						<p>Lv${lv.lv} ${lv.title} · 声望 ${Math.floor(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
 						<div class="tags">${traits || '<span class="muted">没有性格特质</span>'}</div>
@@ -956,10 +1020,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
 					})()}</div>`,
 				};
-				const sections: Record<string, string[]> = { overview: ['me', 'mood', 'ach', 'story', 'trail', 'daily', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album', 'photo'], people: ['rels'] };
+				const sections: Record<string, string[]> = { overview: ['daily', 'ach', 'photo', 'mood', 'me', 'story', 'trail', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
+				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
 				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}</button>`).join('')}</div>`;
 				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
-				return seg + bodyHtml;
+				return head + seg + bodyHtml;
 			}
 
 			function boardCard() {
@@ -1127,7 +1192,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const odds = (skill: Parameters<typeof checkScore>[1], dc: number) => Math.round(Math.max(0, Math.min(1, (checkScore(s, skill).total + 60 - dc) / 60)) * 100);
 				const img = cgi['event:' + ev.id];
 				modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
-					<div class="ev-hero">${img ? `<img src="${esc(img)}" alt="" loading="lazy" />` : ''}<span class="kicker">${loc ? `到达 ${esc(loc.name)}` : '事件'}</span><h2 id="ev-title">${ev.icon} ${esc(ev.title)}</h2></div>
+					<div class="ev-hero">${img ? `<img src="${esc(img)}" alt="" loading="lazy" />` : ''}<span class="kicker">${loc ? `到达 ${esc(loc.name)} · ${formatClock(s.clock).split(' ')[1]}` : '事件'}${weatherAt(s).closesSea ? ' · 风暴天' : ''}</span><h2 id="ev-title">${ev.icon} ${esc(ev.title)}</h2></div>
 					<div class="ev-body"><p>${esc(ev.text)}</p>
 					<div class="list">${ev.choices.map((c, i) => {
 						const poor = !!c.cost && c.cost > s.cash;
@@ -1228,6 +1293,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				else if (d.go) {
 					act({ t: 'travel', to: d.go, mode: d.mode as TravelMode }).then((r) => { if (r) { selected = null; lastOutcome = null; tab = 'place'; if (!state!.pending) toast(r.msg); render(); window.scrollTo({ top: 0 }); } });
 				}
+				else if (d.dmode) { destMode = { dest: d.dest!, mode: d.dmode }; renderPanel(); }
 				else if (d.loc) {
 					// 点当前所在地回今天页；再点一次已选中的地点（或卡片上的关闭）取消选择、留在出行页
 					const here = d.loc === state.loc;

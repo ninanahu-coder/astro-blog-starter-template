@@ -32,7 +32,7 @@ const PAIRS: [string, string][] = [
 	['--accent-ink', '--accent'], ['--accent', '--card'], ['--text2', '--card'],
 	['--tint-blue-ink', '--tint-blue'], ['--tint-green-ink', '--tint-green'], ['--tint-amber-ink', '--tint-amber'],
 	['--tint-red-ink', '--tint-red'], ['--tint-cost-ink', '--tint-cost'], ['--low-ink', '--card'], ['--mid-ink', '--card'],
-	['--ink-dim', '--ink'], ['--text', '--warm-bg'], ['--text', '--tint-red'],
+	['--ink-dim', '--ink'], ['--text', '--warm-bg'], ['--text', '--tint-red'], ['--text', '--soft'],
 ];
 
 for (const [name, t] of [['浅色', light], ['深色', dark]] as const) {
