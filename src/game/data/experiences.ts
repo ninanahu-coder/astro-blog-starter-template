@@ -2,6 +2,14 @@
 // 集齐一个片区的全部体验获得称号。
 import type { ExperienceDef } from '../core/types.ts';
 
+/**
+ * 片区以前版本的体验清单。旧存档没有 areas 字段时，按现在的清单或任何一个旧清单集齐过都算已获得称号，
+ * 这样加了新体验以后，老玩家的称号不会掉，补齐新体验也不会再领一次奖励。以后给片区加体验时，把加之前的清单补在这里。
+ */
+export const AREA_HISTORY: Record<string, string[][]> = {
+	festival: [['fest-wildflower-walk', 'fest-race-day', 'fest-skyshow', 'fest-surf-final', 'fest-lantern-walk']],
+};
+
 export const AREAS: Record<string, { name: string; title: string }> = {
 	perth: { name: '珀斯周边', title: '珀斯通' },
 	southwest: { name: '西南海岸', title: '西南漫游者' },

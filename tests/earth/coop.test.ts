@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyCoop } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
-import { COOP_TEAM_BONUS, coopAvailableAt, coopBlocked, coopCost, coopsAt, resolveCoop } from '../../src/game/core/coop.ts';
+import { COOP_TEAM_BONUS, coopAvailableAt, coopBlocked, coopCost, coopCostLabel, coopsAt, resolveCoop } from '../../src/game/core/coop.ts';
 import { SKILL_KEYS } from '../../src/game/core/types.ts';
 import { COOP_EVENTS, getCoop } from '../../src/game/data/coop.ts';
 import { WEATHERS } from '../../src/game/data/weather.ts';
@@ -113,4 +113,9 @@ test('要凑钱的共同事件：钱不够不能参加，够了结算时扣掉',
 	assert.equal(coopBlocked(b, WA, bbq), undefined);
 	const r = applyCoop(bbq, WA, [{ state: b, role: 0, name: 'A' }, { state: { ...b, id: 'coop-b', seed: 22 }, role: 1, name: 'B' }]);
 	for (const x of r.results) assert.equal(x.state.cash, 42);
+});
+
+test('费用说明：要凑钱的写「每人 $N」，不要钱的为空（发起卡和队伍里共用）', () => {
+	assert.equal(coopCostLabel(getCoop('community-bbq')!), ' · 每人 $8');
+	assert.equal(coopCostLabel(getCoop('beach-cleanup')!), '');
 });

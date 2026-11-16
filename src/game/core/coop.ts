@@ -20,6 +20,9 @@ export function coopCost(def: CoopDef): number {
 	return Math.max(0, -(def.ok.fx.cash ?? 0), -(def.fail.fx.cash ?? 0));
 }
 
+/** 界面上人数后面跟的费用说明，如「 · 每人 $8」；不要钱的是空字符串 */
+export const coopCostLabel = (def: CoopDef): string => (coopCost(def) ? ` · 每人 $${coopCost(def)}` : '');
+
 /** 这个人现在能不能参加（发起、加入、开始时都要检查）；能参加返回 undefined */
 export function coopBlocked(state: PlayerState, region: Region, def: CoopDef): string | undefined {
 	if (state.pending) return '先处理眼前的事件。';

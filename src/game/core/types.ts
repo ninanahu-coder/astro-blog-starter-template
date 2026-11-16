@@ -468,6 +468,7 @@ export interface PlayerState {
 	wishDay: number; // 这批心愿是哪个游戏日生成的，−1 表示还没生成
 	daily: { day: number; streak: number }; // 每日奖励：最近领取的现实日序号、连续天数
 	collected: string[]; // 已完成的收费体验 id
+	areas: string[]; // 已获得称号的体验片区 id：集齐时记下，之后加了新体验也不收回、不重复发奖
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
 	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每个游戏日一次）
 	pending: { eventId: string } | null;
