@@ -282,6 +282,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(panel(), /常遇见的人/);
 		assert.match(panel(), /小王<small>一起做过 3 次事 · 就在这里/);
 		assert.match(panel(), /老李<small>一起做过 1 次事 · \d+ 天前见过/);
+		// 全服周目标卡：有进度条，没达成时领奖按钮灰掉
+		assert.match(panel(), /全服周目标：/);
+		assert.match(panel(), /role="progressbar"/);
+		assert.match(panel(), /data-week="claim" disabled/);
 		// 断开连接时角标也要清掉
 		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: 'peer-2', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
 		assert.match(el('tabs').innerHTML, /class="badge"/);

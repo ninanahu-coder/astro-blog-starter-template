@@ -3,7 +3,8 @@
 // 另有保留实例 '@SAVES' 负责云存档（跨设备同步）。
 // 权威结算：客户端只发送动作（create / act），由本实例调用规则引擎结算并保存；
 // 客户端不能上传存档，改本地数据不会影响服务器上的进度。
-import { applyAction, applyCoop, applyTrade, parseAction, publicState } from '../core/actions.ts';
+import { applyAction, applyCoop, applyTrade, applyWeeklyClaim, parseAction, publicState } from '../core/actions.ts';
+import { addWeekly, goalOfWeek, weekDaysLeft, weeklyMine, weekOf, type WeeklyMetric } from '../core/weekly.ts';
 import { giveBlocked, saleRange } from '../core/trade.ts';
 import { noteMet } from '../core/social.ts';
 import { getItem } from '../core/attributes.ts';
@@ -110,6 +111,8 @@ export class EarthWorld {
 	private lobbies = new Map<string, Lobby>();
 	private hintAt = new WeakMap<WebSocket, Record<string, number>>();
 	private offers = new Map<string, Offer>();
+	private week: { week: number; count: number } | null = null; // 这周全服累计数（内存里一份，落盘在 'week:<序号>'）
+	private weekLoading: Promise<void> | null = null;
 
 	constructor(ctx: DurableObjectState, _env: unknown) {
 		this.ctx = ctx;
@@ -334,6 +337,28 @@ export class EarthWorld {
 		return run;
 	}
 
+	/** 这周的全服累计数（第一次用时从存储读） */
+	private async weekCount(week: number): Promise<number> {
+		while (!this.week || this.week.week !== week) {
+			if (!this.weekLoading) {
+				this.weekLoading = (async () => {
+					const n = await this.ctx.storage.get<number>('week:' + week);
+					if (!this.week || this.week.week !== week) this.week = { week, count: Number.isFinite(n) ? Math.max(0, Math.floor(n as number)) : 0 };
+				})().finally(() => { this.weekLoading = null; });
+			}
+			await this.weekLoading;
+		}
+		return this.week.count;
+	}
+
+	/** 这类事是不是这周目标算的；是的话全服加 k。先改内存（单线程里不会丢计数），再落盘 */
+	private async bumpWeek(week: number, metric: WeeklyMetric, k: number): Promise<void> {
+		if (goalOfWeek(week).metric !== metric || k <= 0) return;
+		await this.weekCount(week);
+		this.week!.count += k;
+		await this.ctx.storage.put('week:' + week, this.week!.count);
+	}
+
 	/** 存档落盘，同时更新这名玩家的榜单记录。榜单用 id 的哈希前缀做键（和在线状态一样），真实 id 是凭证的一部分，不能外露 */
 	private async persist(id: string, keyHash: string, state: PlayerState, now: number): Promise<void> {
 		await this.persistMany([{ id, keyHash, state, at: now }]);
@@ -428,14 +453,37 @@ export class EarthWorld {
 			if (!act) return json({ ok: false, msg: '动作无效' }, 400);
 			// 版本号按领奖前的存档比对（上面已检查），动作在领奖后的存档上执行
 			const r = applyAction(live, region, act, now);
-			const next = r.state !== live ? canon(r.state) : r.state;
+			// 全服周目标：出行抵达新地点、完成收费体验各算一次（只算这周目标对应的那类）
+			const week = weekOf(realDayOf(wall));
+			const metric: WeeklyMetric | null = !r.ok || r.collapsed ? null : act.t === 'travel' && r.state.loc !== live.loc ? 'travel' : act.t === 'experience' ? 'experience' : null;
+			const counted = metric !== null && goalOfWeek(week).metric === metric;
+			const after = counted ? addWeekly(r.state, week) : r.state;
+			const next = after !== live ? canon(after) : after;
 			if (next !== current) await this.persist(id, keyHash, next, now);
 			// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
 			else if (migrated) await this.persist(id, keyHash, current, now);
+			if (counted) await this.bumpWeek(week, metric!, 1);
 			return json({ ok: r.ok, msg: r.msg, state: publicState(next), at: now, daily: claim?.msg });
 		}
 		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, wall, locked);
 		if (action === 'trade') return this.handleTrade(body, id, keyHash, current, live, region, now, wall, locked);
+		if (action === 'weekly') {
+			// weekly { op: 'status' }：这周的目标、全服进度、我出了几份力；{ op: 'claim', rev }：达成后领奖
+			const day = realDayOf(wall);
+			const week = weekOf(day);
+			const count = await this.weekCount(week);
+			const view = (st: PlayerState) => ({ week: { week, goal: goalOfWeek(week), count, daysLeft: weekDaysLeft(day), mine: weeklyMine(st, week) } });
+			if (body.op === 'status') return json({ ok: true, ...view(live), at: now });
+			if (body.op === 'claim') {
+				if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: CONFLICT_MSG, state: publicState(current), ...view(current), at: now }, 409);
+				const r = applyWeeklyClaim(live, week, count);
+				if (!r.ok) return json({ ok: false, msg: r.msg, ...view(live), at: now });
+				const next = canon(r.state);
+				await this.persist(id, keyHash, next, now);
+				return json({ ok: true, msg: r.msg, state: publicState(next), ...view(next), at: now });
+			}
+			return json({ ok: false, msg: '请求无效' }, 400);
+		}
 		return json({ ok: false, msg: '请求无效' }, 400);
 	}
 
@@ -543,13 +591,17 @@ export class EarthWorld {
 			const hashes = await Promise.all(ready.map(async (m) => (await sha256Hex(m.id)).slice(0, 12)));
 			const people = ready.map((m, i) => ({ hash: hashes[i], name: m.name, avatar: m.state.avatar }));
 			const coopDay = realDayOf(wall);
+			const week = weekOf(coopDay);
+			const coopCounts = goalOfWeek(week).metric === 'coop';
 			const saves = ready.map((m, i) => {
-				const met = noteMet(r.results[i].state, people.filter((_, j) => j !== i), coopDay);
+				const noted = noteMet(r.results[i].state, people.filter((_, j) => j !== i), coopDay);
+				const met = coopCounts ? addWeekly(noted, week) : noted;
 				return { id: m.id, keyHash: m.keyHash, at: m.now, state: sanitizeState(met, locs, { fallbackLoc: region.spawn, now: m.now }) ?? met };
 			});
 			// 所有人一次写入：写失败就谁都没拿到，队伍还在、可以重试；写成功后大厅标记结束，版本号也都变了，重复开始会被拒绝
 			await this.persistMany(saves);
 			const mine = saves.find((x) => x.id === id)!.state;
+			if (coopCounts) await this.bumpWeek(week, 'coop', ready.length);
 			const text = (r.success ? def.ok : def.fail).text;
 			l.done = { at: wall, success: r.success, text, ids: ready.map((m) => m.id) };
 			return json({ ok: true, msg: `${def.icon} ${def.title}：${text}`, success: r.success, state: publicState(mine), ...this.coopView(id, mine.loc), at: now });
@@ -651,12 +703,16 @@ export class EarthWorld {
 			}
 			const canon = (st: PlayerState, t: number) => sanitizeState(st, locs, { fallbackLoc: region.spawn, now: t }) ?? st;
 			const fromHash = (await sha256Hex(o.from)).slice(0, 12);
-			const mine = canon(noteMet(r.to, [{ hash: fromHash, name: o.fromName, avatar: o.fromAvatar }], day), now);
+			const week = weekOf(realDayOf(wall));
+			const tradeCounts = goalOfWeek(week).metric === 'trade';
+			const wk = (st: PlayerState) => (tradeCounts ? addWeekly(st, week) : st);
+			const mine = canon(wk(noteMet(r.to, [{ hash: fromHash, name: o.fromName, avatar: o.fromAvatar }], day)), now);
 			await this.persistMany([
-				{ id: o.from, keyHash: rec.keyHash, state: canon(noteMet(r.from, [{ hash, name: current.name, avatar: current.avatar }], day), fNow), at: fNow },
+				{ id: o.from, keyHash: rec.keyHash, state: canon(wk(noteMet(r.from, [{ hash, name: current.name, avatar: current.avatar }], day)), fNow), at: fNow },
 				{ id, keyHash, state: mine, at: now },
 			]);
 			this.offers.delete(o.id);
+			if (tradeCounts) await this.bumpWeek(week, 'trade', 1);
 			const msg = o.price > 0 ? `${item.icon} 花 $${o.price} 买下了${item.name}` : `${item.icon} 收下了${o.fromName}送的${item.name}`;
 			return json({ ok: true, msg, state: publicState(mine), ...view(mine), at: now });
 		}

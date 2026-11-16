@@ -358,6 +358,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { getCoop } from '../game/data/coop.ts';
 			import { giveBlocked, saleRange, takeBlocked } from '../game/core/trade.ts';
 			import { metList } from '../game/core/social.ts';
+			import type { WeeklyGoal } from '../game/core/weekly.ts';
 			import { realDayOf } from '../game/core/daily.ts';
 			import { ACTIVITIES } from '../game/data/activities.ts';
 			import { EVENTS } from '../game/data/events.ts';
@@ -602,6 +603,46 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					if (data.ok) { giftTo = null; sellPick = false; }
 					if (data.msg) toast(data.msg);
 					if (data.ok && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'trade' }));
+				} catch {
+					syncStatus = '离线：可以查看，联网后才能行动';
+					toast('网络断开了，联网后才能行动');
+				} finally {
+					busy = false;
+					document.body.classList.remove('busy');
+				}
+				render();
+			}
+			// 全服周目标：进度以服务端为准，打开社交页时最多每分钟拉一次
+			type WeekView = { week: number; goal: WeeklyGoal; count: number; daysLeft: number; mine: { n: number; claimed: boolean } };
+			let weekView: WeekView | null = null;
+			let weekAt = 0;
+			let weekLoading = false;
+			async function loadWeek(force = false) {
+				if (!cred || !state || weekLoading || (!force && Date.now() - weekAt < 60_000)) return;
+				weekLoading = true;
+				try {
+					const { data } = await api({ action: 'weekly', op: 'status', id: cred.id, key: cred.key });
+					if (data?.week?.goal) weekView = data.week;
+				} catch {}
+				weekAt = Date.now();
+				weekLoading = false;
+				if (tab === 'social') renderPanel();
+			}
+			async function claimWeek() {
+				if (!state || !cred || busy) return;
+				busy = true;
+				document.body.classList.add('busy');
+				const before = state;
+				try {
+					const { status, data } = await api({ action: 'weekly', op: 'claim', id: cred.id, key: cred.key, rev: before.rev });
+					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, data.msg); }
+					else if (data.state) {
+						adopt(data.state);
+						if (data.ok && state && state.rev === nextRev(before.rev)) { lastDelta = stateDelta(before, state); lastOutcome = data.msg; }
+					}
+					if (data?.week?.goal) weekView = data.week;
+					weekAt = Date.now();
+					if (data.msg) toast(data.msg);
 				} catch {
 					syncStatus = '离线：可以查看，联网后才能行动';
 					toast('网络断开了，联网后才能行动');
@@ -1217,6 +1258,21 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					${lobbies}${open}<div class="inline" style="margin-top:10px"><button data-coop="list" ${coopLoading ? 'disabled' : ''}>刷新</button></div></div>`;
 			}
 
+			/** 全服周目标：进度条、我出的力、领奖 */
+			function weekCard(s: PlayerState) {
+				loadWeek();
+				if (!weekView) return '';
+				const { goal, count, daysLeft, mine } = weekView;
+				const pct = Math.min(100, Math.round((count / goal.target) * 100));
+				// 我这边的份数以存档为准（刚做完的事服务端已经记上）
+				const n = s.weekly?.week === weekView.week ? Math.max(s.weekly.n, mine.n) : mine.n;
+				const why = mine.claimed ? '这周的奖励已经领过了。' : count < goal.target ? `全服还差 ${goal.target - count} 次。` : n < 1 ? '这周还没出过力，先去做一次吧。' : '';
+				return `<div class="card week"><h3>${goal.icon} 全服周目标：${esc(goal.title)}</h3><p>${esc(goal.desc)}。还剩 ${daysLeft} 天。</p>
+					<div class="bar" role="progressbar" aria-valuenow="${Math.min(count, goal.target)}" aria-valuemin="0" aria-valuemax="${goal.target}"><i style="width:${pct}%"></i></div>
+					<p class="muted">全服 ${Math.min(count, goal.target)} / ${goal.target} · 我出了 ${n} 份力 · 达成后出过力的人各领 $${goal.reward.cash}、声望 +${goal.reward.respect}</p>
+					<div class="inline" style="margin-top:8px"><button class="primary" data-week="claim" ${why ? 'disabled' : ''}>${mine.claimed ? '已领取' : '领奖'}</button>${why && !mine.claimed ? `<span class="muted">${esc(why)}</span>` : ''}</div></div>`;
+			}
+
 			/** 常遇见的人：一起做过共同事件、交易过的玩家；在线的标出在哪 */
 			function metCard(s: PlayerState) {
 				const list = metList(s);
@@ -1312,6 +1368,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							: `<button class="row" data-loc="${plan.loc}"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta"><b>怎么去</b></span></button>`;
 				}).join('')}</div></div>` : '';
 				return `${knownHtml}<div class="card"><h3>${esc(getLocation(region, s.loc)!.name)}的人</h3><p>${online ? `全区在线 ${peers.size} 人` : '未连接，稍后自动重连…'}</p><div class="list" style="margin-top:8px">${people}</div></div>
+					${weekCard(s)}
 					${tradeCard(s)}
 					${coopCard(s)}
 					${metCard(s)}
@@ -1478,7 +1535,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -1573,6 +1630,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				else if ('pull' in d) pullCloud();
 				else if ('board' in d) loadBoard(true);
 				else if (d.giftpick !== undefined) { giftTo = d.giftpick ? { hash: d.giftpick, name: d.giftName ?? '' } : null; sellPick = false; renderPanel(); }
+				else if (d.week === 'claim') claimWeek();
 				else if (d.trade) {
 					if (d.trade === 'pickcancel') { giftTo = null; sellPick = false; renderPanel(); }
 					else if (d.trade === 'sellpick') { sellPick = true; giftTo = null; renderPanel(); }

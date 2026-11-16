@@ -118,6 +118,7 @@ export function createCharacter(opts: {
 		coopDays: {},
 		trades: { day: 0, out: 0, in: 0 },
 		met: {},
+		weekly: { week: 0, n: 0, claimed: false },
 		pending: null,
 		fix: null,
 		venueCd: {},
@@ -271,6 +272,11 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			day: Math.floor(num(r.trades?.day, 0, 1e7, 0)),
 			out: Math.floor(num(r.trades?.out, 0, 1000, 0)),
 			in: Math.floor(num(r.trades?.in, 0, 1000, 0)),
+		},
+		weekly: {
+			week: Math.floor(num(r.weekly?.week, 0, 1e7, 0)),
+			n: Math.floor(num(r.weekly?.n, 0, 1e6, 0)),
+			claimed: r.weekly?.claimed === true,
 		},
 		met: (() => {
 			const out: PlayerState['met'] = {};

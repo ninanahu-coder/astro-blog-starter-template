@@ -4,6 +4,8 @@ import { test } from 'node:test';
 import { EarthWorld } from '../../src/game/server/world.ts';
 import { realDayOf } from '../../src/game/core/daily.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { goalOfWeek, weekOf } from '../../src/game/core/weekly.ts';
+import { EXPERIENCES } from '../../src/game/data/experiences.ts';
 
 /** delayMs > 0 时每次读写都真的等一会儿，让同时到的请求在没有锁的情况下一定会交错（读到同一份旧存档） */
 /** hooks 让测试精确安排先后：put 写入前先等 hooks.put()，list 读完、返回前等 hooks.list() */
@@ -782,4 +784,82 @@ test('常遇见的人：送礼成交、共同事件结束后，双方存档里�
 	assert.ok(done.data.ok, done.data.msg);
 	assert.equal(done.data.state.met[hB].n, 2, '交易一次 + 共同事件一次');
 	assert.equal(w.data.get('save:' + B.id).state.met[hA].n, 2);
+});
+
+async function weeklyScenario(k: number) {
+	const w = makeWorld();
+	const week = weekOf(realDayOf(Date.now()));
+	const goal = goalOfWeek(week);
+	const A = { id: `weekly-host-1${k}`, key: 'a'.repeat(24) };
+	const B = { id: `weekly-mate-1${k}`, key: 'b'.repeat(24) };
+	const a0 = (await w.call({ action: 'create', ...A, profile: { ...profile, name: '阿甲' } })).data.state;
+	const b0 = (await w.call({ action: 'create', ...B, profile: { ...profile, name: '阿乙' } })).data.state;
+	const before = await w.call({ action: 'weekly', op: 'status', ...A });
+	assert.equal(before.data.week.goal.id, goal.id);
+	assert.equal(before.data.week.count, 0);
+	// 做一次这周目标对应的事
+	let expect = 1;
+	if (goal.metric === 'travel') {
+		assert.ok((await w.call({ action: 'act', ...A, rev: a0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
+	} else if (goal.metric === 'experience') {
+		const exp = EXPERIENCES.find((e) => e.loc === 'perth' && !e.festival)!;
+		const rec = w.data.get('save:' + A.id);
+		rec.state.cash = 1000;
+		rec.state.clock = 1440 + ((exp.hours?.[0] ?? 9) + 1) * 60;
+		w.data.set('save:' + A.id, rec);
+		const r = await w.call({ action: 'act', ...A, rev: a0.rev, act: { t: 'experience', id: exp.id } });
+		assert.ok(r.data.ok, r.data.msg);
+	} else if (goal.metric === 'coop') {
+		const lobby = (await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 })).data.lobbies[0].id;
+		await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 1 });
+		assert.ok((await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev })).data.ok);
+		expect = 2;
+	} else {
+		const rec = w.data.get('save:' + A.id);
+		rec.state.inventory = { water: 1 };
+		w.data.set('save:' + A.id, rec);
+		const oid = (await w.call({ action: 'trade', op: 'gift', ...A, to: await peerHash(B.id), toName: '阿乙', item: 'water' })).data.offers[0].id;
+		assert.ok((await w.call({ action: 'trade', op: 'accept', ...B, offer: oid, rev: b0.rev })).data.ok);
+	}
+	const after = await w.call({ action: 'weekly', op: 'status', ...A });
+	assert.equal(after.data.week.count, expect, `${goal.metric} 算进全服`);
+	assert.equal(after.data.week.mine.n, 1, '自己记一份力');
+	assert.equal(w.data.get('week:' + week), expect, '全服计数落盘');
+	// 没达成不能领；把全服计数调到达成后能领一次
+	const rev1 = w.data.get('save:' + A.id).state.rev;
+	assert.match((await w.call({ action: 'weekly', op: 'claim', ...A, rev: rev1 })).data.msg, /还差/);
+	(w.world as any).week.count = goal.target;
+	const got = await w.call({ action: 'weekly', op: 'claim', ...A, rev: rev1 });
+	assert.ok(got.data.ok, got.data.msg);
+	assert.equal(got.data.state.rev, rev1 + 1);
+	assert.equal(got.data.week.mine.claimed, true);
+	assert.match((await w.call({ action: 'weekly', op: 'claim', ...A, rev: rev1 + 1 })).data.msg, /领过/);
+	assert.equal((await w.call({ action: 'weekly', op: 'claim', ...A, rev: rev1 })).status, 409, '版本落后');
+	return goal.metric;
+}
+
+test('全服周目标：四类目标轮流当值时，对应的事做完全服加一、自己记一份力；达成后领奖，只能领一次', async () => {
+	const realNow = Date.now;
+	const seen = new Set<string>();
+	try {
+		for (let k = 0; k < 4; k++) {
+			const shift = k * 7 * 86_400_000;
+			Date.now = () => realNow() + shift; // 往后挪 k 周，轮到别的目标
+			seen.add(await weeklyScenario(k));
+		}
+	} finally {
+		Date.now = realNow;
+	}
+	assert.equal(seen.size, 4, '四类都测到了');
+});
+
+test('全服周目标：实例重启后从存储读回这周的累计数；并发读取只读一次', async () => {
+	const w = makeWorld(3);
+	const week = weekOf(realDayOf(Date.now()));
+	w.data.set('week:' + week, 7);
+	const A = { id: 'weekly-host-2', key: 'a'.repeat(24) };
+	await w.call({ action: 'create', ...A, profile });
+	const [x, y] = await Promise.all([w.call({ action: 'weekly', op: 'status', ...A }), w.call({ action: 'weekly', op: 'status', ...A })]);
+	assert.equal(x.data.week.count, 7);
+	assert.equal(y.data.week.count, 7);
 });

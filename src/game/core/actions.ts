@@ -9,6 +9,7 @@ import { pruneMoodlets } from './engine.ts';
 import type { ActionResult, CoopDef, NpcAction, PlayerState, Region, TravelMode, VenueOp } from './types.ts';
 import { resolveCoop, type CoopMember, type CoopResult } from './coop.ts';
 import { resolveTrade } from './trade.ts';
+import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 
@@ -159,6 +160,14 @@ export function applyTrade(from: PlayerState, to: PlayerState, itemId: string, p
 		return capState({ ...s, rev: nextRev(prev.rev) });
 	};
 	return { from: fin(r.from, from), to: fin(r.to, to) };
+}
+
+/** 领全服周目标的奖励（全服累计数由服务端传入）：和 applyAction 一样的收尾 */
+export function applyWeeklyClaim(state: PlayerState, week: number, count: number): ActionResult {
+	const r = claimWeekly(state, week, count);
+	if (!r.ok) return r;
+	pruneMoodlets(r.state);
+	return { ...r, state: capState({ ...r.state, rev: nextRev(state.rev) }) };
 }
 
 /** 发给客户端的存档：隐去随机数种子，客户端无法预知检定结果 */
