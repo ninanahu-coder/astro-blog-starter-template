@@ -7,10 +7,10 @@
 //   npm run earth:sim -- --out=docs/earth-game/balance-report.md
 import { writeFileSync } from 'node:fs';
 import { applyAction, type GameAction } from '../../../src/game/core/actions.ts';
-import { mood } from '../../../src/game/core/attributes.ts';
+import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careersAt, coursesAt, dealerAt, netWorth, propertiesAt, furnitureAt, furnitureValue, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, resaleValue, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, furnitureValue, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, resaleValue, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { weatherAt } from '../../../src/game/core/weather.ts';
@@ -28,7 +28,49 @@ interface Bot {
 	s: PlayerState;
 	rng: () => number;
 	plan: Plan;
-	stats: { collapses: number; evictions: number; promotions: number; events: number; moodSum: number; moodN: number; shifts: number; daysBroke: number; cashByDay: number[]; flow: Record<string, number>; promoDays: number[]; homeDay?: number };
+	stats: {
+		collapses: number;
+		evictions: number;
+		promotions: number;
+		events: number;
+		moodSum: number;
+		moodN: number;
+		shifts: number;
+		daysBroke: number;
+		cashByDay: number[];
+		flow: Record<string, number>;
+		promoDays: number[];
+		homeDay?: number;
+		diag: BackpackerDiagnostics;
+	};
+}
+
+const GIG_IDS = ['work-mine', 'work-farm', 'work-cafe', 'busk'] as const;
+type GigMiss = 'location' | 'hours' | 'energy' | 'needs' | 'weather' | 'requirements';
+type CollapseCause = 'hunger' | 'energy' | 'both' | 'other';
+
+interface BackpackerDiagnostics {
+	gigStarted: number;
+	gigCompleted: number;
+	gigIncome: number;
+	gigCollapsed: number;
+	gigMisses: Record<GigMiss, number>;
+	collapseCauses: Record<CollapseCause, number>;
+	collapseTravel: number;
+	collapseActions: Record<string, number>;
+	collapseBefore: { health: number; hunger: number; energy: number }[];
+}
+
+interface GigPlan {
+	/** 现金低于这个值时找零工，避免等到快没钱才开工 */
+	cashTarget: number;
+	/** 低于这条线时不做可选消费；救命的饭仍会买 */
+	cashReserve: number;
+	/** 开工前的最低精力和饱食 */
+	minEnergy: number;
+	minHunger: number;
+	/** 依次尝试，先选时薪稳定、耗时较短的工作 */
+	preferred: readonly (typeof GIG_IDS)[number][];
 }
 
 interface Plan {
@@ -44,6 +86,8 @@ interface Plan {
 	roam?: boolean;
 	/** false：不上课、不体验、不买车（用来和旧版本对比） */
 	spend?: boolean;
+	/** 有配置时使用保守零工策略 */
+	gig?: GigPlan;
 }
 
 const PLANS: Plan[] = [
@@ -51,6 +95,10 @@ const PLANS: Plan[] = [
 	{ id: 'lifeguard', name: '救生员（珀斯，公寓）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'perth', career: 'lifeguard' }, home: 'flat' },
 	{ id: 'miner', name: '矿工（卡尔古利，合租）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'kalgoorlie', career: 'miner' }, home: 'room' },
 	{ id: 'drifter', name: '打零工的背包客（无房）', origin: 'backpacker', traits: ['loner', 'frugal'], roam: true },
+	{
+		id: 'drifter-safe', name: '保守背包客（无房，少漫游）', origin: 'backpacker', traits: ['loner', 'frugal'], spend: false,
+		gig: { cashTarget: 700, cashReserve: 200, minEnergy: 55, minHunger: 50, preferred: ['work-cafe', 'work-farm', 'busk', 'work-mine'] },
+	},
 	{ id: 'idle', name: '什么都不干（对照组）', origin: 'backpacker', traits: [] },
 ];
 
@@ -64,6 +112,44 @@ function mulberry(seed: number) {
 	};
 }
 
+function blankDiagnostics(): BackpackerDiagnostics {
+	return {
+		gigStarted: 0,
+		gigCompleted: 0,
+		gigIncome: 0,
+		gigCollapsed: 0,
+		gigMisses: { location: 0, hours: 0, energy: 0, needs: 0, weather: 0, requirements: 0 },
+		collapseCauses: { hunger: 0, energy: 0, both: 0, other: 0 },
+		collapseTravel: 0,
+		collapseActions: {},
+		collapseBefore: [],
+	};
+}
+
+function actionKey(a: GameAction): string {
+	return a.t === 'activity' ? a.id
+		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' ? `${a.t}-${a.op}`
+			: a.t === 'npc' ? 'npc'
+				: a.t === 'buy' ? `buy-${a.item}`
+					: a.t;
+}
+
+/** 用动作开始状态和实际耗时回算：是哪项需求见底并把健康扣到 0。 */
+function recordCollapse(b: Bot, before: PlayerState, after: PlayerState, a: GameAction, key: string) {
+	const d = b.stats.diag;
+	// collapse() 固定追加 12 小时住院；扣掉它才是触发晕倒的动作耗时。
+	const actionMinutes = Math.max(0, after.clock - before.clock - 12 * 60);
+	const hungerBottom = before.needs.hunger <= DECAY.hunger * decayMult(before, 'hunger') * actionMinutes;
+	const energyBottom = before.needs.energy <= DECAY.energy * decayMult(before, 'energy') * actionMinutes;
+	const starvationDamage = hungerBottom || energyBottom ? 0.02 * actionMinutes : 0;
+	let cause: CollapseCause = 'other';
+	if (before.health <= starvationDamage) cause = hungerBottom && energyBottom ? 'both' : hungerBottom ? 'hunger' : 'energy';
+	d.collapseCauses[cause]++;
+	if (a.t === 'travel') d.collapseTravel++;
+	d.collapseActions[key] = (d.collapseActions[key] ?? 0) + 1;
+	d.collapseBefore.push({ health: before.health, hunger: before.needs.hunger, energy: before.needs.energy });
+}
+
 /** 尝试一个动作；成功则更新状态并统计 */
 function tryAct(b: Bot, a: GameAction): boolean {
 	const before = b.s;
@@ -73,8 +159,17 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		return false;
 	}
 	b.s = r.state;
-	const key = a.t === 'activity' ? a.id : a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' ? `${a.t}-${a.op}` : a.t === 'npc' ? 'npc' : a.t === 'buy' ? `buy-${a.item}` : a.t;
+	const key = actionKey(a);
 	b.stats.flow[key] = (b.stats.flow[key] ?? 0) + (b.s.cash - before.cash);
+	if (a.t === 'activity' && (GIG_IDS as readonly string[]).includes(a.id)) {
+		b.stats.diag.gigStarted++;
+		if (r.collapsed) b.stats.diag.gigCollapsed++;
+		else {
+			b.stats.diag.gigCompleted++;
+			b.stats.diag.gigIncome += Math.max(0, b.s.cash - before.cash);
+		}
+	}
+	if (r.collapsed) recordCollapse(b, before, b.s, a, key);
 	// 这次动作中写下的日志：时间晚于动作开始时刻（每个成功动作都会让时间前进）
 	for (const j of b.s.journal) {
 		if (j.t <= before.clock) continue;
@@ -100,6 +195,88 @@ function headTo(b: Bot, dest: string): boolean {
 	return false;
 }
 
+function recordGigMiss(b: Bot, reason: GigMiss) {
+	b.stats.diag.gigMisses[reason]++;
+}
+
+/** 已经想开工却没有一种零工能做：记下当前最直接的阻塞原因。 */
+function recordBlockedGigs(b: Bot) {
+	const gigsHere = activitiesAt(b.s, WA).filter((x) => (GIG_IDS as readonly string[]).includes(x.act.id));
+	if (!gigsHere.length) {
+		recordGigMiss(b, 'location');
+		return;
+	}
+	const reasons = gigsHere.map((x) => x.blocked).filter((x): x is string => !!x);
+	if (reasons.some((x) => /风暴|天气/.test(x))) recordGigMiss(b, 'weather');
+	else if (reasons.some((x) => /体力|太累/.test(x))) recordGigMiss(b, 'energy');
+	else if (reasons.some((x) => /营业时间/.test(x))) recordGigMiss(b, 'hours');
+	else recordGigMiss(b, 'requirements');
+}
+
+function tryGigs(b: Bot, order: readonly (typeof GIG_IDS)[number][]): boolean {
+	for (const gig of order) if (act(b, gig)) return true;
+	recordBlockedGigs(b);
+	return false;
+}
+
+/**
+ * 保守背包客只在出生地珀斯生活：不漫游、不买大件，低需求先恢复；
+ * 现金低于目标时优先做稳定的咖啡店零工，并为食物和应急保留现金。
+ */
+function stepSafeDrifter(b: Bot) {
+	const s = b.s;
+	const gig = b.plan.gig!;
+	const wantsGig = s.cash < gig.cashTarget;
+	const h = hourOf(s.clock);
+	const night = h >= 22 || h < 5;
+
+	if (s.health < 40) {
+		if (wantsGig) recordGigMiss(b, 'needs');
+		if (act(b, 'clinic') || (s.inventory.firstaid && tryAct(b, { t: 'use', item: 'firstaid' }))) return;
+		if (act(b, 'sleep-camp')) return;
+	}
+
+	// 碰上开放时间就先吃免费餐；不为了等饭而空耗一整天。
+	if (s.needs.hunger < 70 && (act(b, 'charity-meal') || act(b, 'charity-dinner'))) {
+		if (wantsGig) recordGigMiss(b, 'needs');
+		return;
+	}
+	if (s.needs.hunger < gig.minHunger) {
+		if (wantsGig) recordGigMiss(b, 'needs');
+		if (act(b, 'forage')) return;
+		if (s.inventory.snack && tryAct(b, { t: 'use', item: 'snack' })) return;
+		// 饭是现金底线的例外：活下来比守住账面储备重要。
+		if (act(b, 'eat')) return;
+		if (s.inventory.water && tryAct(b, { t: 'use', item: 'water' })) return;
+		if (act(b, 'recycle')) return;
+	}
+
+	if (s.needs.energy < gig.minEnergy || (night && s.needs.energy < 75)) {
+		if (wantsGig) recordGigMiss(b, 'energy');
+		if (act(b, 'sleep-camp')) return;
+	}
+	if (s.needs.hygiene < 20 && s.cash > gig.cashReserve && act(b, 'shower')) {
+		if (wantsGig) recordGigMiss(b, 'needs');
+		return;
+	}
+
+	if (wantsGig && tryGigs(b, gig.preferred)) return;
+
+	// 只用免费社交和娱乐；不去酒吧，也不为探索离开稳定零工地点。
+	if (s.needs.social < 40) {
+		const npc = npcsAt(s, WA).find((n) => !n.blocked.chat);
+		if (npc && tryAct(b, { t: 'npc', npc: npc.npc.id, act: 'chat' })) return;
+	}
+	if (s.needs.fun < 40 && s.needs.energy >= 35 && act(b, 'swim')) return;
+
+	// 补一根便宜的应急能量棒，但不动 $200 应急金。
+	if (!s.inventory.snack && s.cash > gig.cashReserve) {
+		const e = shopAt(s, WA).find((x) => x.item.id === 'snack' && !x.blocked);
+		if (e && tryAct(b, { t: 'buy', item: 'snack' })) return;
+	}
+	act(b, 'rest');
+}
+
 /** 一步决策：先保命，再上班，再满足需求，最后按策略消磨时间 */
 function step(b: Bot) {
 	const s = b.s;
@@ -111,6 +288,10 @@ function step(b: Bot) {
 		const stormy = !!weatherAt(s).closesSea;
 		const pick = ev.choices.findIndex((c) => (!c.cost || c.cost <= s.cash) && !(c.exposed === 'sea' && stormy));
 		if (pick < 0 || !tryAct(b, { t: 'event', choice: pick })) throw new Error(`机器人卡在事件 ${ev.id}（${plan.id}，第 ${dayOf(s.clock)} 天）`);
+		return;
+	}
+	if (plan.gig) {
+		stepSafeDrifter(b);
 		return;
 	}
 	const h = hourOf(s.clock);
@@ -183,7 +364,7 @@ function step(b: Bot) {
 
 	// 4. 没有正式工作的人靠零工
 	if (!s.job && plan.id !== 'idle' && s.cash < 400) {
-		for (const gig of ['work-mine', 'work-farm', 'work-cafe', 'busk']) if (act(b, gig)) return;
+		if (tryGigs(b, GIG_IDS)) return;
 	}
 
 	// 5. 娱乐和社交
@@ -220,7 +401,7 @@ function runBot(plan: Plan, seed: number): Bot {
 	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: WA.id, spawn: WA.spawn, seed });
 	const b: Bot = {
 		s, plan, rng: mulberry(seed * 7919),
-		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [] },
+		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics() },
 	};
 	const end = s.clock + DAYS * 1440;
 	let lastDay = dayOf(s.clock);
@@ -261,6 +442,8 @@ out('| 策略 | 第 7 天现金（中位） | 第 30 天 | 第 60 天 | 第 60 �
 out('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |');
 const flows: string[] = [];
 const skillRows: [string, number[]][] = [];
+const gigDiagRows: string[] = [];
+const collapseDiagRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
 for (const plan of PLANS) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, i + 1));
@@ -280,6 +463,32 @@ for (const plan of PLANS) {
 	for (const b of bots) for (const [k, v] of Object.entries(b.stats.flow)) flow[k] = (flow[k] ?? 0) + v / RUNS / DAYS;
 	const top = Object.entries(flow).filter(([, v]) => Math.abs(v) >= 1).sort((x, y) => y[1] - x[1]);
 	flows.push(`| ${plan.name} | ${top.filter(([, v]) => v > 0).map(([k, v]) => `${k} +${Math.round(v)}`).join('，') || '—'} | ${top.filter(([, v]) => v < 0).reverse().map(([k, v]) => `${k} ${Math.round(v)}`).join('，') || '—'} |`);
+	if (plan.id === 'drifter' || plan.id === 'drifter-safe') {
+		const perDay = RUNS * DAYS;
+		const started = bots.reduce((n, b) => n + b.stats.diag.gigStarted, 0);
+		const completed = bots.reduce((n, b) => n + b.stats.diag.gigCompleted, 0);
+		const income = bots.reduce((n, b) => n + b.stats.diag.gigIncome, 0);
+		const gigCollapsed = bots.reduce((n, b) => n + b.stats.diag.gigCollapsed, 0);
+		const missLabels: Record<GigMiss, string> = { location: '地点', hours: '时段', energy: '精力', needs: '生存优先', weather: '天气', requirements: '门槛' };
+		const miss = (Object.keys(missLabels) as GigMiss[]).map((k) => {
+			const n = bots.reduce((sum, b) => sum + b.stats.diag.gigMisses[k], 0) / perDay;
+			return `${missLabels[k]} ${n.toFixed(2)}`;
+		}).join('，');
+		gigDiagRows.push(`| ${plan.name} | ${(started / perDay).toFixed(2)} | ${(completed / perDay).toFixed(2)} | ${started ? money(income / started) : '—'} | ${(gigCollapsed / RUNS).toFixed(2)} | ${miss} |`);
+
+		const causes = (Object.keys(bots[0].stats.diag.collapseCauses) as CollapseCause[]).map((k) => bots.reduce((sum, b) => sum + b.stats.diag.collapseCauses[k], 0) / RUNS);
+		const before = bots.flatMap((b) => b.stats.diag.collapseBefore);
+		const beforeText = before.length ? [
+			pct(before.map((x) => x.health), 0.5),
+			pct(before.map((x) => x.hunger), 0.5),
+			pct(before.map((x) => x.energy), 0.5),
+		].map((x) => Math.round(x)).join(' / ') : '—';
+		const actions: Record<string, number> = {};
+		for (const b of bots) for (const [k, v] of Object.entries(b.stats.diag.collapseActions)) actions[k] = (actions[k] ?? 0) + v;
+		const common = Object.entries(actions).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${k} ${(v / RUNS).toFixed(2)}`).join('，') || '—';
+		const travel = bots.reduce((n, b) => n + b.stats.diag.collapseTravel, 0) / RUNS;
+		collapseDiagRows.push(`| ${plan.name} | ${beforeText} | 饱食 ${causes[0].toFixed(2)}，精力 ${causes[1].toFixed(2)}，同时 ${causes[2].toFixed(2)}，其他 ${causes[3].toFixed(2)} | ${travel.toFixed(2)} | ${common} |`);
+	}
 	out(`| ${plan.name} | ${money(pct(at(7), 0.5))} | ${money(pct(at(30), 0.5))} | ${money(pct(at(endD), 0.5))} | ${money(pct(at(endD), 0.1))}–${money(pct(at(endD), 0.9))} | ${money(net)} | ${money(pct(bots.map((b) => netWorth(b.s)), 0.5))} | ${(() => { const d = bots.map((b) => b.stats.homeDay).filter((x): x is number => x !== undefined); return d.length > bots.length / 2 ? `第 ${pct(d, 0.5)} 天` : '—'; })()} | ${m.toFixed(0)} | ${coll.toFixed(2)} | ${ev.toFixed(2)} | ${pr.toFixed(2)} | ${promoCol} | ${(broke * 100).toFixed(0)}% |`);
 }
 out();
@@ -294,6 +503,20 @@ out();
 out('| 策略 | 收入 | 支出（从大到小） |');
 out('| --- | --- | --- |');
 for (const f of flows) out(f);
+out();
+out('## 背包客生存诊断');
+out();
+out('保守策略留在珀斯，现金低于 $700 才找零工；饱食低于 50 或精力低于 55 时先恢复，$200 以下不做可选消费。');
+out();
+out('| 策略 | 零工开工/人日 | 完成/人日 | 实收/次开工 | 零工途中晕倒/人 | 未开工原因（次/人日） |');
+out('| --- | --- | --- | --- | --- | --- |');
+for (const row of gigDiagRows) out(row);
+out();
+out('| 策略 | 晕倒前健康 / 饱食 / 精力（中位） | 回算的见底原因（次/人） | 出行途中晕倒/人 | 常见触发动作（次/人） |');
+out('| --- | --- | --- | --- | --- |');
+for (const row of collapseDiagRows) out(row);
+out();
+out('诊断口径：零工“完成”不含途中晕倒且拿不到工资的动作；未开工只统计现金已低于各策略触发线、但因生存门槛或当前地点/时段无法开工的决策。晕倒原因按动作开始状态和该动作耗时回算；“其他”包括事件受伤。当前四种零工都不受天气关闭，因此天气项应为 0。');
 out();
 out('说明：日均净收入 = (期末现金 − 开局现金) / 天数；破产天数 = 当天结束时现金低于 $20 的天数。');
 
