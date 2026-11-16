@@ -252,6 +252,7 @@ export interface ItemDef {
 	shop: { kinds?: LocationKind[]; tags?: string[] };
 	use?: Effect; // 可消耗：使用后数量 −1
 	passive?: Partial<Skills>; // 随身装备：持有即获得检定加值
+	weather?: string[]; // 写了的话，随身装备只在这些天气生效（天气 id，见 data/weather.ts）
 	desc: string;
 }
 
