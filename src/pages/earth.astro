@@ -65,6 +65,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				--nav-h: 64px;
 				--text2: #3a4550; --shadow: rgba(23, 33, 43, 0.06); --halo: rgba(255, 255, 255, 0.85); --land-line: #d9c7a6; --seg-bg: #e9e3d8; --tick-line: #c9c1b4;
 				--tint-blue: #eef3fb; --tint-blue-ink: #1d4fa8; --tint-green: #e6f2ea; --tint-green-ink: #1f6b40; --tint-amber: #fbf0dc; --tint-amber-ink: #7a4f0f;
+				--sky-dawn: #f8ede2; --sky-dusk: #f7e6dc; --sky-night: #e9edf5;
+				--ocean-night: #1e3350; --land-night: #354058; --land-night-line: #4b5875; --map-night-text: #eef2f7; --map-night-halo: rgba(10, 16, 28, 0.8);
 				--tint-red: #fbe4e4; --tint-red-ink: #9b2c2c; --tint-cost: #fdede3; --tint-cost-ink: #a2400f; --warm-line: #f2cdb4; --low-ink: #a62f2f; --mid-ink: #8a5a12;
 				color-scheme: light;
 			}
@@ -76,6 +78,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					--ocean: #13283a; --land: #2b2a24; --ok: #4ecb8f; --mid: #e0a23a; --bad: #ef6464; --soft: #2a333d;
 					--text2: #c3ccd5; --shadow: rgba(0, 0, 0, 0.3); --halo: rgba(0, 0, 0, 0.75); --land-line: #4a4436; --seg-bg: #232c36; --tick-line: #4a5562;
 					--tint-blue: #1c2a40; --tint-blue-ink: #a9c7ff; --tint-green: #17301f; --tint-green-ink: #8fe0b0; --tint-amber: #3a2c12; --tint-amber-ink: #f0c674;
+					--sky-dawn: #1f1b19; --sky-dusk: #221a1b; --sky-night: #0d1220;
+					--ocean-night: #0a1522; --land-night: #1c2029; --land-night-line: #2c3240; --map-night-text: #e8edf2; --map-night-halo: rgba(0, 0, 0, 0.8);
 					--tint-red: #3a1c1c; --tint-red-ink: #ffaaaa; --tint-cost: #3a2216; --tint-cost-ink: #ffb385; --warm-line: #5a3a24; --low-ink: #ff9a9a; --mid-ink: #f0c674;
 					color-scheme: dark;
 				}
@@ -165,6 +169,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			#map-wrap { margin: 4px 16px 0; background: var(--ocean); border-radius: 20px; overflow: hidden; }
 			#map { display: block; width: 100%; height: 36vh; min-height: 220px; touch-action: manipulation; }
 			#map .land { fill: var(--land); stroke: var(--land-line); stroke-width: 1; }
+			/* 昼夜：顶栏底色跟着时段变；夜里地图变成夜色、海上有星星 */
+			#hud { transition: background-color 0.6s; }
+			.p-dawn #hud { background: var(--sky-dawn); }
+			.p-dusk #hud { background: var(--sky-dusk); }
+			.p-night #hud { background: var(--sky-night); }
+			.p-night #map-wrap { background: var(--ocean-night); }
+			.p-night #map .land { fill: var(--land-night); stroke: var(--land-night-line); }
+			.p-night #map text { fill: var(--map-night-text); stroke: var(--map-night-halo); }
+			#map .star { fill: #fff; opacity: 0.7; }
+			@media (prefers-reduced-motion: reduce) { #hud { transition: none; } }
 			#map .route { stroke: var(--accent); stroke-width: 1; fill: none; opacity: 0.3; }
 			#map .route.air { stroke-dasharray: 2 4; opacity: 0.25; }
 			#map .route.ferry { stroke-dasharray: 1 2; }
@@ -339,7 +353,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { NPCS } from '../game/data/npcs.ts';
 			import { ACTIVITIES } from '../game/data/activities.ts';
 			import { EVENTS } from '../game/data/events.ts';
-			import { dateLabel, period, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
+			import { dateLabel, period, PERIOD_IDS, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
 			import { getWish } from '../game/core/wishes.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
 			import { weatherAt, weatherOn } from '../game/core/weather.ts';
@@ -583,6 +597,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return [{ name: '健康', icon: '❤️', v: Math.round(s.health) }, ...NEED_KEYS.map((k) => ({ name: NEED_META[k].name, icon: NEED_META[k].icon, v: Math.round(s.needs[k]) }))];
 			}
 			function moodCls(m: number) { return m < 25 ? ' low' : m < 50 ? ' mid' : ''; }
+			const PERIOD_ICON: Record<string, string> = { dawn: '🌅', day: '🌤️', dusk: '🌇', night: '🌙' };
 			function renderHud() {
 				const s = state!;
 				const m = mood(s);
@@ -590,7 +605,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const online = !/失败|离线|未同步/.test(syncStatus);
 				const loc = getLocation(region, s.loc)!;
 				const w = weatherAt(s);
-				const time = `${dateLabel(s.clock)} · ${WEEKDAYS[weekdayOf(s.clock)]} ${formatClock(s.clock).split(' ')[1]} ${period(s.clock).name}`;
+				const p = period(s.clock);
+				const time = `${PERIOD_ICON[p.id]} ${dateLabel(s.clock)} · ${WEEKDAYS[weekdayOf(s.clock)]} ${formatClock(s.clock).split(' ')[1]} ${p.name}`;
 				const sync = `<span class="sync-dot${online ? '' : ' off'}">${online ? '已同步' : '离线'}</span>`;
 				const cash = `<span class="chip cash">$${s.cash.toLocaleString()}</span>`;
 				const moodBtn = `<button class="moodchip${moodCls(m)}" data-tab="me" title="看心情的来源"><span>心情 ${moodTier(m).name} ${m}</span></button>`;
@@ -623,6 +639,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 
 			const proj = makeProjection(region);
+			/** 夜里地图上的星星：固定的伪随机位置，每次画都一样 */
+			function starField(w: number, h: number) {
+				let x = 2463534242;
+				const next = () => { x ^= x << 13; x ^= x >>> 17; x ^= x << 5; return (x >>> 0) / 4294967296; };
+				return Array.from({ length: 36 }, () => `<circle class="star" cx="${(next() * w).toFixed(1)}" cy="${(next() * h).toFixed(1)}" r="${(0.4 + next() * 0.8).toFixed(2)}"/>`).join('');
+			}
 			function renderMap() {
 				// 地图只在「出行」页显示：其他页不画，切到出行页时 renderPanel 会补画
 				if (tab !== 'go' || !state) return;
@@ -649,7 +671,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}).join('');
 				const map = $('map');
 				map.setAttribute('viewBox', `0 0 ${proj.width} ${proj.height}`);
-				map.innerHTML = `<polygon class="land" points="${outline}"/>${routes}${dots}`;
+				const stars = period(s.clock).id === 'night' ? starField(proj.width, proj.height) : '';
+				map.innerHTML = `${stars}<polygon class="land" points="${outline}"/>${routes}${dots}`;
 			}
 
 			function hero(key: string, fallback: string) {
@@ -1215,6 +1238,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (!state) { $('game').classList.add('hidden'); $('create').classList.remove('hidden'); return; }
 				$('create').classList.add('hidden');
 				$('game').classList.remove('hidden');
+				const pid = period(state.clock).id;
+				for (const p of PERIOD_IDS) document.documentElement?.classList?.toggle('p-' + p, p === pid);
 				renderPanel(); // 里面会画顶栏和（出行页的）地图
 				renderEvent();
 				if (dailyNote) {

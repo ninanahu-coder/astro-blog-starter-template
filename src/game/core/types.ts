@@ -392,6 +392,7 @@ export interface WishDef {
 export interface GameEvent {
 	seasons?: string[]; // 只在这些季节出现
 	weather?: string[]; // 只在抵达地点当天是这些天气时出现
+	periods?: ('dawn' | 'day' | 'dusk' | 'night')[]; // 只在抵达时是这些时段出现（清晨 5–8，白天 8–17，傍晚 17–20，夜晚 20–5）
 	id: string;
 	title: string;
 	icon: string;

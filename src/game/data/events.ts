@@ -218,5 +218,38 @@ export const EVENTS: GameEvent[] = [
 			{ label: '想办法溜走', check: { skill: 'stamina', dc: 60 }, ok: { text: '你拐进小巷甩掉了他们。', fx: { heat: -15, skills: { stamina: 2, street: 2 } } }, fail: { text: '没跑出五十米就被按住了。', fx: { cash: -500, health: -10, heat: -30 } } },
 		],
 	},
+	// ---------- 按时段出现（抵达时的时刻） ----------
+	{
+		id: 'dawn-boats', title: '清晨的渔船', icon: '🎣', kinds: ['port'], periods: ['dawn'], weight: 5,
+		text: '天刚亮，渔船陆续靠岸，码头上全是海鸥和吆喝声。',
+		choices: [
+			{ label: '帮忙搬鱼箱', check: { skill: 'strength', dc: 30 }, ok: { text: '船老大塞给你一点辛苦钱，还请你喝了杯热茶。', fx: { minutes: 45, cash: 25, needs: { social: 15, energy: -10 }, skills: { strength: 1 } } }, fail: { text: '鱼箱比想象中沉，你差点滑进海里。', fx: { minutes: 30, needs: { energy: -12, hygiene: -10 } } } },
+			{ label: '买个刚出炉的鱼肉派（$8）', cost: 8, ok: { text: '你捧着热乎乎的派，看着码头一点点忙起来。', fx: { minutes: 20, needs: { hunger: 25, fun: 10 } } } },
+		],
+	},
+	{
+		id: 'dusk-sunset', title: '海边日落', icon: '🌇', tags: ['beach'], periods: ['dusk'], weather: ['sunny', 'cloudy', 'hot'], weight: 5,
+		text: '太阳正沉进印度洋，整片海滩都被染成了橘红色。',
+		choices: [
+			{ label: '坐下来看完', ok: { text: '最后一点光消失时，海滩上有人鼓起了掌。', fx: { minutes: 40, needs: { fun: 25 } } } },
+			{ label: '和旁边的人互相拍照', check: { skill: 'charisma', dc: 25 }, ok: { text: '你们互相拍了几张，还加了联系方式。', fx: { minutes: 30, needs: { social: 25, fun: 15 }, skills: { charisma: 1 } } }, fail: { text: '对方只想安静地看日落。', fx: { minutes: 20, needs: { fun: 10 } } } },
+		],
+	},
+	{
+		id: 'night-roos', title: '夜路上的袋鼠', icon: '🦘', kinds: ['outback', 'mining', 'town'], arrivedBy: ['road', 'track'], periods: ['dusk', 'night'], weight: 4,
+		text: '天黑以后的公路上，一群袋鼠突然出现在车灯里。',
+		choices: [
+			{ label: '提醒司机减速', check: { skill: 'survival', dc: 30 }, ok: { text: '车稳稳停住，袋鼠们慢悠悠地跳进了灌木丛。', fx: { minutes: 20, needs: { fun: 10 }, skills: { survival: 1 } } }, fail: { text: '一个急刹，你的头撞上了前座。', fx: { minutes: 20, health: -6 } } },
+			{ label: '抓紧扶手', ok: { text: '有惊无险，后半程你一直盯着路边。', fx: { needs: { energy: -5 } } } },
+		],
+	},
+	{
+		id: 'night-lights', title: '河边夜景', icon: '🌃', locs: ['perth'], periods: ['night'], weight: 3,
+		text: '夜里的天鹅河两岸灯火通明，倒影一直铺到对岸。',
+		choices: [
+			{ label: '沿河走一走', ok: { text: '夜风很舒服，你走得比打算的还远。', fx: { minutes: 60, needs: { fun: 20, energy: -8 }, skills: { stamina: 1 } } } },
+			{ label: '看一会儿就回去休息', ok: { text: '明天还有事，你没多待。', fx: { minutes: 10, needs: { fun: 5 } } } },
+		],
+	},
 	...VENUE_EVENTS,
 ];

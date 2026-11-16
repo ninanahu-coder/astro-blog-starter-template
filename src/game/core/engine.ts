@@ -13,7 +13,7 @@ import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } f
 import { DEALER_HOURS, DEALER_TAG, VEHICLES } from '../data/vehicles.ts';
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
 import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
-import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, weekdayOf } from './time.ts';
+import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, period, weekdayOf } from './time.ts';
 import { FESTIVALS } from '../data/festivals.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
@@ -298,6 +298,7 @@ function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null,
 	if (ev.venueTypes) return false; // 真实地点事件只由 pickVenueEvent 抽
 	if (ev.seasons && !ev.seasons.includes(dateOf(clock).season)) return false;
 	if (ev.weather && !ev.weather.includes(weatherOn(loc.id, dayOf(clock)).id)) return false;
+	if (ev.periods && !ev.periods.includes(period(clock).id)) return false;
 	if (ev.arrivedBy && (!mode || !ev.arrivedBy.includes(mode))) return false;
 	const scoped = ev.locs || ev.tags || ev.kinds;
 	if (!scoped) return true;

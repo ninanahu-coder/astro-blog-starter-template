@@ -4,8 +4,11 @@ import type { Hours } from './types.ts';
 export const hourOf = (clock: number) => Math.floor((clock % 1440) / 60);
 export const dayOf = (clock: number) => Math.floor(clock / 1440);
 
+export type PeriodId = 'dawn' | 'day' | 'dusk' | 'night';
+export const PERIOD_IDS: PeriodId[] = ['dawn', 'day', 'dusk', 'night'];
+
 export interface Period {
-	id: 'dawn' | 'day' | 'dusk' | 'night';
+	id: PeriodId;
 	name: string;
 }
 
