@@ -128,6 +128,13 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		// 名字里的 HTML 被转义（服务端可能已清洗掉尖括号；无论如何不能原样出现）
 		for (const h of [panel(), el('hud').innerHTML]) assert.ok(!h.includes('<b>阿测</b>'), '名字没有转义');
 		assert.match(panel(), /1 天后周结算，钱不够/, '周结算预警');
+		// 顶栏（草图样式）：时间小字 + 地点大标题 + 天气；一排现金、等级、心情
+		assert.match(el('hud').innerHTML, /<h1>[^<]+<\/h1>/, '今天页顶栏用地点做大标题');
+		assert.match(el('hud').innerHTML, /class="wx-pill/, '顶栏有天气');
+		assert.match(el('hud').innerHTML, /class="chip cash">\$120</, '顶栏有现金');
+		// 今天页：下一步在最上面，然后是状态卡，最低的一项标「最缺」
+		assert.ok(panel().indexOf('class="next"') >= 0 && panel().indexOf('class="next"') < panel().indexOf('<h3>状态</h3>'), '下一步排在状态卡前面');
+		assert.match(panel(), /最缺/);
 		assert.match(panel(), /要付 \$160（房租 \$160），现在只有 \$120，还差 \$40/);
 		// 「下一步」：饱食最低 → 吃饭
 		const next = panel().match(/<div class="next">[\s\S]*?<\/div>/)?.[0] ?? '';
@@ -153,6 +160,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			assert.equal(el('map-wrap').classList.contains('hidden'), t !== 'go', `${t} 页地图显示不对`);
 			if (t === 'go') assert.match(el('map').innerHTML, /class="land"/, '出行页画了地图');
 			if (t === 'go') assert.match(panel(), /去了周结算会不够/, '周结算前的路费提醒');
+			if (t === 'go') assert.match(el('hud').innerHTML, /<h1>出行<\/h1>/, '其他页顶栏用页名做大标题');
+			if (t === 'me') assert.match(panel(), /class="card me-head"/, '我页顶上有人物抬头');
 		}
 		for (const mt of ['overview', 'assets', 'people', 'log', 'sync']) {
 			await click({ metab: mt });
@@ -177,7 +186,20 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ loc: 'broome' });
 		assert.match(el('tabs').innerHTML, /data-tab="go" class="on"/);
 		assert.match(panel(), /card dest/);
-		await click({ loc: 'broome' });
+		// 目的地卡：交通方式是并排方块，默认选中一种，下面是路费后的余额和「出发」大按钮
+		// 布鲁姆只有航班、钱不够：方块灰掉，不给出发按钮
+		assert.match(panel(), /class="tile" data-dmode="air" data-dest="broome" aria-pressed="false" disabled/);
+		assert.doesNotMatch(panel(), /出发去布鲁姆/);
+		await click({ loc: 'fremantle' });
+		assert.match(panel(), /class="tile on" data-dmode="[a-z]+" data-dest="fremantle" aria-pressed="true"/);
+		assert.match(panel(), /路费后剩 \$\d+，1 天后周结算要付 \$160，会不够/);
+		assert.match(panel(), /data-go="fremantle" data-mode="[a-z]+">出发去弗里曼特尔/);
+		const alt = panel().match(/class="tile" data-dmode="([a-z]+)" data-dest="fremantle" aria-pressed="false" >/)?.[1];
+		if (alt) {
+			await click({ dmode: alt, dest: 'fremantle' });
+			assert.match(panel(), new RegExp(`data-go="fremantle" data-mode="${alt}">出发去`), '换一种走法，出发按钮跟着换');
+		}
+		await click({ loc: 'fremantle' });
 		await click({ tab: 'me' });
 		await click({ metab: 'overview' });
 		await click({ share: '' });
