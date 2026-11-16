@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction } from '../../src/game/core/actions.ts';
+import { checkScore } from '../../src/game/core/attributes.ts';
+import { ITEMS } from '../../src/game/data/items.ts';
 import { createCharacter } from '../../src/game/core/character.ts';
 import { activitiesAt } from '../../src/game/core/engine.ts';
 import { dateOf, SEASONS, YEAR_DAYS } from '../../src/game/core/time.ts';
@@ -213,4 +215,24 @@ test('天气相关数据自洽：活动和事件里写的天气都存在，expos
 	for (const n of NPCS) if (n.perk?.exposed !== undefined) assert.equal(n.perk.exposed, 'sea', n.id);
 	// 只有风暴会关海：如果以后有别的天气 closesSea，这里提醒检查文案
 	assert.deepEqual(WEATHERS.filter((w) => w.closesSea).map((w) => w.id), ['storm']);
+});
+
+test('天气用品：天气限定的装备只在对应天气加检定分，其他天气不算', () => {
+	const base = createCharacter({ id: 'gear', name: 'g', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed: 1 });
+	const find = (want: string) => {
+		for (let d = 0; d < 400; d++) {
+			const clock = d * 1440 + 12 * 60;
+			if (weatherAt({ ...base, clock }).id === want) return clock;
+		}
+		throw new Error('找不到 ' + want);
+	};
+	const rainy = { ...base, clock: find('rain'), inventory: { raincoat: 1 } };
+	const sunny = { ...rainy, clock: find('sunny') };
+	assert.equal(checkScore(rainy, 'stamina').item, 4, '下雨天雨衣生效');
+	assert.equal(checkScore(sunny, 'stamina').item, 0, '晴天雨衣不算');
+	const hat = { ...sunny, inventory: { sunhat: 1, flynet: 1 } };
+	assert.equal(checkScore(hat, 'survival').item, 4, '晴天宽檐帽 +4 高于防蝇网帽 +3');
+	assert.equal(checkScore({ ...hat, clock: rainy.clock }, 'survival').item, 3, '雨天只剩防蝇网帽');
+	for (const it of ITEMS) for (const w of it.weather ?? []) assert.ok(WEATHERS.some((x) => x.id === w), `${it.id} 的天气 ${w}`);
+	for (const it of ITEMS) if (it.weather) assert.ok(it.passive, `${it.id} 天气限定只用于随身装备`);
 });

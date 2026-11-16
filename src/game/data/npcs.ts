@@ -176,4 +176,49 @@ export const NPCS: NpcDef[] = [
 		],
 		perk: { at: 60, name: '码头讲古', desc: '跟着哈利在码头走了一圈，听他讲这座港口的故事。', every: 3, fx: { minutes: 90, needs: { fun: 20, social: 20 }, skills: { charisma: 1 } } },
 	},
+	{
+		id: 'ruby', name: '鲁比', role: '峡谷向导', loc: 'karijini', hours: [6, 16],
+		bio: '在峡谷里长大，知道哪块石头雨后会滑。',
+		schedule: [
+			{ seasons: ['summer'], loc: 'port-hedland', hours: [9, 17], note: '夏天太热不带团，去黑德兰港的办公室排班' },
+		],
+		gifts: { love: ['water'], like: ['firstaid', 'flynet'], dislike: ['coffee'] },
+		stories: [
+			{ at: 10, title: '先看天', text: '鲁比拦下正要下谷的你：「先看天，再看脚下。」' },
+			{ at: 30, title: '石头的颜色', text: '鲁比教你从岩壁的颜色认出哪层是几十亿年前的海底。', fx: { skills: { survival: 1 } } },
+			{ at: 60, title: '成了好友', text: '鲁比带你走了一条只在旱季开放的谷底小路，路上一个游客都没有。', fx: { respect: 3, skills: { survival: 4, stamina: 2 }, moodlet: 'new-friend' } },
+			{ at: 90, title: '营火边的故事', text: '鲁比在营火边讲起她外婆教她认星星的事，问你要不要一起守夜。', fx: { moodlet: 'best-friend' } },
+		],
+		perk: { at: 60, name: '谷底游泳', desc: '鲁比带你去了一个只有向导知道的水潭。', every: 3, fx: { minutes: 150, needs: { fun: 30, hygiene: 20, energy: -15 }, skills: { swimming: 1, survival: 0.5 } } },
+	},
+	{
+		id: 'rosa', name: '罗莎', role: '海豚中心志愿者', loc: 'bunbury', hours: [8, 16],
+		bio: '退休前是中学生物老师，现在每天在海边数海豚。',
+		schedule: [
+			{ weekdays: [6], loc: 'margaret-river', hours: [10, 15], note: '周日去玛格丽特河看外孙' },
+		],
+		gifts: { love: ['snack'], like: ['coffee', 'water'], dislike: ['jerrycan'] },
+		stories: [
+			{ at: 10, title: '背鳍上的缺口', text: '罗莎指给你看：那只背鳍上有缺口的海豚叫「小剪刀」。' },
+			{ at: 30, title: '记录本', text: '罗莎让你帮忙在记录本上填今天看到的海豚，你认对了三只。', fx: { needs: { fun: 15 } } },
+			{ at: 60, title: '成了好友', text: '罗莎把你推荐进了志愿者名单，中心发了你一件印着海豚的T恤和一张餐券。', fx: { cash: 120, respect: 3, moodlet: 'new-friend' } },
+			{ at: 90, title: '给新生儿起名', text: '中心的新生小海豚要起名，罗莎投了你提的名字。', fx: { respect: 3, moodlet: 'best-friend' } },
+		],
+		perk: { at: 30, exposed: 'sea', name: '浅滩观豚', desc: '罗莎带你站在齐腰深的水里，海豚从你身边游过。', every: 2, fx: { minutes: 90, needs: { fun: 30, social: 15 }, moodlet: 'warm-moment' } },
+	},
+	{
+		id: 'mack', name: '麦克', role: '芒果农场主', loc: 'kununurra', hours: [5, 14],
+		bio: '靠一条灌渠种出了半个镇子的芒果。',
+		schedule: [
+			{ seasons: ['winter'], weekdays: [5], loc: 'broome', hours: [9, 16], note: '冬天周六去布鲁姆集市卖芒果' },
+		],
+		gifts: { love: ['coffee'], like: ['water', 'firstaid'], dislike: ['surfboard'] },
+		stories: [
+			{ at: 10, title: '先尝一个', text: '麦克从车斗里扔给你一个芒果：「先尝，再说买不买。」' },
+			{ at: 30, title: '灌渠', text: '麦克开车带你看了那条把沙漠变成农田的灌渠。', fx: { skills: { driving: 1 } } },
+			{ at: 60, title: '成了好友', text: '采收季缺人，麦克让你来帮了三天，工钱多给了一倍。', fx: { cash: 350, skills: { strength: 3, stamina: 2 }, moodlet: 'new-friend' } },
+			{ at: 90, title: '你的那棵树', text: '麦克在果园边上种了一棵新树苗，木牌上写着你的名字。', fx: { respect: 3, moodlet: 'best-friend' } },
+		],
+		perk: { at: 30, name: '果园早饭', desc: '麦克在果园里请你吃了一顿芒果配煎蛋。', every: 2, fx: { minutes: 45, needs: { hunger: 40, social: 15 }, moodlet: 'well-fed' } },
+	},
 ];

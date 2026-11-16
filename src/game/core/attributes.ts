@@ -7,6 +7,7 @@ import { FURNITURE } from '../data/furniture.ts';
 import { VEHICLES } from '../data/vehicles.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { propertyDue } from './finance.ts';
+import { weatherAt } from './weather.ts';
 import { MOODLETS } from '../data/moodlets.ts';
 import type { MoodletDef } from './types.ts';
 import type { ItemDef, NeedKey, PlayerState, SkillKey, TraitDef, TraitMods } from './types.ts';
@@ -119,13 +120,16 @@ export interface CheckBreakdown {
 	total: number;
 }
 
-/** 检定分 = 能力值 + 特质加值 + 装备加值（取最高一件）+ 心情加值。随机数在引擎里加 */
+/** 检定分 = 能力值 + 特质加值 + 装备加值（取最高一件；天气限定的装备只在对应天气算）+ 心情加值。随机数在引擎里加 */
 export function checkScore(state: PlayerState, k: SkillKey): CheckBreakdown {
 	const skill = Math.floor(state.skills[k]);
 	const trait = mods(state).reduce((a, m) => a + (m.check?.[k] ?? 0), 0);
 	let item = 0;
+	let today: string | undefined; // 有天气限定的装备才去算天气
 	for (const [id, n] of Object.entries(state.inventory)) {
-		const bonus = n > 0 ? (itemById.get(id)?.passive?.[k] ?? 0) : 0;
+		const def = n > 0 ? itemById.get(id) : undefined;
+		if (def?.weather && !def.weather.includes((today ??= weatherAt(state).id))) continue;
+		const bonus = def?.passive?.[k] ?? 0;
 		item = Math.max(item, bonus);
 	}
 	const moodBonus = moodTier(mood(state)).check;

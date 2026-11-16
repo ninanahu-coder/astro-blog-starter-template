@@ -17,7 +17,7 @@ import { FINANCE } from './finance.ts';
 import { realDayOf } from './daily.ts';
 import { getRegion } from '../data/wa.ts';
 import { COURSES } from '../data/courses.ts';
-import { EXPERIENCES } from '../data/experiences.ts';
+import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
 import { validTraits } from './attributes.ts';
@@ -113,6 +113,7 @@ export function createCharacter(opts: {
 		wishDay: -1,
 		daily: { day: 0, streak: 0 },
 		collected: [],
+		areas: [],
 		courseDays: {},
 		coopDays: {},
 		pending: null,
@@ -186,7 +187,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 	const visited: Record<string, number> = {};
 	if (r.visited && typeof r.visited === 'object') {
 		for (const [k, v] of Object.entries(r.visited).slice(0, 500)) {
-			if (k.length <= 64 && (!knownLocs || knownLocs.has(k))) visited[k] = num(v, 0, 1e6, 1);
+			if (k.length <= 64 && (!knownLocs || knownLocs.has(k))) visited[k] = Math.max(1, Math.floor(num(v, 0, 1e6, 1))); // 到访次数是正整数
 		}
 	}
 	const journal = Array.isArray(r.journal)
@@ -249,6 +250,13 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		wishDay: Math.floor(num(r.wishDay, -1, 1e7, -1)),
 		daily: cleanDaily(r, opts.now),
 		collected: [...new Set(strList(r.collected, 200))].filter((id) => EXPERIENCES.some((e) => e.id === id)),
+		areas: (() => {
+			if (Array.isArray(r.areas)) return [...new Set(strList(r.areas, 20))].filter((id) => id in AREAS);
+			// 旧存档：按现在的清单或以前的清单集齐过的片区都算已获得
+			const got = new Set(strList(r.collected, 200));
+			const lists = (id: string) => [EXPERIENCES.filter((e) => e.area === id).map((e) => e.id), ...(AREA_HISTORY[id] ?? [])];
+			return Object.keys(AREAS).filter((id) => lists(id).some((l) => l.length > 0 && l.every((x) => got.has(x))));
+		})(),
 		courseDays: (() => {
 			const out: Record<string, number> = {};
 			for (const c of COURSES) {

@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { applyAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import { claimDaily, DAILY, realDayOf } from '../../src/game/core/daily.ts';
-import { experiencesAt, festivalActive, festivalCalendar, festivalsNow, travel } from '../../src/game/core/engine.ts';
+import { areaTitles, experiencesAt, festivalActive, festivalCalendar, festivalsNow, festivalsSoon, travel } from '../../src/game/core/engine.ts';
 import { dateLabel, dateOf, inSpan, YEAR_DAYS } from '../../src/game/core/time.ts';
 import { refreshWishes, wishMatches } from '../../src/game/core/wishes.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
@@ -180,4 +180,73 @@ test('每日奖励金额：第 1 天 $30，每天 +$10，第 7 天封顶并另�
 	assert.equal(dailyReward(7).full, true);
 	assert.equal(dailyReward(8).full, false);
 	assert.equal(dailyReward(0).cash, 30, '异常输入按第 1 天算');
+});
+
+test('节日分布：每个季节至少一个，同一天最多两个；体验时段里有节日', () => {
+	for (const season of ['spring', 'summer', 'autumn', 'winter']) assert.ok(FESTIVALS.some((f) => f.season === season), season);
+	for (let d = 0; d < 112; d++) assert.ok(festivalsNow(at(12, d)).length <= 2, `第 ${d} 天节日太多`);
+	for (const f of FESTIVALS) {
+		const start = ['spring', 'summer', 'autumn', 'winter'].indexOf(f.season) * 28 + f.day - 1;
+		const exp = EXPERIENCES.filter((e) => e.festival === f.id);
+		const s = make({ loc: f.loc, clock: at(exp[0].hours ? exp[0].hours[0] + 1 : 12, start), cash: 500 });
+		assert.ok(experiencesAt(s, WA).some((o) => o.exp.id === exp[0].id && !o.blocked), `${f.id} 当天能做 ${exp[0].id}`);
+	}
+});
+
+test('第 2 轮新增的 4 个节日：数据和专属体验都在', () => {
+	const want: Record<string, [string, string]> = {
+		'gourmet-escape': ['margaret-river', 'fest-long-table'],
+		'street-arts': ['fremantle', 'fest-street-show'],
+		'whale-shark': ['exmouth', 'fest-ocean-cinema'],
+		'whale-season': ['albany', 'fest-whale-watch'],
+	};
+	for (const [id, [loc, exp]] of Object.entries(want)) {
+		const f = FESTIVALS.find((x) => x.id === id);
+		assert.ok(f, id);
+		assert.equal(f!.loc, loc);
+		assert.equal(EXPERIENCES.find((e) => e.id === exp)?.festival, id);
+	}
+});
+
+test('附近页的节日：近 14 天的全部列出，不足 2 个时补到 2 个；这里正在办的单独给出', () => {
+	for (let d = 0; d < YEAR_DAYS; d++) {
+		const { here, soon } = festivalsSoon(at(12, d), 'perth');
+		const cal = festivalCalendar(at(12, d)).filter((c) => c.festival.id !== here?.festival.id);
+		assert.ok(soon.length >= 2, `第 ${d} 天至少 2 个`);
+		for (const c of cal) if (c.startsIn <= 14) assert.ok(soon.some((x) => x.festival.id === c.festival.id), `第 ${d} 天漏了 ${c.festival.id}`);
+		assert.ok(soon.every((c, i) => i < 2 || c.startsIn <= 14), '超过两个以后只列 14 天内的');
+	}
+	const fireworks = 28 + 13;
+	assert.equal(festivalsSoon(at(19, fireworks), 'perth').here?.festival.id, 'skyshow');
+	assert.equal(festivalsSoon(at(19, fireworks), 'fremantle').here, undefined, '别处的节日不算这里的');
+});
+
+test('片区称号：旧存档按旧清单集齐过的保留称号，补齐新体验不重复发奖；新存档集齐时只发一次', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const legacy = ['fest-wildflower-walk', 'fest-race-day', 'fest-skyshow', 'fest-surf-final', 'fest-lantern-walk'];
+	const whaleDay = 3 * 28 + 4; // 冬季第 5 天
+	const old: Record<string, unknown> = { ...make({ loc: 'albany', clock: at(10, whaleDay), cash: 500, collected: [...legacy, 'fest-long-table', 'fest-street-show', 'fest-ocean-cinema'] }) };
+	delete old.areas;
+	const s = sanitizeState(old, locs, { fallbackLoc: 'perth', now: Date.now() })!;
+	assert.deepEqual(s.areas, ['festival'], '旧存档迁移：集齐过原来的 5 个节日体验');
+	assert.ok(areaTitles(s).includes('节日达人'), '加了新体验后称号不掉');
+	const r = applyAction(s, WA, { t: 'experience', id: 'fest-whale-watch' });
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.respect, s.respect + 5, '只有体验本身的声望，片区奖励不重复');
+	assert.doesNotMatch(r.msg, /获得称号/);
+	// 新存档：最后一项补齐时发一次
+	const fresh = make({ loc: 'albany', clock: at(10, whaleDay), cash: 500, collected: EXPERIENCES.filter((e) => e.festival && e.id !== 'fest-whale-watch').map((e) => e.id) });
+	assert.deepEqual(fresh.areas, []);
+	const r2 = applyAction(fresh, WA, { t: 'experience', id: 'fest-whale-watch' });
+	assert.equal(r2.state.respect, fresh.respect + 10, '体验 +5 和集齐片区 +5');
+	assert.deepEqual(r2.state.areas, ['festival']);
+	assert.match(r2.msg, /节日达人/);
+	// 存档里的 areas 只留存在的片区
+	assert.deepEqual(sanitizeState({ ...r2.state, areas: ['festival', 'nope', 'festival'] }, locs, { fallbackLoc: 'perth', now: Date.now() })!.areas, ['festival']);
+});
+
+test('存档校验：到访次数取正整数', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const s = sanitizeState({ ...make(), visited: { perth: 2.8, albany: 0.4 } }, locs, { fallbackLoc: 'perth', now: Date.now() })!;
+	assert.deepEqual(s.visited, { perth: 2, albany: 1 });
 });

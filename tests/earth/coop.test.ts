@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyCoop } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
-import { COOP_TEAM_BONUS, coopAvailableAt, coopBlocked, coopsAt, resolveCoop } from '../../src/game/core/coop.ts';
+import { COOP_TEAM_BONUS, coopAvailableAt, coopBlocked, coopCost, coopCostLabel, coopsAt, resolveCoop } from '../../src/game/core/coop.ts';
 import { SKILL_KEYS } from '../../src/game/core/types.ts';
 import { COOP_EVENTS, getCoop } from '../../src/game/data/coop.ts';
 import { WEATHERS } from '../../src/game/data/weather.ts';
+import { weatherAt } from '../../src/game/core/weather.ts';
 import { WA } from '../../src/game/data/wa.ts';
 
 const mk = (id: string, seed = 1) => createCharacter({ id, name: id, avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed });
@@ -96,4 +97,25 @@ test('存档校验：coopDays 只留存在的共同事件，旧存档补空', ()
 	const old: Record<string, unknown> = { ...mk('coop-a') };
 	delete old.coopDays;
 	assert.deepEqual(sanitizeState(old, locs, { fallbackLoc: 'perth', now: Date.now() })!.coopDays, {});
+});
+
+test('要凑钱的共同事件：钱不够不能参加，够了结算时扣掉', () => {
+	const bbq = getCoop('community-bbq')!;
+	assert.equal(coopCost(bbq), 8);
+	assert.equal(coopCost(getCoop('beach-cleanup')!), 0);
+	// 找一个邦伯里天气合适的中午
+	let c = 1440 + 12 * 60;
+	const fine = (x: number) => ['sunny', 'cloudy', 'hot'].includes(weatherAt({ ...mk('w'), loc: 'bunbury', clock: x }).id);
+	while (!fine(c)) c += 1440;
+	const a = { ...mk('coop-a', 21), loc: 'bunbury', clock: c, cash: 5 };
+	assert.match(coopBlocked(a, WA, bbq)!, /需要 \$8/);
+	const b = { ...a, cash: 50 };
+	assert.equal(coopBlocked(b, WA, bbq), undefined);
+	const r = applyCoop(bbq, WA, [{ state: b, role: 0, name: 'A' }, { state: { ...b, id: 'coop-b', seed: 22 }, role: 1, name: 'B' }]);
+	for (const x of r.results) assert.equal(x.state.cash, 42);
+});
+
+test('费用说明：要凑钱的写「每人 $N」，不要钱的为空（发起卡和队伍里共用）', () => {
+	assert.equal(coopCostLabel(getCoop('community-bbq')!), ' · 每人 $8');
+	assert.equal(coopCostLabel(getCoop('beach-cleanup')!), '');
 });

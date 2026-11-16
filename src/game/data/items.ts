@@ -12,5 +12,11 @@ export const ITEMS: ItemDef[] = [
 	{ id: 'flynet', name: '防蝇网帽', icon: '🪰', price: 12, max: 1, shop: { kinds: ['town', 'mining', 'outback'] }, passive: { survival: 3 }, desc: '内陆生存检定 +3。' },
 	{ id: 'swag', name: '澳式睡袋', icon: '🛌', price: 120, max: 1, shop: { kinds: ['city', 'town', 'mining'] }, passive: { survival: 8 }, desc: '露营专用，生存检定 +8。' },
 	{ id: 'jerrycan', name: '备用油桶', icon: '⛽', price: 45, max: 1, shop: { kinds: ['city', 'town', 'mining'] }, passive: { driving: 5 }, desc: '长途不慌，驾驶检定 +5。' },
+	{ id: 'raincoat', name: '轻便雨衣', icon: '🧥', price: 25, max: 1, shop: { kinds: [...TOWNS] }, passive: { stamina: 4, survival: 3 }, weather: ['rain', 'storm'], desc: '下雨和风暴天：体能检定 +4、生存检定 +3。' },
+	{ id: 'umbrella', name: '折叠伞', icon: '☂️', price: 15, max: 1, shop: { kinds: ['city', 'port', 'town', 'coast'] }, passive: { charisma: 3 }, weather: ['rain'], desc: '下雨天不至于淋成落汤鸡：魅力检定 +3。' },
+	{ id: 'sunhat', name: '宽檐帽', icon: '👒', price: 18, max: 1, shop: { kinds: [...TOWNS, 'outback'] }, passive: { survival: 4 }, weather: ['hot', 'sunny'], desc: '晴天和炎热天：生存检定 +4。' },
+	{ id: 'sunscreen', name: '防晒霜', icon: '🧴', price: 12, max: 1, shop: { kinds: [...TOWNS] }, passive: { stamina: 3, swimming: 2 }, weather: ['hot', 'sunny'], desc: '晴天和炎热天：体能检定 +3、游泳检定 +2。' },
+	{ id: 'drybag', name: '防水袋', icon: '🎒', price: 22, max: 1, shop: { tags: ['beach', 'reef'] }, passive: { swimming: 3 }, weather: ['rain', 'cloudy'], desc: '阴雨天下水也不怕东西湿：游泳检定 +3。' },
+	{ id: 'electrolyte', name: '电解质冲剂', icon: '🥤', price: 4, max: 6, shop: { kinds: [...TOWNS, 'outback'] }, use: { needs: { energy: 12, hunger: 3 } }, desc: '热天出汗多，冲一包补回来。' },
 	{ id: 'surfboard', name: '冲浪板', icon: '🏄', price: 350, max: 1, shop: { tags: ['surf', 'beach'] }, passive: { swimming: 5, stamina: 3 }, desc: '游泳检定 +5、体能检定 +3。' },
 ];

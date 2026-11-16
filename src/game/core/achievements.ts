@@ -5,8 +5,10 @@ import { getCareer, netWorth } from './engine.ts';
 import type { PlayerState, Region } from './types.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
 import { ACHIEVEMENTS } from '../data/achievements.ts';
+import { COOP_EVENTS } from '../data/coop.ts';
+import { SKILL_KEYS } from './types.ts';
 
-export type AchievementMetric = 'places' | 'checkins' | 'collected' | 'friends' | 'besties' | 'home' | 'properties' | 'topJob' | 'worth' | 'level' | 'photos' | 'stormPhotos';
+export type AchievementMetric = 'places' | 'checkins' | 'collected' | 'friends' | 'besties' | 'home' | 'properties' | 'topJob' | 'worth' | 'level' | 'photos' | 'stormPhotos' | 'rainPhotos' | 'coops' | 'festivals' | 'topSkill' | 'trips';
 
 export interface AchievementDef {
 	id: string;
@@ -14,8 +16,8 @@ export interface AchievementDef {
 	name: string;
 	desc: string;
 	metric: AchievementMetric;
-	/** 目标值；'all-places' / 'all-experiences' 表示「全部」，按区域和数据现算 */
-	goal: number | 'all-places' | 'all-experiences';
+	/** 目标值；'all-*' 表示「全部」，按区域和数据现算 */
+	goal: number | 'all-places' | 'all-experiences' | 'all-coops' | 'all-festivals';
 }
 
 export interface AchievementStatus {
@@ -45,12 +47,20 @@ export function achievementMetric(state: PlayerState, region: Region, m: Achieve
 		case 'level': return level(state.respect).lv;
 		case 'photos': return state.photos.length;
 		case 'stormPhotos': return state.photos.filter((p) => p.endsWith('|storm')).length;
+		case 'rainPhotos': return state.photos.filter((p) => p.endsWith('|rain')).length;
+		// 参加过几种共同事件（成败都算）
+		case 'coops': return COOP_EVENTS.filter((c) => state.coopDays?.[c.id] !== undefined).length;
+		case 'festivals': return state.collected.filter((id) => EXPERIENCES.some((e) => e.id === id && e.festival)).length;
+		case 'topSkill': return Math.floor(Math.max(0, ...SKILL_KEYS.map((k) => state.skills[k] ?? 0)));
+		case 'trips': return Object.values(state.visited).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
 	}
 }
 
 function goalOf(def: AchievementDef, region: Region): number {
 	if (def.goal === 'all-places') return region.locations.length;
 	if (def.goal === 'all-experiences') return EXPERIENCES.length;
+	if (def.goal === 'all-coops') return COOP_EVENTS.length;
+	if (def.goal === 'all-festivals') return EXPERIENCES.filter((e) => e.festival).length;
 	return def.goal;
 }
 

@@ -1058,11 +1058,18 @@ export function experiencesAt(state: PlayerState, region: Region): ExperienceOff
 	}));
 }
 
-/** 已集齐的片区称号 */
+/** 按现在的体验清单已经集齐的片区 */
+function completeAreas(state: PlayerState): string[] {
+	return Object.keys(AREAS).filter((id) => {
+		const list = EXPERIENCES.filter((e) => e.area === id);
+		return list.length > 0 && list.every((e) => state.collected.includes(e.id));
+	});
+}
+
+/** 已获得的片区称号：存档里记下的（加了新体验也不收回），加上现在集齐的 */
 export function areaTitles(state: PlayerState): string[] {
-	return Object.entries(AREAS)
-		.filter(([id]) => EXPERIENCES.filter((e) => e.area === id).every((e) => state.collected.includes(e.id)))
-		.map(([, a]) => a.title);
+	const got = new Set([...(state.areas ?? []), ...completeAreas(state)]);
+	return Object.entries(AREAS).filter(([id]) => got.has(id)).map(([, a]) => a.title);
 }
 
 export function doExperience(prev: PlayerState, region: Region, id: string): ActionResult {
@@ -1072,7 +1079,6 @@ export function doExperience(prev: PlayerState, region: Region, id: string): Act
 	if (offer.blocked) return fail(prev, offer.blocked);
 	const e = offer.exp;
 	const state = clone(prev);
-	const titlesBefore = areaTitles(state);
 	state.cash -= e.price;
 	if (offer.first) {
 		// 没体验完不收进收藏册
@@ -1083,10 +1089,12 @@ export function doExperience(prev: PlayerState, region: Region, id: string): Act
 		if (applyEffect(state, { minutes: e.minutes, needs: { fun }, moodlet: 'good-time' }, region)) return collapsedResult(state);
 	}
 	let msg = offer.first ? `体验了${e.name}，收进了收藏册（声望 +${e.respect}）。` : `又体验了一次${e.name}。`;
-	const gained = areaTitles(state).filter((t) => !titlesBefore.includes(t));
+	// 称号奖励每个片区只发一次：记进存档，以后加了新体验再补齐也不重复发
+	const gained = completeAreas(state).filter((id) => !(state.areas ?? []).includes(id));
 	if (gained.length) {
+		state.areas = [...(state.areas ?? []), ...gained];
 		state.respect += 5;
-		msg += ` 集齐了「${AREAS[e.area].name}」，获得称号「${gained[0]}」！`;
+		msg += ` 集齐了「${AREAS[gained[0]].name}」，获得称号「${AREAS[gained[0]].title}」！`;
 	}
 	log(state, msg);
 	return { ok: true, state, msg };
@@ -1367,6 +1375,14 @@ export const festivalActive = (id: string, clock: number): boolean => {
 
 /** 今天正在举行的节日 */
 export const festivalsNow = (clock: number): FestivalDef[] => FESTIVALS.filter((f) => inSpan(clock, f.season, f.day, f.days).active);
+
+/** 附近页的节日卡：这里正在办的，和近 14 天的其他节日（至少列 2 个，让人知道下一个在哪） */
+export function festivalsSoon(clock: number, loc: string): { here?: { festival: FestivalDef; active: boolean; startsIn: number }; soon: { festival: FestivalDef; active: boolean; startsIn: number }[] } {
+	const cal = festivalCalendar(clock);
+	const here = cal.find((c) => c.active && c.festival.loc === loc);
+	const soon = cal.filter((c) => c !== here).filter((c, i) => i < 2 || c.startsIn <= 14);
+	return { here, soon };
+}
 
 /** 全部节日，按离现在的远近排序；进行中的 startsIn 为 0 */
 export function festivalCalendar(clock: number): { festival: FestivalDef; active: boolean; startsIn: number }[] {
