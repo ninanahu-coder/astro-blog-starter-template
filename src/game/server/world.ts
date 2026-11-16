@@ -7,6 +7,7 @@ import { applyAction, applyCoop, applyTrade, applyWeeklyClaim, parseAction, publ
 import { addWeekly, goalOfWeek, weekDaysLeft, weeklyMine, weekOf, type WeeklyMetric } from '../core/weekly.ts';
 import { giveBlocked, saleRange } from '../core/trade.ts';
 import { noteMet } from '../core/social.ts';
+import { cleanNote, NOTES_PER_DAY, NOTES_PER_LOC } from '../core/notes.ts';
 import { getItem } from '../core/attributes.ts';
 import { coopBlocked } from '../core/coop.ts';
 import { getCoop } from '../data/coop.ts';
@@ -37,6 +38,7 @@ const COOP_PER_LOC = 4;
 const COOP_HINT_MS = 1000; // 同一连接的「队伍有变化」提醒最多 1 秒转发一次（客户端另外合并成 3 秒一拉），防止刷提醒让别人不停拉列表
 const CONFLICT_MSG = '进度刚刚更新过（另一台设备，或别的玩家和你一起做的事、和你的交易），已载入最新进度，请再操作一次';
 const OFFER_RE = /^[a-f0-9]{10}$/;
+const NOTE_RE = /^[a-f0-9]{8}$/;
 const HASH_RE = /^[a-f0-9]{12}$/;
 const OFFER_TTL_MS = 30 * 60 * 1000; // 送礼、二手摊的挂单 30 分钟没人接就撤下
 const OFFER_MAX = 500;
@@ -76,6 +78,17 @@ interface Offer {
 	taking?: boolean;
 }
 
+/** 地点留言：落盘在 'notes:<地点>'；author 是 id 哈希前缀，不发给客户端（只告诉是不是自己的） */
+interface Note {
+	id: string;
+	author: string;
+	name: string;
+	avatar: string;
+	text: string;
+	at: number;
+	day: number;
+}
+
 interface Presence {
 	id: string;
 	name: string;
@@ -113,6 +126,8 @@ export class EarthWorld {
 	private offers = new Map<string, Offer>();
 	private week: { week: number; count: number } | null = null; // 这周全服累计数（内存里一份，落盘在 'week:<序号>'）
 	private weekLoading: Promise<void> | null = null;
+	private notes = new Map<string, Note[]>(); // 地点 -> 留言（内存一份，先改内存再落盘，不会丢别人同时写的）
+	private notesLoading = new Map<string, Promise<void>>();
 
 	constructor(ctx: DurableObjectState, _env: unknown) {
 		this.ctx = ctx;
@@ -359,6 +374,21 @@ export class EarthWorld {
 		await this.ctx.storage.put('week:' + week, this.week!.count);
 	}
 
+	private async notesAt(loc: string): Promise<Note[]> {
+		while (!this.notes.has(loc)) {
+			let p = this.notesLoading.get(loc);
+			if (!p) {
+				p = (async () => {
+					const raw = await this.ctx.storage.get<Note[]>('notes:' + loc);
+					if (!this.notes.has(loc)) this.notes.set(loc, Array.isArray(raw) ? raw.slice(-NOTES_PER_LOC) : []);
+				})().finally(() => this.notesLoading.delete(loc));
+				this.notesLoading.set(loc, p);
+			}
+			await p;
+		}
+		return this.notes.get(loc)!;
+	}
+
 	/** 存档落盘，同时更新这名玩家的榜单记录。榜单用 id 的哈希前缀做键（和在线状态一样），真实 id 是凭证的一部分，不能外露 */
 	private async persist(id: string, keyHash: string, state: PlayerState, now: number): Promise<void> {
 		await this.persistMany([{ id, keyHash, state, at: now }]);
@@ -467,6 +497,39 @@ export class EarthWorld {
 		}
 		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, wall, locked);
 		if (action === 'trade') return this.handleTrade(body, id, keyHash, current, live, region, now, wall, locked);
+		if (action === 'notes') {
+			// notes { op: 'list' }：这个地点的留言；{ op: 'post', text }：留一句；{ op: 'delete', note }：删自己的
+			const loc = current.loc;
+			const hash = (await sha256Hex(id)).slice(0, 12);
+			const day = realDayOf(wall);
+			const list = await this.notesAt(loc);
+			const view = () => ({ notes: list.map((n) => ({ id: n.id, name: n.name, avatar: n.avatar, text: n.text, at: n.at, mine: n.author === hash })).reverse() });
+			if (body.op === 'list') return json({ ok: true, ...view(), at: now });
+			if (body.op === 'post') {
+				const c = cleanNote(body.text);
+				if ('error' in c) return json({ ok: false, msg: c.error, ...view(), at: now }, 400);
+				if (list.some((n) => n.author === hash && n.day === day)) return json({ ok: false, msg: '今天已经在这里留过言了，明天再来。', ...view(), at: now }, 429);
+				const cd = await this.ctx.storage.get<{ day: number; n: number }>('notecd:' + hash);
+				const used = cd && cd.day === day ? cd.n : 0;
+				if (used >= NOTES_PER_DAY) return json({ ok: false, msg: `今天已经留了 ${NOTES_PER_DAY} 条，明天再来。`, ...view(), at: now }, 429);
+				// 上面有等待，再查一次同一地点今天有没有留过（同一存档的请求是串行的，这里只是保险）
+				if (list.some((n) => n.author === hash && n.day === day)) return json({ ok: false, msg: '今天已经在这里留过言了，明天再来。', ...view(), at: now }, 429);
+				const nid = [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, '0')).join('');
+				list.push({ id: nid, author: hash, name: current.name, avatar: current.avatar, text: c.text, at: wall, day });
+				while (list.length > NOTES_PER_LOC) list.shift();
+				await this.ctx.storage.put({ ['notes:' + loc]: list, ['notecd:' + hash]: { day, n: used + 1 } });
+				return json({ ok: true, msg: '留言贴上了', ...view(), at: now });
+			}
+			if (body.op === 'delete') {
+				const i = typeof body.note === 'string' && NOTE_RE.test(body.note) ? list.findIndex((n) => n.id === body.note) : -1;
+				if (i < 0) return json({ ok: false, msg: '这条留言已经不在了', ...view(), at: now }, 404);
+				if (list[i].author !== hash) return json({ ok: false, msg: '只能删自己的留言', ...view(), at: now }, 403);
+				list.splice(i, 1);
+				await this.ctx.storage.put('notes:' + loc, list);
+				return json({ ok: true, msg: '留言删掉了', ...view(), at: now });
+			}
+			return json({ ok: false, msg: '请求无效' }, 400);
+		}
 		if (action === 'weekly') {
 			// weekly { op: 'status' }：这周的目标、全服进度、我出了几份力；{ op: 'claim', rev }：达成后领奖
 			const day = realDayOf(wall);

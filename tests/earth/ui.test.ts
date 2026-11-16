@@ -343,6 +343,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await pause(60);
 		await click({ tab: 'place' });
 		assert.match(panel().match(/<div class="next">[\s\S]*?<\/div>/)?.[0] ?? '', /夜深了/);
+		// 附近页底部有留言板和输入框
+		assert.match(panel(), /📝 留言板/);
+		assert.match(panel(), /id="note-form"[\s\S]*maxlength="60"/);
 		// 夜里：根元素换成夜晚，出行页地图上有星星
 		assert.ok(rootClasses.contains('p-night') && !rootClasses.contains('p-day'), '夜里换成夜晚配色');
 		await click({ tab: 'go' });
