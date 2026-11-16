@@ -125,6 +125,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.equal(el('game').classList.contains('hidden'), false);
 		assert.equal(strip(el('tabs').innerHTML), '今天 出行 附近 社交 我');
 		assert.equal(el('map-wrap').classList.contains('hidden'), true, '今天页不显示地图');
+		assert.ok(rootClasses.contains('p-day') && !rootClasses.contains('p-night'), '开局 8 点是白天');
 		// 名字里的 HTML 被转义（服务端可能已清洗掉尖括号；无论如何不能原样出现）
 		for (const h of [panel(), el('hud').innerHTML]) assert.ok(!h.includes('<b>阿测</b>'), '名字没有转义');
 		assert.match(panel(), /1 天后周结算，钱不够/, '周结算预警');
@@ -280,6 +281,11 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await pause(60);
 		await click({ tab: 'place' });
 		assert.match(panel().match(/<div class="next">[\s\S]*?<\/div>/)?.[0] ?? '', /夜深了/);
+		// 夜里：根元素换成夜晚，出行页地图上有星星
+		assert.ok(rootClasses.contains('p-night') && !rootClasses.contains('p-day'), '夜里换成夜晚配色');
+		await click({ tab: 'go' });
+		assert.match(el('map').innerHTML, /class="star"/, '夜里地图有星星');
+		await click({ tab: 'place' });
 	} finally {
 		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });

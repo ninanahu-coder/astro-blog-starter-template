@@ -248,5 +248,6 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
   - `weather: ['storm']`：只在这些天气出现。普通互动在天气不符时列表里不显示、引擎也拒绝；事件在天气不符时不会被抽到（和 `seasons` 一样）。
   - `exposed: 'sea'`：要下海或出海，风暴天做不了。可以写在普通互动、事件选项、NPC 专属互动上；事件里有这种选项时必须还有别的选项（测试会检查）。
   - 天气 id 必须是 `data/weather.ts` 里有的（测试会检查）。
+- 昼夜：事件可写 `periods: ['dawn' | 'day' | 'dusk' | 'night']`，按抵达时刻所在时段过滤（`core/time.ts` 的 `period()`：清晨 5–8，白天 8–17，傍晚 17–20，夜晚 20–5）；互动仍用 `hours`。
 - **新成就**：在 `data/achievements.ts` 加一条，选一个已有的指标（`metric`）和目标值；成就由存档现算，不发奖励。
 - 改完运行 `npm test`，数据自洽性测试会检查 id 重复、互斥是否双向、物品是否可用等。
