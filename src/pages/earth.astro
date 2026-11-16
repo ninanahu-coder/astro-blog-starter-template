@@ -354,7 +354,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { checkScore, moodBreakdown, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
-			import { coopBlocked, coopsAt } from '../game/core/coop.ts';
+			import { coopBlocked, coopCost, coopsAt } from '../game/core/coop.ts';
 			import { getCoop } from '../game/data/coop.ts';
 			import { ACTIVITIES } from '../game/data/activities.ts';
 			import { EVENTS } from '../game/data/events.ts';
@@ -1128,7 +1128,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const others = [...peers.values()].filter((p) => p.loc === s.loc && p.id !== myPeerId).length;
 				const defs = coopsAt(s, region);
 				const inLobby = coopLobbies.some((l) => l.mine);
-				if (!defs.length && !coopLobbies.length) return `<div class="card coop"><h3>一起做点什么</h3><p class="muted">${esc(loc.name)}没有能和别人一起做的事。海滩、城里、内陆和海豚湾都有。</p></div>`;
+				if (!defs.length && !coopLobbies.length) return `<div class="card coop"><h3>一起做点什么</h3><p class="muted">${esc(loc.name)}没有能和别人一起做的事。海滩、城里、小镇、港口、峡谷和内陆都有。</p></div>`;
 				const lobbies = coopLobbies.map((l) => {
 					const def = getCoop(l.coop);
 					if (!def) return '';
@@ -1148,7 +1148,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						: def.roles.map((r, i) => `<button data-coop="join" data-lobby="${lid}" data-role="${i}" ${blocked ? 'disabled' : ''}>加入：${esc(r.label)}</button>`).join('');
 					return `<div class="coop-item"><b>${def.icon} ${esc(def.title)}</b> <span class="muted">${l.members.length}/${def.max} 人</span><div class="tags">${members}</div>${blocked && !l.mine ? `<p class="muted">${esc(blocked)}</p>` : ''}<div class="inline">${actions}</div></div>`;
 				}).join('');
-				const open = inLobby ? '' : defs.filter(({ def }) => !coopLobbies.some((l) => l.coop === def.id)).map(({ def, blocked }) => `<div class="coop-item"><b>${def.icon} ${esc(def.title)}</b> <span class="muted">${def.min}–${def.max} 人</span><p>${esc(def.text)}</p>${blocked ? `<p class="muted">${esc(blocked)}</p>` : ''}
+				const open = inLobby ? '' : defs.filter(({ def }) => !coopLobbies.some((l) => l.coop === def.id)).map(({ def, blocked }) => `<div class="coop-item"><b>${def.icon} ${esc(def.title)}</b> <span class="muted">${def.min}–${def.max} 人${coopCost(def) ? ` · 每人 $${coopCost(def)}` : ''}</span><p>${esc(def.text)}</p>${blocked ? `<p class="muted">${esc(blocked)}</p>` : ''}
 					<div class="inline">${def.roles.map((r, i) => `<button data-coop="open" data-coop-id="${def.id}" data-role="${i}" ${blocked ? 'disabled' : ''}>发起：${esc(r.label)}</button>`).join('')}</div></div>`).join('');
 				return `<div class="card coop"><h3>一起做点什么</h3><p>和同一地点的玩家一起做：每人选一个分工，合起来检定，人越多越容易成功。${others ? `这里现在有 ${others} 位其他玩家。` : '这里暂时没有其他玩家：可以先发起，5 分钟内有人来就能开始。'}</p>
 					${lobbies}${open}<div class="inline" style="margin-top:10px"><button data-coop="list" ${coopLoading ? 'disabled' : ''}>刷新</button></div></div>`;
