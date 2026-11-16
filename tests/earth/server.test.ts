@@ -764,3 +764,22 @@ test('二手摊：价格在商店价 50%–150% 之间；同地点的人都能�
 	assert.equal(aSave.inventory.firstaid ?? 0, 0);
 	assert.match(aSave.journal.at(-1).text, /卖给了阿乙/);
 });
+
+test('常遇见的人：送礼成交、共同事件结束后，双方存档里都记下对方（只存 id 哈希前缀）', async () => {
+	const w = makeWorld();
+	const { A, B, b0 } = await twoPlayers(w, 5);
+	const hA = await peerHash(A.id), hB = await peerHash(B.id);
+	const oid = (await w.call({ action: 'trade', op: 'gift', ...A, to: hB, toName: '阿乙', item: 'snack' })).data.offers[0].id;
+	const got = await w.call({ action: 'trade', op: 'accept', ...B, offer: oid, rev: b0.rev });
+	assert.equal(got.data.state.met[hA].name, '阿甲');
+	assert.equal(w.data.get('save:' + A.id).state.met[hB].n, 1);
+	assert.ok(!JSON.stringify(got.data.state.met).includes(A.id), '不存真实 id');
+	// 共同事件
+	const lobby = (await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 })).data.lobbies[0].id;
+	await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 1 });
+	const aRev = w.data.get('save:' + A.id).state.rev;
+	const done = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: aRev });
+	assert.ok(done.data.ok, done.data.msg);
+	assert.equal(done.data.state.met[hB].n, 2, '交易一次 + 共同事件一次');
+	assert.equal(w.data.get('save:' + B.id).state.met[hA].n, 2);
+});

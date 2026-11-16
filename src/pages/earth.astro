@@ -357,6 +357,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { coopBlocked, coopCostLabel, coopsAt } from '../game/core/coop.ts';
 			import { getCoop } from '../game/data/coop.ts';
 			import { giveBlocked, saleRange, takeBlocked } from '../game/core/trade.ts';
+			import { metList } from '../game/core/social.ts';
 			import { realDayOf } from '../game/core/daily.ts';
 			import { ACTIVITIES } from '../game/data/activities.ts';
 			import { EVENTS } from '../game/data/events.ts';
@@ -1216,6 +1217,19 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					${lobbies}${open}<div class="inline" style="margin-top:10px"><button data-coop="list" ${coopLoading ? 'disabled' : ''}>刷新</button></div></div>`;
 			}
 
+			/** 常遇见的人：一起做过共同事件、交易过的玩家；在线的标出在哪 */
+			function metCard(s: PlayerState) {
+				const list = metList(s);
+				if (!list.length) return '';
+				const today = realDayOf(srvNow());
+				const rows = list.slice(0, 12).map((m) => {
+					const p = peers.get(m.hash);
+					const where = p ? (p.loc === s.loc ? '就在这里' : `在线 · ${esc(getLocation(region, p.loc)?.name ?? '')}`) : today - m.last <= 0 ? '今天见过' : `${today - m.last} 天前见过`;
+					return `<div class="row"><span class="ico">${esc(m.avatar)}</span><span class="body">${esc(m.name)}<small>一起做过 ${m.n} 次事 · ${where}</small></span>${p && p.loc === s.loc && p.id !== myPeerId ? `<span class="meta"><button data-giftpick="${esc(m.hash)}" data-gift-name="${esc(m.name)}" aria-label="送${esc(m.name)}一件东西">🎁</button></span>` : ''}</div>`;
+				}).join('');
+				return `<div class="card"><h3>常遇见的人</h3><p class="muted">一起做过共同事件、送过礼或做过买卖的玩家。</p><div class="list" style="margin-top:8px">${rows}</div></div>`;
+			}
+
 			/** 送礼与二手摊：选要送的东西、别人送我的、我挂出去的 */
 			function tradeCard(s: PlayerState) {
 				loadTrade();
@@ -1300,6 +1314,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return `${knownHtml}<div class="card"><h3>${esc(getLocation(region, s.loc)!.name)}的人</h3><p>${online ? `全区在线 ${peers.size} 人` : '未连接，稍后自动重连…'}</p><div class="list" style="margin-top:8px">${people}</div></div>
 					${tradeCard(s)}
 					${coopCard(s)}
+					${metCard(s)}
 					<div class="card"><h3>本地频道</h3><p>只有同一地点的玩家能看到。</p>
 						<div class="chat" id="chat">${chats.map((c) => `<div>${esc(c.avatar)} <b>${esc(c.name)}</b> ${esc(c.text)}</div>`).join('')}</div>
 						<div class="quick">${QUICK_CHAT.map((q, i) => `<button data-quick="${i}" ${online ? '' : 'disabled'}>${q}</button>`).join('')}</div>

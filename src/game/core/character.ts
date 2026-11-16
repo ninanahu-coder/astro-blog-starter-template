@@ -117,6 +117,7 @@ export function createCharacter(opts: {
 		courseDays: {},
 		coopDays: {},
 		trades: { day: 0, out: 0, in: 0 },
+		met: {},
 		pending: null,
 		fix: null,
 		venueCd: {},
@@ -271,6 +272,24 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			out: Math.floor(num(r.trades?.out, 0, 1000, 0)),
 			in: Math.floor(num(r.trades?.in, 0, 1000, 0)),
 		},
+		met: (() => {
+			const out: PlayerState['met'] = {};
+			if (r.met && typeof r.met === 'object') {
+				for (const [k, v] of Object.entries(r.met as Record<string, any>).slice(0, 60)) {
+					if (!/^[a-f0-9]{12}$/.test(k) || !v || typeof v !== 'object') continue;
+					out[k] = {
+						name: cleanName(v.name) || '旅人',
+						avatar: String(v.avatar ?? '🧑').replace(/[<>&"']/g, '').slice(0, 8) || '🧑',
+						n: Math.floor(num(v.n, 1, 1e6, 1)),
+						last: Math.floor(num(v.last, 0, 1e7, 0)),
+					};
+				}
+			}
+			// 超过上限时留最近见过的
+			const keys = Object.keys(out).sort((a, b) => out[b].last - out[a].last || out[b].n - out[a].n);
+			for (const k of keys.slice(30)) delete out[k];
+			return out;
+		})(),
 		coopDays: (() => {
 			const out: Record<string, number> = {};
 			for (const c of COOP_EVENTS) {

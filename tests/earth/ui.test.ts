@@ -272,6 +272,16 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ trade: 'cancel', offer: saleId! });
 		await pause(30);
 		assert.doesNotMatch(panel(), /二手摊上的/);
+		// 常遇见的人：在线、同地点的标「就在这里」并能直接送礼；不在线的显示几天前见过
+		const metSave = data.get('save:' + cred.id) as any;
+		metSave.state.met = { '0123456789ab': { name: '小王', avatar: '🧑', n: 3, last: 0 }, 'ffffffffffff': { name: '老李', avatar: '🐨', n: 1, last: 0 } };
+		data.set('save:' + cred.id, metSave);
+		await click({ pull: '' });
+		await pause(30);
+		await click({ tab: 'social' });
+		assert.match(panel(), /常遇见的人/);
+		assert.match(panel(), /小王<small>一起做过 3 次事 · 就在这里/);
+		assert.match(panel(), /老李<small>一起做过 1 次事 · \d+ 天前见过/);
 		// 断开连接时角标也要清掉
 		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: 'peer-2', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
 		assert.match(el('tabs').innerHTML, /class="badge"/);

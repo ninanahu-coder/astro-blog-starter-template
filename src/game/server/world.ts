@@ -5,6 +5,7 @@
 // 客户端不能上传存档，改本地数据不会影响服务器上的进度。
 import { applyAction, applyCoop, applyTrade, parseAction, publicState } from '../core/actions.ts';
 import { giveBlocked, saleRange } from '../core/trade.ts';
+import { noteMet } from '../core/social.ts';
 import { getItem } from '../core/attributes.ts';
 import { coopBlocked } from '../core/coop.ts';
 import { getCoop } from '../data/coop.ts';
@@ -538,7 +539,14 @@ export class EarthWorld {
 			if (!ready.some((m) => m.id === id)) { unfreeze(); return no(coopBlocked(live, region, def) ?? '你现在不能参加'); }
 			if (ready.length < def.min) { unfreeze(); return no(`人不够：至少要 ${def.min} 个人在这里、现在能参加`); }
 			const r = applyCoop(def, region, ready.map((m) => ({ state: m.state, role: m.role, name: m.name })));
-			const saves = ready.map((m, i) => ({ id: m.id, keyHash: m.keyHash, at: m.now, state: sanitizeState(r.results[i].state, locs, { fallbackLoc: region.spawn, now: m.now }) ?? r.results[i].state }));
+			// 常遇见的人：每个成员记下其他成员（用 id 哈希前缀，和在线状态一致）
+			const hashes = await Promise.all(ready.map(async (m) => (await sha256Hex(m.id)).slice(0, 12)));
+			const people = ready.map((m, i) => ({ hash: hashes[i], name: m.name, avatar: m.state.avatar }));
+			const coopDay = realDayOf(wall);
+			const saves = ready.map((m, i) => {
+				const met = noteMet(r.results[i].state, people.filter((_, j) => j !== i), coopDay);
+				return { id: m.id, keyHash: m.keyHash, at: m.now, state: sanitizeState(met, locs, { fallbackLoc: region.spawn, now: m.now }) ?? met };
+			});
 			// 所有人一次写入：写失败就谁都没拿到，队伍还在、可以重试；写成功后大厅标记结束，版本号也都变了，重复开始会被拒绝
 			await this.persistMany(saves);
 			const mine = saves.find((x) => x.id === id)!.state;
@@ -642,9 +650,10 @@ export class EarthWorld {
 				return no(r);
 			}
 			const canon = (st: PlayerState, t: number) => sanitizeState(st, locs, { fallbackLoc: region.spawn, now: t }) ?? st;
-			const mine = canon(r.to, now);
+			const fromHash = (await sha256Hex(o.from)).slice(0, 12);
+			const mine = canon(noteMet(r.to, [{ hash: fromHash, name: o.fromName, avatar: o.fromAvatar }], day), now);
 			await this.persistMany([
-				{ id: o.from, keyHash: rec.keyHash, state: canon(r.from, fNow), at: fNow },
+				{ id: o.from, keyHash: rec.keyHash, state: canon(noteMet(r.from, [{ hash, name: current.name, avatar: current.avatar }], day), fNow), at: fNow },
 				{ id, keyHash, state: mine, at: now },
 			]);
 			this.offers.delete(o.id);

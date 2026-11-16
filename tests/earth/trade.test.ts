@@ -5,6 +5,7 @@ import { applyTrade } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import { giveBlocked, saleRange, takeBlocked, TRADE_DAILY, tradesToday } from '../../src/game/core/trade.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { MET_MAX, metList, noteMet } from '../../src/game/core/social.ts';
 
 const mk = (id: string, over: Record<string, unknown> = {}) => ({ ...createCharacter({ id, name: id, avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed: 1 }), ...over });
 const DAY = 20_000;
@@ -64,4 +65,21 @@ test('存档校验：trades 钳到合法范围，旧存档补默认值', () => {
 	const old: Record<string, unknown> = { ...mk('trade-aa') };
 	delete old.trades;
 	assert.deepEqual(sanitizeState(old, locs, { fallbackLoc: 'perth', now: Date.now() })!.trades, { day: 0, out: 0, in: 0 });
+});
+
+test('常遇见的人：次数累加、名字跟着更新、超过上限丢最久没见的；不改入参；存档校验只留合法条目', () => {
+	const a = mk('trade-aa');
+	const snap = JSON.stringify(a);
+	const p = { hash: 'aaaaaaaaaaaa', name: '阿乙', avatar: '🐨' };
+	let s = noteMet(a, [p, { hash: 'bad', name: 'x', avatar: 'x' }], 10);
+	s = noteMet(s, [{ ...p, name: '阿乙改名' }], 12);
+	assert.equal(JSON.stringify(a), snap, '入参没被改');
+	assert.deepEqual(s.met, { aaaaaaaaaaaa: { name: '阿乙改名', avatar: '🐨', n: 2, last: 12 } });
+	for (let i = 0; i < MET_MAX + 5; i++) s = noteMet(s, [{ hash: i.toString(16).padStart(12, '0'), name: `p${i}`, avatar: '🧑' }], 100 + i);
+	assert.equal(Object.keys(s.met).length, MET_MAX);
+	assert.ok(!('aaaaaaaaaaaa' in s.met), '最久没见的被挤掉');
+	assert.equal(metList(s)[0].last, 100 + MET_MAX + 4, '次数相同按最近排');
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const dirty = sanitizeState({ ...a, met: { 'not-a-hash': { name: 'x' }, bbbbbbbbbbbb: { name: '<b>坏</b>', avatar: '<img>', n: -3, last: 4.5 } } }, locs, { fallbackLoc: 'perth', now: Date.now() })!;
+	assert.deepEqual(dirty.met, { bbbbbbbbbbbb: { name: 'b坏/b', avatar: 'img', n: 1, last: 4 } });
 });
