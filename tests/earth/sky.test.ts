@@ -1,9 +1,9 @@
 // 天象（第 8 批）：游戏日期对应现实日期、气温、日出日落、潮汐、山火、紫外线。全部是公式，只做显示
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { hasTide, hhmm, phaseNote, realDateLabel, realDayOfYear, skyPhase, sunElevation, sunTimes, temps, tideHeight, tideNow, fireDanger, fireSeason, FIRE_LEVELS, uvDay, uvIndex, uvLevel } from '../../src/game/core/sky.ts';
+import { hasTide, hhmm, phaseNote, tzMinutes, realDateLabel, realDayOfYear, skyPhase, sunElevation, sunTimes, temps, tideHeight, tideNow, fireDanger, fireSeason, FIRE_LEVELS, uvDay, uvIndex, uvLevel } from '../../src/game/core/sky.ts';
 import { weatherOn } from '../../src/game/core/weather.ts';
-import { addFireSeen, FIRE_SEEN_MAX, fireKey, fireToastText, parseFireSeen } from '../../src/game/ui/alerts.ts';
+import { addFireSeen, fireAgency, FIRE_SEEN_MAX, fireKey, fireToastText, parseFireSeen } from '../../src/game/ui/alerts.ts';
 import { SEASON_DAYS, YEAR_DAYS } from '../../src/game/core/time.ts';
 import { WA } from '../../src/game/data/wa.ts';
 
@@ -221,4 +221,22 @@ test('顶栏时段补注（第 8 批审查问题 4）：玩法时段和画面天
 	assert.equal(phaseNote('dawn', 'day'), '天已大亮');
 	assert.equal(phaseNote('night', 'dusk'), '天快黑了');
 	assert.equal(phaseNote('day', 'dawn'), '天刚亮');
+});
+
+test('南澳（第 9 批）：日出日落按南澳中部标准时间算；火险提示指向南澳的消防局', async () => {
+	const { WORLD } = await import('../../src/game/data/wa.ts');
+	const adl = WORLD.locations.find((l) => l.id === 'adelaide')!;
+	assert.equal(tzMinutes(115.86), 480, '西澳 UTC+8');
+	assert.equal(tzMinutes(adl.lon), 570, '南澳 UTC+9:30');
+	assert.equal(tzMinutes(128.99), 480);
+	assert.equal(tzMinutes(129.01), 570, '州界东经 129°');
+	// 阿德莱德 1 月 10 日实际约 6:15 / 20:29（夏令时），换成标准时间约 5:15 / 19:29
+	const jan = at(SEASON_DAYS + 12, 0);
+	const t = sunTimes(adl, jan);
+	assert.ok(Math.abs(t.rise - (5 * 60 + 15)) <= 8, `日出 ${hhmm(t.rise)}`);
+	assert.ok(Math.abs(t.set - (19 * 60 + 29)) <= 8, `日落 ${hhmm(t.set)}`);
+	assert.match(fireToastText('极端', '远离林区。', 'sa'), /南澳乡村消防局 CFS/);
+	assert.match(fireToastText('极端', '远离林区。', 'wa'), /Emergency WA/);
+	assert.equal(fireAgency('constructor').name, fireAgency('wa').name, '不认识的区域用默认');
+	assert.match(fireAgency('sa').url, /^https:\/\/www\.cfs\.sa\.gov\.au\/$/);
 });

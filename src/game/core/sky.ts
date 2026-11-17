@@ -63,9 +63,11 @@ export function temps(l: SkyLoc, clock: number, weatherId: string): Temps {
 }
 
 // ---------- 第 37 轮：日出日落 ----------
-// NOAA 的简化太阳位置公式（误差几分钟），按西澳标准时间 AWST（UTC+8，西澳不实行夏令时）。游戏里的钟点就当作当地钟点。
+// NOAA 的简化太阳位置公式（误差几分钟）。游戏里的钟点就当作当地钟点：东经 129° 以西（西澳）按 AWST（UTC+8），以东（南澳）按 ACST（UTC+9:30）；
+// 都按标准时间算，不算南澳夏天的夏令时（第 9 批）。
 const RAD = Math.PI / 180;
-const TZ_MIN = 8 * 60;
+/** 当地标准时间比 UTC 快几分钟：西澳 / 南澳的州界就是东经 129° */
+export const tzMinutes = (lon: number) => (lon < 129 ? 8 * 60 : 9.5 * 60);
 function solar(doy: number, minuteOfDay: number) {
 	const g = ((2 * Math.PI) / 365) * (doy + (minuteOfDay / 60 - 12) / 24);
 	const eqTime = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
@@ -77,7 +79,7 @@ export function sunElevation(l: Pick<SkyLoc, 'lat' | 'lon'>, clock: number): num
 	const doy = realDayOfYear(clock);
 	const m = ((clock % 1440) + 1440) % 1440;
 	const { eqTime, decl } = solar(doy, m);
-	const tst = m + eqTime + 4 * l.lon - TZ_MIN; // 真太阳时（分钟）
+	const tst = m + eqTime + 4 * l.lon - tzMinutes(l.lon); // 真太阳时（分钟）
 	const ha = (tst / 4 - 180) * RAD;
 	const lat = l.lat * RAD;
 	const cosZ = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(ha);
@@ -91,7 +93,7 @@ export function sunTimes(l: Pick<SkyLoc, 'lat' | 'lon'>, clock: number): SunTime
 	const lat = l.lat * RAD;
 	const cosH = Math.cos(90.833 * RAD) / (Math.cos(lat) * Math.cos(decl)) - Math.tan(lat) * Math.tan(decl);
 	const h = Math.acos(Math.min(1, Math.max(-1, cosH))) / RAD;
-	const noon = 720 - 4 * l.lon - eqTime + TZ_MIN;
+	const noon = 720 - 4 * l.lon - eqTime + tzMinutes(l.lon);
 	return { rise: Math.round(noon - 4 * h), set: Math.round(noon + 4 * h), noon: Math.round(noon) };
 }
 export const hhmm = (min: number) => {

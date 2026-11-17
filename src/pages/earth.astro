@@ -28,9 +28,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				<div class="cover">
 					<img src="/earth/icon.svg" alt="" width="64" height="64" />
 					<h1>地球人生</h1>
-					<p class="sub">在真实的西澳大利亚过另一种人生</p>
+					<p class="sub">在真实的西澳和南澳过另一种人生</p>
 					<ul class="points">
-						<li><b>真实地图</b>18 个西澳地点，出行、打工、租房买房</li>
+						<li><b>真实地图</b>西澳、南澳 34 个地点，出行、打工、租房买房</li>
 						<li><b>人到现场</b>本人走进真实的餐馆、健身房、公园，游戏里也能做事</li>
 						<li><b>多端同步</b>手机电脑用同一个存档，和同地点的玩家聊天</li>
 					</ul>
@@ -451,7 +451,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
 			import { weatherAt, weatherOn } from '../game/core/weather.ts';
 			import { portraitSvg, ringDash, sceneSvg } from '../game/ui/scene.ts';
-			import { addFireSeen, FIRE_SEEN_KEY, fireKey, fireToastText, parseFireSeen } from '../game/ui/alerts.ts';
+			import { addFireSeen, FIRE_SEEN_KEY, fireAgency, fireKey, fireToastText, parseFireSeen } from '../game/ui/alerts.ts';
 			import { fireDanger, fireSeason, hasTide, hhmm, phaseNote, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps, tideNow, uvDay, uvLevel } from '../game/core/sky.ts';
 			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
@@ -1089,7 +1089,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const seen = parseFireSeen(store.get(FIRE_SEEN_KEY));
 					if (seen.includes(key)) return;
 					store.set(FIRE_SEEN_KEY, JSON.stringify(addFireSeen(seen, key)));
-					toast(fireToastText(f.name, f.advice));
+					toast(fireToastText(f.name, f.advice, curArea().id));
 				}, 600);
 			}
 			function renderHud() {
@@ -1199,6 +1199,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<circle class="hit" data-loc="${l.id}" cx="${x}" cy="${y}" r="15"/>`;
 				}).join('');
 				const map = $('map');
+				map.setAttribute('aria-label', `${area.name}地图：点地点看去那里的走法；下面的列表是同样的内容`);
 				map.setAttribute('viewBox', `0 0 ${proj.width} ${proj.height}`);
 				const stars = skyPhase(getLocation(region, s.loc)!, s.clock) === 'night' ? starField(proj.width, proj.height) : '';
 				map.innerHTML = `${stars}<polygon class="land" points="${outline}"/>${routes}${exits}${dots}`;
@@ -1408,7 +1409,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const uv = uvDay(loc, s.clock, w.id);
 				rows.push(`<div class="row"><span class="ico" aria-hidden="true">🕶️</span><span class="body">紫外线：现在 ${uv.now}（${uvLevel(uv.now).name}）· 今天最高 ${uv.peak}（${uvLevel(uv.peak).name}）<small>${uv.protect ? `${hhmm(uv.protect[0])}–${hhmm(uv.protect[1])} 指数在 3 以上，出门要防晒：衣服、帽子、防晒霜、墨镜、找阴凉` : '今天紫外线都不到 3，不用特别防晒'}</small></span></div>`);
 				const fire = fireDanger(loc, s.clock, w.id);
-				if (fire.id !== 'none') rows.push(`<div class="row fire fire-${fire.id}"><span class="ico" aria-hidden="true">🔥</span><span class="body">火险等级：${fire.name}<small>${esc(fire.advice)}火险是游戏里的估算，不是真实预警；真实火情看 <a href="https://www.emergency.wa.gov.au/" target="_blank" rel="noopener">西澳应急服务 Emergency WA</a></small></span></div>`);
+				if (fire.id !== 'none') rows.push(`<div class="row fire fire-${fire.id}"><span class="ico" aria-hidden="true">🔥</span><span class="body">火险等级：${fire.name}<small>${esc(fire.advice)}火险是游戏里的估算，不是真实预警；真实火情看 <a href="${fireAgency(curArea().id).url}" target="_blank" rel="noopener">${esc(fireAgency(curArea().id).name)}</a></small></span></div>`);
 				else if (fireSeason(loc, s.clock)) rows.push(`<div class="row"><span class="ico" aria-hidden="true">🔥</span><span class="body">山火季<small>今天天气潮湿，没有火险评级</small></span></div>`);
 				if (hasTide(loc)) {
 					const td = tideNow(loc, s.clock);
