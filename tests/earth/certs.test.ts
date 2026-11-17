@@ -72,16 +72,34 @@ test('真实打卡：每种职业、每类能打卡的地点、每个等级，�
 	}
 });
 
-test('考证途中晕倒：不发证，学费退回（复审问题 3）', () => {
+test('考证途中晕倒：按没报名结算——不发证、不收学费，住院费和周结算都按原有的钱算（复审问题 3、二次复审问题 2）', () => {
 	const weak = make({ loc: 'fremantle', clock: at(10), cash: 500, health: 1, needs: { hunger: 0, energy: 30, hygiene: 50, fun: 50, social: 50 } });
 	const r = takeCert(weak, WA, 'rsa');
 	assert.ok(r.collapsed);
 	assert.deepEqual(r.state.certs, []);
-	assert.ok(r.state.journal.some((j) => /学费 \$120 退回/.test(j.text)));
-	// 住院费按晕倒时手上的钱算（那时学费已交），醒来后学费整笔退回
-	const control = structuredClone({ ...weak, cash: weak.cash - 120 });
+	assert.ok(r.state.journal.some((j) => /不收学费/.test(j.text)));
+	const control = structuredClone(weak);
 	assert.ok(applyEffect(control, { minutes: 240, needs: { energy: -24, fun: -5 } }, WA));
-	assert.equal(r.state.cash, control.cash + 120);
+	assert.equal(r.state.cash, control.cash, '和没报名、同样晕倒的结果一样');
+	// 二次复审的复现：现金少、有车、途中跨周结算——不能拿学费当「保险箱」少付住院费、躲过保险
+	const broke = make({ loc: 'fremantle', clock: at(10, 6), nextWeek: 6, cash: 200, health: 1, needs: { hunger: 0, energy: 30, hygiene: 50, fun: 50, social: 50 } });
+	const r2 = takeCert(broke, WA, 'rsa');
+	assert.ok(r2.collapsed);
+	const c2 = structuredClone(broke);
+	assert.ok(applyEffect(c2, { minutes: 240, needs: { energy: -24, fun: -5 } }, WA));
+	assert.equal(r2.state.cash, c2.cash);
+	assert.equal(r2.state.heat, c2.heat, '保险照常结算');
+	assert.equal(r2.state.nextWeek, c2.nextWeek);
+});
+
+test('考证途中跨周结算、交完房租钱不够交学费：按先交学费再上课重算，付不起的房租照常收房', () => {
+	// 合租 $160/周，手上 $250：先交房租剩 $90，不够 $120 学费
+	const s = make({ loc: 'fremantle', clock: at(14, 6), nextWeek: 6, cash: 250, vehicle: 'none', home: { type: 'room', loc: 'fremantle', furniture: {} } });
+	const r = takeCert(s, WA, 'rsa');
+	assert.ok(r.ok && !r.collapsed, r.msg);
+	assert.deepEqual(r.state.certs, ['rsa']);
+	assert.equal(r.state.home, null, '先交了学费，剩 $130 付不起房租');
+	assert.equal(r.state.cash, 130);
 });
 
 test('证书走动作协议，存档校验去掉不认识的证书', () => {

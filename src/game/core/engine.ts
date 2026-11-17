@@ -273,7 +273,7 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 	return { ok: true, state, msg: `抵达${getLocation(region, toId)!.name}。` };
 }
 
-/** override：这趟已经定好的事件（抛锚），盘查优先于它，它优先于普通到达事件 */
+/** override：这趟已经定好的事件（抛锚）。先后：盘查 → 首次到访的签名事件 → override → 普通到达事件 */
 function arrive(state: PlayerState, region: Region, locId: string, mode: TravelMode | 'gps', override: GameEvent | null = null) {
 	const loc = getLocation(region, locId)!;
 	const first = !state.visited[locId];
@@ -298,7 +298,7 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 		addMoodlet(state, 'festival');
 		log(state, `正赶上${fest.name}：${fest.desc}`);
 	}
-	const ev = (state.heat < HEAT_CHECK_AT && override) || pickArrivalEvent(state, loc, mode === 'gps' ? null : mode, first);
+	const ev = pickArrivalEvent(state, loc, mode === 'gps' ? null : mode, first, override);
 	if (ev) {
 		state.pending = { eventId: ev.id };
 		if (ev.id === 'heat-check') addMoodlet(state, 'in-trouble');
@@ -320,13 +320,14 @@ function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null,
 	);
 }
 
-function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean): GameEvent | null {
+function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean, override: GameEvent | null = null): GameEvent | null {
 	if (state.heat >= HEAT_CHECK_AT) return EVENTS.find((e) => e.id === 'heat-check') ?? null;
 	const pool = EVENTS.filter((e) => e.weight > 0 && eventMatches(e, loc, mode, state.clock) && !(e.once && state.seen.includes(e.id)));
-	if (!pool.length) return null;
-	// 首次到访：有签名事件就必出
+	// 首次到访：有签名事件就必出（这趟的抛锚让给它）
 	const signature = pool.filter((e) => e.once);
 	if (first && signature.length) return signature[Math.floor(roll(state) * signature.length)];
+	if (override) return override;
+	if (!pool.length) return null;
 	if (roll(state) > ARRIVAL_EVENT_CHANCE) return null;
 	let r = roll(state) * pool.reduce((s, e) => s + e.weight, 0);
 	for (const e of pool) if ((r -= e.weight) <= 0) return e;
@@ -1069,13 +1070,10 @@ export function serviceVehicle(prev: PlayerState, region: Region): ActionResult 
 	const g = garageAt(prev, region);
 	if (!g) return fail(prev, getVehicle(prev.vehicle) ? '这里没有修车厂。' : '你没有车。');
 	if (g.blocked) return fail(prev, g.blocked);
-	const state = clone(prev);
-	const v = getVehicle(state.vehicle)!;
-	state.cash -= g.price;
-	if (advance(state, GARAGE.minutes, region)) {
-		// 等保养时晕倒被送医：保养没做，钱退回
-		state.cash += g.price;
-		log(state, `${v.name}的保养没做成，$${g.price} 退回。`);
+	const v = getVehicle(prev.vehicle)!;
+	const { state, collapsed } = paidTask(prev, g.price, (s) => advance(s, GARAGE.minutes, region));
+	if (collapsed) {
+		log(state, `等保养时晕倒了，${v.name}的保养没做，不收钱。`);
 		return collapsedResult(state);
 	}
 	state.car = { km: state.car.km, since: 0 };
@@ -1135,6 +1133,30 @@ export function takeCourse(prev: PlayerState, region: Region, id: string): Actio
 	return { ok: true, state, msg };
 }
 
+// ---------- 花钱又花时间的事（考证、保养） ----------
+/**
+ * 先按没交钱把这段时间过完：途中晕倒就当没报名——不收费，住院费、途中的周结算都按手上原有的钱算，
+ * 不能拿这笔费用当「保险箱」少付住院费或躲过房租。顺利做完才收费；
+ * 途中的周结算花掉了这笔钱（钱不够了）时，改按「先交钱再做」重算一遍，付不起的房租照常处理。
+ * run 返回 true 表示途中晕倒。
+ */
+function paidTask(prev: PlayerState, price: number, run: (s: PlayerState) => boolean): { state: PlayerState; collapsed: boolean } {
+	const free = clone(prev);
+	if (run(free)) return { state: free, collapsed: true };
+	if (free.cash >= price) {
+		free.cash -= price;
+		return { state: free, collapsed: false };
+	}
+	const paid = clone(prev);
+	paid.cash -= price;
+	if (run(paid)) {
+		// 极少见：先交钱的那一遍晕倒了（两遍只差手上的钱）。照样不收费
+		paid.cash += price;
+		return { state: paid, collapsed: true };
+	}
+	return { state: paid, collapsed: false };
+}
+
 // ---------- 职业证书 ----------
 export interface CertOffer {
 	cert: CertDef;
@@ -1160,12 +1182,9 @@ export function takeCert(prev: PlayerState, region: Region, id: string): ActionR
 	if (!offer) return fail(prev, '这里考不了这张证。');
 	if (offer.blocked) return fail(prev, offer.blocked);
 	const c = offer.cert;
-	const state = clone(prev);
-	state.cash -= c.price;
-	if (applyEffect(state, { minutes: c.minutes, needs: { energy: -Math.round(c.minutes / 10), fun: -5 } }, region)) {
-		// 没上完的课不发证，学费退回
-		state.cash += c.price;
-		log(state, `${c.name}没上完，学费 $${c.price} 退回。`);
+	const { state, collapsed } = paidTask(prev, c.price, (s) => applyEffect(s, { minutes: c.minutes, needs: { energy: -Math.round(c.minutes / 10), fun: -5 } }, region));
+	if (collapsed) {
+		log(state, `${c.name}没上完，不收学费。`);
 		return collapsedResult(state);
 	}
 	state.certs.push(c.id);

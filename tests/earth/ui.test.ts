@@ -311,11 +311,15 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		// 出行到罗特尼斯岛（先到弗里曼特尔坐渡轮）：第一次抵达有事件，弹窗打开时锁住背后
 		await click({ tab: 'go' });
 		await click({ go: 'fremantle', mode: 'road' });
-		await pause(30);
-		for (let i = 0; i < 6 && !el('modal').classList.contains('hidden'); i++) {
+		// 机器忙时（全套测试并行跑）请求和渲染可能超过几十毫秒：等服务端存档到了弗里曼特尔、界面也画完再往下
+		const serverState = () => (data.get('save:' + cred.id) as any).state;
+		for (let i = 0; i < 50 && serverState().loc !== 'fremantle'; i++) await pause(20);
+		await pause(60);
+		for (let i = 0; i < 6 && (serverState().pending || !el('modal').classList.contains('hidden')); i++) {
 			await click(el('modal').innerHTML.includes('data-result-close') ? { resultClose: '' } : { choice: '0' });
-			await pause(30);
+			await pause(60);
 		}
+		assert.equal(serverState().pending, null, '弗里曼特尔的事件处理完了');
 		await click({ tab: 'go' });
 		await click({ go: 'rottnest', mode: 'ferry' });
 		// 机器忙时（全套测试并行跑）出行请求和渲染可能超过 30 毫秒：最多等 1 秒，弹窗一出现就继续

@@ -110,12 +110,12 @@ test('抛锚的先后：被盘查时不抛锚也不掷骰；否则抛锚优先�
 	}
 });
 
-test('保养途中晕倒：保养没做，钱退回（复审问题 3）', () => {
+test('保养途中晕倒：保养没做、不收钱，和没去保养的结果一样（复审问题 3）', () => {
 	const weak = make({ health: 1, needs: { hunger: 0, energy: 0, hygiene: 50, fun: 50, social: 50 }, car: { km: 9000, since: 7000 } });
 	const r = serviceVehicle(weak, WA);
 	assert.ok(r.collapsed);
 	assert.equal(r.state.car.since, 7000, '没保养');
-	assert.ok(r.state.journal.some((j) => /退回/.test(j.text)));
+	assert.ok(r.state.journal.some((j) => /不收钱/.test(j.text)));
 	// 和同样晕倒、但没去保养的情况比：现金一样（只扣了住院费）
 	const control = structuredClone(weak);
 	assert.ok(applyEffect(control, { minutes: 120 }, WA));
@@ -130,4 +130,20 @@ test('里程存档约束：没车清零、保养里程不超过总里程、引�
 	assert.deepEqual(fix({ car: { km: 100, since: 1000 } }), { km: 100, since: 100 });
 	const r = travel(make({ car: { km: CAR_KM_MAX, since: CAR_KM_MAX } }), WA, 'fremantle', 'road');
 	assert.deepEqual(r.state.car, { km: CAR_KM_MAX, since: CAR_KM_MAX });
+});
+
+test('首次到访的签名事件优先于抛锚：抛锚不会挤掉「首次必出」（二次复审问题 1）', () => {
+	const sig = EVENTS.filter((e) => e.once && e.locs?.includes('kalgoorlie'));
+	assert.ok(sig.length, '卡尔古利有签名事件');
+	let later = 0;
+	for (let seed = 1; seed <= 40; seed++) {
+		const worn = make({ cash: 50_000, car: { km: 0, since: 1e6 } }, seed);
+		const first = travel(worn, WA, 'kalgoorlie', 'road');
+		assert.ok(first.ok, first.msg);
+		assert.ok(getPendingEvent(first.state)?.once, `seed ${seed} 首次到访出签名事件`);
+		// 来过了：抛锚照常
+		const again = travel({ ...worn, visited: { ...worn.visited, kalgoorlie: 1 }, seen: sig.map((e) => e.id) }, WA, 'kalgoorlie', 'road');
+		if (getPendingEvent(again.state)?.breakdown) later++;
+	}
+	assert.ok(later > 0, '再来时会抛锚');
 });
