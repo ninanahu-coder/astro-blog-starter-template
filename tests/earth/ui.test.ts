@@ -12,6 +12,8 @@ import { test } from 'node:test';
 import { build } from 'esbuild';
 import { EarthWorld } from '../../src/game/server/world.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { SEASON_DAYS } from '../../src/game/core/time.ts';
+import { weatherOn } from '../../src/game/core/weather.ts';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
@@ -899,6 +901,32 @@ test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，�
 	assert.match(panel, /真下海请看官方潮汐预报/);
 	assert.match(hud, /class="wx-pill[^"]*">[^<]*\d+°/, '顶栏天气带最高气温');
 	assert.deepEqual(a11yIssues(panel), []);
+});
+
+test('界面：火险高以上时卡片、顶栏、提示（第 39 轮，只做提示）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'fire-card-a', '火险甲');
+	// 夏季里珀斯第一个「炎热」的游戏日
+	let day = SEASON_DAYS;
+	while (weatherOn('perth', day).id !== 'hot') day++;
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.clock = day * 1440 + 10 * 60;
+	rec.state.loc = 'perth';
+	data.set('save:' + a.cred.id, rec);
+	let panel = '', hud = '', toasts = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			await pause(700);
+			panel = el('panel').innerHTML;
+			hud = el('hud').innerHTML;
+			toasts = el('toast').textContent;
+		},
+	});
+	assert.match(panel, /<span class="chip">山火季<\/span>/);
+	assert.match(panel, /火险等级：极端/);
+	assert.match(hud, /🔥 火险极端/);
+	assert.match(toasts, /火险极端/);
 });
 
 test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {

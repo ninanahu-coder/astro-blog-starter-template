@@ -132,6 +132,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			#hud h1 { margin: 0; font-size: 22px; line-height: 1.25; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 			.hud-right { display: flex; align-items: center; gap: 6px; flex: none; }
 			.wx-pill { flex: none; padding: 6px 10px; border-radius: 999px; background: var(--tint-blue); color: var(--tint-blue-ink); font-size: 13px; font-weight: 600; white-space: nowrap; }
+			.fire-chip { background: var(--tint-red); color: var(--tint-red-ink); }
 			.wx-pill.storm { background: var(--tint-red); color: var(--tint-red-ink); }
 			.hud-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-variant-numeric: tabular-nums; }
 			.chip { padding: 4px 10px; border-radius: 8px; background: var(--soft); color: var(--text); font-size: 13px; white-space: nowrap; }
@@ -410,7 +411,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { getWish } from '../game/core/wishes.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
 			import { weatherAt, weatherOn } from '../game/core/weather.ts';
-			import { hasTide, hhmm, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps, tideNow } from '../game/core/sky.ts';
+			import { fireDanger, fireSeason, hasTide, hhmm, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps, tideNow } from '../game/core/sky.ts';
 			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
@@ -1006,6 +1007,18 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 			function moodCls(m: number) { return m < 25 ? ' low' : m < 50 ? ' mid' : ''; }
 			const PERIOD_ICON: Record<string, string> = { dawn: '🌅', day: '🌤️', dusk: '🌇', night: '🌙' };
+			/** 火险「高」及以上时顶栏提醒；「极端」「灾难性」每个地点每个游戏日弹一次提示（第 39 轮，只做提示） */
+			let fireWarned = '';
+			function fireChip(s: PlayerState) {
+				const f = fireDanger(getLocation(region, s.loc)!, s.clock, weatherAt(s).id);
+				if (f.id !== 'high' && f.id !== 'extreme' && f.id !== 'catastrophic') return '';
+				const key = `${s.loc}@${dayOf(s.clock)}`;
+				if ((f.id === 'extreme' || f.id === 'catastrophic') && fireWarned !== key) {
+					fireWarned = key;
+					setTimeout(() => toast(`🔥 今天这里火险${f.name}：${f.advice}`), 600);
+				}
+				return `<span class="chip fire-chip" title="火险等级（示意）">🔥 火险${f.name}</span>`;
+			}
 			function renderHud() {
 				const s = state!;
 				const m = mood(s);
@@ -1027,7 +1040,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const role = career ? `${career.name} · ${career.levels[s.job!.level]?.title ?? ''}` : `Lv${lv.lv} ${lv.title}`;
 					top = `<div class="hud-top"><div class="hud-title"><span class="hud-sub" title="${formatClock(s.clock)}">${time}</span><h1>${esc(loc.name)}</h1></div>
 						<span class="wx-pill${w.closesSea ? ' storm' : ''}">${w.icon} ${esc(w.name)} ${temps(loc, s.clock, w.id).max}°${w.closesSea ? ' · 海上关闭' : ''}</span></div>
-						<div class="hud-chips">${cash}<span class="chip">${esc(role)}</span>${starHtml}${moodBtn}${sync}</div>`;
+						<div class="hud-chips">${cash}<span class="chip">${esc(role)}</span>${starHtml}${fireChip(s)}${moodBtn}${sync}</div>`;
 				} else {
 					// 其他页：副标题 + 页名；右边现金和心情，下面一条迷你需求条
 					const here = [...peers.values()].filter((p) => p.loc === s.loc && p.id !== myPeerId).length;
@@ -1276,6 +1289,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					`<div class="row"><span class="ico" aria-hidden="true">🌡️</span><span class="body">气温 ${t.min}–${t.max}°C<small>${esc(w.name)}</small></span></div>`,
 					`<div class="row"><span class="ico" aria-hidden="true">🌅</span><span class="body">日出 ${hhmm(sun.rise)} · 日落 ${hhmm(sun.set)}<small>白天 ${Math.floor((sun.set - sun.rise) / 60)} 小时 ${(sun.set - sun.rise) % 60} 分；画面明暗跟着日出日落走</small></span></div>`,
 				];
+				const fire = fireDanger(loc, s.clock, w.id);
+				if (fire.id !== 'none') rows.push(`<div class="row fire fire-${fire.id}"><span class="ico" aria-hidden="true">🔥</span><span class="body">火险等级：${fire.name}<small>${esc(fire.advice)}火险是示意，真实火情看西澳应急服务（Emergency WA）</small></span></div>`);
+				else if (fireSeason(loc, s.clock)) rows.push(`<div class="row"><span class="ico" aria-hidden="true">🔥</span><span class="body">山火季<small>今天天气潮湿，没有火险评级</small></span></div>`);
 				if (hasTide(loc)) {
 					const td = tideNow(loc, s.clock);
 					const m = (x: number) => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed(1)} 米`;
@@ -1283,7 +1299,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const turns = td.next.map((x) => `${x.kind === 'high' ? '满潮' : '干潮'} ${when(x.at)}（${m(x.h)}）`).join('、');
 					rows.push(`<div class="row"><span class="ico" aria-hidden="true">🌊</span><span class="body">${td.rising ? '涨潮中' : '退潮中'} · 现在 ${m(td.h)}<small>接下来：${turns}；今天潮差约 ${td.range.toFixed(1)} 米。潮汐是示意，真下海请看官方潮汐预报</small></span></div>`);
 				}
-				return `<div class="card sky"><h3>今天的天</h3><p class="muted">游戏里的今天大约是现实中的 ${realDateLabel(realDayOfYear(s.clock))}。下面按纬度、季节和天气估算，不是真实预报。</p><div class="list" style="margin-top:8px">${rows.join('')}</div></div>`;
+				return `<div class="card sky"><h3>今天的天${fireSeason(loc, s.clock) ? ' <span class="chip">山火季</span>' : ''}</h3><p class="muted">游戏里的今天大约是现实中的 ${realDateLabel(realDayOfYear(s.clock))}。下面按纬度、季节和天气估算，不是真实预报。</p><div class="list" style="margin-top:8px">${rows.join('')}</div></div>`;
 			}
 
 			function panelPlace() {

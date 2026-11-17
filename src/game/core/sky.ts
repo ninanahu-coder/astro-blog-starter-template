@@ -153,3 +153,41 @@ export function tideNow(l: SkyLoc, clock: number): TideNow {
 	for (let t = day0; t < day0 + 1440; t += 10) { const x = tideHeight(l, t); lo = Math.min(lo, x); hi = Math.max(hi, x); }
 	return { h, rising, next, range: hi - lo };
 }
+
+// ---------- 第 39 轮：山火季（示意） ----------
+// 澳洲火险评级（AFDRS）四级：中等、高、极端、灾难性；没到中等时不评级。
+// 西澳南部（南纬 26° 以南）山火季在夏天（12–3 月最重，11 月、4 月是前后期）；北部（南纬 23° 以北）在旱季（5–11 月，8–10 月最重），雨季没有；中间一带 10–2 月。
+// 当天天气修正：炎热 +1（内陆炎热天再 +1）、小雨和风暴 −2。灾难性只在最重的组合里少数日子出现。只做提示，不影响玩法。
+export const FIRE_LEVELS = [
+	{ id: 'none', name: '无评级', advice: '' },
+	{ id: 'moderate', name: '中等', advice: '提前计划，留意情况变化。' },
+	{ id: 'high', name: '高', advice: '做好准备，野外不要生火，留意火情通报。' },
+	{ id: 'extreme', name: '极端', advice: '采取行动保护生命和财产，远离林区和灌木丛。' },
+	{ id: 'catastrophic', name: '灾难性', advice: '为了生存，尽早离开高风险地区。' },
+] as const;
+export type FireLevel = (typeof FIRE_LEVELS)[number];
+/** 1–12 月的基础火险（0–2） */
+const FIRE_SOUTH = [2, 2, 2, 1, 0, 0, 0, 0, 0, 0, 1, 2];
+const FIRE_NORTH = [0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 1, 0];
+const FIRE_MID = [1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1];
+/** 一年中第几天 → 月份 0–11 */
+function monthOf(doy: number): number {
+	let d = doy;
+	let m = 0;
+	while (d >= MONTH_DAYS[m]) d -= MONTH_DAYS[m++];
+	return m;
+}
+/** 这里这个月是不是山火季 */
+export function fireSeason(l: SkyLoc, clock: number): boolean {
+	const table = l.lat < -26 ? FIRE_SOUTH : l.lat > -23 ? FIRE_NORTH : FIRE_MID;
+	return table[monthOf(realDayOfYear(clock))] > 0;
+}
+/** 今天的火险等级 */
+export function fireDanger(l: SkyLoc, clock: number, weatherId: string): FireLevel {
+	const table = l.lat < -26 ? FIRE_SOUTH : l.lat > -23 ? FIRE_NORTH : FIRE_MID;
+	const base = table[monthOf(realDayOfYear(clock))];
+	if (!base) return FIRE_LEVELS[0];
+	let score = base + (weatherId === 'hot' ? 1 : 0) - (weatherId === 'rain' || weatherId === 'storm' ? 2 : 0) + (weatherId === 'hot' && !isCoastal(l) ? 1 : 0);
+	if (score >= 4) score = unit(`fire|${l.id}|${dayOf(clock)}`) < 0.25 ? 4 : 3;
+	return FIRE_LEVELS[Math.max(0, Math.min(4, score))];
+}

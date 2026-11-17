@@ -1,7 +1,8 @@
 // 天象（第 8 批）：游戏日期对应现实日期、气温、日出日落、潮汐、山火、紫外线。全部是公式，只做显示
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { hasTide, hhmm, realDateLabel, realDayOfYear, skyPhase, sunElevation, sunTimes, temps, tideHeight, tideNow } from '../../src/game/core/sky.ts';
+import { hasTide, hhmm, realDateLabel, realDayOfYear, skyPhase, sunElevation, sunTimes, temps, tideHeight, tideNow, fireDanger, fireSeason, FIRE_LEVELS } from '../../src/game/core/sky.ts';
+import { weatherOn } from '../../src/game/core/weather.ts';
 import { SEASON_DAYS, YEAR_DAYS } from '../../src/game/core/time.ts';
 import { WA } from '../../src/game/data/wa.ts';
 
@@ -118,4 +119,34 @@ test('潮汐（第 38 轮，示意）：只在海边；北边潮差大、南边�
 		}
 	}
 	assert.equal(tideHeight(loc('broome'), at(7, 3)), tideHeight(loc('broome'), at(7, 3)), '可复现');
+});
+
+test('山火季（第 39 轮，示意）：南部夏天、北部旱季；下雨降级；灾难性少见且只在内陆炎热天；可复现', () => {
+	const jan = at(SEASON_DAYS + 12);
+	const aug = at(3 * SEASON_DAYS + 27);
+	const jul = at(3 * SEASON_DAYS + 14);
+	assert.equal(fireSeason(loc('perth'), jan), true, '珀斯 1 月是山火季');
+	assert.equal(fireSeason(loc('perth'), jul), false, '珀斯 7 月不是');
+	assert.equal(fireSeason(loc('kununurra'), aug), true, '金伯利 8 月旱季是山火季');
+	assert.equal(fireSeason(loc('kununurra'), jan), false, '金伯利 1 月雨季不是');
+	assert.equal(fireDanger(loc('perth'), jul, 'hot').id, 'none', '不在山火季没有评级');
+	assert.equal(fireDanger(loc('perth'), jan, 'sunny').id, 'high');
+	assert.equal(fireDanger(loc('perth'), jan, 'hot').id, 'extreme');
+	assert.equal(fireDanger(loc('perth'), jan, 'rain').id, 'none', '下雨降级');
+	assert.equal(fireDanger(loc('perth'), jan, 'cloudy').id, 'high');
+	assert.ok(['extreme', 'catastrophic'].includes(fireDanger(loc('kalgoorlie'), jan, 'hot').id), '内陆炎热天至少极端');
+	// 三年里按真实天气统计：灾难性少见、只出现在内陆；每个地点一年里大部分日子没有评级或只是中等
+	let cat = 0;
+	for (const l of WA.locations) {
+		let none = 0;
+		for (let d = 0; d < YEAR_DAYS * 3; d++) {
+			const f = fireDanger(l, at(d), weatherOn(l.id, d).id);
+			assert.ok(FIRE_LEVELS.includes(f));
+			if (f.id === 'catastrophic') { cat++; assert.equal(l.tags.includes('beach') || ['coast', 'port', 'island'].includes(l.kind), false, `${l.id} 海边不出灾难性`); }
+			if (f.id === 'none') none++;
+		}
+		assert.ok(none > YEAR_DAYS * 3 * 0.4, `${l.id} 没有评级的日子 ${none}`);
+	}
+	assert.ok(cat > 0 && cat < 30, `灾难性一共 ${cat} 天`);
+	assert.equal(fireDanger(loc('perth'), jan, 'hot'), fireDanger(loc('perth'), jan, 'hot'));
 });
