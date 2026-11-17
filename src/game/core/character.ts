@@ -103,6 +103,7 @@ export function createCharacter(opts: {
 		photos: [],
 		seen: [],
 		traits: validTraits(opts.traits ?? [], MAX_TRAITS) ? [...(opts.traits ?? [])] : [],
+		car: { km: 0, since: 0 },
 		inventory: { water: 2, snack: 1 },
 		relations: {},
 		job: null,
@@ -271,6 +272,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			return out;
 		})(),
 		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id)),
+		car: { km: Math.floor(num(r.car?.km, 0, 1e7, 0)), since: Math.floor(num(r.car?.since, 0, 1e7, 0)) },
 		trades: {
 			day: Math.floor(num(r.trades?.day, 0, 1e7, 0)),
 			out: Math.floor(num(r.trades?.out, 0, 1000, 0)),

@@ -220,6 +220,7 @@ export interface VehicleDef {
 	trackSpeed: number; // 土路基础时速，0 表示不能走土路
 	costPerKm: number;
 	weekly: number; // 每周保险与保养
+	service: number; // 到修车厂做一次保养的价格
 	ride?: Partial<Needs>; // 每分钟额外的需求变化（摩托车更累）
 	sleep?: Effect; // 能在车里睡觉时的恢复效果（不含时间）
 	desc: string;
@@ -448,6 +449,7 @@ export interface GameEvent {
 	/** 真实地点事件：只在这些类型的真实地点（餐馆、健身房……）做完动作后触发，到达城镇时不会抽到 */
 	venueTypes?: string[];
 	once?: boolean; // 每个角色只触发一次（地标签名事件）
+	breakdown?: boolean; // 抛锚事件：不进普通抽取（weight 写 0），只在该保养的车自驾抵达时按几率抽
 	weight: number;
 	choices: EventChoice[];
 }
@@ -473,6 +475,7 @@ export interface PlayerState {
 	needs: Needs;
 	skills: Skills;
 	vehicle: Vehicle;
+	car: { km: number; since: number }; // 现在这辆车开了多少公里、离上次保养多少公里（换车、卖车时清零）
 	visited: Record<string, number>; // locId -> 到访次数
 	checkins: string[]; // 已 GPS 打卡的 POI id
 	photos: string[]; // 天气相册：'地点id|天气id'，抵达时按当天天气收集（只是收藏，不发奖励）

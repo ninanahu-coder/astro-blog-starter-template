@@ -86,7 +86,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 | 星期 | `core/time.ts` | 游戏第 1 天是周一，`weekdayOf()` 返回 0（周一）–6（周日） | NPC 日程按星期安排 |
 | 职业 `CareerDef` | `data/careers.ts` | 应聘地点、开工时段、班长、表现检定能力、各等级工资与要求 | 7 种职业，每种 3 级（酒吧、农场为第 11 轮新增，数值待平衡） |
 | 住房 `HomeDef` | `data/housing.ts` | 周租、舒适度、可租地点 | 合租房间 / 一居室公寓 / 海景小屋 / 房车营地 / 海景公寓（后两种第 14 轮新增，待平衡）；房车营地 `vehicleSleep`：要有能睡人的车才能租、才能回去睡，住着时不能卖车或换成睡不了人的车，车没了到周结算自动退租 |
-| 交通工具 `VehicleDef` | `data/vehicles.ts` | 价格、回收比例、公路 / 土路时速、油费、骑行消耗、车内睡眠 | 摩托车、二手轿车、四驱越野、露营车；在车行买卖，换车自动折抵 |
+| 交通工具 `VehicleDef` | `data/vehicles.ts` | 价格、回收比例、公路 / 土路时速、油费、骑行消耗、车内睡眠 | 摩托车、二手轿车、四驱越野、露营车；在车行买卖，换车自动折抵。保养（第 15 轮，待平衡）：自驾累计里程（存档 `car`），离上次保养超过 `SERVICE_KM`（5000 公里）后，每趟自驾抵达时按几率抛锚（10% 起，随超出里程上涨，最多 50%；没超不掷骰），抛锚事件 `breakdown: true` 不进普通抽取；城镇的修车厂（`GARAGE`）按车型 `service` 价保养，里程清零 |
 | 课程 `CourseDef` | `data/courses.ts` | 对应能力、基础学费、时长、成长量、开课地点与时间 | 7 门课；学费 = 基础价 × (1 + 当前能力/25)；每门每天一次 |
 | 职业证书 `CertDef` | `data/certs.ts` | 对应职业、价格、时长、加薪比例、开课地点与时间 | 每种职业一张证（7 张）；持证时这份职业每班工资 +15%（游戏内上班和真实打卡都算，待平衡）；只考一次，证书跟人走 |
 | 体验 `ExperienceDef` | `data/experiences.ts` | 地点、片区、价格、开放时间、效果、首次声望 | 20 个，分 6 个片区；首次进收藏册，集齐片区得称号 |
@@ -127,6 +127,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 | `careersAt` / `applyJob` / `workShift` / `quitJob` | 找工作 / 应聘 / 上班 / 辞职 | 条件不够、不在工作地点、不在开工时段、今天上过班、太累 |
 | `homesAt` / `rentHome` / `sleepHome` / `leaveHome` | 看房 / 租房 / 回家睡觉 / 退租 | 钱不够首周租金、不在住处 |
 | `dealerAt` / `buyVehicle` / `sellVehicle` / `sleepInVehicle` | 车行 / 买车（旧车折抵）/ 卖车 / 车里过夜 | 不在车行、车行没开门、钱不够、车不能睡人 |
+| `garageAt` / `serviceVehicle` / `breakdownChance` | 修车厂 / 保养 / 现在每趟自驾抛锚的几率 | 没车、这里没有修车厂、不营业、刚保养过、钱不够 |
 | `coursesAt` / `takeCourse` | 课程 / 上课 | 不在开课时间、今天上过、钱不够、太累 |
 | `certsAt` / `takeCert` / `careerPay` | 能考的证书 / 考证 / 含证书加薪的每班工资 | 已经有了、不在上课时间、钱不够、太累 |
 | `experiencesAt` / `doExperience` | 体验 / 参加体验 | 不在开放时间、钱不够 |

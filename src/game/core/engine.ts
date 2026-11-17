@@ -10,7 +10,7 @@ import { HOMES } from '../data/housing.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, saleProceeds, weeklyInterest, weeklyPrincipal } from './finance.ts';
 import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } from '../data/furniture.ts';
-import { DEALER_HOURS, DEALER_TAG, VEHICLES } from '../data/vehicles.ts';
+import { BREAKDOWN, DEALER_HOURS, DEALER_TAG, GARAGE, SERVICE_KM, VEHICLES } from '../data/vehicles.ts';
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
 import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
@@ -260,7 +260,16 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 	const ride = selfDrive ? getVehicle(state.vehicle)?.ride : undefined;
 	if (ride) for (const k of NEED_KEYS) if (ride[k]) state.needs[k] = clamp100(state.needs[k] + ride[k]! * opt.minutes);
 	if (advance(state, opt.minutes, region)) return collapsedResult(state); // collapse 已把人送去医院，没到达
+	if (selfDrive) state.car = { km: state.car.km + opt.km, since: state.car.since + opt.km };
 	arrive(state, region, toId, mode);
+	// 该保养的车：抵达时没别的事件，就按几率抛锚（没超里程不掷骰，不影响别的随机结果）
+	if (selfDrive && !state.pending) {
+		const chance = breakdownChance(state);
+		if (chance > 0 && roll(state) < chance) {
+			const pool = EVENTS.filter((e) => e.breakdown);
+			if (pool.length) state.pending = { eventId: pool[Math.floor(roll(state) * pool.length)].id };
+		}
+	}
 	return { ok: true, state, msg: `抵达${getLocation(region, toId)!.name}。` };
 }
 
@@ -1003,6 +1012,7 @@ export function buyVehicle(prev: PlayerState, region: Region, id: string): Actio
 	const old = getVehicle(state.vehicle);
 	state.cash -= offer.net;
 	state.vehicle = id;
+	state.car = { km: 0, since: 0 };
 	if (advance(state, 60, region)) return collapsedResult(state);
 	const msg = old ? `用${old.name}折抵 $${resaleValue(old.id)}，换了一辆${offer.vehicle.name}。` : `买了一辆${offer.vehicle.name}。`;
 	log(state, msg);
@@ -1021,8 +1031,42 @@ export function sellVehicle(prev: PlayerState, region: Region): ActionResult {
 	const got = resaleValue(v.id);
 	state.cash += got;
 	state.vehicle = 'none';
+	state.car = { km: 0, since: 0 };
 	if (advance(state, 30, region)) return collapsedResult(state);
 	const msg = `把${v.name}卖了 $${got}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+/** 现在这辆车每趟自驾抵达时抛锚的几率：离上次保养没超过 SERVICE_KM 为 0 */
+export function breakdownChance(state: PlayerState): number {
+	if (!getVehicle(state.vehicle) || state.car.since < SERVICE_KM) return 0;
+	return Math.min(BREAKDOWN.max, BREAKDOWN.base + (state.car.since - SERVICE_KM) * BREAKDOWN.perKm);
+}
+
+/** 修车厂：这里能不能给你的车做保养；这里没有修车厂或你没车返回 null */
+export function garageAt(state: PlayerState, region: Region): { price: number; blocked?: string } | null {
+	const loc = getLocation(region, state.loc);
+	const v = getVehicle(state.vehicle);
+	if (!loc || !v || !matches(GARAGE.where, loc)) return null;
+	const blocked = !isOpen(GARAGE.hours, state.clock) ? `修车厂营业时间 ${hoursLabel(GARAGE.hours)}`
+		: state.car.since === 0 ? '刚保养过'
+		: state.cash < v.service ? `需要 $${v.service}` : undefined;
+	return { price: v.service, blocked };
+}
+
+/** 保养：付钱、等两小时，离上次保养的里程清零 */
+export function serviceVehicle(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const g = garageAt(prev, region);
+	if (!g) return fail(prev, getVehicle(prev.vehicle) ? '这里没有修车厂。' : '你没有车。');
+	if (g.blocked) return fail(prev, g.blocked);
+	const state = clone(prev);
+	const v = getVehicle(state.vehicle)!;
+	state.cash -= g.price;
+	if (advance(state, GARAGE.minutes, region)) return collapsedResult(state);
+	state.car = { km: state.car.km, since: 0 };
+	const msg = `给${v.name}做了保养，花了 $${g.price}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
