@@ -1,0 +1,442 @@
+{
+ "collected": "2026-11-17",
+ "agent": "openclaw/market-intel",
+ "note": "原始采集结果，未改动；游戏里用的是 Claude 核对改写后的 src/game/data/facts.ts 和 wa.ts",
+ "runs": [
+  "20261117-151433-cae86489",
+  "20261117-151914-d4c926e8",
+  "20261117-151913-f22f3f29"
+ ],
+ "facts": [
+  {
+   "loc": "perth",
+   "text": "珀斯由詹姆斯·斯特林船长于1829年6月4日建立，1856年由维多利亚女王宣布为城市。",
+   "source": "https://en.wikipedia.org/wiki/Perth"
+  },
+  {
+   "loc": "perth",
+   "text": "国王公园面积400.6公顷，是西澳最受欢迎景点，园内有超过1600块阵亡将士纪念牌。",
+   "source": "https://en.wikipedia.org/wiki/Kings_Park,_Western_Australia"
+  },
+  {
+   "loc": "perth",
+   "text": "珀斯铸币厂1899年6月20日启用，1931年前铸造了超过1.06亿枚金币 sovereign。",
+   "source": "https://en.wikipedia.org/wiki/Perth_Mint"
+  },
+  {
+   "loc": "fremantle",
+   "text": "弗里曼特尔原名 Walyalup，意为「woylie 所在地」，1829年由英国移民率先定居。",
+   "source": "https://en.wikipedia.org/wiki/Fremantle"
+  },
+  {
+   "loc": "fremantle",
+   "text": "弗里曼特尔监狱1855年启用，1991年关闭，2010年列入世界遗产「澳洲流放地遗址」。",
+   "source": "https://en.wikipedia.org/wiki/Fremantle_Prison"
+  },
+  {
+   "loc": "fremantle",
+   "text": "1897年工程师 C.Y. 奥康纳疏浚港口，使其成为西澳金矿热时期的重要门户。",
+   "source": "https://en.wikipedia.org/wiki/Fremantle"
+  },
+  {
+   "loc": "rottnest",
+   "text": "罗特尼斯岛原名 Wadjemup，意为「水彼岸精灵所在之地」，1696年由荷兰船长德·弗拉明赫命名。",
+   "source": "https://en.wikipedia.org/wiki/Rottnest_Island"
+  },
+  {
+   "loc": "rottnest",
+   "text": "1838至1931年间，超过3600名原住民被囚禁在此岛做苦役。",
+   "source": "https://en.wikipedia.org/wiki/Rottnest_Island"
+  },
+  {
+   "loc": "rottnest",
+   "text": "岛上的瓦德杰马普灯塔是西澳第一座石造灯塔，1896年启用，为澳洲首座旋转光束灯塔。",
+   "source": "https://en.wikipedia.org/wiki/Wadjemup_Lighthouse"
+  },
+  {
+   "loc": "pinnacles",
+   "text": "尖峰石阵是南邦国家公园内的石灰岩柱群，最高的柱体可达约3.5米。",
+   "source": "https://en.wikipedia.org/wiki/Pinnacles_Desert"
+  },
+  {
+   "loc": "pinnacles",
+   "text": "石柱材质来自古海洋贝壳分解成的富钙砂，风吹成沙丘后再经溶蚀塑形。",
+   "source": "https://en.wikipedia.org/wiki/Pinnacles_Desert"
+  },
+  {
+   "loc": "pinnacles",
+   "text": "尖峰石阵1967年才被划为保护区，1994年并入南邦国家公园，2008年建成沙漠探索中心。",
+   "source": "https://en.wikipedia.org/wiki/Pinnacles_Desert"
+  },
+  {
+   "loc": "bunbury",
+   "text": "班伯里1836年由斯特林总督下令设立，以中尉亨利·邦伯里命名，当地原住民名 Goomburrup。",
+   "source": "https://en.wikipedia.org/wiki/Bunbury,_Western_Australia"
+  },
+  {
+   "loc": "bunbury",
+   "text": "南西部铁路1893年把班伯里与珀斯相连，港口由此成为西南地区主要门户。",
+   "source": "https://en.wikipedia.org/wiki/Bunbury,_Western_Australia"
+  },
+  {
+   "loc": "bunbury",
+   "text": "1976年环保人士炸击班伯里木片出口码头，三枚炸弹中两枚未爆，损失约30万澳元。",
+   "source": "https://en.wikipedia.org/wiki/Bunbury,_Western_Australia"
+  },
+  {
+   "loc": "margaret-river",
+   "text": "玛格丽特河镇1913年正式定名建镇，1922年一战后政府安置计划引入逾100名移民。",
+   "source": "https://en.wikipedia.org/wiki/Margaret_River,_Western_Australia"
+  },
+  {
+   "loc": "margaret-river",
+   "text": "这里年降雨约1130毫米，产区的白葡萄与红葡萄品种几乎各占一半。",
+   "source": "https://en.wikipedia.org/wiki/Margaret_River,_Western_Australia"
+  },
+  {
+   "loc": "margaret-river",
+   "text": "猛犸洞在镇南21公里，洞内化石超过3.5万年，1904年起对公众开放参观。",
+   "source": "https://en.wikipedia.org/wiki/Margaret_River,_Western_Australia"
+  },
+  {
+   "loc": "albany",
+   "text": "奥尔巴尼1826年12月26日建为军事据点，比珀斯和弗里曼特尔早两年多，是西澳最早的英属定居点。",
+   "source": "https://en.wikipedia.org/wiki/Albany,_Western_Australia"
+  },
+  {
+   "loc": "albany",
+   "text": "原名弗雷德里克镇，1831年由斯特林总督改名奥尔巴尼；当地原住民名 Kinjarling 意为「富饶之地」。",
+   "source": "https://en.wikipedia.org/wiki/Albany,_Western_Australia"
+  },
+  {
+   "loc": "albany",
+   "text": "2014年澳新两国总理在_mount Clarence 揭幕国家澳新军团中心，纪念首支澳新军团100年前从金乔治湾出发，约4万人参加。",
+   "source": "https://en.wikipedia.org/wiki/Albany,_Western_Australia"
+  },
+  {
+   "loc": "esperance",
+   "text": "埃斯佩兰斯得名于法国船 Espérance，该船1792年12月驶入海湾躲避大风暴。",
+   "source": "https://en.wikipedia.org/wiki/Esperance,_Western_Australia"
+  },
+  {
+   "loc": "esperance",
+   "text": "1979年美国天空实验室残骸坠落在镇上，市政府罚款美国400澳元乱扔垃圾，这笔罚款2009年才被代缴。",
+   "source": "https://en.wikipedia.org/wiki/Esperance,_Western_Australia"
+  },
+  {
+   "loc": "esperance",
+   "text": "埃斯佩兰斯港2002年升级5400万澳元后，可停靠18万吨级好望角型巨轮。",
+   "source": "https://en.wikipedia.org/wiki/Esperance,_Western_Australia"
+  },
+  {
+   "loc": "wave-rock",
+   "text": "波浪岩高约15米、长约110米，位于海登镇以东3公里，是一座花岗岩残丘的北侧。",
+   "source": "https://en.wikipedia.org/wiki/Wave_Rock"
+  },
+  {
+   "loc": "wave-rock",
+   "text": "海登岩为约26.3亿年前的黑云母钾长石斑状花岗岩，属伊尔冈克拉通。",
+   "source": "https://en.wikipedia.org/wiki/Wave_Rock"
+  },
+  {
+   "loc": "wave-rock",
+   "text": "1928年12月公共工程部在岩顶修筑集水墙收集雨水，1951年翻修为海登镇增供蓄水。",
+   "source": "https://en.wikipedia.org/wiki/Wave_Rock"
+  },
+  {
+   "loc": "kalgoorlie",
+   "text": "卡尔古利始建于1893年淘金热，现与鲍尔德组成卡尔古利—鲍尔德市。",
+   "source": "https://en.wikipedia.org/wiki/Kalgoorlie"
+  },
+  {
+   "loc": "kalgoorlie",
+   "text": "1887年开工的黄金管道把珀斯附近蒙达林堰的淡水送往矿区。",
+   "source": "https://en.wikipedia.org/wiki/Goldfields_Water_Supply_Scheme"
+  },
+  {
+   "loc": "kalgoorlie",
+   "text": "卡尔古利所在金矿区曾被称为“地球上最富饶的一平方英里”。",
+   "source": "https://en.wikipedia.org/wiki/Kalgoorlie"
+  },
+  {
+   "loc": "geraldton",
+   "text": "杰拉尔顿港是西海岸主要港口，服务矿业、渔业、牧业和旅游业。",
+   "source": "https://en.wikipedia.org/wiki/Geraldton"
+  },
+  {
+   "loc": "geraldton",
+   "text": "当地西澳博物馆常设展览介绍雅马特吉和瓦贾里文化历史。",
+   "source": "https://en.wikipedia.org/wiki/Geraldton"
+  },
+  {
+   "loc": "geraldton",
+   "text": "杰拉尔顿2021年人口为38,595人，距珀斯约424公里。",
+   "source": "https://www.abs.gov.au/census/find-census-data/quickstats/2021/UCL133012"
+  },
+  {
+   "loc": "kalbarri",
+   "text": "卡尔巴里坐落在默奇森河入海口，距珀斯约592公里。",
+   "source": "https://en.wikipedia.org/wiki/Kalbarri,_Western_Australia"
+  },
+  {
+   "loc": "kalbarri",
+   "text": "当地名字来自南达族一名男子，也是一种可食用种子的名称。",
+   "source": "https://en.wikipedia.org/wiki/Kalbarri,_Western_Australia"
+  },
+  {
+   "loc": "kalbarri",
+   "text": "卡尔巴里国家公园以天然之窗和俯瞰河谷的Z弯观景点闻名。",
+   "source": "https://exploreparks.dbca.wa.gov.au/park/kalbarri-national-park"
+  },
+  {
+   "loc": "monkey-mia",
+   "text": "猴子米亚距珀集约900公里，坐落在鲨鱼湾世界遗产区域内。",
+   "source": "https://en.wikipedia.org/wiki/Monkey_Mia"
+  },
+  {
+   "loc": "monkey-mia",
+   "text": "从1960年代起，人们开始给常来岸边的宽吻海豚喂食。",
+   "source": "https://en.wikipedia.org/wiki/Monkey_Mia"
+  },
+  {
+   "loc": "monkey-mia",
+   "text": "科学家自1982年起在这里研究海豚行为，范围扩至整个鲨鱼湾。",
+   "source": "https://en.wikipedia.org/wiki/Monkey_Mia"
+  },
+  {
+   "loc": "exmouth",
+   "text": "埃克斯茅斯于1964年建立，最初是为附近美国海军通信站提供支援。",
+   "source": "https://en.wikipedia.org/wiki/Exmouth,_Western_Australia"
+  },
+  {
+   "loc": "exmouth",
+   "text": "2023年日全食期间，超过2万人在埃克斯茅斯观看日食。",
+   "source": "https://en.wikipedia.org/wiki/Exmouth,_Western_Australia"
+  },
+  {
+   "loc": "exmouth",
+   "text": "当地“大虾”和“大鲸鲨”两座巨型雕塑分别建于2005年和2002年。",
+   "source": "https://en.wikipedia.org/wiki/Exmouth,_Western_Australia"
+  },
+  {
+   "loc": "karijini",
+   "text": "卡瑞吉尼国家公园1969年设立，1991年由哈默斯利山脉国家公园改名。",
+   "source": "https://en.wikipedia.org/wiki/Karijini_National_Park"
+  },
+  {
+   "loc": "karijini",
+   "text": "公园面积约627,422公顷，是西澳第二大国家公园。",
+   "source": "https://parks.dpaw.wa.gov.au/park/karijini"
+  },
+  {
+   "loc": "karijini",
+   "text": "这里的峡谷岩层至少有约25亿年历史，以铁矿石带和瀑布闻名。",
+   "source": "https://en.wikipedia.org/wiki/Karijini_National_Park"
+  },
+  {
+   "loc": "port-hedland",
+   "text": "黑德兰港得名于船长彼得·赫德兰，他于1863年到访当地港湾。",
+   "source": "https://en.wikipedia.org/wiki/Port_Hedland"
+  },
+  {
+   "loc": "port-hedland",
+   "text": "1966年首船载运约24,900吨铁矿石由这里驶往日本。",
+   "source": "https://en.wikipedia.org/wiki/Port_Hedland"
+  },
+  {
+   "loc": "port-hedland",
+   "text": "当地原住民名称Marapikurrinya形容港湾潮汊形似伸出的手。",
+   "source": "https://en.wikipedia.org/wiki/Port_Hedland"
+  },
+  {
+   "loc": "broome",
+   "text": "甘特海姆点恐龙足迹约1.3亿年前形成，只在极低潮时可见。",
+   "source": "https://en.wikipedia.org/wiki/Broome,_Western_Australia"
+  },
+  {
+   "loc": "broome",
+   "text": "布鲁姆于1883年正式定名，以当时的西澳总督弗雷德里克·布鲁姆命名。",
+   "source": "https://en.wikipedia.org/wiki/Broome,_Western_Australia"
+  },
+  {
+   "loc": "broome",
+   "text": "1889年海底电缆在布鲁姆登陆，通往爪哇的巴鲁安加并连接英国。",
+   "source": "https://en.wikipedia.org/wiki/Broome,_Western_Australia"
+  },
+  {
+   "loc": "kununurra",
+   "text": "库努纳拉于1961年设立，起点是服务奥德河灌溉区的开发。",
+   "source": "https://en.wikipedia.org/wiki/Kununurra"
+  },
+  {
+   "loc": "kununurra",
+   "text": "奥德河分水坝于1963年启用，设计可灌溉约750平方公里土地。",
+   "source": "https://en.wikipedia.org/wiki/Ord_River_Irrigation_Scheme"
+  },
+  {
+   "loc": "kununurra",
+   "text": "阿格莱湖是澳大利亚最大人工湖，面积超过100平方公里。",
+   "source": "https://en.wikipedia.org/wiki/Kununurra"
+  }
+ ],
+ "newLocations": [
+  {
+   "id": "mandurah",
+   "name": "曼杜拉",
+   "en": "Mandurah",
+   "lat": -32.529,
+   "lon": 115.723,
+   "kind": "city",
+   "tags": [
+    "hospital",
+    "pub",
+    "beach",
+    "dolphin",
+    "market"
+   ],
+   "radiusKm": 12,
+   "blurb": "珀斯以南的海岸城市，以河口、运河和海滩闻名。",
+   "routes": [
+    {
+     "to": "perth",
+     "km": 72
+    },
+    {
+     "to": "bunbury",
+     "km": 108
+    }
+   ],
+   "facts": [
+    {
+     "text": "市名源自努恩加尔语 mandjar，意为聚会或交易之地。",
+     "source": "https://en.wikipedia.org/wiki/Mandurah"
+    },
+    {
+     "text": "市中心位于皮尔—哈维河口，河口面积约为悉尼港的两倍。",
+     "source": "https://en.wikipedia.org/wiki/Mandurah"
+    },
+    {
+     "text": "当地曾建立海豚研究项目，对河口及邻近海域的鼠海豚进行调查。",
+     "source": "https://library.dbca.wa.gov.au/FullTextFiles/630607.pdf"
+    }
+   ]
+  },
+  {
+   "id": "busselton",
+   "name": "巴瑟尔顿",
+   "en": "Busselton",
+   "lat": -33.648,
+   "lon": 115.346,
+   "kind": "city",
+   "tags": [
+    "airport",
+    "hospital",
+    "pub",
+    "beach",
+    "whale",
+    "wine",
+    "market"
+   ],
+   "radiusKm": 15,
+   "blurb": "西澳热门海滨度假地，以长栈桥和观鲸闻名。",
+   "routes": [
+    {
+     "to": "perth",
+     "km": 220
+    },
+    {
+     "to": "margaret-river",
+     "km": 50
+    }
+   ],
+   "facts": [
+    {
+     "text": "巴瑟尔顿栈桥长约1.84公里，是南半球最长的木桩栈桥。",
+     "source": "https://en.wikipedia.org/wiki/Busselton_Jetty"
+    },
+    {
+     "text": "栈桥始建于1864年，首段于1865年启用，后经多次延长。",
+     "source": "https://en.wikipedia.org/wiki/Busselton_Jetty"
+    },
+    {
+     "text": "当地努恩加尔名称是 Undalup，纪念一位瓦丹迪战士首领。",
+     "source": "https://en.wikipedia.org/wiki/Busselton"
+    }
+   ]
+  },
+  {
+   "id": "pemberton",
+   "name": "彭伯顿",
+   "en": "Pemberton",
+   "lat": -34.445,
+   "lon": 116.034,
+   "kind": "town",
+   "tags": [
+    "pub",
+    "wine"
+   ],
+   "radiusKm": 10,
+   "blurb": "桉树林中的小镇，以攀树、森林和冷凉葡萄酒闻名。",
+   "routes": [
+    {
+     "to": "margaret-river",
+     "km": 90
+    },
+    {
+     "to": "busselton",
+     "km": 185
+    }
+   ],
+   "facts": [
+    {
+     "text": "格洛斯特树高约61米，原是森林火灾瞭望树。",
+     "source": "https://en.wikipedia.org/wiki/Gloucester_Tree"
+    },
+    {
+     "text": "Bibbulmun长距离步道穿过彭伯顿，全长约1003公里。",
+     "source": "https://en.wikipedia.org/wiki/Bibbulmun_Track"
+    },
+    {
+     "text": "小镇以桉树、卡里森林、瀑布及澳洲知名的冷凉葡萄酒产区著称。",
+     "source": "https://www.westernaustralia.com/en/places/pemberton/56b266c4aeeeaaf773cf965f"
+    }
+   ]
+  },
+  {
+   "id": "coral-bay",
+   "name": "珊瑚湾",
+   "en": "Coral Bay",
+   "lat": -23.145,
+   "lon": 113.776,
+   "kind": "coast",
+   "tags": [
+    "beach",
+    "reef",
+    "whale",
+    "dolphin"
+   ],
+   "radiusKm": 15,
+   "blurb": "宁加卢礁沿岸小镇，礁石近岸，适合浮潜观鱼。",
+   "routes": [
+    {
+     "to": "exmouth",
+     "km": 138
+    }
+   ],
+   "facts": [
+    {
+     "text": "宁加卢礁部分海岸距离小镇不足500米，浮潜者很容易抵达。",
+     "source": "https://en.wikipedia.org/wiki/Ningaloo_Reef"
+    },
+    {
+     "text": "宁加卢海岸世界遗产区沿海岸延伸逾300公里，并列入世界遗产。",
+     "source": "https://www.dbca.wa.gov.au/management/world-heritage-areas/ningaloo-coast-world-heritage-area"
+    },
+    {
+     "text": "当地以自然旅游为经济支柱，主打浮潜、蝠鲼和季节性观鲸。",
+     "source": "https://en.wikipedia.org/wiki/Coral_Bay,_Western_Australia"
+    }
+   ]
+  }
+ ]
+}

@@ -3,6 +3,7 @@
 import { unit, weatherAt, weatherOn } from './weather.ts';
 import { ANIMALS, DEX_GROUPS, type AnimalDef } from '../data/wildlife.ts';
 import { FISH, FISHING, type FishDef } from '../data/fish.ts';
+import { FACTS, type PlaceFact } from '../data/facts.ts';
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
@@ -308,6 +309,13 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 	}
 	const seen = spotAnimal(state, loc);
 	if (seen) recordAnimal(state, seen.id, `在${loc.name}看见了${seen.icon}${seen.name}：${seen.desc}`);
+}
+
+// ---------- 地点小知识 ----------
+/** 某地点的小知识卡：第 n 次到访解锁第 n 条（不存档，按到访次数现算） */
+export function placeFacts(state: PlayerState, locId: string): { fact: PlaceFact; unlocked: boolean }[] {
+	const n = state.visited[locId] ?? 0;
+	return (FACTS[locId] ?? []).map((fact, i) => ({ fact, unlocked: i < n }));
 }
 
 // ---------- 钓鱼 ----------

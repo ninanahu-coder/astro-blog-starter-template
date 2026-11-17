@@ -14,7 +14,7 @@ const fresh = () => createCharacter({ id: 'ach', name: '成就', avatar: '🧑',
 const byId = (s: ReturnType<typeof fresh>) => new Map(achievements(s, WA).map((a) => [a.def.id, a]));
 
 test('成就数据自洽：id 唯一、指标合法、目标为正', () => {
-	const metrics: AchievementMetric[] = ['places', 'checkins', 'collected', 'friends', 'besties', 'home', 'properties', 'topJob', 'worth', 'level', 'photos', 'stormPhotos', 'rainPhotos', 'coops', 'festivals', 'topSkill', 'trips', 'dex', 'fish'];
+	const metrics: AchievementMetric[] = ['places', 'checkins', 'collected', 'friends', 'besties', 'home', 'properties', 'topJob', 'worth', 'level', 'photos', 'stormPhotos', 'rainPhotos', 'coops', 'festivals', 'topSkill', 'trips', 'dex', 'fish', 'facts'];
 	assert.equal(new Set(ACHIEVEMENTS.map((a) => a.id)).size, ACHIEVEMENTS.length);
 	for (const a of ACHIEVEMENTS) {
 		assert.ok(metrics.includes(a.metric), a.id);

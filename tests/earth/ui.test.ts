@@ -11,6 +11,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { build } from 'esbuild';
 import { EarthWorld } from '../../src/game/server/world.ts';
+import { WA } from '../../src/game/data/wa.ts';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
@@ -185,8 +186,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 
 		// 分享进度：没有系统分享时复制到剪贴板；只含展示信息，不含存档 id 和同步码
 		await click({ metab: 'overview' });
-		// 足迹：18 个地点；点一个没去过的地方跳到出行页并选中它
-		assert.match(panel(), /足迹 1\/18/);
+		// 足迹：全部地点；点一个没去过的地方跳到出行页并选中它
+		assert.match(panel(), new RegExp(`足迹 1/${WA.locations.length}<`));
 		assert.match(panel(), /见闻录 0\/\d+/);
 		assert.match(panel(), /？？？/);
 		assert.doesNotMatch(panel(), /某个地方/, '每个一次性事件都能提示在哪');

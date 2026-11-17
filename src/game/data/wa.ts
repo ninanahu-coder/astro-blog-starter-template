@@ -36,6 +36,11 @@ const locations: GameLocation[] = [
 	L('port-hedland', '黑德兰港', 'Port Hedland', -20.31, 118.6, 'mining', ['airport', 'pub', 'hospital'], 15, '铁矿石出海口，货轮与运矿列车。'),
 	L('broome', '布鲁姆', 'Broome', -17.96, 122.24, 'coast', ['beach', 'airport', 'pearl', 'pub', 'hospital'], 20, '珍珠之乡，凯布尔海滩上的骆驼与落日。'),
 	L('kununurra', '库努纳拉', 'Kununurra', -15.77, 128.74, 'outback', ['airport', 'gorge'], 25, '金伯利东端，通往邦格尔邦格尔山脉。'),
+	// 第 16 轮新增（坐标、类型、标签由 OpenClaw 采集，Claude 按维基百科核对；无法证实的标签已去掉）
+	L('mandurah', '曼杜拉', 'Mandurah', -32.529, 115.723, 'city', ['hospital', 'pub', 'beach', 'dolphin'], 12, '珀斯以南的河口城市，运河里常见海豚，夏天满城捉蓝花蟹。'),
+	L('busselton', '巴瑟尔顿', 'Busselton', -33.648, 115.346, 'town', ['hospital', 'pub', 'beach', 'whale', 'wine'], 15, '海滨度假小城，一条木栈桥伸进海湾快两公里。'),
+	L('pemberton', '彭伯顿', 'Pemberton', -34.445, 116.034, 'town', ['pub', 'wine'], 10, '卡里树林里的小镇，能爬上当年的防火瞭望树。'),
+	L('coral-bay', '珊瑚湾', 'Coral Bay', -23.145, 113.776, 'coast', ['beach', 'reef', 'whale'], 15, '宁格鲁礁就长在岸边，走下沙滩就能浮潜。'),
 ];
 
 const R = (a: string, b: string, mode: Route['mode'] = 'road'): Route => ({ a, b, mode });
@@ -64,6 +69,14 @@ const routes: Route[] = [
 	R('exmouth', 'port-hedland'),
 	R('port-hedland', 'broome'),
 	R('broome', 'kununurra', 'track'),
+	R('perth', 'mandurah'),
+	R('mandurah', 'bunbury'),
+	R('bunbury', 'busselton'),
+	R('busselton', 'margaret-river'),
+	R('margaret-river', 'pemberton'),
+	R('pemberton', 'albany'),
+	R('exmouth', 'coral-bay'),
+	R('coral-bay', 'monkey-mia'),
 	R('perth', 'kalgoorlie', 'air'),
 	R('perth', 'geraldton', 'air'),
 	R('perth', 'exmouth', 'air'),
