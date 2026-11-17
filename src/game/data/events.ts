@@ -276,5 +276,86 @@ export const EVENTS: GameEvent[] = [
 			{ label: '看一会儿就回去休息', ok: { text: '明天还有事，你没多待。', fx: { minutes: 10, needs: { fun: 5 } } } },
 		],
 	},
+	// 第 24 轮：给还没有专属事件的 10 个地点各补一条（可重复，数值待平衡）
+	{
+		id: 'freo-doctor', title: '弗里曼特尔医生', icon: '🌬️', locs: ['fremantle'], seasons: ['summer', 'spring'], periods: ['day', 'dusk'], weight: 3,
+		text: '下午的海风准时从海上吹进来，当地人管它叫「弗里曼特尔医生」，热了一上午的街道一下子凉了。',
+		choices: [
+			{ label: '找个露台坐下吹风', ok: { text: '你在风里坐了半小时，热得发昏的脑子清醒了。', fx: { minutes: 30, needs: { fun: 12, energy: 6 } } } },
+			{ label: '帮邻桌追回被吹跑的帽子', check: { skill: 'stamina', dc: 25 }, ok: { text: '你在帽子掉进海里前一把抓住，邻桌请你喝了杯冰水。', fx: { minutes: 15, needs: { social: 15 }, skills: { stamina: 1 } } }, fail: { text: '帽子打着旋飞进了港口，你们一起笑了半天。', fx: { minutes: 15, needs: { social: 10, fun: 6 } } } },
+		],
+	},
+	{
+		id: 'mandurah-crabs', title: '捞蓝花蟹', icon: '🦀', locs: ['mandurah'], seasons: ['summer', 'autumn'], weight: 3,
+		text: '河口浅水里一排人举着捞网、拖着浮箱，一边走一边低头找蓝花蟹。',
+		choices: [
+			{ label: '借个网下水试试', check: { skill: 'survival', dc: 30 }, ok: { text: '你捞到几只够尺寸的，旁边的大叔教你量壳宽，还帮你煮了。', fx: { minutes: 60, needs: { hunger: 20, fun: 20 }, skills: { survival: 1 } } }, fail: { text: '捞到的全是小的，按规矩一只只放回了水里。', fx: { minutes: 60, needs: { fun: 10, hygiene: -10 } } } },
+			{ label: '在岸边看热闹', ok: { text: '有人一网捞上来三只，岸上一片叫好。', fx: { minutes: 20, needs: { fun: 8 } } } },
+		],
+	},
+	{
+		id: 'bunbury-dolphins', title: '浅滩海豚', icon: '🐬', locs: ['bunbury'], periods: ['dawn', 'day'], animal: 'bottlenose-dolphin', weight: 3,
+		text: '海豚中心外的浅滩上，几只宽吻海豚游得很近，志愿者让大家站在水里别动。',
+		choices: [
+			{ label: '照规矩站在齐膝的水里等', exposed: 'sea', ok: { text: '一只海豚从你身边滑过，背鳍上有道旧伤疤，志愿者说它是这片海的常客。', fx: { minutes: 40, needs: { fun: 30 } } } },
+			{ label: '在岸上帮志愿者记录', ok: { text: '你帮忙数了海豚、写下时间，志愿者说下次可以来当帮手。', fx: { minutes: 40, respect: 1, needs: { social: 10 } } } },
+		],
+	},
+	{
+		id: 'busselton-jetty-walk', title: '走完长栈桥', icon: '🌉', locs: ['busselton'], weather: ['sunny', 'cloudy', 'hot'], weight: 3,
+		text: '木栈桥伸进海湾快两公里，尽头的海面下是一座水下观测站。',
+		choices: [
+			{ label: '一口气走到尽头再走回来', check: { skill: 'stamina', dc: 30 }, ok: { text: '来回快四公里，海风一路吹着，回到岸上腿是软的、心情是好的。', fx: { minutes: 75, needs: { fun: 20, energy: -12 }, skills: { stamina: 1 } } }, fail: { text: '走到一半太晒，你坐上了栈桥小火车。', fx: { minutes: 50, needs: { fun: 12, energy: -6 } } } },
+			{ label: '在岸边的沙滩上看它', ok: { text: '远远看着那条细线一直伸进蓝色里。', fx: { minutes: 15, needs: { fun: 6 } } } },
+		],
+	},
+	{
+		id: 'margaret-cellar', title: '酒庄品酒', icon: '🍷', locs: ['margaret-river'], periods: ['day'], weight: 3,
+		text: '路边的酒庄挂着「今日品鉴」的牌子，葡萄园一直铺到山坡后面。',
+		choices: [
+			{ label: '进去品一轮（$15）', cost: 15, ok: { text: '酿酒师讲了这片土和海风的关系，你挑出了自己最喜欢的一款。', fx: { minutes: 45, needs: { fun: 20, social: 10 } } } },
+			{ label: '要开车，只买瓶果汁', cost: 4, ok: { text: '老板夸你懂规矩，送了一小袋葡萄。', fx: { minutes: 10, needs: { hunger: 8 } } } },
+		],
+	},
+	{
+		id: 'pemberton-karri', title: '卡里树林', icon: '🌲', locs: ['pemberton'], weather: ['sunny', 'cloudy', 'rain'], weight: 3,
+		text: '卡里树笔直地插进雾里，树皮一条条剥落，林子里只有鸟叫和滴水声。',
+		choices: [
+			{ label: '走一段林间步道', check: { skill: 'survival', dc: 25 }, ok: { text: '你认出了好几种鸟叫，出林子时觉得整个人被洗过一遍。', fx: { minutes: 60, needs: { fun: 18, energy: -8 }, skills: { survival: 1 } } }, fail: { text: '岔路太多，你绕了一圈才回到停车场。', fx: { minutes: 80, needs: { fun: 8, energy: -12 } } } },
+			{ label: '在林边的小咖啡馆坐一会儿', cost: 6, ok: { text: '热巧克力配着窗外的雾，正好。', fx: { minutes: 25, needs: { fun: 10, hunger: 10 } } } },
+		],
+	},
+	{
+		id: 'geraldton-leaning-trees', title: '歪脖子树', icon: '🌳', locs: ['geraldton'], weight: 3,
+		text: '城外的田野上，几棵老树被常年的南风吹得几乎贴着地面长，像在弯腰鞠躬。',
+		choices: [
+			{ label: '学着树的样子拍张照', check: { skill: 'charisma', dc: 20 }, ok: { text: '你和树一起歪着身子，照片发出去收获了一串大笑。', fx: { minutes: 20, needs: { fun: 15, social: 10 } } } , fail: { text: '风太大，你差点真的被吹歪。', fx: { minutes: 20, needs: { fun: 8 } } } },
+			{ label: '听路过的农场主讲这些树', ok: { text: '他说这些树比他爷爷还老，风从来没停过。', fx: { minutes: 20, needs: { social: 12 } } } },
+		],
+	},
+	{
+		id: 'hedland-ore-train', title: '运矿长龙', icon: '🚂', locs: ['port-hedland'], weight: 3,
+		text: '一列运铁矿石的火车开进港口，车厢一节接一节，好几分钟都没过完。',
+		choices: [
+			{ label: '站在路口数车厢', ok: { text: '你数到两百多节就放弃了，旁边的矿工说这还不算长的。', fx: { minutes: 15, needs: { fun: 10, social: 6 } } } },
+			{ label: '去看港口的白色盐山', ok: { text: '盐田边堆起的白色盐山在烈日下刺眼，像北方的雪。', fx: { minutes: 30, needs: { fun: 12, hygiene: -5 } } } },
+		],
+	},
+	{
+		id: 'coral-bay-snorkel', title: '岸边就是礁', icon: '🤿', locs: ['coral-bay'], periods: ['day'], weather: ['sunny', 'cloudy', 'hot'], weight: 3,
+		text: '从沙滩往海里走十几米，脚下就是珊瑚，鹦嘴鱼在你膝盖边吃东西。',
+		choices: [
+			{ label: '租套浮潜装备下水（$20）', cost: 20, exposed: 'sea', check: { skill: 'swimming', dc: 30 }, ok: { text: '一只绿海龟慢悠悠地从你身下游过，你跟着它游了很远，回头才发现岸已经很小了。', fx: { minutes: 75, needs: { fun: 35, energy: -10 }, skills: { swimming: 2 } } }, fail: { text: '面镜一直进水，你在浅水里看了一会儿就上岸了。', fx: { minutes: 40, needs: { fun: 12 }, skills: { swimming: 1 } } } },
+			{ label: '站在浅水里低头看', ok: { text: '不用下潜也看得见小丑鱼在海葵里进进出出。', fx: { minutes: 20, needs: { fun: 12 } } } },
+		],
+	},
+	{
+		id: 'monkey-mia-feeding', title: '早上的海豚', icon: '🐬', locs: ['monkey-mia'], periods: ['dawn', 'day'], animal: 'bottlenose-dolphin', weight: 3,
+		text: '早上，护林员在浅水里讲解野生海豚的规矩，几只海豚已经游到了岸边。',
+		choices: [
+			{ label: '举手争取当喂鱼的志愿者', check: { skill: 'charisma', dc: 40 }, ok: { text: '护林员挑中了你。你按指示把一条鱼放进水里，海豚轻轻接走了。', fx: { minutes: 45, respect: 1, needs: { fun: 35 } } }, fail: { text: '这次被一个小朋友抢先了，你在旁边看得很开心。', fx: { minutes: 45, needs: { fun: 15 } } } },
+			{ label: '站在后排安静地看', ok: { text: '海豚离你只有几米，呼气的声音都听得见。', fx: { minutes: 30, needs: { fun: 15 } } } },
+		],
+	},
 	...VENUE_EVENTS,
 ];
