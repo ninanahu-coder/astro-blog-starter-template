@@ -93,7 +93,7 @@ test('动作协议和存档校验', () => {
 	assert.deepEqual(sanitizeState({ ...make(), car: { km: 1234.7, since: 99.2 } }, locs, { fallbackLoc: 'perth', now: Date.now() })!.car, { km: 1234, since: 99 });
 });
 
-test('抛锚的先后：被盘查时不抛锚也不掷骰；否则抛锚优先于普通到达事件，实际几率就是标的几率（复审问题 2）', () => {
+test('抛锚的先后：被盘查时不抛锚也不掷骰；否则抛锚优先于普通到达事件，实际几率就是标的几率（来过的地方；首次到访有签名事件时让给签名事件，见下一条测试）（复审问题 2）', () => {
 	const N = 600;
 	let hits = 0;
 	for (let seed = 1; seed <= N; seed++) {

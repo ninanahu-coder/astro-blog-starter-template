@@ -261,7 +261,7 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 	if (ride) for (const k of NEED_KEYS) if (ride[k]) state.needs[k] = clamp100(state.needs[k] + ride[k]! * opt.minutes);
 	if (advance(state, opt.minutes, region)) return collapsedResult(state); // collapse 已把人送去医院，没到达
 	if (selfDrive) state.car = { km: Math.min(CAR_KM_MAX, state.car.km + opt.km), since: Math.min(CAR_KM_MAX, state.car.since + opt.km) };
-	// 该保养的车按几率抛锚。事件先后：盘查 → 抛锚 → 普通到达事件，所以标的几率就是实际几率（被盘查时除外）；
+	// 该保养的车按几率抛锚。事件先后：盘查 → 首次到访的签名事件 → 抛锚 → 普通到达事件，所以标的几率就是实际几率（被盘查、首次到访有签名事件时除外）；
 	// 没超保养里程、或这趟反正要被盘查时不掷骰，不影响别的随机结果
 	let breakdown: GameEvent | null = null;
 	const chance = selfDrive && state.heat < HEAT_CHECK_AT ? breakdownChance(state) : 0;
