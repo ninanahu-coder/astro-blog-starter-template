@@ -48,6 +48,25 @@ export const CAREERS: CareerDef[] = [
 			{ title: '车队长', pay: 620, req: { skills: { driving: 60 }, respect: 40 } },
 		],
 	},
+	// 第 11 轮新增（工资、要求待平衡）
+	{
+		id: 'bartender', name: '酒吧', where: { tags: ['pub'] }, venues: ['pub'], start: [17, 20], minutes: 360, skill: 'charisma',
+		shift: { needs: { energy: -30, social: 20, hygiene: -10, fun: 5 }, skills: { charisma: 1.5, street: 0.5 } },
+		levels: [
+			{ title: '吧台帮手', pay: 140 },
+			{ title: '调酒师', pay: 200, req: { skills: { charisma: 30 } } },
+			{ title: '酒吧经理', pay: 280, req: { skills: { charisma: 50, street: 25 }, respect: 30 } },
+		],
+	},
+	{
+		id: 'farmhand', name: '农场', where: { kinds: ['outback'], tags: ['wine'] }, start: [5, 7], minutes: 480, skill: 'stamina',
+		shift: { needs: { energy: -40, hygiene: -30, fun: -10 }, skills: { stamina: 1.5, strength: 1, survival: 0.5 } },
+		levels: [
+			{ title: '摘果工', pay: 180 },
+			{ title: '农场工', pay: 240, req: { skills: { stamina: 25, strength: 20 } } },
+			{ title: '农场主管', pay: 320, req: { skills: { stamina: 45, survival: 25 }, respect: 25 } },
+		],
+	},
 ];
 
 /** 每个等级至少上多少个班、其中多少个表现好，才有资格升到下一级 */

@@ -154,3 +154,18 @@ test('有待处理事件时不能退房', () => {
 	assert.equal(leaveHome({ ...home, pending: { eventId: 'heat-check' } }).ok, false);
 	assert.ok(leaveHome(home).ok);
 });
+
+test('第 11 轮新职业：酒保在有酒吧的地方晚上上班，农场工在内陆和酒庄清晨上班', () => {
+	const fre = make({ loc: 'fremantle', clock: at(9) });
+	assert.ok(careersAt(fre, WA).some((o) => o.career.id === 'bartender'), '弗里曼特尔有酒吧');
+	assert.ok(!careersAt(make({ loc: 'rottnest', clock: at(9) }), WA).some((o) => o.career.id === 'bartender'), '罗特尼斯岛没有酒吧');
+	let s = rested(applyJob(fre, WA, 'bartender').state);
+	assert.match(shiftBlocked({ ...s, clock: at(12) })!, /17:00/);
+	const r = workShift({ ...s, clock: at(18) }, WA);
+	assert.ok(r.ok, r.msg);
+	assert.ok(r.state.cash > s.cash && r.state.skills.charisma > s.skills.charisma);
+	for (const loc of ['margaret-river', 'wave-rock', 'kununurra']) assert.ok(careersAt(make({ loc, clock: at(9) }), WA).some((o) => o.career.id === 'farmhand'), loc);
+	s = rested(applyJob(make({ loc: 'margaret-river', clock: at(9) }), WA, 'farmhand').state);
+	assert.match(shiftBlocked({ ...s, clock: at(9) })!, /5:00/);
+	assert.ok(workShift({ ...s, clock: at(6, 1) }, WA).ok, '第二天清晨 6 点');
+});
