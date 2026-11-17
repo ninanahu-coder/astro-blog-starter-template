@@ -3,7 +3,7 @@
 import { ITEMS } from '../data/items.ts';
 import { TRAITS } from '../data/traits.ts';
 import { HOMES } from '../data/housing.ts';
-import { FURNITURE } from '../data/furniture.ts';
+import { FURNITURE, FURNITURE_SETS } from '../data/furniture.ts';
 import { VEHICLES } from '../data/vehicles.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { propertyDue } from './finance.ts';
@@ -39,7 +39,17 @@ export function homeComfort(state: PlayerState): number {
 	if (!state.home) return 0;
 	const base = HOMES.find((h) => h.id === state.home!.type)?.comfort ?? 0;
 	const extra = Object.values(state.home.furniture).reduce((a, id) => a + (FURNITURE.find((f) => f.id === id)?.comfort ?? 0), 0);
-	return base + extra;
+	return base + extra + furnitureSets(state).filter((x) => x.done).reduce((a, x) => a + x.set.comfort, 0);
+}
+
+/** 住处的成套家具进度：每套已经摆了几件、凑齐没有（没有住处为空） */
+export function furnitureSets(state: PlayerState): { set: (typeof FURNITURE_SETS)[number]; have: number; done: boolean }[] {
+	if (!state.home) return [];
+	const placed = new Set(Object.values(state.home.furniture));
+	return FURNITURE_SETS.map((set) => {
+		const have = set.items.filter((id) => placed.has(id)).length;
+		return { set, have, done: have === set.items.length };
+	});
 }
 
 export interface WeeklyCosts {

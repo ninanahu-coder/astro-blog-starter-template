@@ -7,7 +7,7 @@ import { MAX_TRAITS } from '../data/traits.ts';
 import { NPCS } from '../data/npcs.ts';
 import { CAREERS } from '../data/careers.ts';
 import { HOMES } from '../data/housing.ts';
-import { VEHICLES } from '../data/vehicles.ts';
+import { CAR_KM_MAX, VEHICLES } from '../data/vehicles.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { WISHES } from '../data/wishes.ts';
@@ -17,6 +17,7 @@ import { FINANCE } from './finance.ts';
 import { realDayOf } from './daily.ts';
 import { getRegion } from '../data/wa.ts';
 import { COURSES } from '../data/courses.ts';
+import { CERTS } from '../data/certs.ts';
 import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
@@ -102,6 +103,7 @@ export function createCharacter(opts: {
 		photos: [],
 		seen: [],
 		traits: validTraits(opts.traits ?? [], MAX_TRAITS) ? [...(opts.traits ?? [])] : [],
+		car: { km: 0, since: 0 },
 		inventory: { water: 2, snack: 1 },
 		relations: {},
 		job: null,
@@ -115,6 +117,7 @@ export function createCharacter(opts: {
 		collected: [],
 		areas: [],
 		courseDays: {},
+		certs: [],
 		coopDays: {},
 		trades: { day: 0, out: 0, in: 0 },
 		met: {},
@@ -267,6 +270,13 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 				if (typeof d === 'number' && Number.isFinite(d) && d >= 0) out[c.id] = Math.floor(d);
 			}
 			return out;
+		})(),
+		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id)),
+		car: (() => {
+			// 没车就没有里程；离上次保养的里程不超过总里程
+			if (!VEHICLES.some((v) => v.id === r.vehicle)) return { km: 0, since: 0 };
+			const km = Math.floor(num(r.car?.km, 0, CAR_KM_MAX, 0));
+			return { km, since: Math.min(km, Math.floor(num(r.car?.since, 0, CAR_KM_MAX, 0))) };
 		})(),
 		trades: {
 			day: Math.floor(num(r.trades?.day, 0, 1e7, 0)),

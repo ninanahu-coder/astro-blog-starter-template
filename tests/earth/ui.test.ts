@@ -311,14 +311,19 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		// 出行到罗特尼斯岛（先到弗里曼特尔坐渡轮）：第一次抵达有事件，弹窗打开时锁住背后
 		await click({ tab: 'go' });
 		await click({ go: 'fremantle', mode: 'road' });
-		await pause(30);
-		for (let i = 0; i < 6 && !el('modal').classList.contains('hidden'); i++) {
+		// 机器忙时（全套测试并行跑）请求和渲染可能超过几十毫秒：等服务端存档到了弗里曼特尔、界面也画完再往下
+		const serverState = () => (data.get('save:' + cred.id) as any).state;
+		for (let i = 0; i < 50 && serverState().loc !== 'fremantle'; i++) await pause(20);
+		await pause(60);
+		for (let i = 0; i < 6 && (serverState().pending || !el('modal').classList.contains('hidden')); i++) {
 			await click(el('modal').innerHTML.includes('data-result-close') ? { resultClose: '' } : { choice: '0' });
-			await pause(30);
+			await pause(60);
 		}
+		assert.equal(serverState().pending, null, '弗里曼特尔的事件处理完了');
 		await click({ tab: 'go' });
 		await click({ go: 'rottnest', mode: 'ferry' });
-		await pause(30);
+		// 机器忙时（全套测试并行跑）出行请求和渲染可能超过 30 毫秒：最多等 1 秒，弹窗一出现就继续
+		for (let i = 0; i < 50 && el('modal').classList.contains('hidden'); i++) await pause(20);
 		assert.equal(el('modal').classList.contains('hidden'), false, '罗特尼斯岛首次抵达应该出事件');
 		assert.equal(el('game').inert, true, '弹窗打开时背后页面不可操作');
 		assert.ok(el('modal').focused > 0, '焦点移进弹窗');
@@ -368,6 +373,17 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ dmode: other!, dest: 'kalgoorlie' });
 		assert.match(panel(), new RegExp(`class="tile on" data-dmode="${other}" data-dest="kalgoorlie"`), '点中的方块变成选中');
 		assert.match(panel(), new RegExp(`data-go="kalgoorlie" data-mode="${other}">出发去`), '出发按钮跟着换');
+		// 住在房车营地、白天在珀斯车行：卖车按钮灰掉并写明原因（和引擎的检查一致）
+		const camp = data.get('save:' + cred.id) as any;
+		camp.state.clock = Math.floor(camp.state.clock / 1440) * 1440 + 1440 + 10 * 60;
+		camp.state.vehicle = 'campervan';
+		camp.state.home = { type: 'campground', loc: 'bunbury', furniture: {} };
+		data.set('save:' + cred.id, camp);
+		docListeners.visibilitychange({});
+		await pause(60);
+		await click({ tab: 'place' });
+		assert.match(panel(), /<button data-veh="sell" disabled>/, '住营地时卖车按钮灰掉');
+		assert.match(panel(), /你住在房车营地/);
 	} finally {
 		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });

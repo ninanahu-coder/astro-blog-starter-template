@@ -10,8 +10,9 @@ import { HOMES } from '../data/housing.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, saleProceeds, weeklyInterest, weeklyPrincipal } from './finance.ts';
 import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } from '../data/furniture.ts';
-import { DEALER_HOURS, DEALER_TAG, VEHICLES } from '../data/vehicles.ts';
+import { BREAKDOWN, CAR_KM_MAX, DEALER_HOURS, DEALER_TAG, GARAGE, SERVICE_KM, VEHICLES } from '../data/vehicles.ts';
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
+import { CERTS } from '../data/certs.ts';
 import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
 import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, period, weekdayOf } from './time.ts';
 import { FESTIVALS } from '../data/festivals.ts';
@@ -22,7 +23,7 @@ import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
-	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
+	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
@@ -259,11 +260,21 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 	const ride = selfDrive ? getVehicle(state.vehicle)?.ride : undefined;
 	if (ride) for (const k of NEED_KEYS) if (ride[k]) state.needs[k] = clamp100(state.needs[k] + ride[k]! * opt.minutes);
 	if (advance(state, opt.minutes, region)) return collapsedResult(state); // collapse 已把人送去医院，没到达
-	arrive(state, region, toId, mode);
+	if (selfDrive) state.car = { km: Math.min(CAR_KM_MAX, state.car.km + opt.km), since: Math.min(CAR_KM_MAX, state.car.since + opt.km) };
+	// 该保养的车按几率抛锚。事件先后：盘查 → 首次到访的签名事件 → 抛锚 → 普通到达事件，所以标的几率就是实际几率（被盘查、首次到访有签名事件时除外）；
+	// 没超保养里程、或这趟反正要被盘查时不掷骰，不影响别的随机结果
+	let breakdown: GameEvent | null = null;
+	const chance = selfDrive && state.heat < HEAT_CHECK_AT ? breakdownChance(state) : 0;
+	if (chance > 0 && roll(state) < chance) {
+		const pool = EVENTS.filter((e) => e.breakdown);
+		if (pool.length) breakdown = pool[Math.floor(roll(state) * pool.length)];
+	}
+	arrive(state, region, toId, mode, breakdown);
 	return { ok: true, state, msg: `抵达${getLocation(region, toId)!.name}。` };
 }
 
-function arrive(state: PlayerState, region: Region, locId: string, mode: TravelMode | 'gps') {
+/** override：这趟已经定好的事件（抛锚）。先后：盘查 → 首次到访的签名事件 → override → 普通到达事件 */
+function arrive(state: PlayerState, region: Region, locId: string, mode: TravelMode | 'gps', override: GameEvent | null = null) {
 	const loc = getLocation(region, locId)!;
 	const first = !state.visited[locId];
 	state.loc = locId;
@@ -287,7 +298,7 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 		addMoodlet(state, 'festival');
 		log(state, `正赶上${fest.name}：${fest.desc}`);
 	}
-	const ev = pickArrivalEvent(state, loc, mode === 'gps' ? null : mode, first);
+	const ev = pickArrivalEvent(state, loc, mode === 'gps' ? null : mode, first, override);
 	if (ev) {
 		state.pending = { eventId: ev.id };
 		if (ev.id === 'heat-check') addMoodlet(state, 'in-trouble');
@@ -309,13 +320,14 @@ function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null,
 	);
 }
 
-function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean): GameEvent | null {
+function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean, override: GameEvent | null = null): GameEvent | null {
 	if (state.heat >= HEAT_CHECK_AT) return EVENTS.find((e) => e.id === 'heat-check') ?? null;
 	const pool = EVENTS.filter((e) => e.weight > 0 && eventMatches(e, loc, mode, state.clock) && !(e.once && state.seen.includes(e.id)));
-	if (!pool.length) return null;
-	// 首次到访：有签名事件就必出
+	// 首次到访：有签名事件就必出（这趟的抛锚让给它）
 	const signature = pool.filter((e) => e.once);
 	if (first && signature.length) return signature[Math.floor(roll(state) * signature.length)];
+	if (override) return override;
+	if (!pool.length) return null;
 	if (roll(state) > ARRIVAL_EVENT_CHANCE) return null;
 	let r = roll(state) * pool.reduce((s, e) => s + e.weight, 0);
 	for (const e of pool) if ((r -= e.weight) <= 0) return e;
@@ -717,6 +729,17 @@ export function careersAt(state: PlayerState, region: Region): CareerOffer[] {
 
 export const getCareer = (id: string) => CAREERS.find((c) => c.id === id);
 
+/** 持有的、对这份职业有用的证书加薪比例之和（没有为 0） */
+export function certBonus(state: PlayerState, careerId: string): number {
+	return CERTS.filter((c) => c.career === careerId && state.certs.includes(c.id)).reduce((sum, c) => sum + c.payBonus, 0);
+}
+
+/** 这份职业某个等级的每班工资（含证书加薪，不含表现奖金） */
+export function careerPay(state: PlayerState, careerId: string, level: number): number {
+	const lv = getCareer(careerId)?.levels[level];
+	return lv ? Math.round(lv.pay * (1 + certBonus(state, careerId))) : 0;
+}
+
 /** 当前工作能否上班；可以返回 undefined */
 export function shiftBlocked(state: PlayerState): string | undefined {
 	const job = state.job;
@@ -789,7 +812,7 @@ export function workShift(prev: PlayerState, region: Region): ActionResult {
 	const c = getCareer(job.career)!;
 	const lv = c.levels[job.level];
 	const good = checkScore(state, c.skill).total + roll(state) * 60 >= SHIFT_DC[Math.min(job.level, SHIFT_DC.length - 1)];
-	const pay = Math.round(lv.pay * (good ? 1 + GOOD_BONUS : 1));
+	const pay = Math.round(careerPay(state, job.career, job.level) * (good ? 1 + GOOD_BONUS : 1));
 	job.lastDay = state.workDay = dayOf(state.clock);
 	if (applyEffect(state, { ...c.shift, minutes: c.minutes, cash: pay }, region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
 	job.shifts++;
@@ -838,6 +861,12 @@ function vacate(state: PlayerState): number {
 function weeklyTick(state: PlayerState, region: Region) {
 	while (dayOf(state.clock) >= state.nextWeek) {
 		state.nextWeek += 7;
+		if (state.home && !state.home.owned && !homeUsable(state)) {
+			const def = getHome(state.home.type)!;
+			const place = getLocation(region, state.home.loc)?.name ?? '';
+			const got = vacate(state);
+			log(state, `周结算：没有能睡人的车，退掉了${place}的${def.name}${got ? `，家具折现 $${got}` : ''}。`);
+		}
 		if (state.home && !state.home.owned) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
@@ -864,6 +893,19 @@ function weeklyTick(state: PlayerState, region: Region) {
 	}
 }
 
+/** 车能不能睡人 */
+const canSleepIn = (vehicleId: string) => !!getVehicle(vehicleId)?.sleep;
+
+/** 住处还能不能住：房车营地要有能睡人的车 */
+function homeUsable(state: PlayerState): boolean {
+	return !state.home || !getHome(state.home.type)?.vehicleSleep || canSleepIn(state.vehicle);
+}
+
+/** 住在房车营地时，换成或卖成不能睡人的车会没地方睡：先退营地。返回原因，没问题返回 undefined */
+function campBlocks(state: PlayerState, nextVehicle: string): string | undefined {
+	return state.home && !state.home.owned && getHome(state.home.type)?.vehicleSleep && !canSleepIn(nextVehicle) ? '你住在房车营地，没了能睡人的车就没地方睡；先退掉营地' : undefined;
+}
+
 /** 现在租房要付的首期：按到下一个结算日的天数折算（至少一天） */
 export function firstRent(state: PlayerState, home: HomeDef): number {
 	const days = Math.max(1, Math.min(7, state.nextWeek - dayOf(state.clock)));
@@ -880,7 +922,9 @@ export function homesAt(state: PlayerState, region: Region): HomeOffer[] {
 	if (!loc) return [];
 	return HOMES.filter((h) => matches(h.where, loc)).map((home) => ({
 		home,
-		blocked: state.home?.type === home.id && state.home.loc === loc.id && !state.home.owned ? '你正住在这里' : state.cash < firstRent(state, home) ? `首期租金 $${firstRent(state, home)}` : undefined,
+		blocked: state.home?.type === home.id && state.home.loc === loc.id && !state.home.owned ? '你正住在这里'
+			: home.vehicleSleep && !canSleepIn(state.vehicle) ? '要有能睡人的车（比如露营车）才能住营地'
+			: state.cash < firstRent(state, home) ? `首期租金 $${firstRent(state, home)}` : undefined,
 	}));
 }
 
@@ -919,6 +963,7 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	if (!prev.home) return fail(prev, '你没有住处。');
 	if (prev.home.loc !== prev.loc) return fail(prev, '要回到住处才能睡。');
 	const def = getHome(prev.home.type)!;
+	if (!homeUsable(prev)) return fail(prev, '没有能睡人的车，营地住不了。');
 	const state = clone(prev);
 	// 睡这一觉用的是入睡时的住处：睡到一半跨过结算日，住处可能因为欠租或断供被收走（state.home 变成 null）
 	const furniture = Object.values(prev.home.furniture);
@@ -955,7 +1000,7 @@ export function dealerAt(state: PlayerState, region: Region): DealerOffer[] {
 	const tradeIn = resaleValue(state.vehicle);
 	return VEHICLES.map((vehicle) => {
 		const net = vehicle.price - tradeIn;
-		const blocked = !open ? `车行营业时间 ${hoursLabel(DEALER_HOURS)}` : state.vehicle === vehicle.id ? '你已经有这辆车' : state.cash < net ? `还差 $${net - state.cash}` : undefined;
+		const blocked = !open ? `车行营业时间 ${hoursLabel(DEALER_HOURS)}` : state.vehicle === vehicle.id ? '你已经有这辆车' : campBlocks(state, vehicle.id) ?? (state.cash < net ? `还差 $${net - state.cash}` : undefined);
 		return { vehicle, net, blocked };
 	});
 }
@@ -969,10 +1014,18 @@ export function buyVehicle(prev: PlayerState, region: Region, id: string): Actio
 	const old = getVehicle(state.vehicle);
 	state.cash -= offer.net;
 	state.vehicle = id;
+	state.car = { km: 0, since: 0 };
 	if (advance(state, 60, region)) return collapsedResult(state);
 	const msg = old ? `用${old.name}折抵 $${resaleValue(old.id)}，换了一辆${offer.vehicle.name}。` : `买了一辆${offer.vehicle.name}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
+}
+
+/** 现在能不能卖车（不看是否在车行）；能卖返回 undefined */
+export function sellBlocked(state: PlayerState): string | undefined {
+	if (!getVehicle(state.vehicle)) return '你没有车。';
+	if (!isOpen(DEALER_HOURS, state.clock)) return `车行营业时间 ${hoursLabel(DEALER_HOURS)}`;
+	return campBlocks(state, 'none');
 }
 
 export function sellVehicle(prev: PlayerState, region: Region): ActionResult {
@@ -981,12 +1034,50 @@ export function sellVehicle(prev: PlayerState, region: Region): ActionResult {
 	if (!v) return fail(prev, '你没有车。');
 	if (!dealerAt(prev, region).length) return fail(prev, '要到车行才能卖车。');
 	if (!isOpen(DEALER_HOURS, prev.clock)) return fail(prev, `车行营业时间 ${hoursLabel(DEALER_HOURS)}`);
+	const camp = campBlocks(prev, 'none');
+	if (camp) return fail(prev, camp);
 	const state = clone(prev);
 	const got = resaleValue(v.id);
 	state.cash += got;
 	state.vehicle = 'none';
+	state.car = { km: 0, since: 0 };
 	if (advance(state, 30, region)) return collapsedResult(state);
 	const msg = `把${v.name}卖了 $${got}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+/** 现在这辆车每趟自驾抵达时抛锚的几率：离上次保养没超过 SERVICE_KM 为 0 */
+export function breakdownChance(state: PlayerState): number {
+	if (!getVehicle(state.vehicle) || state.car.since <= SERVICE_KM) return 0;
+	return Math.min(BREAKDOWN.max, BREAKDOWN.base + (state.car.since - SERVICE_KM) * BREAKDOWN.perKm);
+}
+
+/** 修车厂：这里能不能给你的车做保养；这里没有修车厂或你没车返回 null */
+export function garageAt(state: PlayerState, region: Region): { price: number; blocked?: string } | null {
+	const loc = getLocation(region, state.loc);
+	const v = getVehicle(state.vehicle);
+	if (!loc || !v || !matches(GARAGE.where, loc)) return null;
+	const blocked = !isOpen(GARAGE.hours, state.clock) ? `修车厂营业时间 ${hoursLabel(GARAGE.hours)}`
+		: state.car.since === 0 ? '刚保养过'
+		: state.cash < v.service ? `需要 $${v.service}` : undefined;
+	return { price: v.service, blocked };
+}
+
+/** 保养：付钱、等两小时，离上次保养的里程清零 */
+export function serviceVehicle(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const g = garageAt(prev, region);
+	if (!g) return fail(prev, getVehicle(prev.vehicle) ? '这里没有修车厂。' : '你没有车。');
+	if (g.blocked) return fail(prev, g.blocked);
+	const v = getVehicle(prev.vehicle)!;
+	const { state, collapsed } = paidTask(prev, g.price, (s) => advance(s, GARAGE.minutes, region));
+	if (collapsed) {
+		log(state, `等保养时晕倒了，${v.name}的保养没做，不收钱。`);
+		return collapsedResult(state);
+	}
+	state.car = { km: state.car.km, since: 0 };
+	const msg = `给${v.name}做了保养，花了 $${g.price}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1038,6 +1129,67 @@ export function takeCourse(prev: PlayerState, region: Region, id: string): Actio
 	growSkill(state, c.skill, c.gain);
 	if (applyEffect(state, { minutes: c.minutes, needs: { energy: -Math.round(c.minutes / 12), fun: 3 } }, region)) return collapsedResult(state);
 	const msg = `上了${c.name}，${SKILL_META[c.skill].name} +${(state.skills[c.skill] - before).toFixed(1)}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+// ---------- 花钱又花时间的事（考证、保养） ----------
+/**
+ * 先按没交钱把这段时间过完：途中晕倒就当没报名——不收费，住院费、途中的周结算都按手上原有的钱算，
+ * 不能拿这笔费用当「保险箱」少付住院费或躲过房租。顺利做完才收费；
+ * 途中的周结算花掉了这笔钱（钱不够了）时，改按「先交钱再做」重算一遍，付不起的房租照常处理。
+ * run 返回 true 表示途中晕倒。
+ */
+function paidTask(prev: PlayerState, price: number, run: (s: PlayerState) => boolean): { state: PlayerState; collapsed: boolean } {
+	const free = clone(prev);
+	if (run(free)) return { state: free, collapsed: true };
+	if (free.cash >= price) {
+		free.cash -= price;
+		return { state: free, collapsed: false };
+	}
+	const paid = clone(prev);
+	paid.cash -= price;
+	if (run(paid)) {
+		// 极少见：先交钱的那一遍晕倒了（两遍只差手上的钱）。照样不收费
+		paid.cash += price;
+		return { state: paid, collapsed: true };
+	}
+	return { state: paid, collapsed: false };
+}
+
+// ---------- 职业证书 ----------
+export interface CertOffer {
+	cert: CertDef;
+	blocked?: string;
+}
+
+/** 当前地点能考的证书 */
+export function certsAt(state: PlayerState, region: Region): CertOffer[] {
+	const loc = getLocation(region, state.loc);
+	if (!loc) return [];
+	return CERTS.filter((c) => matches(c.where, loc)).map((cert) => {
+		const blocked = state.certs.includes(cert.id) ? '已经有这张证了'
+			: !isOpen(cert.hours, state.clock) ? `上课时间 ${hoursLabel(cert.hours)}`
+			: state.cash < cert.price ? `需要 $${cert.price}`
+			: state.needs.energy < 25 ? '太累了' : undefined;
+		return { cert, blocked };
+	});
+}
+
+export function takeCert(prev: PlayerState, region: Region, id: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const offer = certsAt(prev, region).find((o) => o.cert.id === id);
+	if (!offer) return fail(prev, '这里考不了这张证。');
+	if (offer.blocked) return fail(prev, offer.blocked);
+	const c = offer.cert;
+	const { state, collapsed } = paidTask(prev, c.price, (s) => applyEffect(s, { minutes: c.minutes, needs: { energy: -Math.round(c.minutes / 10), fun: -5 } }, region));
+	if (collapsed) {
+		log(state, `${c.name}没上完，不收学费。`);
+		return collapsedResult(state);
+	}
+	state.certs.push(c.id);
+	const career = getCareer(c.career);
+	const msg = `考到了${c.name}${career ? `：${career.name}的工作每班工资 +${Math.round(c.payBonus * 100)}%` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }

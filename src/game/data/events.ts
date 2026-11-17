@@ -125,6 +125,31 @@ export const EVENTS: GameEvent[] = [
 			{ label: '叫道路救援', cost: 220, ok: { text: '救援三小时后才到，账单也不便宜。', fx: { minutes: 180 } } },
 		],
 	},
+	// 抛锚事件（第 15 轮）：weight 为 0，只在离上次保养超过 SERVICE_KM 的车自驾抵达时按几率抽
+	{
+		id: 'breakdown-overheat', title: '水箱开锅', icon: '♨️', breakdown: true, weight: 0,
+		text: '仪表盘上的水温指针一路冲到红区，引擎盖下冒出白汽。离上次保养已经很久了。',
+		choices: [
+			{ label: '靠边等它凉下来，加点水', check: { skill: 'survival', dc: 40 }, ok: { text: '等了一个钟头，加上水慢慢开进了镇。', fx: { minutes: 60, needs: { energy: -5 }, skills: { survival: 1 } } }, fail: { text: '水加多了又溢出来，折腾到天快黑。', fx: { minutes: 180, needs: { energy: -15, fun: -10 } } } },
+			{ label: '叫拖车', cost: 280, ok: { text: '拖车把你和车一起拉进了镇。', fx: { minutes: 120 } } },
+		],
+	},
+	{
+		id: 'breakdown-battery', title: '打不着火', icon: '🔋', breakdown: true, weight: 0,
+		text: '加完油回来，钥匙一拧，只有“咔哒”一声。电瓶早该换了。',
+		choices: [
+			{ label: '找路人帮忙搭电', check: { skill: 'charisma', dc: 35 }, ok: { text: '一位农夫开着皮卡过来，两根线就搞定了。', fx: { minutes: 30, needs: { social: 10 }, skills: { charisma: 1 } } }, fail: { text: '没人停下来，最后还是打了救援电话。', fx: { minutes: 150, cash: -120, needs: { fun: -10 } } } },
+			{ label: '叫道路救援换电瓶', cost: 180, ok: { text: '新电瓶装上，一下就着了。', fx: { minutes: 60 } } },
+		],
+	},
+	{
+		id: 'breakdown-belt', title: '皮带断了', icon: '🔧', breakdown: true, weight: 0,
+		text: '一阵刺耳的尖叫，方向盘突然变得很沉。',
+		choices: [
+			{ label: '自己凑合着换上', check: { skill: 'driving', dc: 50 }, ok: { text: '照着视频换上了备用皮带，手上全是油。', fx: { minutes: 90, needs: { hygiene: -15 }, skills: { driving: 2 } } }, fail: { text: '没装上，只能慢慢挪进镇里。', fx: { minutes: 240, needs: { energy: -20, fun: -15 }, cash: -150 } } },
+			{ label: '叫拖车去修车厂', cost: 320, ok: { text: '修车厂当天就换好了。', fx: { minutes: 180 } } },
+		],
+	},
 	{
 		id: 'roo-dusk', title: '黄昏的袋鼠', icon: '🌅', arrivedBy: ['road', 'track'], weight: 3,
 		text: '夕阳正对着挡风玻璃，一只袋鼠突然跳上公路。',

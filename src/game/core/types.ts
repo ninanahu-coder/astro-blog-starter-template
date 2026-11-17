@@ -160,6 +160,7 @@ export interface HomeDef {
 	comfort: number; // 心情加成，也加到回家睡觉的恢复量上
 	where: Where;
 	desc: string;
+	vehicleSleep?: boolean; // 人睡在自己车里（房车营地）：要有能睡人的车才能租、才能回去睡
 }
 
 export interface Home {
@@ -200,6 +201,14 @@ export interface FurnitureDef {
 	desc: string;
 }
 
+export interface FurnitureSetDef {
+	id: string;
+	name: string;
+	items: string[]; // 家具 id，每件在不同槽位
+	comfort: number; // 凑齐时额外的住处心情
+	desc: string;
+}
+
 // ---------- 交通工具、课程、体验 ----------
 export interface VehicleDef {
 	id: string;
@@ -211,6 +220,7 @@ export interface VehicleDef {
 	trackSpeed: number; // 土路基础时速，0 表示不能走土路
 	costPerKm: number;
 	weekly: number; // 每周保险与保养
+	service: number; // 到修车厂做一次保养的价格
 	ride?: Partial<Needs>; // 每分钟额外的需求变化（摩托车更累）
 	sleep?: Effect; // 能在车里睡觉时的恢复效果（不含时间）
 	desc: string;
@@ -223,6 +233,18 @@ export interface CourseDef {
 	base: number; // 基础学费
 	minutes: number;
 	gain: number; // 传给 growSkill 的原始增量
+	where: Where;
+	hours: Hours;
+	desc: string;
+}
+
+export interface CertDef {
+	id: string;
+	name: string;
+	career: string; // 对哪份职业有用（CareerDef.id）
+	price: number;
+	minutes: number;
+	payBonus: number; // 持证时这份职业每班工资上涨的比例
 	where: Where;
 	hours: Hours;
 	desc: string;
@@ -427,6 +449,7 @@ export interface GameEvent {
 	/** 真实地点事件：只在这些类型的真实地点（餐馆、健身房……）做完动作后触发，到达城镇时不会抽到 */
 	venueTypes?: string[];
 	once?: boolean; // 每个角色只触发一次（地标签名事件）
+	breakdown?: boolean; // 抛锚事件：不进普通抽取（weight 写 0），只在该保养的车自驾抵达时按几率抽
 	weight: number;
 	choices: EventChoice[];
 }
@@ -452,6 +475,7 @@ export interface PlayerState {
 	needs: Needs;
 	skills: Skills;
 	vehicle: Vehicle;
+	car: { km: number; since: number }; // 现在这辆车开了多少公里、离上次保养多少公里（换车、卖车时清零）
 	visited: Record<string, number>; // locId -> 到访次数
 	checkins: string[]; // 已 GPS 打卡的 POI id
 	photos: string[]; // 天气相册：'地点id|天气id'，抵达时按当天天气收集（只是收藏，不发奖励）
@@ -470,6 +494,7 @@ export interface PlayerState {
 	collected: string[]; // 已完成的收费体验 id
 	areas: string[]; // 已获得称号的体验片区 id：集齐时记下，之后加了新体验也不收回、不重复发奖
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
+	certs: string[]; // 已考到的职业证书 id（跟人走，换工作不丢）
 	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每个游戏日一次）
 	trades: { day: number; out: number; in: number }; // 玩家之间交易：这个现实日已送出 / 收下的次数
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction, type GameAction } from '../../src/game/core/actions.ts';
 import { CAPS, createCharacter, ORIGINS, sanitizeState } from '../../src/game/core/character.ts';
-import { activitiesAt, careersAt, coursesAt, dealerAt, experiencesAt, furnitureAt, getPendingEvent, homeActionBlocked, homesAt, npcsAt, propertiesAt, shiftBlocked, shopAt, travelOptions } from '../../src/game/core/engine.ts';
+import { activitiesAt, careersAt, certsAt, coursesAt, garageAt, dealerAt, experiencesAt, furnitureAt, getPendingEvent, homeActionBlocked, homesAt, npcsAt, propertiesAt, shiftBlocked, shopAt, travelOptions } from '../../src/game/core/engine.ts';
 import { NEED_KEYS, SKILL_KEYS, type PlayerState } from '../../src/game/core/types.ts';
 import { ACTIVITIES } from '../../src/game/data/activities.ts';
 import { CAREERS } from '../../src/game/data/careers.ts';
@@ -17,7 +17,8 @@ import { ITEMS } from '../../src/game/data/items.ts';
 import { NPCS } from '../../src/game/data/npcs.ts';
 import { PROPERTIES } from '../../src/game/data/properties.ts';
 import { TRAITS } from '../../src/game/data/traits.ts';
-import { DEALER_HOURS, VEHICLES } from '../../src/game/data/vehicles.ts';
+import { CAR_KM_MAX, DEALER_HOURS, VEHICLES } from '../../src/game/data/vehicles.ts';
+import { CERTS } from '../../src/game/data/certs.ts';
 import { isOpen } from '../../src/game/core/time.ts';
 import { VENUE_OPS, VENUE_TYPES } from '../../src/game/data/venues.ts';
 import { WA } from '../../src/game/data/wa.ts';
@@ -63,7 +64,8 @@ function randomAction(s: PlayerState, r: () => number, now: number): GameAction 
 		if (op === 'repay') return { t: 'property', op, id, amount: Math.floor(r() * 50000) + 1 };
 		return { t: 'property', op, id };
 	}
-	if (roll < 0.83) return { t: 'course', id: pick(COURSES).id };
+	if (roll < 0.81) return { t: 'course', id: pick(COURSES).id };
+	if (roll < 0.83) return r() < 0.5 ? { t: 'cert', id: pick(CERTS).id } : { t: 'vehicle', op: 'service' };
 	if (roll < 0.86) return { t: 'experience', id: pick(EXPERIENCES).id };
 	if (roll < 0.95 && WA.venues.length) {
 		// 真实地点：大多站在店门口，偶尔离得很远或精度很差
@@ -116,6 +118,8 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 		if (r() < 0.2) c.push({ t: 'property', op: 'sell', id: o.id });
 	}
 	for (const x of coursesAt(s, WA)) if (!x.blocked) c.push({ t: 'course', id: x.course.id });
+	for (const x of certsAt(s, WA)) if (!x.blocked) c.push({ t: 'cert', id: x.cert.id });
+	if (garageAt(s, WA) && !garageAt(s, WA)!.blocked) c.push({ t: 'vehicle', op: 'service' });
 	for (const x of experiencesAt(s, WA)) if (!x.blocked) c.push({ t: 'experience', id: x.exp.id });
 	const here = WA.venues.filter((v) => v.loc === s.loc);
 	if (here.length) {
@@ -145,6 +149,9 @@ function checkInvariants(s: PlayerState, where: string) {
 	inRange(s.rev, 0, CAPS.rev - 1, 'rev');
 	assert.ok(LOCS.has(s.loc), `${where}: 所在地 ${s.loc} 不存在`);
 	for (const p of s.properties) inRange(p.loan, 0, CAPS.cash, `properties.${p.id}.loan`);
+	inRange(s.car.km, 0, CAR_KM_MAX, 'car.km');
+	inRange(s.car.since, 0, s.car.km, 'car.since');
+	if (s.vehicle === 'none') assert.deepEqual(s.car, { km: 0, since: 0 }, `${where}: 没车却有里程`);
 }
 
 test('随机动作序列：不抛异常、不改入参、数值在范围内、服务端规范化稳定', () => {
@@ -191,7 +198,7 @@ test('随机动作序列：不抛异常、不改入参、数值在范围内、�
 	}
 	// 主要动作的成功路径都要真的走到过，不然这个测试只在测「失败路径」
 	const MUST = ['travel', 'activity', 'event', 'gps', 'buy', 'use', 'npc', 'job:apply', 'job:work', 'job:quit', 'home:rent', 'home:sleep', 'home:cook', 'home:relax',
-		'furniture:buy', 'furniture:sell', 'vehicle:buy', 'vehicle:sell', 'property:buy', 'property:rentout', 'property:movein', 'property:repay', 'property:sell', 'course', 'experience', 'venue:meal', 'venue:work'];
+		'furniture:buy', 'furniture:sell', 'vehicle:buy', 'vehicle:sell', 'property:buy', 'property:rentout', 'property:movein', 'property:repay', 'property:sell', 'course', 'cert', 'vehicle:service', 'experience', 'venue:meal', 'venue:work'];
 	const missing = MUST.filter((k) => !stats[k]?.ok);
 	assert.deepEqual(missing, [], `这些动作一次都没成功过：${missing.join('、')}；统计 ${JSON.stringify(stats)}`);
 	assert.ok(ok > 60 * 120 * 0.3, `成功的动作太少：${ok}`);

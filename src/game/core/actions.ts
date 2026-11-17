@@ -1,7 +1,7 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
+	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { refreshWishes, settleWishes } from './wishes.ts';
 import { capState, nextRev } from './character.ts';
@@ -31,8 +31,9 @@ export type GameAction =
 	| { t: 'property'; op: 'sell' | 'movein' | 'rentout'; id: string }
 	| { t: 'property'; op: 'repay'; id: string; amount: number }
 	| { t: 'vehicle'; op: 'buy'; id: string }
-	| { t: 'vehicle'; op: 'sell' | 'sleep' }
+	| { t: 'vehicle'; op: 'sell' | 'sleep' | 'service' }
 	| { t: 'course'; id: string }
+	| { t: 'cert'; id: string }
 	| { t: 'experience'; id: string }
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
 
@@ -78,8 +79,9 @@ export function parseAction(raw: unknown): GameAction | null {
 			return a.op === 'sell' && str(a.slot) ? { t: 'furniture', op: 'sell', slot: a.slot } : null;
 		case 'vehicle':
 			if (a.op === 'buy') return str(a.id) ? { t: 'vehicle', op: 'buy', id: a.id } : null;
-			return a.op === 'sell' || a.op === 'sleep' ? { t: 'vehicle', op: a.op } : null;
+			return a.op === 'sell' || a.op === 'sleep' || a.op === 'service' ? { t: 'vehicle', op: a.op } : null;
 		case 'course':
+		case 'cert':
 		case 'experience':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
 		case 'property':
@@ -106,7 +108,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'job': r = a.op === 'apply' ? applyJob(state, region, a.career) : a.op === 'work' ? workShift(state, region) : quitJob(state); break;
 		case 'home': r = a.op === 'rent' ? rentHome(state, region, a.home) : a.op === 'sleep' ? sleepHome(state, region) : a.op === 'cook' ? cookAtHome(state, region) : a.op === 'relax' ? relaxAtHome(state, region) : leaveHome(state); break;
 		case 'furniture': r = a.op === 'buy' ? buyFurniture(state, region, a.id) : sellFurniture(state, a.slot); break;
-		case 'vehicle': r = a.op === 'buy' ? buyVehicle(state, region, a.id) : a.op === 'sell' ? sellVehicle(state, region) : sleepInVehicle(state, region); break;
+		case 'vehicle': r = a.op === 'buy' ? buyVehicle(state, region, a.id) : a.op === 'sell' ? sellVehicle(state, region) : a.op === 'service' ? serviceVehicle(state, region) : sleepInVehicle(state, region); break;
 		case 'property':
 			r = a.op === 'buy' ? buyProperty(state, region, a.id, a.loan)
 				: a.op === 'sell' ? sellProperty(state, a.id)
@@ -115,6 +117,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 				: toggleRentOut(state, a.id);
 			break;
 		case 'course': r = takeCourse(state, region, a.id); break;
+		case 'cert': r = takeCert(state, region, a.id); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
 	}
