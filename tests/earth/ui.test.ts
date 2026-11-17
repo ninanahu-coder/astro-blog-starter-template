@@ -22,7 +22,7 @@ class ClassList {
 	toggle(c: string, on?: boolean) { if (on === undefined ? !this.set.has(c) : on) this.set.add(c); else this.set.delete(c); }
 	contains(c: string) { return this.set.has(c); }
 }
-type El = { id: string; innerHTML: string; textContent: string; value: string; disabled: boolean; inert: boolean; classList: ClassList; attrs: Record<string, string>; ls: Record<string, (e: unknown) => void>; focused: number; scrollTop: number; scrollHeight: number; setAttribute(k: string, v: string): void; addEventListener(t: string, f: (e: unknown) => void): void; querySelector(q: string): { focus(): void } | null };
+type El = { focus(): void; id: string; innerHTML: string; textContent: string; value: string; disabled: boolean; inert: boolean; classList: ClassList; attrs: Record<string, string>; ls: Record<string, (e: unknown) => void>; focused: number; scrollTop: number; scrollHeight: number; setAttribute(k: string, v: string): void; addEventListener(t: string, f: (e: unknown) => void): void; querySelector(q: string): { focus(): void } | null };
 
 function makeWorld() {
 	const data = new Map<string, unknown>();
@@ -49,6 +49,34 @@ async function bundlePage(): Promise<string> {
 }
 
 const strip = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+/**
+ * 无障碍静态检查（第 30 轮）：对渲染出的 HTML 片段检查读屏和键盘的基本要求，返回不合格的地方。
+ * 按钮要有可读的名字（文字或 aria-label，纯 emoji / 符号不算）；图片要有 alt；输入框要有标签；
+ * 不用正数 tabindex；进度条要带数值；role="dialog" 要有名字。
+ */
+export function a11yIssues(html: string): string[] {
+	const bad: string[] = [];
+	const named = (attrs: string) => /aria-label="[^"]*\p{L}[^"]*"/u.test(attrs) || /aria-labelledby="[^"]+"/.test(attrs);
+	for (const m of html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)) {
+		const text = m[2].replace(/<[^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/[a-z]+>/g, '').replace(/<[^>]+>/g, '');
+		if (!/\p{L}|\p{N}/u.test(text) && !named(m[1])) bad.push(`按钮没有名字：${m[0].slice(0, 80)}`);
+	}
+	for (const m of html.matchAll(/<img\b([^>]*)>/g)) if (!/\balt="/.test(m[1])) bad.push(`图片没有 alt：${m[0].slice(0, 80)}`);
+	for (const m of html.matchAll(/<(input|select|textarea)\b([^>]*)>/g)) {
+		if (/type="hidden"/.test(m[2])) continue;
+		const id = m[2].match(/\bid="([^"]+)"/)?.[1];
+		const labelled = named(m[2]) || (id && new RegExp(`<label[^>]*for="${id}"`).test(html));
+		const wrapped = html.lastIndexOf('<label', m.index!) > html.lastIndexOf('</label>', m.index!);
+		if (!labelled && !wrapped) bad.push(`输入框没有标签：${m[0].slice(0, 80)}`);
+	}
+	for (const m of html.matchAll(/tabindex="(\d+)"/g)) if (Number(m[1]) > 0) bad.push(`正数 tabindex：${m[0]}`);
+	for (const m of html.matchAll(/<[a-z]+\b([^>]*role="progressbar"[^>]*)>/g)) {
+		if (!/aria-valuenow="/.test(m[1]) && !named(m[1])) bad.push(`进度条没有数值：${m[0].slice(0, 80)}`);
+	}
+	for (const m of html.matchAll(/<[a-z]+\b([^>]*role="dialog"[^>]*)>/g)) if (!named(m[1])) bad.push(`对话框没有名字：${m[0].slice(0, 80)}`);
+	return bad;
+}
 const pause = (ms = 0) => new Promise((r) => setTimeout(r, ms));
 
 // 假元素的 closest：和真浏览器一样只认选择器名单里的 [data-xxx]，名单漏了就返回 null（点不动）
@@ -56,6 +84,16 @@ function fakeClosest(this: { dataset: Record<string, string> }, sel: string) {
 	const keys = [...sel.matchAll(/\[data-([a-z0-9-]+)\]/g)].map((m) => m[1].replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase()));
 	return keys.some((k) => k in this.dataset) ? this : null;
 }
+
+test('无障碍（第 30 轮）：页面的静态标记（创建角色页、外框）按钮有名字、输入框有标签', () => {
+	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
+	const markup = astro.slice(0, astro.indexOf('<script>')).replace(/<style[\s\S]*?<\/style>/g, '');
+	assert.ok(markup.includes('id="create"'), '读到了创建页');
+	assert.deepEqual(a11yIssues(markup), []);
+	// 检查函数本身会报错：故意写错的例子都要被抓出来
+	assert.equal(a11yIssues('<button>🔁</button><img src="a.png"><input id="x"><div tabindex="2"></div><div role="progressbar"></div><div role="dialog"></div>').length, 6);
+	assert.deepEqual(a11yIssues('<button aria-label="关闭">✕</button><button><span aria-hidden="true">🔁</span>重来</button><label>名字<input id="n"></label><img alt="" src="a.png">'), []);
+});
 
 test('界面：五个标签、子栏、下一步、事件弹窗和转义', async () => {
 	const { data, world } = makeWorld();
@@ -82,6 +120,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			id, innerHTML: '', textContent: '', value: '', disabled: false, inert: false, classList: new ClassList(), attrs: {}, ls: {}, focused: 0, scrollTop: 0, scrollHeight: 0,
 			setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.ls[t] = f; },
 			querySelector() { const self = this; return { focus() { self.focused++; } }; },
+			focus() { this.focused++; },
 		});
 		return els.get(id)!;
 	};
@@ -93,7 +132,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	rootClasses.remove('hidden');
 	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => (docListeners[t] = f), body: { classList: new ClassList() }, documentElement: { classList: rootClasses }, hidden: false };
 	const winListeners: Record<string, (e: unknown) => void> = {};
-	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => (winListeners[t] = f) };
+	// 假的 Web Audio：记下建了几个 AudioContext、放了几个音（第 29 轮音效）
+	const audioLog = { ctx: 0, notes: 0, offAt: -1 };
+	class FakeAudio { currentTime = 0; state = 'running'; destination = {}; constructor() { audioLog.ctx++; } createOscillator() { audioLog.notes++; return { type: '', frequency: { value: 0 }, connect() {}, start() {}, stop() {} }; } createGain() { return { gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; } }
+	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => (winListeners[t] = f), AudioContext: FakeAudio };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', reload() {} };
 	g.fetch = async (u: string, o?: RequestInit) => {
@@ -131,6 +173,15 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			await idle();
 		};
 		const panel = () => el('panel').innerHTML;
+		// 改了服务端存档后让页面去同步：等页面缓存的存档版本和服务端一致（最多 2 秒），不靠固定睡眠
+		const clientRev = () => (JSON.parse(store.get('earth.save.v1') ?? 'null') as { rev?: number } | null)?.rev;
+		const pullNow = async () => {
+			docListeners.visibilitychange({});
+			const want = () => (data.get('save:' + cred.id) as any).state.rev;
+			for (let i = 0; i < 100 && clientRev() !== want(); i++) await pause(20);
+			assert.equal(clientRev(), want(), '回到前台后没有同步到服务端存档');
+			await pause(20);
+		};
 
 		// 开局：游戏页显示、创建页隐藏，五个标签
 		assert.equal(el('create').classList.contains('hidden'), true);
@@ -141,6 +192,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		// 名字里的 HTML 被转义（服务端可能已清洗掉尖括号；无论如何不能原样出现）
 		for (const h of [panel(), el('hud').innerHTML]) assert.ok(!h.includes('<b>阿测</b>'), '名字没有转义');
 		assert.match(panel(), /1 天后周结算，钱不够/, '周结算预警');
+		// 新手指南（第 26 轮）：开局只解开第 1 天，标出「现在」这一步；在今天页时第一步不需要「去看看」跳转
+		assert.match(panel(), /新手指南 · 第 1 天/);
+		assert.match(panel(), /aria-current="step"/);
+		assert.match(panel(), /做完这些或到第 2 天解开/);
 		// 顶栏（草图样式）：时间小字 + 地点大标题 + 天气；一排现金、等级、心情
 		assert.match(el('hud').innerHTML, /<h1>[^<]+<\/h1>/, '今天页顶栏用地点做大标题');
 		assert.match(el('hud').innerHTML, /class="wx-pill/, '顶栏有天气');
@@ -170,6 +225,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		for (const t of ['go', 'near', 'social', 'me']) {
 			await click({ tab: t });
 			assert.ok(strip(panel()).length > 20, `${t} 页是空的`);
+			assert.deepEqual(a11yIssues(panel() + el('hud').innerHTML + el('tabs').innerHTML), [], `${t} 页`);
 			assert.equal(el('map-wrap').classList.contains('hidden'), t !== 'go', `${t} 页地图显示不对`);
 			if (t === 'go') assert.match(el('map').innerHTML, /class="land"/, '出行页画了地图');
 			if (t === 'go') assert.match(panel(), /去了周结算会不够/, '周结算前的路费提醒');
@@ -179,13 +235,52 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		for (const mt of ['overview', 'assets', 'people', 'log', 'sync']) {
 			await click({ metab: mt });
 			assert.match(panel(), new RegExp(`data-metab="${mt}" class="on"`), mt);
+			assert.deepEqual(a11yIssues(panel()), [], `我 · ${mt}`);
 			if (mt === 'log') assert.match(panel(), /class="log-day">第 1 天 · 春季第 1 天/, '日志按天分组');
 			if (mt === 'sync') {
-				await click({ big: '' });
-				assert.equal(rootClasses.contains('big'), true, '开启大字模式');
-				assert.equal(store.get('earth.big.v1'), '1');
-				await click({ big: '' });
-				assert.equal(rootClasses.contains('big'), false, '再点关闭');
+				// 设置（第 28 轮）：字号三档、动画三档、三个提示开关，只存在本机
+				assert.match(panel(), /data-pref="font" data-val="m" class="on" aria-pressed="true"/, '默认标准字号');
+				await click({ pref: 'font', val: 'xl' });
+				assert.ok(rootClasses.contains('fs-xl') && !rootClasses.contains('fs-l'), '特大字号');
+				await click({ pref: 'font', val: 'l' });
+				assert.ok(rootClasses.contains('fs-l') && !rootClasses.contains('fs-xl'), '换成大字号');
+				await click({ pref: 'font', val: '<b>' });
+				assert.ok(rootClasses.contains('fs-l'), '不认识的取值不改');
+				assert.equal(rootClasses.contains('calm'), false, '跟随系统、系统没要求时不减少动画');
+				await click({ pref: 'motion', val: 'reduce' });
+				assert.equal(rootClasses.contains('calm'), true, '选「减少」后关掉动画');
+				await click({ pref: 'motion', val: 'auto' });
+				assert.equal(rootClasses.contains('calm'), false);
+				assert.match(panel(), /data-pref="recap" aria-pressed="true"/);
+				await click({ pref: 'recap' });
+				assert.match(panel(), /data-pref="recap" aria-pressed="false">已关闭/);
+				assert.equal(JSON.parse(store.get('earth.prefs.v1')!).recap, false, '存进本机');
+				await click({ pref: 'recap' });
+				await click({ pref: 'font', val: 'm' });
+				// 音效（第 29 轮）：默认关，之前做的事都没出声；打开时放一声试听，关掉后不再出声
+				assert.match(panel(), /data-pref="sound" aria-pressed="false">已关闭/);
+				assert.equal(audioLog.ctx, 0, '默认关：没有建音频');
+				await click({ pref: 'sound' });
+				assert.equal(audioLog.ctx, 1, '打开时才建音频');
+				assert.ok(audioLog.notes >= 1, '打开时试听一声');
+				await click({ pref: 'sound' });
+				const quiet = audioLog.notes;
+				await click({ pref: 'sound' });
+				assert.ok(audioLog.notes > quiet, '再打开又能出声');
+				await click({ pref: 'sound' });
+				assert.match(panel(), /data-pref="sound" aria-pressed="false">/);
+				audioLog.offAt = audioLog.notes;
+				// 关掉新手指南后今天页不再显示，打开后回来
+				await click({ pref: 'guide' });
+				await click({ tab: 'place' });
+				assert.ok(!panel().includes('新手指南'), '关掉后不显示');
+				await click({ tab: 'me' });
+				await click({ metab: 'sync' });
+				await click({ pref: 'guide' });
+				await click({ tab: 'place' });
+				assert.match(panel(), /新手指南 · 第 1 天/, '重新打开后又显示');
+				await click({ tab: 'me' });
+				await click({ metab: 'sync' });
 			}
 		}
 
@@ -315,6 +410,12 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await pause(60);
 		assert.doesNotMatch(el('hud').innerHTML, /现在离线/);
 		// 出行到罗特尼斯岛（先到弗里曼特尔坐渡轮）：第一次抵达有事件，弹窗打开时锁住背后
+		// 开头为了测周结算预警把现金设成 $120：弗里曼特尔抽到的事件不固定，有的选项要花钱，剩下的不够坐渡轮去罗特尼斯岛。出发前补足
+		const rich = data.get('save:' + cred.id) as any;
+		rich.state.cash = 2000;
+		rich.state.rev += 1;
+		data.set('save:' + cred.id, rich);
+		await pullNow();
 		await click({ tab: 'go' });
 		await click({ go: 'fremantle', mode: 'road' });
 		// 机器忙时（全套测试并行跑）请求和渲染可能超过几十毫秒：等服务端存档到了弗里曼特尔、界面也画完再往下
@@ -335,17 +436,46 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		for (let i = 0; i < 100 && el('modal').classList.contains('hidden'); i++) await pause(20);
 		assert.equal(el('modal').classList.contains('hidden'), false, '罗特尼斯岛首次抵达应该出事件');
 		assert.equal(el('game').inert, true, '弹窗打开时背后页面不可操作');
+		assert.deepEqual(a11yIssues(el('modal').innerHTML), [], '事件弹窗');
 		assert.ok(el('modal').focused > 0, '焦点移进弹窗');
 		await click({ tab: 'place' });
 		assert.ok(!panel().includes('class="next"'), '有待处理事件时不给下一步按钮');
+		// 弹窗开着时同一个事件重画（后台同步回来）：不抢焦点
+		const rottEv = serverState().pending.eventId;
+		let modalFocus = el('modal').focused;
+		const same = data.get('save:' + cred.id) as any;
+		same.state.rev += 1;
+		data.set('save:' + cred.id, same);
+		await pullNow();
+		assert.equal(el('modal').focused, modalFocus, '同一个事件重画不移焦点');
+		// 事件接着换成另一个事件（弹窗一直开着）：焦点移到新内容上；再换回来也一样
+		for (const id of ['monkey-mia-feeding', rottEv]) {
+			const sw = data.get('save:' + cred.id) as any;
+			sw.state.pending = { eventId: id };
+			sw.state.rev += 1;
+			data.set('save:' + cred.id, sw);
+			await pullNow();
+			assert.equal(el('modal').classList.contains('hidden'), false);
+			assert.ok(el('modal').focused > modalFocus, `换成事件 ${id} 后焦点移进新内容`);
+			modalFocus = el('modal').focused;
+		}
+		assert.match(el('modal').innerHTML, /data-choice="1"/);
 		await click({ choice: '1' });
 		await pause(30);
+		// 选项按钮被结果页替换掉了：焦点移到「继续」
+		assert.ok(el('modal').focused > modalFocus, '选完后焦点移到结果页');
 		// 选完先看结果页：弹窗还开着、仍然锁住背后，点「继续」才关闭
 		assert.match(el('modal').innerHTML, /结果/);
 		assert.match(el('modal').innerHTML, /data-result-close/);
 		assert.equal(el('game').inert, true, '结果页也锁住背后');
-		await click({ resultClose: '' });
-		assert.equal(el('modal').classList.contains('hidden'), true, '点继续后弹窗关闭');
+		// 键盘：结果页按 Esc 等于点「继续」（弗里曼特尔那段已经点过「继续」按钮）
+		const panelFocus = el('panel').focused;
+		docListeners.keydown({ key: 'Enter' });
+		assert.equal(el('modal').classList.contains('hidden'), false, '别的键不关');
+		docListeners.keydown({ key: 'Escape' });
+		await pause(20);
+		assert.equal(el('modal').classList.contains('hidden'), true, '按 Esc 后弹窗关闭');
+		assert.ok(el('panel').focused > panelFocus, '弹窗关掉后焦点回到页面内容');
 		assert.equal(el('game').inert, false, '弹窗关闭后解锁');
 		assert.equal((data.get('save:' + cred.id) as any).state.loc, 'rottnest');
 		// 夜里精力不满、其他都还行：下一步建议找地方过夜
@@ -363,6 +493,21 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ tab: 'place' });
 		for (let i = 0; i < 100 && !/夜深了/.test(nextCard()); i++) { await pause(20); if (i % 10 === 9) await click({ tab: 'place' }); }
 		assert.match(nextCard(), /夜深了/);
+		// 每日摘要（第 27 轮）：服务端存档里有昨天的变化，回到前台后今天页顶上出回顾卡，点「知道了」收起
+		const rc = data.get('save:' + cred.id) as any;
+		rc.state.clock += 1440; // 拨到第 2 天的同一时刻（还是夜里），才有「昨天」
+		const today = Math.floor(rc.state.clock / 1440);
+		rc.state.dayMark = { day: today, at: today * 1440, cash: rc.state.cash, respect: rc.state.respect, places: Object.keys(rc.state.visited).length };
+		rc.state.yday = { day: today - 1, days: 1, from: (today - 1) * 1440 - 1, to: today * 1440, cash: -42, respect: 1, places: 2 };
+		rc.state.journal.push({ t: (today - 1) * 1440 + 600, text: '<i>在码头</i>看了一下午的船' });
+		data.set('save:' + cred.id, rc);
+		docListeners.visibilitychange({});
+		for (let i = 0; i < 100 && !panel().includes('昨天回顾'); i++) { await pause(20); if (i % 10 === 9) await click({ tab: 'place' }); }
+		assert.match(panel(), new RegExp(`昨天回顾（第 ${today} 天）`));
+		assert.match(panel(), /现金 −\$42 · 声望 \+1 · 新去了 2 个地方/);
+		assert.match(panel(), /10:00<\/span> &lt;i&gt;在码头/, '日志带时间、转义');
+		await click({ recapClose: String(today - 1) });
+		assert.ok(!panel().includes('昨天回顾'), '点知道了后收起');
 		// 附近页底部有留言板和输入框
 		assert.match(panel(), /📝 留言板/);
 		assert.match(panel(), /id="note-form"[\s\S]*maxlength="60"/);
@@ -374,9 +519,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		// 换交通方式：回到珀斯、钱够，卡尔古利能坐飞机也能走陆路，点另一块方块后出发按钮跟着换
 		const back = data.get('save:' + cred.id) as any;
 		back.state.loc = 'perth';
+		back.state.rev += 1;
 		data.set('save:' + cred.id, back);
-		docListeners.visibilitychange({});
-		await pause(60);
+		await pullNow();
 		await click({ tab: 'go' });
 		await click({ loc: 'kalgoorlie' });
 		const other = panel().match(/class="tile" data-dmode="([a-z]+)" data-dest="kalgoorlie" aria-pressed="false" >/)?.[1];
@@ -389,12 +534,47 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		camp.state.clock = Math.floor(camp.state.clock / 1440) * 1440 + 1440 + 10 * 60;
 		camp.state.vehicle = 'campervan';
 		camp.state.home = { type: 'campground', loc: 'bunbury', furniture: {} };
+		camp.state.rev += 1;
 		data.set('save:' + cred.id, camp);
-		docListeners.visibilitychange({});
-		await pause(60);
+		await pullNow();
 		await click({ tab: 'place' });
 		assert.match(panel(), /<button data-veh="sell" disabled>/, '住营地时卖车按钮灰掉');
 		assert.match(panel(), /你住在房车营地/);
+		// 后台同步比动作晚回来（复现第 27 轮查到的竞态）：同步请求故意慢 150ms，期间做一个动作
+		const fastFetch = g.fetch;
+		g.fetch = async (u: string, o?: RequestInit) => {
+			const res = await fastFetch(u, o); // 服务端按请求到达时的存档回答，回程故意慢
+			if (String(o?.body).includes('"action":"get"')) await new Promise((r) => realSetTimeout(r, 150));
+			return res;
+		};
+		docListeners.visibilitychange({});
+		const act2 = panel().match(/data-act="([^"]+)"/)?.[1];
+		assert.ok(act2);
+		await click({ act: act2! });
+		const afterAct = (data.get('save:' + cred.id) as any).state.rev;
+		assert.equal(clientRev(), afterAct, '动作结果已经采用');
+		await pause(250);
+		g.fetch = fastFetch;
+		assert.equal(clientRev(), afterAct, '晚回来的同步没有把存档倒回动作之前');
+		// 两次同步先发的后到（第 6 批审查复现过：版本从 10 退回 9）：第一次慢 200ms，期间服务端存档更新、再同步一次
+		let firstGet = true;
+		g.fetch = async (u: string, o?: RequestInit) => {
+			const res = await fastFetch(u, o);
+			if (firstGet && String(o?.body).includes('"action":"get"')) { firstGet = false; await new Promise((r) => realSetTimeout(r, 200)); }
+			return res;
+		};
+		docListeners.visibilitychange({});
+		await pause(20);
+		const bump = data.get('save:' + cred.id) as any;
+		bump.state.rev += 1;
+		data.set('save:' + cred.id, bump);
+		await pullNow();
+		const newest = bump.state.rev;
+		await pause(300);
+		g.fetch = fastFetch;
+		assert.equal(clientRev(), newest, '先发后到的旧同步没有盖掉新的');
+		// 音效关着时，后面的出行、事件、动作都没有出声
+		assert.equal(audioLog.notes, audioLog.offAt, '关掉音效后不再出声');
 	} finally {
 		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });
@@ -413,7 +593,7 @@ test('界面：没有存档时显示创建页，选完四步能创建角色并�
 		if (!els.has(id)) els.set(id, {
 			id, innerHTML: '', textContent: '', value: '', disabled: false, inert: false, classList: new ClassList(), attrs: {}, ls: {}, focused: 0, scrollTop: 0, scrollHeight: 0,
 			setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.ls[t] = f; },
-			querySelector() { return null; },
+			querySelector() { return null; }, focus() { this.focused++; },
 		});
 		return els.get(id)!;
 	};
