@@ -98,6 +98,12 @@ test('地图生命周期：加载好之前不建标记；加载好后标记是�
 	assert.match(el.className, /here/);
 	assert.match(el.innerHTML, /珀斯市/);
 	assert.equal((log.data as { features: unknown[] }).features.length, 1, '路线画上了');
+	// 内容没变时不重写标记（第 35 轮）：手动改掉的内容保持原样，说明没碰 DOM
+	el.innerHTML = '未动';
+	bm.update({ pins: [pin({ here: true, name: '珀斯市' })], routes: [] });
+	assert.equal(el.innerHTML, '未动', '内容没变不重写');
+	bm.update({ pins: [pin({ here: true, name: '珀斯市', count: 4 })], routes: [] });
+	assert.match(el.innerHTML, /👥4/, '内容变了才重写');
 	// 加载好之后个别图块出错不算失败
 	handlers.error();
 	assert.equal(bm.failed, false);

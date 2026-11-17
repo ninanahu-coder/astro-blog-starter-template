@@ -175,6 +175,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			await idle();
 		};
 		const panel = () => el('panel').innerHTML;
+		// 在线频道的消息：页面攒 150 毫秒合成一次重画（第 35 轮），发完等它画完
+		const wsSay = async (m: unknown) => { lastWs!.onmessage!({ data: JSON.stringify(m) }); await pause(200); };
 		// 改了服务端存档后让页面去同步：等页面缓存的存档版本和服务端一致（最多 2 秒），不靠固定睡眠
 		const clientRev = () => (JSON.parse(store.get('earth.save.v1') ?? 'null') as { rev?: number } | null)?.rev;
 		const pullNow = async () => {
@@ -334,14 +336,14 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.ok(!copied.includes(cred.id) && !copied.includes(cred.key), '分享文字不能带凭证');
 		// 转义：在线频道发来的名字和文字不经过服务端的名字清洗，界面必须自己转义
 		assert.ok(lastWs, '连上了在线频道');
-		lastWs!.onmessage!({ data: JSON.stringify({ t: 'chat', name: '<img src=x onerror=alert(1)>', avatar: '🧑', text: '<script>bad()</script>' }) });
+		await wsSay({ t: 'chat', name: '<img src=x onerror=alert(1)>', avatar: '🧑', text: '<script>bad()</script>' });
 		await click({ tab: 'social' });
 		assert.ok(!panel().includes('<img src=x') && !panel().includes('<script>bad'), '聊天内容没有转义');
 		assert.match(panel(), /&lt;img src=x onerror=alert\(1\)&gt;/);
 		// 同地点有其他玩家时，社交标签显示人数
-		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: 'peer-1', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
+		await wsSay({ t: 'join', p: { id: 'peer-1', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } });
 		assert.match(el('tabs').innerHTML, /class="badge"[^>]*>1</, '社交标签显示 1 位');
-		lastWs!.onmessage!({ data: JSON.stringify({ t: 'leave', id: 'peer-1' }) });
+		await wsSay({ t: 'leave', id: 'peer-1' });
 		assert.doesNotMatch(el('tabs').innerHTML, /class="badge"/);
 		// 社交页的快捷短语：点一下发到本地频道
 		await click({ tab: 'social' });
@@ -365,7 +367,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		const peerH = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('ui-peer-gift')))].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
 		data.set('h:' + peerH, 'ui-peer-gift');
 		data.set('save:ui-peer-gift', { keyHash: 'x', at: 0, state: { loc: (data.get('save:' + cred.id) as any).state.loc, name: '小王' } });
-		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: peerH, name: '<b>小王</b>', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
+		await wsSay({ t: 'join', p: { id: peerH, name: '<b>小王</b>', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } });
 		const giftSave = data.get('save:' + cred.id) as any;
 		giftSave.state.inventory = { ...giftSave.state.inventory, water: 2 };
 		data.set('save:' + cred.id, giftSave);
@@ -412,7 +414,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(panel(), /role="progressbar"/);
 		assert.match(panel(), /data-week="claim" disabled/);
 		// 断开连接时角标也要清掉
-		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: 'peer-2', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
+		await wsSay({ t: 'join', p: { id: 'peer-2', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } });
 		assert.match(el('tabs').innerHTML, /class="badge"/);
 		(lastWs as unknown as { onclose: () => void }).onclose();
 		assert.doesNotMatch(el('tabs').innerHTML, /class="badge"/, '断开后角标清掉');
@@ -631,6 +633,20 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.equal(clientRev(), newest, '先发后到的旧同步没有盖掉新的');
 		// 音效关着时，后面的出行、事件、动作都没有出声
 		assert.equal(audioLog.notes, audioLog.offAt, '关掉音效后不再出声');
+		// 性能（第 35 轮）：一下子来 300 条进场消息，只合成一两次重画；社交页只列前 30 位，其余写个数
+		const tabsEl = el('tabs');
+		let tabsHtml = tabsEl.innerHTML, tabWrites = 0;
+		Object.defineProperty(tabsEl, 'innerHTML', { get: () => tabsHtml, set: (v: string) => { tabWrites++; tabsHtml = v; }, configurable: true });
+		const myLoc = (data.get('save:' + cred.id) as any).state.loc;
+		for (let i = 0; i < 300; i++) lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: `crowd-${i}`, name: `路人${i}`, avatar: '🧑', loc: myLoc } }) });
+		await pause(250);
+		assert.ok(tabWrites >= 1 && tabWrites <= 2, `300 条消息重画了 ${tabWrites} 次`);
+		assert.match(tabsHtml, />30\d</, '角标是最新人数');
+		await click({ tab: 'social' });
+		const rows = panel().match(/data-giftpick="crowd-/g) ?? [];
+		assert.equal(rows.length, 30, '只列前 30 位');
+		assert.match(panel(), /还有 2\d\d 位玩家在这里/);
+		assert.ok(panel().length < 60_000, `社交页 HTML ${panel().length} 字节`);
 	} finally {
 		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });

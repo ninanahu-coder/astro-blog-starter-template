@@ -130,7 +130,7 @@ export function createBasemap(o: {
 	let failed = false;
 	let gone = false;
 	let last: BasemapView | null = null;
-	const pins = new Map<string, { m: MarkerLike; el: PinEl }>();
+	const pins = new Map<string, { m: MarkerLike; el: PinEl; key: string }>();
 	const drop = () => {
 		for (const p of pins.values()) p.m.remove();
 		pins.clear();
@@ -150,12 +150,17 @@ export function createBasemap(o: {
 			if (!hit) {
 				const el = o.doc.createElement('button') as PinEl;
 				el.dataset.loc = p.id;
-				hit = { el, m: new lib.Marker({ element: el, anchor: 'left' }).setLngLat([p.lon, p.lat]).addTo(map) };
+				hit = { el, m: new lib.Marker({ element: el, anchor: 'left' }).setLngLat([p.lon, p.lat]).addTo(map), key: '' };
 				pins.set(p.id, hit);
 			}
-			hit.el.className = pinClass(p);
-			hit.el.innerHTML = pinHtml(p);
-			hit.el.setAttribute('aria-label', pinLabel(p));
+			// 内容没变就不碰 DOM：在线人数一变就会整体更新，几十个标记每次都重写会卡（第 35 轮）
+			const cls = pinClass(p), html = pinHtml(p), label = pinLabel(p);
+			const key = `${cls}|${html}|${label}`;
+			if (hit.key === key) continue;
+			hit.key = key;
+			hit.el.className = cls;
+			hit.el.innerHTML = html;
+			hit.el.setAttribute('aria-label', label);
 		}
 		map.getSource('game-routes')?.setData(routesGeoJson(v.routes));
 	};
