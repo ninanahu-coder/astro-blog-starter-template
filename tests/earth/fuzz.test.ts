@@ -21,6 +21,7 @@ import { CAR_KM_MAX, DEALER_HOURS, VEHICLES } from '../../src/game/data/vehicles
 import { ANIMALS } from '../../src/game/data/wildlife.ts';
 import { FISH } from '../../src/game/data/fish.ts';
 import { STORY } from '../../src/game/data/story.ts';
+import { NPC_DUOS } from '../../src/game/data/npc-duos.ts';
 import { PHOTO_QUESTS } from '../../src/game/data/photo-quests.ts';
 import { CERTS } from '../../src/game/data/certs.ts';
 import { isOpen } from '../../src/game/core/time.ts';
@@ -162,6 +163,8 @@ function checkInvariants(s: PlayerState, where: string) {
 	assert.equal(new Set(s.dex).size, s.dex.length, `${where}: 图鉴有重复`);
 	inRange(s.photoQuest, 0, PHOTO_QUESTS.length, 'photoQuest');
 	inRange(s.story.ch, 0, STORY.length, 'story.ch');
+	assert.equal(new Set(s.duos).size, s.duos.length, 'duos 不重复');
+	for (const id of s.duos) assert.ok(NPC_DUOS.some((d) => d.id === id), `duos 里有不认识的 ${id}`);
 	for (const [id, n] of Object.entries(s.story.done)) {
 		const st = STORY[s.story.ch]?.steps.find((x) => x.id === id);
 		assert.ok(st && Number.isInteger(n) && n >= 1 && n <= (st.n ?? 1), `story.done.${id}=${n}`);

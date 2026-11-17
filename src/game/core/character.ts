@@ -22,6 +22,7 @@ import { ANIMALS, DEX_GROUPS } from '../data/wildlife.ts';
 import { FISH } from '../data/fish.ts';
 import { PHOTO_QUESTS } from '../data/photo-quests.ts';
 import { STORY } from '../data/story.ts';
+import { NPC_DUOS } from '../data/npc-duos.ts';
 import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
@@ -109,6 +110,7 @@ export function createCharacter(opts: {
 		fish: {},
 		photoQuest: 0,
 		story: { ch: 0, done: {} },
+		duos: [],
 		dexSets: [],
 		seen: [],
 		traits: validTraits(opts.traits ?? [], MAX_TRAITS) ? [...(opts.traits ?? [])] : [],
@@ -301,6 +303,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		})(),
 		dex: [...new Set(strList(r.dex, 200))].filter((id) => ANIMALS.some((a) => a.id === id)),
 		dexSets: [...new Set(strList(r.dexSets, 20))].filter((id) => Object.hasOwn(DEX_GROUPS, id)),
+		duos: [...new Set(strList(r.duos, 100))].filter((id) => NPC_DUOS.some((d) => d.id === id)),
 		car: (() => {
 			// 没车就没有里程；离上次保养的里程不超过总里程
 			if (!VEHICLES.some((v) => v.id === r.vehicle)) return { km: 0, since: 0 };
