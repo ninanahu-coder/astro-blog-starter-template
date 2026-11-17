@@ -1,7 +1,7 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
+	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, takeCert, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { refreshWishes, settleWishes } from './wishes.ts';
 import { capState, nextRev } from './character.ts';
@@ -33,6 +33,7 @@ export type GameAction =
 	| { t: 'vehicle'; op: 'buy'; id: string }
 	| { t: 'vehicle'; op: 'sell' | 'sleep' }
 	| { t: 'course'; id: string }
+	| { t: 'cert'; id: string }
 	| { t: 'experience'; id: string }
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
 
@@ -80,6 +81,7 @@ export function parseAction(raw: unknown): GameAction | null {
 			if (a.op === 'buy') return str(a.id) ? { t: 'vehicle', op: 'buy', id: a.id } : null;
 			return a.op === 'sell' || a.op === 'sleep' ? { t: 'vehicle', op: a.op } : null;
 		case 'course':
+		case 'cert':
 		case 'experience':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
 		case 'property':
@@ -115,6 +117,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 				: toggleRentOut(state, a.id);
 			break;
 		case 'course': r = takeCourse(state, region, a.id); break;
+		case 'cert': r = takeCert(state, region, a.id); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
 	}

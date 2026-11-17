@@ -347,8 +347,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { AVATARS, NEED_META, ORIGINS, SKILL_META, START_CLOCK, formatClock, nextRev, sanitizeState } from '../game/core/character.ts';
 			import type { GameAction } from '../game/core/actions.ts';
 			import { npcStatus } from '../game/core/engine.ts';
-			import { activitiesAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
+			import { activitiesAt, careerPay, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
+			import { CERTS } from '../game/data/certs.ts';
 			import { AREAS, EXPERIENCES } from '../game/data/experiences.ts';
 			import { FURNITURE_SLOTS, HOME_COOK } from '../game/data/furniture.ts';
 			import { FINANCE, loanPayment, saleProceeds, weeksToPayOff } from '../game/core/finance.ts';
@@ -1046,8 +1047,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const offers = careersAt(s, region).filter((o) => !(workHere && o.career.id === job!.career));
 				const shiftWhy = shiftBlocked(s);
 				const workHtml = workHere || offers.length ? `<div class="card"><h3>工作</h3>
-					${workHere ? `<div class="row" style="margin-top:8px"><span class="body">${esc(career!.name)} · ${esc(career!.levels[job!.level].title)}<small>每班 $${career!.levels[job!.level].pay} · ${Math.round(career!.minutes / 60)} 小时 · ${hoursLabel(career!.start)} 开工</small></span><button class="primary" data-job="work" ${shiftWhy ? 'disabled' : ''}>上班</button></div>${shiftWhy ? `<p style="margin-top:4px">${esc(shiftWhy)}</p>` : ''}` : ''}
-					${offers.map(({ career: c, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(c.name)} · 招${esc(c.levels[0].title)}<small>${esc(blocked ?? `每班 $${c.levels[0].pay}，最高可升到${c.levels[c.levels.length - 1].title}`)}</small></span><button data-job="apply" data-career="${c.id}" ${blocked ? 'disabled' : ''}>${job ? '跳槽' : '应聘'}</button></div>`).join('')}</div>` : '';
+					${workHere ? `<div class="row" style="margin-top:8px"><span class="body">${esc(career!.name)} · ${esc(career!.levels[job!.level].title)}<small>每班 $${careerPay(s, job!.career, job!.level)}${certBonus(s, job!.career) ? `（含证书 +${Math.round(certBonus(s, job!.career) * 100)}%）` : ''} · ${Math.round(career!.minutes / 60)} 小时 · ${hoursLabel(career!.start)} 开工</small></span><button class="primary" data-job="work" ${shiftWhy ? 'disabled' : ''}>上班</button></div>${shiftWhy ? `<p style="margin-top:4px">${esc(shiftWhy)}</p>` : ''}` : ''}
+					${offers.map(({ career: c, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(c.name)} · 招${esc(c.levels[0].title)}<small>${esc(blocked ?? `每班 $${careerPay(s, c.id, 0)}，最高可升到${c.levels[c.levels.length - 1].title}`)}</small></span><button data-job="apply" data-career="${c.id}" ${blocked ? 'disabled' : ''}>${job ? '跳槽' : '应聘'}</button></div>`).join('')}</div>` : '';
 				const homeHere = s.home && s.home.loc === loc.id ? getHome(s.home.type) : undefined;
 				const rentals = homesAt(s, region);
 				const cookWhy = homeActionBlocked(s, 'cook');
@@ -1063,6 +1064,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const exps = experiencesAt(s, region);
 				const expHtml = exps.length ? `<div class="card"><h3>体验</h3>${exps.map(({ exp, first, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="body">${first ? '✨ ' : '✅ '}${esc(exp.name)} · $${exp.price}<small>${esc(blocked ?? (first ? `${exp.desc} 首次：声望 +${exp.respect}，进收藏册` : '已收藏，再来一次只加心情'))}</small></span><button data-exp="${exp.id}" ${blocked ? 'disabled' : ''}>去</button></div>`).join('')}</div>` : '';
+				const certs = certsAt(s, region);
+				const certHtml = certs.length ? `<div class="card"><h3>职业证书</h3><p>考到证后，对应职业每个班的工资上涨；证书跟人走，换工作不丢。</p>${certs.map(({ cert, blocked }) => `
+					<div class="row" style="margin-top:8px"><span class="body">${s.certs.includes(cert.id) ? '✅ ' : ''}${esc(cert.name)} · $${cert.price}<small>${esc(blocked ?? `${getCareer(cert.career)?.name ?? ''}工资 +${Math.round(cert.payBonus * 100)}% · ${Math.round(cert.minutes / 60 * 10) / 10} 小时 · ${cert.desc}`)}</small></span><button data-cert="${cert.id}" ${blocked ? 'disabled' : ''}>报名</button></div>`).join('')}</div>` : '';
 				const courses = coursesAt(s, region);
 				const courseHtml = courses.length ? `<div class="card"><h3>课程</h3>${courses.map(({ course, price, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="body">${esc(course.name)} · $${price}<small>${esc(blocked ?? `${SKILL_META[course.skill].name}（现在 ${Math.floor(s.skills[course.skill])}）· ${Math.round(course.minutes / 60 * 10) / 10} 小时 · ${course.desc}`)}</small></span><button data-course="${course.id}" ${blocked ? 'disabled' : ''}>上课</button></div>`).join('')}</div>` : '';
@@ -1100,7 +1104,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${courseHtml}${shopHtml}${dealerHtml}${propHtml}${poiHtml}${notesCard(s)}`;
+					${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${courseHtml}${certHtml}${shopHtml}${dealerHtml}${propHtml}${poiHtml}${notesCard(s)}`;
 			}
 
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
@@ -1188,7 +1192,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<div class="inline" style="margin-top:6px;flex-wrap:wrap">${living ? '' : `<button data-prop="movein" data-prop-id="${op.id}">搬进去</button>`}<button data-prop="rentout" data-prop-id="${op.id}">${op.rented ? '停止出租' : '出租'}</button>${op.loan ? `<button data-prop="repay" data-prop-id="${op.id}">提前还贷</button>` : ''}<button data-prop="sell" data-prop-id="${op.id}">卖掉</button></div></div>`;
 				}).join('');
 				const life = `
-					<p>${jc ? `${esc(jc.name)}（${esc(getLocation(region, s.job!.loc)!.name)}）· ${esc(jc.levels[s.job!.level].title)} · 每班 $${jc.levels[s.job!.level].pay}` : '无业。到城镇、海滩、矿区等地方找工作。'}</p>
+					<p>${jc ? `${esc(jc.name)}（${esc(getLocation(region, s.job!.loc)!.name)}）· ${esc(jc.levels[s.job!.level].title)} · 每班 $${careerPay(s, s.job!.career, s.job!.level)}` : '无业。'}${s.certs.length ? ` 证书：${s.certs.map((id) => esc(CERTS.find((c) => c.id === id)?.name ?? id)).join('、')}。` : ''}${jc ? '' : '到城镇、海滩、矿区等地方找工作。'}</p>
 					${promo ? `<p>升职到${esc(promo.next.title)}：已上 ${promo.shifts}/${PROMOTE_SHIFTS} 班，表现好 ${promo.good}/${PROMOTE_GOOD} 班${promo.blocked ? `，还需${esc(promo.blocked)}` : ''}</p>` : jc ? '<p>已是最高职位。</p>' : ''}
 					<p>${hd ? `住在${esc(getLocation(region, s.home!.loc)!.name)}的${esc(hd.name)}，家具：${Object.values(s.home!.furniture).map((id) => esc(getFurniture(id)?.name ?? '')).join('、') || '无'}` : '没有住处。在城镇可以租房，回家睡觉免费且恢复更多。'}</p>
 					<p>每周固定开销 $${wc.total}${wc.total ? `（房租 $${wc.rent} + 车辆 $${wc.vehicle} + 房产 $${wc.property}）· ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算` : ''}</p>
@@ -1582,7 +1586,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -1608,6 +1612,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.course) act({ t: 'course', id: d.course }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.cert) act({ t: 'cert', id: d.cert }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.exp) act({ t: 'experience', id: d.exp }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.job) {
 					if (d.job === 'quit' && !confirm('确定辞职？当前等级的进度会清零。')) return;

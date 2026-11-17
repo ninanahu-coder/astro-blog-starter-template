@@ -1,7 +1,7 @@
 // 真实地点：玩家拿着手机真的走到某家餐馆、健身房、公园，就能在游戏里做对应的事。
 // 纯函数：现实时间 now（毫秒）由服务端传入，客户端无法伪造；坐标来自手机定位，可以伪造，所以做了精度、距离和速度三道检查。
 import { realDayOf } from './daily.ts';
-import { addMoodlet, applyEffect, clone, collapsedResult, fail, getCareer, getLocation, log, pickVenueEvent, tryPromote } from './engine.ts';
+import { addMoodlet, applyEffect, careerPay, clone, collapsedResult, fail, getCareer, getLocation, log, pickVenueEvent, tryPromote } from './engine.ts';
 import {
 	drinkOutcome, exerciseOutcome, groceriesOutcome, healOutcome, mealOutcome, relaxOutcome, studyOutcome, trainOutcome, workPay,
 	type OpOutcome,
@@ -39,7 +39,7 @@ export function workTerms(state: PlayerState, type: VenueTypeDef, venue: Venue):
 	const job = state.job;
 	const c = job ? getCareer(job.career) : undefined;
 	if (job && job.loc === venue.loc && c?.venues?.includes(type.id)) {
-		const base = Math.max(c.levels[job.level].pay / (c.minutes / 60), type.gigRate ?? 0);
+		const base = Math.max(careerPay(state, c.id, job.level) / (c.minutes / 60), type.gigRate ?? 0);
 		return { hourly: Math.round(base * ON_SITE_BONUS * 10) / 10, skill: c.skill, career: true };
 	}
 	return gigTerms(type);

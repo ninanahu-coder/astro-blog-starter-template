@@ -12,6 +12,7 @@ import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, salePro
 import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } from '../data/furniture.ts';
 import { DEALER_HOURS, DEALER_TAG, VEHICLES } from '../data/vehicles.ts';
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
+import { CERTS } from '../data/certs.ts';
 import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
 import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, period, weekdayOf } from './time.ts';
 import { FESTIVALS } from '../data/festivals.ts';
@@ -22,7 +23,7 @@ import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
-	ActionResult, Activity, CareerDef, CareerLevel, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
+	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
@@ -717,6 +718,17 @@ export function careersAt(state: PlayerState, region: Region): CareerOffer[] {
 
 export const getCareer = (id: string) => CAREERS.find((c) => c.id === id);
 
+/** 持有的、对这份职业有用的证书加薪比例之和（没有为 0） */
+export function certBonus(state: PlayerState, careerId: string): number {
+	return CERTS.filter((c) => c.career === careerId && state.certs.includes(c.id)).reduce((sum, c) => sum + c.payBonus, 0);
+}
+
+/** 这份职业某个等级的每班工资（含证书加薪，不含表现奖金） */
+export function careerPay(state: PlayerState, careerId: string, level: number): number {
+	const lv = getCareer(careerId)?.levels[level];
+	return lv ? Math.round(lv.pay * (1 + certBonus(state, careerId))) : 0;
+}
+
 /** 当前工作能否上班；可以返回 undefined */
 export function shiftBlocked(state: PlayerState): string | undefined {
 	const job = state.job;
@@ -789,7 +801,7 @@ export function workShift(prev: PlayerState, region: Region): ActionResult {
 	const c = getCareer(job.career)!;
 	const lv = c.levels[job.level];
 	const good = checkScore(state, c.skill).total + roll(state) * 60 >= SHIFT_DC[Math.min(job.level, SHIFT_DC.length - 1)];
-	const pay = Math.round(lv.pay * (good ? 1 + GOOD_BONUS : 1));
+	const pay = Math.round(careerPay(state, job.career, job.level) * (good ? 1 + GOOD_BONUS : 1));
 	job.lastDay = state.workDay = dayOf(state.clock);
 	if (applyEffect(state, { ...c.shift, minutes: c.minutes, cash: pay }, region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
 	job.shifts++;
@@ -1038,6 +1050,41 @@ export function takeCourse(prev: PlayerState, region: Region, id: string): Actio
 	growSkill(state, c.skill, c.gain);
 	if (applyEffect(state, { minutes: c.minutes, needs: { energy: -Math.round(c.minutes / 12), fun: 3 } }, region)) return collapsedResult(state);
 	const msg = `上了${c.name}，${SKILL_META[c.skill].name} +${(state.skills[c.skill] - before).toFixed(1)}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+// ---------- 职业证书 ----------
+export interface CertOffer {
+	cert: CertDef;
+	blocked?: string;
+}
+
+/** 当前地点能考的证书 */
+export function certsAt(state: PlayerState, region: Region): CertOffer[] {
+	const loc = getLocation(region, state.loc);
+	if (!loc) return [];
+	return CERTS.filter((c) => matches(c.where, loc)).map((cert) => {
+		const blocked = state.certs.includes(cert.id) ? '已经有这张证了'
+			: !isOpen(cert.hours, state.clock) ? `上课时间 ${hoursLabel(cert.hours)}`
+			: state.cash < cert.price ? `需要 $${cert.price}`
+			: state.needs.energy < 25 ? '太累了' : undefined;
+		return { cert, blocked };
+	});
+}
+
+export function takeCert(prev: PlayerState, region: Region, id: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const offer = certsAt(prev, region).find((o) => o.cert.id === id);
+	if (!offer) return fail(prev, '这里考不了这张证。');
+	if (offer.blocked) return fail(prev, offer.blocked);
+	const c = offer.cert;
+	const state = clone(prev);
+	state.cash -= c.price;
+	if (applyEffect(state, { minutes: c.minutes, needs: { energy: -Math.round(c.minutes / 10), fun: -5 } }, region)) return collapsedResult(state); // 没上完的课不发证
+	state.certs.push(c.id);
+	const career = getCareer(c.career);
+	const msg = `考到了${c.name}${career ? `：${career.name}的工作每班工资 +${Math.round(c.payBonus * 100)}%` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }

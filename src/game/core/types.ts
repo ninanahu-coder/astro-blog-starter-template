@@ -228,6 +228,18 @@ export interface CourseDef {
 	desc: string;
 }
 
+export interface CertDef {
+	id: string;
+	name: string;
+	career: string; // 对哪份职业有用（CareerDef.id）
+	price: number;
+	minutes: number;
+	payBonus: number; // 持证时这份职业每班工资上涨的比例
+	where: Where;
+	hours: Hours;
+	desc: string;
+}
+
 export interface ExperienceDef {
 	id: string;
 	name: string;
@@ -470,6 +482,7 @@ export interface PlayerState {
 	collected: string[]; // 已完成的收费体验 id
 	areas: string[]; // 已获得称号的体验片区 id：集齐时记下，之后加了新体验也不收回、不重复发奖
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
+	certs: string[]; // 已考到的职业证书 id（跟人走，换工作不丢）
 	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每个游戏日一次）
 	trades: { day: number; out: number; in: number }; // 玩家之间交易：这个现实日已送出 / 收下的次数
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领

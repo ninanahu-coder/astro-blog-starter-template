@@ -88,6 +88,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 | 住房 `HomeDef` | `data/housing.ts` | 周租、舒适度、可租地点 | 合租房间 / 一居室公寓 / 海景小屋 |
 | 交通工具 `VehicleDef` | `data/vehicles.ts` | 价格、回收比例、公路 / 土路时速、油费、骑行消耗、车内睡眠 | 摩托车、二手轿车、四驱越野、露营车；在车行买卖，换车自动折抵 |
 | 课程 `CourseDef` | `data/courses.ts` | 对应能力、基础学费、时长、成长量、开课地点与时间 | 7 门课；学费 = 基础价 × (1 + 当前能力/25)；每门每天一次 |
+| 职业证书 `CertDef` | `data/certs.ts` | 对应职业、价格、时长、加薪比例、开课地点与时间 | 每种职业一张证（7 张）；持证时这份职业每班工资 +15%（游戏内上班和真实打卡都算，待平衡）；只考一次，证书跟人走 |
 | 体验 `ExperienceDef` | `data/experiences.ts` | 地点、片区、价格、开放时间、效果、首次声望 | 20 个，分 6 个片区；首次进收藏册，集齐片区得称号 |
 | 家具 `FurnitureDef` | `data/furniture.ts` | 槽位、价格、心情加成、睡眠加成、解锁的在家活动 | 5 个槽位各放一件；同槽位换新时旧的半价折现 |
 | 房产 `PropertyDef` | `data/properties.ts` | 地点、自住房型、房价、物业费、出租周租金 | 4 套；每人每套只能买一次 |
@@ -126,6 +127,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 | `homesAt` / `rentHome` / `sleepHome` / `leaveHome` | 看房 / 租房 / 回家睡觉 / 退租 | 钱不够首周租金、不在住处 |
 | `dealerAt` / `buyVehicle` / `sellVehicle` / `sleepInVehicle` | 车行 / 买车（旧车折抵）/ 卖车 / 车里过夜 | 不在车行、车行没开门、钱不够、车不能睡人 |
 | `coursesAt` / `takeCourse` | 课程 / 上课 | 不在开课时间、今天上过、钱不够、太累 |
+| `certsAt` / `takeCert` / `careerPay` | 能考的证书 / 考证 / 含证书加薪的每班工资 | 已经有了、不在上课时间、钱不够、太累 |
 | `experiencesAt` / `doExperience` | 体验 / 参加体验 | 不在开放时间、钱不够 |
 | `furnitureAt` / `buyFurniture` / `sellFurniture` | 家具 / 添置 / 卖掉 | 没有住处、不在住处、钱不够 |
 | `cookAtHome` / `relaxAtHome` | 在家做饭 / 放松 | 不在住处、缺对应家具 |
