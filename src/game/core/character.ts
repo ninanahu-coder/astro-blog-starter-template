@@ -20,6 +20,7 @@ import { COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
 import { ANIMALS, DEX_GROUPS } from '../data/wildlife.ts';
 import { FISH } from '../data/fish.ts';
+import { PHOTO_QUESTS } from '../data/photo-quests.ts';
 import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
@@ -105,6 +106,7 @@ export function createCharacter(opts: {
 		photos: [],
 		dex: [],
 		fish: {},
+		photoQuest: 0,
 		dexSets: [],
 		seen: [],
 		traits: validTraits(opts.traits ?? [], MAX_TRAITS) ? [...(opts.traits ?? [])] : [],
@@ -277,6 +279,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			return out;
 		})(),
 		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id)),
+		photoQuest: Math.floor(num(r.photoQuest, 0, PHOTO_QUESTS.length, 0)),
 		fish: (() => {
 			const out: Record<string, number> = {};
 			for (const f of FISH) {

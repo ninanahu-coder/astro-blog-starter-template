@@ -349,7 +349,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { npcStatus } from '../game/core/engine.ts';
 			import { ANIMALS } from '../game/data/wildlife.ts';
 			import { FISH, FISHING } from '../game/data/fish.ts';
-			import { activitiesAt, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
+			import { PHOTO_MINUTES, PHOTO_QUESTS } from '../game/data/photo-quests.ts';
+			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { CERTS } from '../game/data/certs.ts';
 			import { SERVICE_KM } from '../game/data/vehicles.ts';
@@ -1075,6 +1076,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const factHtml = facts.length ? `<details class="card"><summary><b>📖 ${esc(loc.name)}小知识 ${facts.filter((f) => f.unlocked).length}/${facts.length}</b></summary>${facts.map(({ fact, unlocked }, i) => unlocked
 					? `<p style="margin-top:8px">${esc(fact.text)} <a class="muted" href="${esc(fact.source)}" target="_blank" rel="noopener">来源</a></p>`
 					: `<p style="margin-top:8px" class="muted">第 ${i + 1} 次来时解锁</p>`).join('')}</details>` : '';
+				const pq = photoQuestNow(s, region);
+				const photoQuestHtml = pq ? `<div class="card"><h3>📷 摄影任务 ${pq.index + 1}/${PHOTO_QUESTS.length}：${esc(pq.quest.title)}</h3><p>${esc(pq.quest.hint)}</p>
+					<div class="row" style="margin-top:8px"><span class="body">拍下来<small>${esc(pq.blocked ?? `${PHOTO_MINUTES} 分钟 · $${pq.quest.cash}、声望 +${pq.quest.respect}`)}</small></span><button data-photo ${pq.blocked ? 'disabled' : ''}>拍照</button></div></div>` : '';
 				const spot = fishingAt(s, region);
 				const fishHtml = spot ? `<div class="card"><h3>🎣 钓鱼</h3><p>${spot.fish.length ? `现在能钓到：${spot.fish.map((f) => `${s.fish[f.id] ? f.icon + esc(f.name) : '？？？'}`).join('、')}。` : '这个时候这里钓不到鱼，换个时段或季节再来。'}钓到的当场卖给鱼铺。</p>
 					<div class="row" style="margin-top:8px"><span class="body">钓一会儿<small>${esc(spot.blocked ?? `${FISHING.minutes} 分钟 · 生存能力越高越不容易空手`)}</small></span><button data-fish ${spot.blocked ? 'disabled' : ''}>去钓</button></div></div>` : '';
@@ -1117,7 +1121,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+					${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
 			}
 
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
@@ -1611,7 +1615,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -1637,6 +1641,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.course) act({ t: 'course', id: d.course }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if ('photo' in d) act({ t: 'photo' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if ('fish' in d) act({ t: 'fish' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.cert) act({ t: 'cert', id: d.cert }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.exp) act({ t: 'experience', id: d.exp }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });

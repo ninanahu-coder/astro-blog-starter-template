@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction, type GameAction } from '../../src/game/core/actions.ts';
 import { CAPS, createCharacter, ORIGINS, sanitizeState } from '../../src/game/core/character.ts';
-import { activitiesAt, careersAt, certsAt, fishingAt, coursesAt, garageAt, dealerAt, experiencesAt, furnitureAt, getPendingEvent, homeActionBlocked, homesAt, npcsAt, propertiesAt, shiftBlocked, shopAt, travelOptions } from '../../src/game/core/engine.ts';
+import { activitiesAt, careersAt, certsAt, fishingAt, photoQuestNow, coursesAt, garageAt, dealerAt, experiencesAt, furnitureAt, getPendingEvent, homeActionBlocked, homesAt, npcsAt, propertiesAt, shiftBlocked, shopAt, travelOptions } from '../../src/game/core/engine.ts';
 import { NEED_KEYS, SKILL_KEYS, type PlayerState } from '../../src/game/core/types.ts';
 import { ACTIVITIES } from '../../src/game/data/activities.ts';
 import { CAREERS } from '../../src/game/data/careers.ts';
@@ -20,6 +20,7 @@ import { TRAITS } from '../../src/game/data/traits.ts';
 import { CAR_KM_MAX, DEALER_HOURS, VEHICLES } from '../../src/game/data/vehicles.ts';
 import { ANIMALS } from '../../src/game/data/wildlife.ts';
 import { FISH } from '../../src/game/data/fish.ts';
+import { PHOTO_QUESTS } from '../../src/game/data/photo-quests.ts';
 import { CERTS } from '../../src/game/data/certs.ts';
 import { isOpen } from '../../src/game/core/time.ts';
 import { VENUE_OPS, VENUE_TYPES } from '../../src/game/data/venues.ts';
@@ -68,7 +69,7 @@ function randomAction(s: PlayerState, r: () => number, now: number): GameAction 
 	}
 	if (roll < 0.81) return { t: 'course', id: pick(COURSES).id };
 	if (roll < 0.83) return r() < 0.5 ? { t: 'cert', id: pick(CERTS).id } : { t: 'vehicle', op: 'service' };
-	if (roll < 0.86) return r() < 0.7 ? { t: 'experience', id: pick(EXPERIENCES).id } : { t: 'fish' };
+	if (roll < 0.86) return r() < 0.7 ? { t: 'experience', id: pick(EXPERIENCES).id } : r() < 0.5 ? { t: 'fish' } : { t: 'photo' };
 	if (roll < 0.95 && WA.venues.length) {
 		// 真实地点：大多站在店门口，偶尔离得很远或精度很差
 		const v = pick(WA.venues);
@@ -123,6 +124,7 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 	for (const x of coursesAt(s, WA)) if (!x.blocked) c.push({ t: 'course', id: x.course.id });
 	for (const x of certsAt(s, WA)) if (!x.blocked) c.push({ t: 'cert', id: x.cert.id });
 	if (garageAt(s, WA) && !garageAt(s, WA)!.blocked) c.push({ t: 'vehicle', op: 'service' });
+	if (photoQuestNow(s, WA) && !photoQuestNow(s, WA)!.blocked) c.push({ t: 'photo' });
 	if (s.needs.fun < 50 && fishingAt(s, WA) && !fishingAt(s, WA)!.blocked) c.push({ t: 'fish' });
 	for (const x of experiencesAt(s, WA)) if (!x.blocked) c.push({ t: 'experience', id: x.exp.id });
 	const here = WA.venues.filter((v) => v.loc === s.loc);
@@ -157,6 +159,7 @@ function checkInvariants(s: PlayerState, where: string) {
 	inRange(s.car.since, 0, s.car.km, 'car.since');
 	if (s.vehicle === 'none') assert.deepEqual(s.car, { km: 0, since: 0 }, `${where}: 没车却有里程`);
 	assert.equal(new Set(s.dex).size, s.dex.length, `${where}: 图鉴有重复`);
+	inRange(s.photoQuest, 0, PHOTO_QUESTS.length, 'photoQuest');
 	for (const [id, n] of Object.entries(s.fish)) assert.ok(FISH.some((f) => f.id === id) && Number.isInteger(n) && n >= 1, `${where}: 鱼获 ${id}=${n}`);
 	for (const g of s.dexSets) assert.ok(ANIMALS.filter((a) => a.group === g).every((a) => s.dex.includes(a.id)), `${where}: ${g} 组没集齐却发了奖`);
 }

@@ -4,6 +4,7 @@ import { unit, weatherAt, weatherOn } from './weather.ts';
 import { ANIMALS, DEX_GROUPS, type AnimalDef } from '../data/wildlife.ts';
 import { FISH, FISHING, type FishDef } from '../data/fish.ts';
 import { FACTS, type PlaceFact } from '../data/facts.ts';
+import { PHOTO_CHAIN_BONUS, PHOTO_MINUTES, PHOTO_QUESTS, type PhotoQuest } from '../data/photo-quests.ts';
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
@@ -316,6 +317,42 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 export function placeFacts(state: PlayerState, locId: string): { fact: PlaceFact; unlocked: boolean }[] {
 	const n = state.visited[locId] ?? 0;
 	return (FACTS[locId] ?? []).map((fact, i) => ({ fact, unlocked: i < n }));
+}
+
+// ---------- 摄影任务链 ----------
+/** 当前的摄影任务；全部拍完返回 null。blocked：此刻在这里拍不了的原因 */
+export function photoQuestNow(state: PlayerState, region: Region): { quest: PhotoQuest; index: number; blocked?: string } | null {
+	const quest = PHOTO_QUESTS[state.photoQuest];
+	if (!quest) return null;
+	const where = getLocation(region, quest.loc)?.name ?? quest.loc;
+	const p = period(state.clock);
+	const w = weatherAt(state);
+	const blocked = state.loc !== quest.loc ? `要去${where}`
+		: quest.seasons && !quest.seasons.includes(dateOf(state.clock).season) ? '季节不对'
+		: quest.periods && !quest.periods.includes(p.id) ? `现在是${p.name}，时段不对`
+		: quest.weather && !quest.weather.includes(w.id) ? `今天${w.name}，天气不对，改天再来`
+		: undefined;
+	return { quest, index: state.photoQuest, blocked };
+}
+
+export function takeQuestPhoto(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const now = photoQuestNow(prev, region);
+	if (!now) return fail(prev, '摄影任务都拍完了。');
+	if (now.blocked) return fail(prev, now.blocked + '。');
+	const state = clone(prev);
+	if (applyEffect(state, { minutes: PHOTO_MINUTES, needs: { fun: 8 } }, region)) return collapsedResult(state);
+	const q = now.quest;
+	state.photoQuest += 1;
+	state.cash += q.cash;
+	state.respect += q.respect;
+	let msg = `拍下了「${q.title}」，杂志买了这张照片：$${q.cash}，声望 +${q.respect}。`;
+	if (state.photoQuest >= PHOTO_QUESTS.length) {
+		state.respect += PHOTO_CHAIN_BONUS;
+		msg += ` 摄影任务全部完成！额外声望 +${PHOTO_CHAIN_BONUS}。`;
+	}
+	log(state, msg);
+	return { ok: true, state, msg };
 }
 
 // ---------- 钓鱼 ----------
