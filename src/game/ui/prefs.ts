@@ -11,13 +11,14 @@ export interface Prefs {
 	recap: boolean; // 显示昨天回顾
 	achToast: boolean; // 达成成就时弹出提示
 	sound: boolean; // 音效（默认关）
+	basemap: boolean; // 出行页用真实地图（第 31 轮，默认开）
 }
 
 export const PREFS_KEY = 'earth.prefs.v1';
 /** 旧版设置：大字模式开关（'1' 为开） */
 export const LEGACY_BIG_KEY = 'earth.big.v1';
 
-export const DEFAULT_PREFS: Prefs = { motion: 'auto', font: 'm', guide: true, recap: true, achToast: true, sound: false };
+export const DEFAULT_PREFS: Prefs = { motion: 'auto', font: 'm', guide: true, recap: true, achToast: true, sound: false, basemap: true };
 
 export const MOTION_OPTIONS: [Motion, string][] = [['auto', '跟随系统'], ['reduce', '减少'], ['full', '正常']];
 export const FONT_OPTIONS: [FontSize, string][] = [['m', '标准'], ['l', '大'], ['xl', '特大']];
@@ -48,6 +49,7 @@ export function parsePrefs(raw: string | null, legacy: { big?: string | null } =
 		recap: bool(own('recap'), DEFAULT_PREFS.recap),
 		achToast: bool(own('achToast'), DEFAULT_PREFS.achToast),
 		sound: bool(own('sound'), DEFAULT_PREFS.sound),
+		basemap: bool(own('basemap'), DEFAULT_PREFS.basemap),
 	};
 }
 

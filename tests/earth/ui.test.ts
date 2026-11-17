@@ -44,6 +44,8 @@ async function bundlePage(): Promise<string> {
 	const out = await build({
 		stdin: { contents: astro.slice(start, end), resolveDir: join(ROOT, 'src/pages'), loader: 'ts', sourcefile: 'earth-page.ts' },
 		bundle: true, format: 'esm', platform: 'neutral', write: false, logLevel: 'silent',
+		// 真实底图的地图库是动态加载的：测试环境没有 WebGL，走手绘地图，不需要把它打进来
+		external: ['maplibre-gl', 'maplibre-gl/*'],
 	});
 	return out.outputFiles[0].text;
 }
@@ -270,6 +272,14 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 				await click({ pref: 'sound' });
 				assert.match(panel(), /data-pref="sound" aria-pressed="false">/);
 				audioLog.offAt = audioLog.notes;
+				// 真实地图（第 31 轮）：默认开，能关能开，存进本机；测试环境没有 WebGL，出行页一直是手绘地图
+				assert.match(panel(), /data-pref="basemap" aria-pressed="true">已开启/);
+				assert.match(panel(), /OpenFreeMap/);
+				await click({ pref: 'basemap' });
+				assert.match(panel(), /data-pref="basemap" aria-pressed="false">已关闭/);
+				assert.equal(JSON.parse(store.get('earth.prefs.v1')!).basemap, false);
+				await click({ pref: 'basemap' });
+				assert.equal(JSON.parse(store.get('earth.prefs.v1')!).basemap, true);
 				// 关掉新手指南后今天页不再显示，打开后回来
 				await click({ pref: 'guide' });
 				await click({ tab: 'place' });

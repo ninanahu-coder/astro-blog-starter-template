@@ -49,7 +49,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			<section id="game" class="hidden">
 				<header id="hud"></header>
-				<div id="map-wrap"><svg id="map" role="img" aria-label="西澳地图：点地点看去那里的走法；下面的列表是同样的内容"></svg></div>
+				<div id="map-wrap"><svg id="map" role="img" aria-label="西澳地图：点地点看去那里的走法；下面的列表是同样的内容"></svg><div id="basemap" role="region" aria-label="西澳真实地图：点地点看去那里的走法；下面的列表是同样的内容"></div></div>
 				<nav id="tabs"></nav>
 				<main id="panel" tabindex="-1" aria-live="off"></main>
 			</section>
@@ -170,7 +170,19 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.bar i.mid { background: var(--mid); }
 			.bar i.low { background: var(--bad); }
 
-			#map-wrap { margin: 4px 16px 0; background: var(--ocean); border-radius: 20px; overflow: hidden; }
+			#map-wrap { position: relative; margin: 4px 16px 0; background: var(--ocean); border-radius: 20px; overflow: hidden; }
+			/* 真实底图（第 31 轮）：叠在手绘地图上，加载好之前看不见；加载好后手绘地图让位（它仍撑着地图区的高度） */
+			#basemap { position: absolute; inset: 0; visibility: hidden; }
+			#map-wrap.real #basemap { visibility: visible; }
+			#map-wrap.real #map { visibility: hidden; }
+			.p-night #basemap .maplibregl-canvas { filter: invert(0.92) hue-rotate(180deg) brightness(0.85); }
+			#basemap .pin { display: flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; min-height: 0; font: inherit; font-size: 12px; color: #17212b; cursor: pointer; }
+			#basemap .pin-dot { width: 10px; height: 10px; border-radius: 50%; background: #1d5fd1; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); flex: none; }
+			#basemap .pin.new .pin-dot { background: #fff; border-color: #1d5fd1; }
+			#basemap .pin.here .pin-dot { width: 14px; height: 14px; background: #c2541b; }
+			#basemap .pin.sel .pin-dot { box-shadow: 0 0 0 3px #1d5fd1; }
+			#basemap .pin-label { padding: 1px 5px; border-radius: 6px; background: rgba(255,255,255,0.85); white-space: nowrap; }
+			#basemap .pin.here .pin-label { font-weight: 700; }
 			#map { display: block; width: 100%; height: 36vh; min-height: 220px; touch-action: manipulation; }
 			#map .land { fill: var(--land); stroke: var(--land-line); stroke-width: 1; }
 			/* 昼夜：顶栏底色跟着时段变；夜里地图变成夜色、海上有星星 */
@@ -367,6 +379,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
+			import { basemapBounds, canUseBasemap, createBasemap, webglSupported, type Basemap } from '../game/ui/basemap.ts';
 			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { CERTS } from '../game/data/certs.ts';
@@ -952,6 +965,49 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				map.setAttribute('viewBox', `0 0 ${proj.width} ${proj.height}`);
 				const stars = period(s.clock).id === 'night' ? starField(proj.width, proj.height) : '';
 				map.innerHTML = `${stars}<polygon class="land" points="${outline}"/>${routes}${dots}`;
+				renderBasemap(s, counts);
+			}
+
+			// ---------- 真实底图（第 31 轮）----------
+			// 手绘地图照常画（离线、加载中、失败时看它）；真实地图加载好、又联网时盖在上面
+			let basemap: Basemap | null = null;
+			let basemapFailed = false;
+			let webglOk: boolean | null = null;
+			function renderBasemap(s: PlayerState, counts: Map<string, number>) {
+				const wrap = $('map-wrap');
+				webglOk ??= webglSupported(document as unknown as { createElement?: (t: string) => unknown });
+				const online = (navigator as { onLine?: boolean }).onLine !== false;
+				if (!canUseBasemap({ pref: prefs.basemap, online, webgl: webglOk, failed: basemapFailed })) {
+					wrap.classList.remove('real');
+					return;
+				}
+				if (!basemap) {
+					const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#1d5fd1';
+					basemap = createBasemap({
+						container: $('basemap'),
+						bounds: basemapBounds(region.locations),
+						doc: document,
+						routeColor: accent,
+						onState: (st) => {
+							if (st === 'failed') { basemapFailed = true; basemap = null; }
+							if (tab === 'go') renderMap();
+						},
+					});
+				}
+				basemap.resize();
+				basemap.update({
+					pins: region.locations.map((l) => ({ id: l.id, name: l.name, lon: l.lon, lat: l.lat, here: l.id === s.loc, visited: !!s.visited[l.id], selected: selected === l.id, wx: weatherOn(l.id, dayOf(s.clock)).icon, count: counts.get(l.id) ?? 0 })),
+					routes: region.routes.map((r) => {
+						const a = getLocation(region, r.a)!, b = getLocation(region, r.b)!;
+						return { a: [a.lon, a.lat] as [number, number], b: [b.lon, b.lat] as [number, number], live: r.a === s.loc || r.b === s.loc };
+					}),
+				});
+				wrap.classList.toggle('real', basemap.ready);
+			}
+			function dropBasemap() {
+				basemap?.destroy();
+				basemap = null;
+				$('map-wrap').classList.remove('real');
 			}
 
 			function hero(key: string, fallback: string) {
@@ -1604,7 +1660,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					`<div class="pref-row" role="group" aria-label="${label}"><span>${label}</span><div class="seg">${opts.map(([v, name]) => `<button data-pref="${key}" data-val="${v}" class="${prefs[key] === v ? 'on' : ''}" aria-pressed="${prefs[key] === v}">${name}</button>`).join('')}</div></div>`;
 				const tips = TIP_OPTIONS.map(([k, name, hint]) => `<div class="row" style="margin-top:8px"><span class="body">${name}<small>${hint}</small></span><button data-pref="${k}" aria-pressed="${prefs[k]}">${prefs[k] ? '已开启' : '已关闭'}</button></div>`).join('');
 				const sound = `<div class="row" style="margin-top:8px"><span class="body">音效<small>做事、事件、成就时的轻提示音，默认关闭</small></span><button data-pref="sound" aria-pressed="${prefs.sound}">${prefs.sound ? '已开启' : '已关闭'}</button></div>`;
-				return `<div class="card"><h3>显示</h3><p class="muted">只在这台设备上生效。</p>${seg('font', '字号', FONT_OPTIONS)}${seg('motion', '动画', MOTION_OPTIONS)}${sound}</div>
+				const real = `<div class="row" style="margin-top:8px"><span class="body">真实地图<small>出行页用 OpenStreetMap 真实地图，图块向 OpenFreeMap 请求；关掉或离线时用手绘地图${basemapFailed ? '。这次没加载出来，正在用手绘地图' : ''}</small></span><button data-pref="basemap" aria-pressed="${prefs.basemap}">${prefs.basemap ? '已开启' : '已关闭'}</button></div>`;
+				return `<div class="card"><h3>显示</h3><p class="muted">只在这台设备上生效。</p>${seg('font', '字号', FONT_OPTIONS)}${seg('motion', '动画', MOTION_OPTIONS)}${sound}${real}</div>
 					<div class="card"><h3>提示</h3>${tips}</div>
 					<div class="card"><h3>玩法说明</h3><dl class="help">${HELP.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
 					<div class="card"><h3>多设备同步</h3><p>${esc(syncStatus)}</p>
@@ -1736,6 +1793,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					else if (k === 'motion' && MOTION_OPTIONS.some(([v]) => v === d.val)) setPrefs({ motion: d.val as Prefs['motion'] });
 					else if (TIP_OPTIONS.some(([t]) => t === k)) setPrefs({ [k]: !prefs[k as 'guide' | 'recap' | 'achToast'] });
 					else if (k === 'sound') { setPrefs({ sound: !prefs.sound }); sfx('ok'); }
+					// 重新打开时再试一次（上次失败的标记清掉）；关掉就把地图拆了，不再向图块服务发请求
+					else if (k === 'basemap') { setPrefs({ basemap: !prefs.basemap }); basemapFailed = false; if (!prefs.basemap) dropBasemap(); }
 					renderPanel();
 				}
 				else if (d.quick !== undefined) {
@@ -1967,7 +2026,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			document.addEventListener('visibilitychange', () => { if (!document.hidden && state) { connect(); pullCloud(); } });
 			// 手机断网时立刻显示离线，恢复后自动重连并同步
 			if (typeof window.addEventListener === 'function') {
-				window.addEventListener('offline', () => { syncStatus = '离线：可以查看，联网后才能行动'; if (state) renderHud(); });
+				window.addEventListener('offline', () => { syncStatus = '离线：可以查看，联网后才能行动'; if (state) { renderHud(); if (tab === 'go') renderMap(); } });
 				window.addEventListener('online', () => { if (state) { connect(); pullCloud(); } });
 			}
 			// 离线外壳：能「添加到主屏幕」、断网时也能打开查看。注册失败不影响游戏
