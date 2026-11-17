@@ -369,6 +369,17 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ dmode: other!, dest: 'kalgoorlie' });
 		assert.match(panel(), new RegExp(`class="tile on" data-dmode="${other}" data-dest="kalgoorlie"`), '点中的方块变成选中');
 		assert.match(panel(), new RegExp(`data-go="kalgoorlie" data-mode="${other}">出发去`), '出发按钮跟着换');
+		// 住在房车营地、白天在珀斯车行：卖车按钮灰掉并写明原因（和引擎的检查一致）
+		const camp = data.get('save:' + cred.id) as any;
+		camp.state.clock = Math.floor(camp.state.clock / 1440) * 1440 + 1440 + 10 * 60;
+		camp.state.vehicle = 'campervan';
+		camp.state.home = { type: 'campground', loc: 'bunbury', furniture: {} };
+		data.set('save:' + cred.id, camp);
+		docListeners.visibilitychange({});
+		await pause(60);
+		await click({ tab: 'place' });
+		assert.match(panel(), /<button data-veh="sell" disabled>/, '住营地时卖车按钮灰掉');
+		assert.match(panel(), /你住在房车营地/);
 	} finally {
 		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });

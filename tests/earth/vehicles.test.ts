@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
-import { breakdownChance, buyVehicle, garageAt, getPendingEvent, sellVehicle, serviceVehicle, travel } from '../../src/game/core/engine.ts';
+import { applyEffect, breakdownChance, buyVehicle, garageAt, getPendingEvent, sellVehicle, serviceVehicle, travel } from '../../src/game/core/engine.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
 import { BREAKDOWN, SERVICE_KM, VEHICLES } from '../../src/game/data/vehicles.ts';
 import { WA } from '../../src/game/data/wa.ts';
@@ -31,7 +31,8 @@ test('数据：每种车有保养价；抛锚事件不进普通抽取，且都�
 
 test('抛锚几率：保养里程以内为 0，超过后随里程上涨，有上限；没车为 0', () => {
 	assert.equal(breakdownChance(make({ car: { km: 9000, since: SERVICE_KM - 1 } })), 0);
-	assert.equal(breakdownChance(make({ car: { km: 9000, since: SERVICE_KM } })), BREAKDOWN.base);
+	assert.equal(breakdownChance(make({ car: { km: 9000, since: SERVICE_KM } })), 0, '正好 5000 公里还不算超过');
+	assert.ok(Math.abs(breakdownChance(make({ car: { km: 9000, since: SERVICE_KM + 1 } })) - BREAKDOWN.base) < 1e-3);
 	assert.ok(breakdownChance(make({ car: { km: 0, since: SERVICE_KM + 4000 } })) > BREAKDOWN.base);
 	assert.equal(breakdownChance(make({ car: { km: 0, since: 1e6 } })), BREAKDOWN.max);
 	assert.equal(breakdownChance(make({ vehicle: 'none', car: { km: 0, since: 1e6 } })), 0);
@@ -90,4 +91,43 @@ test('动作协议和存档校验', () => {
 	delete old.car;
 	assert.deepEqual(sanitizeState(old, locs, { fallbackLoc: 'perth', now: Date.now() })!.car, { km: 0, since: 0 });
 	assert.deepEqual(sanitizeState({ ...make(), car: { km: 1234.7, since: 99.2 } }, locs, { fallbackLoc: 'perth', now: Date.now() })!.car, { km: 1234, since: 99 });
+});
+
+test('抛锚的先后：被盘查时不抛锚也不掷骰；否则抛锚优先于普通到达事件，实际几率就是标的几率（复审问题 2）', () => {
+	const N = 600;
+	let hits = 0;
+	for (let seed = 1; seed <= N; seed++) {
+		const r = travel(make({ car: { km: 0, since: 1e6 } }, seed), WA, 'fremantle', 'road');
+		if (getPendingEvent(r.state)?.breakdown) hits++;
+	}
+	const rate = hits / N;
+	assert.ok(Math.abs(rate - BREAKDOWN.max) < 0.07, `标 ${BREAKDOWN.max}，实际 ${rate}`);
+	for (let seed = 1; seed <= 30; seed++) {
+		const hot = travel(make({ heat: 80, car: { km: 0, since: 1e6 } }, seed), WA, 'fremantle', 'road');
+		assert.equal(getPendingEvent(hot.state)?.id, 'heat-check', '盘查优先');
+		const cold = travel(make({ heat: 80 }, seed), WA, 'fremantle', 'road');
+		assert.equal(hot.state.seed, cold.state.seed, '被盘查时不为抛锚掷骰');
+	}
+});
+
+test('保养途中晕倒：保养没做，钱退回（复审问题 3）', () => {
+	const weak = make({ health: 1, needs: { hunger: 0, energy: 0, hygiene: 50, fun: 50, social: 50 }, car: { km: 9000, since: 7000 } });
+	const r = serviceVehicle(weak, WA);
+	assert.ok(r.collapsed);
+	assert.equal(r.state.car.since, 7000, '没保养');
+	assert.ok(r.state.journal.some((j) => /退回/.test(j.text)));
+	// 和同样晕倒、但没去保养的情况比：现金一样（只扣了住院费）
+	const control = structuredClone(weak);
+	assert.ok(applyEffect(control, { minutes: 120 }, WA));
+	assert.equal(r.state.cash, control.cash);
+});
+
+test('里程存档约束：没车清零、保养里程不超过总里程、引擎输出不超上限（复审问题 4）', async () => {
+	const { CAR_KM_MAX } = await import('../../src/game/data/vehicles.ts');
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const fix = (over: Partial<PlayerState>) => sanitizeState({ ...make(), ...over }, locs, { fallbackLoc: 'perth', now: Date.now() })!.car;
+	assert.deepEqual(fix({ vehicle: 'none', car: { km: 9000, since: 100 } }), { km: 0, since: 0 });
+	assert.deepEqual(fix({ car: { km: 100, since: 1000 } }), { km: 100, since: 100 });
+	const r = travel(make({ car: { km: CAR_KM_MAX, since: CAR_KM_MAX } }), WA, 'fremantle', 'road');
+	assert.deepEqual(r.state.car, { km: CAR_KM_MAX, since: CAR_KM_MAX });
 });

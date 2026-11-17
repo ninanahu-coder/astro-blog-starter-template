@@ -7,7 +7,7 @@ import { MAX_TRAITS } from '../data/traits.ts';
 import { NPCS } from '../data/npcs.ts';
 import { CAREERS } from '../data/careers.ts';
 import { HOMES } from '../data/housing.ts';
-import { VEHICLES } from '../data/vehicles.ts';
+import { CAR_KM_MAX, VEHICLES } from '../data/vehicles.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { WISHES } from '../data/wishes.ts';
@@ -272,7 +272,12 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			return out;
 		})(),
 		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id)),
-		car: { km: Math.floor(num(r.car?.km, 0, 1e7, 0)), since: Math.floor(num(r.car?.since, 0, 1e7, 0)) },
+		car: (() => {
+			// 没车就没有里程；离上次保养的里程不超过总里程
+			if (!VEHICLES.some((v) => v.id === r.vehicle)) return { km: 0, since: 0 };
+			const km = Math.floor(num(r.car?.km, 0, CAR_KM_MAX, 0));
+			return { km, since: Math.min(km, Math.floor(num(r.car?.since, 0, CAR_KM_MAX, 0))) };
+		})(),
 		trades: {
 			day: Math.floor(num(r.trades?.day, 0, 1e7, 0)),
 			out: Math.floor(num(r.trades?.out, 0, 1000, 0)),

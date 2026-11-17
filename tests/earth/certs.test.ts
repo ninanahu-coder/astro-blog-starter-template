@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
-import { applyJob, careerPay, certsAt, takeCert, workShift } from '../../src/game/core/engine.ts';
+import { applyEffect, applyJob, careerPay, certsAt, takeCert, workShift } from '../../src/game/core/engine.ts';
 import { workTerms } from '../../src/game/core/venues.ts';
 import { CAREERS } from '../../src/game/data/careers.ts';
 import { CERTS } from '../../src/game/data/certs.ts';
@@ -57,6 +57,31 @@ test('持证上班：游戏内每班和真实打卡的时薪都按证书加薪',
 	const pub = VENUE_TYPES.find((t) => t.id === 'pub')!;
 	const venue = { id: 'v-test', name: '测试酒吧', type: 'pub', lat: -32.05, lon: 115.75, loc: 'fremantle' } as never;
 	assert.ok(workTerms(withCert, pub, venue)!.hourly > workTerms(base, pub, venue)!.hourly);
+});
+
+test('真实打卡：每种职业、每类能打卡的地点、每个等级，持证时薪都正好 +对应比例（复审问题 1）', () => {
+	for (const c of CAREERS) for (const vt of c.venues ?? []) for (let level = 0; level < c.levels.length; level++) {
+		const type = VENUE_TYPES.find((t) => t.id === vt)!;
+		const loc = WA.locations.find((l) => c.where.kinds?.includes(l.kind) || c.where.tags?.some((t) => l.tags.includes(t)))!.id;
+		const s = make({ loc, job: { career: c.id, loc, level, shifts: 0, good: 0, lastDay: -1 } });
+		const cert = CERTS.find((x) => x.career === c.id)!;
+		const venue = { id: 'v-test', name: '测试', type: vt, lat: 0, lon: 0, loc } as never;
+		const plain = workTerms(s, type, venue)!.hourly;
+		const certified = workTerms({ ...s, certs: [cert.id] }, type, venue)!.hourly;
+		assert.ok(Math.abs(certified / plain - (1 + cert.payBonus)) < 0.01, `${c.id}@${vt} 等级 ${level}：${plain} -> ${certified}`);
+	}
+});
+
+test('考证途中晕倒：不发证，学费退回（复审问题 3）', () => {
+	const weak = make({ loc: 'fremantle', clock: at(10), cash: 500, health: 1, needs: { hunger: 0, energy: 30, hygiene: 50, fun: 50, social: 50 } });
+	const r = takeCert(weak, WA, 'rsa');
+	assert.ok(r.collapsed);
+	assert.deepEqual(r.state.certs, []);
+	assert.ok(r.state.journal.some((j) => /学费 \$120 退回/.test(j.text)));
+	// 住院费按晕倒时手上的钱算（那时学费已交），醒来后学费整笔退回
+	const control = structuredClone({ ...weak, cash: weak.cash - 120 });
+	assert.ok(applyEffect(control, { minutes: 240, needs: { energy: -24, fun: -5 } }, WA));
+	assert.equal(r.state.cash, control.cash + 120);
 });
 
 test('证书走动作协议，存档校验去掉不认识的证书', () => {

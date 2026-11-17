@@ -21,5 +21,7 @@ export const DEALER_HOURS: [number, number] = [9, 17];
  * 每趟自驾抵达时有一定几率抛锚（几率随超出的里程上涨，有上限）。到修车厂保养后从零算起。
  */
 export const SERVICE_KM = 5000;
+/** 里程上限（存档校验和引擎输出共用） */
+export const CAR_KM_MAX = 10_000_000;
 export const BREAKDOWN = { base: 0.1, perKm: 1 / 20000, max: 0.5 };
 export const GARAGE: { where: Where; hours: Hours; minutes: number } = { where: { kinds: ['city', 'port', 'town', 'mining'] }, hours: [8, 17], minutes: 120 };
