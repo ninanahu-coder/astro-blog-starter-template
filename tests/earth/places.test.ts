@@ -47,8 +47,8 @@ test('地图：大陆上的地点都落在西澳轮廓里（岛屿除外），�
 	}
 });
 
-test('到达事件：每个地点至少有一条只属于它的事件（第 24 轮补齐）', () => {
-	for (const l of WA.locations) {
+test('到达事件：每个地点至少有一条只属于它的事件（第 24 轮补齐；第 44 轮起包括南澳）', () => {
+	for (const l of WORLD.locations) {
 		assert.ok(EVENTS.some((e) => e.weight > 0 && !e.venueTypes && e.locs?.includes(l.id)), `${l.id} 没有专属事件`);
 	}
 });

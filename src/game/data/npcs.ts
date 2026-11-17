@@ -221,4 +221,51 @@ export const NPCS: NpcDef[] = [
 		],
 		perk: { at: 30, name: '果园早饭', desc: '麦克在果园里请你吃了一顿芒果配煎蛋。', every: 2, fx: { minutes: 45, needs: { hunger: 40, social: 15 }, moodlet: 'well-fed' } },
 	},
+	// ---------- 南澳（第 44 轮）：原创人物。剧情和专属互动的效果数值照西澳 NPC 的同档写，【待平衡】 ----------
+	{
+		id: 'greta', name: '葛蕾塔', role: '酿酒师', loc: 'barossa', hours: [8, 17],
+		bio: '家里第五代酿酒人，说话时总带着一股葡萄皮的味道。',
+		schedule: [
+			{ weekdays: [5], loc: 'hahndorf', hours: [10, 15], note: '周六去汉多夫的集市摆试饮摊' },
+			{ seasons: ['autumn'], loc: 'barossa', hours: [5, 19], note: '秋天采收季从天亮忙到天黑' },
+		],
+		gifts: { love: ['snack'], like: ['water', 'sunhat'], dislike: ['electrolyte'] },
+		stories: [
+			{ at: 10, title: '先闻再喝', text: '葛蕾塔教你品酒前先晃一晃、闻一闻。' },
+			{ at: 30, title: '老藤', text: '葛蕾塔带你看了她曾祖父种下的那排老葡萄藤。', fx: { needs: { fun: 15 }, moodlet: 'warm-moment' } },
+			{ at: 60, title: '成了好友', text: '采收季缺人手，葛蕾塔请你来帮了几天，工钱给得很大方。', fx: { cash: 250, skills: { stamina: 3 }, moodlet: 'new-friend' } },
+			{ at: 90, title: '你的那一桶', text: '葛蕾塔在一只橡木桶上写了你的名字：「这桶酿好了第一瓶归你。」', fx: { respect: 3, moodlet: 'best-friend' } },
+		],
+		perk: { at: 30, name: '酒窖午餐', desc: '葛蕾塔在酒窖里请你吃了奶酪、面包和一杯新酒。', every: 2, fx: { minutes: 45, needs: { hunger: 35, social: 15 }, moodlet: 'well-fed' } },
+	},
+	{
+		id: 'kev', name: '凯文', role: '欧泊矿工', loc: 'coober-pedy', hours: [6, 14],
+		bio: '在地下挖了二十年欧泊，家也住在地下。',
+		schedule: [
+			{ weekdays: [6], loc: 'coober-pedy', hours: [16, 21], note: '周日傍晚在地下酒吧打台球' },
+		],
+		gifts: { love: ['water'], like: ['sunhat', 'electrolyte'], dislike: ['umbrella'] },
+		stories: [
+			{ at: 10, title: '地下比地上凉', text: '凯文招手让你进他的地下房子凉快一会儿。' },
+			{ at: 30, title: '一条矿脉', text: '凯文给你看他用手电照出来的一道彩色矿脉，说这辈子就为这个。', fx: { needs: { fun: 15 } } },
+			{ at: 60, title: '成了好友', text: '凯文挖到一块好料，分了你一份卖的钱：「你上回帮我搬过石头。」', fx: { cash: 250, skills: { strength: 3 }, moodlet: 'new-friend' } },
+			{ at: 90, title: '矿坑的名字', text: '凯文把新挖的一条坑道用你的名字命了名。', fx: { respect: 3, moodlet: 'best-friend' } },
+		],
+		perk: { at: 30, name: '地下的凉快', desc: '大中午凯文让你在他的地下屋里歇一会儿。', every: 1, fx: { minutes: 40, needs: { energy: 15 }, moodlet: 'warm-moment' } },
+	},
+	{
+		id: 'ayla', name: '艾拉', role: '护林员', loc: 'kangaroo-island', hours: [8, 17],
+		bio: '在袋鼠岛的保护区工作，能叫出好几只海狮的名字。',
+		schedule: [
+			{ weekdays: [6], loc: 'victor-harbor', hours: [10, 16], note: '周日坐渡轮去维克多港买东西' },
+		],
+		gifts: { love: ['coffee'], like: ['snack', 'raincoat'], dislike: ['rod'] },
+		stories: [
+			{ at: 10, title: '离远一点', text: '艾拉提醒你看野生动物要离十米远，语气很温和。' },
+			{ at: 30, title: '那只小海狮', text: '艾拉指给你看一只去年救回来的小海狮，现在又胖又精神。', fx: { needs: { fun: 15 }, skills: { survival: 1 } } },
+			{ at: 60, title: '成了好友', text: '保护区缺志愿者，艾拉推荐你去帮忙，还发了一笔补贴。', fx: { cash: 250, skills: { survival: 3 }, moodlet: 'new-friend' } },
+			{ at: 90, title: '巡护记录', text: '艾拉在保护区的巡护记录里写上了你的名字。', fx: { respect: 3, moodlet: 'best-friend' } },
+		],
+		perk: { at: 30, name: '跟着巡一圈', desc: '艾拉带你在保护区里巡了一圈，讲了好多动物的事。', every: 2, fx: { minutes: 60, needs: { fun: 25 }, skills: { survival: 1 } } },
+	},
 ];

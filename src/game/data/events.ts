@@ -2,6 +2,7 @@
 // 新增事件只需往数组里加一条；effects 全部走 engine.applyEffect，无需写逻辑代码。
 import type { GameEvent } from '../core/types.ts';
 import { VENUE_EVENTS } from './venue-events.ts';
+import { SA_EVENTS } from './events-sa.ts';
 
 export const EVENTS: GameEvent[] = [
 	{
@@ -407,4 +408,5 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	...VENUE_EVENTS,
+	...SA_EVENTS,
 ];

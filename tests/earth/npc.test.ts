@@ -8,13 +8,13 @@ import { parseAction, applyAction } from '../../src/game/core/actions.ts';
 import { isOpen, period } from '../../src/game/core/time.ts';
 import { ITEMS } from '../../src/game/data/items.ts';
 import { NPCS } from '../../src/game/data/npcs.ts';
-import { WA } from '../../src/game/data/wa.ts';
+import { FULL_AREAS, WA, WORLD } from '../../src/game/data/wa.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
 const make = () => createCharacter({ id: 'npc-player', name: '测', avatar: '🧑', origin: 'student', region: 'wa', spawn: WA.spawn, seed: 3 });
 
 test('NPC 数据自洽', () => {
-	const locs = new Set(WA.locations.map((l) => l.id));
+	const locs = new Set(WORLD.locations.map((l) => l.id));
 	const items = new Set(ITEMS.map((i) => i.id));
 	assert.equal(new Set(NPCS.map((n) => n.id)).size, NPCS.length);
 	for (const n of NPCS) {
@@ -266,4 +266,15 @@ test('新 NPC 的去处：鲁比夏天去黑德兰港，罗莎周日去玛格丽
 	assert.equal(npcPlan(get('rosa'), at(7, 11)).loc, 'bunbury');
 	assert.equal(npcPlan(get('mack'), at(84 + 5, 10)).loc, 'broome', '冬季第 6 天是周六');
 	assert.equal(npcPlan(get('mack'), at(5, 10)).loc, 'kununurra', '春天周六还在农场');
+});
+
+test('南澳 NPC（第 44 轮）：三位常驻南澳，日程去处都在南澳；剧情和专属互动的结构和西澳 NPC 一样', () => {
+	const sa = new Set(WORLD.locations.filter((l) => !WA.locations.some((w) => w.id === l.id)).map((l) => l.id));
+	const mine = NPCS.filter((n) => sa.has(n.loc));
+	assert.deepEqual(mine.map((n) => n.id), ['greta', 'kev', 'ayla']);
+	for (const n of mine) {
+		for (const slot of n.schedule ?? []) assert.ok(sa.has(slot.loc), `${n.id} 的日程去 ${slot.loc}`);
+		assert.deepEqual(n.stories.map((x) => x.at), [10, 30, 60, 90]);
+		assert.ok(n.perk);
+	}
 });
