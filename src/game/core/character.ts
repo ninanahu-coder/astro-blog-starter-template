@@ -19,6 +19,7 @@ import { getRegion } from '../data/wa.ts';
 import { COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
 import { ANIMALS, DEX_GROUPS } from '../data/wildlife.ts';
+import { FISH } from '../data/fish.ts';
 import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
@@ -103,6 +104,7 @@ export function createCharacter(opts: {
 		checkins: [],
 		photos: [],
 		dex: [],
+		fish: {},
 		dexSets: [],
 		seen: [],
 		traits: validTraits(opts.traits ?? [], MAX_TRAITS) ? [...(opts.traits ?? [])] : [],
@@ -275,6 +277,14 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			return out;
 		})(),
 		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id)),
+		fish: (() => {
+			const out: Record<string, number> = {};
+			for (const f of FISH) {
+				const n = r.fish?.[f.id];
+				if (typeof n === 'number' && Number.isFinite(n) && n >= 1) out[f.id] = Math.min(1e6, Math.floor(n));
+			}
+			return out;
+		})(),
 		dex: [...new Set(strList(r.dex, 200))].filter((id) => ANIMALS.some((a) => a.id === id)),
 		dexSets: [...new Set(strList(r.dexSets, 20))].filter((id) => Object.hasOwn(DEX_GROUPS, id)),
 		car: (() => {

@@ -480,6 +480,7 @@ export interface PlayerState {
 	visited: Record<string, number>; // locId -> 到访次数
 	checkins: string[]; // 已 GPS 打卡的 POI id
 	dex: string[]; // 野生动物图鉴：见过的动物 id
+	fish: Record<string, number>; // 钓到过的鱼：鱼种 id -> 条数
 	dexSets: string[]; // 已发过奖的图鉴分组（集齐时记下，以后加了新动物也不收回、不重复发）
 	photos: string[]; // 天气相册：'地点id|天气id'，抵达时按当天天气收集（只是收藏，不发奖励）
 	seen: string[]; // 已触发的 once 事件

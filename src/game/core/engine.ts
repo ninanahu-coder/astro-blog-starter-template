@@ -2,6 +2,7 @@
 // 所有动作返回新的 PlayerState，不修改入参。
 import { unit, weatherAt, weatherOn } from './weather.ts';
 import { ANIMALS, DEX_GROUPS, type AnimalDef } from '../data/wildlife.ts';
+import { FISH, FISHING, type FishDef } from '../data/fish.ts';
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
@@ -307,6 +308,44 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 	}
 	const seen = spotAnimal(state, loc);
 	if (seen) recordAnimal(state, seen.id, `在${loc.name}看见了${seen.icon}${seen.name}：${seen.desc}`);
+}
+
+// ---------- 钓鱼 ----------
+const fishHere = (f: FishDef, loc: GameLocation) => !!(f.where.locs?.includes(loc.id) || f.where.kinds?.includes(loc.kind) || f.where.tags?.some((t) => loc.tags.includes(t)));
+
+/** 这个地方此刻能钓到的鱼；一种都没有就是不能钓鱼的地方（返回 null） */
+export function fishingAt(state: PlayerState, region: Region): { fish: FishDef[]; blocked?: string } | null {
+	const loc = getLocation(region, state.loc);
+	if (!loc || !FISH.some((f) => fishHere(f, loc))) return null;
+	const season = dateOf(state.clock).season;
+	const p = period(state.clock).id;
+	const w = weatherAt(state);
+	const fish = FISH.filter((f) => fishHere(f, loc) && (!f.seasons || f.seasons.includes(season)) && (!f.periods || f.periods.includes(p)) && (!f.weather || f.weather.includes(w.id)));
+	const blocked = !state.inventory[FISHING.rod] ? '要先买一根鱼竿' : w.closesSea ? '风暴天浪太大，钓不了' : !fish.length ? '这个时候这里钓不到鱼' : undefined;
+	return { fish, blocked };
+}
+
+/** 钓一次鱼：花时间和体力；按生存能力决定空手几率，钓到的当场卖给鱼铺 */
+export function goFishing(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const spot = fishingAt(prev, region);
+	if (!spot) return fail(prev, '这里没有能钓鱼的水。');
+	if (spot.blocked) return fail(prev, spot.blocked + '。');
+	const state = clone(prev);
+	const empty = Math.max(FISHING.emptyMin, FISHING.emptyBase - checkScore(state, 'survival').total * FISHING.emptyPerSkill);
+	let r = roll(state) * (empty + spot.fish.reduce((s, f) => s + f.weight, 0)) - empty;
+	const caught = r < 0 ? undefined : spot.fish.find((f) => (r -= f.weight) < 0) ?? spot.fish[spot.fish.length - 1];
+	if (applyEffect(state, { minutes: FISHING.minutes, needs: FISHING.needs, skills: { survival: 0.5 } }, region)) return collapsedResult(state);
+	if (!caught) {
+		log(state, '钓了一个半小时，一条也没上钩。');
+		return { ok: true, state, msg: '一条也没钓到，不过吹了吹风。' };
+	}
+	const isNew = !state.fish[caught.id];
+	state.fish[caught.id] = (state.fish[caught.id] ?? 0) + 1;
+	state.cash += caught.price;
+	const msg = `钓到一条${caught.icon}${caught.name}${isNew ? '（新鱼种！）' : ''}，卖给鱼铺得 $${caught.price}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
 }
 
 // ---------- 野生动物图鉴 ----------
