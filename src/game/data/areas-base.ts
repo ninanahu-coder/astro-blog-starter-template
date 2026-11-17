@@ -3,9 +3,10 @@
 // 画面层（地图、底图、轮廓）按玩家所在地点的区域（areaOf）画。地点 id 在所有区域里必须唯一。
 import type { Region, Route } from '../core/types.ts';
 import { WA_BASE } from './wa-base.ts';
+import { SA_BASE } from './sa-base.ts';
 
 /** 所有区域（首屏版）。第一个是新角色的出生区域 */
-export const AREAS: Region[] = [WA_BASE];
+export const AREAS: Region[] = [WA_BASE, SA_BASE];
 
 /** 跨区域路线（第 43 轮起） */
 export const CROSS_ROUTES: Route[] = [];

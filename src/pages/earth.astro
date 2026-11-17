@@ -297,6 +297,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.npc-rel .bar { width: 96px; margin: 0; }
 			.npc-talk .bubble { position: relative; margin: 0; padding: 10px 12px; border-radius: 4px 16px 16px 16px; background: var(--card); color: var(--text); font-size: 14px; line-height: 1.6; }
 			.talk-choices button { border-radius: 22px; min-height: 44px; padding: 0 16px; }
+			.trail-area { margin: 10px 0 4px; font-size: 13px; font-weight: 700; color: var(--text2); }
 			.needs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; row-gap: 12px; }
 			.needs-grid .need { font-size: 13px; color: var(--text2); }
 			.needs-grid .need .top { display: flex; justify-content: space-between; }
@@ -538,7 +539,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let syncStatus = '未同步';
 			let nearFix: { lat: number; lon: number; acc: number; at: number } | null = null; // 只留在本机内存，不存盘
 			// 珀斯一带地点密集，标签手动错开：[dx, dy, anchor]
-			const LABEL: Record<string, [number, number, string]> = { perth: [8, -3, 'start'], fremantle: [-8, 9, 'end'], rottnest: [-9, -1, 'end'] };
+			// 挤在一起的地点手动摆标签：西澳珀斯一带；南澳阿德莱德一带（第 42 轮）
+			const LABEL: Record<string, [number, number, string]> = { perth: [8, -3, 'start'], fremantle: [-8, 9, 'end'], rottnest: [-9, -1, 'end'], adelaide: [8, -4, 'start'], glenelg: [-8, 0, 'end'], hahndorf: [8, 8, 'start'], barossa: [8, -2, 'start'], 'mclaren-vale': [-8, 8, 'end'], 'victor-harbor': [8, 10, 'start'], 'kangaroo-island': [-8, 10, 'end'] };
 
 			const $ = (id: string) => document.getElementById(id)!;
 			const esc = (s: unknown) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -1626,7 +1628,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const achHtml = `<div class="card"><h3>成就 ${achDone}/${ach.length}</h3><div class="ach-grid">${ach.map((a) => `<div class="ach${a.done ? ' done' : ''}"><span class="ach-ico" aria-hidden="true">${a.def.icon}</span><span><b>${esc(a.def.name)}</b><small>${esc(a.def.desc)}${a.done ? '' : ` · ${a.cur.toLocaleString()}/${a.goal.toLocaleString()}`}</small></span><span class="sr">${a.done ? '（已达成）' : '（未达成）'}</span></div>`).join('')}</div></div>`;
 				// 足迹：全部地点，去过的标出次数；点一下看去那里的走法（当前所在地回今天页）
 				const placesVisited = region.locations.filter((l) => s.visited[l.id]).length;
-				const trailHtml = `<div class="card"><h3>足迹 ${placesVisited}/${region.locations.length}</h3><div class="trail">${region.locations.map((l) => `<button class="${s.visited[l.id] ? 'been' : ''}" data-loc="${l.id}">${KIND_ICON[l.kind]} ${esc(l.name)}${s.visited[l.id] ? `<small>${l.id === s.loc ? '在这里' : `${s.visited[l.id]} 次`}</small>` : '<small>没去过</small>'}</button>`).join('')}</div></div>`;
+				// 足迹按区域分组（第 42 轮）：每个区域一个小标题和去过几个
+				const trailHtml = `<div class="card"><h3>足迹 ${placesVisited}/${region.locations.length}</h3>${MAP_AREAS.map((a) => `<p class="trail-area">${esc(a.name)} · ${a.locations.filter((l) => s.visited[l.id]).length}/${a.locations.length}</p><div class="trail">${a.locations.map((l) => `<button class="${s.visited[l.id] ? 'been' : ''}" data-loc="${l.id}">${KIND_ICON[l.kind]} ${esc(l.name)}${s.visited[l.id] ? `<small>${l.id === s.loc ? '在这里' : `${s.visited[l.id]} 次`}</small>` : '<small>没去过</small>'}</button>`).join('')}</div>`).join('')}</div>`;
 				// 天气相册：每个地点一行，五种天气，拍到的点亮
 				const photos = new Set(s.photos);
 				const photoHtml = `<div class="card"><h3>天气相册 ${s.photos.length}/${region.locations.length * WEATHERS.length}</h3><p>抵达一个地方时，会按当天的天气收一张照片。同一个地方换个天气再来，能收到不一样的。</p>

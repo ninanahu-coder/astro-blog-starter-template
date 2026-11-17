@@ -5,7 +5,7 @@ import type { AchievementDef } from '../core/achievements.ts';
 export const ACHIEVEMENTS: AchievementDef[] = [
 	{ id: 'explore-5', icon: '🧭', name: '出门看看', desc: '去过 5 个地方', metric: 'places', goal: 5 },
 	{ id: 'explore-10', icon: '🗺️', name: '西澳半壁', desc: '去过 10 个地方', metric: 'places', goal: 10 },
-	{ id: 'explore-all', icon: '🌏', name: '活地图', desc: '去过西澳全部地方', metric: 'places', goal: 'all-places' },
+	{ id: 'explore-all', icon: '🌏', name: '活地图', desc: '去过地图上全部地方', metric: 'places', goal: 'all-places' },
 	{ id: 'checkin-5', icon: '📌', name: '打卡达人', desc: '本人到场打卡 5 个地点', metric: 'checkins', goal: 5 },
 	{ id: 'collect-5', icon: '🎟️', name: '体验派', desc: '收藏 5 项体验', metric: 'collected', goal: 5 },
 	{ id: 'collect-all', icon: '🏅', name: '收藏册满了', desc: '收藏全部体验', metric: 'collected', goal: 'all-experiences' },

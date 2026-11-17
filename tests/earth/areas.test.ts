@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { AREAS, areaOf, CROSS_ROUTES, exitsOf, getAreaBase, mergeAreas, WORLD_BASE } from '../../src/game/data/areas-base.ts';
 import { WA_BASE } from '../../src/game/data/wa-base.ts';
+import { SA_BASE } from '../../src/game/data/sa-base.ts';
 import { FULL_AREAS, getRegion, WA, WORLD } from '../../src/game/data/wa.ts';
 import { applyAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
@@ -65,20 +66,18 @@ test('跨区域出行：走跨区域路线到另一个区域，存档清洗后�
 	assert.equal(sanitizeState(r.state, new Set(WA.locations.map((l) => l.id)), { fallbackLoc: 'perth' })!.loc, 'perth');
 });
 
-test('现在的世界：只有西澳一个区域，规则看到的和原来的西澳完全一样（平衡模拟不变）', () => {
-	assert.deepEqual(AREAS.map((a) => a.id), ['wa']);
-	assert.deepEqual(CROSS_ROUTES, []);
+test('现在的世界：西澳 + 南澳（第 42 轮）；规则看到的世界是两者合起来，西澳本身不变（平衡模拟只用西澳）', () => {
+	assert.deepEqual(AREAS.map((a) => a.id), ['wa', 'sa']);
 	assert.equal(getAreaBase('wa'), WA_BASE);
+	assert.equal(getAreaBase('sa'), SA_BASE);
 	for (const bad of ['world', 'constructor', '__proto__', 'toString', 1, null]) assert.equal(getAreaBase(bad), undefined, String(bad));
-	assert.deepEqual(WORLD.locations, WA.locations);
-	assert.deepEqual(WORLD.routes, WA.routes);
-	assert.deepEqual(WORLD.pois, WA.pois);
-	assert.deepEqual(WORLD.venues, WA.venues);
-	assert.deepEqual(WORLD_BASE.locations, WA_BASE.locations);
-	assert.equal(WORLD.spawn, 'perth');
+	assert.deepEqual(WORLD.locations, [...WA.locations, ...SA_BASE.locations]);
+	assert.deepEqual(WORLD.routes, [...WA.routes, ...SA_BASE.routes, ...CROSS_ROUTES]);
+	assert.deepEqual(WORLD.venues, WA.venues, '南澳还没有真实地点');
+	assert.equal(WORLD.spawn, 'perth', '新角色还在珀斯出生');
 	assert.equal(getRegion('world'), WORLD);
 	assert.equal(getRegion('wa'), FULL_AREAS[0]);
-	// 每个区域都有出生点和医院，且都在自己的地点里；地点 id 全世界唯一
+	// 每个区域都有出生点和医院，且都在自己的地点里；区域内路线两端都在本区域；地点 id 全世界唯一
 	for (const a of FULL_AREAS) {
 		const ids = new Set(a.locations.map((l) => l.id));
 		assert.ok(ids.has(a.spawn) && ids.has(a.hospital), a.id);
@@ -86,6 +85,42 @@ test('现在的世界：只有西澳一个区域，规则看到的和原来的�
 		assert.ok(a.outline.length >= 3, `${a.id} 有轮廓`);
 	}
 	assert.equal(new Set(WORLD.locations.map((l) => l.id)).size, WORLD.locations.length);
+});
+
+/** 点在多边形里（射线法） */
+function inside([x, y]: [number, number], poly: [number, number][]) {
+	let c = false;
+	for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+		const [xi, yi] = poly[i], [xj, yj] = poly[j];
+		if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c;
+	}
+	return c;
+}
+
+test('南澳数据（第 42 轮）：坐标在范围内、大陆地点在轮廓里；区域内路线连通；航班两头都有机场；标签和类型合法；每个地点 3 条小知识', async () => {
+	const { FACTS } = await import('../../src/game/data/facts.ts');
+	const KINDS = new Set(WA.locations.map((l) => l.kind));
+	const TAGS = new Set(['airport', 'hospital', 'pub', 'beach', 'reef', 'surf', 'wine', 'whale', 'dolphin', 'market', 'gym', 'gorge', 'gold']);
+	const b = SA_BASE.bounds;
+	for (const l of SA_BASE.locations) {
+		assert.ok(l.lat > b.minLat && l.lat < b.maxLat && l.lon > b.minLon && l.lon < b.maxLon, `${l.id} 在范围内`);
+		if (l.kind !== 'island') assert.ok(inside([l.lon, l.lat], SA_BASE.outline), `${l.id} 在南澳轮廓里`);
+		else assert.ok(!inside([l.lon, l.lat], SA_BASE.outline), `${l.id} 是岛，不在大陆轮廓里`);
+		assert.ok(KINDS.has(l.kind), `${l.id} 类型 ${l.kind}`);
+		for (const t of l.tags) assert.ok(TAGS.has(t), `${l.id} 标签 ${t}`);
+		assert.equal(FACTS[l.id]?.length, 3, `${l.id} 小知识`);
+	}
+	const byId = new Map(SA_BASE.locations.map((l) => [l.id, l]));
+	for (const r of SA_BASE.routes) if (r.mode === 'air') assert.ok(byId.get(r.a)!.tags.includes('airport') && byId.get(r.b)!.tags.includes('airport'), `航班 ${r.a}–${r.b} 两头有机场`);
+	// 从阿德莱德出发，区域内路线能到每个地点
+	const seen = new Set(['adelaide']);
+	for (let changed = true; changed; ) {
+		changed = false;
+		for (const r of SA_BASE.routes) for (const [x, y] of [[r.a, r.b], [r.b, r.a]]) if (seen.has(x) && !seen.has(y)) { seen.add(y); changed = true; }
+	}
+	assert.equal(seen.size, SA_BASE.locations.length, '都连得上');
+	// 南澳轮廓：西界 129°E、东界 141°E、北界 26°S
+	assert.ok(SA_BASE.outline.every(([x, y]) => x >= 129 && x <= 141 && y <= -26 && y >= -38.1));
 });
 
 test('存档清洗：区域字段由地点决定，存档里写错的区域会被改正', () => {

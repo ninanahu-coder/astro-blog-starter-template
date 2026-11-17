@@ -6,7 +6,7 @@ import { createCharacter } from '../../src/game/core/character.ts';
 import { placeFacts, travel, travelOptions } from '../../src/game/core/engine.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
 import { FACTS } from '../../src/game/data/facts.ts';
-import { WA } from '../../src/game/data/wa.ts';
+import { WA, WORLD } from '../../src/game/data/wa.ts';
 
 const fresh = () => createCharacter({ id: 'place-player', name: '游', avatar: '🧑', origin: 'student', region: 'wa', spawn: WA.spawn, seed: 5 });
 
@@ -54,9 +54,10 @@ test('到达事件：每个地点至少有一条只属于它的事件（第 24 �
 });
 
 test('小知识数据：每个地点正好 3 条，不重复，有 https 来源，不超过 50 个字', () => {
-	const ids = new Set(WA.locations.map((l) => l.id));
+	// 所有区域的地点都要有（第 42 轮起有南澳）
+	const ids = new Set(WORLD.locations.map((l) => l.id));
 	assert.deepEqual(Object.keys(FACTS).filter((k) => !ids.has(k)), [], '没有多余地点');
-	for (const l of WA.locations) {
+	for (const l of WORLD.locations) {
 		const list = FACTS[l.id];
 		assert.equal(list?.length, 3, l.id);
 		assert.equal(new Set(list.map((f) => f.text)).size, 3, l.id);
