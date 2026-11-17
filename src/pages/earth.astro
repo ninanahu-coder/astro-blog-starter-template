@@ -226,6 +226,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.chat { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; font-size: 14px; margin: 8px 0; }
 			.chat b { color: var(--accent); font-weight: 600; }
 			.inline { display: flex; gap: 8px; flex-wrap: wrap; }
+			.note { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); }
+			.note .body { flex: 1; overflow-wrap: anywhere; }
 			.coop-item { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
 			.coop-item p { margin: 0; }
 			.coop-item .inline button { min-height: 44px; }
@@ -356,6 +358,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { NPCS } from '../game/data/npcs.ts';
 			import { coopBlocked, coopCostLabel, coopsAt } from '../game/core/coop.ts';
 			import { getCoop } from '../game/data/coop.ts';
+			import { giveBlocked, saleRange, takeBlocked } from '../game/core/trade.ts';
+			import { metList } from '../game/core/social.ts';
+			import type { WeeklyGoal } from '../game/core/weekly.ts';
+			import { cleanNote, NOTE_MAX } from '../game/core/notes.ts';
+			import { realDayOf } from '../game/core/daily.ts';
 			import { ACTIVITIES } from '../game/data/activities.ts';
 			import { EVENTS } from '../game/data/events.ts';
 			import { dateLabel, period, PERIOD_IDS, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
@@ -547,6 +554,140 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 				render();
 			}
+			// 送礼与二手摊：挂单以服务端为准；打开社交页、收到在线频道的 trade 提醒时拉取
+			type Offer = { id: string; kind: 'gift' | 'sale'; item: string; price: number; name: string; avatar: string; toName: string; loc: string; mine: boolean; taking: boolean };
+			let tradeOffers: Offer[] = [];
+			let tradeAt = 0;
+			let tradeLoading = false;
+			let giftTo: { hash: string; name: string } | null = null; // 正在选要送什么
+			let sellPick = false; // 正在选要摆到二手摊的东西
+			const myOffersSeen = new Set<string>(); // 我挂出去的单：消失了（被收下或买走）就拉一次最新进度
+			const myCancelled = new Set<string>();
+			function takeTrade(data: any) {
+				if (!Array.isArray(data?.offers)) return;
+				tradeOffers = data.offers;
+				const now = new Set(tradeOffers.filter((o) => o.mine).map((o) => o.id));
+				let gone = false;
+				for (const id of myOffersSeen) if (!now.has(id)) { myOffersSeen.delete(id); if (!myCancelled.delete(id)) gone = true; }
+				for (const id of now) myOffersSeen.add(id);
+				if (gone) pullCloud(); // 可能是过期撤下，也可能被拿走了：以服务端存档为准
+			}
+			async function loadTrade(force = false) {
+				if (!cred || !state || tradeLoading || (!force && Date.now() - tradeAt < 15_000)) return;
+				tradeLoading = true;
+				try {
+					const { data } = await api({ action: 'trade', op: 'list', id: cred.id, key: cred.key });
+					takeTrade(data);
+				} catch {}
+				tradeAt = Date.now();
+				tradeLoading = false;
+				if (tab === 'social') renderPanel();
+			}
+			let tradeHintTimer: ReturnType<typeof setTimeout> | 0 = 0;
+			function tradeHint() {
+				if (tradeHintTimer) return;
+				tradeHintTimer = setTimeout(() => { tradeHintTimer = 0; loadTrade(true); }, Math.max(300, 3000 - (Date.now() - tradeAt)));
+			}
+			async function tradeOp(op: string, extra: Record<string, unknown>) {
+				if (!state || !cred || busy) return;
+				busy = true;
+				document.body.classList.add('busy');
+				const before = state;
+				try {
+					const { status, data } = await api({ action: 'trade', op, id: cred.id, key: cred.key, rev: before.rev, ...extra });
+					// 撤回成功才算主动撤下；撤回失败而单子没了（被人拿走了），交给 takeTrade 去拉最新存档
+					if (op === 'cancel' && data.ok && typeof extra.offer === 'string') myCancelled.add(extra.offer);
+					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, data.msg); }
+					else if (data.state) {
+						adopt(data.state);
+						if (data.ok && state && state.rev === nextRev(before.rev)) { lastDelta = stateDelta(before, state); lastOutcome = data.msg; }
+					}
+					takeTrade(data);
+					tradeAt = Date.now();
+					if (data.ok) { giftTo = null; sellPick = false; }
+					if (data.msg) toast(data.msg);
+					if (data.ok && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'trade' }));
+				} catch {
+					syncStatus = '离线：可以查看，联网后才能行动';
+					toast('网络断开了，联网后才能行动');
+				} finally {
+					busy = false;
+					document.body.classList.remove('busy');
+				}
+				render();
+			}
+			// 全服周目标：进度以服务端为准，打开社交页时最多每分钟拉一次
+			type WeekView = { week: number; goal: WeeklyGoal; count: number; daysLeft: number; mine: { n: number; claimed: boolean } };
+			let weekView: WeekView | null = null;
+			let weekAt = 0;
+			let weekLoading = false;
+			async function loadWeek(force = false) {
+				if (!cred || !state || weekLoading || (!force && Date.now() - weekAt < 60_000)) return;
+				weekLoading = true;
+				try {
+					const { data } = await api({ action: 'weekly', op: 'status', id: cred.id, key: cred.key });
+					if (data?.week?.goal) weekView = data.week;
+				} catch {}
+				weekAt = Date.now();
+				weekLoading = false;
+				if (tab === 'social') renderPanel();
+			}
+			async function claimWeek() {
+				if (!state || !cred || busy) return;
+				busy = true;
+				document.body.classList.add('busy');
+				const before = state;
+				try {
+					const { status, data } = await api({ action: 'weekly', op: 'claim', id: cred.id, key: cred.key, rev: before.rev });
+					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, data.msg); }
+					else if (data.state) {
+						adopt(data.state);
+						if (data.ok && state && state.rev === nextRev(before.rev)) { lastDelta = stateDelta(before, state); lastOutcome = data.msg; }
+					}
+					if (data?.week?.goal) weekView = data.week;
+					weekAt = Date.now();
+					if (data.msg) toast(data.msg);
+				} catch {
+					syncStatus = '离线：可以查看，联网后才能行动';
+					toast('网络断开了，联网后才能行动');
+				} finally {
+					busy = false;
+					document.body.classList.remove('busy');
+				}
+				render();
+			}
+			// 地点留言板：打开附近页时拉取（每个地点 30 秒内不重复拉）
+			type NoteView = { id: string; name: string; avatar: string; text: string; at: number; mine: boolean };
+			let notesLoc = '';
+			let notesList: NoteView[] = [];
+			let notesAt = 0;
+			let notesLoading = false;
+			async function loadNotes(force = false) {
+				if (!cred || !state || notesLoading || (!force && notesLoc === state.loc && Date.now() - notesAt < 30_000)) return;
+				notesLoading = true;
+				const loc = state.loc;
+				try {
+					const { data } = await api({ action: 'notes', op: 'list', id: cred.id, key: cred.key });
+					if (Array.isArray(data?.notes)) { notesList = data.notes; notesLoc = loc; }
+				} catch {}
+				notesAt = Date.now();
+				notesLoading = false;
+				if (tab === 'place') renderPanel();
+			}
+			async function noteOp(op: string, extra: Record<string, unknown>) {
+				if (!state || !cred || busy) return;
+				busy = true;
+				try {
+					const { data } = await api({ action: 'notes', op, id: cred.id, key: cred.key, ...extra });
+					if (Array.isArray(data?.notes)) { notesList = data.notes; notesLoc = state.loc; notesAt = Date.now(); }
+					if (data?.msg) toast(data.msg);
+				} catch {
+					toast('网络断开了，联网后才能留言');
+				} finally {
+					busy = false;
+				}
+				if (tab === 'place') renderPanel();
+			}
 			const srvNow = () => Date.now() + clockSkew;
 			async function api(body: unknown) {
 				const res = await fetch('/api/earth/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -605,6 +746,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					else if (m.t === 'chat') { chats.push(m); chats = chats.slice(-50); if (tab !== 'social') toast(`${m.name}: ${m.text}`); }
 					else if (m.t === 'emote') toast(`${m.name} 向你 ${m.kind}`);
 					else if (m.t === 'coop') { coopHint(); return; }
+					else if (m.t === 'trade') { tradeHint(); return; }
 					else return;
 					renderMap();
 					renderTabs();
@@ -860,6 +1002,17 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 			}
 
+			/** 留言板：这个地点最近的留言，和留一句的输入框 */
+			function notesCard(s: PlayerState) {
+				loadNotes();
+				const list = notesLoc === s.loc ? notesList : [];
+				const ago = (at: number) => { const m = Math.max(0, Math.round((srvNow() - at) / 60_000)); return m < 60 ? `${m} 分钟前` : m < 1440 ? `${Math.round(m / 60)} 小时前` : `${Math.round(m / 1440)} 天前`; };
+				const rows = list.map((n) => `<div class="note"><span class="ico">${esc(n.avatar)}</span><span class="body"><b>${esc(n.name)}</b> <small class="muted">${ago(n.at)}</small><br />${esc(n.text)}</span>${n.mine ? `<button data-note="delete" data-note-id="${esc(n.id)}" aria-label="删掉这条留言">删</button>` : ''}</div>`).join('');
+				return `<div class="card"><h3>📝 留言板</h3><p class="muted">给后来到${esc(getLocation(region, s.loc)!.name)}的人留一句话。不能带网址和联系方式；每人每天最多 3 条，同一个地方一天一条。</p>
+					${rows || '<p class="muted">还没有人在这里留言。</p>'}
+					<form class="inline" id="note-form" style="margin-top:8px"><input id="note-input" maxlength="${NOTE_MAX}" placeholder="写一句给后来的人…" autocomplete="off" /><button class="primary">贴上</button></form></div>`;
+			}
+
 			function panelPlace() {
 				const s = state!;
 				const loc = getLocation(region, s.loc)!;
@@ -947,7 +1100,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${courseHtml}${shopHtml}${dealerHtml}${propHtml}${poiHtml}`;
+					${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${courseHtml}${shopHtml}${dealerHtml}${propHtml}${poiHtml}${notesCard(s)}`;
 			}
 
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
@@ -1152,6 +1305,78 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					${lobbies}${open}<div class="inline" style="margin-top:10px"><button data-coop="list" ${coopLoading ? 'disabled' : ''}>刷新</button></div></div>`;
 			}
 
+			/** 全服周目标：进度条、我出的力、领奖 */
+			function weekCard(s: PlayerState) {
+				loadWeek();
+				if (!weekView) return '';
+				const { goal, count, daysLeft, mine } = weekView;
+				const pct = Math.min(100, Math.round((count / goal.target) * 100));
+				// 我这边的份数以存档为准（刚做完的事服务端已经记上）
+				const n = s.weekly?.week === weekView.week ? Math.max(s.weekly.n, mine.n) : mine.n;
+				const why = mine.claimed ? '这周的奖励已经领过了。' : count < goal.target ? `全服还差 ${goal.target - count} 次。` : n < 1 ? '这周还没出过力，先去做一次吧。' : '';
+				return `<div class="card week"><h3>${goal.icon} 全服周目标：${esc(goal.title)}</h3><p>${esc(goal.desc)}。还剩 ${daysLeft} 天。</p>
+					<div class="bar" role="progressbar" aria-valuenow="${Math.min(count, goal.target)}" aria-valuemin="0" aria-valuemax="${goal.target}"><i style="width:${pct}%"></i></div>
+					<p class="muted">全服 ${Math.min(count, goal.target)} / ${goal.target} · 我出了 ${n} 份力 · 达成后出过力的人各领 $${goal.reward.cash}、声望 +${goal.reward.respect}</p>
+					<div class="inline" style="margin-top:8px"><button class="primary" data-week="claim" ${why ? 'disabled' : ''}>${mine.claimed ? '已领取' : '领奖'}</button>${why && !mine.claimed ? `<span class="muted">${esc(why)}</span>` : ''}</div></div>`;
+			}
+
+			/** 常遇见的人：一起做过共同事件、交易过的玩家；在线的标出在哪 */
+			function metCard(s: PlayerState) {
+				const list = metList(s);
+				if (!list.length) return '';
+				const today = realDayOf(srvNow());
+				const rows = list.slice(0, 12).map((m) => {
+					const p = peers.get(m.hash);
+					const where = p ? (p.loc === s.loc ? '就在这里' : `在线 · ${esc(getLocation(region, p.loc)?.name ?? '')}`) : today - m.last <= 0 ? '今天见过' : `${today - m.last} 天前见过`;
+					return `<div class="row"><span class="ico">${esc(m.avatar)}</span><span class="body">${esc(m.name)}<small>一起做过 ${m.n} 次事 · ${where}</small></span>${p && p.loc === s.loc && p.id !== myPeerId ? `<span class="meta"><button data-giftpick="${esc(m.hash)}" data-gift-name="${esc(m.name)}" aria-label="送${esc(m.name)}一件东西">🎁</button></span>` : ''}</div>`;
+				}).join('');
+				return `<div class="card"><h3>常遇见的人</h3><p class="muted">一起做过共同事件、送过礼或做过买卖的玩家。</p><div class="list" style="margin-top:8px">${rows}</div></div>`;
+			}
+
+			/** 送礼与二手摊：选要送的东西、别人送我的、我挂出去的 */
+			function tradeCard(s: PlayerState) {
+				loadTrade();
+				const day = realDayOf(srvNow());
+				const parts: string[] = [];
+				const owned = Object.entries(s.inventory).filter(([, n]) => n > 0).map(([id]) => getItem(id)).filter((x): x is NonNullable<typeof x> => !!x);
+				if (sellPick) {
+					// 每件给三个价：最低、商店价、最高（在 50%–150% 之间）
+					const rows = owned.map((it) => {
+						const why = giveBlocked(s, it.id, day);
+						const r = saleRange(it.id)!;
+						const prices = [...new Set([r.min, Math.min(r.max, Math.max(r.min, it.price)), r.max])];
+						return `<div class="row"><span class="ico">${it.icon}</span><span class="body">${esc(it.name)} ×${s.inventory[it.id]}<small>${why ? esc(why) : `商店价 $${it.price}`}</small></span><span class="meta">${prices.map((pr) => `<button data-trade="sale" data-item="${it.id}" data-price="${pr}" ${why ? 'disabled' : ''}>$${pr}</button>`).join(' ')}</span></div>`;
+					}).join('');
+					parts.push(`<div class="trade-pick"><b>摆到${esc(getLocation(region, s.loc)!.name)}的二手摊，卖多少？</b>${rows ? `<div class="list" style="margin-top:8px">${rows}</div>` : '<p class="muted">背包里没有能卖的东西。</p>'}<div class="inline" style="margin-top:8px"><button data-trade="pickcancel">不卖了</button></div></div>`);
+				}
+				if (giftTo) {
+					const rows = owned.map((it) => {
+						const why = giveBlocked(s, it.id, day);
+						return `<button class="row" data-trade="gift" data-item="${it.id}" ${why ? 'disabled' : ''}><span class="ico">${it.icon}</span><span class="body">${esc(it.name)} ×${s.inventory[it.id]}${why ? `<small>${esc(why)}</small>` : ''}</span></button>`;
+					}).join('');
+					parts.push(`<div class="trade-pick"><b>送给${esc(giftTo.name)}什么？</b>${rows ? `<div class="list" style="margin-top:8px">${rows}</div>` : '<p class="muted">背包里没有能送的东西。</p>'}<div class="inline" style="margin-top:8px"><button data-trade="pickcancel">不送了</button></div></div>`);
+				}
+				for (const o of tradeOffers) {
+					const it = getItem(o.item);
+					if (!it) continue;
+					const lid = esc(o.id);
+					if (o.mine) {
+						const where = o.loc !== s.loc ? `（在${esc(getLocation(region, o.loc)?.name ?? '')}）` : '';
+						const what = o.kind === 'gift' ? `等${esc(o.toName)}收下 ${it.icon} ${esc(it.name)}` : `二手摊上的 ${it.icon} ${esc(it.name)} · $${o.price}`;
+						parts.push(`<div class="row"><span class="body">${what}${where}</span><span class="meta">${o.taking ? '正在交接…' : `<button data-trade="cancel" data-offer="${lid}">撤回</button>`}</span></div>`);
+					} else if (o.kind === 'gift') {
+						const why = takeBlocked(s, o.item, 0, day);
+						parts.push(`<div class="row"><span class="ico">${esc(o.avatar)}</span><span class="body">${esc(o.name)}想送你 ${it.icon} ${esc(it.name)}${why ? `<small>${esc(why)}</small>` : ''}</span><span class="meta"><button class="primary" data-trade="accept" data-offer="${lid}" ${why || o.taking ? 'disabled' : ''}>收下</button> <button data-trade="decline" data-offer="${lid}" ${o.taking ? 'disabled' : ''}>不要</button></span></div>`);
+					} else {
+						const why = takeBlocked(s, o.item, o.price, day);
+						parts.push(`<div class="row"><span class="ico">${esc(o.avatar)}</span><span class="body">${esc(o.name)}的二手摊 · ${it.icon} ${esc(it.name)}<small>${why ? esc(why) : `商店价 $${it.price}`}</small></span><span class="meta"><button class="primary" data-trade="accept" data-offer="${lid}" ${why || o.taking ? 'disabled' : ''}>$${o.price} 买下</button></span></div>`);
+					}
+				}
+				const sellBtn = !sellPick && !giftTo && owned.length ? `<div class="inline" style="margin-top:8px"><button data-trade="sellpick">摆个二手摊</button></div>` : '';
+				if (!parts.length && !sellBtn) return '';
+				return `<div class="card trade"><h3>🎁 送礼与二手摊</h3><p class="muted">每人每天最多送出、收下各 5 次（买卖也算）；挂着的单 30 分钟没人接就撤下，价格在商店价的一半到一倍半之间。</p>${parts.join('')}${sellBtn}</div>`;
+			}
+
 			function boardCard() {
 				loadBoard();
 				const row = (r: BoardRow) => `<div class="row"><span class="ico">${r.rank}</span><span class="body">${esc(r.avatar)} ${r.me ? `<b>${esc(r.name)}（你）</b>` : esc(r.name)}<small>净资产 $${r.worth.toLocaleString()} · 第 ${r.day + 1} 天</small></span></div>`;
@@ -1170,7 +1395,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const online = ws?.readyState === WebSocket.OPEN;
 				const here = [...peers.values()].filter((p) => p.loc === s.loc && p.id !== myPeerId);
 				const people = here.length ? here.map((p) => `<div class="row"><span class="ico">${esc(p.avatar)}</span><span class="body">${esc(p.name)}</span>
-					<span class="emotes">${emotes.map((e) => `<button data-emote="${esc(e)}" data-to="${esc(p.id)}" aria-label="向${esc(p.name)}发送 ${esc(e)}">${esc(e)}</button>`).join(' ')}</span></div>`).join('') : '<p class="muted">这里暂时只有你一个人。</p>';
+					<span class="emotes">${emotes.map((e) => `<button data-emote="${esc(e)}" data-to="${esc(p.id)}" aria-label="向${esc(p.name)}发送 ${esc(e)}">${esc(e)}</button>`).join(' ')} <button data-giftpick="${esc(p.id)}" data-gift-name="${esc(p.name)}" aria-label="送${esc(p.name)}一件东西">🎁</button></span></div>`).join('') : '<p class="muted">这里暂时只有你一个人。</p>';
 				// 认识的当地人今天在哪：就在这里的标出来，在别处的可以直接看去那里的走法
 				const presentIds = new Set(npcsAt(s, region).map((x) => x.npc.id));
 				const known = Object.entries(s.relations)
@@ -1190,7 +1415,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							: `<button class="row" data-loc="${plan.loc}"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta"><b>怎么去</b></span></button>`;
 				}).join('')}</div></div>` : '';
 				return `${knownHtml}<div class="card"><h3>${esc(getLocation(region, s.loc)!.name)}的人</h3><p>${online ? `全区在线 ${peers.size} 人` : '未连接，稍后自动重连…'}</p><div class="list" style="margin-top:8px">${people}</div></div>
+					${weekCard(s)}
+					${tradeCard(s)}
 					${coopCard(s)}
+					${metCard(s)}
 					<div class="card"><h3>本地频道</h3><p>只有同一地点的玩家能看到。</p>
 						<div class="chat" id="chat">${chats.map((c) => `<div>${esc(c.avatar)} <b>${esc(c.name)}</b> ${esc(c.text)}</div>`).join('')}</div>
 						<div class="quick">${QUICK_CHAT.map((q, i) => `<button data-quick="${i}" ${online ? '' : 'disabled'}>${q}</button>`).join('')}</div>
@@ -1354,7 +1582,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -1448,6 +1676,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				else if ('copy' in d) navigator.clipboard?.writeText(`${cred!.id}.${cred!.key}`).then(() => toast('已复制'), () => toast('复制失败，请长按手动复制'));
 				else if ('pull' in d) pullCloud();
 				else if ('board' in d) loadBoard(true);
+				else if (d.giftpick !== undefined) { giftTo = d.giftpick ? { hash: d.giftpick, name: d.giftName ?? '' } : null; sellPick = false; renderPanel(); }
+				else if (d.week === 'claim') claimWeek();
+				else if (d.note === 'delete') noteOp('delete', { note: d.noteId });
+				else if (d.trade) {
+					if (d.trade === 'pickcancel') { giftTo = null; sellPick = false; renderPanel(); }
+					else if (d.trade === 'sellpick') { sellPick = true; giftTo = null; renderPanel(); }
+					else if (d.trade === 'gift' && giftTo) tradeOp('gift', { to: giftTo.hash, toName: giftTo.name, item: d.item });
+					else if (d.trade === 'sale') tradeOp('sale', { item: d.item, price: Number(d.price) });
+					else if (d.trade === 'accept' || d.trade === 'decline' || d.trade === 'cancel') tradeOp(d.trade, { offer: d.offer });
+				}
 				else if (d.coop) {
 					if (d.coop === 'list') loadCoop(true);
 					else if (d.coop === 'open') coopOp('open', { coop: d.coopId, role: Number(d.role) });
@@ -1461,6 +1699,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 			});
 			document.addEventListener('submit', (e) => {
+				if ((e.target as Element).id === 'note-form') {
+					e.preventDefault();
+					const input = $('note-input') as HTMLInputElement;
+					const c = cleanNote(input.value);
+					if ('error' in c) { toast(c.error); return; }
+					input.value = '';
+					noteOp('post', { text: c.text });
+					return;
+				}
 				if ((e.target as Element).id !== 'chat-form') return;
 				e.preventDefault();
 				const input = $('chat-input') as HTMLInputElement;

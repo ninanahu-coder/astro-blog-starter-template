@@ -4,6 +4,8 @@ import { test } from 'node:test';
 import { EarthWorld } from '../../src/game/server/world.ts';
 import { realDayOf } from '../../src/game/core/daily.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { goalOfWeek, weekOf } from '../../src/game/core/weekly.ts';
+import { EXPERIENCES } from '../../src/game/data/experiences.ts';
 
 /** delayMs > 0 时每次读写都真的等一会儿，让同时到的请求在没有锁的情况下一定会交错（读到同一份旧存档） */
 /** hooks 让测试精确安排先后：put 写入前先等 hooks.put()，list 读完、返回前等 hooks.list() */
@@ -465,7 +467,7 @@ test('共同事件：发起、加入、只有发起人能开始、人够才开�
 	// 版本落后不执行
 	const stale = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev + 5 });
 	assert.equal(stale.status, 409);
-	assert.match(stale.data.msg, /队友/, '冲突提示要说明可能是队友发起的共同事件');
+	assert.match(stale.data.msg, /别的玩家/, '冲突提示要说明可能是别的玩家（共同事件、交易）');
 	const started = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev });
 	assert.ok(started.data.ok, started.data.msg);
 	assert.match(started.data.msg, /海滩清洁/);
@@ -657,4 +659,371 @@ test('共同事件：结算途中队伍到了 5 分钟也不被过期清掉，�
 	assert.equal(during, null, '旁人确实在结算途中拉了列表');
 	assert.equal(started.data.results.length, 1, '发起人的响应里有结果');
 	assert.equal((await w.call({ action: 'coop', op: 'list', ...B })).data.results.length, 1, '队友拉得到结果');
+});
+
+const peerHash = async (id: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(id)))].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
+async function twoPlayers(w: ReturnType<typeof makeWorld>, n: number, inv: Record<string, number> = { snack: 2 }) {
+	const A = { id: `trade-from-${n}`, key: 'a'.repeat(24) };
+	const B = { id: `trade-to-${n}`, key: 'b'.repeat(24) };
+	await w.call({ action: 'create', ...A, profile: { ...profile, name: '阿甲' } });
+	await w.call({ action: 'create', ...B, profile: { ...profile, name: '阿乙' } });
+	const recA = w.data.get('save:' + A.id);
+	recA.state.inventory = inv;
+	w.data.set('save:' + A.id, recA);
+	return { A, B, a0: recA.state, b0: w.data.get('save:' + B.id).state };
+}
+
+test('送礼：指定同地点的人，只有对方能收下；收下后双方存档一次写入，单子消失，不泄露真实 id', async () => {
+	const w = makeWorld();
+	const { A, B, a0, b0 } = await twoPlayers(w, 1);
+	const C = { id: 'trade-other-1', key: 'c'.repeat(24) };
+	await w.call({ action: 'create', ...C, profile });
+	const toB = await peerHash(B.id);
+	assert.equal((await w.call({ action: 'trade', op: 'gift', ...A, to: await peerHash(A.id), item: 'snack' })).data.msg, '不能送给自己');
+	assert.match((await w.call({ action: 'trade', op: 'gift', ...A, to: toB, item: 'swag' })).data.msg, /没有这件/);
+	const sent = await w.call({ action: 'trade', op: 'gift', ...A, to: toB, toName: '阿乙', item: 'snack' });
+	assert.ok(sent.data.ok, sent.data.msg);
+	assert.equal(sent.data.offers[0].mine, true);
+	const oid = sent.data.offers[0].id;
+	const seenB = await w.call({ action: 'trade', op: 'list', ...B });
+	assert.equal(seenB.data.offers.length, 1);
+	assert.equal(seenB.data.offers[0].name, '阿甲');
+	assert.ok(!JSON.stringify(seenB.data).includes(A.id), '不能把别人的存档 id 发出去');
+	assert.equal((await w.call({ action: 'trade', op: 'list', ...C })).data.offers.length, 0, '别人看不到');
+	assert.equal((await w.call({ action: 'trade', op: 'accept', ...C, offer: oid, rev: 0 })).data.msg, '这不是给你的');
+	assert.equal((await w.call({ action: 'trade', op: 'accept', ...B, offer: oid, rev: b0.rev + 3 })).status, 409, '版本落后');
+	const got = await w.call({ action: 'trade', op: 'accept', ...B, offer: oid, rev: b0.rev });
+	assert.ok(got.data.ok, got.data.msg);
+	assert.equal(got.data.state.inventory.snack, (b0.inventory.snack ?? 0) + 1);
+	assert.equal(got.data.state.rev, b0.rev + 1);
+	const aSave = w.data.get('save:' + A.id).state;
+	assert.equal(aSave.inventory.snack, 1, '送礼的人少了一件');
+	assert.equal(aSave.rev, a0.rev + 1);
+	assert.equal((await w.call({ action: 'trade', op: 'accept', ...B, offer: oid, rev: b0.rev + 1 })).status, 404, '不能收两次');
+	assert.equal((await w.call({ action: 'trade', op: 'list', ...A })).data.offers.length, 0);
+});
+
+test('送礼：撤回、拒绝、同时最多挂 3 件、挂单数不超过背包数量；送出前东西没了单子作废', async () => {
+	const w = makeWorld();
+	const { A, B, b0 } = await twoPlayers(w, 2, { snack: 1, water: 5 });
+	const toB = await peerHash(B.id);
+	const s1 = await w.call({ action: 'trade', op: 'gift', ...A, to: toB, toName: '阿乙', item: 'snack' });
+	assert.match((await w.call({ action: 'trade', op: 'gift', ...A, to: toB, item: 'snack' })).data.msg, /都挂出去了/);
+	await w.call({ action: 'trade', op: 'gift', ...A, to: toB, item: 'water' });
+	await w.call({ action: 'trade', op: 'gift', ...A, to: toB, item: 'water' });
+	assert.match((await w.call({ action: 'trade', op: 'gift', ...A, to: toB, item: 'water' })).data.msg, /最多挂 3 件/);
+	const list = (await w.call({ action: 'trade', op: 'list', ...B })).data.offers as { id: string; item: string }[];
+	const water = list.filter((o) => o.item === 'water').map((o) => o.id);
+	assert.equal((await w.call({ action: 'trade', op: 'decline', ...B, offer: water[0] })).data.ok, true);
+	assert.equal((await w.call({ action: 'trade', op: 'cancel', ...B, offer: water[1] })).data.msg, '只能撤回自己挂的');
+	assert.equal((await w.call({ action: 'trade', op: 'cancel', ...A, offer: water[1] })).data.ok, true);
+	// 送出前把能量棒吃掉了：对方收下时单子作废，谁的存档都不动
+	const rec = w.data.get('save:' + A.id);
+	delete rec.state.inventory.snack;
+	w.data.set('save:' + A.id, rec);
+	const late = await w.call({ action: 'trade', op: 'accept', ...B, offer: s1.data.offers[0].id, rev: b0.rev });
+	assert.equal(late.data.ok, false);
+	assert.match(late.data.msg, /没有这件/);
+	assert.equal(w.data.get('save:' + B.id).state.rev, b0.rev);
+	assert.equal((await w.call({ action: 'trade', op: 'list', ...B })).data.offers.length, 0, '作废的单子撤下');
+});
+
+test('送礼：收下和撤回同时到，只有一个生效', async () => {
+	const w = makeWorld(3);
+	const { A, B, b0 } = await twoPlayers(w, 3);
+	const oid = (await w.call({ action: 'trade', op: 'gift', ...A, to: await peerHash(B.id), toName: '阿乙', item: 'snack' })).data.offers[0].id;
+	const [take, cancel] = await Promise.all([
+		w.call({ action: 'trade', op: 'accept', ...B, offer: oid, rev: b0.rev }),
+		w.call({ action: 'trade', op: 'cancel', ...A, offer: oid }),
+	]);
+	assert.ok(take.data.ok, take.data.msg);
+	assert.equal(cancel.data.ok, false, '撤回排在收下后面，单子已经没了');
+	const total = (w.data.get('save:' + A.id).state.inventory.snack ?? 0) + (w.data.get('save:' + B.id).state.inventory.snack ?? 0);
+	assert.equal(total, 2 + (b0.inventory.snack ?? 0), '东西不多不少');
+});
+
+test('二手摊：价格在商店价 50%–150% 之间；同地点的人都能买，买方付钱给卖方，一次写入；别处的人看不到', async () => {
+	const w = makeWorld();
+	const { A, B, a0, b0 } = await twoPlayers(w, 4, { firstaid: 1 });
+	const C = { id: 'trade-far-4', key: 'c'.repeat(24) };
+	const c0 = (await w.call({ action: 'create', ...C, profile })).data.state;
+	assert.ok((await w.call({ action: 'act', ...C, rev: c0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
+	assert.match((await w.call({ action: 'trade', op: 'sale', ...A, item: 'firstaid', price: 60 })).data.msg, /\$18–\$52/);
+	assert.match((await w.call({ action: 'trade', op: 'sale', ...A, item: 'firstaid', price: 20.5 })).data.msg, /之间/);
+	const up = await w.call({ action: 'trade', op: 'sale', ...A, item: 'firstaid', price: 40 });
+	assert.ok(up.data.ok, up.data.msg);
+	const oid = up.data.offers[0].id;
+	assert.equal((await w.call({ action: 'trade', op: 'list', ...C })).data.offers.length, 0, '别处看不到');
+	assert.equal((await w.call({ action: 'trade', op: 'accept', ...A, offer: oid, rev: a0.rev })).data.ok, false, '不能买自己的');
+	const seen = await w.call({ action: 'trade', op: 'list', ...B });
+	assert.deepEqual([seen.data.offers[0].kind, seen.data.offers[0].price, seen.data.offers[0].mine], ['sale', 40, false]);
+	const bought = await w.call({ action: 'trade', op: 'accept', ...B, offer: oid, rev: b0.rev });
+	assert.ok(bought.data.ok, bought.data.msg);
+	assert.equal(bought.data.state.cash, b0.cash - 40);
+	assert.equal(bought.data.state.inventory.firstaid, (b0.inventory.firstaid ?? 0) + 1);
+	const aSave = w.data.get('save:' + A.id).state;
+	assert.equal(aSave.cash, a0.cash + 40);
+	assert.equal(aSave.inventory.firstaid ?? 0, 0);
+	assert.match(aSave.journal.at(-1).text, /卖给了阿乙/);
+});
+
+test('常遇见的人：送礼成交、共同事件结束后，双方存档里都记下对方（只存 id 哈希前缀）', async () => {
+	const w = makeWorld();
+	const { A, B, b0 } = await twoPlayers(w, 5);
+	const hA = await peerHash(A.id), hB = await peerHash(B.id);
+	const oid = (await w.call({ action: 'trade', op: 'gift', ...A, to: hB, toName: '阿乙', item: 'snack' })).data.offers[0].id;
+	const got = await w.call({ action: 'trade', op: 'accept', ...B, offer: oid, rev: b0.rev });
+	assert.equal(got.data.state.met[hA].name, '阿甲');
+	assert.equal(w.data.get('save:' + A.id).state.met[hB].n, 1);
+	assert.ok(!JSON.stringify(got.data.state.met).includes(A.id), '不存真实 id');
+	// 共同事件
+	const lobby = (await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 })).data.lobbies[0].id;
+	await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 1 });
+	const aRev = w.data.get('save:' + A.id).state.rev;
+	const done = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: aRev });
+	assert.ok(done.data.ok, done.data.msg);
+	assert.equal(done.data.state.met[hB].n, 2, '交易一次 + 共同事件一次');
+	assert.equal(w.data.get('save:' + B.id).state.met[hA].n, 2);
+});
+
+async function weeklyScenario(k: number) {
+	const w = makeWorld();
+	const week = weekOf(realDayOf(Date.now()));
+	const goal = goalOfWeek(week);
+	const A = { id: `weekly-host-1${k}`, key: 'a'.repeat(24) };
+	const B = { id: `weekly-mate-1${k}`, key: 'b'.repeat(24) };
+	const a0 = (await w.call({ action: 'create', ...A, profile: { ...profile, name: '阿甲' } })).data.state;
+	const b0 = (await w.call({ action: 'create', ...B, profile: { ...profile, name: '阿乙' } })).data.state;
+	const before = await w.call({ action: 'weekly', op: 'status', ...A });
+	assert.equal(before.data.week.goal.id, goal.id);
+	assert.equal(before.data.week.count, 0);
+	// 做一次这周目标对应的事
+	let expect = 1;
+	if (goal.metric === 'travel') {
+		assert.ok((await w.call({ action: 'act', ...A, rev: a0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
+	} else if (goal.metric === 'experience') {
+		const exp = EXPERIENCES.find((e) => e.loc === 'perth' && !e.festival)!;
+		const rec = w.data.get('save:' + A.id);
+		rec.state.cash = 1000;
+		rec.state.clock = 1440 + ((exp.hours?.[0] ?? 9) + 1) * 60;
+		w.data.set('save:' + A.id, rec);
+		const r = await w.call({ action: 'act', ...A, rev: a0.rev, act: { t: 'experience', id: exp.id } });
+		assert.ok(r.data.ok, r.data.msg);
+	} else if (goal.metric === 'coop') {
+		const lobby = (await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 })).data.lobbies[0].id;
+		await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 1 });
+		assert.ok((await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev })).data.ok);
+		expect = 2;
+	} else {
+		const rec = w.data.get('save:' + A.id);
+		rec.state.inventory = { water: 1 };
+		w.data.set('save:' + A.id, rec);
+		const oid = (await w.call({ action: 'trade', op: 'gift', ...A, to: await peerHash(B.id), toName: '阿乙', item: 'water' })).data.offers[0].id;
+		assert.ok((await w.call({ action: 'trade', op: 'accept', ...B, offer: oid, rev: b0.rev })).data.ok);
+	}
+	const after = await w.call({ action: 'weekly', op: 'status', ...A });
+	assert.equal(after.data.week.count, expect, `${goal.metric} 算进全服`);
+	assert.equal(after.data.week.mine.n, 1, '自己记一份力');
+	assert.equal(w.data.get('week:' + week), expect, '全服计数落盘');
+	// 没达成不能领；把全服计数调到达成后能领一次
+	const rev1 = w.data.get('save:' + A.id).state.rev;
+	assert.match((await w.call({ action: 'weekly', op: 'claim', ...A, rev: rev1 })).data.msg, /还差/);
+	(w.world as any).week.count = goal.target;
+	const got = await w.call({ action: 'weekly', op: 'claim', ...A, rev: rev1 });
+	assert.ok(got.data.ok, got.data.msg);
+	assert.equal(got.data.state.rev, rev1 + 1);
+	assert.equal(got.data.week.mine.claimed, true);
+	assert.match((await w.call({ action: 'weekly', op: 'claim', ...A, rev: rev1 + 1 })).data.msg, /领过/);
+	assert.equal((await w.call({ action: 'weekly', op: 'claim', ...A, rev: rev1 })).status, 409, '版本落后');
+	return goal.metric;
+}
+
+test('全服周目标：四类目标轮流当值时，对应的事做完全服加一、自己记一份力；达成后领奖，只能领一次', async () => {
+	const realNow = Date.now;
+	const seen = new Set<string>();
+	try {
+		for (let k = 0; k < 4; k++) {
+			const shift = k * 7 * 86_400_000;
+			Date.now = () => realNow() + shift; // 往后挪 k 周，轮到别的目标
+			seen.add(await weeklyScenario(k));
+		}
+	} finally {
+		Date.now = realNow;
+	}
+	assert.equal(seen.size, 4, '四类都测到了');
+});
+
+test('全服周目标：实例重启后从存储读回这周的累计数；并发读取只读一次', async () => {
+	const w = makeWorld(3);
+	const week = weekOf(realDayOf(Date.now()));
+	w.data.set('week:' + week, 7);
+	const A = { id: 'weekly-host-2', key: 'a'.repeat(24) };
+	await w.call({ action: 'create', ...A, profile });
+	const [x, y] = await Promise.all([w.call({ action: 'weekly', op: 'status', ...A }), w.call({ action: 'weekly', op: 'status', ...A })]);
+	assert.equal(x.data.week.count, 7);
+	assert.equal(y.data.week.count, 7);
+});
+
+test('送礼：收件人必须是真实存在、在同一地点的玩家；每人最多 3 份待收；送礼人走了就作废（审查问题 1、5）', async () => {
+	const w = makeWorld();
+	const { A, B, b0 } = await twoPlayers(w, 6, { water: 6 });
+	await w.call({ action: 'get', ...B }); // 落过一次盘，服务端才有哈希到存档的对应
+	assert.match((await w.call({ action: 'trade', op: 'gift', ...A, to: 'aaaaaaaaaaaa', item: 'water' })).data.msg, /不在这里/, '不存在的哈希');
+	const C = { id: 'trade-far-6', key: 'c'.repeat(24) };
+	const c0 = (await w.call({ action: 'create', ...C, profile })).data.state;
+	assert.ok((await w.call({ action: 'act', ...C, rev: c0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
+	assert.match((await w.call({ action: 'trade', op: 'gift', ...A, to: await peerHash(C.id), item: 'water' })).data.msg, /不在这里/, '别处的人');
+	const toB = await peerHash(B.id);
+	const D = { id: 'trade-also-6', key: 'd'.repeat(24) };
+	await w.call({ action: 'create', ...D, profile });
+	const recD = w.data.get('save:' + D.id);
+	recD.state.inventory = { water: 2 };
+	w.data.set('save:' + D.id, recD);
+	for (let i = 0; i < 3; i++) assert.ok((await w.call({ action: 'trade', op: 'gift', ...(i < 2 ? A : D), to: toB, toName: '随便写', item: 'water' })).data.ok);
+	const sent = await w.call({ action: 'trade', op: 'gift', ...D, to: toB, item: 'water' });
+	assert.match(sent.data.msg, /好几份礼物没收/, '每人最多 3 份待收');
+	assert.ok(sent.data.offers.every((o: { mine: boolean; toName: string }) => !o.mine || o.toName === '阿乙'), '收件人名字以服务端存档为准');
+	// A 送完就走了：B 收不了，单子撤下
+	const offers = (await w.call({ action: 'trade', op: 'list', ...B })).data.offers as { id: string; name: string }[];
+	const fromA = offers.find((o) => o.name === '阿甲')!;
+	const aRev = w.data.get('save:' + A.id).state.rev;
+	assert.ok((await w.call({ action: 'act', ...A, rev: aRev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
+	const late = await w.call({ action: 'trade', op: 'accept', ...B, offer: fromA.id, rev: b0.rev });
+	assert.match(late.data.msg, /离开/);
+	assert.equal(w.data.get('save:' + B.id).state.rev, b0.rev, '没成交');
+	assert.ok(!late.data.offers.some((o: { id: string }) => o.id === fromA.id), '单子撤下');
+});
+
+/** 把时间往后挪到这类目标当值的那一周 */
+function shiftToGoal(metric: string): () => void {
+	const realNow = Date.now;
+	for (let k = 0; k < 8; k++) {
+		const shift = k * 7 * 86_400_000;
+		if (goalOfWeek(weekOf(realDayOf(realNow() + shift))).metric === metric) {
+			Date.now = () => realNow() + shift;
+			return () => { Date.now = realNow; };
+		}
+	}
+	throw new Error('找不到 ' + metric);
+}
+
+test('全服周目标：存档和全服计数一次写入，写失败时两边都不变（审查问题 3）', async () => {
+	const restore = shiftToGoal('travel');
+	try {
+		let fail = false;
+		const w = makeWorld(0, { put: async (k) => { if (fail && typeof k === 'object' && Object.keys(k).some((x) => x.startsWith('week:'))) throw new Error('storage down'); } });
+		const A = { id: 'weekly-atomic-1', key: 'a'.repeat(24) };
+		const a0 = (await w.call({ action: 'create', ...A, profile })).data.state;
+		fail = true;
+		await assert.rejects(w.call({ action: 'act', ...A, rev: a0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } }));
+		assert.equal(w.data.get('save:' + A.id).state.loc, 'perth', '存档没写');
+		assert.equal((w.world as any).week.count, 0, '内存里的计数没变');
+		fail = false;
+		assert.ok((await w.call({ action: 'act', ...A, rev: a0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
+		const week = weekOf(realDayOf(Date.now()));
+		assert.equal(w.data.get('week:' + week), 1);
+		assert.equal(w.data.get('save:' + A.id).state.weekly.n, 1);
+	} finally {
+		restore();
+	}
+});
+
+test('全服周目标：免费的节日体验不算「收费体验」（审查问题 7）', async () => {
+	const restore = shiftToGoal('experience');
+	try {
+		const w = makeWorld();
+		const A = { id: 'weekly-free-1', key: 'a'.repeat(24) };
+		const a0 = (await w.call({ action: 'create', ...A, profile })).data.state;
+		const rec = w.data.get('save:' + A.id);
+		rec.state.clock = (28 + 13) * 1440 + 19 * 60; // 夏季第 14 天 19 点，天鹅河烟火夜
+		w.data.set('save:' + A.id, rec);
+		const r = await w.call({ action: 'act', ...A, rev: a0.rev, act: { t: 'experience', id: 'fest-skyshow' } });
+		assert.ok(r.data.ok, r.data.msg);
+		assert.equal(r.data.state.weekly.n, 0, '免费体验不记');
+		assert.equal((await w.call({ action: 'weekly', op: 'status', ...A })).data.week.count, 0);
+	} finally {
+		restore();
+	}
+});
+
+/** 新建一个存档，返回凭证和初始存档 */
+async function newPlayer(w: ReturnType<typeof makeWorld>, id: string) {
+	const P = { id, key: 'p'.repeat(24) };
+	const st = (await w.call({ action: 'create', ...P, profile })).data.state;
+	return { P, st };
+}
+const travel = (P: { id: string; key: string }, rev: number) => ({ action: 'act', ...P, rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } });
+
+test('全服周计数并发：后写的不会用旧数盖掉先写的；一笔写失败不影响别人，也不留下没落盘的数（复审问题 1）', async () => {
+	const restore = shiftToGoal('travel');
+	try {
+		// 第一笔带周计数的写入故意慢：以前后到的小数会盖掉先到的大数
+		let first = true;
+		const w = makeWorld(0, { put: async (k) => {
+			if (typeof k === 'object' && Object.keys(k).some((x) => x.startsWith('week:')) && first) { first = false; await new Promise((d) => setTimeout(d, 30)); }
+		} });
+		const a = await newPlayer(w, 'weekly-race-a');
+		const b = await newPlayer(w, 'weekly-race-b');
+		const [ra, rb] = await Promise.all([w.call(travel(a.P, a.st.rev)), w.call(travel(b.P, b.st.rev))]);
+		assert.ok(ra.data.ok && rb.data.ok);
+		const week = weekOf(realDayOf(Date.now()));
+		assert.equal(w.data.get('week:' + week), 2, '两笔都记上');
+		assert.equal((w.world as any).week.count, 2);
+
+		// 一笔失败、一笔成功：落盘和内存都只算成功的那笔
+		let failNext = true;
+		const w2 = makeWorld(0, { put: async (k) => {
+			if (typeof k === 'object' && Object.keys(k).some((x) => x.startsWith('week:')) && failNext) { failNext = false; await new Promise((d) => setTimeout(d, 20)); throw new Error('storage down'); }
+		} });
+		const c = await newPlayer(w2, 'weekly-race-c');
+		const d = await newPlayer(w2, 'weekly-race-d');
+		const [rc, rd] = await Promise.allSettled([w2.call(travel(c.P, c.st.rev)), w2.call(travel(d.P, d.st.rev))]);
+		assert.equal(rc.status, 'rejected');
+		assert.ok(rd.status === 'fulfilled' && rd.value.data.ok);
+		assert.equal(w2.data.get('week:' + week), 1);
+		assert.equal((w2.world as any).week.count, 1);
+		assert.equal(w2.data.get('save:' + c.P.id).state.loc, 'perth', '失败的那笔存档没写');
+	} finally {
+		restore();
+	}
+});
+
+test('全服周计数：写入还没落盘时别人看到的、领奖用的都是已落盘的数（复审问题 1）', async () => {
+	const restore = shiftToGoal('travel');
+	try {
+		let release!: () => void;
+		const gate = new Promise<void>((d) => { release = d; });
+		let reached!: () => void;
+		const atPut = new Promise<void>((d) => { reached = d; });
+		const w = makeWorld(0, { put: async (k) => {
+			if (typeof k === 'object' && Object.keys(k).some((x) => x.startsWith('week:'))) { reached(); await gate; }
+		} });
+		const a = await newPlayer(w, 'weekly-gate-a');
+		const b = await newPlayer(w, 'weekly-gate-b');
+		const pending = w.call(travel(a.P, a.st.rev));
+		await atPut;
+		assert.equal((await w.call({ action: 'weekly', op: 'status', ...b.P })).data.week.count, 0, '没落盘的不算');
+		release();
+		assert.ok((await pending).data.ok);
+		assert.equal((await w.call({ action: 'weekly', op: 'status', ...b.P })).data.week.count, 1);
+	} finally {
+		restore();
+	}
+});
+
+test('挂单：同时挂单也不会超过每个地点 30 单（复审问题 3）', async () => {
+	const w = makeWorld(3); // 每次读写都等一会儿，让两份礼物的检查交错
+	const { A, B } = await twoPlayers(w, 31, { water: 2 });
+	const C = { id: 'trade-also-31', key: 'c'.repeat(24) };
+	await w.call({ action: 'create', ...C, profile });
+	const recC = w.data.get('save:' + C.id);
+	recC.state.inventory = { water: 2 };
+	w.data.set('save:' + C.id, recC);
+	await w.call({ action: 'get', ...B });
+	const offers = (w.world as any).offers as Map<string, any>;
+	for (let i = 0; i < 29; i++) offers.set('f' + i, { id: 'f' + i, kind: 'sale', from: 'x' + i, fromName: 'x', fromAvatar: '🧑', to: null, toId: null, toName: '', item: 'snack', price: 3, loc: 'perth', at: Date.now() });
+	const toB = await peerHash(B.id);
+	const res = await Promise.all([A, C].map((P) => w.call({ action: 'trade', op: 'gift', ...P, to: toB, item: 'water' })));
+	assert.equal(res.filter((r) => r.data.ok).length, 1, '只有一份挂上');
+	assert.equal([...offers.values()].filter((o) => o.loc === 'perth').length, 30);
 });

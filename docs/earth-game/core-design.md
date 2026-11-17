@@ -139,7 +139,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 
 客户端不直接调用这些函数。`core/actions.ts` 定义了动作协议：`parseAction()` 把网络输入校验成 `GameAction`，`applyAction()` 分发给上表的函数，由服务端（`server/world.ts`）执行并保存。
 
-共同事件（`core/coop.ts`、`data/coop.ts`）不走 `applyAction()`：它要同时改好几个人的存档，不是某一个客户端发来的动作。服务端凑齐人后调用 `applyCoop()`，它对每个成员做团队检定（每人的随机数来自自己的种子），再按 `applyAction()` 一样的收尾（清理心情、钳制数值、版本号加一；跨过午夜时换新心愿，共同事件本身不算任何心愿）。每个成员的 `coopDays[id]` 记下开始那天，同一种每个游戏日一次。`coopsAt()` / `coopBlocked()` 给界面和服务端共用：地点（`locs/tags/kinds`）、天气、时间不对、今天做过或有待处理事件就不能参加。
+共同事件（`core/coop.ts`、`data/coop.ts`）不走 `applyAction()`：它要同时改好几个人的存档，不是某一个客户端发来的动作。服务端凑齐人后调用 `applyCoop()`，它对每个成员做团队检定（每人的随机数来自自己的种子），再按 `applyAction()` 一样的收尾（清理心情、钳制数值、版本号加一；跨过午夜时换新心愿，共同事件本身不算任何心愿）。每个成员的 `coopDays[id]` 记下开始那天，同一种每个游戏日一次。玩家之间的交易同理不走 `applyAction()`：服务端锁住双方存档后调用 `applyTrade()`（规则在 `core/trade.ts`），双方各自版本号加一。`coopsAt()` / `coopBlocked()` 给界面和服务端共用：地点（`locs/tags/kinds`）、天气、时间不对、今天做过或有待处理事件就不能参加。
 
 ## 5. 人际关系
 

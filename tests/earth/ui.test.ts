@@ -239,6 +239,57 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ coop: 'leave', lobby: lob! });
 		await pause(30);
 		assert.doesNotMatch(panel(), /等人加入/);
+		// 送礼：点在场的人旁边的 🎁，选背包里的东西送出，单子出现在送礼卡里，可以撤回
+		// 收件人要是真实存在、在同一地点的存档：服务端按哈希找到它
+		const peerH = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('ui-peer-gift')))].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
+		data.set('h:' + peerH, 'ui-peer-gift');
+		data.set('save:ui-peer-gift', { keyHash: 'x', at: 0, state: { loc: (data.get('save:' + cred.id) as any).state.loc, name: '小王' } });
+		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: peerH, name: '<b>小王</b>', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
+		const giftSave = data.get('save:' + cred.id) as any;
+		giftSave.state.inventory = { ...giftSave.state.inventory, water: 2 };
+		data.set('save:' + cred.id, giftSave);
+		await click({ pull: '' });
+		await pause(30);
+		await click({ tab: 'social' });
+		assert.match(panel(), new RegExp(`data-giftpick="${peerH}"`));
+		await click({ giftpick: peerH, giftName: '<b>小王</b>' });
+		assert.match(panel(), /送给&lt;b&gt;小王&lt;\/b&gt;什么/, '名字转义');
+		assert.match(panel(), /data-trade="gift" data-item="water"/);
+		await click({ trade: 'gift', item: 'water' });
+		await pause(30);
+		assert.match(panel(), /等小王收下 💧 饮用水/, "收件人名字以服务端存档为准");
+		assert.ok(sent.some((m) => JSON.parse(m).t === 'trade'), '提醒同地点的人');
+		const offerId = panel().match(/data-trade="cancel" data-offer="([a-f0-9]{10})"/)?.[1];
+		assert.ok(offerId, '有撤回按钮');
+		await click({ trade: 'cancel', offer: offerId! });
+		await pause(30);
+		assert.doesNotMatch(panel(), /等小王/);
+		// 二手摊：选一件、点一个价格挂上，单子出现在卡里
+		await click({ trade: 'sellpick' });
+		assert.match(panel(), /卖多少/);
+		const price = panel().match(/data-trade="sale" data-item="water" data-price="(\d+)"/)?.[1];
+		assert.ok(price, '有价格按钮');
+		await click({ trade: 'sale', item: 'water', price: price! });
+		await pause(30);
+		assert.ok(panel().includes(`二手摊上的 💧 饮用水 · $${price}`), '挂上了');
+		const saleId = panel().match(/data-trade="cancel" data-offer="([a-f0-9]{10})"/)?.[1];
+		await click({ trade: 'cancel', offer: saleId! });
+		await pause(30);
+		assert.doesNotMatch(panel(), /二手摊上的/);
+		// 常遇见的人：在线、同地点的标「就在这里」并能直接送礼；不在线的显示几天前见过
+		const metSave = data.get('save:' + cred.id) as any;
+		metSave.state.met = { [peerH]: { name: '小王', avatar: '🧑', n: 3, last: 0 }, 'ffffffffffff': { name: '老李', avatar: '🐨', n: 1, last: 0 } };
+		data.set('save:' + cred.id, metSave);
+		await click({ pull: '' });
+		await pause(30);
+		await click({ tab: 'social' });
+		assert.match(panel(), /常遇见的人/);
+		assert.match(panel(), /小王<small>一起做过 3 次事 · 就在这里/);
+		assert.match(panel(), /老李<small>一起做过 1 次事 · \d+ 天前见过/);
+		// 全服周目标卡：有进度条，没达成时领奖按钮灰掉
+		assert.match(panel(), /全服周目标：/);
+		assert.match(panel(), /role="progressbar"/);
+		assert.match(panel(), /data-week="claim" disabled/);
 		// 断开连接时角标也要清掉
 		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: 'peer-2', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
 		assert.match(el('tabs').innerHTML, /class="badge"/);
@@ -296,6 +347,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await pause(60);
 		await click({ tab: 'place' });
 		assert.match(panel().match(/<div class="next">[\s\S]*?<\/div>/)?.[0] ?? '', /夜深了/);
+		// 附近页底部有留言板和输入框
+		assert.match(panel(), /📝 留言板/);
+		assert.match(panel(), /id="note-form"[\s\S]*maxlength="60"/);
 		// 夜里：根元素换成夜晚，出行页地图上有星星
 		assert.ok(rootClasses.contains('p-night') && !rootClasses.contains('p-day'), '夜里换成夜晚配色');
 		await click({ tab: 'go' });
