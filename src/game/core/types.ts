@@ -480,6 +480,7 @@ export interface PlayerState {
 	visited: Record<string, number>; // locId -> 到访次数
 	checkins: string[]; // 已 GPS 打卡的 POI id
 	dex: string[]; // 野生动物图鉴：见过的动物 id
+	story: { ch: number; done: Record<string, number> }; // 主线剧情：第几章（等于章数表示全部写完）、本章各目标的进度
 	photoQuest: number; // 摄影任务链做到第几个（等于任务总数表示全部拍完）
 	fish: Record<string, number>; // 钓到过的鱼：鱼种 id -> 条数
 	dexSets: string[]; // 已发过奖的图鉴分组（集齐时记下，以后加了新动物也不收回、不重复发）

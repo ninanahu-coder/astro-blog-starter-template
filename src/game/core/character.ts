@@ -21,6 +21,7 @@ import { CERTS } from '../data/certs.ts';
 import { ANIMALS, DEX_GROUPS } from '../data/wildlife.ts';
 import { FISH } from '../data/fish.ts';
 import { PHOTO_QUESTS } from '../data/photo-quests.ts';
+import { STORY } from '../data/story.ts';
 import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
@@ -107,6 +108,7 @@ export function createCharacter(opts: {
 		dex: [],
 		fish: {},
 		photoQuest: 0,
+		story: { ch: 0, done: {} },
 		dexSets: [],
 		seen: [],
 		traits: validTraits(opts.traits ?? [], MAX_TRAITS) ? [...(opts.traits ?? [])] : [],
@@ -280,6 +282,15 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		})(),
 		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id)),
 		photoQuest: Math.floor(num(r.photoQuest, 0, PHOTO_QUESTS.length, 0)),
+		story: (() => {
+			const ch = Math.floor(num(r.story?.ch, 0, STORY.length, 0));
+			const done: Record<string, number> = {};
+			for (const step of STORY[ch]?.steps ?? []) {
+				const n = r.story?.done?.[step.id];
+				if (typeof n === 'number' && Number.isFinite(n) && n >= 1) done[step.id] = Math.min(step.n ?? 1, Math.floor(n));
+			}
+			return { ch, done };
+		})(),
 		fish: (() => {
 			const out: Record<string, number> = {};
 			for (const f of FISH) {

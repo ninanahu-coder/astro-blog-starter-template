@@ -4,6 +4,7 @@ import {
 	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { refreshWishes, settleWishes } from './wishes.ts';
+import { settleStory } from './story.ts';
 import { capState, nextRev } from './character.ts';
 import { pruneMoodlets } from './engine.ts';
 import type { ActionResult, CoopDef, NpcAction, PlayerState, Region, TravelMode, VenueOp } from './types.ts';
@@ -137,6 +138,8 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		if (!r.collapsed) {
 			const done = settleWishes(state, r.state, a);
 			if (done.length) msg += ` ✨ 心愿达成：${done.join('、')}`;
+			const chapters = settleStory(state, r.state, a);
+			if (chapters.length) msg += ` 📖 ${chapters.join('、')}`;
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
 	}
