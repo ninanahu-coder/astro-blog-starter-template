@@ -141,6 +141,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		// 名字里的 HTML 被转义（服务端可能已清洗掉尖括号；无论如何不能原样出现）
 		for (const h of [panel(), el('hud').innerHTML]) assert.ok(!h.includes('<b>阿测</b>'), '名字没有转义');
 		assert.match(panel(), /1 天后周结算，钱不够/, '周结算预警');
+		// 新手指南（第 26 轮）：开局只解开第 1 天，标出「现在」这一步；在今天页时第一步不需要「去看看」跳转
+		assert.match(panel(), /新手指南 · 第 1 天/);
+		assert.match(panel(), /aria-current="step"/);
+		assert.match(panel(), /做完这些或到第 2 天解开/);
 		// 顶栏（草图样式）：时间小字 + 地点大标题 + 天气；一排现金、等级、心情
 		assert.match(el('hud').innerHTML, /<h1>[^<]+<\/h1>/, '今天页顶栏用地点做大标题');
 		assert.match(el('hud').innerHTML, /class="wx-pill/, '顶栏有天气');

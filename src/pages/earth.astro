@@ -274,6 +274,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.guide li.done > span:nth-child(2) { text-decoration: line-through; }
 			.guide .tick { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--tick-line); flex: none; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #fff; }
 			.guide li.done .tick { background: var(--ok); border-color: var(--ok); }
+			.guide li.now .tick { border-color: var(--accent); }
+			.guide .now-tag { margin-left: 6px; font-style: normal; font-size: 11px; font-weight: 600; color: var(--accent); }
+			.guide .guide-go { margin-top: 6px; min-height: 44px; padding: 0 14px; }
+			.guide-next { margin-top: 10px; font-size: 12px; color: var(--dim); }
 			.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 			.ach-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
 			.story-steps { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
@@ -345,7 +349,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 		</style>
 
 		<script>
-			import { AVATARS, NEED_META, ORIGINS, SKILL_META, START_CLOCK, formatClock, nextRev, sanitizeState } from '../game/core/character.ts';
+			import { AVATARS, NEED_META, ORIGINS, SKILL_META, formatClock, nextRev, sanitizeState } from '../game/core/character.ts';
 			import type { GameAction } from '../game/core/actions.ts';
 			import { npcStatus } from '../game/core/engine.ts';
 			import { ANIMALS } from '../game/data/wildlife.ts';
@@ -353,6 +357,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { PHOTO_MINUTES, PHOTO_QUESTS } from '../game/data/photo-quests.ts';
 			import { STORY } from '../game/data/story.ts';
 			import { storyProgress } from '../game/core/story.ts';
+			import { guideView, type GuideView } from '../game/core/guide.ts';
 			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { CERTS } from '../game/data/certs.ts';
@@ -963,20 +968,19 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return `<div class="next"><span class="lbl">下一步</span><h2>${title}</h2><p>${text}</p><button ${attr}>${btn}</button></div>`;
 			}
 
-			// 新手指南：四步，做到了自动打勾，全部完成或点「知道了」后不再显示（只记在本机）
-			const GUIDE_KEY = 'earth.guide.v1';
+			// 新手指南（第 26 轮）：前三天分步解开，做到了自动打勾；点「知道了」后不再显示（只记在本机）
+			const GUIDE_KEY = 'earth.guide.v2';
 			function guideCard(s: PlayerState) {
 				if (store.get(GUIDE_KEY) === 'done') return '';
-				const steps: [boolean, string, string][] = [
-					[s.clock > START_CLOCK, '按「下一步」做一件事', '时间会往前走，需求会变化'],
-					[Object.keys(s.visited).length > 1, '到「出行」去一个新地方', '第一次到一个地方常有事件'],
-					[Object.keys(s.relations).length > 0, '和当地人聊聊天', '在今天页的「这里的人」里'],
-					[Object.keys(s.venueCd).length > 0 || !!s.clockIn, '人在真实的餐馆、公园时打开「附近」', '本人到场就能在游戏里吃饭、训练、打卡上班'],
-				];
-				if (steps.every(([done]) => done)) return '';
-				const n = steps.filter(([done]) => done).length;
-				return `<div class="card guide"><div class="guide-head"><h3>新手指南 ${n}/${steps.length}</h3><button data-guide-close>知道了</button></div>
-					<ol>${steps.map(([done, title, hint]) => `<li class="${done ? 'done' : ''}"><span class="tick" aria-hidden="true">${done ? '✓' : ''}</span><span>${title}<small>${hint}</small></span><span class="sr">${done ? '（已完成）' : ''}</span></li>`).join('')}</ol></div>`;
+				const g = guideView(s);
+				if (!g) return '';
+				const item = (st: GuideView['steps'][number]) => {
+					const now = st.id === g.current;
+					const go = now && st.tab && st.tab !== tab ? `<button class="guide-go" data-tab="${st.tab}">去看看</button>` : '';
+					return `<li class="${st.done ? 'done' : now ? 'now' : ''}"${now ? ' aria-current="step"' : ''}><span class="tick" aria-hidden="true">${st.done ? '✓' : ''}</span><span>${esc(st.title)}${now ? '<em class="now-tag">现在</em>' : ''}<small>${esc(st.hint)}</small>${go}</span><span class="sr">${st.done ? '（已完成）' : now ? '（下一步）' : ''}</span></li>`;
+				};
+				return `<div class="card guide"><div class="guide-head"><h3>新手指南 · 第 ${g.day} 天 <span class="muted">${g.done}/${g.total}</span></h3><button data-guide-close>知道了</button></div>
+					<ol>${g.steps.map(item).join('')}</ol>${g.next ? `<p class="guide-next">做完这些或到第 ${g.day + 1} 天解开：${esc(g.next)}</p>` : ''}</div>`;
 			}
 
 			/** 周结算预警：两天内要结算、现金不够付这周的固定开销时提醒（出租收入不计入，按最坏情况算） */
