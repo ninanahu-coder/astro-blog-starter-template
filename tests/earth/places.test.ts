@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { achievements } from '../../src/game/core/achievements.ts';
 import { createCharacter } from '../../src/game/core/character.ts';
 import { placeFacts, travel, travelOptions } from '../../src/game/core/engine.ts';
+import { EVENTS } from '../../src/game/data/events.ts';
 import { FACTS } from '../../src/game/data/facts.ts';
 import { WA } from '../../src/game/data/wa.ts';
 
@@ -43,6 +44,12 @@ function inside(lon: number, lat: number, ring: [number, number][]): boolean {
 test('地图：大陆上的地点都落在西澳轮廓里（岛屿除外），岛屿在轮廓外', () => {
 	for (const l of WA.locations) {
 		assert.equal(inside(l.lon, l.lat, WA.outline), l.kind !== 'island', `${l.id} (${l.lon}, ${l.lat})`);
+	}
+});
+
+test('到达事件：每个地点至少有一条只属于它的事件（第 24 轮补齐）', () => {
+	for (const l of WA.locations) {
+		assert.ok(EVENTS.some((e) => e.weight > 0 && !e.venueTypes && e.locs?.includes(l.id)), `${l.id} 没有专属事件`);
 	}
 });
 

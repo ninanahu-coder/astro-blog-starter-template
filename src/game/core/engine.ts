@@ -4,6 +4,7 @@ import { unit, weatherAt, weatherOn } from './weather.ts';
 import { ANIMALS, DEX_GROUPS, type AnimalDef } from '../data/wildlife.ts';
 import { FISH, FISHING, type FishDef } from '../data/fish.ts';
 import { FACTS, type PlaceFact } from '../data/facts.ts';
+import { NPC_DUOS, type NpcDuo } from '../data/npc-duos.ts';
 import { PHOTO_CHAIN_BONUS, PHOTO_MINUTES, PHOTO_QUESTS, type PhotoQuest } from '../data/photo-quests.ts';
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
@@ -431,11 +432,12 @@ export function dexProgress(state: PlayerState): { group: string; name: string; 
 	});
 }
 
-function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null, clock: number): boolean {
+export function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null, clock: number): boolean {
 	if (ev.venueTypes) return false; // 真实地点事件只由 pickVenueEvent 抽
 	if (ev.seasons && !ev.seasons.includes(dateOf(clock).season)) return false;
 	if (ev.weather && !ev.weather.includes(weatherOn(loc.id, dayOf(clock)).id)) return false;
 	if (ev.periods && !ev.periods.includes(period(clock).id)) return false;
+	if (ev.hours && !isOpen(ev.hours, clock)) return false;
 	if (ev.arrivedBy && (!mode || !ev.arrivedBy.includes(mode))) return false;
 	const scoped = ev.locs || ev.tags || ev.kinds;
 	if (!scoped) return true;
@@ -765,6 +767,24 @@ function unlockStories(state: PlayerState, region: Region, npc: NpcDef, rel: Rel
 	return out;
 }
 
+/** 和这位 NPC 有关、两人好感都已够格、还没触发的联动剧情 */
+export function duosReady(state: PlayerState, npcId: string): NpcDuo[] {
+	const score = (id: string) => state.relations[id]?.score ?? 0;
+	return NPC_DUOS.filter((d) => (d.a === npcId || d.b === npcId) && !state.duos.includes(d.id) && score(d.a) >= d.at && score(d.b) >= d.at);
+}
+
+/** 互动后触发够格的联动剧情（各一次）。效果不花时间，直接结算。原地修改 */
+function unlockDuos(state: PlayerState, region: Region, npcId: string): string[] {
+	const out: string[] = [];
+	for (const d of duosReady(state, npcId)) {
+		state.duos.push(d.id);
+		applyEffect(state, d.fx, region);
+		log(state, `【联动 · ${d.title}】${d.text}`);
+		out.push(`【${d.title}】${d.text}`);
+	}
+	return out;
+}
+
 /**
  * 与 NPC 互动：聊天（魅力检定决定涨多少）、送礼（看 TA 对这件东西的反应）、帮忙（花时间体力，涨声望）、
  * 专属互动（关系够了才解锁，有冷却）。聊天、送礼、帮忙每种每个游戏日一次。
@@ -820,7 +840,7 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 	}
 	rel.score = Math.max(-100, Math.min(100, rel.score + gain));
 	log(state, text);
-	const stories = unlockStories(state, region, npc, rel);
+	const stories = [...unlockStories(state, region, npc, rel), ...unlockDuos(state, region, npcId)];
 	if (stories.length) text += ' ' + stories.join(' ');
 	return { ok: true, state, msg: text };
 }

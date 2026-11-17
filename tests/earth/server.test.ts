@@ -977,12 +977,17 @@ test('全服周计数并发：后写的不会用旧数盖掉先写的；一笔�
 		} });
 		const c = await newPlayer(w2, 'weekly-race-c');
 		const d = await newPlayer(w2, 'weekly-race-d');
-		const [rc, rd] = await Promise.allSettled([w2.call(travel(c.P, c.st.rev)), w2.call(travel(d.P, d.st.rev))]);
-		assert.equal(rc.status, 'rejected');
-		assert.ok(rd.status === 'fulfilled' && rd.value.data.ok);
+		const settled = await Promise.allSettled([w2.call(travel(c.P, c.st.rev)), w2.call(travel(d.P, d.st.rev))]);
+		// 哪一笔先到存储、吃到那次失败，取决于并发调度（全套测试并行时会变）：只要求恰好一笔失败、一笔成功
+		const failed = settled.findIndex((r) => r.status === 'rejected');
+		assert.ok(failed >= 0, '应该有一笔写失败');
+		const ok = settled[1 - failed];
+		assert.ok(ok.status === 'fulfilled' && ok.value.data.ok, '另一笔应该成功');
 		assert.equal(w2.data.get('week:' + week), 1);
 		assert.equal((w2.world as any).week.count, 1);
-		assert.equal(w2.data.get('save:' + c.P.id).state.loc, 'perth', '失败的那笔存档没写');
+		const [lost, won] = failed === 0 ? [c, d] : [d, c];
+		assert.equal(w2.data.get('save:' + lost.P.id).state.loc, 'perth', '失败的那笔存档没写');
+		assert.equal(w2.data.get('save:' + won.P.id).state.loc, 'fremantle', '成功的那笔存档写了');
 	} finally {
 		restore();
 	}

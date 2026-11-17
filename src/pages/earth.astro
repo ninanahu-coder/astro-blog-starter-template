@@ -276,6 +276,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.guide li.done .tick { background: var(--ok); border-color: var(--ok); }
 			.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 			.ach-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+			.story-steps { list-style: none; padding: 0; margin: 8px 0 0; display: grid; gap: 4px; }
 			.ach { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); font-size: 13px; opacity: 0.75; }
 			.ach.done { opacity: 1; background: var(--warm-bg); border-color: var(--warm-line); }
 			.ach .ach-ico { font-size: 20px; filter: grayscale(1); }
@@ -350,6 +351,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { ANIMALS } from '../game/data/wildlife.ts';
 			import { FISH, FISHING } from '../game/data/fish.ts';
 			import { PHOTO_MINUTES, PHOTO_QUESTS } from '../game/data/photo-quests.ts';
+			import { STORY } from '../game/data/story.ts';
+			import { storyProgress } from '../game/core/story.ts';
 			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { CERTS } from '../game/data/certs.ts';
@@ -361,6 +364,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { checkScore, furnitureSets, moodBreakdown, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
+			import { NPC_DUOS } from '../game/data/npc-duos.ts';
 			import { coopBlocked, coopCostLabel, coopsAt } from '../game/core/coop.ts';
 			import { getCoop } from '../game/data/coop.ts';
 			import { giveBlocked, saleRange, takeBlocked } from '../game/core/trade.ts';
@@ -1076,6 +1080,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const factHtml = facts.length ? `<details class="card"><summary><b>📖 ${esc(loc.name)}小知识 ${facts.filter((f) => f.unlocked).length}/${facts.length}</b></summary>${facts.map(({ fact, unlocked }, i) => unlocked
 					? `<p style="margin-top:8px">${esc(fact.text)} <a class="muted" href="${esc(fact.source)}" target="_blank" rel="noopener">来源</a></p>`
 					: `<p style="margin-top:8px" class="muted">第 ${i + 1} 次来时解锁</p>`).join('')}</details>` : '';
+				const sp = storyProgress(s);
+				const storyCard = sp ? `<details class="card" open><summary><h3 style="display:inline">📖 ${esc(sp.chapter.title)}</h3> <span class="muted">${sp.index + 1}/${STORY.length}</span></summary><p>${esc(sp.chapter.intro)}</p><ul class="story-steps">${sp.steps.map((x) => `<li>${x.got >= x.need ? '✅' : '⬜'} ${esc(x.step.text)}${x.need > 1 ? ` <span class="muted">${x.got}/${x.need}</span>` : ''}</li>`).join('')}</ul></details>` : '';
 				const pq = photoQuestNow(s, region);
 				const photoQuestHtml = pq ? `<div class="card"><h3>📷 摄影任务 ${pq.index + 1}/${PHOTO_QUESTS.length}：${esc(pq.quest.title)}</h3><p>${esc(pq.quest.hint)}</p>
 					<div class="row" style="margin-top:8px"><span class="body">拍下来<small>${esc(pq.blocked ?? `${PHOTO_MINUTES} 分钟 · $${pq.quest.cash}、声望 +${pq.quest.respect}`)}</small></span><button data-photo ${pq.blocked ? 'disabled' : ''}>拍照</button></div></div>` : '';
@@ -1121,7 +1127,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+					${storyCard}${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
 			}
 
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
@@ -1214,6 +1220,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<p>${hd ? `住在${esc(getLocation(region, s.home!.loc)!.name)}的${esc(hd.name)}，家具：${Object.values(s.home!.furniture).map((id) => esc(getFurniture(id)?.name ?? '')).join('、') || '无'}` : '没有住处。在城镇可以租房，回家睡觉免费且恢复更多。'}</p>
 					<p>每周固定开销 $${wc.total}${wc.total ? `（房租 $${wc.rent} + 车辆 $${wc.vehicle} + 房产 $${wc.property}）· ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算` : ''}</p>
 					<div class="inline" style="margin-top:8px">${jc ? '<button data-job="quit">辞职</button>' : ''}${hd ? '<button data-home="leave">退租</button>' : ''}</div>`;
+				const npcName = (id: string) => NPCS.find((n) => n.id === id)?.name ?? id;
+				const duoHtml = `<div class="card"><h3>朋友之间 ${s.duos.length}/${NPC_DUOS.length}</h3><p>两位朋友的好感都够了，和其中一位互动时会发生的事。</p><div class="ach-grid">${NPC_DUOS.map((d) => s.duos.includes(d.id)
+					? `<div class="ach done"><span class="ach-ico" aria-hidden="true">🤝</span><span><b>${esc(d.title)}</b><small>${esc(d.text)}</small></span></div>`
+					: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>${esc(npcName(d.a))} 和 ${esc(npcName(d.b))}</b><small>两人好感都到 ${d.at}</small></span></div>`).join('')}</div></div>`;
 				const rels = Object.entries(s.relations).map(([id, r]) => {
 					const npc = NPCS.find((n) => n.id === id);
 					if (!npc) return '';
@@ -1287,7 +1297,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>`,
 					album: `<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>`,
 					life: `<div class="card"><h3>工作与住处</h3>${life}</div>`,
-					rels: `<div class="card"><h3>人际关系</h3>${rels || '<p>还没认识什么人。去各地看看谁在那里。</p>'}</div>`,
+					rels: `<div class="card"><h3>人际关系</h3>${rels || '<p>还没认识什么人。去各地看看谁在那里。</p>'}</div>${duoHtml}`,
 					bag: `<div class="card"><h3>背包</h3>${bag || '<p>空的。在地点页的商店里买东西。</p>'}</div>`,
 					skills: `<div class="card"><h3>能力</h3><p>用得越多涨得越快。</p>${skills}</div>`,
 					derived: `<div class="card"><h3>派生属性</h3>${(() => {
