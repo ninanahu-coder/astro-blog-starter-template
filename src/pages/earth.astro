@@ -265,6 +265,38 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.me-head .name span { font-size: 13px; color: var(--dim); }
 			.me-head .money { text-align: right; }
 			.me-head .money b { display: block; font-size: 22px; font-weight: 900; letter-spacing: -0.5px; }
+			/* 场景顶栏（今天页）：不再吸顶，场景占满宽度、底部圆角 */
+			html #hud.scened { position: relative; padding: 0 0 10px; background: var(--bg); }
+			#hud .scene { position: relative; height: 212px; overflow: hidden; border-radius: 0 0 26px 26px; container-type: inline-size; margin: 0 -0px; }
+			#hud .scene-art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+			#hud .scene-top { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+			#hud .pill-on { padding: 6px 12px; border-radius: 999px; background: var(--card); color: var(--text); font-size: 12px; font-weight: 600; box-shadow: 0 2px 8px var(--shadow); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			#hud .scene .wx-pill { box-shadow: 0 2px 8px var(--shadow); }
+			#hud .plate { position: absolute; left: 12px; top: calc(50px + env(safe-area-inset-top)); display: flex; flex-direction: column; padding: 8px 14px; border-radius: 14px; background: var(--text); color: var(--bg); max-width: 62%; }
+			#hud .plate h1 { margin: 0; font-size: 21px; line-height: 1.2; color: inherit; }
+			#hud .plate small { font-size: 11px; color: inherit; }
+			#hud .thought { position: absolute; left: calc(50% + 16px); bottom: calc(15.6cqw + 4px); padding: 6px 10px; border-radius: 16px 16px 16px 4px; background: var(--card); color: var(--low-ink); font-size: 12px; font-weight: 700; box-shadow: 0 2px 10px var(--shadow); max-width: calc(50% - 28px); }
+			#hud.scened .hud-chips { padding: 0 16px; margin-top: 10px; }
+			/* 需求环 */
+			.rings { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
+			.ring { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--text2); text-align: center; }
+			.ring svg { width: 100%; max-width: 54px; aspect-ratio: 1; display: block; }
+			.ring .track { fill: var(--card2); stroke: var(--soft); stroke-width: 5; }
+			.ring .arc { fill: none; stroke: var(--ok); stroke-width: 5; stroke-linecap: round; }
+			.ring.mid .arc { stroke: var(--mid); }
+			.ring.low .arc { stroke: var(--bad); }
+			.ring > b { position: absolute; top: 0; left: 0; right: 0; height: min(54px, 100%); max-height: 54px; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 800; color: var(--text); pointer-events: none; }
+			.ring.low > b, .ring.low > span { color: var(--low-ink); }
+			/* NPC：立绘 + 名牌 + 关系条 + 对话气泡 + 圆角选项 */
+			.npc-talk { margin-top: 12px; padding: 12px; border-radius: 18px; background: var(--card2); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+			.npc-head { display: flex; align-items: center; gap: 10px; }
+			.npc-head .portrait { width: 56px; height: 56px; flex: none; }
+			.npc-name { display: flex; flex-direction: column; padding: 6px 12px; border-radius: 12px; background: var(--text); color: var(--bg); min-width: 0; }
+			.npc-name b { font-size: 15px; } .npc-name small { font-size: 11px; color: inherit; }
+			.npc-rel { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 12px; color: var(--tint-green-ink); font-weight: 700; min-width: 96px; }
+			.npc-rel .bar { width: 96px; margin: 0; }
+			.npc-talk .bubble { position: relative; margin: 0; padding: 10px 12px; border-radius: 4px 16px 16px 16px; background: var(--card); color: var(--text); font-size: 14px; line-height: 1.6; }
+			.talk-choices button { border-radius: 22px; min-height: 44px; padding: 0 16px; }
 			.needs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; row-gap: 12px; }
 			.needs-grid .need { font-size: 13px; color: var(--text2); }
 			.needs-grid .need .top { display: flex; justify-content: space-between; }
@@ -355,12 +387,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			#modal .sheet { background: var(--bg); border-radius: 24px 24px 0 0; width: 100%; max-width: 560px; max-height: 92dvh; overflow-y: auto; }
 			#modal .ev-hero { background: #123a5e; color: #fff; padding: 22px 20px 20px; display: flex; flex-direction: column; gap: 4px; min-height: 150px; justify-content: flex-end; position: relative; }
 			#modal .ev-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.55; }
+			#modal .ev-hero .scene-art { position: absolute; inset: 0; width: 100%; height: 100%; }
+			#modal .ev-hero .ev-shade { position: absolute; inset: 0; background: rgba(8, 14, 24, 0.62); }
+			#modal .ev-hero { min-height: 170px; border-radius: 24px 24px 0 0; overflow: hidden; }
 			#modal .ev-hero > * { position: relative; }
-			#modal .ev-hero .kicker { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #f2b48c; }
+			#modal .ev-hero .kicker { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #ffe0c8; }
 			#modal h2 { margin: 0; font-size: 30px; font-weight: 900; }
 			#modal .ev-body { padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
 			#modal .ev-body > p { margin: 0; font-size: 17px; line-height: 1.6; }
-			#modal .choice { flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 16px; min-height: 64px; }
+			#modal .choice { flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 18px; min-height: 64px; border-radius: 22px; border: 2px solid var(--line); }
+			#modal .choice:not([disabled]):first-child { border-color: var(--accent); background: var(--tint-blue); }
 			#modal .choice .label { font-size: 16px; font-weight: 700; }
 			.pills { display: flex; flex-wrap: wrap; gap: 6px; }
 			.pill { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 8px; background: var(--tint-blue); color: var(--tint-blue-ink); }
@@ -411,6 +447,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { getWish } from '../game/core/wishes.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
 			import { weatherAt, weatherOn } from '../game/core/weather.ts';
+			import { portraitSvg, ringDash, sceneSvg } from '../game/ui/scene.ts';
 			import { fireDanger, fireSeason, hasTide, hhmm, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps, tideNow, uvDay, uvLevel } from '../game/core/sky.ts';
 			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
@@ -1043,8 +1080,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const career = s.job ? getCareer(s.job.career) : undefined;
 					const lv = level(s.respect);
 					const role = career ? `${career.name} · ${career.levels[s.job!.level]?.title ?? ''}` : `Lv${lv.lv} ${lv.title}`;
-					top = `<div class="hud-top"><div class="hud-title"><span class="hud-sub" title="${formatClock(s.clock)}">${time}</span><h1>${esc(loc.name)}</h1></div>
+					// 场景顶栏（虚拟人生风格）：当地小场景当背景，时间、天气浮在上面，地点做名牌；最缺的需求变成人物头上的想法气泡
+					const needs = needList(s);
+					const worst = needs.reduce((a, b) => (b.v < a.v ? b : a));
+					const worstKey = worst.name === '健康' ? 'health' : NEED_KEYS.find((k) => NEED_META[k].name === worst.name) ?? '';
+					const thought = worst.v < 60 && NEED_LOW[worstKey] ? `<span class="thought">${esc(NEED_LOW[worstKey])}</span>` : '';
+					top = `<div class="scene">${sceneSvg({ phase: skyPhase(loc, s.clock), weather: w.id, kind: loc.kind, tags: loc.tags })}
+						<div class="scene-top"><span class="pill-on" title="${formatClock(s.clock)}">${time}</span>
 						<span class="wx-pill${w.closesSea ? ' storm' : ''}">${w.icon} ${esc(w.name)} ${temps(loc, s.clock, w.id).max}°${w.closesSea ? ' · 海上关闭' : ''}</span></div>
+						<div class="plate"><h1>${esc(loc.name)}</h1><small>${esc(loc.en)}</small></div>${thought}</div>
 						<div class="hud-chips">${cash}<span class="chip">${esc(role)}</span>${starHtml}${fireChip(s)}${uvChip(s)}${moodBtn}${sync}</div>`;
 				} else {
 					// 其他页：副标题 + 页名；右边现金和心情，下面一条迷你需求条
@@ -1062,6 +1106,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<div class="mini-needs">${needList(s).map((n) => `<div class="need" title="${n.name} ${n.v}">${n.icon}<div class="bar"><i class="${barCls(n.v)}" style="width:${n.v}%"></i></div></div>`).join('')}</div>`;
 				}
 				const offline = syncStatus.startsWith('离线') ? `现在离线：可以查看；做事、出行等可以先排队，联网后自动补交${queue.length ? `（已排 ${queue.length} 个）` : ''}` : queue.length ? `有 ${queue.length} 个排队的动作等着补交` : '';
+				$('hud').classList.toggle('scened', tab === 'place');
 				$('hud').innerHTML = `${top}${offline ? `<div class="offline" role="status">${offline}</div>` : ''}`;
 			}
 
@@ -1157,7 +1202,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			function needsCard(s: PlayerState) {
 				const list = needList(s);
 				const min = Math.min(...list.map((n) => n.v));
-				return `<div class="card"><h3>状态</h3><div class="needs-grid">${list.map((n) => `<div class="need"><div class="top"><span>${n.icon} ${n.name}${n.v === min && min < 60 ? ' <em class="lack">最缺</em>' : ''}</span><b class="${barCls(n.v)}">${n.v}</b></div><div class="bar"><i class="${barCls(n.v)}" style="width:${n.v}%"></i></div></div>`).join('')}</div></div>`;
+				// 需求环（虚拟人生风格）：六个圆环一排，数字在环中间；最低一项低于 60 时名字下标「最缺」
+				return `<div class="card"><h3>状态</h3><div class="rings">${list.map((n) => `<div class="ring ${barCls(n.v)}" role="img" aria-label="${n.name} ${n.v}${n.v === min && min < 60 ? '，最缺' : ''}">
+					<svg viewBox="0 0 50 50" aria-hidden="true" focusable="false"><circle cx="25" cy="25" r="21" class="track"/><circle cx="25" cy="25" r="21" class="arc" stroke-dasharray="${ringDash(n.v)}" transform="rotate(-90 25 25)"/></svg>
+					<b>${n.v}</b><span><span aria-hidden="true">${n.icon}</span> ${n.name}</span>${n.v === min && min < 60 ? '<em class="lack">最缺</em>' : ''}</div>`).join('')}</div></div>`;
 			}
 			/** 「下一步」：最缺的那项需求 → 这里能补它最多的事；需求都还行时提示上班或出门。只是建议，结算仍由服务器做 */
 			function nextCard(s: PlayerState, homeHere: boolean, canWork: boolean) {
@@ -1330,8 +1378,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					return getRelation(s, npcId).known.includes(itemId) ? `（${GIFT_LABEL[giftReaction(n, itemId)]}）` : '';
 				};
 				const peopleHtml = people.length || absent.length ? `<div class="card"><h3>这里的人</h3>${people.map(({ npc, rel, tier, blocked, nextStory }) => `
-					<div style="margin-top:10px"><div class="row"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${esc(npc.bio)}</small></span><span class="meta">${tier}<br/>${Math.round(rel.score)}/100</span></div>
-					<div class="inline" style="margin-top:6px">${(['chat', 'help'] as const).map((a) => `<button data-npc="${npc.id}" data-npc-act="${a}" ${blocked[a] ? `disabled title="${esc(blocked[a])}"` : ''}>${{ chat: '聊天', help: '帮忙' }[a]}</button>`).join('')}${npc.perk ? `<button data-npc="${npc.id}" data-npc-act="perk" ${blocked.perk ? `disabled title="${esc(blocked.perk)}"` : ''}>✨ ${esc(npc.perk.name)}</button>` : ''}</div>
+					<div class="npc-talk"><div class="npc-head">${portraitSvg(npc.id)}<div class="npc-name"><b>${esc(npc.name)}</b><small>${esc(npc.role)}</small></div>
+					<div class="npc-rel"><small>${tier} · ${Math.round(rel.score)}/100</small><div class="bar" role="progressbar" aria-label="和${esc(npc.name)}的关系" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(rel.score)}"><i style="width:${Math.round(Math.max(0, Math.min(100, rel.score)))}%"></i></div></div></div>
+					<p class="bubble">${esc(npc.bio)}</p>
+					<div class="inline talk-choices">${(['chat', 'help'] as const).map((a) => `<button data-npc="${npc.id}" data-npc-act="${a}" ${blocked[a] ? `disabled title="${esc(blocked[a])}"` : ''}>${{ chat: '聊天', help: '帮忙' }[a]}</button>`).join('')}${npc.perk ? `<button data-npc="${npc.id}" data-npc-act="perk" ${blocked.perk ? `disabled title="${esc(blocked.perk)}"` : ''}>✨ ${esc(npc.perk.name)}</button>` : ''}</div>
 					${bagIds.length ? `<div class="inline" style="margin-top:6px"><span class="muted">送礼：</span>${bagIds.map((id) => `<button data-npc="${npc.id}" data-npc-act="gift" data-npc-item="${id}" ${blocked.gift ? `disabled title="${esc(blocked.gift)}"` : ''}>${getItem(id)!.icon} ${esc(getItem(id)!.name)}${giftLabel(npc.id, id)}</button>`).join('')}</div>` : ''}
 					${Object.values(blocked).some(Boolean) ? `<p style="margin-top:4px">${esc([...new Set(Object.values(blocked).filter(Boolean))].join('；'))}</p>` : ''}
 					${nextStory !== undefined ? `<p style="margin-top:4px" class="muted">关系到 ${nextStory}（${relationTier(nextStory)}）会有新故事。</p>` : ''}</div>`).join('')}
@@ -1899,7 +1949,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const odds = (skill: Parameters<typeof checkScore>[1], dc: number) => Math.round(Math.max(0, Math.min(1, (checkScore(s, skill).total + 60 - dc) / 60)) * 100);
 				const img = cgi['event:' + ev.id];
 				modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
-					<div class="ev-hero">${img ? `<img src="${esc(img)}" alt="" loading="lazy" />` : ''}<span class="kicker">${loc ? `到达 ${esc(loc.name)} · ${formatClock(s.clock).split(' ')[1]}` : '事件'}${weatherAt(s).closesSea ? ' · 风暴天' : ''}</span><h2 id="ev-title">${ev.icon} ${esc(ev.title)}</h2></div>
+					<div class="ev-hero">${img ? `<img src="${esc(img)}" alt="" loading="lazy" />` : loc ? `${sceneSvg({ phase: skyPhase(loc, s.clock), weather: weatherAt(s).id, kind: loc.kind, tags: loc.tags, noFigure: true })}<i class="ev-shade"></i>` : ''}<span class="kicker">${loc ? `到达 ${esc(loc.name)} · ${formatClock(s.clock).split(' ')[1]}` : '事件'}${weatherAt(s).closesSea ? ' · 风暴天' : ''}</span><h2 id="ev-title">${ev.icon} ${esc(ev.title)}</h2></div>
 					<div class="ev-body"><p>${esc(ev.text)}</p>
 					<div class="list">${ev.choices.map((c, i) => {
 						const poor = !!c.cost && c.cost > s.cash;

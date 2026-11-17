@@ -14,6 +14,8 @@ import { EarthWorld } from '../../src/game/server/world.ts';
 import { WA } from '../../src/game/data/wa.ts';
 import { SEASON_DAYS } from '../../src/game/core/time.ts';
 import { weatherOn } from '../../src/game/core/weather.ts';
+import { npcsAt } from '../../src/game/core/engine.ts';
+import { NPCS } from '../../src/game/data/npcs.ts';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
@@ -902,6 +904,12 @@ test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，�
 	assert.match(panel, /真下海请看官方潮汐预报/);
 	assert.match(panel, /紫外线：现在 \d+/);
 	assert.match(hud, /class="wx-pill[^"]*">[^<]*\d+°/, '顶栏天气带最高气温');
+	// 虚拟人生风格：今天页顶栏是当地小场景，地点名牌、需求环、NPC 立绘
+	assert.match(hud, /<div class="scene"><svg class="scene-art"/);
+	assert.match(hud, /<div class="plate"><h1>[^<]+<\/h1><small>[^<]+<\/small><\/div>/);
+	assert.match(panel, /<div class="rings">/);
+	assert.equal((panel.match(/class="ring /g) ?? []).length, 6, '六个需求环');
+	assert.match(panel, /role="img" aria-label="健康 \d+/);
 	assert.deepEqual(a11yIssues(panel), []);
 });
 
@@ -951,6 +959,52 @@ test('界面：画面天色跟着当地日出日落，不是固定钟点（第 3
 	// 夏季（≈ 1 月）傍晚 6 点半：太阳还高，画面是白天
 	const summer = await open(SEASON_DAYS + 12, 18.5);
 	assert.ok(summer.contains('p-day'), '夏天 6 点半还亮');
+});
+
+test('界面：虚拟人生风格——最缺的需求变成想法气泡；NPC 有立绘、名牌、关系条和对话气泡；事件弹窗用当地场景当背景', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'life-ui-a', '人生甲');
+	const rec = data.get('save:' + a.cred.id) as any;
+	// 找一个有 NPC 在场的地点和时刻
+	let found: { loc: string; clock: number } | null = null;
+	for (const n of NPCS) {
+		for (let c = 0; c < 7 * 1440 && !found; c += 60) {
+			const st = { ...rec.state, loc: n.loc, clock: 1440 * 3 + c };
+			if (npcsAt(st, WA).length) found = { loc: n.loc, clock: st.clock };
+		}
+		if (found) break;
+	}
+	assert.ok(found, '有 NPC 在场的时刻');
+	rec.state.loc = found!.loc;
+	rec.state.clock = found!.clock;
+	rec.state.needs.social = 10;
+	data.set('save:' + a.cred.id, rec);
+	let panel = '', hud = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			panel = el('panel').innerHTML;
+			hud = el('hud').innerHTML;
+		},
+	});
+	assert.match(hud, /<span class="thought">想找人说说话<\/span>/, '社交最缺：人物头上冒想法');
+	assert.match(panel, /<div class="npc-talk"><div class="npc-head"><svg class="portrait"/);
+	assert.match(panel, /<div class="npc-name"><b>[^<]+<\/b><small>[^<]+<\/small><\/div>/);
+	assert.match(panel, /role="progressbar" aria-label="和[^"]+的关系" aria-valuemin="0" aria-valuemax="100" aria-valuenow="\d+"/);
+	assert.match(panel, /<p class="bubble">/);
+	assert.match(panel, /<em class="lack">最缺<\/em>/);
+	assert.deepEqual(a11yIssues(panel), []);
+	assert.deepEqual(a11yIssues(hud), []);
+	// 事件弹窗：放一个待处理事件，弹窗背景是当地场景（没有配图时）
+	const { EVENTS } = await import('../../src/game/data/events.ts');
+	const ev = EVENTS.find((e) => e.choices.length >= 2 && !e.periods)!;
+	rec.state.pending = { eventId: ev.id };
+	data.set('save:' + a.cred.id, rec);
+	let modal = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, { after: async ({ el }) => { modal = el('modal').innerHTML; } });
+	assert.match(modal, /<div class="ev-hero"><svg class="scene-art"[^>]*aria-hidden="true"/);
+	assert.match(modal, /<i class="ev-shade"><\/i>/);
+	assert.deepEqual(a11yIssues(modal), []);
 });
 
 test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {
