@@ -16,7 +16,7 @@ import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { realDayOf } from './daily.ts';
 // 只用到地点和打卡点，不需要真实地点数据：用首屏版区域，页面不必为此加载 wa.venues.json
-import { getRegionBase as getRegion } from '../data/wa-base.ts';
+import { AREAS as REGION_AREAS, areaOf, WORLD_BASE } from '../data/areas-base.ts';
 import { COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
 import { ANIMALS, DEX_GROUPS } from '../data/wildlife.ts';
@@ -222,7 +222,8 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		name: cleanName(r.name) || '旅人',
 		avatar: AVATARS.includes(r.avatar) ? r.avatar : AVATARS[0],
 		origin: ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id,
-		region: getRegion(r.region) ? r.region : 'wa',
+		// 区域由所在地点决定（第 41 轮）：存档里写的区域只是缓存，跨区域出行后跟着地点走
+		region: areaOf(r.loc)?.id ?? REGION_AREAS[0].id,
 		clock: num(r.clock, 0, CAPS.clock, START_CLOCK),
 		loc: r.loc,
 		cash: Math.round(num(r.cash, 0, CAPS.cash, 0)),
@@ -235,9 +236,9 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		visited,
 		// 一次性奖励的记录只留现在还存在的 id、去重。不能只按长度截：列表被垃圾 id 塞满的话，
 		// 引擎新追加在末尾的真实 id 下次校验会被截掉，那份奖励就能再领一次
-		checkins: knownList(r.checkins, new Set((getRegion(r.region) ?? getRegion('wa'))!.pois.map((p) => p.id))),
+		checkins: knownList(r.checkins, new Set(WORLD_BASE.pois.map((p) => p.id))),
 		seen: knownList(r.seen, new Set(EVENTS.map((e) => e.id))),
-		photos: knownList(r.photos, photoIds((getRegion(r.region) ?? getRegion('wa'))!.locations.map((l) => l.id))),
+		photos: knownList(r.photos, photoIds(WORLD_BASE.locations.map((l) => l.id))),
 		traits: (() => {
 			const t = strList(r.traits, MAX_TRAITS);
 			return validTraits(t, MAX_TRAITS) ? t : [];

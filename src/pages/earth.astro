@@ -459,10 +459,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { makeProjection } from '../game/core/geo.ts';
 			import { NEED_KEYS, SKILL_KEYS } from '../game/core/types.ts';
 			import type { NpcAction, PlayerState, Region, TravelMode, Venue } from '../game/core/types.ts';
-			import { WA_BASE } from '../game/data/wa-base.ts';
+			import { AREAS as MAP_AREAS, areaOf, WORLD_BASE } from '../game/data/areas-base.ts';
 
 			// 首屏只带不含真实地点的区域；真实地点（wa.venues.json，约 80KB）打开「附近」时再下载（第 34 轮）
-			let region: Region = WA_BASE;
+			// 规则用整个世界（所有区域合在一起，第 41 轮）；地图、底图、轮廓按所在地点的区域画（curArea）
+			let region: Region = WORLD_BASE;
 			let venuesState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
 			// 失败后不自动重试（页面重画又会调用这里，自动重试会变成死循环）：只有点「重试」、重新联网、重新进入「附近」才再试
 			function needVenues() {
@@ -528,6 +529,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 			let cgi: Record<string, string> = {};
 			let ws: WebSocket | null = null;
+			/** 在线频道连的是哪个区域 */
+			let wsArea = '';
 			let myPeerId = '';
 			let peers = new Map<string, Peer>();
 			let chats: Chat[] = [];
@@ -834,7 +837,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				state = clean;
 				syncStatus = `已同步 · 版本 ${clean.rev}`;
 				cache();
-				if (moved && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'move', loc: state.loc }));
+				if (moved && ws && wsArea && wsArea !== curArea().id) {
+					// 到了别的区域：换到那个区域的在线频道
+					const old = ws;
+					ws = null;
+					peers.clear();
+					old.close();
+					connect();
+				} else if (moved && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'move', loc: state.loc }));
 				if (why) toast(why);
 				return true;
 			}
@@ -878,7 +888,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 			function connect() {
 				if (!state || !cred || syncing || (ws && ws.readyState <= WebSocket.OPEN)) return;
-				const q = new URLSearchParams({ region: region.id, id: cred.id, name: state.name, avatar: state.avatar, loc: state.loc });
+				// 在线频道按区域分：连的是所在地点的区域，记下来，跨区域后重连
+				wsArea = curArea().id;
+				const q = new URLSearchParams({ region: wsArea, id: cred.id, name: state.name, avatar: state.avatar, loc: state.loc });
 				const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/earth/ws?${q}`);
 				ws = sock;
 				sock.onmessage = (e) => {
@@ -1127,7 +1139,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				$('hud').innerHTML = `${top}${offline ? `<div class="offline" role="status">${offline}</div>` : ''}`;
 			}
 
-			const proj = makeProjection(region);
+			/** 玩家所在的区域（地图按它画）；还没有角色时用第一个区域 */
+			function curArea(): Region { return (state && areaOf(state.loc)) || MAP_AREAS[0]; }
+			/** 每个区域一套投影（按它自己的范围），算一次就缓存 */
+			const projCache = new Map<string, ReturnType<typeof makeProjection>>();
+			function projOf(a: Region) {
+				let p = projCache.get(a.id);
+				if (!p) projCache.set(a.id, (p = makeProjection(a)));
+				return p;
+			}
 			/** 夜里地图上的星星：固定的伪随机位置，每次画都一样 */
 			function starField(w: number, h: number) {
 				let x = 2463534242;
@@ -1138,16 +1158,18 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				// 地图只在「出行」页显示：其他页不画，切到出行页时 renderPanel 会补画
 				if (tab !== 'go' || !state) return;
 				const s = state!;
+				const area = curArea();
+				const proj = projOf(area);
 				const pt = (id: string) => { const l = getLocation(region, id)!; return proj.project(l.lon, l.lat); };
-				const outline = region.outline.map(([lon, lat]) => proj.project(lon, lat).join(',')).join(' ');
-				const routes = region.routes.map((r) => {
+				const outline = area.outline.map(([lon, lat]) => proj.project(lon, lat).join(',')).join(' ');
+				const routes = area.routes.map((r) => {
 					const [x1, y1] = pt(r.a), [x2, y2] = pt(r.b);
 					const live = r.a === s.loc || r.b === s.loc ? ' live' : '';
 					return `<line class="route ${r.mode}${live}" x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
 				}).join('');
 				const counts = new Map<string, number>();
 				for (const p of peers.values()) if (p.id !== myPeerId) counts.set(p.loc, (counts.get(p.loc) || 0) + 1);
-				const dots = region.locations.map((l) => {
+				const dots = area.locations.map((l) => {
 					const [x, y] = proj.project(l.lon, l.lat);
 					const here = l.id === s.loc;
 					const cls = here ? 'here' : `dot${s.visited[l.id] ? '' : ' new'}${selected === l.id ? ' sel' : ''}`;
@@ -1168,6 +1190,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			// ---------- 真实底图（第 31 轮）----------
 			// 手绘地图照常画（离线、加载中、失败时看它）；真实地图加载好、又联网时盖在上面
 			let basemap: Basemap | null = null;
+			/** 底图是按哪个区域建的 */
+			let basemapArea = '';
 			/** 同步页里显示的二维码（SVG），点「收起」清掉 */
 			let qrHtml = '';
 			let basemapFailed = false;
@@ -1180,11 +1204,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					wrap.classList.remove('real');
 					return;
 				}
+				const area = curArea();
+				// 换了区域：底图按新区域的范围重建
+				if (basemap && basemapArea !== area.id) dropBasemap();
 				if (!basemap) {
+					basemapArea = area.id;
 					const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#1d5fd1';
 					basemap = createBasemap({
 						container: $('basemap'),
-						bounds: basemapBounds(region.locations),
+						bounds: basemapBounds(area.locations),
 						doc: document,
 						routeColor: accent,
 						onState: (st) => {
@@ -1195,8 +1223,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 				basemap.resize();
 				basemap.update({
-					pins: region.locations.map((l) => ({ id: l.id, name: l.name, lon: l.lon, lat: l.lat, here: l.id === s.loc, visited: !!s.visited[l.id], selected: selected === l.id, wx: weatherOn(l.id, dayOf(s.clock)).icon, count: counts.get(l.id) ?? 0 })),
-					routes: region.routes.map((r) => {
+					pins: area.locations.map((l) => ({ id: l.id, name: l.name, lon: l.lon, lat: l.lat, here: l.id === s.loc, visited: !!s.visited[l.id], selected: selected === l.id, wx: weatherOn(l.id, dayOf(s.clock)).icon, count: counts.get(l.id) ?? 0 })),
+					routes: area.routes.map((r) => {
 						const a = getLocation(region, r.a)!, b = getLocation(region, r.b)!;
 						return { a: [a.lon, a.lat] as [number, number], b: [b.lon, b.lat] as [number, number], live: r.a === s.loc || r.b === s.loc };
 					}),
@@ -1321,7 +1349,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const lv = level(s.respect);
 				const places = region.locations.filter((l) => s.visited[l.id]).length;
 				const ach = achievements(s, region);
-				return `我在「地球人生 · 西澳」里是 ${s.name}（Lv${lv.lv} ${lv.title}），过了 ${dayOf(s.clock) + 1} 天，去过 ${places}/${region.locations.length} 个地方，净资产 $${Math.round(netWorth(s)).toLocaleString()}，成就 ${ach.filter((a) => a.done).length}/${ach.length}。`;
+				return `我在「地球人生 · ${curArea().name}」里是 ${s.name}（Lv${lv.lv} ${lv.title}），过了 ${dayOf(s.clock) + 1} 天，去过 ${places}/${region.locations.length} 个地方，净资产 $${Math.round(netWorth(s)).toLocaleString()}，成就 ${ach.filter((a) => a.done).length}/${ach.length}。`;
 			}
 			async function shareProgress() {
 				const s = state!;
