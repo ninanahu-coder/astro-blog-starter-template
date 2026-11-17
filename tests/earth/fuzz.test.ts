@@ -18,6 +18,7 @@ import { NPCS } from '../../src/game/data/npcs.ts';
 import { PROPERTIES } from '../../src/game/data/properties.ts';
 import { TRAITS } from '../../src/game/data/traits.ts';
 import { CAR_KM_MAX, DEALER_HOURS, VEHICLES } from '../../src/game/data/vehicles.ts';
+import { ANIMALS } from '../../src/game/data/wildlife.ts';
 import { CERTS } from '../../src/game/data/certs.ts';
 import { isOpen } from '../../src/game/core/time.ts';
 import { VENUE_OPS, VENUE_TYPES } from '../../src/game/data/venues.ts';
@@ -152,6 +153,8 @@ function checkInvariants(s: PlayerState, where: string) {
 	inRange(s.car.km, 0, CAR_KM_MAX, 'car.km');
 	inRange(s.car.since, 0, s.car.km, 'car.since');
 	if (s.vehicle === 'none') assert.deepEqual(s.car, { km: 0, since: 0 }, `${where}: 没车却有里程`);
+	assert.equal(new Set(s.dex).size, s.dex.length, `${where}: 图鉴有重复`);
+	for (const g of s.dexSets) assert.ok(ANIMALS.filter((a) => a.group === g).every((a) => s.dex.includes(a.id)), `${where}: ${g} 组没集齐却发了奖`);
 }
 
 test('随机动作序列：不抛异常、不改入参、数值在范围内、服务端规范化稳定', () => {

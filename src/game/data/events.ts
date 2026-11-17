@@ -5,7 +5,7 @@ import { VENUE_EVENTS } from './venue-events.ts';
 
 export const EVENTS: GameEvent[] = [
 	{
-		id: 'quokka-selfie', title: '短尾矮袋鼠', icon: '🦘', locs: ['rottnest'], once: true, weight: 10,
+		id: 'quokka-selfie', animal: 'quokka', title: '短尾矮袋鼠', icon: '🦘', locs: ['rottnest'], once: true, weight: 10,
 		text: '一只短尾矮袋鼠蹦到你脚边，歪着头，嘴角像在笑。',
 		choices: [
 			{ label: '蹲下来耐心等一张合影', check: { skill: 'charisma', dc: 30 }, ok: { text: '它凑到镜头前，完美合影！朋友圈炸了。', fx: { respect: 3, needs: { fun: 30, social: 15 } } }, fail: { text: '它闻了闻你的鞋，转身走了。至少见到了。', fx: { needs: { fun: 12 } } } },
@@ -13,7 +13,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'whale-shark', title: '鲸鲨', icon: '🦈', locs: ['exmouth'], once: true, weight: 10,
+		id: 'whale-shark', animal: 'whale-shark', title: '鲸鲨', icon: '🦈', locs: ['exmouth'], once: true, weight: 10,
 		text: '船长喊：“鲸鲨！右舷！”一条八米长的影子从船底滑过。',
 		choices: [
 			{ label: '跳下去同游（$200）', cost: 200, exposed: 'sea', check: { skill: 'swimming', dc: 45 }, ok: { text: '你和地球上最大的鱼并肩游了十分钟。', fx: { respect: 5, needs: { fun: 50 }, skills: { swimming: 4 } } }, fail: { text: '浪太大，你呛了几口水被拉回船上。', fx: { health: -8, needs: { fun: 10 }, skills: { swimming: 2 } } } },
@@ -37,7 +37,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'pinnacles-dusk', title: '石阵黄昏', icon: '🌅', locs: ['pinnacles'], once: true, weight: 10,
+		id: 'pinnacles-dusk', animal: 'emu', title: '石阵黄昏', icon: '🌅', locs: ['pinnacles'], once: true, weight: 10,
 		text: '太阳落到石柱后面，几千根影子在黄沙上一起拉长。一只鸸鹋站在不远处盯着你。',
 		choices: [
 			{ label: '留下来等星星出来', check: { skill: 'survival', dc: 35 }, ok: { text: '没有一点光污染，银河从地平线一直铺到头顶。', fx: { minutes: 120, respect: 3, needs: { fun: 40, energy: -10 }, skills: { survival: 2 } } }, fail: { text: '天一黑就找不到回停车场的路，绕了半天才出来。', fx: { minutes: 150, needs: { fun: 15, energy: -20 }, skills: { survival: 1 } } } },
@@ -45,7 +45,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'lucky-bay-roos', title: '白沙滩上的袋鼠', icon: '🦘', locs: ['esperance'], once: true, weight: 10,
+		id: 'lucky-bay-roos', animal: 'grey-kangaroo', title: '白沙滩上的袋鼠', icon: '🦘', locs: ['esperance'], once: true, weight: 10,
 		text: '海水是透明的蓝，沙子白得晃眼，几只袋鼠正懒洋洋地躺在沙滩上晒太阳。',
 		choices: [
 			{ label: '在旁边下海游一圈', exposed: 'sea', check: { skill: 'swimming', dc: 30 }, ok: { text: '冰凉的海水，回头就能看见袋鼠在岸上发呆。', fx: { respect: 3, needs: { fun: 40, hygiene: 15, energy: -10 }, skills: { swimming: 2 } } }, fail: { text: '南大洋的水比想象中冷得多，你哆嗦着跑回岸上。', fx: { health: -3, needs: { fun: 15 }, skills: { swimming: 1 } } } },
@@ -53,7 +53,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'albany-whales', title: '海湾里的鲸', icon: '🐋', locs: ['albany'], once: true, weight: 10,
+		id: 'albany-whales', animal: 'humpback-whale', title: '海湾里的鲸', icon: '🐋', locs: ['albany'], once: true, weight: 10,
 		text: '码头上有人指着海湾大喊：一对座头鲸母子正从港口外经过，喷出的水雾在阳光里闪。',
 		choices: [
 			{ label: '跳上最后一班观鲸船（$60）', cost: 60, exposed: 'sea', ok: { text: '小鲸跃出水面的那一刻，整船人都叫了起来。', fx: { minutes: 150, respect: 4, needs: { fun: 50, social: 15 } } } },
@@ -108,7 +108,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'dolphin-visit', title: '海豚来了', icon: '🐬', tags: ['dolphin'], once: true, weight: 10,
+		id: 'dolphin-visit', animal: 'bottlenose-dolphin', title: '海豚来了', icon: '🐬', tags: ['dolphin'], once: true, weight: 10,
 		text: '清晨的浅滩，三只野生宽吻海豚游到了你膝盖边。',
 		choices: [{ label: '站着别动', ok: { text: '其中一只侧过身，看了你一眼。', fx: { respect: 2, needs: { fun: 35 } } } }],
 	},
@@ -151,7 +151,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'roo-dusk', title: '黄昏的袋鼠', icon: '🌅', arrivedBy: ['road', 'track'], weight: 3,
+		id: 'roo-dusk', animal: 'grey-kangaroo', title: '黄昏的袋鼠', icon: '🌅', arrivedBy: ['road', 'track'], weight: 3,
 		text: '夕阳正对着挡风玻璃，一只袋鼠突然跳上公路。',
 		choices: [
 			{ label: '稳住方向，点刹', check: { skill: 'driving', dc: 35 }, ok: { text: '它从车头前一跃而过。', fx: { skills: { driving: 2 } } }, fail: { text: '擦到了保险杠，人没事，车要修。', fx: { cash: -300, health: -5, skills: { driving: 1 } } } },
@@ -261,7 +261,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'night-roos', title: '夜路上的袋鼠', icon: '🦘', kinds: ['outback', 'mining', 'town'], arrivedBy: ['road', 'track'], periods: ['dusk', 'night'], weight: 4,
+		id: 'night-roos', animal: 'grey-kangaroo', title: '夜路上的袋鼠', icon: '🦘', kinds: ['outback', 'mining', 'town'], arrivedBy: ['road', 'track'], periods: ['dusk', 'night'], weight: 4,
 		text: '天黑以后的公路上，一群袋鼠突然出现在车灯里。',
 		choices: [
 			{ label: '提醒司机减速', check: { skill: 'survival', dc: 30 }, ok: { text: '车稳稳停住，袋鼠们慢悠悠地跳进了灌木丛。', fx: { minutes: 20, needs: { fun: 10 }, skills: { survival: 1 } } }, fail: { text: '一个急刹，你的头撞上了前座。', fx: { minutes: 20, health: -6 } } },

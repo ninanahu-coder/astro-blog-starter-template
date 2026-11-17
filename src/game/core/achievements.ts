@@ -8,7 +8,7 @@ import { ACHIEVEMENTS } from '../data/achievements.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { SKILL_KEYS } from './types.ts';
 
-export type AchievementMetric = 'places' | 'checkins' | 'collected' | 'friends' | 'besties' | 'home' | 'properties' | 'topJob' | 'worth' | 'level' | 'photos' | 'stormPhotos' | 'rainPhotos' | 'coops' | 'festivals' | 'topSkill' | 'trips';
+export type AchievementMetric = 'places' | 'checkins' | 'collected' | 'friends' | 'besties' | 'home' | 'properties' | 'topJob' | 'worth' | 'level' | 'photos' | 'stormPhotos' | 'rainPhotos' | 'coops' | 'festivals' | 'topSkill' | 'trips' | 'dex';
 
 export interface AchievementDef {
 	id: string;
@@ -52,6 +52,7 @@ export function achievementMetric(state: PlayerState, region: Region, m: Achieve
 		case 'coops': return COOP_EVENTS.filter((c) => state.coopDays?.[c.id] !== undefined).length;
 		case 'festivals': return state.collected.filter((id) => EXPERIENCES.some((e) => e.id === id && e.festival)).length;
 		case 'topSkill': return Math.floor(Math.max(0, ...SKILL_KEYS.map((k) => state.skills[k] ?? 0)));
+		case 'dex': return state.dex.length;
 		case 'trips': return Object.values(state.visited).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
 	}
 }

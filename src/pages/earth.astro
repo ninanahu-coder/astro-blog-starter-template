@@ -347,7 +347,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { AVATARS, NEED_META, ORIGINS, SKILL_META, START_CLOCK, formatClock, nextRev, sanitizeState } from '../game/core/character.ts';
 			import type { GameAction } from '../game/core/actions.ts';
 			import { npcStatus } from '../game/core/engine.ts';
-			import { activitiesAt, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
+			import { ANIMALS } from '../game/data/wildlife.ts';
+			import { activitiesAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { CERTS } from '../game/data/certs.ts';
 			import { SERVICE_KM } from '../game/data/vehicles.ts';
@@ -1224,6 +1225,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const photos = new Set(s.photos);
 				const photoHtml = `<div class="card"><h3>天气相册 ${s.photos.length}/${region.locations.length * WEATHERS.length}</h3><p>抵达一个地方时，会按当天的天气收一张照片。同一个地方换个天气再来，能收到不一样的。</p>
 					<div class="album">${region.locations.map((l) => `<div class="album-row"><span>${esc(l.name)}</span><span>${WEATHERS.map((w) => `<i class="${photos.has(`${l.id}|${w.id}`) ? 'got' : ''}" title="${esc(w.name)}">${w.icon}</i>`).join('')}</span><span class="sr">${WEATHERS.filter((w) => photos.has(`${l.id}|${w.id}`)).map((w) => w.name).join('、') || '还没有'}</span></div>`).join('')}</div></div>`;
+				// 野生动物图鉴：见过的显示名字，没见过的只显示所属分组
+				const dex = new Set(s.dex);
+				const dexHtml = `<div class="card"><h3>野生动物图鉴 ${s.dex.length}/${ANIMALS.length}</h3><p>到了各地有机会看见动物，有的只在某个季节或清晨傍晚出现。一组集齐加声望。</p>
+					<p>${dexProgress(s).map((g) => `${esc(g.name)} ${g.got}/${g.total}${g.done ? ' ✅' : ''}`).join(' · ')}</p>
+					<div class="ach-grid">${ANIMALS.map((a) => dex.has(a.id)
+						? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${a.icon}</span><span><b>${esc(a.name)}</b><small>${esc(a.desc)}</small></span></div>`
+						: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc(({ sea: '海洋', land: '陆地', bird: '飞鸟' } as Record<string, string>)[a.group])}</small></span><span class="sr">（还没见过）</span></div>`).join('')}</div></div>`;
 				// 见闻录：一次性的专属事件，见过的显示标题，没见过的只提示在哪
 				const onceEvents = EVENTS.filter((e) => e.once && !e.venueTypes);
 				const seenOnce = onceEvents.filter((e) => s.seen.includes(e.id)).length;
@@ -1234,6 +1242,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc(where(e))}</small></span><span class="sr">（还没遇到）</span></div>`).join('')}</div></div>`;
 				const card = {
 					story: storyHtml,
+					dex: dexHtml,
 					photo: photoHtml,
 					trail: trailHtml,
 					ach: achHtml,
@@ -1273,7 +1282,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
 					})()}</div>`,
 				};
-				const sections: Record<string, string[]> = { overview: ['daily', 'ach', 'photo', 'mood', 'me', 'story', 'trail', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
+				const sections: Record<string, string[]> = { overview: ['daily', 'ach', 'photo', 'mood', 'me', 'story', 'dex', 'trail', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
 				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}</button>`).join('')}</div>`;
 				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');

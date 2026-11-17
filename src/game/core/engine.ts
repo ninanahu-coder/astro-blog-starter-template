@@ -1,6 +1,7 @@
 // 游戏规则引擎：纯函数、确定性（随机数来自存档里的 seed），前后端与测试共用。
 // 所有动作返回新的 PlayerState，不修改入参。
-import { weatherAt, weatherOn } from './weather.ts';
+import { unit, weatherAt, weatherOn } from './weather.ts';
+import { ANIMALS, DEX_GROUPS, type AnimalDef } from '../data/wildlife.ts';
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
@@ -302,7 +303,51 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 	if (ev) {
 		state.pending = { eventId: ev.id };
 		if (ev.id === 'heat-check') addMoodlet(state, 'in-trouble');
+		if (ev.animal) recordAnimal(state, ev.animal);
 	}
+	const seen = spotAnimal(state, loc);
+	if (seen) recordAnimal(state, seen.id, `在${loc.name}看见了${seen.icon}${seen.name}：${seen.desc}`);
+}
+
+// ---------- 野生动物图鉴 ----------
+/** 此刻在这个地方可能看见的动物（还没见过的） */
+export function animalsAt(state: PlayerState, loc: GameLocation): AnimalDef[] {
+	const season = dateOf(state.clock).season;
+	const p = period(state.clock).id;
+	return ANIMALS.filter((a) => !state.dex.includes(a.id)
+		&& (a.where.locs?.includes(loc.id) || matches(a.where, loc))
+		&& (!a.seasons || a.seasons.includes(season))
+		&& (!a.periods || a.periods.includes(p)));
+}
+
+/** 抵达时看见哪只新动物（最多一只）。只读种子做哈希、不推进它，所以不影响其他随机结果 */
+function spotAnimal(state: PlayerState, loc: GameLocation): AnimalDef | undefined {
+	return animalsAt(state, loc).find((a) => unit(`${state.seed}|${state.clock}|${loc.id}|${a.id}`) < a.chance);
+}
+
+function recordAnimal(state: PlayerState, id: string, text?: string) {
+	const a = ANIMALS.find((x) => x.id === id);
+	if (!a || state.dex.includes(id)) return;
+	state.dex.push(id);
+	log(state, text ?? `图鉴里记下了${a.icon}${a.name}。`);
+	for (const [g, def] of Object.entries(DEX_GROUPS)) {
+		if (state.dexSets.includes(g)) continue;
+		const all = ANIMALS.filter((x) => x.group === g);
+		if (all.length && all.every((x) => state.dex.includes(x.id))) {
+			state.dexSets.push(g);
+			state.respect += def.respect;
+			log(state, `${def.name}动物全部见过了！声望 +${def.respect}。`);
+		}
+	}
+}
+
+/** 图鉴进度：每组见过几只、一共几只 */
+export function dexProgress(state: PlayerState): { group: string; name: string; got: number; total: number; done: boolean }[] {
+	return Object.entries(DEX_GROUPS).map(([g, def]) => {
+		const all = ANIMALS.filter((x) => x.group === g);
+		const got = all.filter((x) => state.dex.includes(x.id)).length;
+		return { group: g, name: def.name, got, total: all.length, done: state.dexSets.includes(g) };
+	});
 }
 
 function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null, clock: number): boolean {

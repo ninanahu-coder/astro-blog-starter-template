@@ -5,7 +5,7 @@ import type { PlayerState } from './types.ts';
 import { WEATHERS, WEATHER_WEIGHTS, type WeatherDef } from '../data/weather.ts';
 
 /** FNV-1a 32 位哈希 → [0, 1) */
-function unit(text: string): number {
+export function unit(text: string): number {
 	let h = 0x811c9dc5;
 	for (let i = 0; i < text.length; i++) {
 		h ^= text.charCodeAt(i);
