@@ -131,6 +131,15 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			await idle();
 		};
 		const panel = () => el('panel').innerHTML;
+		// 改了服务端存档后让页面去同步：等页面缓存的存档版本和服务端一致（最多 2 秒），不靠固定睡眠
+		const clientRev = () => (JSON.parse(store.get('earth.save.v1') ?? 'null') as { rev?: number } | null)?.rev;
+		const pullNow = async () => {
+			docListeners.visibilitychange({});
+			const want = () => (data.get('save:' + cred.id) as any).state.rev;
+			for (let i = 0; i < 100 && clientRev() !== want(); i++) await pause(20);
+			assert.equal(clientRev(), want(), '回到前台后没有同步到服务端存档');
+			await pause(20);
+		};
 
 		// 开局：游戏页显示、创建页隐藏，五个标签
 		assert.equal(el('create').classList.contains('hidden'), true);
@@ -319,6 +328,12 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await pause(60);
 		assert.doesNotMatch(el('hud').innerHTML, /现在离线/);
 		// 出行到罗特尼斯岛（先到弗里曼特尔坐渡轮）：第一次抵达有事件，弹窗打开时锁住背后
+		// 开头为了测周结算预警把现金设成 $120：弗里曼特尔抽到的事件不固定，有的选项要花钱，剩下的不够坐渡轮去罗特尼斯岛。出发前补足
+		const rich = data.get('save:' + cred.id) as any;
+		rich.state.cash = 2000;
+		rich.state.rev += 1;
+		data.set('save:' + cred.id, rich);
+		await pullNow();
 		await click({ tab: 'go' });
 		await click({ go: 'fremantle', mode: 'road' });
 		// 机器忙时（全套测试并行跑）请求和渲染可能超过几十毫秒：等服务端存档到了弗里曼特尔、界面也画完再往下
@@ -367,6 +382,21 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ tab: 'place' });
 		for (let i = 0; i < 100 && !/夜深了/.test(nextCard()); i++) { await pause(20); if (i % 10 === 9) await click({ tab: 'place' }); }
 		assert.match(nextCard(), /夜深了/);
+		// 每日摘要（第 27 轮）：服务端存档里有昨天的变化，回到前台后今天页顶上出回顾卡，点「知道了」收起
+		const rc = data.get('save:' + cred.id) as any;
+		rc.state.clock += 1440; // 拨到第 2 天的同一时刻（还是夜里），才有「昨天」
+		const today = Math.floor(rc.state.clock / 1440);
+		rc.state.dayMark = { day: today, cash: rc.state.cash, respect: rc.state.respect, places: Object.keys(rc.state.visited).length };
+		rc.state.yday = { day: today - 1, days: 1, cash: -42, respect: 1, places: 2 };
+		rc.state.journal.push({ t: (today - 1) * 1440 + 600, text: '<i>在码头</i>看了一下午的船' });
+		data.set('save:' + cred.id, rc);
+		docListeners.visibilitychange({});
+		for (let i = 0; i < 100 && !panel().includes('昨天回顾'); i++) { await pause(20); if (i % 10 === 9) await click({ tab: 'place' }); }
+		assert.match(panel(), new RegExp(`昨天回顾（第 ${today} 天）`));
+		assert.match(panel(), /现金 −\$42 · 声望 \+1 · 新去了 2 个地方/);
+		assert.match(panel(), /10:00<\/span> &lt;i&gt;在码头/, '日志带时间、转义');
+		await click({ recapClose: String(today - 1) });
+		assert.ok(!panel().includes('昨天回顾'), '点知道了后收起');
 		// 附近页底部有留言板和输入框
 		assert.match(panel(), /📝 留言板/);
 		assert.match(panel(), /id="note-form"[\s\S]*maxlength="60"/);
@@ -378,9 +408,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		// 换交通方式：回到珀斯、钱够，卡尔古利能坐飞机也能走陆路，点另一块方块后出发按钮跟着换
 		const back = data.get('save:' + cred.id) as any;
 		back.state.loc = 'perth';
+		back.state.rev += 1;
 		data.set('save:' + cred.id, back);
-		docListeners.visibilitychange({});
-		await pause(60);
+		await pullNow();
 		await click({ tab: 'go' });
 		await click({ loc: 'kalgoorlie' });
 		const other = panel().match(/class="tile" data-dmode="([a-z]+)" data-dest="kalgoorlie" aria-pressed="false" >/)?.[1];
@@ -393,12 +423,28 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		camp.state.clock = Math.floor(camp.state.clock / 1440) * 1440 + 1440 + 10 * 60;
 		camp.state.vehicle = 'campervan';
 		camp.state.home = { type: 'campground', loc: 'bunbury', furniture: {} };
+		camp.state.rev += 1;
 		data.set('save:' + cred.id, camp);
-		docListeners.visibilitychange({});
-		await pause(60);
+		await pullNow();
 		await click({ tab: 'place' });
 		assert.match(panel(), /<button data-veh="sell" disabled>/, '住营地时卖车按钮灰掉');
 		assert.match(panel(), /你住在房车营地/);
+		// 后台同步比动作晚回来（复现第 27 轮查到的竞态）：同步请求故意慢 150ms，期间做一个动作
+		const fastFetch = g.fetch;
+		g.fetch = async (u: string, o?: RequestInit) => {
+			const res = await fastFetch(u, o); // 服务端按请求到达时的存档回答，回程故意慢
+			if (String(o?.body).includes('"action":"get"')) await new Promise((r) => realSetTimeout(r, 150));
+			return res;
+		};
+		docListeners.visibilitychange({});
+		const act2 = panel().match(/data-act="([^"]+)"/)?.[1];
+		assert.ok(act2);
+		await click({ act: act2! });
+		const afterAct = (data.get('save:' + cred.id) as any).state.rev;
+		assert.equal(clientRev(), afterAct, '动作结果已经采用');
+		await pause(250);
+		g.fetch = fastFetch;
+		assert.equal(clientRev(), afterAct, '晚回来的同步没有把存档倒回动作之前');
 	} finally {
 		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });

@@ -277,6 +277,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.guide li.now .tick { border-color: var(--accent); }
 			.guide .now-tag { margin-left: 6px; font-style: normal; font-size: 11px; font-weight: 600; color: var(--accent); }
 			.guide .guide-go { margin-top: 6px; min-height: 44px; padding: 0 14px; }
+			.recap-log { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+			.recap-log .muted { font-variant-numeric: tabular-nums; margin-right: 4px; }
 			.guide-next { margin-top: 10px; font-size: 12px; color: var(--dim); }
 			.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 			.ach-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
@@ -358,6 +360,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { STORY } from '../game/data/story.ts';
 			import { storyProgress } from '../game/core/story.ts';
 			import { guideView, type GuideView } from '../game/core/guide.ts';
+			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { CERTS } from '../game/data/certs.ts';
@@ -544,6 +547,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			async function coopOp(op: string, extra: Record<string, unknown>) {
 				if (!state || !cred || busy) return;
 				busy = true;
+				actGen++;
 				document.body.classList.add('busy');
 				const before = state;
 				try {
@@ -605,6 +609,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			async function tradeOp(op: string, extra: Record<string, unknown>) {
 				if (!state || !cred || busy) return;
 				busy = true;
+				actGen++;
 				document.body.classList.add('busy');
 				const before = state;
 				try {
@@ -649,6 +654,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			async function claimWeek() {
 				if (!state || !cred || busy) return;
 				busy = true;
+				actGen++;
 				document.body.classList.add('busy');
 				const before = state;
 				try {
@@ -691,6 +697,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			async function noteOp(op: string, extra: Record<string, unknown>) {
 				if (!state || !cred || busy) return;
 				busy = true;
+				actGen++;
 				try {
 					const { data } = await api({ action: 'notes', op, id: cred.id, key: cred.key, ...extra });
 					if (Array.isArray(data?.notes)) { notesList = data.notes; notesLoc = state.loc; notesAt = Date.now(); }
@@ -726,8 +733,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 			async function pullCloud() {
 				if (!cred) return;
+				const gen = actGen;
 				try {
 					const { data } = await api({ action: 'get', id: cred.id, key: cred.key });
+					// 同步请求在路上时玩家做了动作：这份存档可能比动作的结果旧，采用了会把进度倒回去、下一个动作版本冲突被丢掉
+					if (gen !== actGen || busy) return;
 					// 本机缓存只用于离线显示，联网时一律以服务器为准（即使版本号相同，缓存也可能被改过）
 					if (data.ok) {
 						const newer = !!state && data.state.rev !== state.rev;
@@ -786,9 +796,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 动作（发给服务器结算） ----------
 			let busy = false;
+			/** 每发起一次会改存档的请求就加一：后台同步用它判断回来的存档是不是已经过时 */
+			let actGen = 0;
 			async function act(a: GameAction): Promise<{ ok: boolean; msg: string } | null> {
 				if (!state || !cred || busy) return null;
 				busy = true;
+				actGen++;
 				document.body.classList.add('busy');
 				// 动作前的存档：请求期间后台同步可能替换 state，所以在发请求前记下
 				const before = state;
@@ -983,6 +996,20 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<ol>${g.steps.map(item).join('')}</ol>${g.next ? `<p class="guide-next">做完这些或到第 ${g.day + 1} 天解开：${esc(g.next)}</p>` : ''}</div>`;
 			}
 
+			// 每日摘要（第 27 轮）：跨过午夜后的那一天，今天页顶上显示上一天的变化和日志；点「知道了」后这一天不再显示（只记在本机）
+			const RECAP_KEY = 'earth.recap.v1';
+			function recapCard(s: PlayerState) {
+				const y = recapFor(s);
+				if (!y || store.get(RECAP_KEY) === String(y.day)) return '';
+				const title = y.days > 1 ? `过去 ${y.days} 天回顾（第 ${y.day + 1}–${y.day + y.days} 天）` : `昨天回顾（第 ${y.day + 1} 天）`;
+				const money = y.cash === 0 ? '现金没变' : `现金 ${y.cash > 0 ? '+' : '−'}$${Math.abs(y.cash).toLocaleString()}`;
+				const rep = Math.round(y.respect * 10) / 10;
+				const parts = [money, rep ? `声望 ${rep > 0 ? '+' : '−'}${Math.abs(rep)}` : '', y.places ? `新去了 ${y.places} 个地方` : ''].filter(Boolean);
+				const lines = recapLog(s, y).map((j) => `<li><span class="muted">${formatClock(j.t).split(' ')[1]}</span> ${esc(j.text)}</li>`).join('');
+				return `<div class="card recap"><div class="guide-head"><h3>${title}</h3><button data-recap-close="${y.day}">知道了</button></div>
+					<p>${parts.join(' · ')}</p>${lines ? `<ul class="recap-log">${lines}</ul>` : '<p class="muted">那天没有记下什么特别的事。</p>'}</div>`;
+			}
+
 			/** 周结算预警：两天内要结算、现金不够付这周的固定开销时提醒（出租收入不计入，按最坏情况算） */
 			function settleCard(s: PlayerState) {
 				const wc = weeklyCosts(s);
@@ -1121,6 +1148,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return `
 					${nextCard(s, !!homeHere, !!workHere && !shiftWhy)}
 					${settleCard(s)}
+					${recapCard(s)}
 					${guideCard(s)}
 					${needsCard(s)}
 					${wishHtml}
@@ -1629,7 +1657,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -1642,6 +1670,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 				else if (d.metab) { meTab = d.metab; renderPanel(); }
 				else if ('guideClose' in d) { store.set(GUIDE_KEY, 'done'); renderPanel(); }
+				else if ('recapClose' in d) { store.set(RECAP_KEY, d.recapClose ?? ''); renderPanel(); }
 				else if ('share' in d) shareProgress();
 				else if ('big' in d) { store.set(BIG_KEY, store.get(BIG_KEY) === '1' ? '0' : '1'); applyBig(); renderPanel(); }
 				else if (d.quick !== undefined) {

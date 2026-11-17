@@ -111,6 +111,8 @@ export function createCharacter(opts: {
 		photoQuest: 0,
 		story: { ch: 0, done: {} },
 		duos: [],
+		dayMark: { day: Math.floor(START_CLOCK / 1440), cash: origin.cash, respect: 0, places: 1 },
+		yday: null,
 		dexSets: [],
 		seen: [],
 		traits: validTraits(opts.traits ?? [], MAX_TRAITS) ? [...(opts.traits ?? [])] : [],
@@ -304,6 +306,8 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		dex: [...new Set(strList(r.dex, 200))].filter((id) => ANIMALS.some((a) => a.id === id)),
 		dexSets: [...new Set(strList(r.dexSets, 20))].filter((id) => Object.hasOwn(DEX_GROUPS, id)),
 		duos: [...new Set(strList(r.duos, 100))].filter((id) => NPC_DUOS.some((d) => d.id === id)),
+		dayMark: { day: 0, cash: 0, respect: 0, places: 0 }, // 下面按清洗后的时钟、现金重新算
+		yday: null,
 		car: (() => {
 			// 没车就没有里程；离上次保养的里程不超过总里程
 			if (!VEHICLES.some((v) => v.id === r.vehicle)) return { km: 0, since: 0 };
@@ -356,6 +360,21 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 	};
 	// 按职业打的上班卡必须对得上一份现有的工作，否则作废：不然重新应聘同一职业就能接着用旧卡
 	if (out.clockIn?.career && out.job?.career !== out.clockIn.career) out.clockIn = null;
+	// 每日摘要：记号不能晚于现在这一天，坏了或旧存档没有就从现在算起；yday 必须在记号那天之前结束，否则丢掉
+	const today = Math.floor(out.clock / 1440);
+	const places = Object.keys(out.visited).length;
+	const m = r.dayMark;
+	const md = m && typeof m === 'object' ? m.day : NaN;
+	out.dayMark = typeof md === 'number' && Number.isFinite(md) && md >= 0 && Math.floor(md) <= today
+		? { day: Math.floor(md), cash: Math.round(num(m.cash, 0, CAPS.cash, out.cash)), respect: num(m.respect, 0, CAPS.respect, out.respect), places: Math.floor(num(m.places, 0, places, places)) }
+		: { day: today, cash: out.cash, respect: out.respect, places };
+	const y = r.yday;
+	if (y && typeof y === 'object') {
+		const day = Math.floor(num(y.day, 0, 1e7, -1));
+		const days = Math.floor(num(y.days, 0, 1e7, 0));
+		if (day >= 0 && days >= 1 && day + days <= out.dayMark.day)
+			out.yday = { day, days, cash: Math.round(num(y.cash, -CAPS.cash, CAPS.cash, 0)), respect: num(y.respect, -CAPS.respect, CAPS.respect, 0), places: Math.floor(num(y.places, 0, 1000, 0)) };
+	}
 	return out;
 }
 
