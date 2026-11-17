@@ -106,3 +106,50 @@ export function skyPhase(l: Pick<SkyLoc, 'lat' | 'lon'>, clock: number): 'dawn' 
 	const m = ((clock % 1440) + 1440) % 1440;
 	return m < sunTimes(l, clock).noon ? 'dawn' : 'dusk';
 }
+
+// ---------- 第 38 轮：潮汐（示意） ----------
+// 用四个主要分潮（M2 半日、S2 半日、K1 全日、O1 全日）叠加。各分潮振幅按纬度取西澳海岸的大致量级插值：
+// 北边金伯利（布鲁姆）大潮差可达八九米；宁格鲁一带一两米；珀斯以南以全日潮为主，潮差不到一米。各地的相位用地点名定（所有人一样）。
+// 不是真实潮汐表：只给玩家一个「这里潮水大不大、现在涨还是退」的感觉，卡片上写明真下海要看官方潮汐预报。
+const TIDE_PERIODS_H = [12.4206, 12, 23.9345, 25.8193] as const;
+/** [南纬度数, M2, S2, K1, O1 振幅（米）] */
+const TIDE_AMP: [number, number, number, number, number][] = [[17, 2.4, 1.6, 0.6, 0.35], [21, 0.9, 0.5, 0.25, 0.15], [24, 0.5, 0.25, 0.2, 0.13], [29, 0.25, 0.12, 0.18, 0.12], [32, 0.05, 0.04, 0.17, 0.12]];
+function tideAmps(lat: number): number[] {
+	const a = Math.min(TIDE_AMP[TIDE_AMP.length - 1][0], Math.max(TIDE_AMP[0][0], -lat));
+	let i = 0;
+	while (i < TIDE_AMP.length - 2 && a > TIDE_AMP[i + 1][0]) i++;
+	const t = (a - TIDE_AMP[i][0]) / (TIDE_AMP[i + 1][0] - TIDE_AMP[i][0]);
+	return [1, 2, 3, 4].map((k) => TIDE_AMP[i][k] + (TIDE_AMP[i + 1][k] - TIDE_AMP[i][k]) * t);
+}
+/** 这里看不看潮汐：海边、港口、岛 */
+export const hasTide = (l: SkyLoc) => isCoastal(l);
+/** 某时刻的潮高（米，相对平均海面） */
+export function tideHeight(l: SkyLoc, clock: number): number {
+	const amps = tideAmps(l.lat);
+	const h = clock / 60;
+	let sum = 0;
+	for (let k = 0; k < 4; k++) sum += amps[k] * Math.cos((2 * Math.PI * h) / TIDE_PERIODS_H[k] - 2 * Math.PI * unit(`tide|${l.id}|${k}`));
+	return sum;
+}
+export interface TideTurn { kind: 'high' | 'low'; at: number; h: number }
+export interface TideNow { h: number; rising: boolean; next: TideTurn[]; range: number }
+/** 现在的潮高、涨还是退、接下来的两次满潮 / 干潮（at 是游戏时钟），以及今天（当地 0–24 点）的潮差 */
+export function tideNow(l: SkyLoc, clock: number): TideNow {
+	const step = 5;
+	const h = tideHeight(l, clock);
+	const rising = tideHeight(l, clock + step) > h;
+	const next: TideTurn[] = [];
+	let prev = h;
+	let cur = tideHeight(l, clock + step);
+	for (let t = clock + step; t < clock + 30 * 60 && next.length < 2; t += step) {
+		const nx = tideHeight(l, t + step);
+		if (cur > prev && cur >= nx) next.push({ kind: 'high', at: t, h: cur });
+		else if (cur < prev && cur <= nx) next.push({ kind: 'low', at: t, h: cur });
+		prev = cur;
+		cur = nx;
+	}
+	const day0 = dayOf(clock) * 1440;
+	let lo = Infinity, hi = -Infinity;
+	for (let t = day0; t < day0 + 1440; t += 10) { const x = tideHeight(l, t); lo = Math.min(lo, x); hi = Math.max(hi, x); }
+	return { h, rising, next, range: hi - lo };
+}

@@ -410,7 +410,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { getWish } from '../game/core/wishes.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
 			import { weatherAt, weatherOn } from '../game/core/weather.ts';
-			import { hhmm, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps } from '../game/core/sky.ts';
+			import { hasTide, hhmm, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps, tideNow } from '../game/core/sky.ts';
 			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
@@ -1276,6 +1276,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					`<div class="row"><span class="ico" aria-hidden="true">🌡️</span><span class="body">气温 ${t.min}–${t.max}°C<small>${esc(w.name)}</small></span></div>`,
 					`<div class="row"><span class="ico" aria-hidden="true">🌅</span><span class="body">日出 ${hhmm(sun.rise)} · 日落 ${hhmm(sun.set)}<small>白天 ${Math.floor((sun.set - sun.rise) / 60)} 小时 ${(sun.set - sun.rise) % 60} 分；画面明暗跟着日出日落走</small></span></div>`,
 				];
+				if (hasTide(loc)) {
+					const td = tideNow(loc, s.clock);
+					const m = (x: number) => `${x >= 0 ? '+' : '−'}${Math.abs(x).toFixed(1)} 米`;
+					const when = (at: number) => `${dayOf(at) > dayOf(s.clock) ? '明天 ' : ''}${hhmm(at)}`;
+					const turns = td.next.map((x) => `${x.kind === 'high' ? '满潮' : '干潮'} ${when(x.at)}（${m(x.h)}）`).join('、');
+					rows.push(`<div class="row"><span class="ico" aria-hidden="true">🌊</span><span class="body">${td.rising ? '涨潮中' : '退潮中'} · 现在 ${m(td.h)}<small>接下来：${turns}；今天潮差约 ${td.range.toFixed(1)} 米。潮汐是示意，真下海请看官方潮汐预报</small></span></div>`);
+				}
 				return `<div class="card sky"><h3>今天的天</h3><p class="muted">游戏里的今天大约是现实中的 ${realDateLabel(realDayOfYear(s.clock))}。下面按纬度、季节和天气估算，不是真实预报。</p><div class="list" style="margin-top:8px">${rows.join('')}</div></div>`;
 			}
 

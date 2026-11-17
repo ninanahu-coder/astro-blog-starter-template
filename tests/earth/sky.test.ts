@@ -1,7 +1,7 @@
 // 天象（第 8 批）：游戏日期对应现实日期、气温、日出日落、潮汐、山火、紫外线。全部是公式，只做显示
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { hhmm, realDateLabel, realDayOfYear, skyPhase, sunElevation, sunTimes, temps } from '../../src/game/core/sky.ts';
+import { hasTide, hhmm, realDateLabel, realDayOfYear, skyPhase, sunElevation, sunTimes, temps, tideHeight, tideNow } from '../../src/game/core/sky.ts';
 import { SEASON_DAYS, YEAR_DAYS } from '../../src/game/core/time.ts';
 import { WA } from '../../src/game/data/wa.ts';
 
@@ -87,4 +87,35 @@ test('画面天色（第 37 轮）：跟着当地日出日落，不是固定钟�
 	assert.equal(skyPhase(perth, jul + 19 * 60), 'night', '冬天傍晚 7 点已经黑了');
 	assert.equal(skyPhase(perth, jul + 7 * 60), 'dawn', '冬天 7 点天刚亮');
 	assert.equal(skyPhase(perth, jan + 7 * 60), 'day', '夏天 7 点已经大亮');
+});
+
+test('潮汐（第 38 轮，示意）：只在海边；北边潮差大、南边小；有大潮小潮；满潮干潮交替，时刻和高度对得上', () => {
+	assert.equal(hasTide(loc('kalgoorlie')), false, '内陆没有潮汐');
+	assert.equal(hasTide(loc('wave-rock')), false);
+	for (const id of ['perth', 'fremantle', 'rottnest', 'broome', 'exmouth', 'albany']) assert.equal(hasTide(loc(id)), true, id);
+	const ranges = (id: string) => Array.from({ length: YEAR_DAYS }, (_, d) => tideNow(loc(id), at(d, 0)).range);
+	const broome = ranges('broome');
+	const perth = ranges('perth');
+	assert.ok(Math.max(...broome) > 6, `布鲁姆大潮潮差 ${Math.max(...broome).toFixed(1)} 米`);
+	assert.ok(Math.max(...broome) > Math.min(...broome) * 2.5, '布鲁姆有大潮小潮');
+	assert.ok(Math.max(...perth) < 1, `珀斯潮差不到 1 米（${Math.max(...perth).toFixed(2)}）`);
+	assert.ok(Math.min(...broome) > Math.max(...perth), '北边最小的潮差也比珀斯大');
+	for (const id of ['broome', 'perth', 'exmouth']) {
+		const l = loc(id);
+		for (const c of [at(3, 0), at(50, 7), at(90, 18)]) {
+			const n = tideNow(l, c);
+			assert.equal(n.h, tideHeight(l, c));
+			assert.equal(n.next.length, 2, `${id} 30 小时内有两次转潮`);
+			assert.notEqual(n.next[0].kind, n.next[1].kind, '满潮干潮交替');
+			assert.ok(n.next[0].at > c && n.next[1].at > n.next[0].at);
+			// 转潮点真的是极值：前后 5 分钟都不比它高（满潮）/ 低（干潮）
+			for (const x of n.next) {
+				const sgn = x.kind === 'high' ? 1 : -1;
+				assert.ok(sgn * (x.h - tideHeight(l, x.at - 5)) >= 0 && sgn * (x.h - tideHeight(l, x.at + 5)) >= 0, `${id} ${x.kind}`);
+			}
+			// 涨潮中下一次转潮是满潮
+			assert.equal(n.rising, n.next[0].kind === 'high', `${id} 涨潮中下一个是满潮`);
+		}
+	}
+	assert.equal(tideHeight(loc('broome'), at(7, 3)), tideHeight(loc('broome'), at(7, 3)), '可复现');
 });
