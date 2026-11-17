@@ -1,14 +1,14 @@
 // 成就：由当前存档现算的里程碑，不进存档、不发奖励，所以不影响数值平衡。
 // 纯函数：不读时钟、不用随机数。
 import { level } from './attributes.ts';
-import { getCareer, netWorth } from './engine.ts';
+import { getCareer, netWorth, placeFacts } from './engine.ts';
 import type { PlayerState, Region } from './types.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
 import { ACHIEVEMENTS } from '../data/achievements.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { SKILL_KEYS } from './types.ts';
 
-export type AchievementMetric = 'places' | 'checkins' | 'collected' | 'friends' | 'besties' | 'home' | 'properties' | 'topJob' | 'worth' | 'level' | 'photos' | 'stormPhotos' | 'rainPhotos' | 'coops' | 'festivals' | 'topSkill' | 'trips';
+export type AchievementMetric = 'places' | 'checkins' | 'collected' | 'friends' | 'besties' | 'home' | 'properties' | 'topJob' | 'worth' | 'level' | 'photos' | 'stormPhotos' | 'rainPhotos' | 'coops' | 'festivals' | 'topSkill' | 'trips' | 'dex' | 'fish' | 'facts';
 
 export interface AchievementDef {
 	id: string;
@@ -52,6 +52,9 @@ export function achievementMetric(state: PlayerState, region: Region, m: Achieve
 		case 'coops': return COOP_EVENTS.filter((c) => state.coopDays?.[c.id] !== undefined).length;
 		case 'festivals': return state.collected.filter((id) => EXPERIENCES.some((e) => e.id === id && e.festival)).length;
 		case 'topSkill': return Math.floor(Math.max(0, ...SKILL_KEYS.map((k) => state.skills[k] ?? 0)));
+		case 'dex': return state.dex.length;
+		case 'fish': return Object.keys(state.fish).length;
+		case 'facts': return region.locations.reduce((n, l) => n + placeFacts(state, l.id).filter((f) => f.unlocked).length, 0);
 		case 'trips': return Object.values(state.visited).reduce((a, b) => a + (Number.isFinite(b) ? b : 0), 0);
 	}
 }

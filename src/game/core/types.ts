@@ -449,6 +449,7 @@ export interface GameEvent {
 	/** 真实地点事件：只在这些类型的真实地点（餐馆、健身房……）做完动作后触发，到达城镇时不会抽到 */
 	venueTypes?: string[];
 	once?: boolean; // 每个角色只触发一次（地标签名事件）
+	animal?: string; // 事件里见到的动物：抽到这个事件就记进野生动物图鉴
 	breakdown?: boolean; // 抛锚事件：不进普通抽取（weight 写 0），只在该保养的车自驾抵达时按几率抽
 	weight: number;
 	choices: EventChoice[];
@@ -478,6 +479,10 @@ export interface PlayerState {
 	car: { km: number; since: number }; // 现在这辆车开了多少公里、离上次保养多少公里（换车、卖车时清零）
 	visited: Record<string, number>; // locId -> 到访次数
 	checkins: string[]; // 已 GPS 打卡的 POI id
+	dex: string[]; // 野生动物图鉴：见过的动物 id
+	photoQuest: number; // 摄影任务链做到第几个（等于任务总数表示全部拍完）
+	fish: Record<string, number>; // 钓到过的鱼：鱼种 id -> 条数
+	dexSets: string[]; // 已发过奖的图鉴分组（集齐时记下，以后加了新动物也不收回、不重复发）
 	photos: string[]; // 天气相册：'地点id|天气id'，抵达时按当天天气收集（只是收藏，不发奖励）
 	seen: string[]; // 已触发的 once 事件
 	traits: string[]; // 性格特质 id，创建时选定

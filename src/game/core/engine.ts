@@ -1,6 +1,10 @@
 // 游戏规则引擎：纯函数、确定性（随机数来自存档里的 seed），前后端与测试共用。
 // 所有动作返回新的 PlayerState，不修改入参。
-import { weatherAt, weatherOn } from './weather.ts';
+import { unit, weatherAt, weatherOn } from './weather.ts';
+import { ANIMALS, DEX_GROUPS, type AnimalDef } from '../data/wildlife.ts';
+import { FISH, FISHING, type FishDef } from '../data/fish.ts';
+import { FACTS, type PlaceFact } from '../data/facts.ts';
+import { PHOTO_CHAIN_BONUS, PHOTO_MINUTES, PHOTO_QUESTS, type PhotoQuest } from '../data/photo-quests.ts';
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
@@ -302,7 +306,129 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 	if (ev) {
 		state.pending = { eventId: ev.id };
 		if (ev.id === 'heat-check') addMoodlet(state, 'in-trouble');
+		if (ev.animal) recordAnimal(state, ev.animal);
 	}
+	const seen = spotAnimal(state, loc);
+	if (seen) recordAnimal(state, seen.id, `在${loc.name}看见了${seen.icon}${seen.name}：${seen.desc}`);
+}
+
+// ---------- 地点小知识 ----------
+/** 某地点的小知识卡：第 n 次到访解锁第 n 条（不存档，按到访次数现算） */
+export function placeFacts(state: PlayerState, locId: string): { fact: PlaceFact; unlocked: boolean }[] {
+	const n = state.visited[locId] ?? 0;
+	return (FACTS[locId] ?? []).map((fact, i) => ({ fact, unlocked: i < n }));
+}
+
+// ---------- 摄影任务链 ----------
+/** 当前的摄影任务；全部拍完返回 null。blocked：此刻在这里拍不了的原因 */
+export function photoQuestNow(state: PlayerState, region: Region): { quest: PhotoQuest; index: number; blocked?: string } | null {
+	const quest = PHOTO_QUESTS[state.photoQuest];
+	if (!quest) return null;
+	const where = getLocation(region, quest.loc)?.name ?? quest.loc;
+	const p = period(state.clock);
+	const w = weatherAt(state);
+	const blocked = state.loc !== quest.loc ? `要去${where}`
+		: quest.seasons && !quest.seasons.includes(dateOf(state.clock).season) ? '季节不对'
+		: quest.periods && !quest.periods.includes(p.id) ? `现在是${p.name}，时段不对`
+		: quest.weather && !quest.weather.includes(w.id) ? `今天${w.name}，天气不对，改天再来`
+		: undefined;
+	return { quest, index: state.photoQuest, blocked };
+}
+
+export function takeQuestPhoto(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const now = photoQuestNow(prev, region);
+	if (!now) return fail(prev, '摄影任务都拍完了。');
+	if (now.blocked) return fail(prev, now.blocked + '。');
+	const state = clone(prev);
+	const q = now.quest;
+	const last = now.index + 1 >= PHOTO_QUESTS.length;
+	// 奖励走 applyEffect 的收获：没晕倒才到账，而且在跨周结算之前，能付刚到期的房租
+	if (applyEffect(state, { minutes: PHOTO_MINUTES, needs: { fun: 8 }, cash: q.cash, respect: q.respect + (last ? PHOTO_CHAIN_BONUS : 0) }, region)) return collapsedResult(state);
+	state.photoQuest += 1;
+	let msg = `拍下了「${q.title}」，杂志买了这张照片：$${q.cash}，声望 +${q.respect}。`;
+	if (last) msg += ` 摄影任务全部完成！额外声望 +${PHOTO_CHAIN_BONUS}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+// ---------- 钓鱼 ----------
+const fishHere = (f: FishDef, loc: GameLocation) => !!(f.where.locs?.includes(loc.id) || f.where.kinds?.includes(loc.kind) || f.where.tags?.some((t) => loc.tags.includes(t)));
+
+/** 这个地方此刻能钓到的鱼；一种都没有就是不能钓鱼的地方（返回 null） */
+export function fishingAt(state: PlayerState, region: Region): { fish: FishDef[]; blocked?: string } | null {
+	const loc = getLocation(region, state.loc);
+	if (!loc || !FISH.some((f) => fishHere(f, loc))) return null;
+	const season = dateOf(state.clock).season;
+	const p = period(state.clock).id;
+	const w = weatherAt(state);
+	const fish = FISH.filter((f) => fishHere(f, loc) && (!f.seasons || f.seasons.includes(season)) && (!f.periods || f.periods.includes(p)) && (!f.weather || f.weather.includes(w.id)));
+	const blocked = !state.inventory[FISHING.rod] ? '要先买一根鱼竿' : w.closesSea ? '风暴天浪太大，钓不了' : !fish.length ? '这个时候这里钓不到鱼' : undefined;
+	return { fish, blocked };
+}
+
+/** 钓一次鱼：花时间和体力；按生存能力决定空手几率，钓到的当场卖给鱼铺 */
+export function goFishing(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const spot = fishingAt(prev, region);
+	if (!spot) return fail(prev, '这里没有能钓鱼的水。');
+	if (spot.blocked) return fail(prev, spot.blocked + '。');
+	const state = clone(prev);
+	const empty = Math.max(FISHING.emptyMin, FISHING.emptyBase - checkScore(state, 'survival').total * FISHING.emptyPerSkill);
+	let r = roll(state) * (empty + spot.fish.reduce((s, f) => s + f.weight, 0)) - empty;
+	const caught = r < 0 ? undefined : spot.fish.find((f) => (r -= f.weight) < 0) ?? spot.fish[spot.fish.length - 1];
+	// 鱼款走 applyEffect 的收获：没晕倒才到账，而且在跨周结算之前，能付刚到期的房租
+	if (applyEffect(state, { minutes: FISHING.minutes, needs: FISHING.needs, skills: { survival: 0.5 }, cash: caught?.price }, region)) return collapsedResult(state);
+	if (!caught) {
+		log(state, '钓了一个半小时，一条也没上钩。');
+		return { ok: true, state, msg: '一条也没钓到，不过吹了吹风。' };
+	}
+	const isNew = !state.fish[caught.id];
+	state.fish[caught.id] = (state.fish[caught.id] ?? 0) + 1;
+	const msg = `钓到一条${caught.icon}${caught.name}${isNew ? '（新鱼种！）' : ''}，卖给鱼铺得 $${caught.price}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+// ---------- 野生动物图鉴 ----------
+/** 此刻在这个地方可能看见的动物（还没见过的） */
+export function animalsAt(state: PlayerState, loc: GameLocation): AnimalDef[] {
+	const season = dateOf(state.clock).season;
+	const p = period(state.clock).id;
+	return ANIMALS.filter((a) => !state.dex.includes(a.id)
+		&& (a.where.locs?.includes(loc.id) || matches(a.where, loc))
+		&& (!a.seasons || a.seasons.includes(season))
+		&& (!a.periods || a.periods.includes(p)));
+}
+
+/** 抵达时看见哪只新动物（最多一只）。只读种子做哈希、不推进它，所以不影响其他随机结果 */
+function spotAnimal(state: PlayerState, loc: GameLocation): AnimalDef | undefined {
+	return animalsAt(state, loc).find((a) => unit(`${state.seed}|${state.clock}|${loc.id}|${a.id}`) < a.chance);
+}
+
+function recordAnimal(state: PlayerState, id: string, text?: string) {
+	const a = ANIMALS.find((x) => x.id === id);
+	if (!a || state.dex.includes(id)) return;
+	state.dex.push(id);
+	log(state, text ?? `图鉴里记下了${a.icon}${a.name}。`);
+	for (const [g, def] of Object.entries(DEX_GROUPS)) {
+		if (state.dexSets.includes(g)) continue;
+		const all = ANIMALS.filter((x) => x.group === g);
+		if (all.length && all.every((x) => state.dex.includes(x.id))) {
+			state.dexSets.push(g);
+			state.respect += def.respect;
+			log(state, `${def.name}动物全部见过了！声望 +${def.respect}。`);
+		}
+	}
+}
+
+/** 图鉴进度：每组见过几只、一共几只 */
+export function dexProgress(state: PlayerState): { group: string; name: string; got: number; total: number; done: boolean }[] {
+	return Object.entries(DEX_GROUPS).map(([g, def]) => {
+		const all = ANIMALS.filter((x) => x.group === g);
+		const got = all.filter((x) => state.dex.includes(x.id)).length;
+		return { group: g, name: def.name, got, total: all.length, done: state.dexSets.includes(g) };
+	});
 }
 
 function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null, clock: number): boolean {

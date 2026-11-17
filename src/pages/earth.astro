@@ -347,7 +347,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { AVATARS, NEED_META, ORIGINS, SKILL_META, START_CLOCK, formatClock, nextRev, sanitizeState } from '../game/core/character.ts';
 			import type { GameAction } from '../game/core/actions.ts';
 			import { npcStatus } from '../game/core/engine.ts';
-			import { activitiesAt, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
+			import { ANIMALS } from '../game/data/wildlife.ts';
+			import { FISH, FISHING } from '../game/data/fish.ts';
+			import { PHOTO_MINUTES, PHOTO_QUESTS } from '../game/data/photo-quests.ts';
+			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { CERTS } from '../game/data/certs.ts';
 			import { SERVICE_KM } from '../game/data/vehicles.ts';
@@ -1069,6 +1072,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const certs = certsAt(s, region);
 				const certHtml = certs.length ? `<div class="card"><h3>职业证书</h3><p>考到证后，对应职业每个班的工资上涨；证书跟人走，换工作不丢。</p>${certs.map(({ cert, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="body">${s.certs.includes(cert.id) ? '✅ ' : ''}${esc(cert.name)} · $${cert.price}<small>${esc(blocked ?? `${getCareer(cert.career)?.name ?? ''}工资 +${Math.round(cert.payBonus * 100)}% · ${Math.round(cert.minutes / 60 * 10) / 10} 小时 · ${cert.desc}`)}</small></span><button data-cert="${cert.id}" ${blocked ? 'disabled' : ''}>报名</button></div>`).join('')}</div>` : '';
+				const facts = placeFacts(s, loc.id);
+				const factHtml = facts.length ? `<details class="card"><summary><b>📖 ${esc(loc.name)}小知识 ${facts.filter((f) => f.unlocked).length}/${facts.length}</b></summary>${facts.map(({ fact, unlocked }, i) => unlocked
+					? `<p style="margin-top:8px">${esc(fact.text)} <a class="muted" href="${esc(fact.source)}" target="_blank" rel="noopener">来源</a></p>`
+					: `<p style="margin-top:8px" class="muted">第 ${i + 1} 次来时解锁</p>`).join('')}</details>` : '';
+				const pq = photoQuestNow(s, region);
+				const photoQuestHtml = pq ? `<div class="card"><h3>📷 摄影任务 ${pq.index + 1}/${PHOTO_QUESTS.length}：${esc(pq.quest.title)}</h3><p>${esc(pq.quest.hint)}</p>
+					<div class="row" style="margin-top:8px"><span class="body">拍下来<small>${esc(pq.blocked ?? `${PHOTO_MINUTES} 分钟 · $${pq.quest.cash}、声望 +${pq.quest.respect}`)}</small></span><button data-photo ${pq.blocked ? 'disabled' : ''}>拍照</button></div></div>` : '';
+				const spot = fishingAt(s, region);
+				const fishHtml = spot ? `<div class="card"><h3>🎣 钓鱼</h3><p>${spot.fish.length ? `现在能钓到：${spot.fish.map((f) => `${s.fish[f.id] ? f.icon + esc(f.name) : '？？？'}`).join('、')}。` : '这个时候这里钓不到鱼，换个时段或季节再来。'}钓到的当场卖给鱼铺。</p>
+					<div class="row" style="margin-top:8px"><span class="body">钓一会儿<small>${esc(spot.blocked ?? `${FISHING.minutes} 分钟 · 生存能力越高越不容易空手`)}</small></span><button data-fish ${spot.blocked ? 'disabled' : ''}>去钓</button></div></div>` : '';
 				const courses = coursesAt(s, region);
 				const courseHtml = courses.length ? `<div class="card"><h3>课程</h3>${courses.map(({ course, price, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="body">${esc(course.name)} · $${price}<small>${esc(blocked ?? `${SKILL_META[course.skill].name}（现在 ${Math.floor(s.skills[course.skill])}）· ${Math.round(course.minutes / 60 * 10) / 10} 小时 · ${course.desc}`)}</small></span><button data-course="${course.id}" ${blocked ? 'disabled' : ''}>上课</button></div>`).join('')}</div>` : '';
@@ -1108,7 +1121,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${notesCard(s)}`;
+					${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
 			}
 
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
@@ -1224,6 +1237,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const photos = new Set(s.photos);
 				const photoHtml = `<div class="card"><h3>天气相册 ${s.photos.length}/${region.locations.length * WEATHERS.length}</h3><p>抵达一个地方时，会按当天的天气收一张照片。同一个地方换个天气再来，能收到不一样的。</p>
 					<div class="album">${region.locations.map((l) => `<div class="album-row"><span>${esc(l.name)}</span><span>${WEATHERS.map((w) => `<i class="${photos.has(`${l.id}|${w.id}`) ? 'got' : ''}" title="${esc(w.name)}">${w.icon}</i>`).join('')}</span><span class="sr">${WEATHERS.filter((w) => photos.has(`${l.id}|${w.id}`)).map((w) => w.name).join('、') || '还没有'}</span></div>`).join('')}</div></div>`;
+				// 野生动物图鉴：见过的显示名字，没见过的只显示所属分组
+				const dex = new Set(s.dex);
+				const dexHtml = `<div class="card"><h3>野生动物图鉴 ${s.dex.length}/${ANIMALS.length}</h3><p>到了各地有机会看见动物，有的只在某个季节或清晨傍晚出现。一组集齐加声望。</p>
+					<p>${dexProgress(s).map((g) => `${esc(g.name)} ${g.got}/${g.total}${g.done ? ' ✅' : ''}`).join(' · ')}</p>
+					<div class="ach-grid">${ANIMALS.map((a) => dex.has(a.id)
+						? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${a.icon}</span><span><b>${esc(a.name)}</b><small>${esc(a.desc)}</small></span></div>`
+						: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc(({ sea: '海洋', land: '陆地', bird: '飞鸟' } as Record<string, string>)[a.group])}</small></span><span class="sr">（还没见过）</span></div>`).join('')}</div></div>`;
+				const fishHtml2 = `<div class="card"><h3>鱼获 ${Object.keys(s.fish).length}/${FISH.length}</h3><div class="ach-grid">${FISH.map((f) => s.fish[f.id]
+					? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${f.icon}</span><span><b>${esc(f.name)} ×${s.fish[f.id]}</b><small>${esc(f.desc)}</small></span></div>`
+					: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>还没钓到</small></span></div>`).join('')}</div></div>`;
 				// 见闻录：一次性的专属事件，见过的显示标题，没见过的只提示在哪
 				const onceEvents = EVENTS.filter((e) => e.once && !e.venueTypes);
 				const seenOnce = onceEvents.filter((e) => s.seen.includes(e.id)).length;
@@ -1234,6 +1257,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc(where(e))}</small></span><span class="sr">（还没遇到）</span></div>`).join('')}</div></div>`;
 				const card = {
 					story: storyHtml,
+					dex: dexHtml,
+					fish: fishHtml2,
 					photo: photoHtml,
 					trail: trailHtml,
 					ach: achHtml,
@@ -1273,7 +1298,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
 					})()}</div>`,
 				};
-				const sections: Record<string, string[]> = { overview: ['daily', 'ach', 'photo', 'mood', 'me', 'story', 'trail', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
+				const sections: Record<string, string[]> = { overview: ['daily', 'ach', 'photo', 'mood', 'me', 'story', 'dex', 'fish', 'trail', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
 				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}</button>`).join('')}</div>`;
 				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
@@ -1590,7 +1615,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -1616,6 +1641,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.course) act({ t: 'course', id: d.course }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if ('photo' in d) act({ t: 'photo' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if ('fish' in d) act({ t: 'fish' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.cert) act({ t: 'cert', id: d.cert }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.exp) act({ t: 'experience', id: d.exp }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.job) {

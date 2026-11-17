@@ -31,5 +31,9 @@ export const ACHIEVEMENTS: AchievementDef[] = [
 	{ id: 'skill-80', icon: '🎓', name: '行家', desc: '任意一项能力达到 80', metric: 'topSkill', goal: 80 },
 	{ id: 'friend-5', icon: '🫂', name: '老熟人', desc: '和 5 位当地人成为朋友', metric: 'friends', goal: 5 },
 	{ id: 'trips-50', icon: '🧳', name: '在路上', desc: '累计到达各地 50 次', metric: 'trips', goal: 50 },
+	{ id: 'dex-5', icon: '🔭', name: '观察家', desc: '野生动物图鉴里记下 5 种动物', metric: 'dex', goal: 5 },
+	{ id: 'dex-15', icon: '🦘', name: '博物学家', desc: '野生动物图鉴里记下 15 种动物', metric: 'dex', goal: 15 },
+	{ id: 'fish-5', icon: '🎣', name: '钓友', desc: '钓到 5 种不同的鱼', metric: 'fish', goal: 5 },
+	{ id: 'facts-15', icon: '📖', name: '百事通', desc: '解锁 15 张地点小知识卡', metric: 'facts', goal: 15 },
 	{ id: 'storm-3', icon: '⛈️', name: '追风者', desc: '在 3 个地方拍到风暴', metric: 'stormPhotos', goal: 3 },
 ];

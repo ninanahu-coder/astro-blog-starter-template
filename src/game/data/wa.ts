@@ -36,6 +36,11 @@ const locations: GameLocation[] = [
 	L('port-hedland', '黑德兰港', 'Port Hedland', -20.31, 118.6, 'mining', ['airport', 'pub', 'hospital'], 15, '铁矿石出海口，货轮与运矿列车。'),
 	L('broome', '布鲁姆', 'Broome', -17.96, 122.24, 'coast', ['beach', 'airport', 'pearl', 'pub', 'hospital'], 20, '珍珠之乡，凯布尔海滩上的骆驼与落日。'),
 	L('kununurra', '库努纳拉', 'Kununurra', -15.77, 128.74, 'outback', ['airport', 'gorge'], 25, '金伯利东端，通往邦格尔邦格尔山脉。'),
+	// 第 16 轮新增（坐标、类型、标签由 OpenClaw 采集，Claude 按维基百科核对；无法证实的标签已去掉）
+	L('mandurah', '曼杜拉', 'Mandurah', -32.529, 115.723, 'city', ['hospital', 'pub', 'beach', 'dolphin'], 12, '珀斯以南的河口城市，运河里常见海豚，夏天满城捉蓝花蟹。'),
+	L('busselton', '巴瑟尔顿', 'Busselton', -33.648, 115.346, 'town', ['hospital', 'pub', 'beach', 'whale', 'wine'], 15, '海滨度假小城，一条木栈桥伸进海湾快两公里。'),
+	L('pemberton', '彭伯顿', 'Pemberton', -34.445, 116.034, 'town', ['pub', 'wine'], 10, '卡里树林里的小镇，能爬上当年的防火瞭望树。'),
+	L('coral-bay', '珊瑚湾', 'Coral Bay', -23.145, 113.776, 'coast', ['beach', 'reef', 'whale'], 15, '宁格鲁礁就长在岸边，走下沙滩就能浮潜。'),
 ];
 
 const R = (a: string, b: string, mode: Route['mode'] = 'road'): Route => ({ a, b, mode });
@@ -64,6 +69,14 @@ const routes: Route[] = [
 	R('exmouth', 'port-hedland'),
 	R('port-hedland', 'broome'),
 	R('broome', 'kununurra', 'track'),
+	R('perth', 'mandurah'),
+	R('mandurah', 'bunbury'),
+	R('bunbury', 'busselton'),
+	R('busselton', 'margaret-river'),
+	R('margaret-river', 'pemberton'),
+	R('pemberton', 'albany'),
+	R('exmouth', 'coral-bay'),
+	R('coral-bay', 'monkey-mia'),
 	R('perth', 'kalgoorlie', 'air'),
 	R('perth', 'geraldton', 'air'),
 	R('perth', 'exmouth', 'air'),
@@ -81,7 +94,8 @@ export const WA: Region = {
 	outline: [
 		[129.0, -14.9], [128.1, -14.8], [127.0, -13.9], [126.0, -14.1], [125.2, -14.6], [124.4, -15.5],
 		[124.0, -16.3], [123.5, -17.3], [122.9, -16.4], [122.2, -18.0], [121.5, -19.0], [119.8, -20.0],
-		[118.6, -20.3], [116.8, -20.6], [115.1, -21.6], [114.1, -21.8], [113.7, -22.6], [113.8, -23.1],
+		[118.6, -20.3], [116.8, -20.6], [115.1, -21.6], [114.1, -21.8], [113.7, -22.6], [113.75, -23.1],
+		[113.74, -23.2],
 		[113.6, -24.9], [113.15, -26.15], [114.15, -27.7], [114.6, -28.8], [115.0, -30.3], [115.75, -31.95],
 		[115.7, -32.5], [115.6, -33.3], [115.0, -33.55], [115.1, -34.37], [116.0, -34.85], [117.9, -35.1],
 		[119.4, -34.4], [121.9, -33.87], [123.9, -33.6], [126.0, -32.3], [129.0, -31.7],
