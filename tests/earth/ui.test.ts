@@ -12,6 +12,10 @@ import { test } from 'node:test';
 import { build } from 'esbuild';
 import { EarthWorld } from '../../src/game/server/world.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { SEASON_DAYS } from '../../src/game/core/time.ts';
+import { weatherOn } from '../../src/game/core/weather.ts';
+import { npcsAt } from '../../src/game/core/engine.ts';
+import { NPCS } from '../../src/game/data/npcs.ts';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
@@ -667,8 +671,10 @@ type HashOpts = {
 	/** 改写服务器的回复（模拟慢、坏响应）：返回 undefined 用原回复 */
 	reply?: (body: any, res: () => Promise<Response>) => Promise<Response | undefined>;
 	venuesFail?: boolean;
+	/** 启动时页面在后台（document.hidden），after 里用 show() 切回前台 */
+	hidden?: boolean;
 	/** 页面启动完、清理之前再做点什么（点按钮、触发联网事件） */
-	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; el: (id: string) => El }) => Promise<void>;
+	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; el: (id: string) => El; show: () => void }) => Promise<void>;
 };
 async function openWithHash(hash: string, local: { cred: unknown; state: unknown } | null, world: EarthWorld, confirmAnswer = true, opts: HashOpts = {}) {
 	const els = new Map<string, El>();
@@ -688,7 +694,8 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	const g = globalThis as any;
 	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
 	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[] };
-	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, hidden: false };
+	const root = new ClassList();
+	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, documentElement: { classList: root }, hidden: !!opts.hidden };
 	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => { winLs[t] = f; } };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', pathname: '/earth/', search: '', hash, reload() { seen.reloads++; } };
@@ -712,8 +719,8 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 		await import(pathToFileURL(file).href);
 		for (let i = 0; i < 50; i++) await pause(10);
 		const click = async (dataset: Record<string, string>) => { docLs.click({ target: { dataset, disabled: false, classList: { contains: () => false }, closest: fakeClosest } }); await pause(30); };
-		await opts.after?.({ click, win: winLs, el });
-		return { el, store, seen };
+		await opts.after?.({ click, win: winLs, el, show: () => { g.document.hidden = false; } });
+		return { el, store, seen, root };
 	} finally {
 		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });
@@ -878,6 +885,159 @@ test('界面：留言超过每地点上限时页面留下最新的（服务器�
 	assert.ok(html.includes('第0新的留言'), '最新的在');
 	assert.ok(html.includes('第19新的留言'));
 	assert.ok(!html.includes('第20新的留言'), '最旧的那条截掉');
+});
+
+test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，只做显示）', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'sky-card-a', '天象甲');
+	let panel = '', hud = '';
+	await openWithHash('', a, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			panel = el('panel').innerHTML;
+			hud = el('hud').innerHTML;
+		},
+	});
+	assert.match(panel, /<h3>今天的天<\/h3>/);
+	assert.match(panel, /现实中的 \d+ 月 \d+ 日/);
+	assert.match(panel, /气温 -?\d+–\d+°C/);
+	assert.match(panel, /日出 \d+:\d\d · 日落 \d+:\d\d/);
+	assert.match(panel, /(涨|退)潮中 · 现在 [+−]\d+\.\d 米/, '出生地在海边，有潮汐');
+	assert.match(panel, /真下海请看官方潮汐预报/);
+	assert.match(panel, /紫外线：现在 \d+/);
+	assert.match(hud, /class="wx-pill[^"]*">[^<]*\d+°/, '顶栏天气带最高气温');
+	// 虚拟人生风格：今天页顶栏是当地小场景，地点名牌、需求环、NPC 立绘
+	assert.match(hud, /<div class="scene"><svg class="scene-art"/);
+	assert.match(hud, /<div class="plate"><h1>[^<]+<\/h1><small>[^<]+<\/small><\/div>/);
+	assert.match(panel, /<div class="rings">/);
+	assert.equal((panel.match(/class="ring /g) ?? []).length, 6, '六个需求环');
+	assert.match(panel, /role="img" aria-label="健康 \d+/);
+	assert.deepEqual(a11yIssues(panel), []);
+});
+
+test('界面：火险高以上时卡片、顶栏、提示（第 39 轮，只做提示）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'fire-card-a', '火险甲');
+	// 夏季里珀斯第一个「炎热」的游戏日
+	let day = SEASON_DAYS;
+	while (weatherOn('perth', day).id !== 'hot') day++;
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.clock = day * 1440 + 10 * 60;
+	rec.state.loc = 'perth';
+	data.set('save:' + a.cred.id, rec);
+	let panel = '', hud = '', toasts = '';
+	const { store: lastStore } = await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			await pause(700);
+			panel = el('panel').innerHTML;
+			hud = el('hud').innerHTML;
+			toasts = el('toast').textContent;
+		},
+	});
+	assert.match(panel, /<span class="chip">山火季<\/span>/);
+	assert.match(panel, /火险等级：极端/);
+	assert.match(hud, /🔥 火险极端/);
+	assert.match(toasts, /火险极端（游戏里的估算，不是真实预警）/, '提示写明是估算');
+	assert.match(toasts, /Emergency WA/);
+	assert.match(panel, /<a href="https:\/\/www\.emergency\.wa\.gov\.au\/" target="_blank" rel="noopener">/, '卡片有真实来源的链接');
+	assert.match(hud, /🔥 火险极端 · 示意/);
+	// 去重（第 8 批审查问题 2）：记在本机，重新载入同一地点同一天不再弹
+	const seenRaw = lastStore.get('earth.fire.v1')!;
+	assert.deepEqual(JSON.parse(seenRaw), [`perth@${day}`]);
+	let again = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		extra: { 'earth.fire.v1': seenRaw },
+		after: async ({ click, el }) => { await click({ tab: 'place' }); await pause(700); again = el('toast').textContent; },
+	});
+	assert.doesNotMatch(again, /火险/, '重新载入不再弹');
+	// 0.6 秒内切到别的页：不弹，也不记成已提示
+	let away = '';
+	const left = await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		hidden: true,
+		after: async ({ click, el, show }) => {
+			await pause(700);
+			assert.doesNotMatch(el('toast').textContent, /火险/, '页面在后台时不弹');
+			show();
+			// 点「今天」排上提示，马上切到「出行」（click 只等 20 毫秒，远小于 0.6 秒）
+			await click({ tab: 'place' });
+			await click({ tab: 'go' });
+			await pause(700);
+			away = el('toast').textContent;
+		},
+	});
+	assert.doesNotMatch(away, /火险/, '切到出行页后不在那里弹');
+	assert.equal(left.store.get('earth.fire.v1'), undefined);
+	// 紫外线（第 40 轮）：夏天上午 10 点的炎热天，现在很高，顶栏提醒，卡片写防晒时段
+	assert.match(panel, /紫外线：现在 \d+（(很高|极高)）· 今天最高 \d+/);
+	assert.match(panel, /\d+:\d\d–\d+:\d\d 指数在 3 以上，出门要防晒/);
+	assert.match(hud, /🕶️ 紫外线 \d+/);
+});
+
+test('界面：画面天色跟着当地日出日落，不是固定钟点（第 37 轮）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'sky-phase-a', '天色甲');
+	const open = async (day: number, hour: number) => {
+		const rec = data.get('save:' + a.cred.id) as any;
+		rec.state.clock = day * 1440 + hour * 60;
+		rec.state.loc = 'perth';
+		data.set('save:' + a.cred.id, rec);
+		const r = await openWithHash('', { cred: a.cred, state: rec.state }, world);
+		return Object.assign(r.root, { hud: r.el('hud').innerHTML });
+	};
+	// 冬季中（≈ 7 月中）傍晚 6 点半：钟点上还算「傍晚」，但珀斯 5 点半就日落了，画面是夜色
+	const winter = await open(3 * SEASON_DAYS + 14, 18.5);
+	assert.ok(winter.contains('p-night') && !winter.contains('p-dusk'), '冬天 6 点半已经黑了');
+	assert.match(winter.hud, /18:30 傍晚（天已经黑了）/, '顶栏说明玩法时段和实际天色不一样');
+	// 夏季（≈ 1 月）傍晚 6 点半：太阳还高，画面是白天
+	const summer = await open(SEASON_DAYS + 12, 18.5);
+	assert.ok(summer.contains('p-day'), '夏天 6 点半还亮');
+});
+
+test('界面：虚拟人生风格——最缺的需求变成想法气泡；NPC 有立绘、名牌、关系条和对话气泡；事件弹窗用当地场景当背景', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'life-ui-a', '人生甲');
+	const rec = data.get('save:' + a.cred.id) as any;
+	// 找一个有 NPC 在场的地点和时刻
+	let found: { loc: string; clock: number } | null = null;
+	for (const n of NPCS) {
+		for (let c = 0; c < 7 * 1440 && !found; c += 60) {
+			const st = { ...rec.state, loc: n.loc, clock: 1440 * 3 + c };
+			if (npcsAt(st, WA).length) found = { loc: n.loc, clock: st.clock };
+		}
+		if (found) break;
+	}
+	assert.ok(found, '有 NPC 在场的时刻');
+	rec.state.loc = found!.loc;
+	rec.state.clock = found!.clock;
+	rec.state.needs.social = 10;
+	data.set('save:' + a.cred.id, rec);
+	let panel = '', hud = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			panel = el('panel').innerHTML;
+			hud = el('hud').innerHTML;
+		},
+	});
+	assert.match(hud, /<span class="thought">想找人说说话<\/span>/, '社交最缺：人物头上冒想法');
+	assert.match(panel, /<div class="npc-talk"><div class="npc-head"><svg class="portrait"/);
+	assert.match(panel, /<div class="npc-name"><b>[^<]+<\/b><small>[^<]+<\/small><\/div>/);
+	assert.match(panel, /role="progressbar" aria-label="和[^"]+的关系" aria-valuemin="0" aria-valuemax="100" aria-valuenow="\d+"/);
+	assert.match(panel, /<p class="bubble">/);
+	assert.match(panel, /<em class="lack">最缺<\/em>/);
+	assert.deepEqual(a11yIssues(panel), []);
+	assert.deepEqual(a11yIssues(hud), []);
+	// 事件弹窗：放一个待处理事件，弹窗背景是当地场景（没有配图时）
+	const { EVENTS } = await import('../../src/game/data/events.ts');
+	const ev = EVENTS.find((e) => e.choices.length >= 2 && !e.periods)!;
+	rec.state.pending = { eventId: ev.id };
+	data.set('save:' + a.cred.id, rec);
+	let modal = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, { after: async ({ el }) => { modal = el('modal').innerHTML; } });
+	assert.match(modal, /<div class="ev-hero"><svg class="scene-art"[^>]*aria-hidden="true"/);
+	assert.match(modal, /<i class="ev-shade"><\/i>/);
+	assert.deepEqual(a11yIssues(modal), []);
 });
 
 test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {
