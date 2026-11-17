@@ -29,7 +29,7 @@ const ratio = (a: string, b: string) => {
 // [文字, 背景]：界面里实际出现的组合
 const PAIRS: [string, string][] = [
 	['--text', '--bg'], ['--text', '--card'], ['--text', '--card2'], ['--dim', '--bg'], ['--dim', '--card'], ['--dim', '--card2'],
-	['--accent-ink', '--accent'], ['--accent', '--card'], ['--text2', '--card'],
+	['--accent-ink', '--accent'], ['--accent', '--card'], ['--text2', '--card'], ['--text2', '--seg-bg'],
 	['--tint-blue-ink', '--tint-blue'], ['--tint-green-ink', '--tint-green'], ['--tint-amber-ink', '--tint-amber'],
 	['--tint-red-ink', '--tint-red'], ['--tint-cost-ink', '--tint-cost'], ['--low-ink', '--card'], ['--mid-ink', '--card'],
 	['--ink-dim', '--ink'], ['--text', '--warm-bg'], ['--text', '--tint-red'], ['--text', '--soft'], ['--text', '--sky-dawn'], ['--dim', '--sky-dawn'], ['--text', '--sky-dusk'], ['--dim', '--sky-dusk'], ['--text', '--sky-night'], ['--dim', '--sky-night'], ['--map-night-text', '--land-night'], ['--map-night-text', '--ocean-night'],

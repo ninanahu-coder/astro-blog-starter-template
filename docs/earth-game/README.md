@@ -109,6 +109,7 @@ tests/earth/          引擎与数据自洽性测试
 
 - 深色模式跟随系统；颜色都是变量，深浅两套一一对应（`tests/earth/contrast.test.ts` 检查对比度）。
 - **可添加到主屏幕**：`public/earth/manifest.webmanifest` 和离线外壳 `public/earth/sw.js`（作用域 `/earth/`）。外壳安装时从首页 HTML 解析并预缓存构建文件，联网打开首页时更新、清理旧文件；`/api/` 从不缓存。断网时可以查看，联网后才能行动。
+- **无障碍**：切换标签、关掉事件弹窗后焦点回到页面内容；弹窗打开时背后页面 `inert`；事件结果页可按 Esc 关闭；输入框都有读屏标签；`ui.test.ts` 的 `a11yIssues()` 对每个标签页、「我」的每个子栏、事件弹窗和静态标记检查按钮名字、图片 alt、输入框标签、tabindex、进度条数值、对话框名字；`contrast.test.ts` 检查深浅两套配色的文字对比度。
 - **界面测试**：`tests/earth/ui.test.ts` 现场用 esbuild 打包页面脚本，在 Node 里用最小 DOM 替身运行，请求直接交给 `EarthWorld`，覆盖主要页面和交互。
 
 ## 5. 联机与手机同步

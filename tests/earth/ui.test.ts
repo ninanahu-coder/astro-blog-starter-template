@@ -22,7 +22,7 @@ class ClassList {
 	toggle(c: string, on?: boolean) { if (on === undefined ? !this.set.has(c) : on) this.set.add(c); else this.set.delete(c); }
 	contains(c: string) { return this.set.has(c); }
 }
-type El = { id: string; innerHTML: string; textContent: string; value: string; disabled: boolean; inert: boolean; classList: ClassList; attrs: Record<string, string>; ls: Record<string, (e: unknown) => void>; focused: number; scrollTop: number; scrollHeight: number; setAttribute(k: string, v: string): void; addEventListener(t: string, f: (e: unknown) => void): void; querySelector(q: string): { focus(): void } | null };
+type El = { focus(): void; id: string; innerHTML: string; textContent: string; value: string; disabled: boolean; inert: boolean; classList: ClassList; attrs: Record<string, string>; ls: Record<string, (e: unknown) => void>; focused: number; scrollTop: number; scrollHeight: number; setAttribute(k: string, v: string): void; addEventListener(t: string, f: (e: unknown) => void): void; querySelector(q: string): { focus(): void } | null };
 
 function makeWorld() {
 	const data = new Map<string, unknown>();
@@ -49,6 +49,34 @@ async function bundlePage(): Promise<string> {
 }
 
 const strip = (h: string) => h.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+/**
+ * 无障碍静态检查（第 30 轮）：对渲染出的 HTML 片段检查读屏和键盘的基本要求，返回不合格的地方。
+ * 按钮要有可读的名字（文字或 aria-label，纯 emoji / 符号不算）；图片要有 alt；输入框要有标签；
+ * 不用正数 tabindex；进度条要带数值；role="dialog" 要有名字。
+ */
+export function a11yIssues(html: string): string[] {
+	const bad: string[] = [];
+	const named = (attrs: string) => /aria-label="[^"]*\p{L}[^"]*"/u.test(attrs) || /aria-labelledby="[^"]+"/.test(attrs);
+	for (const m of html.matchAll(/<button\b([^>]*)>([\s\S]*?)<\/button>/g)) {
+		const text = m[2].replace(/<[^>]*aria-hidden="true"[^>]*>[\s\S]*?<\/[a-z]+>/g, '').replace(/<[^>]+>/g, '');
+		if (!/\p{L}|\p{N}/u.test(text) && !named(m[1])) bad.push(`按钮没有名字：${m[0].slice(0, 80)}`);
+	}
+	for (const m of html.matchAll(/<img\b([^>]*)>/g)) if (!/\balt="/.test(m[1])) bad.push(`图片没有 alt：${m[0].slice(0, 80)}`);
+	for (const m of html.matchAll(/<(input|select|textarea)\b([^>]*)>/g)) {
+		if (/type="hidden"/.test(m[2])) continue;
+		const id = m[2].match(/\bid="([^"]+)"/)?.[1];
+		const labelled = named(m[2]) || (id && new RegExp(`<label[^>]*for="${id}"`).test(html));
+		const wrapped = html.lastIndexOf('<label', m.index!) > html.lastIndexOf('</label>', m.index!);
+		if (!labelled && !wrapped) bad.push(`输入框没有标签：${m[0].slice(0, 80)}`);
+	}
+	for (const m of html.matchAll(/tabindex="(\d+)"/g)) if (Number(m[1]) > 0) bad.push(`正数 tabindex：${m[0]}`);
+	for (const m of html.matchAll(/<[a-z]+\b([^>]*role="progressbar"[^>]*)>/g)) {
+		if (!/aria-valuenow="/.test(m[1]) && !named(m[1])) bad.push(`进度条没有数值：${m[0].slice(0, 80)}`);
+	}
+	for (const m of html.matchAll(/<[a-z]+\b([^>]*role="dialog"[^>]*)>/g)) if (!named(m[1])) bad.push(`对话框没有名字：${m[0].slice(0, 80)}`);
+	return bad;
+}
 const pause = (ms = 0) => new Promise((r) => setTimeout(r, ms));
 
 // 假元素的 closest：和真浏览器一样只认选择器名单里的 [data-xxx]，名单漏了就返回 null（点不动）
@@ -56,6 +84,16 @@ function fakeClosest(this: { dataset: Record<string, string> }, sel: string) {
 	const keys = [...sel.matchAll(/\[data-([a-z0-9-]+)\]/g)].map((m) => m[1].replace(/-([a-z0-9])/g, (_, c: string) => c.toUpperCase()));
 	return keys.some((k) => k in this.dataset) ? this : null;
 }
+
+test('无障碍（第 30 轮）：页面的静态标记（创建角色页、外框）按钮有名字、输入框有标签', () => {
+	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
+	const markup = astro.slice(0, astro.indexOf('<script>')).replace(/<style[\s\S]*?<\/style>/g, '');
+	assert.ok(markup.includes('id="create"'), '读到了创建页');
+	assert.deepEqual(a11yIssues(markup), []);
+	// 检查函数本身会报错：故意写错的例子都要被抓出来
+	assert.equal(a11yIssues('<button>🔁</button><img src="a.png"><input id="x"><div tabindex="2"></div><div role="progressbar"></div><div role="dialog"></div>').length, 6);
+	assert.deepEqual(a11yIssues('<button aria-label="关闭">✕</button><button><span aria-hidden="true">🔁</span>重来</button><label>名字<input id="n"></label><img alt="" src="a.png">'), []);
+});
 
 test('界面：五个标签、子栏、下一步、事件弹窗和转义', async () => {
 	const { data, world } = makeWorld();
@@ -82,6 +120,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			id, innerHTML: '', textContent: '', value: '', disabled: false, inert: false, classList: new ClassList(), attrs: {}, ls: {}, focused: 0, scrollTop: 0, scrollHeight: 0,
 			setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.ls[t] = f; },
 			querySelector() { const self = this; return { focus() { self.focused++; } }; },
+			focus() { this.focused++; },
 		});
 		return els.get(id)!;
 	};
@@ -186,6 +225,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		for (const t of ['go', 'near', 'social', 'me']) {
 			await click({ tab: t });
 			assert.ok(strip(panel()).length > 20, `${t} 页是空的`);
+			assert.deepEqual(a11yIssues(panel() + el('hud').innerHTML + el('tabs').innerHTML), [], `${t} 页`);
 			assert.equal(el('map-wrap').classList.contains('hidden'), t !== 'go', `${t} 页地图显示不对`);
 			if (t === 'go') assert.match(el('map').innerHTML, /class="land"/, '出行页画了地图');
 			if (t === 'go') assert.match(panel(), /去了周结算会不够/, '周结算前的路费提醒');
@@ -195,6 +235,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		for (const mt of ['overview', 'assets', 'people', 'log', 'sync']) {
 			await click({ metab: mt });
 			assert.match(panel(), new RegExp(`data-metab="${mt}" class="on"`), mt);
+			assert.deepEqual(a11yIssues(panel()), [], `我 · ${mt}`);
 			if (mt === 'log') assert.match(panel(), /class="log-day">第 1 天 · 春季第 1 天/, '日志按天分组');
 			if (mt === 'sync') {
 				// 设置（第 28 轮）：字号三档、动画三档、三个提示开关，只存在本机
@@ -395,6 +436,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		for (let i = 0; i < 100 && el('modal').classList.contains('hidden'); i++) await pause(20);
 		assert.equal(el('modal').classList.contains('hidden'), false, '罗特尼斯岛首次抵达应该出事件');
 		assert.equal(el('game').inert, true, '弹窗打开时背后页面不可操作');
+		assert.deepEqual(a11yIssues(el('modal').innerHTML), [], '事件弹窗');
 		assert.ok(el('modal').focused > 0, '焦点移进弹窗');
 		await click({ tab: 'place' });
 		assert.ok(!panel().includes('class="next"'), '有待处理事件时不给下一步按钮');
@@ -404,8 +446,14 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(el('modal').innerHTML, /结果/);
 		assert.match(el('modal').innerHTML, /data-result-close/);
 		assert.equal(el('game').inert, true, '结果页也锁住背后');
-		await click({ resultClose: '' });
-		assert.equal(el('modal').classList.contains('hidden'), true, '点继续后弹窗关闭');
+		// 键盘：结果页按 Esc 等于点「继续」（弗里曼特尔那段已经点过「继续」按钮）
+		const panelFocus = el('panel').focused;
+		docListeners.keydown({ key: 'Enter' });
+		assert.equal(el('modal').classList.contains('hidden'), false, '别的键不关');
+		docListeners.keydown({ key: 'Escape' });
+		await pause(20);
+		assert.equal(el('modal').classList.contains('hidden'), true, '按 Esc 后弹窗关闭');
+		assert.ok(el('panel').focused > panelFocus, '弹窗关掉后焦点回到页面内容');
 		assert.equal(el('game').inert, false, '弹窗关闭后解锁');
 		assert.equal((data.get('save:' + cred.id) as any).state.loc, 'rottnest');
 		// 夜里精力不满、其他都还行：下一步建议找地方过夜
@@ -506,7 +554,7 @@ test('界面：没有存档时显示创建页，选完四步能创建角色并�
 		if (!els.has(id)) els.set(id, {
 			id, innerHTML: '', textContent: '', value: '', disabled: false, inert: false, classList: new ClassList(), attrs: {}, ls: {}, focused: 0, scrollTop: 0, scrollHeight: 0,
 			setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.ls[t] = f; },
-			querySelector() { return null; },
+			querySelector() { return null; }, focus() { this.focused++; },
 		});
 		return els.get(id)!;
 	};

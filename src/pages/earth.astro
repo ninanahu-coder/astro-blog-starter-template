@@ -42,7 +42,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				<button id="c-start" class="primary">开始生活</button>
 				<details class="import">
 					<summary>已有存档？用同步码恢复</summary>
-					<input id="c-code" placeholder="粘贴同步码" autocomplete="off" />
+					<input id="c-code" placeholder="粘贴同步码" aria-label="同步码" autocomplete="off" />
 					<button id="c-import">从云端恢复</button>
 				</details>
 			</section>
@@ -1085,7 +1085,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const rows = list.map((n) => `<div class="note"><span class="ico">${esc(n.avatar)}</span><span class="body"><b>${esc(n.name)}</b> <small class="muted">${ago(n.at)}</small><br />${esc(n.text)}</span>${n.mine ? `<button data-note="delete" data-note-id="${esc(n.id)}" aria-label="删掉这条留言">删</button>` : ''}</div>`).join('');
 				return `<div class="card"><h3>📝 留言板</h3><p class="muted">给后来到${esc(getLocation(region, s.loc)!.name)}的人留一句话。不能带网址和联系方式；每人每天最多 3 条，同一个地方一天一条。</p>
 					${rows || '<p class="muted">还没有人在这里留言。</p>'}
-					<form class="inline" id="note-form" style="margin-top:8px"><input id="note-input" maxlength="${NOTE_MAX}" placeholder="写一句给后来的人…" autocomplete="off" /><button class="primary">贴上</button></form></div>`;
+					<form class="inline" id="note-form" style="margin-top:8px"><input id="note-input" maxlength="${NOTE_MAX}" placeholder="写一句给后来的人…" aria-label="留言内容" autocomplete="off" /><button class="primary">贴上</button></form></div>`;
 			}
 
 			function panelPlace() {
@@ -1532,7 +1532,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<div class="card"><h3>本地频道</h3><p>只有同一地点的玩家能看到。</p>
 						<div class="chat" id="chat">${chats.map((c) => `<div>${esc(c.avatar)} <b>${esc(c.name)}</b> ${esc(c.text)}</div>`).join('')}</div>
 						<div class="quick">${QUICK_CHAT.map((q, i) => `<button data-quick="${i}" ${online ? '' : 'disabled'}>${q}</button>`).join('')}</div>
-						<form class="inline" id="chat-form"><input id="chat-input" maxlength="120" placeholder="说点什么…" autocomplete="off" ${online ? '' : 'disabled'} /><button class="primary" ${online ? '' : 'disabled'}>发送</button></form></div>
+						<form class="inline" id="chat-form"><input id="chat-input" maxlength="120" placeholder="说点什么…" aria-label="聊天消息" autocomplete="off" ${online ? '' : 'disabled'} /><button class="primary" ${online ? '' : 'disabled'}>发送</button></form></div>
 					${boardCard()}`;
 			}
 
@@ -1651,7 +1651,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					if (!wasOpen) modal.querySelector<HTMLElement>('button')?.focus();
 					return;
 				}
-				if (!ev) { modal.classList.add('hidden'); game.inert = false; return; }
+				if (!ev) {
+					const wasOpen = !modal.classList.contains('hidden');
+					modal.classList.add('hidden');
+					game.inert = false;
+					// 弹窗关掉后焦点不能留在已经隐藏的按钮上：移回页面内容，键盘和读屏用户接着往下读
+					if (wasOpen) ($('panel') as HTMLElement).focus?.({ preventScroll: true });
+					return;
+				}
 				const s = state!;
 				const loc = getLocation(region, s.loc);
 				// 成功率：检定分 + 随机 0–60 ≥ 难度（和引擎同一个公式，只用于显示）
@@ -1693,6 +1700,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 
 			// ---------- 输入 ----------
+			// 键盘：事件结果页按 Esc 等于点「继续」（还没选的事件必须选一个，Esc 不关）
+			document.addEventListener('keydown', (e) => {
+				if ((e as KeyboardEvent).key !== 'Escape' || !eventResult || (state && getPendingEvent(state))) return;
+				eventResult = null;
+				renderEvent();
+			});
 			document.addEventListener('click', (e) => {
 				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
