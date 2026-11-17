@@ -37,7 +37,7 @@ function makeWorld() {
 	return { data, world: new EarthWorld({ storage } as never, {}) };
 }
 
-async function bundlePage(): Promise<string> {
+async function bundlePage(opts: { venuesFail?: boolean } = {}): Promise<string> {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
 	const start = astro.indexOf('<script>') + '<script>'.length;
 	const end = astro.indexOf('</script>', start);
@@ -46,6 +46,8 @@ async function bundlePage(): Promise<string> {
 		bundle: true, format: 'esm', platform: 'neutral', write: false, logLevel: 'silent',
 		// 真实底图的地图库是动态加载的：测试环境没有 WebGL，走手绘地图，不需要把它打进来
 		external: ['maplibre-gl', 'maplibre-gl/*'],
+		// venuesFail：真实地点分包下载失败（断网时打开「附近」）——把它换成一个一加载就报错的模块
+		plugins: opts.venuesFail ? [{ name: 'venues-fail', setup(b) { b.onLoad({ filter: /wa\.venues\.json$/ }, () => ({ contents: 'throw new Error("offline")', loader: 'js' })); } }] : [],
 	});
 	return out.outputFiles[0].text;
 }
@@ -659,7 +661,16 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 
 
 /** 扫码打开页面（第 32 轮）：地址栏带 #sync=；本机已有存档 local 时按情况处理。返回页面元素、本机存储和地址栏的变化 */
-async function openWithHash(hash: string, local: { cred: unknown; state: unknown } | null, world: EarthWorld, confirmAnswer = true) {
+type HashOpts = {
+	/** 本机存储里预先放的其他键（比如排队） */
+	extra?: Record<string, string>;
+	/** 改写服务器的回复（模拟慢、坏响应）：返回 undefined 用原回复 */
+	reply?: (body: any, res: () => Promise<Response>) => Promise<Response | undefined>;
+	venuesFail?: boolean;
+	/** 页面启动完、清理之前再做点什么（点按钮、触发联网事件） */
+	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; el: (id: string) => El }) => Promise<void>;
+};
+async function openWithHash(hash: string, local: { cred: unknown; state: unknown } | null, world: EarthWorld, confirmAnswer = true, opts: HashOpts = {}) {
 	const els = new Map<string, El>();
 	const el = (id: string): El => {
 		if (!els.has(id)) els.set(id, {
@@ -671,16 +682,23 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	};
 	const store = new Map<string, string>();
 	if (local) { store.set('earth.cred.v1', JSON.stringify(local.cred)); store.set('earth.save.v1', JSON.stringify(local.state)); }
+	for (const [k, v] of Object.entries(opts.extra ?? {})) store.set(k, v);
+	const docLs: Record<string, (e: unknown) => void> = {};
+	const winLs: Record<string, (e: unknown) => void> = {};
 	const g = globalThis as any;
 	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
 	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[] };
-	g.document = { getElementById: el, addEventListener: () => {}, body: { classList: new ClassList() }, hidden: false };
-	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener() {} };
+	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, hidden: false };
+	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => { winLs[t] = f; } };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', pathname: '/earth/', search: '', hash, reload() { seen.reloads++; } };
 	g.history = { replaceState: (_s: unknown, _t: string, u: string) => { seen.replaced.push(u); g.location.hash = ''; } };
 	g.confirm = (m: string) => { seen.asked.push(m); return confirmAnswer; };
-	g.fetch = async (u: string, o?: RequestInit) => (String(u) === '/api/earth/save' ? world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: o?.body as string })) : new Response('{}', { status: 404 }));
+	g.fetch = async (u: string, o?: RequestInit) => {
+		if (String(u) !== '/api/earth/save') return new Response('{}', { status: 404 });
+		const res = () => world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: o?.body as string }));
+		return (await opts.reply?.(JSON.parse(o?.body as string), res)) ?? res();
+	};
 	g.WebSocket = class { static OPEN = 1; readyState = 0; send() {} close() {} };
 	g.setInterval = () => 0;
 	const timers = new Set<ReturnType<typeof setTimeout>>();
@@ -690,9 +708,11 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	const dir = mkdtempSync(join(tmpdir(), 'earth-ui-'));
 	try {
 		const file = join(dir, 'page.mjs');
-		writeFileSync(file, await bundlePage());
+		writeFileSync(file, await bundlePage({ venuesFail: opts.venuesFail }));
 		await import(pathToFileURL(file).href);
 		for (let i = 0; i < 50; i++) await pause(10);
+		const click = async (dataset: Record<string, string>) => { docLs.click({ target: { dataset, disabled: false, classList: { contains: () => false }, closest: fakeClosest } }); await pause(30); };
+		await opts.after?.({ click, win: winLs, el });
 		return { el, store, seen };
 	} finally {
 		for (const id of timers) clearTimeout(id);
@@ -704,15 +724,18 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	}
 }
 
+/** 直接在服务端建一个角色，返回凭证和存档（给「扫码打开」这类测试当本机已有的角色） */
+async function makeChar(world: EarthWorld, id: string, name: string) {
+	const cred = { id, key: id[0].repeat(24) };
+	const res = await world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: JSON.stringify({ action: 'create', ...cred, profile: { name, avatar: '🧑', origin: 'backpacker', traits: [] } }) }));
+	const j = (await res.json()) as any;
+	assert.ok(j.ok, j.msg);
+	return { cred, state: j.state };
+}
+
 test('界面：扫二维码打开（#sync=）——没有角色就恢复，同一个角色不动，别的角色先问；同步码马上从地址栏抹掉', async () => {
 	const { world } = makeWorld();
-	const make = async (id: string, name: string) => {
-		const cred = { id, key: id[0].repeat(24) };
-		const res = await world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: JSON.stringify({ action: 'create', ...cred, profile: { name, avatar: '🧑', origin: 'backpacker', traits: [] } }) }));
-		const j = (await res.json()) as any;
-		assert.ok(j.ok, j.msg);
-		return { cred, state: j.state };
-	};
+	const make = (id: string, name: string) => makeChar(world, id, name);
 	const a = await make('scan-player-a', '扫码甲');
 	const b = await make('scan-player-b', '扫码乙');
 	const link = `#sync=${encodeURIComponent(a.cred.id + '.' + a.cred.key)}`;
@@ -740,6 +763,121 @@ test('界面：扫二维码打开（#sync=）——没有角色就恢复，同�
 	const bad = await openWithHash(`#sync=${a.cred.id}.${'z'.repeat(24)}`, null, world);
 	assert.equal(bad.store.get('earth.cred.v1'), undefined);
 	assert.equal(bad.el('game').classList.contains('hidden'), true);
+});
+
+test('界面：扫码换角色时，原角色排着的动作在换完之前一个都不交；不换就照常补交（第 7 批审查问题 3）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'race-player-a', '竞态甲');
+	const b = await makeChar(world, 'race-player-b', '竞态乙');
+	const link = `#sync=${encodeURIComponent(a.cred.id + '.' + a.cred.key)}`;
+	const queued = () => ({ 'earth.queue.v1': JSON.stringify({ id: b.cred.id, items: [{ act: { t: 'activity', id: 'rest' }, at: Date.now(), label: '休息', op: 'race0000000000b1' }] }) });
+	// 新角色的存档慢 100 毫秒才回来：这段时间里乙不能同步、补交
+	const slow = async (body: any, res: () => Promise<Response>) => {
+		if (body.action === 'get' && body.id === a.cred.id) await pause(100);
+		return res();
+	};
+	const bRev = () => (data.get('save:' + b.cred.id) as any).state.rev;
+	const yes = await openWithHash(link, b, world, true, { extra: queued(), reply: slow });
+	assert.equal(yes.seen.reloads, 1);
+	assert.equal(bRev(), b.state.rev, '乙排着的动作没交出去');
+	// 不换：乙照常启动，排着的动作补交
+	const no = await openWithHash(link, b, world, false, { extra: queued(), reply: slow });
+	assert.equal(no.seen.reloads, 0);
+	for (let i = 0; i < 100 && bRev() === b.state.rev; i++) await pause(10);
+	assert.equal(bRev(), b.state.rev + 1, '不换角色就照常补交');
+});
+
+test('界面：服务器发来的存档不是这个角色的（坏响应），换角色和恢复都不写本机（第 7 批审查问题 4）', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'badsave-player-a', '坏档甲');
+	const b = await makeChar(world, 'badsave-player-b', '坏档乙');
+	const link = `#sync=${encodeURIComponent(a.cred.id + '.' + a.cred.key)}`;
+	const wrong = async (body: any, res: () => Promise<Response>) => {
+		if (body.action !== 'get' || body.id !== a.cred.id) return undefined;
+		const j = (await (await res()).json()) as any;
+		return new Response(JSON.stringify({ ...j, state: { ...j.state, id: 'someone-else' } }));
+	};
+	const sw = await openWithHash(link, b, world, true, { reply: wrong });
+	assert.equal(sw.seen.reloads, 0, '不换');
+	assert.deepEqual(JSON.parse(sw.store.get('earth.cred.v1')!), b.cred, '凭证还是乙');
+	assert.equal(JSON.parse(sw.store.get('earth.save.v1')!).id, b.cred.id, '存档还是乙');
+	assert.match(sw.el('toast').textContent, /云端存档已损坏/);
+	const rs = await openWithHash(link, null, world, true, { reply: wrong });
+	assert.equal(rs.store.get('earth.cred.v1'), undefined, '恢复时凭证也不写');
+	assert.equal(rs.el('game').classList.contains('hidden'), true);
+});
+
+test('界面：动作已经在服务器结算、回复在路上丢了，联网补交时不会再做一次（第 7 批审查问题 1）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'lost-reply-a', '丢包甲');
+	let lost = 0;
+	const rev = () => (data.get('save:' + a.cred.id) as any).state.rev;
+	await openWithHash('', a, world, true, {
+		reply: async (body, res) => {
+			if (body.action === 'act' && lost === 0) { lost++; await res(); throw new TypeError('connection reset'); }
+			return undefined;
+		},
+		after: async ({ click, win, el }) => {
+			await click({ tab: 'place' });
+			const act = el('panel').innerHTML.match(/data-act="([^"]+)"/)?.[1];
+			assert.ok(act);
+			const before = rev();
+			await click({ act: act! });
+			assert.equal(lost, 1);
+			assert.equal(rev(), before + 1, '服务器已经结算');
+			assert.match(el('toast').textContent, /已排队/, '页面以为没发出去，排了队');
+			win.online?.({});
+			for (let i = 0; i < 100 && /排队中/.test(el('panel').innerHTML); i++) await pause(10);
+			await pause(50);
+			assert.equal(rev(), before + 1, '补交时服务器认出是同一个动作，没再做一次');
+			assert.match(el('toast').textContent, /补交了 1 个排队的动作/);
+		},
+	});
+});
+
+test('界面：真实地点下载失败时显示重试，不会反复重画卡死；点重试、重新联网会再试（第 7 批审查问题 2）', { timeout: 30_000 }, async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'venues-fail-a', '附近甲');
+	let checked = 0;
+	await openWithHash('', a, world, true, {
+		venuesFail: true,
+		after: async ({ click, win, el }) => {
+			await click({ tab: 'near' });
+			await pause(50);
+			assert.match(el('panel').innerHTML, /真实地点数据没载入/);
+			assert.match(el('panel').innerHTML, /data-venues-retry/);
+			await click({ venuesRetry: '' });
+			await pause(50);
+			assert.match(el('panel').innerHTML, /真实地点数据没载入/, '重试又失败，照样停在提示上');
+			win.online?.({});
+			await pause(50);
+			assert.match(el('panel').innerHTML, /真实地点数据没载入/);
+			checked++;
+		},
+	});
+	assert.equal(checked, 1);
+});
+
+test('界面：留言超过每地点上限时页面留下最新的（服务器按最新在前发）（第 7 批审查问题 5）', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'notes-many-a', '留言甲');
+	let html = '';
+	await openWithHash('', a, world, true, {
+		reply: async (body) => {
+			if (body.action !== 'notes') return undefined;
+			// 21 条，最新在前：第 0 条是最新的
+			const notes = Array.from({ length: 21 }, (_, i) => ({ id: 'n' + i, name: '路人', avatar: '🧑', text: `第${i}新的留言`, at: 1_800_000_000_000 - i * 1000, mine: false }));
+			return new Response(JSON.stringify({ ok: true, notes, at: Date.now() }));
+		},
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			for (let i = 0; i < 50 && !el('panel').innerHTML.includes('第0新的留言'); i++) await pause(10);
+			html = el('panel').innerHTML;
+		},
+	});
+	assert.ok(html.includes('第0新的留言'), '最新的在');
+	assert.ok(html.includes('第19新的留言'));
+	assert.ok(!html.includes('第20新的留言'), '最旧的那条截掉');
 });
 
 test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {

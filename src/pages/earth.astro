@@ -382,7 +382,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
-			import { actLabel, enqueue, flushSummary, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
+			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
 			import { codeOf, hashAction, makeQr, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, webglSupported, type Basemap } from '../game/ui/basemap.ts';
 			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
@@ -424,8 +424,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			// 首屏只带不含真实地点的区域；真实地点（wa.venues.json，约 80KB）打开「附近」时再下载（第 34 轮）
 			let region: Region = WA_BASE;
 			let venuesState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
+			// 失败后不自动重试（页面重画又会调用这里，自动重试会变成死循环）：只有点「重试」、重新联网、重新进入「附近」才再试
 			function needVenues() {
-				if (venuesState === 'loading' || venuesState === 'ready') return;
+				if (venuesState !== 'idle') return;
 				venuesState = 'loading';
 				import('../game/data/wa.venues.json')
 					.then((m) => {
@@ -435,6 +436,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					})
 					.catch(() => { venuesState = 'failed'; if (tab === 'near') renderPanel(); });
 			}
+			function retryVenues() { if (venuesState === 'failed') venuesState = 'idle'; }
 			const LOC_IDS = new Set(region.locations.map((l) => l.id));
 			const SAVE_KEY = 'earth.save.v1';
 			const CRED_KEY = 'earth.cred.v1';
@@ -754,7 +756,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const loc = state.loc;
 				try {
 					const { data } = await api({ action: 'notes', op: 'list', id: cred.id, key: cred.key });
-					if (Array.isArray(data?.notes)) { notesList = data.notes.slice(-NOTES_PER_LOC); notesLoc = loc; }
+					if (Array.isArray(data?.notes)) { notesList = data.notes.slice(0, NOTES_PER_LOC); notesLoc = loc; }
 				} catch {}
 				notesAt = Date.now();
 				notesLoading = false;
@@ -765,7 +767,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				busy = true;
 				try {
 					const { data } = await api({ action: 'notes', op, id: cred.id, key: cred.key, ...extra });
-					if (Array.isArray(data?.notes)) { notesList = data.notes.slice(-NOTES_PER_LOC); notesLoc = state.loc; notesAt = Date.now(); }
+					if (Array.isArray(data?.notes)) { notesList = data.notes.slice(0, NOTES_PER_LOC); notesLoc = state.loc; notesAt = Date.now(); }
 					if (data?.msg) toast(data.msg);
 				} catch {
 					toast('网络断开了，联网后才能留言');
@@ -799,7 +801,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			/** 每发一次同步请求加一：只有最后发出的那次能采用结果 */
 			let pullSeq = 0;
 			async function pullCloud() {
-				if (!cred) return;
+				if (!cred || syncing) return;
 				const gen = actGen;
 				const seq = ++pullSeq;
 				try {
@@ -835,7 +837,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}, 150);
 			}
 			function connect() {
-				if (!state || !cred || (ws && ws.readyState <= WebSocket.OPEN)) return;
+				if (!state || !cred || syncing || (ws && ws.readyState <= WebSocket.OPEN)) return;
 				const q = new URLSearchParams({ region: region.id, id: cred.id, name: state.name, avatar: state.avatar, loc: state.loc });
 				const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/earth/ws?${q}`);
 				ws = sock;
@@ -876,6 +878,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 动作（发给服务器结算） ----------
 			let busy = false;
+			/** 正在处理扫码换角色（启动时）：原角色不连在线频道、不同步、不补交、不能操作 */
+			let syncing = false;
 			/** 每发起一次会改存档的请求就加一（留言不改存档，不算）：后台同步用它判断回来的存档是不是已经过时 */
 			let actGen = 0;
 			// ---------- 离线排队（第 33 轮）----------
@@ -897,8 +901,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				saveQueue();
 				if (r.expired) toast(flushSummary({ done: 0, cancelled: 0, expired: r.expired }));
 			}
-			function queueUp(a: GameAction): null {
-				const next = enqueue(queue, a, actLabel(a, NAMES), Date.now());
+			function newOp() { return opId(crypto.getRandomValues(new Uint8Array(8))); }
+			function queueUp(a: GameAction, op: string): null {
+				const next = enqueue(queue, a, actLabel(a, NAMES), Date.now(), op);
 				if (!next) {
 					toast(queueable(a) ? `离线：最多排 ${QUEUE_MAX} 个动作，联网后再来` : '网络断开了，这件事要联网才能做');
 					return null;
@@ -911,7 +916,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 			/** 联网后按顺序补交；第一个没通过的停下，后面的取消 */
 			async function flushQueue() {
-				if (flushing || !queue.length || !state || !cred || busy) return;
+				if (flushing || syncing || !queue.length || !state || !cred || busy) return;
 				flushing = true;
 				const pruned = parseQueue(queueJson(cred.id, queue), cred.id, Date.now());
 				queue = pruned.items;
@@ -920,7 +925,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				try {
 					while (queue.length) {
 						const it = queue[0];
-						const r = await actOnce(it.act, true);
+						const r = await actOnce(it.act, it.op, true);
 						if (r.kind === 'offline' || r.kind === 'skip') break; // 又断网了：留着下次再交
 						queue = queue.slice(1);
 						if (r.kind === 'ok') { done++; continue; }
@@ -944,29 +949,31 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 
 			async function act(a: GameAction): Promise<{ ok: boolean; msg: string } | null> {
-				if (!state || !cred || busy || flushing) return null;
+				if (!state || !cred || busy || flushing || syncing) return null;
+				// 这个动作的编号：断网后排队、补交都沿用它，服务器已经结算过的不会再做一次
+				const op = newOp();
 				// 还有排队的：先补交，保证顺序；补交不了（还离线）就接着排
 				if (queue.length) {
 					await flushQueue();
-					if (queue.length) return queueable(a) ? queueUp(a) : (toast('网络断开了，这件事要联网才能做'), null);
+					if (queue.length) return queueable(a) ? queueUp(a, op) : (toast('网络断开了，这件事要联网才能做'), null);
 					if (!state) return null;
 				}
-				const r = await actOnce(a);
+				const r = await actOnce(a, op);
 				if (r.kind === 'ok') return { ok: true, msg: r.msg };
-				if (r.kind === 'offline') return queueUp(a);
+				if (r.kind === 'offline') return queueUp(a, op);
 				return null;
 			}
 			type Sent = { kind: 'ok'; msg: string } | { kind: 'fail'; msg: string } | { kind: 'offline' } | { kind: 'skip' };
 			/** 发一个动作给服务器结算。quiet：补交时不逐个弹失败提示（最后汇总） */
-			async function actOnce(a: GameAction, quiet = false): Promise<Sent> {
-				if (!state || !cred || busy) return { kind: 'skip' };
+			async function actOnce(a: GameAction, op: string, quiet = false): Promise<Sent> {
+				if (!state || !cred || busy || syncing) return { kind: 'skip' };
 				busy = true;
 				actGen++;
 				document.body.classList.add('busy');
 				// 动作前的存档：请求期间后台同步可能替换 state，所以在发请求前记下
 				const before = state;
 				try {
-					const { status, data } = await api({ action: 'act', id: cred.id, key: cred.key, rev: before.rev, act: a });
+					const { status, data } = await api({ action: 'act', id: cred.id, key: cred.key, rev: before.rev, act: a, op });
 					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, quiet ? undefined : data.msg); render(); return { kind: 'fail', msg: data.msg || '存档版本变了' }; }
 					if (data.state) adopt(data.state);
 					// 只有返回的正好是动作前那一版的下一版，变化才是这个动作带来的
@@ -1745,7 +1752,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				};
 				const clockHtml = clockCard('');
 				if (venuesState === 'loading' || venuesState === 'idle') return intro + clockHtml + '<div class="card"><p class="muted">正在载入附近的真实地点……</p></div>';
-				if (venuesState === 'failed') return intro + clockHtml + '<div class="card"><p>真实地点数据没载入（可能断网了），联网后再打开这一页。</p></div>';
+				if (venuesState === 'failed') return intro + clockHtml + '<div class="card"><p>真实地点数据没载入（可能断网了），联网后再试。</p><div class="inline"><button data-venues-retry>重试</button></div></div>';
 				if (!region.venues.length) return intro + clockHtml + '<div class="card"><p>这个区域的真实地点数据还在采集中（来自 OpenStreetMap）。</p></div>';
 				if (!nearFix) return intro + clockHtml;
 				const list = venuesNear(s, region, nearFix.lat, nearFix.lon, nearFix.acc, srvNow());
@@ -1891,11 +1898,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
 					tab = d.tab;
+					if (tab === 'near') retryVenues();
 					if (t.classList.contains('moodchip')) meTab = 'overview';
 					renderPanel();
 					window.scrollTo({ top: 0 });
@@ -1904,6 +1912,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 				else if (d.metab) { meTab = d.metab; renderPanel(); }
 				else if ('guideClose' in d) { setPrefs({ guide: false }); toast('新手指南已关闭，可以在「我 · 设置」里重新打开'); renderPanel(); }
+				else if ('venuesRetry' in d) { retryVenues(); renderPanel(); }
 				else if ('queueClear' in d) { queue = []; saveQueue(); toast('排队的动作已全部取消'); render(); }
 				else if ('recapClose' in d) { store.set(RECAP_KEY, d.recapClose ?? ''); renderPanel(); }
 				else if ('share' in d) shareProgress();
@@ -2135,39 +2144,54 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				try {
 					const { data } = await api({ action: 'get', id: c.id, key: c.key });
 					if (!data.ok) return toast(data.msg || '恢复失败');
+					// 网络来的存档先清洗、核对是这个角色的，合格才写凭证（不合格时本机什么都不动）
+					const clean = cloudSave(data.state, c.id);
+					if (!clean) return toast('云端存档已损坏');
 					cred = c;
 					store.set(CRED_KEY, JSON.stringify(cred));
-					if (adopt(data.state, '已恢复云端存档')) { render(); begin(); }
-					else toast('云端存档已损坏');
+					adopt(clean, '已恢复云端存档');
+					render();
+					begin();
 				} catch { toast('网络错误，请稍后再试'); }
+			}
+			/** 服务器发来的存档：清洗后必须还是这个角色的，否则当作损坏 */
+			function cloudSave(raw: unknown, id: string): PlayerState | null {
+				const clean = sanitizeState(raw, LOC_IDS, { fallbackLoc: region.spawn });
+				return clean && clean.id === id ? clean : null;
 			}
 			$('c-import').addEventListener('click', () => {
 				const c = parseSyncCode(($('c-code') as HTMLInputElement).value);
 				if (!c) return toast('同步码格式不对');
 				void restoreFrom(c);
 			});
-			/** 扫二维码打开的：地址栏带 #sync=同步码。先从地址栏抹掉（不留在历史和截图里），再按这台设备的情况处理 */
-			async function fromSyncLink() {
+			/**
+			 * 扫二维码打开的：地址栏带 #sync=同步码。先从地址栏抹掉（不留在历史和截图里），再按这台设备的情况处理。
+			 * 启动时先等它处理完，才给本机原有的角色连在线频道、同步、补交排队（不然换角色等服务器回话的时候，原角色的排队可能已经交出去一部分）。
+			 * 返回 true：这台设备的角色已经定了（恢复好了、或换了要重新载入），不用再为原角色启动
+			 */
+			async function fromSyncLink(): Promise<boolean> {
 				const code = readSyncHash(location.hash);
-				if (!code) return;
+				if (!code) return false;
 				try { history.replaceState(null, '', location.pathname + location.search); } catch {}
 				const inc = parseSyncCode(code)!;
 				const act = hashAction(state ? cred : null, inc);
-				if (act === 'same') return toast('这台设备已经是这个角色了');
-				if (act === 'restore') return restoreFrom(inc);
-				// 这台设备已经有别的角色：换之前问一句；服务器认这个码才换，换完重新载入页面
-				if (!confirm(`这台设备上已经有角色「${state!.name}」。换成扫码带来的角色吗？\n原来的角色要记下它的同步码（我 · 同步）才能再找回。`)) return;
+				if (act === 'same') { toast('这台设备已经是这个角色了'); return false; }
+				if (act === 'restore') { await restoreFrom(inc); return true; }
+				// 这台设备已经有别的角色：换之前问一句；服务器认这个码、存档合格才换，换完重新载入页面
+				if (!confirm(`这台设备上已经有角色「${state!.name}」。换成扫码带来的角色吗？\n原来的角色要记下它的同步码（我 · 同步）才能再找回。`)) return false;
 				try {
 					const { data } = await api({ action: 'get', id: inc.id, key: inc.key });
-					if (!data.ok) return toast(data.msg || '换角色失败');
-					// 原角色还在路上的同步回来会把它的存档写回本机缓存，重新载入后对不上凭证就被当成损坏清掉：先作废它们
+					if (!data.ok) { toast(data.msg || '换角色失败'); return false; }
+					const clean = cloudSave(data.state, inc.id);
+					if (!clean) { toast('云端存档已损坏，没有换角色'); return false; }
 					pullSeq++;
 					actGen++;
 					cred = inc;
 					store.set(CRED_KEY, JSON.stringify(inc));
-					store.set(SAVE_KEY, JSON.stringify(data.state));
+					store.set(SAVE_KEY, JSON.stringify(clean));
 					location.reload();
-				} catch { toast('网络错误，请稍后再试'); }
+					return true;
+				} catch { toast('网络错误，请稍后再试'); return false; }
 			}
 
 			// ---------- 启动 ----------
@@ -2179,13 +2203,23 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			renderCreate();
 			render();
 			fetch('/earth/cgi/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: any) => { cgi = m.images || {}; if (state) { renderPanel(); renderEvent(); } }).catch(() => {});
-			if (state) { loadQueue(); connect(); pullCloud(); }
-			void fromSyncLink();
+			// 有扫码链接时先处理完它（期间 syncing：原角色不连线、不同步、不补交、不能操作），再决定要不要为原角色启动
+			syncing = !!readSyncHash(location.hash);
+			void (async () => {
+				let decided = false;
+				try { decided = await fromSyncLink(); }
+				// 换了角色、等重新载入时（凭证已是新角色、存档还是原角色）保持 syncing：原角色什么都不再做
+				finally { syncing = !!state && !!cred && state.id !== cred.id; }
+				if (!decided && state) { loadQueue(); connect(); pullCloud(); }
+			})();
 			document.addEventListener('visibilitychange', () => { if (!document.hidden && state) { connect(); pullCloud(); } });
 			// 手机断网时立刻显示离线，恢复后自动重连并同步
 			if (typeof window.addEventListener === 'function') {
 				window.addEventListener('offline', () => { syncStatus = '离线：可以查看，联网后才能行动'; if (state) { renderHud(); if (tab === 'go') renderMap(); } });
-				window.addEventListener('online', () => { if (state) { connect(); pullCloud(); } });
+				window.addEventListener('online', () => {
+					retryVenues();
+					if (state) { connect(); pullCloud(); if (tab === 'near') renderPanel(); }
+				});
 			}
 			// 离线外壳：能「添加到主屏幕」、断网时也能打开查看。注册失败不影响游戏
 			if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/earth/sw.js', { scope: '/earth/' }).catch(() => {});

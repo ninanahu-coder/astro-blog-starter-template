@@ -13,7 +13,12 @@ export const QUEUE_TTL_MS = 24 * 60 * 60 * 1000;
 const FUTURE_SLACK_MS = 60_000;
 const LABEL_MAX = 40;
 
-export interface Queued { act: GameAction; at: number; label: string }
+/** 动作编号：发出前生成，排队时一起存下，重交沿用同一个（服务器按它去重，见 world.ts 的 act） */
+export interface Queued { act: GameAction; at: number; label: string; op: string }
+/** 动作编号的格式（和服务器一致） */
+export const isOpId = (v: unknown): v is string => typeof v === 'string' && /^[a-z0-9]{8,32}$/.test(v);
+/** 生成动作编号：16 位十六进制。bytes 由页面用 crypto.getRandomValues 给 */
+export const opId = (bytes: Uint8Array) => [...bytes.slice(0, 8)].map((b) => b.toString(16).padStart(2, '0')).join('');
 
 /** 能不能排队 */
 export function queueable(a: GameAction): boolean {
@@ -54,9 +59,9 @@ export function actLabel(a: GameAction, n: Names): string {
 }
 
 /** 加一个；排满或这个动作不能排时返回 null（原列表不变） */
-export function enqueue(q: Queued[], a: GameAction, label: string, now: number): Queued[] | null {
-	if (!queueable(a) || q.length >= QUEUE_MAX) return null;
-	return [...q, { act: a, at: now, label: label.slice(0, LABEL_MAX) }];
+export function enqueue(q: Queued[], a: GameAction, label: string, now: number, op: string): Queued[] | null {
+	if (!queueable(a) || q.length >= QUEUE_MAX || !isOpId(op)) return null;
+	return [...q, { act: a, at: now, label: label.slice(0, LABEL_MAX), op }];
 }
 
 /**
@@ -79,9 +84,10 @@ export function parseQueue(raw: string | null, id: string, now: number): { items
 		const act = parseAction(own('act'));
 		const at = own('at');
 		const label = own('label');
-		if (!act || !queueable(act) || typeof at !== 'number' || !Number.isFinite(at) || at > now + FUTURE_SLACK_MS) continue;
+		const op = own('op');
+		if (!act || !queueable(act) || !isOpId(op) || typeof at !== 'number' || !Number.isFinite(at) || at > now + FUTURE_SLACK_MS) continue;
 		if (now - at > QUEUE_TTL_MS) { expired++; continue; }
-		items.push({ act, at, label: typeof label === 'string' && label ? label.slice(0, LABEL_MAX) : '动作' });
+		items.push({ act, at, label: typeof label === 'string' && label ? label.slice(0, LABEL_MAX) : '动作', op });
 	}
 	return { items, expired };
 }
