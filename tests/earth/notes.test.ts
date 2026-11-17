@@ -18,6 +18,9 @@ test('留言文字：去掉控制字符和多余空白；空的、太长的、�
 	// 复审问题 5：日期、营业时间、金额、普通提到平台名的句子不误杀
 	for (const ok of ['2026-11-17 日落很美', '营业时间 09:00-17:00', '套餐一共 $1,234.56', '微信真的很好用', 'QQ音乐很好听', '2026年11月17日 到此一游']) assert.ok('text' in cleanNote(ok), ok);
 	for (const bad of ['加 qq 12345678', '微信号: shop_abc', 'wx：abcde12', '电话 04 12 34 56 78']) assert.ok('error' in cleanNote(bad), bad);
+	// 第二次复审：借日期、金额格式拼号码照拦；不带千位逗号的金额放行
+	for (const bad of ['电话 $123,456.78', '电话 2026-11-17', '电话 +61 $412 $345 $678', '$412 $345 $678', '+61 412 345 678']) assert.ok('error' in cleanNote(bad), bad);
+	for (const ok of ['门票 $1234.56 有点贵', '吃饭花了 ¥1234.56', '早上 09:00 出发，$45 一位']) assert.ok('text' in cleanNote(ok), ok);
 });
 
 function world(delayMs = 0) {
