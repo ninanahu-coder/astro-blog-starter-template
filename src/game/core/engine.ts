@@ -850,6 +850,12 @@ function vacate(state: PlayerState): number {
 function weeklyTick(state: PlayerState, region: Region) {
 	while (dayOf(state.clock) >= state.nextWeek) {
 		state.nextWeek += 7;
+		if (state.home && !state.home.owned && !homeUsable(state)) {
+			const def = getHome(state.home.type)!;
+			const place = getLocation(region, state.home.loc)?.name ?? '';
+			const got = vacate(state);
+			log(state, `周结算：没有能睡人的车，退掉了${place}的${def.name}${got ? `，家具折现 $${got}` : ''}。`);
+		}
 		if (state.home && !state.home.owned) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
@@ -876,6 +882,19 @@ function weeklyTick(state: PlayerState, region: Region) {
 	}
 }
 
+/** 车能不能睡人 */
+const canSleepIn = (vehicleId: string) => !!getVehicle(vehicleId)?.sleep;
+
+/** 住处还能不能住：房车营地要有能睡人的车 */
+function homeUsable(state: PlayerState): boolean {
+	return !state.home || !getHome(state.home.type)?.vehicleSleep || canSleepIn(state.vehicle);
+}
+
+/** 住在房车营地时，换成或卖成不能睡人的车会没地方睡：先退营地。返回原因，没问题返回 undefined */
+function campBlocks(state: PlayerState, nextVehicle: string): string | undefined {
+	return state.home && !state.home.owned && getHome(state.home.type)?.vehicleSleep && !canSleepIn(nextVehicle) ? '你住在房车营地，没了能睡人的车就没地方睡；先退掉营地' : undefined;
+}
+
 /** 现在租房要付的首期：按到下一个结算日的天数折算（至少一天） */
 export function firstRent(state: PlayerState, home: HomeDef): number {
 	const days = Math.max(1, Math.min(7, state.nextWeek - dayOf(state.clock)));
@@ -892,7 +911,9 @@ export function homesAt(state: PlayerState, region: Region): HomeOffer[] {
 	if (!loc) return [];
 	return HOMES.filter((h) => matches(h.where, loc)).map((home) => ({
 		home,
-		blocked: state.home?.type === home.id && state.home.loc === loc.id && !state.home.owned ? '你正住在这里' : state.cash < firstRent(state, home) ? `首期租金 $${firstRent(state, home)}` : undefined,
+		blocked: state.home?.type === home.id && state.home.loc === loc.id && !state.home.owned ? '你正住在这里'
+			: home.vehicleSleep && !canSleepIn(state.vehicle) ? '要有能睡人的车（比如露营车）才能住营地'
+			: state.cash < firstRent(state, home) ? `首期租金 $${firstRent(state, home)}` : undefined,
 	}));
 }
 
@@ -931,6 +952,7 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	if (!prev.home) return fail(prev, '你没有住处。');
 	if (prev.home.loc !== prev.loc) return fail(prev, '要回到住处才能睡。');
 	const def = getHome(prev.home.type)!;
+	if (!homeUsable(prev)) return fail(prev, '没有能睡人的车，营地住不了。');
 	const state = clone(prev);
 	// 睡这一觉用的是入睡时的住处：睡到一半跨过结算日，住处可能因为欠租或断供被收走（state.home 变成 null）
 	const furniture = Object.values(prev.home.furniture);
@@ -967,7 +989,7 @@ export function dealerAt(state: PlayerState, region: Region): DealerOffer[] {
 	const tradeIn = resaleValue(state.vehicle);
 	return VEHICLES.map((vehicle) => {
 		const net = vehicle.price - tradeIn;
-		const blocked = !open ? `车行营业时间 ${hoursLabel(DEALER_HOURS)}` : state.vehicle === vehicle.id ? '你已经有这辆车' : state.cash < net ? `还差 $${net - state.cash}` : undefined;
+		const blocked = !open ? `车行营业时间 ${hoursLabel(DEALER_HOURS)}` : state.vehicle === vehicle.id ? '你已经有这辆车' : campBlocks(state, vehicle.id) ?? (state.cash < net ? `还差 $${net - state.cash}` : undefined);
 		return { vehicle, net, blocked };
 	});
 }
@@ -993,6 +1015,8 @@ export function sellVehicle(prev: PlayerState, region: Region): ActionResult {
 	if (!v) return fail(prev, '你没有车。');
 	if (!dealerAt(prev, region).length) return fail(prev, '要到车行才能卖车。');
 	if (!isOpen(DEALER_HOURS, prev.clock)) return fail(prev, `车行营业时间 ${hoursLabel(DEALER_HOURS)}`);
+	const camp = campBlocks(prev, 'none');
+	if (camp) return fail(prev, camp);
 	const state = clone(prev);
 	const got = resaleValue(v.id);
 	state.cash += got;

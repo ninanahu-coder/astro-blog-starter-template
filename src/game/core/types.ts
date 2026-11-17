@@ -160,6 +160,7 @@ export interface HomeDef {
 	comfort: number; // 心情加成，也加到回家睡觉的恢复量上
 	where: Where;
 	desc: string;
+	vehicleSleep?: boolean; // 人睡在自己车里（房车营地）：要有能睡人的车才能租、才能回去睡
 }
 
 export interface Home {

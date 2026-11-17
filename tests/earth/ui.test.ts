@@ -318,7 +318,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		}
 		await click({ tab: 'go' });
 		await click({ go: 'rottnest', mode: 'ferry' });
-		await pause(30);
+		// 机器忙时（全套测试并行跑）出行请求和渲染可能超过 30 毫秒：最多等 1 秒，弹窗一出现就继续
+		for (let i = 0; i < 50 && el('modal').classList.contains('hidden'); i++) await pause(20);
 		assert.equal(el('modal').classList.contains('hidden'), false, '罗特尼斯岛首次抵达应该出事件');
 		assert.equal(el('game').inert, true, '弹窗打开时背后页面不可操作');
 		assert.ok(el('modal').focused > 0, '焦点移进弹窗');

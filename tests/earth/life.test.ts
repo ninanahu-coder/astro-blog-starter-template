@@ -169,3 +169,31 @@ test('第 11 轮新职业：酒保在有酒吧的地方晚上上班，农场工�
 	assert.match(shiftBlocked({ ...s, clock: at(9) })!, /5:00/);
 	assert.ok(workShift({ ...s, clock: at(6, 1) }, WA).ok, '第二天清晨 6 点');
 });
+
+test('第 14 轮新住处：房车营地要有能睡人的车，住着时不能把车卖成没法睡的；海景公寓在海边', async () => {
+	const { applyEffect, buyVehicle, dealerAt, sellVehicle } = await import('../../src/game/core/engine.ts');
+	const rich = { cash: 50_000 };
+	const esp = make({ loc: 'esperance', clock: at(9), ...rich });
+	assert.match(homesAt(esp, WA).find((o) => o.home.id === 'campground')!.blocked!, /能睡人的车/);
+	assert.equal(rentHome(esp, WA, 'campground').ok, false);
+	const vanner = { ...esp, vehicle: 'campervan' };
+	const r = rentHome(vanner, WA, 'campground');
+	assert.ok(r.ok, r.msg);
+	assert.ok(sleepHome(rested(r.state), WA).ok, '回营地睡车里');
+	assert.ok(homesAt(make({ clock: at(9), ...rich }), WA).some((o) => o.home.id === 'seaview' && !o.blocked), '珀斯有海景公寓');
+	assert.ok(!homesAt(make({ loc: 'kalgoorlie', clock: at(9), ...rich }), WA).some((o) => o.home.id === 'seaview'), '卡尔古利没有海');
+	// 住在营地，人到珀斯车行：不能卖车，不能换成睡不了人的车
+	const camper = { ...r.state, loc: 'perth', clock: at(10, 1) };
+	assert.match(sellVehicle(camper, WA).msg, /营地/);
+	const offers = dealerAt(camper, WA);
+	assert.match(offers.find((o) => o.vehicle.id === 'car')!.blocked!, /营地/);
+	assert.equal(buyVehicle(camper, WA, '4wd').ok, false);
+	assert.ok(sellVehicle({ ...camper, home: null }, WA).ok, '不住营地就能卖');
+	// 车没了（旧存档或别的途径）：营地睡不了，到周结算自动退掉
+	const lost = { ...r.state, vehicle: 'none' };
+	assert.match(sleepHome(rested(lost), WA).msg, /营地/);
+	const after = structuredClone(lost);
+	applyEffect(after, { minutes: 8 * 1440 }, WA);
+	assert.equal(after.home, null, '周结算退掉营地');
+	assert.ok(after.journal.some((j) => /没有能睡人的车/.test(j.text)));
+});
