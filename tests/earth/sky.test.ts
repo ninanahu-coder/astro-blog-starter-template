@@ -1,7 +1,7 @@
 // 天象（第 8 批）：游戏日期对应现实日期、气温、日出日落、潮汐、山火、紫外线。全部是公式，只做显示
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { hasTide, hhmm, realDateLabel, realDayOfYear, skyPhase, sunElevation, sunTimes, temps, tideHeight, tideNow, fireDanger, fireSeason, FIRE_LEVELS } from '../../src/game/core/sky.ts';
+import { hasTide, hhmm, realDateLabel, realDayOfYear, skyPhase, sunElevation, sunTimes, temps, tideHeight, tideNow, fireDanger, fireSeason, FIRE_LEVELS, uvDay, uvIndex, uvLevel } from '../../src/game/core/sky.ts';
 import { weatherOn } from '../../src/game/core/weather.ts';
 import { SEASON_DAYS, YEAR_DAYS } from '../../src/game/core/time.ts';
 import { WA } from '../../src/game/data/wa.ts';
@@ -149,4 +149,27 @@ test('山火季（第 39 轮，示意）：南部夏天、北部旱季；下雨�
 	}
 	assert.ok(cat > 0 && cat < 30, `灾难性一共 ${cat} 天`);
 	assert.equal(fireDanger(loc('perth'), jan, 'hot'), fireDanger(loc('perth'), jan, 'hot'));
+});
+
+test('紫外线（第 40 轮，示意）：夏天正午最强、夜里为 0；北边冬天也强；云雨减弱；防晒时段和珀斯 SunSmart 的数接近；分级', () => {
+	const perth = loc('perth');
+	const jan = at(SEASON_DAYS + 12, 0);
+	const jul = at(3 * SEASON_DAYS + 14, 0);
+	const sj = uvDay(perth, jan + 12 * 60, 'sunny');
+	assert.ok(sj.peak >= 11 && sj.peak <= 14, `珀斯 1 月最高 ${sj.peak}`);
+	const wj = uvDay(perth, jul + 12 * 60, 'sunny');
+	assert.ok(wj.peak >= 3 && wj.peak <= 5, `珀斯 7 月最高 ${wj.peak}`);
+	assert.ok(uvDay(loc('broome'), jul, 'sunny').peak >= 6, '布鲁姆冬天也高');
+	assert.equal(uvIndex(perth, jan + 2 * 60, 'sunny'), 0, '夜里为 0');
+	assert.ok(uvIndex(perth, jan + 12 * 60 + 30, 'rain') < uvIndex(perth, jan + 12 * 60 + 30, 'cloudy'));
+	assert.ok(uvIndex(perth, jan + 12 * 60 + 30, 'cloudy') < uvIndex(perth, jan + 12 * 60 + 30, 'sunny'));
+	// SunSmart 珀斯 1 月防晒时段约 8:10–16:50
+	const [from, to] = sj.protect!;
+	assert.ok(Math.abs(from - (8 * 60 + 10)) <= 30 && Math.abs(to - (16 * 60 + 50)) <= 30, `${hhmm(from)}–${hhmm(to)}`);
+	assert.equal(uvDay(loc('albany'), jul, 'storm').protect, null, '冬天风暴天不用特别防晒');
+	assert.deepEqual([0, 2, 3, 5, 6, 7, 8, 10, 11, 15].map((u) => uvLevel(u).name), ['低', '低', '中等', '中等', '高', '高', '很高', '很高', '极高', '极高']);
+	for (const l of WA.locations) for (let h = 0; h < 24; h++) {
+		const u = uvIndex(l, jan + h * 60, 'sunny');
+		assert.ok(Number.isInteger(u) && u >= 0 && u <= 15, `${l.id} ${h} 点 ${u}`);
+	}
 });

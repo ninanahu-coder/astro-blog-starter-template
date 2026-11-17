@@ -191,3 +191,37 @@ export function fireDanger(l: SkyLoc, clock: number, weatherId: string): FireLev
 	if (score >= 4) score = unit(`fire|${l.id}|${dayOf(clock)}`) < 0.25 ? 4 : 3;
 	return FIRE_LEVELS[Math.max(0, Math.min(4, score))];
 }
+
+// ---------- 第 40 轮：紫外线指数（示意） ----------
+// 晴天紫外线指数按太阳高度的经验公式估算：UVI ≈ 12.5 × cos(天顶角)^2.42（Madronich 的近似，正午太阳越高越强）；
+// 再按天气打折：多云 ×0.75、小雨 ×0.45、风暴 ×0.25。分级按世界卫生组织：低 0–2、中等 3–5、高 6–7、很高 8–10、极高 11+；
+// 澳洲防晒（SunSmart）的说法是指数 3 及以上就要防晒。只做提示。
+const UV_CLOUD: Record<string, number> = { cloudy: 0.75, rain: 0.45, storm: 0.25 };
+export const UV_LEVELS = [
+	{ min: 0, name: '低' },
+	{ min: 3, name: '中等' },
+	{ min: 6, name: '高' },
+	{ min: 8, name: '很高' },
+	{ min: 11, name: '极高' },
+] as const;
+export const uvLevel = (uv: number) => [...UV_LEVELS].reverse().find((x) => uv >= x.min)!;
+/** 某时刻的紫外线指数（整数） */
+export function uvIndex(l: Pick<SkyLoc, 'lat' | 'lon'>, clock: number, weatherId: string): number {
+	const e = sunElevation(l, clock);
+	if (e <= 0) return 0;
+	const mu = Math.sin(e * RAD);
+	return Math.round(12.5 * mu ** 2.42 * (UV_CLOUD[weatherId] ?? 1));
+}
+export interface UvDay { now: number; peak: number; protect: [number, number] | null }
+/** 现在、今天最高，以及今天需要防晒（指数 ≥ 3）的时段（当地钟点的分钟数；全天都不到 3 时为 null） */
+export function uvDay(l: Pick<SkyLoc, 'lat' | 'lon'>, clock: number, weatherId: string): UvDay {
+	const day0 = dayOf(clock) * 1440;
+	let peak = 0;
+	let from = -1, to = -1;
+	for (let m = 0; m < 1440; m += 10) {
+		const u = uvIndex(l, day0 + m, weatherId);
+		peak = Math.max(peak, u);
+		if (u >= 3) { if (from < 0) from = m; to = m; }
+	}
+	return { now: uvIndex(l, clock, weatherId), peak, protect: from < 0 ? null : [from, to + 10] };
+}

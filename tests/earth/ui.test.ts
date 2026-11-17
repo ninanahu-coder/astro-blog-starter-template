@@ -899,6 +899,7 @@ test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，�
 	assert.match(panel, /日出 \d+:\d\d · 日落 \d+:\d\d/);
 	assert.match(panel, /(涨|退)潮中 · 现在 [+−]\d+\.\d 米/, '出生地在海边，有潮汐');
 	assert.match(panel, /真下海请看官方潮汐预报/);
+	assert.match(panel, /紫外线：现在 \d+/);
 	assert.match(hud, /class="wx-pill[^"]*">[^<]*\d+°/, '顶栏天气带最高气温');
 	assert.deepEqual(a11yIssues(panel), []);
 });
@@ -927,6 +928,10 @@ test('界面：火险高以上时卡片、顶栏、提示（第 39 轮，只做�
 	assert.match(panel, /火险等级：极端/);
 	assert.match(hud, /🔥 火险极端/);
 	assert.match(toasts, /火险极端/);
+	// 紫外线（第 40 轮）：夏天上午 10 点的炎热天，现在很高，顶栏提醒，卡片写防晒时段
+	assert.match(panel, /紫外线：现在 \d+（(很高|极高)）· 今天最高 \d+/);
+	assert.match(panel, /\d+:\d\d–\d+:\d\d 指数在 3 以上，出门要防晒/);
+	assert.match(hud, /🕶️ 紫外线 \d+/);
 });
 
 test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {
