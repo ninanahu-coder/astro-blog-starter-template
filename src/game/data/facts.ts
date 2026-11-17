@@ -36,7 +36,7 @@ export const FACTS: Record<string, PlaceFact[]> = {
 	],
 	'margaret-river': [
 		{ text: '玛格丽特河镇 1913 年正式设立，一战后 1922 年迎来上百户移民。', source: W('Margaret_River,_Western_Australia') },
-		{ text: '每年 5 月，世界冲浪联赛的玛格丽特河职业赛在这里举行。', source: W('Margaret_River,_Western_Australia') },
+		{ text: '世界冲浪联赛的玛格丽特河职业赛通常在每年秋天（4—5 月）在这里举行。', source: W('Margaret_River_Pro') },
 		{ text: '镇南约 21 公里的猛犸洞里有超过 3.5 万年的化石，1904 年起对外开放。', source: W('Margaret_River,_Western_Australia') },
 	],
 	albany: [

@@ -82,3 +82,18 @@ test('走动作协议；存档校验把进度钳在 0 到任务总数之间', ()
 	assert.equal(clean(2.7), 2);
 	assert.equal(clean('x'), 0);
 });
+
+test('跨周结算前先给照片奖励：奖励够补上刚到期的房租就不会被收房（Codex 第 4 批审查）', () => {
+	const i = PHOTO_QUESTS.findIndex((q) => q.periods?.includes('night'));
+	const q = PHOTO_QUESTS[i];
+	const d = Math.floor(goodMoment(i) / 1440);
+	// 半夜前 10 分钟开拍，20 分钟后跨进新一周
+	const s = make({ photoQuest: i, loc: q.loc, clock: d * 1440 + 1430, nextWeek: d + 1, cash: 160 - q.cash, home: { type: 'room', loc: q.loc, furniture: {} } });
+	assert.equal(photoQuestNow(s, WA)!.blocked, undefined);
+	const r = takeQuestPhoto(s, WA);
+	assert.ok(r.ok && !r.collapsed, r.msg);
+	assert.equal(r.state.nextWeek, d + 8, '已经跨周结算');
+	assert.ok(r.state.home, `$${s.cash} + 奖励 $${q.cash} = 房租 $160，不该被收房`);
+	assert.equal(r.state.cash, 0, '奖励先到账，房租照扣');
+	assert.equal(r.state.photoQuest, i + 1);
+});

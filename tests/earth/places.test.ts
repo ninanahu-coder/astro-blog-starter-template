@@ -29,6 +29,23 @@ test('新地点：曼杜拉、巴瑟尔顿、彭伯顿、珊瑚湾都在，不�
 	assert.ok(travelOptions(r.state, WA).some((o) => o.to === 'bunbury'));
 });
 
+/** 射线法判断点在不在多边形里；ring 是 [经度, 纬度] */
+function inside(lon: number, lat: number, ring: [number, number][]): boolean {
+	let hit = false;
+	for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+		const [xi, yi] = ring[i];
+		const [xj, yj] = ring[j];
+		if ((yi > lat) !== (yj > lat) && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) hit = !hit;
+	}
+	return hit;
+}
+
+test('地图：大陆上的地点都落在西澳轮廓里（岛屿除外），岛屿在轮廓外', () => {
+	for (const l of WA.locations) {
+		assert.equal(inside(l.lon, l.lat, WA.outline), l.kind !== 'island', `${l.id} (${l.lon}, ${l.lat})`);
+	}
+});
+
 test('小知识数据：每个地点正好 3 条，不重复，有 https 来源，不超过 50 个字', () => {
 	const ids = new Set(WA.locations.map((l) => l.id));
 	assert.deepEqual(Object.keys(FACTS).filter((k) => !ids.has(k)), [], '没有多余地点');

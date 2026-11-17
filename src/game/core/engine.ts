@@ -341,16 +341,13 @@ export function takeQuestPhoto(prev: PlayerState, region: Region): ActionResult 
 	if (!now) return fail(prev, '摄影任务都拍完了。');
 	if (now.blocked) return fail(prev, now.blocked + '。');
 	const state = clone(prev);
-	if (applyEffect(state, { minutes: PHOTO_MINUTES, needs: { fun: 8 } }, region)) return collapsedResult(state);
 	const q = now.quest;
+	const last = now.index + 1 >= PHOTO_QUESTS.length;
+	// 奖励走 applyEffect 的收获：没晕倒才到账，而且在跨周结算之前，能付刚到期的房租
+	if (applyEffect(state, { minutes: PHOTO_MINUTES, needs: { fun: 8 }, cash: q.cash, respect: q.respect + (last ? PHOTO_CHAIN_BONUS : 0) }, region)) return collapsedResult(state);
 	state.photoQuest += 1;
-	state.cash += q.cash;
-	state.respect += q.respect;
 	let msg = `拍下了「${q.title}」，杂志买了这张照片：$${q.cash}，声望 +${q.respect}。`;
-	if (state.photoQuest >= PHOTO_QUESTS.length) {
-		state.respect += PHOTO_CHAIN_BONUS;
-		msg += ` 摄影任务全部完成！额外声望 +${PHOTO_CHAIN_BONUS}。`;
-	}
+	if (last) msg += ` 摄影任务全部完成！额外声望 +${PHOTO_CHAIN_BONUS}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -380,14 +377,14 @@ export function goFishing(prev: PlayerState, region: Region): ActionResult {
 	const empty = Math.max(FISHING.emptyMin, FISHING.emptyBase - checkScore(state, 'survival').total * FISHING.emptyPerSkill);
 	let r = roll(state) * (empty + spot.fish.reduce((s, f) => s + f.weight, 0)) - empty;
 	const caught = r < 0 ? undefined : spot.fish.find((f) => (r -= f.weight) < 0) ?? spot.fish[spot.fish.length - 1];
-	if (applyEffect(state, { minutes: FISHING.minutes, needs: FISHING.needs, skills: { survival: 0.5 } }, region)) return collapsedResult(state);
+	// 鱼款走 applyEffect 的收获：没晕倒才到账，而且在跨周结算之前，能付刚到期的房租
+	if (applyEffect(state, { minutes: FISHING.minutes, needs: FISHING.needs, skills: { survival: 0.5 }, cash: caught?.price }, region)) return collapsedResult(state);
 	if (!caught) {
 		log(state, '钓了一个半小时，一条也没上钩。');
 		return { ok: true, state, msg: '一条也没钓到，不过吹了吹风。' };
 	}
 	const isNew = !state.fish[caught.id];
 	state.fish[caught.id] = (state.fish[caught.id] ?? 0) + 1;
-	state.cash += caught.price;
 	const msg = `钓到一条${caught.icon}${caught.name}${isNew ? '（新鱼种！）' : ''}，卖给鱼铺得 $${caught.price}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
