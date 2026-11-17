@@ -43,6 +43,11 @@ test('气温（第 36 轮）：北边暖、南边凉；夏天比冬天热；内�
 	const k = temps(loc('kalgoorlie'), jan, 'sunny');
 	const p = temps(loc('perth'), jan, 'sunny');
 	assert.ok(k.max - k.min > p.max - p.min, '内陆早晚温差比海边大');
+	// 同一纬度、同一天：内陆夏天比海边热、冬天略凉
+	const kal = loc('kalgoorlie');
+	const kalCoast = { ...kal, kind: 'coast', tags: ['beach'] };
+	assert.ok(temps(kal, jan, 'sunny').max >= temps(kalCoast, jan, 'sunny').max + 3, '内陆夏天更热');
+	assert.ok(temps(kal, jul, 'sunny').max < temps(kalCoast, jul, 'sunny').max, '内陆冬天略凉');
 	assert.ok(temps(loc('perth'), jan, 'hot').max > p.max + 3, '炎热天更热');
 	assert.ok(temps(loc('perth'), jan, 'storm').max < p.max, '风暴天凉');
 	// 每天有点起伏：一季里不全是同一个数

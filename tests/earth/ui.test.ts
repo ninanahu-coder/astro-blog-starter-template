@@ -690,7 +690,8 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	const g = globalThis as any;
 	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
 	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[] };
-	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, hidden: false };
+	const root = new ClassList();
+	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, documentElement: { classList: root }, hidden: false };
 	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => { winLs[t] = f; } };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', pathname: '/earth/', search: '', hash, reload() { seen.reloads++; } };
@@ -715,7 +716,7 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 		for (let i = 0; i < 50; i++) await pause(10);
 		const click = async (dataset: Record<string, string>) => { docLs.click({ target: { dataset, disabled: false, classList: { contains: () => false }, closest: fakeClosest } }); await pause(30); };
 		await opts.after?.({ click, win: winLs, el });
-		return { el, store, seen };
+		return { el, store, seen, root };
 	} finally {
 		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });
@@ -932,6 +933,24 @@ test('界面：火险高以上时卡片、顶栏、提示（第 39 轮，只做�
 	assert.match(panel, /紫外线：现在 \d+（(很高|极高)）· 今天最高 \d+/);
 	assert.match(panel, /\d+:\d\d–\d+:\d\d 指数在 3 以上，出门要防晒/);
 	assert.match(hud, /🕶️ 紫外线 \d+/);
+});
+
+test('界面：画面天色跟着当地日出日落，不是固定钟点（第 37 轮）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'sky-phase-a', '天色甲');
+	const open = async (day: number, hour: number) => {
+		const rec = data.get('save:' + a.cred.id) as any;
+		rec.state.clock = day * 1440 + hour * 60;
+		rec.state.loc = 'perth';
+		data.set('save:' + a.cred.id, rec);
+		return (await openWithHash('', { cred: a.cred, state: rec.state }, world)).root;
+	};
+	// 冬季中（≈ 7 月中）傍晚 6 点半：钟点上还算「傍晚」，但珀斯 5 点半就日落了，画面是夜色
+	const winter = await open(3 * SEASON_DAYS + 14, 18.5);
+	assert.ok(winter.contains('p-night') && !winter.contains('p-dusk'), '冬天 6 点半已经黑了');
+	// 夏季（≈ 1 月）傍晚 6 点半：太阳还高，画面是白天
+	const summer = await open(SEASON_DAYS + 12, 18.5);
+	assert.ok(summer.contains('p-day'), '夏天 6 点半还亮');
 });
 
 test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {
