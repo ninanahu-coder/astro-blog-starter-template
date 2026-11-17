@@ -410,7 +410,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { getWish } from '../game/core/wishes.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
 			import { weatherAt, weatherOn } from '../game/core/weather.ts';
-			import { realDateLabel, realDayOfYear, temps } from '../game/core/sky.ts';
+			import { hhmm, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps } from '../game/core/sky.ts';
 			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
@@ -1080,7 +1080,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}).join('');
 				const map = $('map');
 				map.setAttribute('viewBox', `0 0 ${proj.width} ${proj.height}`);
-				const stars = period(s.clock).id === 'night' ? starField(proj.width, proj.height) : '';
+				const stars = skyPhase(getLocation(region, s.loc)!, s.clock) === 'night' ? starField(proj.width, proj.height) : '';
 				map.innerHTML = `${stars}<polygon class="land" points="${outline}"/>${routes}${dots}`;
 				renderBasemap(s, counts);
 			}
@@ -1271,7 +1271,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const loc = getLocation(region, s.loc)!;
 				const w = weatherAt(s);
 				const t = temps(loc, s.clock, w.id);
-				const rows = [`<div class="row"><span class="ico" aria-hidden="true">🌡️</span><span class="body">气温 ${t.min}–${t.max}°C<small>${esc(w.name)}</small></span></div>`];
+				const sun = sunTimes(loc, s.clock);
+				const rows = [
+					`<div class="row"><span class="ico" aria-hidden="true">🌡️</span><span class="body">气温 ${t.min}–${t.max}°C<small>${esc(w.name)}</small></span></div>`,
+					`<div class="row"><span class="ico" aria-hidden="true">🌅</span><span class="body">日出 ${hhmm(sun.rise)} · 日落 ${hhmm(sun.set)}<small>白天 ${Math.floor((sun.set - sun.rise) / 60)} 小时 ${(sun.set - sun.rise) % 60} 分；画面明暗跟着日出日落走</small></span></div>`,
+				];
 				return `<div class="card sky"><h3>今天的天</h3><p class="muted">游戏里的今天大约是现实中的 ${realDateLabel(realDayOfYear(s.clock))}。下面按纬度、季节和天气估算，不是真实预报。</p><div class="list" style="margin-top:8px">${rows.join('')}</div></div>`;
 			}
 
@@ -1889,7 +1893,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (!state) { $('game').classList.add('hidden'); $('create').classList.remove('hidden'); return; }
 				$('create').classList.add('hidden');
 				$('game').classList.remove('hidden');
-				const pid = period(state.clock).id;
+				// 画面天色跟着当地真实的日出日落走（第 37 轮）：夏天傍晚 7 点天还亮、冬天 6 点就黑了。玩法上的时段（活动、事件、NPC 日程）照旧按钟点
+				const pid = skyPhase(getLocation(region, state.loc)!, state.clock);
 				for (const p of PERIOD_IDS) document.documentElement?.classList?.toggle('p-' + p, p === pid);
 				renderPanel(); // 里面会画顶栏和（出行页的）地图
 				renderEvent();

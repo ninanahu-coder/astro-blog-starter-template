@@ -61,3 +61,48 @@ export function temps(l: SkyLoc, clock: number, weatherId: string): Temps {
 	const spread = (coast ? 8 : 14) - (weatherId === 'rain' || weatherId === 'storm' || weatherId === 'cloudy' ? 3 : 0);
 	return { max, min: max - spread };
 }
+
+// ---------- 第 37 轮：日出日落 ----------
+// NOAA 的简化太阳位置公式（误差几分钟），按西澳标准时间 AWST（UTC+8，西澳不实行夏令时）。游戏里的钟点就当作当地钟点。
+const RAD = Math.PI / 180;
+const TZ_MIN = 8 * 60;
+function solar(doy: number, minuteOfDay: number) {
+	const g = ((2 * Math.PI) / 365) * (doy + (minuteOfDay / 60 - 12) / 24);
+	const eqTime = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
+	const decl = 0.006918 - 0.399912 * Math.cos(g) + 0.070257 * Math.sin(g) - 0.006758 * Math.cos(2 * g) + 0.000907 * Math.sin(2 * g) - 0.002697 * Math.cos(3 * g) + 0.00148 * Math.sin(3 * g);
+	return { eqTime, decl };
+}
+/** 太阳高度角（度）：地平线 0，正午最高；负数表示在地平线下 */
+export function sunElevation(l: Pick<SkyLoc, 'lat' | 'lon'>, clock: number): number {
+	const doy = realDayOfYear(clock);
+	const m = ((clock % 1440) + 1440) % 1440;
+	const { eqTime, decl } = solar(doy, m);
+	const tst = m + eqTime + 4 * l.lon - TZ_MIN; // 真太阳时（分钟）
+	const ha = (tst / 4 - 180) * RAD;
+	const lat = l.lat * RAD;
+	const cosZ = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(ha);
+	return 90 - Math.acos(Math.min(1, Math.max(-1, cosZ))) / RAD;
+}
+export interface SunTimes { rise: number; set: number; noon: number }
+/** 当天的日出、日落、正午（当地钟点，从 0 点起的分钟数）。西澳纬度上每天都有日出日落 */
+export function sunTimes(l: Pick<SkyLoc, 'lat' | 'lon'>, clock: number): SunTimes {
+	const doy = realDayOfYear(clock);
+	const { eqTime, decl } = solar(doy, 720);
+	const lat = l.lat * RAD;
+	const cosH = Math.cos(90.833 * RAD) / (Math.cos(lat) * Math.cos(decl)) - Math.tan(lat) * Math.tan(decl);
+	const h = Math.acos(Math.min(1, Math.max(-1, cosH))) / RAD;
+	const noon = 720 - 4 * l.lon - eqTime + TZ_MIN;
+	return { rise: Math.round(noon - 4 * h), set: Math.round(noon + 4 * h), noon: Math.round(noon) };
+}
+export const hhmm = (min: number) => {
+	const m = ((Math.round(min) % 1440) + 1440) % 1440;
+	return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+};
+/** 画面的天色（只管画面明暗，不是玩法时段）：太阳在地平线上 6° 以上白天，−6° 到 6° 按上午 / 下午分清晨和傍晚，再低是夜里 */
+export function skyPhase(l: Pick<SkyLoc, 'lat' | 'lon'>, clock: number): 'dawn' | 'day' | 'dusk' | 'night' {
+	const e = sunElevation(l, clock);
+	if (e >= 6) return 'day';
+	if (e < -6) return 'night';
+	const m = ((clock % 1440) + 1440) % 1440;
+	return m < sunTimes(l, clock).noon ? 'dawn' : 'dusk';
+}

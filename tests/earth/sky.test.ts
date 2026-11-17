@@ -1,7 +1,7 @@
 // 天象（第 8 批）：游戏日期对应现实日期、气温、日出日落、潮汐、山火、紫外线。全部是公式，只做显示
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { realDateLabel, realDayOfYear, temps } from '../../src/game/core/sky.ts';
+import { hhmm, realDateLabel, realDayOfYear, skyPhase, sunElevation, sunTimes, temps } from '../../src/game/core/sky.ts';
 import { SEASON_DAYS, YEAR_DAYS } from '../../src/game/core/time.ts';
 import { WA } from '../../src/game/data/wa.ts';
 
@@ -47,4 +47,44 @@ test('气温（第 36 轮）：北边暖、南边凉；夏天比冬天热；内�
 	// 每天有点起伏：一季里不全是同一个数
 	const days = new Set(Array.from({ length: SEASON_DAYS }, (_, d) => temps(loc('perth'), at(SEASON_DAYS + d), 'sunny').max));
 	assert.ok(days.size >= 3);
+});
+
+test('日出日落（第 37 轮）：和珀斯的实际时刻相差几分钟以内；夏天白天长；北边冬夏差小；日出日落时太阳正好在地平线', () => {
+	const perth = loc('perth');
+	// 珀斯（AWST）实际：1 月 10 日约 5:20 / 19:26，7 月 18 日约 7:13 / 17:33（公开天文年历的数）
+	const jan = at(SEASON_DAYS + 12, 0);
+	const jul = at(3 * SEASON_DAYS + 14, 0);
+	assert.equal(realDateLabel(realDayOfYear(jan)), '1 月 10 日');
+	assert.equal(realDateLabel(realDayOfYear(jul)), '7 月 18 日');
+	const near = (got: number, want: string) => {
+		const [h, m] = want.split(':').map(Number);
+		assert.ok(Math.abs(got - (h * 60 + m)) <= 5, `${hhmm(got)} 应接近 ${want}`);
+	};
+	near(sunTimes(perth, jan).rise, '5:20');
+	near(sunTimes(perth, jan).set, '19:26');
+	near(sunTimes(perth, jul).rise, '7:13');
+	near(sunTimes(perth, jul).set, '17:33');
+	const len = (l: ReturnType<typeof loc>, c: number) => sunTimes(l, c).set - sunTimes(l, c).rise;
+	for (const l of WA.locations) {
+		assert.ok(len(l, jan) > len(l, jul), `${l.id} 夏天白天长`);
+		const t = sunTimes(l, jan);
+		assert.ok(Math.abs(sunElevation(l, jan + t.rise) + 0.83) < 0.6, `${l.id} 日出时太阳在地平线`);
+		assert.ok(sunElevation(l, jan + t.noon) > sunElevation(l, jan + t.rise + 60), '正午最高');
+	}
+	assert.ok(len(loc('albany'), jan) - len(loc('albany'), jul) > len(loc('kununurra'), jan) - len(loc('kununurra'), jul) + 60, '越往南冬夏白天长短差得越多');
+	assert.equal(hhmm(5), '0:05');
+	assert.equal(hhmm(1445), '0:05');
+	assert.equal(hhmm(-5), '23:55');
+});
+
+test('画面天色（第 37 轮）：跟着当地日出日落，不是固定钟点；同一个钟点冬夏不同', () => {
+	const perth = loc('perth');
+	const jan = at(SEASON_DAYS + 12, 0);
+	const jul = at(3 * SEASON_DAYS + 14, 0);
+	assert.equal(skyPhase(perth, jan + 12 * 60), 'day');
+	assert.equal(skyPhase(perth, jan + 2 * 60), 'night');
+	assert.equal(skyPhase(perth, jan + 19 * 60), 'dusk', '夏天傍晚 7 点还没黑');
+	assert.equal(skyPhase(perth, jul + 19 * 60), 'night', '冬天傍晚 7 点已经黑了');
+	assert.equal(skyPhase(perth, jul + 7 * 60), 'dawn', '冬天 7 点天刚亮');
+	assert.equal(skyPhase(perth, jan + 7 * 60), 'day', '夏天 7 点已经大亮');
 });

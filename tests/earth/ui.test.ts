@@ -894,6 +894,7 @@ test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，�
 	assert.match(panel, /<h3>今天的天<\/h3>/);
 	assert.match(panel, /现实中的 \d+ 月 \d+ 日/);
 	assert.match(panel, /气温 -?\d+–\d+°C/);
+	assert.match(panel, /日出 \d+:\d\d · 日落 \d+:\d\d/);
 	assert.match(hud, /class="wx-pill[^"]*">[^<]*\d+°/, '顶栏天气带最高气温');
 	assert.deepEqual(a11yIssues(panel), []);
 });
