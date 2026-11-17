@@ -418,10 +418,23 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { DAILY, dailyReward } from '../game/core/daily.ts';
 			import { makeProjection } from '../game/core/geo.ts';
 			import { NEED_KEYS, SKILL_KEYS } from '../game/core/types.ts';
-			import type { NpcAction, PlayerState, TravelMode } from '../game/core/types.ts';
-			import { WA } from '../game/data/wa.ts';
+			import type { NpcAction, PlayerState, Region, TravelMode, Venue } from '../game/core/types.ts';
+			import { WA_BASE } from '../game/data/wa-base.ts';
 
-			const region = WA;
+			// 首屏只带不含真实地点的区域；真实地点（wa.venues.json，约 80KB）打开「附近」时再下载（第 34 轮）
+			let region: Region = WA_BASE;
+			let venuesState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
+			function needVenues() {
+				if (venuesState === 'loading' || venuesState === 'ready') return;
+				venuesState = 'loading';
+				import('../game/data/wa.venues.json')
+					.then((m) => {
+						region = { ...region, venues: (m.default as { venues: Venue[] }).venues };
+						venuesState = 'ready';
+						if (tab === 'near') renderPanel();
+					})
+					.catch(() => { venuesState = 'failed'; if (tab === 'near') renderPanel(); });
+			}
 			const LOC_IDS = new Set(region.locations.map((l) => l.id));
 			const SAVE_KEY = 'earth.save.v1';
 			const CRED_KEY = 'earth.cred.v1';
@@ -1697,6 +1710,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 
 			function panelNear() {
+				needVenues();
 				const s = state!;
 				const intro = `<div class="card"><h3>附近能做的事</h3><p>人在真实的餐馆、健身房、公园、图书馆、超市……打开定位，就能在游戏里吃饭、训练、打卡上班。服务端会检查定位精度、距离和移动速度。</p>
 					${nearFix ? '<div class="inline" style="margin-top:8px"><button data-locate>📍 重新定位</button></div>' : '<button class="primary wide" data-locate>📍 打开定位，看看附近</button><p style="margin-top:6px">点店里的动作时，定位会发给服务器核对你是不是在店里；存档只记最近一次的大致位置（约 100 米），用来检查移动速度。</p>'}
@@ -1717,6 +1731,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<div class="bar dark"><i style="width:${pct}%"></i></div><p>${note}</p>${clockOutBtn}</div>`;
 				};
 				const clockHtml = clockCard('');
+				if (venuesState === 'loading' || venuesState === 'idle') return intro + clockHtml + '<div class="card"><p class="muted">正在载入附近的真实地点……</p></div>';
+				if (venuesState === 'failed') return intro + clockHtml + '<div class="card"><p>真实地点数据没载入（可能断网了），联网后再打开这一页。</p></div>';
 				if (!region.venues.length) return intro + clockHtml + '<div class="card"><p>这个区域的真实地点数据还在采集中（来自 OpenStreetMap）。</p></div>';
 				if (!nearFix) return intro + clockHtml;
 				const list = venuesNear(s, region, nearFix.lat, nearFix.lon, nearFix.acc, srvNow());

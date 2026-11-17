@@ -15,7 +15,8 @@ import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { realDayOf } from './daily.ts';
-import { getRegion } from '../data/wa.ts';
+// 只用到地点和打卡点，不需要真实地点数据：用首屏版区域，页面不必为此加载 wa.venues.json
+import { getRegionBase as getRegion } from '../data/wa-base.ts';
 import { COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
 import { ANIMALS, DEX_GROUPS } from '../data/wildlife.ts';
