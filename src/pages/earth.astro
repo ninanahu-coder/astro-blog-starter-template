@@ -448,7 +448,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
 			import { weatherAt, weatherOn } from '../game/core/weather.ts';
 			import { portraitSvg, ringDash, sceneSvg } from '../game/ui/scene.ts';
-			import { fireDanger, fireSeason, hasTide, hhmm, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps, tideNow, uvDay, uvLevel } from '../game/core/sky.ts';
+			import { addFireSeen, FIRE_SEEN_KEY, fireKey, fireToastText, parseFireSeen } from '../game/ui/alerts.ts';
+			import { fireDanger, fireSeason, hasTide, hhmm, phaseNote, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps, tideNow, uvDay, uvLevel } from '../game/core/sky.ts';
 			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
@@ -1044,22 +1045,36 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 			function moodCls(m: number) { return m < 25 ? ' low' : m < 50 ? ' mid' : ''; }
 			const PERIOD_ICON: Record<string, string> = { dawn: '🌅', day: '🌤️', dusk: '🌇', night: '🌙' };
-			/** 火险「高」及以上时顶栏提醒；「极端」「灾难性」每个地点每个游戏日弹一次提示（第 39 轮，只做提示） */
 			/** 紫外线现在「很高」及以上（≥ 8）时顶栏提醒（第 40 轮，只做提示） */
 			function uvChip(s: PlayerState) {
 				const uv = uvDay(getLocation(region, s.loc)!, s.clock, weatherAt(s).id).now;
 				return uv >= 8 ? `<span class="chip fire-chip" title="紫外线指数（示意）">🕶️ 紫外线 ${uv}</span>` : '';
 			}
-			let fireWarned = '';
+			/** 火险「高」及以上时顶栏提醒（第 39 轮，只做提示；画顶栏不带副作用） */
 			function fireChip(s: PlayerState) {
 				const f = fireDanger(getLocation(region, s.loc)!, s.clock, weatherAt(s).id);
 				if (f.id !== 'high' && f.id !== 'extreme' && f.id !== 'catastrophic') return '';
-				const key = `${s.loc}@${dayOf(s.clock)}`;
-				if ((f.id === 'extreme' || f.id === 'catastrophic') && fireWarned !== key) {
-					fireWarned = key;
-					setTimeout(() => toast(`🔥 今天这里火险${f.name}：${f.advice}`), 600);
-				}
-				return `<span class="chip fire-chip" title="火险等级（示意）">🔥 火险${f.name}</span>`;
+				return `<span class="chip fire-chip" title="火险等级（游戏估算，不是真实预警）">🔥 火险${f.name} · 示意</span>`;
+			}
+			/**
+			 * 「极端」「灾难性」火险的提示：每个地点每个游戏日只弹一次（记在本机，重新载入也不重复）；
+			 * 只在今天页、页面可见时弹；等 0.6 秒（让每日奖励等提示先过去）后再核对一次还在同一页、同一地点、同一天，不在就不弹也不记
+			 */
+			function maybeFireWarn() {
+				const s = state;
+				if (!s || tab !== 'place' || document.hidden || s.pending) return;
+				const f = fireDanger(getLocation(region, s.loc)!, s.clock, weatherAt(s).id);
+				if (f.id !== 'extreme' && f.id !== 'catastrophic') return;
+				const key = fireKey(s.loc, dayOf(s.clock));
+				if (parseFireSeen(store.get(FIRE_SEEN_KEY)).includes(key)) return;
+				setTimeout(() => {
+					const now = state;
+					if (!now || tab !== 'place' || document.hidden || fireKey(now.loc, dayOf(now.clock)) !== key) return;
+					const seen = parseFireSeen(store.get(FIRE_SEEN_KEY));
+					if (seen.includes(key)) return;
+					store.set(FIRE_SEEN_KEY, JSON.stringify(addFireSeen(seen, key)));
+					toast(fireToastText(f.name, f.advice));
+				}, 600);
 			}
 			function renderHud() {
 				const s = state!;
@@ -1069,7 +1084,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const loc = getLocation(region, s.loc)!;
 				const w = weatherAt(s);
 				const p = period(s.clock);
-				const time = `${PERIOD_ICON[p.id]} ${dateLabel(s.clock)} · ${WEEKDAYS[weekdayOf(s.clock)]} ${formatClock(s.clock).split(' ')[1]} ${p.name}`;
+				// 时段名是玩法时段（按钟点，活动、事件、NPC 日程看它）；画面天色按真实日出日落，两者不一致时补一句实际天色（第 8 批审查问题 4）
+				const note = phaseNote(p.id, skyPhase(loc, s.clock));
+				const time = `${PERIOD_ICON[p.id]} ${dateLabel(s.clock)} · ${WEEKDAYS[weekdayOf(s.clock)]} ${formatClock(s.clock).split(' ')[1]} ${p.name}${note ? `（${note}）` : ''}`;
 				const sync = `<span class="sync-dot${online ? '' : ' off'}">${online ? '已同步' : '离线'}</span>`;
 				const cash = `<span class="chip cash">$${s.cash.toLocaleString()}</span>`;
 				const moodBtn = `<button class="moodchip${moodCls(m)}" data-tab="me" title="看心情的来源"><span>心情 ${moodTier(m).name} ${m}</span></button>`;
@@ -1345,7 +1362,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const uv = uvDay(loc, s.clock, w.id);
 				rows.push(`<div class="row"><span class="ico" aria-hidden="true">🕶️</span><span class="body">紫外线：现在 ${uv.now}（${uvLevel(uv.now).name}）· 今天最高 ${uv.peak}（${uvLevel(uv.peak).name}）<small>${uv.protect ? `${hhmm(uv.protect[0])}–${hhmm(uv.protect[1])} 指数在 3 以上，出门要防晒：衣服、帽子、防晒霜、墨镜、找阴凉` : '今天紫外线都不到 3，不用特别防晒'}</small></span></div>`);
 				const fire = fireDanger(loc, s.clock, w.id);
-				if (fire.id !== 'none') rows.push(`<div class="row fire fire-${fire.id}"><span class="ico" aria-hidden="true">🔥</span><span class="body">火险等级：${fire.name}<small>${esc(fire.advice)}火险是示意，真实火情看西澳应急服务（Emergency WA）</small></span></div>`);
+				if (fire.id !== 'none') rows.push(`<div class="row fire fire-${fire.id}"><span class="ico" aria-hidden="true">🔥</span><span class="body">火险等级：${fire.name}<small>${esc(fire.advice)}火险是游戏里的估算，不是真实预警；真实火情看 <a href="https://www.emergency.wa.gov.au/" target="_blank" rel="noopener">西澳应急服务 Emergency WA</a></small></span></div>`);
 				else if (fireSeason(loc, s.clock)) rows.push(`<div class="row"><span class="ico" aria-hidden="true">🔥</span><span class="body">山火季<small>今天天气潮湿，没有火险评级</small></span></div>`);
 				if (hasTide(loc)) {
 					const td = tideNow(loc, s.clock);
@@ -1978,6 +1995,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				for (const p of PERIOD_IDS) document.documentElement?.classList?.toggle('p-' + p, p === pid);
 				renderPanel(); // 里面会画顶栏和（出行页的）地图
 				renderEvent();
+				maybeFireWarn();
 				if (dailyNote) {
 					const note = dailyNote;
 					dailyNote = '';
@@ -1999,6 +2017,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (d.tab) {
 					tab = d.tab;
 					if (tab === 'near') retryVenues();
+					if (tab === 'place') maybeFireWarn();
 					if (t.classList.contains('moodchip')) meTab = 'overview';
 					renderPanel();
 					window.scrollTo({ top: 0 });

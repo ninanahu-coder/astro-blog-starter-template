@@ -98,6 +98,15 @@ export const hhmm = (min: number) => {
 	const m = ((Math.round(min) % 1440) + 1440) % 1440;
 	return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
 };
+/**
+ * 玩法时段（按钟点）和画面天色（按日出日落）不一致时，顶栏时段名后面补一句实际的天色，免得「傍晚」却一片漆黑让人以为出错了。一致时返回空串
+ */
+export function phaseNote(periodId: string, sky: 'dawn' | 'day' | 'dusk' | 'night'): string {
+	if (periodId === sky) return '';
+	if (sky === 'night') return periodId === 'dawn' ? '天还没亮' : '天已经黑了';
+	if (sky === 'day') return periodId === 'dawn' ? '天已大亮' : '天还亮着';
+	return sky === 'dawn' ? '天刚亮' : '天快黑了';
+}
 /** 画面的天色（只管画面明暗，不是玩法时段）：太阳在地平线上 6° 以上白天，−6° 到 6° 按上午 / 下午分清晨和傍晚，再低是夜里 */
 export function skyPhase(l: Pick<SkyLoc, 'lat' | 'lon'>, clock: number): 'dawn' | 'day' | 'dusk' | 'night' {
 	const e = sunElevation(l, clock);
@@ -135,18 +144,21 @@ export interface TideTurn { kind: 'high' | 'low'; at: number; h: number }
 export interface TideNow { h: number; rising: boolean; next: TideTurn[]; range: number }
 /** 现在的潮高、涨还是退、接下来的两次满潮 / 干潮（at 是游戏时钟），以及今天（当地 0–24 点）的潮差 */
 export function tideNow(l: SkyLoc, clock: number): TideNow {
-	const step = 5;
 	const h = tideHeight(l, clock);
-	const rising = tideHeight(l, clock + step) > h;
+	// 涨还是退：看此刻前后 15 秒的变化（不是往后看几分钟，不然转潮就在眼前时会把方向说反、漏掉这次转潮）
+	const up = (t: number) => tideHeight(l, t + 0.25) > tideHeight(l, t - 0.25);
+	const rising = up(clock);
 	const next: TideTurn[] = [];
-	let prev = h;
-	let cur = tideHeight(l, clock + step);
-	for (let t = clock + step; t < clock + 30 * 60 && next.length < 2; t += step) {
-		const nx = tideHeight(l, t + step);
-		if (cur > prev && cur >= nx) next.push({ kind: 'high', at: t, h: cur });
-		else if (cur < prev && cur <= nx) next.push({ kind: 'low', at: t, h: cur });
-		prev = cur;
-		cur = nx;
+	// 每分钟看一次方向，方向变了就是转潮：取前后两分钟里更高（满潮）/ 更低（干潮）的那一刻，且不早于下一分钟
+	let prevUp = rising;
+	for (let t = clock + 1; t <= clock + 30 * 60 && next.length < 2; t++) {
+		const u = up(t);
+		if (u === prevUp) continue;
+		const a = Math.max(clock + 1, t - 1);
+		const [ha, hb] = [tideHeight(l, a), tideHeight(l, t)];
+		const at = prevUp ? (ha >= hb ? a : t) : ha <= hb ? a : t;
+		next.push({ kind: prevUp ? 'high' : 'low', at, h: tideHeight(l, at) });
+		prevUp = u;
 	}
 	const day0 = dayOf(clock) * 1440;
 	let lo = Infinity, hi = -Infinity;

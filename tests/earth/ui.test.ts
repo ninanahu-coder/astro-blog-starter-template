@@ -671,8 +671,10 @@ type HashOpts = {
 	/** 改写服务器的回复（模拟慢、坏响应）：返回 undefined 用原回复 */
 	reply?: (body: any, res: () => Promise<Response>) => Promise<Response | undefined>;
 	venuesFail?: boolean;
+	/** 启动时页面在后台（document.hidden），after 里用 show() 切回前台 */
+	hidden?: boolean;
 	/** 页面启动完、清理之前再做点什么（点按钮、触发联网事件） */
-	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; el: (id: string) => El }) => Promise<void>;
+	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; el: (id: string) => El; show: () => void }) => Promise<void>;
 };
 async function openWithHash(hash: string, local: { cred: unknown; state: unknown } | null, world: EarthWorld, confirmAnswer = true, opts: HashOpts = {}) {
 	const els = new Map<string, El>();
@@ -693,7 +695,7 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
 	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[] };
 	const root = new ClassList();
-	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, documentElement: { classList: root }, hidden: false };
+	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, documentElement: { classList: root }, hidden: !!opts.hidden };
 	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => { winLs[t] = f; } };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', pathname: '/earth/', search: '', hash, reload() { seen.reloads++; } };
@@ -717,7 +719,7 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 		await import(pathToFileURL(file).href);
 		for (let i = 0; i < 50; i++) await pause(10);
 		const click = async (dataset: Record<string, string>) => { docLs.click({ target: { dataset, disabled: false, classList: { contains: () => false }, closest: fakeClosest } }); await pause(30); };
-		await opts.after?.({ click, win: winLs, el });
+		await opts.after?.({ click, win: winLs, el, show: () => { g.document.hidden = false; } });
 		return { el, store, seen, root };
 	} finally {
 		for (const id of timers) clearTimeout(id);
@@ -924,7 +926,7 @@ test('界面：火险高以上时卡片、顶栏、提示（第 39 轮，只做�
 	rec.state.loc = 'perth';
 	data.set('save:' + a.cred.id, rec);
 	let panel = '', hud = '', toasts = '';
-	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+	const { store: lastStore } = await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
 		after: async ({ click, el }) => {
 			await click({ tab: 'place' });
 			await pause(700);
@@ -936,7 +938,36 @@ test('界面：火险高以上时卡片、顶栏、提示（第 39 轮，只做�
 	assert.match(panel, /<span class="chip">山火季<\/span>/);
 	assert.match(panel, /火险等级：极端/);
 	assert.match(hud, /🔥 火险极端/);
-	assert.match(toasts, /火险极端/);
+	assert.match(toasts, /火险极端（游戏里的估算，不是真实预警）/, '提示写明是估算');
+	assert.match(toasts, /Emergency WA/);
+	assert.match(panel, /<a href="https:\/\/www\.emergency\.wa\.gov\.au\/" target="_blank" rel="noopener">/, '卡片有真实来源的链接');
+	assert.match(hud, /🔥 火险极端 · 示意/);
+	// 去重（第 8 批审查问题 2）：记在本机，重新载入同一地点同一天不再弹
+	const seenRaw = lastStore.get('earth.fire.v1')!;
+	assert.deepEqual(JSON.parse(seenRaw), [`perth@${day}`]);
+	let again = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		extra: { 'earth.fire.v1': seenRaw },
+		after: async ({ click, el }) => { await click({ tab: 'place' }); await pause(700); again = el('toast').textContent; },
+	});
+	assert.doesNotMatch(again, /火险/, '重新载入不再弹');
+	// 0.6 秒内切到别的页：不弹，也不记成已提示
+	let away = '';
+	const left = await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		hidden: true,
+		after: async ({ click, el, show }) => {
+			await pause(700);
+			assert.doesNotMatch(el('toast').textContent, /火险/, '页面在后台时不弹');
+			show();
+			// 点「今天」排上提示，马上切到「出行」（click 只等 20 毫秒，远小于 0.6 秒）
+			await click({ tab: 'place' });
+			await click({ tab: 'go' });
+			await pause(700);
+			away = el('toast').textContent;
+		},
+	});
+	assert.doesNotMatch(away, /火险/, '切到出行页后不在那里弹');
+	assert.equal(left.store.get('earth.fire.v1'), undefined);
 	// 紫外线（第 40 轮）：夏天上午 10 点的炎热天，现在很高，顶栏提醒，卡片写防晒时段
 	assert.match(panel, /紫外线：现在 \d+（(很高|极高)）· 今天最高 \d+/);
 	assert.match(panel, /\d+:\d\d–\d+:\d\d 指数在 3 以上，出门要防晒/);
@@ -951,11 +982,13 @@ test('界面：画面天色跟着当地日出日落，不是固定钟点（第 3
 		rec.state.clock = day * 1440 + hour * 60;
 		rec.state.loc = 'perth';
 		data.set('save:' + a.cred.id, rec);
-		return (await openWithHash('', { cred: a.cred, state: rec.state }, world)).root;
+		const r = await openWithHash('', { cred: a.cred, state: rec.state }, world);
+		return Object.assign(r.root, { hud: r.el('hud').innerHTML });
 	};
 	// 冬季中（≈ 7 月中）傍晚 6 点半：钟点上还算「傍晚」，但珀斯 5 点半就日落了，画面是夜色
 	const winter = await open(3 * SEASON_DAYS + 14, 18.5);
 	assert.ok(winter.contains('p-night') && !winter.contains('p-dusk'), '冬天 6 点半已经黑了');
+	assert.match(winter.hud, /18:30 傍晚（天已经黑了）/, '顶栏说明玩法时段和实际天色不一样');
 	// 夏季（≈ 1 月）傍晚 6 点半：太阳还高，画面是白天
 	const summer = await open(SEASON_DAYS + 12, 18.5);
 	assert.ok(summer.contains('p-day'), '夏天 6 点半还亮');

@@ -1,8 +1,9 @@
 // 天象（第 8 批）：游戏日期对应现实日期、气温、日出日落、潮汐、山火、紫外线。全部是公式，只做显示
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { hasTide, hhmm, realDateLabel, realDayOfYear, skyPhase, sunElevation, sunTimes, temps, tideHeight, tideNow, fireDanger, fireSeason, FIRE_LEVELS, uvDay, uvIndex, uvLevel } from '../../src/game/core/sky.ts';
+import { hasTide, hhmm, phaseNote, realDateLabel, realDayOfYear, skyPhase, sunElevation, sunTimes, temps, tideHeight, tideNow, fireDanger, fireSeason, FIRE_LEVELS, uvDay, uvIndex, uvLevel } from '../../src/game/core/sky.ts';
 import { weatherOn } from '../../src/game/core/weather.ts';
+import { addFireSeen, FIRE_SEEN_MAX, fireKey, fireToastText, parseFireSeen } from '../../src/game/ui/alerts.ts';
 import { SEASON_DAYS, YEAR_DAYS } from '../../src/game/core/time.ts';
 import { WA } from '../../src/game/data/wa.ts';
 
@@ -177,4 +178,47 @@ test('紫外线（第 40 轮，示意）：夏天正午最强、夜里为 0；�
 		const u = uvIndex(l, jan + h * 60, 'sunny');
 		assert.ok(Number.isInteger(u) && u >= 0 && u <= 15, `${l.id} ${h} 点 ${u}`);
 	}
+});
+
+test('火险提示去重（第 8 批审查问题 2）：本机记录当不可信数据；有上限；提示文字写明是估算', () => {
+	assert.deepEqual(parseFireSeen(null), []);
+	assert.deepEqual(parseFireSeen('{'), []);
+	assert.deepEqual(parseFireSeen('{"a":1}'), []);
+	assert.deepEqual(parseFireSeen(JSON.stringify(['perth@3', 'perth@3', 42, '<b>@1', 'x@y', 'broome@10'])), ['perth@3', 'broome@10']);
+	let seen: string[] = [];
+	for (let d = 0; d < FIRE_SEEN_MAX + 5; d++) seen = addFireSeen(seen, fireKey('perth', d));
+	assert.equal(seen.length, FIRE_SEEN_MAX, '只记最近的');
+	assert.equal(seen.at(-1), `perth@${FIRE_SEEN_MAX + 4}`);
+	assert.deepEqual(addFireSeen(['a@1'], 'bad key'), ['a@1']);
+	const t = fireToastText('极端', '远离林区。');
+	assert.match(t, /游戏里的估算，不是真实预警/);
+	assert.match(t, /Emergency WA/);
+});
+
+test('潮汐转潮就在眼前时方向不说反、不漏掉这次转潮（第 8 批审查问题 3）', () => {
+	const broome = loc('broome');
+	// 审查复现：布鲁姆 01:44 之后约半分钟是干潮，此刻还在退
+	const n = tideNow(broome, 104);
+	assert.equal(n.rising, false, '还在退潮');
+	assert.equal(n.next[0].kind, 'low', '下一个就是这次干潮');
+	assert.ok(n.next[0].at <= 106, `干潮在 ${hhmm(n.next[0].at)}`);
+	// 一般情况：从现在到下一次转潮之间，潮水一直朝报告的方向走（逐分钟看）
+	for (const id of ['broome', 'exmouth', 'perth', 'albany']) {
+		const l = loc(id);
+		for (let c = 0; c < 3 * 1440; c += 37) {
+			const t = tideNow(l, c);
+			const sign = t.rising ? 1 : -1;
+			for (let m = c + 1; m < t.next[0].at - 1; m++) assert.ok(sign * (tideHeight(l, m) - tideHeight(l, m - 1)) >= -1e-9, `${id} ${c} 到 ${m} 方向不变`);
+		}
+	}
+});
+
+test('顶栏时段补注（第 8 批审查问题 4）：玩法时段和画面天色不一致时说明实际天色', () => {
+	assert.equal(phaseNote('dusk', 'dusk'), '');
+	assert.equal(phaseNote('dusk', 'night'), '天已经黑了');
+	assert.equal(phaseNote('dawn', 'night'), '天还没亮');
+	assert.equal(phaseNote('dusk', 'day'), '天还亮着');
+	assert.equal(phaseNote('dawn', 'day'), '天已大亮');
+	assert.equal(phaseNote('night', 'dusk'), '天快黑了');
+	assert.equal(phaseNote('day', 'dawn'), '天刚亮');
 });
