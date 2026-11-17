@@ -93,7 +93,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	rootClasses.remove('hidden');
 	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => (docListeners[t] = f), body: { classList: new ClassList() }, documentElement: { classList: rootClasses }, hidden: false };
 	const winListeners: Record<string, (e: unknown) => void> = {};
-	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => (winListeners[t] = f) };
+	// 假的 Web Audio：记下建了几个 AudioContext、放了几个音（第 29 轮音效）
+	const audioLog = { ctx: 0, notes: 0, offAt: -1 };
+	class FakeAudio { currentTime = 0; state = 'running'; destination = {}; constructor() { audioLog.ctx++; } createOscillator() { audioLog.notes++; return { type: '', frequency: { value: 0 }, connect() {}, start() {}, stop() {} }; } createGain() { return { gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; } }
+	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => (winListeners[t] = f), AudioContext: FakeAudio };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', reload() {} };
 	g.fetch = async (u: string, o?: RequestInit) => {
@@ -213,6 +216,19 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 				assert.equal(JSON.parse(store.get('earth.prefs.v1')!).recap, false, '存进本机');
 				await click({ pref: 'recap' });
 				await click({ pref: 'font', val: 'm' });
+				// 音效（第 29 轮）：默认关，之前做的事都没出声；打开时放一声试听，关掉后不再出声
+				assert.match(panel(), /data-pref="sound" aria-pressed="false">已关闭/);
+				assert.equal(audioLog.ctx, 0, '默认关：没有建音频');
+				await click({ pref: 'sound' });
+				assert.equal(audioLog.ctx, 1, '打开时才建音频');
+				assert.ok(audioLog.notes >= 1, '打开时试听一声');
+				await click({ pref: 'sound' });
+				const quiet = audioLog.notes;
+				await click({ pref: 'sound' });
+				assert.ok(audioLog.notes > quiet, '再打开又能出声');
+				await click({ pref: 'sound' });
+				assert.match(panel(), /data-pref="sound" aria-pressed="false">/);
+				audioLog.offAt = audioLog.notes;
 				// 关掉新手指南后今天页不再显示，打开后回来
 				await click({ pref: 'guide' });
 				await click({ tab: 'place' });
@@ -470,6 +486,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await pause(250);
 		g.fetch = fastFetch;
 		assert.equal(clientRev(), afterAct, '晚回来的同步没有把存档倒回动作之前');
+		// 音效关着时，后面的出行、事件、动作都没有出声
+		assert.equal(audioLog.notes, audioLog.offAt, '关掉音效后不再出声');
 	} finally {
 		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });

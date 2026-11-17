@@ -366,6 +366,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { guideView, type GuideView } from '../game/core/guide.ts';
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
+			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
 			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { CERTS } from '../game/data/certs.ts';
@@ -478,6 +479,20 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const sys = typeof mm === 'function' && mm.call(window, '(prefers-reduced-motion: reduce)').matches;
 				cl.toggle('calm', calmMotion(prefs, sys));
 				for (const [f] of FONT_OPTIONS) cl.toggle(`fs-${f}`, prefs.font === f);
+			}
+			// 音效（第 29 轮）：设置里打开才响；AudioContext 等第一次要出声时再建（那时一定是玩家点过按钮之后）
+			let audio: AudioLike | null = null;
+			function sfx(cue: Cue) {
+				if (!prefs.sound) return;
+				try {
+					if (!audio) {
+						const w = window as unknown as { AudioContext?: new () => AudioLike; webkitAudioContext?: new () => AudioLike };
+						const Ctx = w.AudioContext ?? w.webkitAudioContext;
+						if (!Ctx) return;
+						audio = new Ctx();
+					}
+					playCue(audio, cue);
+				} catch {}
 			}
 			function setPrefs(next: Partial<Prefs>) {
 				prefs = { ...prefs, ...next };
@@ -835,9 +850,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						const got = newAchievements(before, state, region);
 						lastAch = got.map((d) => `${d.icon} ${d.name}`);
 						if (got.length && prefs.achToast) setTimeout(() => toast(`🏅 达成成就：${got.map((d) => d.name).join('、')}`), 1200);
+						sfx(got.length ? 'ach' : 'ok');
 					}
 					else { lastDelta = []; lastAch = []; }
-					if (!data.ok) { toast(data.msg || '操作失败'); render(); return null; }
+					if (!data.ok) { sfx('fail'); toast(data.msg || '操作失败'); render(); return null; }
 					return { ok: true, msg: data.msg };
 				} catch {
 					syncStatus = '离线：可以查看，联网后才能行动';
@@ -1584,7 +1600,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const seg = (key: 'font' | 'motion', label: string, opts: [string, string][]) =>
 					`<div class="pref-row" role="group" aria-label="${label}"><span>${label}</span><div class="seg">${opts.map(([v, name]) => `<button data-pref="${key}" data-val="${v}" class="${prefs[key] === v ? 'on' : ''}" aria-pressed="${prefs[key] === v}">${name}</button>`).join('')}</div></div>`;
 				const tips = TIP_OPTIONS.map(([k, name, hint]) => `<div class="row" style="margin-top:8px"><span class="body">${name}<small>${hint}</small></span><button data-pref="${k}" aria-pressed="${prefs[k]}">${prefs[k] ? '已开启' : '已关闭'}</button></div>`).join('');
-				return `<div class="card"><h3>显示</h3><p class="muted">只在这台设备上生效。</p>${seg('font', '字号', FONT_OPTIONS)}${seg('motion', '动画', MOTION_OPTIONS)}</div>
+				const sound = `<div class="row" style="margin-top:8px"><span class="body">音效<small>做事、事件、成就时的轻提示音，默认关闭</small></span><button data-pref="sound" aria-pressed="${prefs.sound}">${prefs.sound ? '已开启' : '已关闭'}</button></div>`;
+				return `<div class="card"><h3>显示</h3><p class="muted">只在这台设备上生效。</p>${seg('font', '字号', FONT_OPTIONS)}${seg('motion', '动画', MOTION_OPTIONS)}${sound}</div>
 					<div class="card"><h3>提示</h3>${tips}</div>
 					<div class="card"><h3>玩法说明</h3><dl class="help">${HELP.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
 					<div class="card"><h3>多设备同步</h3><p>${esc(syncStatus)}</p>
@@ -1657,7 +1674,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				modal.classList.remove('hidden');
 				// 弹窗打开期间背后的页面不可点、不可聚焦；刚打开时把焦点移到第一个能选的选项
 				game.inert = true;
-				if (!wasOpen) modal.querySelector<HTMLElement>('button:not([disabled])')?.focus();
+				if (!wasOpen) { modal.querySelector<HTMLElement>('button:not([disabled])')?.focus(); sfx('event'); }
 			}
 
 			function render() {
@@ -1697,6 +1714,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					if (k === 'font' && FONT_OPTIONS.some(([v]) => v === d.val)) setPrefs({ font: d.val as Prefs['font'] });
 					else if (k === 'motion' && MOTION_OPTIONS.some(([v]) => v === d.val)) setPrefs({ motion: d.val as Prefs['motion'] });
 					else if (TIP_OPTIONS.some(([t]) => t === k)) setPrefs({ [k]: !prefs[k as 'guide' | 'recap' | 'achToast'] });
+					else if (k === 'sound') { setPrefs({ sound: !prefs.sound }); sfx('ok'); }
 					renderPanel();
 				}
 				else if (d.quick !== undefined) {

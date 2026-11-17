@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { calmMotion, DEFAULT_PREFS, parsePrefs } from '../../src/game/ui/prefs.ts';
 
-test('没有设置时用默认值；旧版大字模式开着的迁移成字号「大」', () => {
+test('没有设置时用默认值（音效默认关）；旧版大字模式开着的迁移成字号「大」', () => {
+	assert.equal(DEFAULT_PREFS.sound, false, '音效默认关');
 	assert.deepEqual(parsePrefs(null), DEFAULT_PREFS);
 	assert.equal(parsePrefs(null, { big: '1' }).font, 'l');
 	assert.equal(parsePrefs(null, { big: '0' }).font, 'm');
@@ -11,7 +12,7 @@ test('没有设置时用默认值；旧版大字模式开着的迁移成字号�
 });
 
 test('合法设置原样读回', () => {
-	const p = { motion: 'reduce', font: 'xl', guide: false, recap: false, achToast: false } as const;
+	const p = { motion: 'reduce', font: 'xl', guide: false, recap: false, achToast: false, sound: true } as const;
 	assert.deepEqual(parsePrefs(JSON.stringify(p)), p);
 });
 
