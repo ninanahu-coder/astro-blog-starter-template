@@ -90,7 +90,8 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 | 课程 `CourseDef` | `data/courses.ts` | 对应能力、基础学费、时长、成长量、开课地点与时间 | 7 门课；学费 = 基础价 × (1 + 当前能力/25)；每门每天一次 |
 | 职业证书 `CertDef` | `data/certs.ts` | 对应职业、价格、时长、加薪比例、开课地点与时间 | 每种职业一张证（7 张）；持证时这份职业每班工资 +15%（游戏内上班和真实打卡都算，待平衡）；只考一次，证书跟人走 |
 | 体验 `ExperienceDef` | `data/experiences.ts` | 地点、片区、价格、开放时间、效果、首次声望 | 20 个，分 6 个片区；首次进收藏册，集齐片区得称号 |
-| 家具 `FurnitureDef` | `data/furniture.ts` | 槽位、价格、心情加成、睡眠加成、解锁的在家活动 | 5 个槽位各放一件；同槽位换新时旧的半价折现 |
+| 家具 `FurnitureDef` | `data/furniture.ts` | 槽位、价格、心情加成、睡眠加成、解锁的在家活动 | 5 个槽位各放一件；同槽位换新时旧的半价折现；10 件 |
+| 成套家具 `FurnitureSetDef` | `data/furniture.ts` 的 `FURNITURE_SETS` | 几件家具、凑齐时额外的住处心情 | 3 套（安睡套房、待客之家、样样齐全）；同一住处凑齐才加，算进 `homeComfort()`；第 13 轮新增，待平衡 |
 | 房产 `PropertyDef` | `data/properties.ts` | 地点、自住房型、房价、物业费、出租周租金 | 4 套；每人每套只能买一次 |
 | 心情状态 `MoodletDef` | `data/moodlets.ts` | 名称、加减值、持续小时 | 24 种；效果里写 `moodlet` 或由引擎在升职、晕倒、被收房等时刻发放；同种刷新不叠加 |
 | 节日 `FestivalDef` | `data/festivals.ts` | 地点、季节、开始日、持续天数 | 9 个；节日期间当地开放专属体验，到场加娱乐 |

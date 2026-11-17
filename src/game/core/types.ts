@@ -200,6 +200,14 @@ export interface FurnitureDef {
 	desc: string;
 }
 
+export interface FurnitureSetDef {
+	id: string;
+	name: string;
+	items: string[]; // 家具 id，每件在不同槽位
+	comfort: number; // 凑齐时额外的住处心情
+	desc: string;
+}
+
 // ---------- 交通工具、课程、体验 ----------
 export interface VehicleDef {
 	id: string;
