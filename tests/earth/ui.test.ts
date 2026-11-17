@@ -291,6 +291,16 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 				assert.match(panel(), /新手指南 · 第 1 天/, '重新打开后又显示');
 				await click({ tab: 'me' });
 				await click({ metab: 'sync' });
+				// 换设备（第 32 轮）：点「显示二维码」后同步页里出现二维码（库是点了才加载的），再点收起
+				assert.match(panel(), /data-qr aria-expanded="false">显示二维码/);
+				await click({ qr: '' });
+				for (let i = 0; i < 100 && !panel().includes('class="qr"'); i++) await pause(20);
+				assert.match(panel(), /<svg class="qr" viewBox="0 0 \d+ \d+" role="img" aria-label="同步码二维码/);
+				assert.match(panel(), /data-qr aria-expanded="true">收起二维码/);
+				assert.match(panel(), /等同于密码/);
+				assert.deepEqual(a11yIssues(panel()), [], '二维码');
+				await click({ qr: '' });
+				assert.ok(!panel().includes('class="qr"'), '点收起后不显示');
 			}
 		}
 
@@ -595,6 +605,90 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	}
 });
 
+
+/** 扫码打开页面（第 32 轮）：地址栏带 #sync=；本机已有存档 local 时按情况处理。返回页面元素、本机存储和地址栏的变化 */
+async function openWithHash(hash: string, local: { cred: unknown; state: unknown } | null, world: EarthWorld, confirmAnswer = true) {
+	const els = new Map<string, El>();
+	const el = (id: string): El => {
+		if (!els.has(id)) els.set(id, {
+			id, innerHTML: '', textContent: '', value: '', disabled: false, inert: false, classList: new ClassList(), attrs: {}, ls: {}, focused: 0, scrollTop: 0, scrollHeight: 0,
+			setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.ls[t] = f; },
+			querySelector() { return null; }, focus() { this.focused++; },
+		});
+		return els.get(id)!;
+	};
+	const store = new Map<string, string>();
+	if (local) { store.set('earth.cred.v1', JSON.stringify(local.cred)); store.set('earth.save.v1', JSON.stringify(local.state)); }
+	const g = globalThis as any;
+	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
+	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[] };
+	g.document = { getElementById: el, addEventListener: () => {}, body: { classList: new ClassList() }, hidden: false };
+	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener() {} };
+	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
+	g.location = { protocol: 'http:', host: 'game.test', pathname: '/earth/', search: '', hash, reload() { seen.reloads++; } };
+	g.history = { replaceState: (_s: unknown, _t: string, u: string) => { seen.replaced.push(u); g.location.hash = ''; } };
+	g.confirm = (m: string) => { seen.asked.push(m); return confirmAnswer; };
+	g.fetch = async (u: string, o?: RequestInit) => (String(u) === '/api/earth/save' ? world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: o?.body as string })) : new Response('{}', { status: 404 }));
+	g.WebSocket = class { static OPEN = 1; readyState = 0; send() {} close() {} };
+	g.setInterval = () => 0;
+	const timers = new Set<ReturnType<typeof setTimeout>>();
+	const realSetTimeout = saved.setTimeout;
+	g.setTimeout = (f: () => void, ms?: number) => { const id = realSetTimeout(f, ms); timers.add(id); return id; };
+	Object.defineProperty(g, 'navigator', { value: { geolocation: null, clipboard: null }, configurable: true });
+	const dir = mkdtempSync(join(tmpdir(), 'earth-ui-'));
+	try {
+		const file = join(dir, 'page.mjs');
+		writeFileSync(file, await bundlePage());
+		await import(pathToFileURL(file).href);
+		for (let i = 0; i < 50; i++) await pause(10);
+		return { el, store, seen };
+	} finally {
+		for (const id of timers) clearTimeout(id);
+		rmSync(dir, { recursive: true, force: true });
+		for (const [k, v] of Object.entries(saved)) {
+			if (k === 'navigator') { if (v) Object.defineProperty(g, 'navigator', v as PropertyDescriptor); continue; }
+			if (v === undefined) delete g[k]; else g[k] = v;
+		}
+	}
+}
+
+test('界面：扫二维码打开（#sync=）——没有角色就恢复，同一个角色不动，别的角色先问；同步码马上从地址栏抹掉', async () => {
+	const { world } = makeWorld();
+	const make = async (id: string, name: string) => {
+		const cred = { id, key: id[0].repeat(24) };
+		const res = await world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: JSON.stringify({ action: 'create', ...cred, profile: { name, avatar: '🧑', origin: 'backpacker', traits: [] } }) }));
+		const j = (await res.json()) as any;
+		assert.ok(j.ok, j.msg);
+		return { cred, state: j.state };
+	};
+	const a = await make('scan-player-a', '扫码甲');
+	const b = await make('scan-player-b', '扫码乙');
+	const link = `#sync=${encodeURIComponent(a.cred.id + '.' + a.cred.key)}`;
+	// 新设备：直接恢复成甲，进入游戏
+	const fresh = await openWithHash(link, null, world);
+	assert.deepEqual(fresh.seen.replaced, ['/earth/'], '同步码从地址栏抹掉');
+	assert.equal(fresh.el('game').classList.contains('hidden'), false, '恢复后进入游戏');
+	assert.deepEqual(JSON.parse(fresh.store.get('earth.cred.v1')!), a.cred);
+	// 已经是甲：什么也不换
+	const same = await openWithHash(link, a, world);
+	assert.equal(same.seen.asked.length, 0);
+	assert.equal(same.seen.reloads, 0);
+	assert.deepEqual(JSON.parse(same.store.get('earth.cred.v1')!), a.cred);
+	// 本机是乙：先问；不同意就不换
+	const no = await openWithHash(link, b, world, false);
+	assert.match(no.seen.asked[0] ?? '', /扫码乙/);
+	assert.deepEqual(JSON.parse(no.store.get('earth.cred.v1')!), b.cred, '不同意就留着乙');
+	assert.equal(no.seen.reloads, 0);
+	// 同意：换成甲（本机存档也换成甲的），重新载入
+	const yes = await openWithHash(link, b, world, true);
+	assert.deepEqual(JSON.parse(yes.store.get('earth.cred.v1')!), a.cred);
+	assert.equal(JSON.parse(yes.store.get('earth.save.v1')!).id, a.cred.id);
+	assert.equal(yes.seen.reloads, 1);
+	// 同步码不对：服务器不认，什么也不写
+	const bad = await openWithHash(`#sync=${a.cred.id}.${'z'.repeat(24)}`, null, world);
+	assert.equal(bad.store.get('earth.cred.v1'), undefined);
+	assert.equal(bad.el('game').classList.contains('hidden'), true);
+});
 
 test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {
 	const { data, world } = makeWorld();

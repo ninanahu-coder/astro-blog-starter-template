@@ -42,7 +42,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				<button id="c-start" class="primary">开始生活</button>
 				<details class="import">
 					<summary>已有存档？用同步码恢复</summary>
-					<input id="c-code" placeholder="粘贴同步码" aria-label="同步码" autocomplete="off" />
+					<input id="c-code" placeholder="粘贴同步码或扫码得到的链接" aria-label="同步码" autocomplete="off" />
 					<button id="c-import">从云端恢复</button>
 				</details>
 			</section>
@@ -246,6 +246,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.coop-item p { margin: 0; }
 			.coop-item .inline button { min-height: 44px; }
 			.inline button { flex: none; }
+			.qr-box { margin-top: 10px; }
+			.qr-box .qr { display: block; width: min(240px, 70vw); height: auto; margin: 0 auto 8px; border-radius: 8px; }
 			.code { font-family: ui-monospace, monospace; font-size: 12px; word-break: break-all; background: var(--soft); padding: 10px; border-radius: 10px; margin: 8px 0; user-select: all; }
 			.emotes button { padding: 4px 8px; font-size: 16px; min-height: 44px; min-width: 44px; }
 			.mood-row { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; padding: 6px 0; border-bottom: 1px solid var(--line); }
@@ -379,6 +381,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
+			import { codeOf, hashAction, makeQr, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, webglSupported, type Basemap } from '../game/ui/basemap.ts';
 			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
@@ -971,6 +974,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			// ---------- 真实底图（第 31 轮）----------
 			// 手绘地图照常画（离线、加载中、失败时看它）；真实地图加载好、又联网时盖在上面
 			let basemap: Basemap | null = null;
+			/** 同步页里显示的二维码（SVG），点「收起」清掉 */
+			let qrHtml = '';
 			let basemapFailed = false;
 			let webglOk: boolean | null = null;
 			function renderBasemap(s: PlayerState, counts: Map<string, number>) {
@@ -1652,7 +1657,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				['真实地点', '本人走进真实的餐馆、健身房、公园、超市，在「附近」打开定位就能在游戏里吃饭、训练、打卡上班。'],
 				['工作与住处', '在城镇应聘、每天上一个班；租房后回家睡觉恢复更多。每 7 天一次周结算，付房租、房贷和车辆保险。'],
 				['天气', '每个地方每天的天气不一样，所有玩家看到的一样。风暴天海上活动取消，但可以去海边看风暴；抵达时会按天气收一张照片。'],
-				['多设备', '同步码等同于密码：在另一台设备选「用同步码恢复」就能接着玩。所有结算都在服务器上，改本机数据没有用。'],
+				['多设备', '同步码等同于密码：在另一台设备选「用同步码恢复」，或用相机扫「我 · 同步」里的二维码，就能接着玩。存档一直在服务器上，换设备只是把同步码带过去；改本机数据没有用。'],
 			];
 			// 大字模式：整页放大约 12%，只记在本机
 			function panelSync() {
@@ -1667,7 +1672,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<div class="card"><h3>多设备同步</h3><p>${esc(syncStatus)}</p>
 						<p style="margin-top:8px">在另一台手机或电脑打开本页，选择“用同步码恢复”，粘贴下面这串码即可接着玩。</p>
 						<div class="code">${esc(cred!.id)}.${esc(cred!.key)}</div>
-						<div class="inline"><button data-copy>复制同步码</button><button data-pull>立即同步</button></div>
+						<div class="inline"><button data-copy>复制同步码</button><button data-qr aria-expanded="${!!qrHtml}">${qrHtml ? '收起二维码' : '显示二维码'}</button><button data-pull>立即同步</button></div>
+						${qrHtml ? `<div class="qr-box">${qrHtml}<p class="muted">用另一台手机的相机扫一扫，打开链接就能接着玩。二维码和同步码一样等同于密码，别拍给别人。</p></div>` : ''}
 						<p style="margin-top:8px">同步码等同于密码，不要发给别人。</p></div>
 					<div class="card"><h3>重新开始</h3><p>清除本机存档并创建新角色（云端旧档仍可用同步码找回）。</p><button data-reset style="margin-top:8px">删除本机存档</button></div>`;
 			}
@@ -1772,7 +1778,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -1876,7 +1882,17 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				else if ('locate' in d) locate().then((f) => { if (f) renderPanel(); });
 				else if (d.venue && d.venueOp) venueDo(d.venue, d.venueOp as VenueOp);
 				else if (d.emote && d.to) { ws?.send(JSON.stringify({ t: 'emote', to: d.to, kind: d.emote })); toast(`你向对方 ${d.emote}`); }
-				else if ('copy' in d) navigator.clipboard?.writeText(`${cred!.id}.${cred!.key}`).then(() => toast('已复制'), () => toast('复制失败，请长按手动复制'));
+				else if ('qr' in d) {
+					if (qrHtml) { qrHtml = ''; renderPanel(); }
+					else {
+						// 二维码库点了才下载；里面是带同步码的本页链接，扫码后直接打开
+						const c = cred!;
+						makeQr(syncLink(`${location.protocol}//${location.host}`, c))
+							.then((q) => { if (cred?.id !== c.id) return; qrHtml = qrSvg(q, '同步码二维码：用另一台手机的相机扫码接着玩'); if (tab === 'me') renderPanel(); })
+							.catch(() => toast('二维码生成失败，可以复制同步码'));
+					}
+				}
+				else if ('copy' in d) navigator.clipboard?.writeText(codeOf(cred!)).then(() => toast('已复制'), () => toast('复制失败，请长按手动复制'));
 				else if ('pull' in d) pullCloud();
 				else if ('board' in d) loadBoard(true);
 				else if (d.giftpick !== undefined) { giftTo = d.giftpick ? { hash: d.giftpick, name: d.giftName ?? '' } : null; sellPick = false; renderPanel(); }
@@ -2000,18 +2016,45 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					btn.disabled = false;
 				}
 			});
-			$('c-import').addEventListener('click', async () => {
-				const m = /^([a-zA-Z0-9_-]{6,40})\.([a-zA-Z0-9]{16,64})$/.exec(($('c-code') as HTMLInputElement).value.trim());
-				if (!m) return toast('同步码格式不对');
+			/** 用同步码从云端恢复（还没有角色的设备）：服务器认这个码才写进本机 */
+			async function restoreFrom(c: Cred) {
 				try {
-					const { data } = await api({ action: 'get', id: m[1], key: m[2] });
+					const { data } = await api({ action: 'get', id: c.id, key: c.key });
 					if (!data.ok) return toast(data.msg || '恢复失败');
-					cred = { id: m[1], key: m[2] };
+					cred = c;
 					store.set(CRED_KEY, JSON.stringify(cred));
 					if (adopt(data.state, '已恢复云端存档')) { render(); begin(); }
 					else toast('云端存档已损坏');
 				} catch { toast('网络错误，请稍后再试'); }
+			}
+			$('c-import').addEventListener('click', () => {
+				const c = parseSyncCode(($('c-code') as HTMLInputElement).value);
+				if (!c) return toast('同步码格式不对');
+				void restoreFrom(c);
 			});
+			/** 扫二维码打开的：地址栏带 #sync=同步码。先从地址栏抹掉（不留在历史和截图里），再按这台设备的情况处理 */
+			async function fromSyncLink() {
+				const code = readSyncHash(location.hash);
+				if (!code) return;
+				try { history.replaceState(null, '', location.pathname + location.search); } catch {}
+				const inc = parseSyncCode(code)!;
+				const act = hashAction(state ? cred : null, inc);
+				if (act === 'same') return toast('这台设备已经是这个角色了');
+				if (act === 'restore') return restoreFrom(inc);
+				// 这台设备已经有别的角色：换之前问一句；服务器认这个码才换，换完重新载入页面
+				if (!confirm(`这台设备上已经有角色「${state!.name}」。换成扫码带来的角色吗？\n原来的角色要记下它的同步码（我 · 同步）才能再找回。`)) return;
+				try {
+					const { data } = await api({ action: 'get', id: inc.id, key: inc.key });
+					if (!data.ok) return toast(data.msg || '换角色失败');
+					// 原角色还在路上的同步回来会把它的存档写回本机缓存，重新载入后对不上凭证就被当成损坏清掉：先作废它们
+					pullSeq++;
+					actGen++;
+					cred = inc;
+					store.set(CRED_KEY, JSON.stringify(inc));
+					store.set(SAVE_KEY, JSON.stringify(data.state));
+					location.reload();
+				} catch { toast('网络错误，请稍后再试'); }
+			}
 
 			// ---------- 启动 ----------
 			try { cred = JSON.parse(store.get(CRED_KEY) || 'null'); } catch {}
@@ -2023,6 +2066,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			render();
 			fetch('/earth/cgi/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: any) => { cgi = m.images || {}; if (state) { renderPanel(); renderEvent(); } }).catch(() => {});
 			if (state) { connect(); pullCloud(); }
+			void fromSyncLink();
 			document.addEventListener('visibilitychange', () => { if (!document.hidden && state) { connect(); pullCloud(); } });
 			// 手机断网时立刻显示离线，恢复后自动重连并同步
 			if (typeof window.addEventListener === 'function') {
