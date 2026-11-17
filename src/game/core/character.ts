@@ -111,7 +111,7 @@ export function createCharacter(opts: {
 		photoQuest: 0,
 		story: { ch: 0, done: {} },
 		duos: [],
-		dayMark: { day: Math.floor(START_CLOCK / 1440), cash: origin.cash, respect: 0, places: 1 },
+		dayMark: { day: Math.floor(START_CLOCK / 1440), at: START_CLOCK - 1, cash: origin.cash, respect: 0, places: 1 }, // at 早一分钟：开局那条日志算在第 1 天
 		yday: null,
 		dexSets: [],
 		seen: [],
@@ -306,7 +306,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		dex: [...new Set(strList(r.dex, 200))].filter((id) => ANIMALS.some((a) => a.id === id)),
 		dexSets: [...new Set(strList(r.dexSets, 20))].filter((id) => Object.hasOwn(DEX_GROUPS, id)),
 		duos: [...new Set(strList(r.duos, 100))].filter((id) => NPC_DUOS.some((d) => d.id === id)),
-		dayMark: { day: 0, cash: 0, respect: 0, places: 0 }, // 下面按清洗后的时钟、现金重新算
+		dayMark: { day: 0, at: 0, cash: 0, respect: 0, places: 0 }, // 下面按清洗后的时钟、现金重新算
 		yday: null,
 		car: (() => {
 			// 没车就没有里程；离上次保养的里程不超过总里程
@@ -363,17 +363,32 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 	// 每日摘要：记号不能晚于现在这一天，坏了或旧存档没有就从现在算起；yday 必须在记号那天之前结束，否则丢掉
 	const today = Math.floor(out.clock / 1440);
 	const places = Object.keys(out.visited).length;
-	const m = r.dayMark;
-	const md = m && typeof m === 'object' ? m.day : NaN;
-	out.dayMark = typeof md === 'number' && Number.isFinite(md) && md >= 0 && Math.floor(md) <= today
-		? { day: Math.floor(md), cash: Math.round(num(m.cash, 0, CAPS.cash, out.cash)), respect: num(m.respect, 0, CAPS.respect, out.respect), places: Math.floor(num(m.places, 0, places, places)) }
-		: { day: today, cash: out.cash, respect: out.respect, places };
-	const y = r.yday;
-	if (y && typeof y === 'object') {
-		const day = Math.floor(num(y.day, 0, 1e7, -1));
-		const days = Math.floor(num(y.days, 0, 1e7, 0));
-		if (day >= 0 && days >= 1 && day + days <= out.dayMark.day)
-			out.yday = { day, days, cash: Math.round(num(y.cash, -CAPS.cash, CAPS.cash, 0)), respect: num(y.respect, -CAPS.respect, CAPS.respect, 0), places: Math.floor(num(y.places, 0, 1000, 0)) };
+	// 只认对象自己的字段（原型链上继承来的不算）；必需字段缺了或不是有限数就当坏数据
+	const ownObj = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
+	const own = (o: Record<string, unknown>, k: string) => (Object.hasOwn(o, k) ? o[k] : undefined);
+	const int = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) ? Math.floor(v) : NaN);
+	const m = ownObj(r.dayMark);
+	const md = m ? int(own(m, 'day')) : NaN;
+	const ma = m ? int(own(m, 'at')) : NaN;
+	// 记号那一分钟必须落在记号那天里（开局早一分钟），也不能晚于现在
+	out.dayMark = m && md >= 0 && md <= today && ma >= md * 1440 - 1 && ma < (md + 1) * 1440 && ma <= out.clock
+		? { day: md, at: ma, cash: Math.round(num(own(m, 'cash'), 0, CAPS.cash, out.cash)), respect: num(own(m, 'respect'), 0, CAPS.respect, out.respect), places: Math.floor(num(own(m, 'places'), 0, places, places)) }
+		: { day: today, at: out.clock, cash: out.cash, respect: out.respect, places };
+	const y = ownObj(r.yday);
+	if (y) {
+		const day = int(own(y, 'day'));
+		const days = int(own(y, 'days'));
+		const from = int(own(y, 'from'));
+		const to = int(own(y, 'to'));
+		// 这段日子在记号之前结束；日志范围从那天开始、到跨日动作结束（落在第 day+days 天）为止，正好接上记号
+		if (day >= 0 && days >= 1 && day + days <= out.dayMark.day && from >= day * 1440 - 1 && from < to && Math.floor(to / 1440) === day + days && to <= out.dayMark.at)
+			out.yday = {
+				day, days, from, to,
+				cash: Math.round(num(own(y, 'cash'), -CAPS.cash, CAPS.cash, 0)),
+				respect: num(own(y, 'respect'), -CAPS.respect, CAPS.respect, 0),
+				// 新去的地方不会比现在到过的地方还多
+				places: Math.floor(num(own(y, 'places'), 0, places, 0)),
+			};
 	}
 	return out;
 }

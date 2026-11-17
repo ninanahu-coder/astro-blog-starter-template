@@ -732,7 +732,6 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			async function noteOp(op: string, extra: Record<string, unknown>) {
 				if (!state || !cred || busy) return;
 				busy = true;
-				actGen++;
 				try {
 					const { data } = await api({ action: 'notes', op, id: cred.id, key: cred.key, ...extra });
 					if (Array.isArray(data?.notes)) { notesList = data.notes; notesLoc = state.loc; notesAt = Date.now(); }
@@ -766,13 +765,17 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (why) toast(why);
 				return true;
 			}
+			/** 每发一次同步请求加一：只有最后发出的那次能采用结果 */
+			let pullSeq = 0;
 			async function pullCloud() {
 				if (!cred) return;
 				const gen = actGen;
+				const seq = ++pullSeq;
 				try {
 					const { data } = await api({ action: 'get', id: cred.id, key: cred.key });
 					// 同步请求在路上时玩家做了动作：这份存档可能比动作的结果旧，采用了会把进度倒回去、下一个动作版本冲突被丢掉
-					if (gen !== actGen || busy) return;
+					// 后面又发了同步：先发的可能后到，带回的是更旧的存档，只认最后一次
+					if (seq !== pullSeq || gen !== actGen || busy) return;
 					// 本机缓存只用于离线显示，联网时一律以服务器为准（即使版本号相同，缓存也可能被改过）
 					if (data.ok) {
 						const newer = !!state && data.state.rev !== state.rev;
@@ -831,7 +834,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 动作（发给服务器结算） ----------
 			let busy = false;
-			/** 每发起一次会改存档的请求就加一：后台同步用它判断回来的存档是不是已经过时 */
+			/** 每发起一次会改存档的请求就加一（留言不改存档，不算）：后台同步用它判断回来的存档是不是已经过时 */
 			let actGen = 0;
 			async function act(a: GameAction): Promise<{ ok: boolean; msg: string } | null> {
 				if (!state || !cred || busy) return null;
@@ -1632,13 +1635,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// 事件选完后的结果页（在弹窗里），点「继续」关闭；只在本机内存里
 			let eventResult: { title: string; icon: string; text: string; delta: { text: string; up: boolean }[]; ach: string[] } | null = null;
+			// 弹窗里现在显示的是哪一页（结果对象，或「事件 id@时刻」）：内容换了才移焦点，同一页重画（后台同步）不抢焦点
+			let modalShown: unknown = null;
 			function renderEvent() {
 				const ev = state ? getPendingEvent(state) : null;
 				const modal = $('modal');
 				const game = $('game') as HTMLElement & { inert: boolean };
 				if (!ev && eventResult) {
 					// 没有下一个待处理事件时，显示刚才那个事件的结果
-					const wasOpen = !modal.classList.contains('hidden');
 					const r = eventResult;
 					modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
 						<div class="ev-hero"><span class="kicker">结果</span><h2 id="ev-title">${r.icon} ${esc(r.title)}</h2></div>
@@ -1648,7 +1652,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<button class="primary" data-result-close>继续</button></div></div>`;
 					modal.classList.remove('hidden');
 					game.inert = true;
-					if (!wasOpen) modal.querySelector<HTMLElement>('button')?.focus();
+					// 选完选项后原来聚焦的按钮被结果页替换掉了：焦点移到「继续」
+					if (modalShown !== r) modal.querySelector<HTMLElement>('button')?.focus();
+					modalShown = r;
 					return;
 				}
 				if (!ev) {
@@ -1657,6 +1663,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					game.inert = false;
 					// 弹窗关掉后焦点不能留在已经隐藏的按钮上：移回页面内容，键盘和读屏用户接着往下读
 					if (wasOpen) ($('panel') as HTMLElement).focus?.({ preventScroll: true });
+					modalShown = null;
 					return;
 				}
 				const s = state!;
@@ -1677,11 +1684,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						].join('');
 						return `<button class="row choice" data-choice="${i}"${poor || stormBlocked ? ' disabled' : ''}><span class="label">${esc(choiceLabel(c))}</span>${pills ? `<span class="pills">${pills}</span>` : ''}</button>`;
 					}).join('')}</div></div></div>`;
-				const wasOpen = !modal.classList.contains('hidden');
 				modal.classList.remove('hidden');
-				// 弹窗打开期间背后的页面不可点、不可聚焦；刚打开时把焦点移到第一个能选的选项
+				// 弹窗打开期间背后的页面不可点、不可聚焦；换成一个新事件时（刚打开或接着下一个）把焦点移到第一个能选的选项
 				game.inert = true;
-				if (!wasOpen) { modal.querySelector<HTMLElement>('button:not([disabled])')?.focus(); sfx('event'); }
+				const key = `${ev.id}@${s.clock}`;
+				if (modalShown !== key) { modal.querySelector<HTMLElement>('button:not([disabled])')?.focus(); sfx('event'); }
+				modalShown = key;
 			}
 
 			function render() {

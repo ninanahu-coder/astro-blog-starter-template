@@ -166,7 +166,8 @@ function checkInvariants(s: PlayerState, where: string) {
 	// 每日摘要：记号就是今天（引擎每次动作后都会换日），yday 在记号那天之前结束
 	assert.equal(s.dayMark.day, Math.floor(s.clock / 1440), `${where}: dayMark 不是今天`);
 	inRange(s.dayMark.cash, 0, 1e9, 'dayMark.cash');
-	if (s.yday) assert.ok(Number.isInteger(s.yday.days) && s.yday.days >= 1 && s.yday.day + s.yday.days <= s.dayMark.day, `${where}: yday 越界`);
+	assert.ok(s.dayMark.at <= s.clock && Math.floor((s.dayMark.at + 1) / 1440) >= s.dayMark.day, `${where}: dayMark.at 越界`);
+	if (s.yday) assert.ok(Number.isInteger(s.yday.days) && s.yday.days >= 1 && s.yday.day + s.yday.days <= s.dayMark.day && s.yday.from < s.yday.to && s.yday.to <= s.dayMark.at, `${where}: yday 越界`);
 	assert.equal(new Set(s.duos).size, s.duos.length, 'duos 不重复');
 	for (const id of s.duos) assert.ok(NPC_DUOS.some((d) => d.id === id), `duos 里有不认识的 ${id}`);
 	for (const [id, n] of Object.entries(s.story.done)) {

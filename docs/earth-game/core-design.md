@@ -37,7 +37,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 | 摄影任务 | `photoQuest` | 0..任务数 | 摄影任务链做到第几个；等于任务总数表示全部拍完 |
 | NPC 联动 | `duos` | id 列表 | 已触发的 NPC 联动剧情 |
 | 主线剧情 | `story` | `{ ch, done }` | 第几章（等于章数表示全部写完）；本章各目标的进度，进下一章时清空 |
-| 每日摘要 | `dayMark` / `yday` | `{ day, cash, respect, places }` / 同上加 `days` 或 `null` | 今天开始时的记号；动作跨过午夜时（`core/recap.ts` 的 `rollDay`，在 `applyAction` / `applyCoop` 钳制数值之后）把上一段日子的变化记进 `yday`，界面只在之后那一天显示「昨天回顾」 |
+| 每日摘要 | `dayMark` / `yday` | `{ day, at, cash, respect, places }` / `{ day, days, from, to, cash, respect, places }` 或 `null` | 今天开始时的记号（`at` 是记下的那一分钟）；动作跨过午夜时（`core/recap.ts` 的 `rollDay`，在 `applyAction` / `applyCoop` 钳制数值之后）把上一段日子的变化记进 `yday`，界面只在之后那一天显示「昨天回顾」。跨午夜的那个动作数值和日志都算在 `yday` 里：回顾日志取 `from` 之后到 `to` 为止，不按午夜切 |
 | 鱼获 | `fish` | 每种 ≥1 | 钓到过的鱼：鱼种 id → 条数 |
 | 图鉴 | `dex` `dexSets` | — | 见过的野生动物 id；已发过奖的图鉴分组（集齐时记下，以后加新动物不收回、不重复发） |
 | 物品 | `inventory` | 每种 1..上限 | `itemId → 数量` |

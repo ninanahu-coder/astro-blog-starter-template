@@ -440,8 +440,30 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.ok(el('modal').focused > 0, '焦点移进弹窗');
 		await click({ tab: 'place' });
 		assert.ok(!panel().includes('class="next"'), '有待处理事件时不给下一步按钮');
+		// 弹窗开着时同一个事件重画（后台同步回来）：不抢焦点
+		const rottEv = serverState().pending.eventId;
+		let modalFocus = el('modal').focused;
+		const same = data.get('save:' + cred.id) as any;
+		same.state.rev += 1;
+		data.set('save:' + cred.id, same);
+		await pullNow();
+		assert.equal(el('modal').focused, modalFocus, '同一个事件重画不移焦点');
+		// 事件接着换成另一个事件（弹窗一直开着）：焦点移到新内容上；再换回来也一样
+		for (const id of ['monkey-mia-feeding', rottEv]) {
+			const sw = data.get('save:' + cred.id) as any;
+			sw.state.pending = { eventId: id };
+			sw.state.rev += 1;
+			data.set('save:' + cred.id, sw);
+			await pullNow();
+			assert.equal(el('modal').classList.contains('hidden'), false);
+			assert.ok(el('modal').focused > modalFocus, `换成事件 ${id} 后焦点移进新内容`);
+			modalFocus = el('modal').focused;
+		}
+		assert.match(el('modal').innerHTML, /data-choice="1"/);
 		await click({ choice: '1' });
 		await pause(30);
+		// 选项按钮被结果页替换掉了：焦点移到「继续」
+		assert.ok(el('modal').focused > modalFocus, '选完后焦点移到结果页');
 		// 选完先看结果页：弹窗还开着、仍然锁住背后，点「继续」才关闭
 		assert.match(el('modal').innerHTML, /结果/);
 		assert.match(el('modal').innerHTML, /data-result-close/);
@@ -475,8 +497,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		const rc = data.get('save:' + cred.id) as any;
 		rc.state.clock += 1440; // 拨到第 2 天的同一时刻（还是夜里），才有「昨天」
 		const today = Math.floor(rc.state.clock / 1440);
-		rc.state.dayMark = { day: today, cash: rc.state.cash, respect: rc.state.respect, places: Object.keys(rc.state.visited).length };
-		rc.state.yday = { day: today - 1, days: 1, cash: -42, respect: 1, places: 2 };
+		rc.state.dayMark = { day: today, at: today * 1440, cash: rc.state.cash, respect: rc.state.respect, places: Object.keys(rc.state.visited).length };
+		rc.state.yday = { day: today - 1, days: 1, from: (today - 1) * 1440 - 1, to: today * 1440, cash: -42, respect: 1, places: 2 };
 		rc.state.journal.push({ t: (today - 1) * 1440 + 600, text: '<i>在码头</i>看了一下午的船' });
 		data.set('save:' + cred.id, rc);
 		docListeners.visibilitychange({});
@@ -534,6 +556,23 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await pause(250);
 		g.fetch = fastFetch;
 		assert.equal(clientRev(), afterAct, '晚回来的同步没有把存档倒回动作之前');
+		// 两次同步先发的后到（第 6 批审查复现过：版本从 10 退回 9）：第一次慢 200ms，期间服务端存档更新、再同步一次
+		let firstGet = true;
+		g.fetch = async (u: string, o?: RequestInit) => {
+			const res = await fastFetch(u, o);
+			if (firstGet && String(o?.body).includes('"action":"get"')) { firstGet = false; await new Promise((r) => realSetTimeout(r, 200)); }
+			return res;
+		};
+		docListeners.visibilitychange({});
+		await pause(20);
+		const bump = data.get('save:' + cred.id) as any;
+		bump.state.rev += 1;
+		data.set('save:' + cred.id, bump);
+		await pullNow();
+		const newest = bump.state.rev;
+		await pause(300);
+		g.fetch = fastFetch;
+		assert.equal(clientRev(), newest, '先发后到的旧同步没有盖掉新的');
 		// 音效关着时，后面的出行、事件、动作都没有出声
 		assert.equal(audioLog.notes, audioLog.offAt, '关掉音效后不再出声');
 	} finally {

@@ -482,8 +482,8 @@ export interface PlayerState {
 	checkins: string[]; // 已 GPS 打卡的 POI id
 	dex: string[]; // 野生动物图鉴：见过的动物 id
 	duos: string[]; // 已触发的 NPC 联动剧情 id
-	dayMark: { day: number; cash: number; respect: number; places: number }; // 每日摘要：今天开始时的现金、声望、到过几个地方
-	yday: { day: number; days: number; cash: number; respect: number; places: number } | null; // 上一段日子（从 day 起 days 天）的变化，跨日时算出
+	dayMark: { day: number; at: number; cash: number; respect: number; places: number }; // 每日摘要：今天开始时（at 那一分钟）的现金、声望、到过几个地方
+	yday: { day: number; days: number; from: number; to: number; cash: number; respect: number; places: number } | null; // 上一段日子（从 day 起 days 天，日志范围 from 之后到 to）的变化，跨日时算出
 	story: { ch: number; done: Record<string, number> }; // 主线剧情：第几章（等于章数表示全部写完）、本章各目标的进度
 	photoQuest: number; // 摄影任务链做到第几个（等于任务总数表示全部拍完）
 	fish: Record<string, number>; // 钓到过的鱼：鱼种 id -> 条数
