@@ -100,7 +100,7 @@ function inside([x, y]: [number, number], poly: [number, number][]) {
 test('南澳数据（第 42 轮）：坐标在范围内、大陆地点在轮廓里；区域内路线连通；航班两头都有机场；标签和类型合法；每个地点 3 条小知识', async () => {
 	const { FACTS } = await import('../../src/game/data/facts.ts');
 	const KINDS = new Set(WA.locations.map((l) => l.kind));
-	const TAGS = new Set(['airport', 'hospital', 'pub', 'beach', 'reef', 'surf', 'wine', 'whale', 'dolphin', 'market', 'gym', 'gorge', 'gold']);
+	const TAGS = new Set(['airport', 'hospital', 'pub', 'beach', 'reef', 'surf', 'wine', 'whale', 'dolphin', 'market', 'gym', 'gorge', 'gold', 'opal']);
 	const b = SA_BASE.bounds;
 	for (const l of SA_BASE.locations) {
 		assert.ok(l.lat > b.minLat && l.lat < b.maxLat && l.lon > b.minLon && l.lon < b.maxLon, `${l.id} 在范围内`);
@@ -167,4 +167,28 @@ test('跨区域出行（第 43 轮）：珀斯飞阿德莱德、卡尔古利走�
 	assert.ok(bus.minutes > 18 * 60, '一天多');
 	// 西澳本身没有这些路线：平衡模拟只用西澳，不受影响
 	assert.ok(!travelOptions(rich, WA).some((o) => o.to === 'adelaide'));
+});
+
+test('南澳职业与住处（第 45 轮）：每个南澳地点都有至少一份工作和一种住处；库伯佩迪能租地下屋；三套南澳房产照搬西澳同档的数', async () => {
+	const { CAREERS } = await import('../../src/game/data/careers.ts');
+	const { HOMES } = await import('../../src/game/data/housing.ts');
+	const { PROPERTIES } = await import('../../src/game/data/properties.ts');
+	const hit = (w: { kinds?: string[]; tags?: string[] }, l: { kind: string; tags: string[] }) => !!w.kinds?.includes(l.kind) || !!w.tags?.some((t) => l.tags.includes(t));
+	for (const l of SA_BASE.locations) {
+		assert.ok(CAREERS.some((c) => hit(c.where, l)), `${l.id} 有工作`);
+		assert.ok(HOMES.some((h) => hit(h.where, l)), `${l.id} 有住处`);
+	}
+	const dug = HOMES.find((h) => h.id === 'dugout')!;
+	assert.deepEqual(WORLD.locations.filter((l) => hit(dug.where, l)).map((l) => l.id), ['coober-pedy'], '地下屋只在库伯佩迪');
+	const same = (a: string, b: string) => {
+		const [x, y] = [PROPERTIES.find((p) => p.id === a)!, PROPERTIES.find((p) => p.id === b)!];
+		assert.deepEqual([x.price, x.weekly, x.rentIncome, x.homeType], [y.price, y.weekly, y.rentIncome, y.homeType], `${a} 照搬 ${b}`);
+	};
+	same('adelaide-villa', 'perth-apartment');
+	same('glenelg-unit', 'freo-terrace');
+	assert.equal(PROPERTIES.find((p) => p.id === 'coober-dugout')!.homeType, 'dugout');
+	for (const p of PROPERTIES.filter((x) => SA_BASE.locations.some((l) => l.id === x.loc))) {
+		const l = WORLD.locations.find((x) => x.id === p.loc)!;
+		assert.ok(hit(HOMES.find((h) => h.id === p.homeType)!.where, l), `${p.id} 的房型在 ${l.id} 也能租到`);
+	}
 });

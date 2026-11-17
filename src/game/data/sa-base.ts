@@ -15,7 +15,7 @@ const locations: GameLocation[] = [
 	L('victor-harbor', '维克多港', 'Victor Harbor', -35.55, 138.62, 'coast', ['beach', 'whale', 'pub', 'market'], 15, '弗勒里厄半岛南岸的度假小城，花岗岩岛连着海堤。'),
 	L('kangaroo-island', '袋鼠岛', 'Kangaroo Island', -35.65, 137.63, 'island', ['airport', 'beach', 'pub'], 20, '澳洲第三大岛，海狮、袋鼠和小企鹅的家。'),
 	L('port-lincoln', '林肯港', 'Port Lincoln', -34.73, 135.86, 'port', ['airport', 'hospital', 'pub', 'beach', 'market'], 20, '艾尔半岛的渔港，金枪鱼之乡。'),
-	L('coober-pedy', '库伯佩迪', 'Coober Pedy', -29.01, 134.75, 'mining', ['airport', 'hospital', 'pub'], 8, '世界欧泊之都，很多人住在地下。'),
+	L('coober-pedy', '库伯佩迪', 'Coober Pedy', -29.01, 134.75, 'mining', ['airport', 'hospital', 'pub', 'opal'], 8, '世界欧泊之都，很多人住在地下。'),
 	L('flinders-ranges', '弗林德斯山脉', 'Flinders Ranges', -31.53, 138.6, 'park', ['gorge'], 30, '古老的褶皱山脉，威尔佩纳盆地像一座天然环形剧场。'),
 	L('mount-gambier', '甘比尔山', 'Mount Gambier', -37.83, 140.78, 'city', ['airport', 'hospital', 'pub', 'market', 'gym'], 20, '建在休眠火山上的南澳第二大城，有会变色的蓝湖。'),
 	L('ceduna', '锡杜纳', 'Ceduna', -32.13, 133.68, 'coast', ['airport', 'hospital', 'pub', 'beach'], 12, '从西澳横穿纳拉伯平原过来的第一个南澳小镇。'),

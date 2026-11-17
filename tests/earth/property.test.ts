@@ -12,7 +12,7 @@ import {
 } from '../../src/game/core/finance.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
 import { PROPERTIES } from '../../src/game/data/properties.ts';
-import { WA } from '../../src/game/data/wa.ts';
+import { WA, WORLD } from '../../src/game/data/wa.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
@@ -25,7 +25,7 @@ const flat = PROPERTIES.find((p) => p.id === 'perth-apartment')!;
 const passTo = (s: PlayerState, day: number) => applyAction({ ...s, clock: at(20, day) }, WA, { t: 'activity', id: 'sleep-camp' }).state;
 
 test('房产数据自洽，出租收益不超过上限', () => {
-	const locs = new Set(WA.locations.map((l) => l.id));
+	const locs = new Set(WORLD.locations.map((l) => l.id));
 	assert.equal(new Set(PROPERTIES.map((p) => p.id)).size, PROPERTIES.length);
 	for (const p of PROPERTIES) {
 		assert.ok(locs.has(p.loc), `${p.id} 地点存在`);
