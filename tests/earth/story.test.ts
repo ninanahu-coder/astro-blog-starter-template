@@ -112,3 +112,36 @@ test('存档清洗：章号钳在 0 到章数之间并取整；只留当前章�
 	assert.deepEqual(clean({ ch: 0.9, done: { meal: 7.8, chat: 1.5, hax: 3, freo: -1, constructor: 1 } }), { ch: 0, done: { meal: 1, chat: 1 } });
 	assert.deepEqual(clean('x'), { ch: 0, done: {} });
 });
+
+test('第二章：进章时已经满足的状态目标马上记下；结束上一章的那个动作不会再算进下一章', () => {
+	const job = { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 };
+	let s = make({ cash: 900, job });
+	for (const a of [EAT, CHAT, CHAT, BUY]) s = step(s, a).after;
+	// 用一次上班结束第一章（顺便去够了地点）
+	const WORK: GameAction = { t: 'job', op: 'work' };
+	const r = step(s, WORK, (x) => { x.visited.fremantle = 1; x.visited.rottnest = 1; });
+	assert.equal(r.after.story.ch, 1);
+	assert.equal(r.after.story.done.job, 1, '已经有工作，马上记下');
+	assert.equal(r.after.story.done.savings, 1, '现金已经过 $500');
+	assert.equal(r.after.story.done.shifts, undefined, '结束第一章的那个班不算进第二章');
+	// 之后的班一个个算
+	let t = r.after;
+	for (let i = 0; i < 7; i++) t = step(t, WORK).after;
+	assert.equal(t.story.done.shifts, 5, '上满 5 个就封顶');
+});
+
+test('第二章全部做到：发奖励，主线全部写完', () => {
+	const ch = STORY.findIndex((c) => c.id === 'steady');
+	const job = { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 };
+	let s = make({ story: { ch, done: { shifts: 5, sleep: 1 } }, job, cash: 600 });
+	const before = s.cash;
+	const r = step(s, EAT, (x) => {
+		x.home = { type: 'room', loc: 'perth', furniture: {} };
+		x.relations[NPCS[0].id] = { score: 30, last: {}, seen: [], known: [] };
+	});
+	assert.deepEqual(r.notes, [`${STORY[ch].title} 完成`]);
+	assert.equal(r.after.cash, before + (STORY[ch].reward.cash ?? 0));
+	assert.equal(r.after.story.ch, ch + 1);
+	s = r.after;
+	assert.equal(s.story.ch, STORY.length, '目前一共两章');
+});

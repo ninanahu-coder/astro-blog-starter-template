@@ -46,4 +46,19 @@ export const STORY: StoryChapter[] = [
 		],
 		reward: { cash: 50, respect: 2, moodlet: 'wish-done' },
 	},
+	{
+		id: 'steady',
+		title: '第二章 · 找到稳定工作和住处',
+		intro: '新鲜感过去，账单来了。找份能长期做的工作，租个自己的地方，攒下第一笔应急钱。',
+		outro: '有了钥匙，有了排班表，也有了一个会在你加班时帮你留一份晚饭的人。这座城市开始像家了。',
+		steps: [
+			{ id: 'job', text: '找到一份工作', state: { t: 'job' } },
+			{ id: 'shifts', text: '上 5 个班', act: { t: 'job' }, venue: ['work'], n: 5 },
+			{ id: 'home', text: '租下一个住处', state: { t: 'home' } },
+			{ id: 'sleep', text: '在自己的住处睡一觉', act: { t: 'home', ops: ['sleep'] } },
+			{ id: 'savings', text: '手上攒到 $500', state: { t: 'cash', n: 500 } },
+			{ id: 'friend', text: '和一位当地人好感到 30', state: { t: 'friend', score: 30 } },
+		],
+		reward: { cash: 150, respect: 4, moodlet: 'wish-done' },
+	},
 ];
