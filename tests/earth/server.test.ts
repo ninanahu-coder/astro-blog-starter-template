@@ -917,7 +917,7 @@ test('全服周目标：存档和全服计数一次写入，写失败时两边�
 		fail = true;
 		await assert.rejects(w.call({ action: 'act', ...A, rev: a0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } }));
 		assert.equal(w.data.get('save:' + A.id).state.loc, 'perth', '存档没写');
-		assert.equal((w.world as any).week.count, 0, '内存里预留的计数退回了');
+		assert.equal((w.world as any).week.count, 0, '内存里的计数没变');
 		fail = false;
 		assert.ok((await w.call({ action: 'act', ...A, rev: a0.rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } })).data.ok);
 		const week = weekOf(realDayOf(Date.now()));
@@ -944,4 +944,86 @@ test('全服周目标：免费的节日体验不算「收费体验」（审查�
 	} finally {
 		restore();
 	}
+});
+
+/** 新建一个存档，返回凭证和初始存档 */
+async function newPlayer(w: ReturnType<typeof makeWorld>, id: string) {
+	const P = { id, key: 'p'.repeat(24) };
+	const st = (await w.call({ action: 'create', ...P, profile })).data.state;
+	return { P, st };
+}
+const travel = (P: { id: string; key: string }, rev: number) => ({ action: 'act', ...P, rev, act: { t: 'travel', to: 'fremantle', mode: 'road' } });
+
+test('全服周计数并发：后写的不会用旧数盖掉先写的；一笔写失败不影响别人，也不留下没落盘的数（复审问题 1）', async () => {
+	const restore = shiftToGoal('travel');
+	try {
+		// 第一笔带周计数的写入故意慢：以前后到的小数会盖掉先到的大数
+		let first = true;
+		const w = makeWorld(0, { put: async (k) => {
+			if (typeof k === 'object' && Object.keys(k).some((x) => x.startsWith('week:')) && first) { first = false; await new Promise((d) => setTimeout(d, 30)); }
+		} });
+		const a = await newPlayer(w, 'weekly-race-a');
+		const b = await newPlayer(w, 'weekly-race-b');
+		const [ra, rb] = await Promise.all([w.call(travel(a.P, a.st.rev)), w.call(travel(b.P, b.st.rev))]);
+		assert.ok(ra.data.ok && rb.data.ok);
+		const week = weekOf(realDayOf(Date.now()));
+		assert.equal(w.data.get('week:' + week), 2, '两笔都记上');
+		assert.equal((w.world as any).week.count, 2);
+
+		// 一笔失败、一笔成功：落盘和内存都只算成功的那笔
+		let failNext = true;
+		const w2 = makeWorld(0, { put: async (k) => {
+			if (typeof k === 'object' && Object.keys(k).some((x) => x.startsWith('week:')) && failNext) { failNext = false; await new Promise((d) => setTimeout(d, 20)); throw new Error('storage down'); }
+		} });
+		const c = await newPlayer(w2, 'weekly-race-c');
+		const d = await newPlayer(w2, 'weekly-race-d');
+		const [rc, rd] = await Promise.allSettled([w2.call(travel(c.P, c.st.rev)), w2.call(travel(d.P, d.st.rev))]);
+		assert.equal(rc.status, 'rejected');
+		assert.ok(rd.status === 'fulfilled' && rd.value.data.ok);
+		assert.equal(w2.data.get('week:' + week), 1);
+		assert.equal((w2.world as any).week.count, 1);
+		assert.equal(w2.data.get('save:' + c.P.id).state.loc, 'perth', '失败的那笔存档没写');
+	} finally {
+		restore();
+	}
+});
+
+test('全服周计数：写入还没落盘时别人看到的、领奖用的都是已落盘的数（复审问题 1）', async () => {
+	const restore = shiftToGoal('travel');
+	try {
+		let release!: () => void;
+		const gate = new Promise<void>((d) => { release = d; });
+		let reached!: () => void;
+		const atPut = new Promise<void>((d) => { reached = d; });
+		const w = makeWorld(0, { put: async (k) => {
+			if (typeof k === 'object' && Object.keys(k).some((x) => x.startsWith('week:'))) { reached(); await gate; }
+		} });
+		const a = await newPlayer(w, 'weekly-gate-a');
+		const b = await newPlayer(w, 'weekly-gate-b');
+		const pending = w.call(travel(a.P, a.st.rev));
+		await atPut;
+		assert.equal((await w.call({ action: 'weekly', op: 'status', ...b.P })).data.week.count, 0, '没落盘的不算');
+		release();
+		assert.ok((await pending).data.ok);
+		assert.equal((await w.call({ action: 'weekly', op: 'status', ...b.P })).data.week.count, 1);
+	} finally {
+		restore();
+	}
+});
+
+test('挂单：同时挂单也不会超过每个地点 30 单（复审问题 3）', async () => {
+	const w = makeWorld(3); // 每次读写都等一会儿，让两份礼物的检查交错
+	const { A, B } = await twoPlayers(w, 31, { water: 2 });
+	const C = { id: 'trade-also-31', key: 'c'.repeat(24) };
+	await w.call({ action: 'create', ...C, profile });
+	const recC = w.data.get('save:' + C.id);
+	recC.state.inventory = { water: 2 };
+	w.data.set('save:' + C.id, recC);
+	await w.call({ action: 'get', ...B });
+	const offers = (w.world as any).offers as Map<string, any>;
+	for (let i = 0; i < 29; i++) offers.set('f' + i, { id: 'f' + i, kind: 'sale', from: 'x' + i, fromName: 'x', fromAvatar: '🧑', to: null, toId: null, toName: '', item: 'snack', price: 3, loc: 'perth', at: Date.now() });
+	const toB = await peerHash(B.id);
+	const res = await Promise.all([A, C].map((P) => w.call({ action: 'trade', op: 'gift', ...P, to: toB, item: 'water' })));
+	assert.equal(res.filter((r) => r.data.ok).length, 1, '只有一份挂上');
+	assert.equal([...offers.values()].filter((o) => o.loc === 'perth').length, 30);
 });

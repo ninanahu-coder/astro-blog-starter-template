@@ -131,8 +131,10 @@ export class EarthWorld {
 	private offers = new Map<string, Offer>();
 	private week: { week: number; count: number } | null = null; // 这周全服累计数（内存里一份，落盘在 'week:<序号>'）
 	private weekLoading: Promise<void> | null = null;
+	private weekChain: Promise<unknown> = Promise.resolve(); // 记入全服周计数的写入排队提交：每次都从已落盘的数往上加
 	private notes = new Map<string, Note[]>(); // 地点 -> 留言（内存一份，先改内存再落盘，不会丢别人同时写的）
 	private notesLoading = new Map<string, Promise<void>>();
+	private notesChain = new Map<string, Promise<unknown>>(); // 同一地点的发帖、删帖排队执行：限额检查和写入之间不会插进别人的
 
 	constructor(ctx: DurableObjectState, _env: unknown) {
 		this.ctx = ctx;
@@ -372,15 +374,27 @@ export class EarthWorld {
 	}
 
 	/**
-	 * 这类事是不是这周目标算的；是的话在内存里先把全服计数加 k（单线程里同步加，不会丢别人同时加的），
-	 * 返回要和存档一起写入的条目；存档写入失败时调用方用 undo 退回。
+	 * 带全服周计数的写入：排队一个个提交，每次从已落盘的计数加 k，和存档放在同一次 put 里；
+	 * 写成功后才更新内存里的计数（领奖只看已落盘的数）。写失败时计数和存档都没变，后面排队的照常提交。
 	 */
-	private async reserveWeek(week: number, metric: WeeklyMetric, k: number): Promise<{ entry: Record<string, unknown>; undo: () => void } | null> {
-		if (goalOfWeek(week).metric !== metric || k <= 0) return null;
-		await this.weekCount(week);
-		const w = this.week!;
-		w.count += k;
-		return { entry: { ['week:' + week]: w.count }, undo: () => { if (this.week === w) w.count = Math.max(0, w.count - k); } };
+	private commitWeek(week: number, k: number, entries: Record<string, unknown>): Promise<void> {
+		const run = this.weekChain.then(async () => {
+			const base = await this.weekCount(week);
+			const next = base + k;
+			await this.ctx.storage.put({ ...entries, ['week:' + week]: next });
+			if (this.week && this.week.week === week) this.week.count = next;
+		});
+		this.weekChain = run.catch(() => undefined);
+		return run;
+	}
+
+	/** 同一地点的留言改动排队执行 */
+	private inNotes<T>(loc: string, fn: () => Promise<T>): Promise<T> {
+		const run = (this.notesChain.get(loc) ?? Promise.resolve()).then(fn);
+		const tail = run.catch(() => undefined);
+		this.notesChain.set(loc, tail);
+		void tail.then(() => { if (this.notesChain.get(loc) === tail) this.notesChain.delete(loc); });
+		return run;
 	}
 
 	private async notesAt(loc: string): Promise<Note[]> {
@@ -403,9 +417,12 @@ export class EarthWorld {
 		await this.persistMany([{ id, keyHash, state, at: now }]);
 	}
 
-	/** 多个存档在同一次 put 里写入（Durable Object 存储对单次多键 put 保证全写或全不写）：共同事件不会出现一部分人拿到奖励 */
-	private async persistMany(saves: { id: string; keyHash: string; state: PlayerState; at: number }[], extra: Record<string, unknown> = {}): Promise<void> {
-		const entries: Record<string, unknown> = { ...extra };
+	/**
+	 * 多个存档在同一次 put 里写入（Durable Object 存储对单次多键 put 保证全写或全不写）：共同事件不会出现一部分人拿到奖励。
+	 * week：这次要给全服周计数加几，和存档一起写（见 commitWeek）
+	 */
+	private async persistMany(saves: { id: string; keyHash: string; state: PlayerState; at: number }[], week?: { week: number; k: number }): Promise<void> {
+		const entries: Record<string, unknown> = {};
 		for (const x of saves) {
 			const h = (await sha256Hex(x.id)).slice(0, 12);
 			const rankKey = 'rank:' + h;
@@ -416,7 +433,8 @@ export class EarthWorld {
 			entries['h:' + h] = x.id;
 			entries[rankKey] = boardEntry(x.state, x.at, prev);
 		}
-		await this.ctx.storage.put(entries);
+		if (week && week.k > 0) await this.commitWeek(week.week, week.k, entries);
+		else await this.ctx.storage.put(entries);
 		this.boardGen++;
 		this.board = null;
 	}
@@ -503,16 +521,10 @@ export class EarthWorld {
 			const after = metric !== null && goalOfWeek(week).metric === metric ? addWeekly(r.state, week) : r.state;
 			const counted = after !== r.state;
 			const next = after !== live ? canon(after) : after;
-			const res = counted ? await this.reserveWeek(week, metric!, 1) : null;
-			try {
-				// 存档和全服周计数一次写入
-				if (next !== current) await this.persistMany([{ id, keyHash, state: next, at: now }], res?.entry);
-				// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
-				else if (migrated) await this.persist(id, keyHash, current, now);
-			} catch (e) {
-				res?.undo();
-				throw e;
-			}
+			// 存档和全服周计数一次写入
+			if (next !== current) await this.persistMany([{ id, keyHash, state: next, at: now }], counted ? { week, k: 1 } : undefined);
+			// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
+			else if (migrated) await this.persist(id, keyHash, current, now);
 			return json({ ok: r.ok, msg: r.msg, state: publicState(next), at: now, daily: claim?.msg });
 		}
 		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, wall, locked);
@@ -528,26 +540,36 @@ export class EarthWorld {
 			if (body.op === 'post') {
 				const c = cleanNote(body.text);
 				if ('error' in c) return json({ ok: false, msg: c.error, ...view(), at: now }, 400);
-				if (list.some((n) => n.author === hash && n.day === day)) return json({ ok: false, msg: '今天已经在这里留过言了，明天再来。', ...view(), at: now }, 429);
-				if (list.filter((n) => n.day === day).length >= NOTES_LOC_DAY) return json({ ok: false, msg: '今天这里的留言已经很多了，明天再来。', ...view(), at: now }, 429);
-				const cd = await this.ctx.storage.get<{ day: number; n: number }>('notecd:' + hash);
-				const used = cd && cd.day === day ? cd.n : 0;
-				if (used >= NOTES_PER_DAY) return json({ ok: false, msg: `今天已经留了 ${NOTES_PER_DAY} 条，明天再来。`, ...view(), at: now }, 429);
-				// 上面有等待，再查一次同一地点今天有没有留过（同一存档的请求是串行的，这里只是保险）
-				if (list.some((n) => n.author === hash && n.day === day)) return json({ ok: false, msg: '今天已经在这里留过言了，明天再来。', ...view(), at: now }, 429);
-				const nid = [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, '0')).join('');
-				list.push({ id: nid, author: hash, name: current.name, avatar: current.avatar, text: c.text, at: wall, day });
-				while (list.length > NOTES_PER_LOC) list.shift();
-				await this.ctx.storage.put({ ['notes:' + loc]: list, ['notecd:' + hash]: { day, n: used + 1 } });
-				return json({ ok: true, msg: '留言贴上了', ...view(), at: now });
+				// 同一地点排队：读计数、检查、写入之间不会插进别人的发帖
+				return this.inNotes(loc, async () => {
+					// 个人计数和地点计数各自记着日期，只往前走：发留言不推进存档时间，时钟回拨也不会把今天的额度重开
+					const cd = await this.ctx.storage.get<{ day: number; n: number }>('notecd:' + hash);
+					const ld = await this.ctx.storage.get<{ day: number; n: number }>('notesday:' + loc);
+					const today = Math.max(day, cd?.day ?? 0);
+					if (list.some((n) => n.author === hash && n.day === today)) return json({ ok: false, msg: '今天已经在这里留过言了，明天再来。', ...view(), at: now }, 429);
+					const used = cd && cd.day === today ? cd.n : 0;
+					if (used >= NOTES_PER_DAY) return json({ ok: false, msg: `今天已经留了 ${NOTES_PER_DAY} 条，明天再来。`, ...view(), at: now }, 429);
+					// 地点计数记的是当天新增了几条，删帖不退额度；计数的日期比我的还新时按它算（别的存档时间可能稍快）
+					const locDay = Math.max(today, ld?.day ?? 0);
+					const locUsed = ld && ld.day === locDay ? ld.n : 0;
+					if (locUsed >= NOTES_LOC_DAY) return json({ ok: false, msg: '今天这里的留言已经很多了，明天再来。', ...view(), at: now }, 429);
+					const nid = [...crypto.getRandomValues(new Uint8Array(4))].map((b) => b.toString(16).padStart(2, '0')).join('');
+					const next = [...list, { id: nid, author: hash, name: current.name, avatar: current.avatar, text: c.text, at: wall, day: today }].slice(-NOTES_PER_LOC);
+					await this.ctx.storage.put({ ['notes:' + loc]: next, ['notecd:' + hash]: { day: today, n: used + 1 }, ['notesday:' + loc]: { day: locDay, n: locUsed + 1 } });
+					list.splice(0, list.length, ...next); // 写成功才改内存
+					return json({ ok: true, msg: '留言贴上了', ...view(), at: now });
+				});
 			}
 			if (body.op === 'delete') {
-				const i = typeof body.note === 'string' && NOTE_RE.test(body.note) ? list.findIndex((n) => n.id === body.note) : -1;
-				if (i < 0) return json({ ok: false, msg: '这条留言已经不在了', ...view(), at: now }, 404);
-				if (list[i].author !== hash) return json({ ok: false, msg: '只能删自己的留言', ...view(), at: now }, 403);
-				list.splice(i, 1);
-				await this.ctx.storage.put('notes:' + loc, list);
-				return json({ ok: true, msg: '留言删掉了', ...view(), at: now });
+				return this.inNotes(loc, async () => {
+					const i = typeof body.note === 'string' && NOTE_RE.test(body.note) ? list.findIndex((n) => n.id === body.note) : -1;
+					if (i < 0) return json({ ok: false, msg: '这条留言已经不在了', ...view(), at: now }, 404);
+					if (list[i].author !== hash) return json({ ok: false, msg: '只能删自己的留言', ...view(), at: now }, 403);
+					const next = list.filter((_, j) => j !== i);
+					await this.ctx.storage.put('notes:' + loc, next);
+					list.splice(0, list.length, ...next);
+					return json({ ok: true, msg: '留言删掉了', ...view(), at: now });
+				});
 			}
 			return json({ ok: false, msg: '请求无效' }, 400);
 		}
@@ -684,13 +706,7 @@ export class EarthWorld {
 				return { id: m.id, keyHash: m.keyHash, at: m.now, state: sanitizeState(met, locs, { fallbackLoc: region.spawn, now: m.now }) ?? met };
 			});
 			// 所有人和全服周计数一次写入：写失败就谁都没拿到，队伍还在、可以重试；写成功后大厅标记结束，版本号也都变了，重复开始会被拒绝
-			const res = await this.reserveWeek(week, 'coop', counted);
-			try {
-				await this.persistMany(saves, res?.entry);
-			} catch (e) {
-				res?.undo();
-				throw e;
-			}
+			await this.persistMany(saves, { week, k: counted });
 			const mine = saves.find((x) => x.id === id)!.state;
 			const text = (r.success ? def.ok : def.fail).text;
 			l.done = { at: wall, success: r.success, text, ids: ready.map((m) => m.id) };
@@ -760,6 +776,9 @@ export class EarthWorld {
 				if (!Number.isInteger(body.price) || body.price < range.min || body.price > range.max) return no(`价格要在 $${range.min}–$${range.max} 之间`);
 				price = body.price;
 			}
+			// 查收件人时等过存储，期间别人可能也挂了单：挂上之前（中间不再等待）再查一次全局和地点上限
+			if (this.offers.size >= OFFER_MAX) return no('现在挂单太多了，稍后再试');
+			if ([...this.offers.values()].filter((o) => o.loc === current.loc).length >= OFFER_PER_LOC) return no('这里挂着的东西太多了，稍后再试');
 			const oid = newId();
 			this.offers.set(oid, { id: oid, kind: op, from: id, fromName: current.name, fromAvatar: current.avatar, to, toId, toName, item: item.id, price, loc: current.loc, at: wall });
 			return reply({ msg: op === 'gift' ? `${item.icon} 等${toName}收下${item.name}` : `${item.icon} ${item.name}挂上二手摊了，$${price}` });
@@ -812,16 +831,10 @@ export class EarthWorld {
 			const toAfter = wk(noteMet(r.to, [{ hash: fromHash, name: o.fromName, avatar: o.fromAvatar }], day));
 			const mine = canon(toAfter, now);
 			// 一笔交易算一次（双方都记一份力）；和双方存档一次写入
-			const res = toAfter.weekly !== r.to.weekly ? await this.reserveWeek(week, 'trade', 1) : null;
-			try {
-				await this.persistMany([
-					{ id: o.from, keyHash: rec.keyHash, state: canon(wk(noteMet(r.from, [{ hash, name: current.name, avatar: current.avatar }], day)), fNow), at: fNow },
-					{ id, keyHash, state: mine, at: now },
-				], res?.entry);
-			} catch (e) {
-				res?.undo();
-				throw e;
-			}
+			await this.persistMany([
+				{ id: o.from, keyHash: rec.keyHash, state: canon(wk(noteMet(r.from, [{ hash, name: current.name, avatar: current.avatar }], day)), fNow), at: fNow },
+				{ id, keyHash, state: mine, at: now },
+			], { week, k: toAfter.weekly !== r.to.weekly ? 1 : 0 });
 			this.offers.delete(o.id);
 			const msg = o.price > 0 ? `${item.icon} 花 $${o.price} 买下了${item.name}` : `${item.icon} 收下了${o.fromName}送的${item.name}`;
 			return json({ ok: true, msg, state: publicState(mine), ...view(mine), at: now });

@@ -15,13 +15,18 @@ test('留言文字：去掉控制字符和多余空白；空的、太长的、�
 	// 审查问题 6：全角数字、点号分隔、拆开的网址、中文账号
 	for (const bad of ['电话 ０４１２３４５６７８', '电话 0412.345.678', 'h t t p s : / / e x a m p l e . c o m', '微信 @微信号', 'w w w . a b c', '加微信 abcd1234']) assert.ok('error' in cleanNote(bad), bad);
 	assert.ok('text' in cleanNote('2026 年第一次来，日落 6 点半'), '正常的年份和时间可以');
+	// 复审问题 5：日期、营业时间、金额、普通提到平台名的句子不误杀
+	for (const ok of ['2026-11-17 日落很美', '营业时间 09:00-17:00', '套餐一共 $1,234.56', '微信真的很好用', 'QQ音乐很好听', '2026年11月17日 到此一游']) assert.ok('text' in cleanNote(ok), ok);
+	for (const bad of ['加 qq 12345678', '微信号: shop_abc', 'wx：abcde12', '电话 04 12 34 56 78']) assert.ok('error' in cleanNote(bad), bad);
 });
 
-function world() {
+function world(delayMs = 0) {
 	const data = new Map<string, any>();
+	const wait = () => (delayMs ? new Promise((d) => setTimeout(d, delayMs)) : Promise.resolve());
 	const storage = {
-		get: async (k: string) => (data.has(k) ? structuredClone(data.get(k)) : undefined),
+		get: async (k: string) => { await wait(); return data.has(k) ? structuredClone(data.get(k)) : undefined; },
 		put: async (k: string | Record<string, unknown>, v?: unknown) => {
+			await wait();
 			if (typeof k === 'string') data.set(k, structuredClone(v));
 			else for (const [kk, vv] of Object.entries(k)) data.set(kk, structuredClone(vv));
 		},
@@ -83,4 +88,38 @@ test('留言板：每个地点每天最多新增 10 条，同时来的不丢、�
 	const stored = data.get('notes:perth') as { text: string; day: number }[];
 	assert.equal(stored.length, NOTES_PER_LOC);
 	assert.equal(stored.filter((n) => n.day !== 1).length, NOTES_LOC_DAY, '今天的 10 条都在');
+});
+
+test('留言板：删帖不退地点额度；读写交错的同时发帖也不超过 10 条（复审问题 2）', async () => {
+	const { data, call } = world(2);
+	const ids = Array.from({ length: NOTES_LOC_DAY + 3 }, (_, i) => ({ id: `notes-churn-${String(i).padStart(2, '0')}`, key: 'c'.repeat(24) }));
+	for (const p of ids) await call({ action: 'create', ...p, profile });
+	// 前 6 个人发了又删
+	for (const p of ids.slice(0, 6)) {
+		const r = await call({ action: 'notes', op: 'post', ...p, text: '发了就删' });
+		assert.ok(r.data.ok);
+		assert.ok((await call({ action: 'notes', op: 'delete', ...p, note: r.data.notes[0].id })).data.ok);
+	}
+	const res = await Promise.all(ids.slice(6).map((p, i) => call({ action: 'notes', op: 'post', ...p, text: `第 ${i} 位` })));
+	assert.equal(res.filter((r) => r.data.ok).length, NOTES_LOC_DAY - 6, '删掉的也算今天新增过的');
+	assert.equal((data.get('notes:perth') as unknown[]).length, NOTES_LOC_DAY - 6);
+});
+
+test('留言板：发留言后时钟回拨到前一天，同一地点也不能再留（复审问题 4）', async () => {
+	const realNow = Date.now;
+	try {
+		const { call } = world();
+		const A = { id: 'notes-clock-1', key: 'a'.repeat(24) };
+		// 珀斯午夜前 10 分钟建档（存档时间落在前一天）
+		const day0 = Math.ceil(realNow() / 86_400_000) * 86_400_000 - 8 * 3_600_000; // 某个珀斯午夜（UTC+8）
+		Date.now = () => day0 - 600_000;
+		await call({ action: 'create', ...A, profile });
+		Date.now = () => day0 + 100;
+		assert.ok((await call({ action: 'notes', op: 'post', ...A, text: '过了午夜' })).data.ok);
+		Date.now = () => day0 - 100;
+		const again = await call({ action: 'notes', op: 'post', ...A, text: '回拨再来' });
+		assert.equal(again.status, 429);
+	} finally {
+		Date.now = realNow;
+	}
 });
