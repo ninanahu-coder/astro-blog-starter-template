@@ -5,7 +5,7 @@
 
 ## 目标
 
-为 `src/game/data/wa.ts` 里的每个游戏地点采集 5–15 个值得“实地打卡”的兴趣点（POI）。
+为 `src/game/data/wa-base.ts` 里的每个游戏地点采集 5–15 个值得“实地打卡”的兴趣点（POI）。
 
 ## 允许的数据源（只用开放许可的数据）
 
@@ -18,7 +18,7 @@
 
 ## 步骤
 
-1. 读取 `src/game/data/wa.ts`，拿到每个地点的 `id / lat / lon / radiusKm`。
+1. 读取 `src/game/data/wa-base.ts`，拿到每个地点的 `id / lat / lon / radiusKm`。
 2. 对每个地点，在其 `radiusKm` 范围内查询 OSM：`tourism=attraction|viewpoint|museum`、`natural=beach`、`leisure=park`、`historic=*`、`amenity=marketplace|pub`。
 3. 只保留有名字、且公众可进入的条目；按知名度（有 wikidata/wikipedia 标签优先）挑 5–15 个。
 4. 名字写成 `中文名 English Name`；没有通行中文名时只写英文，不要自己音译。

@@ -37,13 +37,17 @@ function makeWorld() {
 	return { data, world: new EarthWorld({ storage } as never, {}) };
 }
 
-async function bundlePage(): Promise<string> {
+async function bundlePage(opts: { venuesFail?: boolean } = {}): Promise<string> {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
 	const start = astro.indexOf('<script>') + '<script>'.length;
 	const end = astro.indexOf('</script>', start);
 	const out = await build({
 		stdin: { contents: astro.slice(start, end), resolveDir: join(ROOT, 'src/pages'), loader: 'ts', sourcefile: 'earth-page.ts' },
 		bundle: true, format: 'esm', platform: 'neutral', write: false, logLevel: 'silent',
+		// 真实底图的地图库是动态加载的：测试环境没有 WebGL，走手绘地图，不需要把它打进来
+		external: ['maplibre-gl', 'maplibre-gl/*'],
+		// venuesFail：真实地点分包下载失败（断网时打开「附近」）——把它换成一个一加载就报错的模块
+		plugins: opts.venuesFail ? [{ name: 'venues-fail', setup(b) { b.onLoad({ filter: /wa\.venues\.json$/ }, () => ({ contents: 'throw new Error("offline")', loader: 'js' })); } }] : [],
 	});
 	return out.outputFiles[0].text;
 }
@@ -173,6 +177,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			await idle();
 		};
 		const panel = () => el('panel').innerHTML;
+		// 在线频道的消息：页面攒 150 毫秒合成一次重画（第 35 轮），发完等它画完
+		const wsSay = async (m: unknown) => { lastWs!.onmessage!({ data: JSON.stringify(m) }); await pause(200); };
 		// 改了服务端存档后让页面去同步：等页面缓存的存档版本和服务端一致（最多 2 秒），不靠固定睡眠
 		const clientRev = () => (JSON.parse(store.get('earth.save.v1') ?? 'null') as { rev?: number } | null)?.rev;
 		const pullNow = async () => {
@@ -270,6 +276,14 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 				await click({ pref: 'sound' });
 				assert.match(panel(), /data-pref="sound" aria-pressed="false">/);
 				audioLog.offAt = audioLog.notes;
+				// 真实地图（第 31 轮）：默认开，能关能开，存进本机；测试环境没有 WebGL，出行页一直是手绘地图
+				assert.match(panel(), /data-pref="basemap" aria-pressed="true">已开启/);
+				assert.match(panel(), /OpenFreeMap/);
+				await click({ pref: 'basemap' });
+				assert.match(panel(), /data-pref="basemap" aria-pressed="false">已关闭/);
+				assert.equal(JSON.parse(store.get('earth.prefs.v1')!).basemap, false);
+				await click({ pref: 'basemap' });
+				assert.equal(JSON.parse(store.get('earth.prefs.v1')!).basemap, true);
 				// 关掉新手指南后今天页不再显示，打开后回来
 				await click({ pref: 'guide' });
 				await click({ tab: 'place' });
@@ -281,6 +295,16 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 				assert.match(panel(), /新手指南 · 第 1 天/, '重新打开后又显示');
 				await click({ tab: 'me' });
 				await click({ metab: 'sync' });
+				// 换设备（第 32 轮）：点「显示二维码」后同步页里出现二维码（库是点了才加载的），再点收起
+				assert.match(panel(), /data-qr aria-expanded="false">显示二维码/);
+				await click({ qr: '' });
+				for (let i = 0; i < 100 && !panel().includes('class="qr"'); i++) await pause(20);
+				assert.match(panel(), /<svg class="qr" viewBox="0 0 \d+ \d+" role="img" aria-label="同步码二维码/);
+				assert.match(panel(), /data-qr aria-expanded="true">收起二维码/);
+				assert.match(panel(), /等同于密码/);
+				assert.deepEqual(a11yIssues(panel()), [], '二维码');
+				await click({ qr: '' });
+				assert.ok(!panel().includes('class="qr"'), '点收起后不显示');
 			}
 		}
 
@@ -314,14 +338,14 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.ok(!copied.includes(cred.id) && !copied.includes(cred.key), '分享文字不能带凭证');
 		// 转义：在线频道发来的名字和文字不经过服务端的名字清洗，界面必须自己转义
 		assert.ok(lastWs, '连上了在线频道');
-		lastWs!.onmessage!({ data: JSON.stringify({ t: 'chat', name: '<img src=x onerror=alert(1)>', avatar: '🧑', text: '<script>bad()</script>' }) });
+		await wsSay({ t: 'chat', name: '<img src=x onerror=alert(1)>', avatar: '🧑', text: '<script>bad()</script>' });
 		await click({ tab: 'social' });
 		assert.ok(!panel().includes('<img src=x') && !panel().includes('<script>bad'), '聊天内容没有转义');
 		assert.match(panel(), /&lt;img src=x onerror=alert\(1\)&gt;/);
 		// 同地点有其他玩家时，社交标签显示人数
-		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: 'peer-1', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
+		await wsSay({ t: 'join', p: { id: 'peer-1', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } });
 		assert.match(el('tabs').innerHTML, /class="badge"[^>]*>1</, '社交标签显示 1 位');
-		lastWs!.onmessage!({ data: JSON.stringify({ t: 'leave', id: 'peer-1' }) });
+		await wsSay({ t: 'leave', id: 'peer-1' });
 		assert.doesNotMatch(el('tabs').innerHTML, /class="badge"/);
 		// 社交页的快捷短语：点一下发到本地频道
 		await click({ tab: 'social' });
@@ -345,7 +369,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		const peerH = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode('ui-peer-gift')))].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
 		data.set('h:' + peerH, 'ui-peer-gift');
 		data.set('save:ui-peer-gift', { keyHash: 'x', at: 0, state: { loc: (data.get('save:' + cred.id) as any).state.loc, name: '小王' } });
-		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: peerH, name: '<b>小王</b>', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
+		await wsSay({ t: 'join', p: { id: peerH, name: '<b>小王</b>', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } });
 		const giftSave = data.get('save:' + cred.id) as any;
 		giftSave.state.inventory = { ...giftSave.state.inventory, water: 2 };
 		data.set('save:' + cred.id, giftSave);
@@ -392,7 +416,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(panel(), /role="progressbar"/);
 		assert.match(panel(), /data-week="claim" disabled/);
 		// 断开连接时角标也要清掉
-		lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: 'peer-2', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } }) });
+		await wsSay({ t: 'join', p: { id: 'peer-2', name: '路人', avatar: '🧑', loc: (data.get('save:' + cred.id) as any).state.loc } });
 		assert.match(el('tabs').innerHTML, /class="badge"/);
 		(lastWs as unknown as { onclose: () => void }).onclose();
 		assert.doesNotMatch(el('tabs').innerHTML, /class="badge"/, '断开后角标清掉');
@@ -402,13 +426,49 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ tab: 'place' });
 		const anyAct = panel().match(/data-act="([^"]+)"/)?.[1];
 		assert.ok(anyAct);
+		const revBefore = (data.get('save:' + cred.id) as any).state.rev;
 		await click({ act: anyAct! });
 		await pause(30);
 		assert.match(el('hud').innerHTML, /现在离线/);
+		// 离线排队（第 33 轮）：做事先排在本机，今天页列出来，顶栏写排了几个
+		assert.match(el('toast').textContent, /已排队（1\/5）/);
+		assert.match(panel(), /排队中 · 联网后自动补交/);
+		assert.match(el('hud').innerHTML, /已排 1 个/);
+		await click({ act: anyAct! });
+		assert.equal(JSON.parse(store.get('earth.queue.v1')!).items.length, 2, '排队存在本机');
+		// 看真实位置的动作不排
+		await click({ gps: '' });
+		assert.equal(JSON.parse(store.get('earth.queue.v1')!).items.length, 2);
+		// 联网：按顺序补交两个，服务端存档前进两版，排队清空
+		g.fetch = realFetch;
+		winListeners.online?.({});
+		for (let i = 0; i < 100 && (JSON.parse(store.get('earth.queue.v1')!).items.length || (data.get('save:' + cred.id) as any).state.rev < revBefore + 2); i++) await pause(20);
+		assert.equal((data.get('save:' + cred.id) as any).state.rev, revBefore + 2, '两个排队的动作都交给了服务器');
+		assert.equal(JSON.parse(store.get('earth.queue.v1')!).items.length, 0);
+		assert.match(el('toast').textContent, /补交了 2 个排队的动作/);
+		assert.doesNotMatch(el('hud').innerHTML, /现在离线/);
+		assert.ok(!panel().includes('排队中'), '交完不再显示排队');
+		// 补交时有一个没通过：停下，后面的取消，告诉玩家原因
+		g.fetch = async () => { throw new TypeError('offline'); };
+		await click({ use: 'no-such-item' });
+		await click({ act: anyAct! });
+		const revMid = (data.get('save:' + cred.id) as any).state.rev;
+		g.fetch = realFetch;
+		winListeners.online?.({});
+		for (let i = 0; i < 100 && JSON.parse(store.get('earth.queue.v1')!).items.length; i++) await pause(20);
+		await pause(40);
+		assert.equal(JSON.parse(store.get('earth.queue.v1')!).items.length, 0);
+		assert.equal((data.get('save:' + cred.id) as any).state.rev, revMid, '第一个没通过，后面的没交');
+		assert.match(el('toast').textContent, /没成功：.*后面 1 个已取消/);
+		// 全部取消按钮
+		g.fetch = async () => { throw new TypeError('offline'); };
+		await click({ act: anyAct! });
+		assert.match(panel(), /data-queue-clear/);
+		await click({ queueClear: '' });
+		assert.equal(JSON.parse(store.get('earth.queue.v1')!).items.length, 0);
 		g.fetch = realFetch;
 		winListeners.online?.({});
 		await pause(60);
-		assert.doesNotMatch(el('hud').innerHTML, /现在离线/);
 		// 出行到罗特尼斯岛（先到弗里曼特尔坐渡轮）：第一次抵达有事件，弹窗打开时锁住背后
 		// 开头为了测周结算预警把现金设成 $120：弗里曼特尔抽到的事件不固定，有的选项要花钱，剩下的不够坐渡轮去罗特尼斯岛。出发前补足
 		const rich = data.get('save:' + cred.id) as any;
@@ -575,6 +635,20 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.equal(clientRev(), newest, '先发后到的旧同步没有盖掉新的');
 		// 音效关着时，后面的出行、事件、动作都没有出声
 		assert.equal(audioLog.notes, audioLog.offAt, '关掉音效后不再出声');
+		// 性能（第 35 轮）：一下子来 300 条进场消息，只合成一两次重画；社交页只列前 30 位，其余写个数
+		const tabsEl = el('tabs');
+		let tabsHtml = tabsEl.innerHTML, tabWrites = 0;
+		Object.defineProperty(tabsEl, 'innerHTML', { get: () => tabsHtml, set: (v: string) => { tabWrites++; tabsHtml = v; }, configurable: true });
+		const myLoc = (data.get('save:' + cred.id) as any).state.loc;
+		for (let i = 0; i < 300; i++) lastWs!.onmessage!({ data: JSON.stringify({ t: 'join', p: { id: `crowd-${i}`, name: `路人${i}`, avatar: '🧑', loc: myLoc } }) });
+		await pause(250);
+		assert.ok(tabWrites >= 1 && tabWrites <= 2, `300 条消息重画了 ${tabWrites} 次`);
+		assert.match(tabsHtml, />30\d</, '角标是最新人数');
+		await click({ tab: 'social' });
+		const rows = panel().match(/data-giftpick="crowd-/g) ?? [];
+		assert.equal(rows.length, 30, '只列前 30 位');
+		assert.match(panel(), /还有 2\d\d 位玩家在这里/);
+		assert.ok(panel().length < 60_000, `社交页 HTML ${panel().length} 字节`);
 	} finally {
 		for (const id of timers) clearTimeout(id);
 		rmSync(dir, { recursive: true, force: true });
@@ -585,6 +659,226 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	}
 });
 
+
+/** 扫码打开页面（第 32 轮）：地址栏带 #sync=；本机已有存档 local 时按情况处理。返回页面元素、本机存储和地址栏的变化 */
+type HashOpts = {
+	/** 本机存储里预先放的其他键（比如排队） */
+	extra?: Record<string, string>;
+	/** 改写服务器的回复（模拟慢、坏响应）：返回 undefined 用原回复 */
+	reply?: (body: any, res: () => Promise<Response>) => Promise<Response | undefined>;
+	venuesFail?: boolean;
+	/** 页面启动完、清理之前再做点什么（点按钮、触发联网事件） */
+	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; el: (id: string) => El }) => Promise<void>;
+};
+async function openWithHash(hash: string, local: { cred: unknown; state: unknown } | null, world: EarthWorld, confirmAnswer = true, opts: HashOpts = {}) {
+	const els = new Map<string, El>();
+	const el = (id: string): El => {
+		if (!els.has(id)) els.set(id, {
+			id, innerHTML: '', textContent: '', value: '', disabled: false, inert: false, classList: new ClassList(), attrs: {}, ls: {}, focused: 0, scrollTop: 0, scrollHeight: 0,
+			setAttribute(k, v) { this.attrs[k] = v; }, addEventListener(t, f) { this.ls[t] = f; },
+			querySelector() { return null; }, focus() { this.focused++; },
+		});
+		return els.get(id)!;
+	};
+	const store = new Map<string, string>();
+	if (local) { store.set('earth.cred.v1', JSON.stringify(local.cred)); store.set('earth.save.v1', JSON.stringify(local.state)); }
+	for (const [k, v] of Object.entries(opts.extra ?? {})) store.set(k, v);
+	const docLs: Record<string, (e: unknown) => void> = {};
+	const winLs: Record<string, (e: unknown) => void> = {};
+	const g = globalThis as any;
+	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
+	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[] };
+	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, hidden: false };
+	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => { winLs[t] = f; } };
+	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
+	g.location = { protocol: 'http:', host: 'game.test', pathname: '/earth/', search: '', hash, reload() { seen.reloads++; } };
+	g.history = { replaceState: (_s: unknown, _t: string, u: string) => { seen.replaced.push(u); g.location.hash = ''; } };
+	g.confirm = (m: string) => { seen.asked.push(m); return confirmAnswer; };
+	g.fetch = async (u: string, o?: RequestInit) => {
+		if (String(u) !== '/api/earth/save') return new Response('{}', { status: 404 });
+		const res = () => world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: o?.body as string }));
+		return (await opts.reply?.(JSON.parse(o?.body as string), res)) ?? res();
+	};
+	g.WebSocket = class { static OPEN = 1; readyState = 0; send() {} close() {} };
+	g.setInterval = () => 0;
+	const timers = new Set<ReturnType<typeof setTimeout>>();
+	const realSetTimeout = saved.setTimeout;
+	g.setTimeout = (f: () => void, ms?: number) => { const id = realSetTimeout(f, ms); timers.add(id); return id; };
+	Object.defineProperty(g, 'navigator', { value: { geolocation: null, clipboard: null }, configurable: true });
+	const dir = mkdtempSync(join(tmpdir(), 'earth-ui-'));
+	try {
+		const file = join(dir, 'page.mjs');
+		writeFileSync(file, await bundlePage({ venuesFail: opts.venuesFail }));
+		await import(pathToFileURL(file).href);
+		for (let i = 0; i < 50; i++) await pause(10);
+		const click = async (dataset: Record<string, string>) => { docLs.click({ target: { dataset, disabled: false, classList: { contains: () => false }, closest: fakeClosest } }); await pause(30); };
+		await opts.after?.({ click, win: winLs, el });
+		return { el, store, seen };
+	} finally {
+		for (const id of timers) clearTimeout(id);
+		rmSync(dir, { recursive: true, force: true });
+		for (const [k, v] of Object.entries(saved)) {
+			if (k === 'navigator') { if (v) Object.defineProperty(g, 'navigator', v as PropertyDescriptor); continue; }
+			if (v === undefined) delete g[k]; else g[k] = v;
+		}
+	}
+}
+
+/** 直接在服务端建一个角色，返回凭证和存档（给「扫码打开」这类测试当本机已有的角色） */
+async function makeChar(world: EarthWorld, id: string, name: string) {
+	const cred = { id, key: id[0].repeat(24) };
+	const res = await world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: JSON.stringify({ action: 'create', ...cred, profile: { name, avatar: '🧑', origin: 'backpacker', traits: [] } }) }));
+	const j = (await res.json()) as any;
+	assert.ok(j.ok, j.msg);
+	return { cred, state: j.state };
+}
+
+test('界面：扫二维码打开（#sync=）——没有角色就恢复，同一个角色不动，别的角色先问；同步码马上从地址栏抹掉', async () => {
+	const { world } = makeWorld();
+	const make = (id: string, name: string) => makeChar(world, id, name);
+	const a = await make('scan-player-a', '扫码甲');
+	const b = await make('scan-player-b', '扫码乙');
+	const link = `#sync=${encodeURIComponent(a.cred.id + '.' + a.cred.key)}`;
+	// 新设备：直接恢复成甲，进入游戏
+	const fresh = await openWithHash(link, null, world);
+	assert.deepEqual(fresh.seen.replaced, ['/earth/'], '同步码从地址栏抹掉');
+	assert.equal(fresh.el('game').classList.contains('hidden'), false, '恢复后进入游戏');
+	assert.deepEqual(JSON.parse(fresh.store.get('earth.cred.v1')!), a.cred);
+	// 已经是甲：什么也不换
+	const same = await openWithHash(link, a, world);
+	assert.equal(same.seen.asked.length, 0);
+	assert.equal(same.seen.reloads, 0);
+	assert.deepEqual(JSON.parse(same.store.get('earth.cred.v1')!), a.cred);
+	// 本机是乙：先问；不同意就不换
+	const no = await openWithHash(link, b, world, false);
+	assert.match(no.seen.asked[0] ?? '', /扫码乙/);
+	assert.deepEqual(JSON.parse(no.store.get('earth.cred.v1')!), b.cred, '不同意就留着乙');
+	assert.equal(no.seen.reloads, 0);
+	// 同意：换成甲（本机存档也换成甲的），重新载入
+	const yes = await openWithHash(link, b, world, true);
+	assert.deepEqual(JSON.parse(yes.store.get('earth.cred.v1')!), a.cred);
+	assert.equal(JSON.parse(yes.store.get('earth.save.v1')!).id, a.cred.id);
+	assert.equal(yes.seen.reloads, 1);
+	// 同步码不对：服务器不认，什么也不写
+	const bad = await openWithHash(`#sync=${a.cred.id}.${'z'.repeat(24)}`, null, world);
+	assert.equal(bad.store.get('earth.cred.v1'), undefined);
+	assert.equal(bad.el('game').classList.contains('hidden'), true);
+});
+
+test('界面：扫码换角色时，原角色排着的动作在换完之前一个都不交；不换就照常补交（第 7 批审查问题 3）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'race-player-a', '竞态甲');
+	const b = await makeChar(world, 'race-player-b', '竞态乙');
+	const link = `#sync=${encodeURIComponent(a.cred.id + '.' + a.cred.key)}`;
+	const queued = () => ({ 'earth.queue.v1': JSON.stringify({ id: b.cred.id, items: [{ act: { t: 'activity', id: 'rest' }, at: Date.now(), label: '休息', op: 'race0000000000b1' }] }) });
+	// 新角色的存档慢 100 毫秒才回来：这段时间里乙不能同步、补交
+	const slow = async (body: any, res: () => Promise<Response>) => {
+		if (body.action === 'get' && body.id === a.cred.id) await pause(100);
+		return res();
+	};
+	const bRev = () => (data.get('save:' + b.cred.id) as any).state.rev;
+	const yes = await openWithHash(link, b, world, true, { extra: queued(), reply: slow });
+	assert.equal(yes.seen.reloads, 1);
+	assert.equal(bRev(), b.state.rev, '乙排着的动作没交出去');
+	// 不换：乙照常启动，排着的动作补交
+	const no = await openWithHash(link, b, world, false, { extra: queued(), reply: slow });
+	assert.equal(no.seen.reloads, 0);
+	for (let i = 0; i < 100 && bRev() === b.state.rev; i++) await pause(10);
+	assert.equal(bRev(), b.state.rev + 1, '不换角色就照常补交');
+});
+
+test('界面：服务器发来的存档不是这个角色的（坏响应），换角色和恢复都不写本机（第 7 批审查问题 4）', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'badsave-player-a', '坏档甲');
+	const b = await makeChar(world, 'badsave-player-b', '坏档乙');
+	const link = `#sync=${encodeURIComponent(a.cred.id + '.' + a.cred.key)}`;
+	const wrong = async (body: any, res: () => Promise<Response>) => {
+		if (body.action !== 'get' || body.id !== a.cred.id) return undefined;
+		const j = (await (await res()).json()) as any;
+		return new Response(JSON.stringify({ ...j, state: { ...j.state, id: 'someone-else' } }));
+	};
+	const sw = await openWithHash(link, b, world, true, { reply: wrong });
+	assert.equal(sw.seen.reloads, 0, '不换');
+	assert.deepEqual(JSON.parse(sw.store.get('earth.cred.v1')!), b.cred, '凭证还是乙');
+	assert.equal(JSON.parse(sw.store.get('earth.save.v1')!).id, b.cred.id, '存档还是乙');
+	assert.match(sw.el('toast').textContent, /云端存档已损坏/);
+	const rs = await openWithHash(link, null, world, true, { reply: wrong });
+	assert.equal(rs.store.get('earth.cred.v1'), undefined, '恢复时凭证也不写');
+	assert.equal(rs.el('game').classList.contains('hidden'), true);
+});
+
+test('界面：动作已经在服务器结算、回复在路上丢了，联网补交时不会再做一次（第 7 批审查问题 1）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'lost-reply-a', '丢包甲');
+	let lost = 0;
+	const rev = () => (data.get('save:' + a.cred.id) as any).state.rev;
+	await openWithHash('', a, world, true, {
+		reply: async (body, res) => {
+			if (body.action === 'act' && lost === 0) { lost++; await res(); throw new TypeError('connection reset'); }
+			return undefined;
+		},
+		after: async ({ click, win, el }) => {
+			await click({ tab: 'place' });
+			const act = el('panel').innerHTML.match(/data-act="([^"]+)"/)?.[1];
+			assert.ok(act);
+			const before = rev();
+			await click({ act: act! });
+			assert.equal(lost, 1);
+			assert.equal(rev(), before + 1, '服务器已经结算');
+			assert.match(el('toast').textContent, /已排队/, '页面以为没发出去，排了队');
+			win.online?.({});
+			for (let i = 0; i < 100 && /排队中/.test(el('panel').innerHTML); i++) await pause(10);
+			await pause(50);
+			assert.equal(rev(), before + 1, '补交时服务器认出是同一个动作，没再做一次');
+			assert.match(el('toast').textContent, /补交了 1 个排队的动作/);
+		},
+	});
+});
+
+test('界面：真实地点下载失败时显示重试，不会反复重画卡死；点重试、重新联网会再试（第 7 批审查问题 2）', { timeout: 30_000 }, async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'venues-fail-a', '附近甲');
+	let checked = 0;
+	await openWithHash('', a, world, true, {
+		venuesFail: true,
+		after: async ({ click, win, el }) => {
+			await click({ tab: 'near' });
+			await pause(50);
+			assert.match(el('panel').innerHTML, /真实地点数据没载入/);
+			assert.match(el('panel').innerHTML, /data-venues-retry/);
+			await click({ venuesRetry: '' });
+			await pause(50);
+			assert.match(el('panel').innerHTML, /真实地点数据没载入/, '重试又失败，照样停在提示上');
+			win.online?.({});
+			await pause(50);
+			assert.match(el('panel').innerHTML, /真实地点数据没载入/);
+			checked++;
+		},
+	});
+	assert.equal(checked, 1);
+});
+
+test('界面：留言超过每地点上限时页面留下最新的（服务器按最新在前发）（第 7 批审查问题 5）', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'notes-many-a', '留言甲');
+	let html = '';
+	await openWithHash('', a, world, true, {
+		reply: async (body) => {
+			if (body.action !== 'notes') return undefined;
+			// 21 条，最新在前：第 0 条是最新的
+			const notes = Array.from({ length: 21 }, (_, i) => ({ id: 'n' + i, name: '路人', avatar: '🧑', text: `第${i}新的留言`, at: 1_800_000_000_000 - i * 1000, mine: false }));
+			return new Response(JSON.stringify({ ok: true, notes, at: Date.now() }));
+		},
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			for (let i = 0; i < 50 && !el('panel').innerHTML.includes('第0新的留言'); i++) await pause(10);
+			html = el('panel').innerHTML;
+		},
+	});
+	assert.ok(html.includes('第0新的留言'), '最新的在');
+	assert.ok(html.includes('第19新的留言'));
+	assert.ok(!html.includes('第20新的留言'), '最旧的那条截掉');
+});
 
 test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {
 	const { data, world } = makeWorld();

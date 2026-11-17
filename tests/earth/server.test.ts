@@ -1032,3 +1032,60 @@ test('挂单：同时挂单也不会超过每个地点 30 单（复审问题 3�
 	assert.equal(res.filter((r) => r.data.ok).length, 1, '只有一份挂上');
 	assert.equal([...offers.values()].filter((o) => o.loc === 'perth').length, 30);
 });
+
+test('服务端：动作编号去重——同一编号的动作只结算一次，重交时返回当时的结果和最新存档（第 7 批审查问题 1）', async () => {
+	const w = makeWorld();
+	const created = await w.call({ action: 'create', ...cred, profile });
+	const rev0 = created.data.state.rev;
+	const op = 'aaaaaaaaaaaaaaa1';
+	const first = await w.call({ action: 'act', ...cred, rev: rev0, act: { t: 'activity', id: 'rest' }, op });
+	assert.ok(first.data.ok, first.data.msg);
+	const rev1 = first.data.state.rev;
+	// 回复丢了，客户端同步后带着新版本号重交：不再执行
+	const again = await w.call({ action: 'act', ...cred, rev: rev1, act: { t: 'activity', id: 'rest' }, op });
+	assert.equal(again.status, 200);
+	assert.equal(again.data.dup, true);
+	assert.equal(again.data.ok, true);
+	assert.equal(again.data.msg, first.data.msg, '返回当时的结果');
+	assert.equal(again.data.state.rev, rev1, '存档没再前进');
+	assert.equal(w.data.get('save:' + ID).state.rev, rev1);
+	// 带旧版本号重交也一样（不报版本冲突）
+	assert.equal((await w.call({ action: 'act', ...cred, rev: rev0, act: { t: 'activity', id: 'rest' }, op })).data.dup, true);
+	// 新编号照常执行
+	const next = await w.call({ action: 'act', ...cred, rev: rev1, act: { t: 'activity', id: 'rest' }, op: 'aaaaaaaaaaaaaaa2' });
+	assert.equal(next.data.dup, undefined);
+	assert.equal(next.data.state.rev, rev1 + 1);
+	// 被规则拒绝的也记下：重交拿到同样的拒绝，不会换个时机又做成了
+	const no = await w.call({ action: 'act', ...cred, rev: rev1 + 1, act: { t: 'use', item: 'no-such-item' }, op: 'aaaaaaaaaaaaaaa3' });
+	assert.equal(no.data.ok, false);
+	const noAgain = await w.call({ action: 'act', ...cred, rev: rev1 + 1, act: { t: 'use', item: 'no-such-item' }, op: 'aaaaaaaaaaaaaaa3' });
+	assert.equal(noAgain.data.dup, true);
+	assert.equal(noAgain.data.ok, false);
+	assert.equal(noAgain.data.msg, no.data.msg);
+	// 格式不对的编号当作没带：不去重（同一版本再交一次就是版本冲突）
+	const bad = await w.call({ action: 'act', ...cred, rev: rev1 + 1, act: { t: 'activity', id: 'rest' }, op: 'BAD!' });
+	assert.ok(bad.data.ok);
+	assert.equal((await w.call({ action: 'act', ...cred, rev: rev1 + 1, act: { t: 'activity', id: 'rest' }, op: 'BAD!' })).status, 409);
+	// 只记最近 16 个，不会无限长；存储里的记录不外泄到响应
+	let r = w.data.get('save:' + ID).state.rev;
+	for (let i = 0; i < 20; i++) r = (await w.call({ action: 'act', ...cred, rev: r, act: { t: 'activity', id: 'rest' }, op: 'bbbbbbbbbbbbbb' + String(i).padStart(2, '0') })).data.state.rev;
+	const ops = w.data.get('ops:' + ID);
+	assert.equal(ops.length, 16);
+	assert.equal(ops.at(-1).op, 'bbbbbbbbbbbbbb19');
+	assert.ok(!('ops' in next.data.state));
+});
+
+test('服务端：动作编号和存档一次写入——写失败时编号也没记下，重交照常结算一次', async () => {
+	let failNext = false;
+	const w = makeWorld(0, { put: async (k) => { if (failNext && typeof k === 'object' && Object.keys(k).some((x) => x.startsWith('ops:'))) { failNext = false; throw new Error('disk'); } } });
+	const created = await w.call({ action: 'create', ...cred, profile });
+	const rev0 = created.data.state.rev;
+	failNext = true;
+	await assert.rejects(w.call({ action: 'act', ...cred, rev: rev0, act: { t: 'activity', id: 'rest' }, op: 'cccccccccccccccc' }), /disk/);
+	assert.equal(w.data.get('save:' + ID).state.rev, rev0, '存档没写');
+	assert.equal(w.data.get('ops:' + ID), undefined, '编号也没记');
+	const retry = await w.call({ action: 'act', ...cred, rev: rev0, act: { t: 'activity', id: 'rest' }, op: 'cccccccccccccccc' });
+	assert.ok(retry.data.ok, retry.data.msg);
+	assert.equal(retry.data.dup, undefined);
+	assert.equal(retry.data.state.rev, rev0 + 1);
+});

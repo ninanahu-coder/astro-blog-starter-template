@@ -37,6 +37,10 @@ const COOP_DONE_MS = 3 * 60 * 1000; // 结果保留 3 分钟，给没在线的�
 const COOP_MAX_LOBBIES = 200;
 const COOP_PER_LOC = 4;
 const COOP_HINT_MS = 1000; // 同一连接的「队伍有变化」提醒最多 1 秒转发一次（客户端另外合并成 3 秒一拉），防止刷提醒让别人不停拉列表
+/** 动作编号（客户端发出前生成，断网重交时沿用同一个）：服务器记住每个存档最近处理过的几个，重复到达的不再执行 */
+const OP_RE = /^[a-z0-9]{8,32}$/;
+const OPS_KEEP = 16;
+interface OpDone { op: string; ok: boolean; msg: string }
 const CONFLICT_MSG = '进度刚刚更新过（另一台设备，或别的玩家和你一起做的事、和你的交易），已载入最新进度，请再操作一次';
 const OFFER_RE = /^[a-f0-9]{10}$/;
 const NOTE_RE = /^[a-f0-9]{8}$/;
@@ -285,7 +289,8 @@ export class EarthWorld {
 	// 接口：
 	//   create { id, key, profile: { name, avatar, origin, traits } }  新建角色（id 未被占用时）
 	//   get    { id, key }                                             读取存档
-	//   act    { id, key, rev, act: GameAction }                       执行一个动作；rev 与服务端不一致返回 409
+	//   act    { id, key, rev, act: GameAction, op? }                  执行一个动作；rev 与服务端不一致返回 409
+	//          op：动作编号。这个编号的动作已经结算过（响应在路上丢了、客户端重交）时不再执行，返回当时的结果和最新存档（dup: true）
 	//   board  { id, key }                                             净资产排行榜（前 20 名和自己的名次），只读
 	private async handleSave(request: Request): Promise<Response> {
 		if (request.method !== 'POST') return json({ ok: false, msg: '请求无效' }, 405);
@@ -421,8 +426,8 @@ export class EarthWorld {
 	 * 多个存档在同一次 put 里写入（Durable Object 存储对单次多键 put 保证全写或全不写）：共同事件不会出现一部分人拿到奖励。
 	 * week：这次要给全服周计数加几，和存档一起写（见 commitWeek）
 	 */
-	private async persistMany(saves: { id: string; keyHash: string; state: PlayerState; at: number }[], week?: { week: number; k: number }): Promise<void> {
-		const entries: Record<string, unknown> = {};
+	private async persistMany(saves: { id: string; keyHash: string; state: PlayerState; at: number }[], week?: { week: number; k: number }, extra: Record<string, unknown> = {}): Promise<void> {
+		const entries: Record<string, unknown> = { ...extra };
 		for (const x of saves) {
 			const h = (await sha256Hex(x.id)).slice(0, 12);
 			const rankKey = 'rank:' + h;
@@ -508,6 +513,13 @@ export class EarthWorld {
 
 		if (action === 'act') {
 			// 客户端看到的版本落后（另一台设备刚玩过）：不执行，把最新存档还给它
+			// 先认动作编号：重交的动作带着新版本号来（客户端先同步过），不先查就会再执行一遍
+			const op = typeof body.op === 'string' && OP_RE.test(body.op) ? body.op : null;
+			const opsRaw = op ? await this.ctx.storage.get<unknown>('ops:' + id) : undefined;
+			const ops: OpDone[] = Array.isArray(opsRaw) ? opsRaw.filter((o): o is OpDone => !!o && typeof o === 'object' && typeof o.op === 'string' && typeof o.ok === 'boolean' && typeof o.msg === 'string').slice(-OPS_KEEP) : [];
+			const seen = op ? ops.find((o) => o.op === op) : undefined;
+			// 不带这次没落定的每日奖励：返回已落盘的存档
+			if (seen) return json({ ok: seen.ok, msg: seen.msg, dup: true, state: publicState(current), at: now });
 			if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: CONFLICT_MSG, state: publicState(current), at: now }, 409);
 			const act = parseAction(body.act);
 			if (!act) return json({ ok: false, msg: '动作无效' }, 400);
@@ -521,10 +533,13 @@ export class EarthWorld {
 			const after = metric !== null && goalOfWeek(week).metric === metric ? addWeekly(r.state, week) : r.state;
 			const counted = after !== r.state;
 			const next = after !== live ? canon(after) : after;
+			// 结算结果和存档一起记下（同一次写入）：要么都落盘，要么重交时照常再算
+			const opEntry = op ? { ['ops:' + id]: [...ops, { op, ok: r.ok, msg: String(r.msg ?? '') }].slice(-OPS_KEEP) } : {};
 			// 存档和全服周计数一次写入
-			if (next !== current) await this.persistMany([{ id, keyHash, state: next, at: now }], counted ? { week, k: 1 } : undefined);
+			if (next !== current) await this.persistMany([{ id, keyHash, state: next, at: now }], counted ? { week, k: 1 } : undefined, opEntry);
 			// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
-			else if (migrated) await this.persist(id, keyHash, current, now);
+			else if (migrated) await this.persistMany([{ id, keyHash, state: current, at: now }], undefined, opEntry);
+			else if (op) await this.ctx.storage.put(opEntry);
 			return json({ ok: r.ok, msg: r.msg, state: publicState(next), at: now, daily: claim?.msg });
 		}
 		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, wall, locked);
