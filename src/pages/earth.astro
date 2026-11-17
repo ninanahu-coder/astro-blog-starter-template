@@ -410,6 +410,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { getWish } from '../game/core/wishes.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
 			import { weatherAt, weatherOn } from '../game/core/weather.ts';
+			import { realDateLabel, realDayOfYear, temps } from '../game/core/sky.ts';
 			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
@@ -1025,7 +1026,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const lv = level(s.respect);
 					const role = career ? `${career.name} · ${career.levels[s.job!.level]?.title ?? ''}` : `Lv${lv.lv} ${lv.title}`;
 					top = `<div class="hud-top"><div class="hud-title"><span class="hud-sub" title="${formatClock(s.clock)}">${time}</span><h1>${esc(loc.name)}</h1></div>
-						<span class="wx-pill${w.closesSea ? ' storm' : ''}">${w.icon} ${esc(w.name)}${w.closesSea ? ' · 海上关闭' : ''}</span></div>
+						<span class="wx-pill${w.closesSea ? ' storm' : ''}">${w.icon} ${esc(w.name)} ${temps(loc, s.clock, w.id).max}°${w.closesSea ? ' · 海上关闭' : ''}</span></div>
 						<div class="hud-chips">${cash}<span class="chip">${esc(role)}</span>${starHtml}${moodBtn}${sync}</div>`;
 				} else {
 					// 其他页：副标题 + 页名；右边现金和心情，下面一条迷你需求条
@@ -1265,6 +1266,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<form class="inline" id="note-form" style="margin-top:8px"><input id="note-input" maxlength="${NOTE_MAX}" placeholder="写一句给后来的人…" aria-label="留言内容" autocomplete="off" /><button class="primary">贴上</button></form></div>`;
 			}
 
+			/** 天象卡（第 8 批）：按地点和游戏日期用公式估算，只做显示，不影响玩法 */
+			function skyCard(s: PlayerState) {
+				const loc = getLocation(region, s.loc)!;
+				const w = weatherAt(s);
+				const t = temps(loc, s.clock, w.id);
+				const rows = [`<div class="row"><span class="ico" aria-hidden="true">🌡️</span><span class="body">气温 ${t.min}–${t.max}°C<small>${esc(w.name)}</small></span></div>`];
+				return `<div class="card sky"><h3>今天的天</h3><p class="muted">游戏里的今天大约是现实中的 ${realDateLabel(realDayOfYear(s.clock))}。下面按纬度、季节和天气估算，不是真实预报。</p><div class="list" style="margin-top:8px">${rows.join('')}</div></div>`;
+			}
+
 			function panelPlace() {
 				const s = state!;
 				const loc = getLocation(region, s.loc)!;
@@ -1372,7 +1382,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${storyCard}${festHtml}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
 			}
 
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */

@@ -880,6 +880,24 @@ test('界面：留言超过每地点上限时页面留下最新的（服务器�
 	assert.ok(!html.includes('第20新的留言'), '最旧的那条截掉');
 });
 
+test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，只做显示）', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'sky-card-a', '天象甲');
+	let panel = '', hud = '';
+	await openWithHash('', a, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			panel = el('panel').innerHTML;
+			hud = el('hud').innerHTML;
+		},
+	});
+	assert.match(panel, /<h3>今天的天<\/h3>/);
+	assert.match(panel, /现实中的 \d+ 月 \d+ 日/);
+	assert.match(panel, /气温 -?\d+–\d+°C/);
+	assert.match(hud, /class="wx-pill[^"]*">[^<]*\d+°/, '顶栏天气带最高气温');
+	assert.deepEqual(a11yIssues(panel), []);
+});
+
 test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {
 	const { data, world } = makeWorld();
 	const els = new Map<string, El>();
