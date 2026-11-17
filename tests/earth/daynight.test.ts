@@ -56,3 +56,12 @@ test('看日出：海滩上只在不下雨的清晨 5–8 点出现', () => {
 	const noon = has(12);
 	assert.ok(!noon || noon.blocked, '中午不能看日出');
 });
+
+test('夜间事件（第 25 轮）：至少 8 条只在夜里出现；大陆上每个地点天黑后抵达都至少有一条能抽到', () => {
+	const night = EVENTS.filter((e) => e.weight > 0 && !e.venueTypes && e.periods?.includes('night'));
+	assert.ok(night.length >= 8, `夜间事件只有 ${night.length} 条`);
+	for (const l of WA.locations.filter((x) => x.kind !== 'island')) {
+		const hit = night.some((e) => !(e.locs || e.tags || e.kinds) || e.locs?.includes(l.id) || e.tags?.some((t) => l.tags.includes(t)) || e.kinds?.includes(l.kind));
+		assert.ok(hit, `${l.id} 天黑后没有夜间事件`);
+	}
+});
