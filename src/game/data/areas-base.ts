@@ -8,8 +8,15 @@ import { SA_BASE } from './sa-base.ts';
 /** 所有区域（首屏版）。第一个是新角色的出生区域 */
 export const AREAS: Region[] = [WA_BASE, SA_BASE];
 
-/** 跨区域路线（第 43 轮起） */
-export const CROSS_ROUTES: Route[] = [];
+/**
+ * 跨区域路线（第 43 轮）：珀斯—阿德莱德有航班；卡尔古利—锡杜纳走横穿纳拉伯平原的艾尔公路（Eyre Highway，经诺斯曼）。
+ * 价格和时间照旧按 engine.ts 的出行公式算（航班按直线距离，公路按直线 × 1.25），没有新数值。
+ * 印度洋—太平洋号火车（珀斯—卡尔古利—阿德莱德）要新的「铁路」出行方式和价格，留到以后（待平衡）。
+ */
+export const CROSS_ROUTES: Route[] = [
+	{ a: 'perth', b: 'adelaide', mode: 'air' },
+	{ a: 'kalgoorlie', b: 'ceduna', mode: 'road' },
+];
 
 /**
  * 把几个区域合成一个「世界」：地点、路线、打卡点、真实地点拼在一起，范围取并集；出生点和默认医院用第一个区域的。

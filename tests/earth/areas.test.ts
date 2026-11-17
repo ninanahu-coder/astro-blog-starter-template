@@ -137,3 +137,34 @@ test('在线频道按区域分：只认注册过的区域 id，不认 world 和�
 		assert.equal(res.status, 404, bad);
 	}
 });
+
+test('跨区域出行（第 43 轮）：珀斯飞阿德莱德、卡尔古利走公路到锡杜纳；价格时间照旧按出行公式算；到了以后存档区域变成南澳', () => {
+	assert.deepEqual(CROSS_ROUTES.map((r) => `${r.a}-${r.b}-${r.mode}`), ['perth-adelaide-air', 'kalgoorlie-ceduna-road']);
+	for (const r of CROSS_ROUTES) {
+		assert.notEqual(areaOf(r.a)!.id, areaOf(r.b)!.id, '两端在不同区域');
+		if (r.mode === 'air') assert.ok([r.a, r.b].every((id) => WORLD.locations.find((l) => l.id === id)!.tags.includes('airport')), '航班两头有机场');
+	}
+	assert.deepEqual(exitsOf(WA_BASE).length, 2);
+	assert.deepEqual(exitsOf(SA_BASE).length, 2);
+	const s0 = createCharacter({ id: 'cross-test', name: '测试', avatar: '🧑', origin: 'backpacker', traits: [], region: 'wa', spawn: 'perth', seed: 7 });
+	const rich = { ...s0, cash: 5000 };
+	const fly = travelOptions(rich, WORLD).find((o) => o.to === 'adelaide')!;
+	assert.equal(fly.mode, 'air');
+	// 航班公式：60 分钟 + 每 750 km 一小时；票价 120 + 每公里 0.25（engine.ts priceRoute，没改）
+	assert.equal(fly.minutes, Math.round(60 + (fly.km / 750) * 60));
+	assert.ok(fly.km > 2000 && fly.km < 2300, `珀斯—阿德莱德直线 ${fly.km} km`);
+	const r = applyAction(rich, WORLD, { t: 'travel', to: 'adelaide', mode: 'air' }, 1_800_000_000_000);
+	assert.ok(r.ok, r.msg);
+	const clean = sanitizeState(r.state, new Set(WORLD.locations.map((l) => l.id)), { fallbackLoc: 'perth' })!;
+	assert.equal(clean.loc, 'adelaide');
+	assert.equal(clean.region, 'sa');
+	assert.ok(travelOptions({ ...clean, pending: null }, WORLD).some((o) => o.to === 'glenelg'), '到了南澳能走南澳的路');
+	// 公路：卡尔古利—锡杜纳，绕行系数 1.25，坐巴士要一天多
+	const kal = { ...s0, loc: 'kalgoorlie', cash: 5000 };
+	const bus = travelOptions(kal, WORLD).find((o) => o.to === 'ceduna')!;
+	assert.equal(bus.mode, 'road');
+	assert.ok(bus.km > 1300 && bus.km < 1700, `${bus.km} km`);
+	assert.ok(bus.minutes > 18 * 60, '一天多');
+	// 西澳本身没有这些路线：平衡模拟只用西澳，不受影响
+	assert.ok(!travelOptions(rich, WA).some((o) => o.to === 'adelaide'));
+});

@@ -1042,6 +1042,42 @@ test('界面：虚拟人生风格——最缺的需求变成想法气泡；NPC �
 	assert.deepEqual(a11yIssues(modal), []);
 });
 
+test('界面：跨区域出行（第 43 轮）——西澳地图上有通往南澳的出口；飞到阿德莱德后地图换成南澳，出行列表标出回西澳的航班', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'cross-ui-a', '跨区甲');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.cash = 5000;
+	rec.state.loc = 'perth';
+	data.set('save:' + a.cred.id, rec);
+	let before = '', list = '', after = '', afterList = '', saved: any = null;
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'go' });
+			before = el('map').innerHTML;
+			list = el('panel').innerHTML;
+			await click({ go: 'adelaide', mode: 'air' });
+			for (let i = 0; i < 100 && (data.get('save:' + a.cred.id) as any).state.loc !== 'adelaide'; i++) await pause(20);
+			await pause(60);
+			saved = (data.get('save:' + a.cred.id) as any).state;
+			await click({ tab: 'go' });
+			after = el('map').innerHTML;
+			afterList = el('panel').innerHTML;
+		},
+	});
+	assert.match(before, /class="exit-label"[^>]*>✈️ 阿德莱德（南澳大利亚）</, '珀斯有飞阿德莱德的出口');
+	assert.match(before, /data-loc="adelaide"/);
+	assert.match(before, /🛣️ 锡杜纳（南澳大利亚）/, '卡尔古利有公路出口');
+	assert.doesNotMatch(before, /data-loc="glenelg"/, '西澳地图上不画南澳的地点');
+	assert.match(list, /data-go="adelaide" data-mode="air"/);
+	assert.match(list, /去南澳大利亚 · /);
+	assert.equal(saved.loc, 'adelaide');
+	assert.equal(saved.region, 'sa');
+	assert.match(after, /data-loc="glenelg"/, '到了以后画南澳');
+	assert.doesNotMatch(after, /data-loc="fremantle"/);
+	assert.match(after, /✈️ 珀斯（西澳大利亚）/);
+	assert.match(afterList, /去西澳大利亚 · /);
+});
+
 test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {
 	const { data, world } = makeWorld();
 	const els = new Map<string, El>();
