@@ -318,6 +318,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.card.warn { background: var(--tint-red); box-shadow: inset 0 0 0 1px var(--bad); }
 			.card.warn h3 { color: var(--tint-red-ink); }
 			.card.warn p { color: var(--text); }
+			.queue { margin: 6px 0 8px 20px; }
 			.offline { margin-top: 8px; padding: 8px 12px; border-radius: 12px; background: var(--tint-amber); color: var(--tint-amber-ink); font-size: 13px; font-weight: 600; }
 			.streak { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
 			.streak .dot { height: 34px; border-radius: 10px; background: var(--soft); color: var(--dim); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; }
@@ -381,6 +382,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
+			import { actLabel, enqueue, flushSummary, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
 			import { codeOf, hashAction, makeQr, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, webglSupported, type Basemap } from '../game/ui/basemap.ts';
 			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
@@ -797,6 +799,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						const newer = !!state && data.state.rev !== state.rev;
 						adopt(data.state, newer ? '已载入最新进度' : undefined);
 						render();
+						void flushQueue();
 					} else syncStatus = '同步失败：' + (data.msg || '');
 				} catch {
 					syncStatus = '离线：可以查看，联网后才能行动';
@@ -852,8 +855,88 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let busy = false;
 			/** 每发起一次会改存档的请求就加一（留言不改存档，不算）：后台同步用它判断回来的存档是不是已经过时 */
 			let actGen = 0;
+			// ---------- 离线排队（第 33 轮）----------
+			// 断网时点的动作先记在本机（只排白名单里的），联网后按顺序补交；服务器照常一个个结算，哪个没通过就停下、后面全取消
+			let queue: Queued[] = [];
+			let flushing = false;
+			const NAMES = {
+				activity: (id: string) => ACTIVITIES.find((x) => x.id === id)?.name,
+				loc: (id: string) => getLocation(region, id)?.name,
+				item: (id: string) => getItem(id)?.name,
+				npc: (id: string) => NPCS.find((x) => x.id === id)?.name,
+			};
+			function saveQueue() { if (cred) store.set(QUEUE_KEY, queueJson(cred.id, queue)); }
+			/** 从本机读出这个角色的排队（换了角色、坏数据、过期的都丢掉） */
+			function loadQueue() {
+				if (!cred) { queue = []; return; }
+				const r = parseQueue(store.get(QUEUE_KEY), cred.id, Date.now());
+				queue = r.items;
+				saveQueue();
+				if (r.expired) toast(flushSummary({ done: 0, cancelled: 0, expired: r.expired }));
+			}
+			function queueUp(a: GameAction): null {
+				const next = enqueue(queue, a, actLabel(a, NAMES), Date.now());
+				if (!next) {
+					toast(queueable(a) ? `离线：最多排 ${QUEUE_MAX} 个动作，联网后再来` : '网络断开了，这件事要联网才能做');
+					return null;
+				}
+				queue = next;
+				saveQueue();
+				toast(`离线：「${queue[queue.length - 1].label}」已排队（${queue.length}/${QUEUE_MAX}），联网后自动补交`);
+				render();
+				return null;
+			}
+			/** 联网后按顺序补交；第一个没通过的停下，后面的取消 */
+			async function flushQueue() {
+				if (flushing || !queue.length || !state || !cred || busy) return;
+				flushing = true;
+				const pruned = parseQueue(queueJson(cred.id, queue), cred.id, Date.now());
+				queue = pruned.items;
+				let done = 0, cancelled = 0;
+				let failed: { label: string; msg: string } | undefined;
+				try {
+					while (queue.length) {
+						const it = queue[0];
+						const r = await actOnce(it.act, true);
+						if (r.kind === 'offline' || r.kind === 'skip') break; // 又断网了：留着下次再交
+						queue = queue.slice(1);
+						if (r.kind === 'ok') { done++; continue; }
+						failed = { label: it.label, msg: r.msg };
+						cancelled = queue.length;
+						queue = [];
+					}
+				} finally {
+					flushing = false;
+					saveQueue();
+				}
+				const msg = flushSummary({ done, failed, cancelled, expired: pruned.expired });
+				if (msg) toast(msg);
+				render();
+			}
+			function queueCard() {
+				if (!queue.length) return '';
+				return `<div class="card"><h3>排队中 · 联网后自动补交</h3><p class="muted">服务器按顺序结算；有一个没通过，后面的就取消。</p>
+					<ol class="queue">${queue.map((q) => `<li>${esc(q.label)}</li>`).join('')}</ol>
+					<div class="inline"><button data-queue-clear>全部取消</button></div></div>`;
+			}
+
 			async function act(a: GameAction): Promise<{ ok: boolean; msg: string } | null> {
-				if (!state || !cred || busy) return null;
+				if (!state || !cred || busy || flushing) return null;
+				// 还有排队的：先补交，保证顺序；补交不了（还离线）就接着排
+				if (queue.length) {
+					await flushQueue();
+					if (queue.length) return queueable(a) ? queueUp(a) : (toast('网络断开了，这件事要联网才能做'), null);
+					if (!state) return null;
+				}
+				const r = await actOnce(a);
+				if (r.kind === 'ok') return { ok: true, msg: r.msg };
+				if (r.kind === 'offline') return queueUp(a);
+				return null;
+			}
+			type Sent = { kind: 'ok'; msg: string } | { kind: 'fail'; msg: string } | { kind: 'offline' } | { kind: 'skip' };
+			/** 发一个动作给服务器结算。quiet：补交时不逐个弹失败提示（最后汇总） */
+			async function actOnce(a: GameAction, quiet = false): Promise<Sent> {
+				if (!state || !cred || busy) return { kind: 'skip' };
 				busy = true;
 				actGen++;
 				document.body.classList.add('busy');
@@ -861,7 +944,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const before = state;
 				try {
 					const { status, data } = await api({ action: 'act', id: cred.id, key: cred.key, rev: before.rev, act: a });
-					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, data.msg); render(); return null; }
+					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, quiet ? undefined : data.msg); render(); return { kind: 'fail', msg: data.msg || '存档版本变了' }; }
 					if (data.state) adopt(data.state);
 					// 只有返回的正好是动作前那一版的下一版，变化才是这个动作带来的
 					if (data.ok && state && state.rev === nextRev(before.rev)) {
@@ -872,13 +955,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						sfx(got.length ? 'ach' : 'ok');
 					}
 					else { lastDelta = []; lastAch = []; }
-					if (!data.ok) { sfx('fail'); toast(data.msg || '操作失败'); render(); return null; }
-					return { ok: true, msg: data.msg };
+					if (!data.ok) { sfx('fail'); if (!quiet) toast(data.msg || '操作失败'); render(); return { kind: 'fail', msg: data.msg || '操作失败' }; }
+					return { kind: 'ok', msg: data.msg };
 				} catch {
 					syncStatus = '离线：可以查看，联网后才能行动';
-					toast('网络断开了，联网后才能行动');
 					renderHud();
-					return null;
+					return { kind: 'offline' };
 				} finally {
 					busy = false;
 					document.body.classList.remove('busy');
@@ -930,7 +1012,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<div class="hud-chips">${moodBtn}${sync}</div>
 						<div class="mini-needs">${needList(s).map((n) => `<div class="need" title="${n.name} ${n.v}">${n.icon}<div class="bar"><i class="${barCls(n.v)}" style="width:${n.v}%"></i></div></div>`).join('')}</div>`;
 				}
-				$('hud').innerHTML = `${top}${syncStatus.startsWith('离线') ? '<div class="offline" role="status">现在离线：可以查看，联网后才能行动</div>' : ''}`;
+				const offline = syncStatus.startsWith('离线') ? `现在离线：可以查看；做事、出行等可以先排队，联网后自动补交${queue.length ? `（已排 ${queue.length} 个）` : ''}` : queue.length ? `有 ${queue.length} 个排队的动作等着补交` : '';
+				$('hud').innerHTML = `${top}${offline ? `<div class="offline" role="status">${offline}</div>` : ''}`;
 			}
 
 			const proj = makeProjection(region);
@@ -1247,6 +1330,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return `
 					${nextCard(s, !!homeHere, !!workHere && !shiftWhy)}
 					${settleCard(s)}
+					${queueCard()}
 					${recapCard(s)}
 					${guideCard(s)}
 					${needsCard(s)}
@@ -1778,7 +1862,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -1791,6 +1875,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 				else if (d.metab) { meTab = d.metab; renderPanel(); }
 				else if ('guideClose' in d) { setPrefs({ guide: false }); toast('新手指南已关闭，可以在「我 · 设置」里重新打开'); renderPanel(); }
+				else if ('queueClear' in d) { queue = []; saveQueue(); toast('排队的动作已全部取消'); render(); }
 				else if ('recapClose' in d) { store.set(RECAP_KEY, d.recapClose ?? ''); renderPanel(); }
 				else if ('share' in d) shareProgress();
 				else if (d.pref) {
@@ -1998,7 +2083,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (tr) pickTraits = pickTraits.includes(tr) ? pickTraits.filter((x) => x !== tr) : [...pickTraits, tr];
 				renderCreate();
 			});
-			function begin() { render(); connect(); }
+			function begin() { loadQueue(); render(); connect(); }
 			$('c-start').addEventListener('click', async () => {
 				const btn = $('c-start') as HTMLButtonElement;
 				const c = { id: 'p' + randId(15), key: randId(24) };
@@ -2065,7 +2150,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			renderCreate();
 			render();
 			fetch('/earth/cgi/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: any) => { cgi = m.images || {}; if (state) { renderPanel(); renderEvent(); } }).catch(() => {});
-			if (state) { connect(); pullCloud(); }
+			if (state) { loadQueue(); connect(); pullCloud(); }
 			void fromSyncLink();
 			document.addEventListener('visibilitychange', () => { if (!document.hidden && state) { connect(); pullCloud(); } });
 			// 手机断网时立刻显示离线，恢复后自动重连并同步

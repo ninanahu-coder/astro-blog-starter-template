@@ -422,13 +422,49 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ tab: 'place' });
 		const anyAct = panel().match(/data-act="([^"]+)"/)?.[1];
 		assert.ok(anyAct);
+		const revBefore = (data.get('save:' + cred.id) as any).state.rev;
 		await click({ act: anyAct! });
 		await pause(30);
 		assert.match(el('hud').innerHTML, /现在离线/);
+		// 离线排队（第 33 轮）：做事先排在本机，今天页列出来，顶栏写排了几个
+		assert.match(el('toast').textContent, /已排队（1\/5）/);
+		assert.match(panel(), /排队中 · 联网后自动补交/);
+		assert.match(el('hud').innerHTML, /已排 1 个/);
+		await click({ act: anyAct! });
+		assert.equal(JSON.parse(store.get('earth.queue.v1')!).items.length, 2, '排队存在本机');
+		// 看真实位置的动作不排
+		await click({ gps: '' });
+		assert.equal(JSON.parse(store.get('earth.queue.v1')!).items.length, 2);
+		// 联网：按顺序补交两个，服务端存档前进两版，排队清空
+		g.fetch = realFetch;
+		winListeners.online?.({});
+		for (let i = 0; i < 100 && (JSON.parse(store.get('earth.queue.v1')!).items.length || (data.get('save:' + cred.id) as any).state.rev < revBefore + 2); i++) await pause(20);
+		assert.equal((data.get('save:' + cred.id) as any).state.rev, revBefore + 2, '两个排队的动作都交给了服务器');
+		assert.equal(JSON.parse(store.get('earth.queue.v1')!).items.length, 0);
+		assert.match(el('toast').textContent, /补交了 2 个排队的动作/);
+		assert.doesNotMatch(el('hud').innerHTML, /现在离线/);
+		assert.ok(!panel().includes('排队中'), '交完不再显示排队');
+		// 补交时有一个没通过：停下，后面的取消，告诉玩家原因
+		g.fetch = async () => { throw new TypeError('offline'); };
+		await click({ use: 'no-such-item' });
+		await click({ act: anyAct! });
+		const revMid = (data.get('save:' + cred.id) as any).state.rev;
+		g.fetch = realFetch;
+		winListeners.online?.({});
+		for (let i = 0; i < 100 && JSON.parse(store.get('earth.queue.v1')!).items.length; i++) await pause(20);
+		await pause(40);
+		assert.equal(JSON.parse(store.get('earth.queue.v1')!).items.length, 0);
+		assert.equal((data.get('save:' + cred.id) as any).state.rev, revMid, '第一个没通过，后面的没交');
+		assert.match(el('toast').textContent, /没成功：.*后面 1 个已取消/);
+		// 全部取消按钮
+		g.fetch = async () => { throw new TypeError('offline'); };
+		await click({ act: anyAct! });
+		assert.match(panel(), /data-queue-clear/);
+		await click({ queueClear: '' });
+		assert.equal(JSON.parse(store.get('earth.queue.v1')!).items.length, 0);
 		g.fetch = realFetch;
 		winListeners.online?.({});
 		await pause(60);
-		assert.doesNotMatch(el('hud').innerHTML, /现在离线/);
 		// 出行到罗特尼斯岛（先到弗里曼特尔坐渡轮）：第一次抵达有事件，弹窗打开时锁住背后
 		// 开头为了测周结算预警把现金设成 $120：弗里曼特尔抽到的事件不固定，有的选项要花钱，剩下的不够坐渡轮去罗特尼斯岛。出发前补足
 		const rich = data.get('save:' + cred.id) as any;
