@@ -88,7 +88,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; }
 			#app { max-width: 560px; margin: 0 auto; min-height: 100dvh; display: flex; flex-direction: column; }
 			.hidden { display: none !important; }
-			html.big #app, html.big #modal .sheet, html.big #toast { zoom: 1.12; }
+			/* 字号（设置页，只在本机）：整页按比例放大 */
+			html.fs-l #app, html.fs-l #modal .sheet, html.fs-l #toast { zoom: 1.12; }
+			html.fs-xl #app, html.fs-xl #modal .sheet, html.fs-xl #toast { zoom: 1.25; }
+			/* 减少动画（设置页「减少」，或「跟随系统」且系统要求减少动态效果）：关掉所有过渡和动画 */
+			html.calm *, html.calm *::before, html.calm *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 			body.busy #panel, body.busy #modal { opacity: 0.6; pointer-events: none; }
 			button { font: inherit; color: var(--text); background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 14px; min-height: 44px; cursor: pointer; }
 			button:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -178,7 +182,6 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.p-night #map .land { fill: var(--land-night); stroke: var(--land-night-line); }
 			.p-night #map text { fill: var(--map-night-text); stroke: var(--map-night-halo); }
 			#map .star { fill: #fff; opacity: 0.7; }
-			@media (prefers-reduced-motion: reduce) { #hud { transition: none; } }
 			#map .route { stroke: var(--accent); stroke-width: 1; fill: none; opacity: 0.3; }
 			#map .route.air { stroke-dasharray: 2 4; opacity: 0.25; }
 			#map .route.ferry { stroke-dasharray: 1 2; }
@@ -191,7 +194,6 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			#map .here { fill: var(--accent); stroke: #fff; stroke-width: 2; }
 			#map .pulse { fill: none; stroke: var(--accent); stroke-width: 1.5; animation: pulse 1.8s ease-out infinite; transform-box: fill-box; transform-origin: center; }
 			@keyframes pulse { from { transform: scale(0.6); opacity: 1; } to { transform: scale(2.4); opacity: 0; } }
-			@media (prefers-reduced-motion: reduce) { #map .pulse { animation: none; } }
 			#map text { font-size: 9px; fill: var(--text); paint-order: stroke; stroke: var(--halo); stroke-width: 2.6px; pointer-events: none; }
 			#map text.cnt, #map tspan.cnt { fill: var(--warm); font-weight: 700; }
 			#map .hit { fill: transparent; cursor: pointer; }
@@ -279,6 +281,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.guide .guide-go { margin-top: 6px; min-height: 44px; padding: 0 14px; }
 			.recap-log { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 			.recap-log .muted { font-variant-numeric: tabular-nums; margin-right: 4px; }
+			.pref-row { margin-top: 10px; }
+			.pref-row > span { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
 			.guide-next { margin-top: 10px; font-size: 12px; color: var(--dim); }
 			.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 			.ach-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
@@ -361,6 +365,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { storyProgress } from '../game/core/story.ts';
 			import { guideView, type GuideView } from '../game/core/guide.ts';
 			import { recapFor, recapLog } from '../game/core/recap.ts';
+			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, npcPlan, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { CERTS } from '../game/data/certs.ts';
@@ -464,6 +469,21 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				get(k: string) { try { return localStorage.getItem(k); } catch { return null; } },
 				set(k: string, v: string) { try { localStorage.setItem(k, v); } catch {} },
 			};
+			// 本机显示设置（第 28 轮）：动画、字号、提示开关
+			let prefs: Prefs = parsePrefs(store.get(PREFS_KEY), { big: store.get(LEGACY_BIG_KEY) });
+			function applyPrefs() {
+				const cl = document.documentElement?.classList;
+				if (!cl) return;
+				const mm = (window as { matchMedia?: (q: string) => { matches: boolean } }).matchMedia;
+				const sys = typeof mm === 'function' && mm.call(window, '(prefers-reduced-motion: reduce)').matches;
+				cl.toggle('calm', calmMotion(prefs, sys));
+				for (const [f] of FONT_OPTIONS) cl.toggle(`fs-${f}`, prefs.font === f);
+			}
+			function setPrefs(next: Partial<Prefs>) {
+				prefs = { ...prefs, ...next };
+				store.set(PREFS_KEY, JSON.stringify(prefs));
+				applyPrefs();
+			}
 			const randId = (n: number) => {
 				const a = new Uint8Array(n);
 				crypto.getRandomValues(a);
@@ -814,7 +834,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						lastDelta = stateDelta(before, state);
 						const got = newAchievements(before, state, region);
 						lastAch = got.map((d) => `${d.icon} ${d.name}`);
-						if (got.length) setTimeout(() => toast(`🏅 达成成就：${got.map((d) => d.name).join('、')}`), 1200);
+						if (got.length && prefs.achToast) setTimeout(() => toast(`🏅 达成成就：${got.map((d) => d.name).join('、')}`), 1200);
 					}
 					else { lastDelta = []; lastAch = []; }
 					if (!data.ok) { toast(data.msg || '操作失败'); render(); return null; }
@@ -981,10 +1001,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return `<div class="next"><span class="lbl">下一步</span><h2>${title}</h2><p>${text}</p><button ${attr}>${btn}</button></div>`;
 			}
 
-			// 新手指南（第 26 轮）：前三天分步解开，做到了自动打勾；点「知道了」后不再显示（只记在本机）
-			const GUIDE_KEY = 'earth.guide.v2';
+			// 新手指南（第 26 轮）：前三天分步解开，做到了自动打勾；点「知道了」或在设置里关掉后不再显示（只记在本机）
 			function guideCard(s: PlayerState) {
-				if (store.get(GUIDE_KEY) === 'done') return '';
+				if (!prefs.guide) return '';
 				const g = guideView(s);
 				if (!g) return '';
 				const item = (st: GuideView['steps'][number]) => {
@@ -1000,7 +1019,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			const RECAP_KEY = 'earth.recap.v1';
 			function recapCard(s: PlayerState) {
 				const y = recapFor(s);
-				if (!y || store.get(RECAP_KEY) === String(y.day)) return '';
+				if (!prefs.recap || !y || store.get(RECAP_KEY) === String(y.day)) return '';
 				const title = y.days > 1 ? `过去 ${y.days} 天回顾（第 ${y.day + 1}–${y.day + y.days} 天）` : `昨天回顾（第 ${y.day + 1} 天）`;
 				const money = y.cash === 0 ? '现金没变' : `现金 ${y.cash > 0 ? '+' : '−'}$${Math.abs(y.cash).toLocaleString()}`;
 				const rep = Math.round(y.respect * 10) / 10;
@@ -1561,11 +1580,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				['多设备', '同步码等同于密码：在另一台设备选「用同步码恢复」就能接着玩。所有结算都在服务器上，改本机数据没有用。'],
 			];
 			// 大字模式：整页放大约 12%，只记在本机
-			const BIG_KEY = 'earth.big.v1';
-			const applyBig = () => document.documentElement?.classList?.toggle('big', store.get(BIG_KEY) === '1');
 			function panelSync() {
-				const big = store.get(BIG_KEY) === '1';
-				return `<div class="card"><h3>显示</h3><div class="row"><span class="body">大字模式<small>整页放大一些，看得更清楚（只在这台设备上生效）</small></span><button data-big aria-pressed="${big}">${big ? '已开启' : '开启'}</button></div></div>
+				const seg = (key: 'font' | 'motion', label: string, opts: [string, string][]) =>
+					`<div class="pref-row" role="group" aria-label="${label}"><span>${label}</span><div class="seg">${opts.map(([v, name]) => `<button data-pref="${key}" data-val="${v}" class="${prefs[key] === v ? 'on' : ''}" aria-pressed="${prefs[key] === v}">${name}</button>`).join('')}</div></div>`;
+				const tips = TIP_OPTIONS.map(([k, name, hint]) => `<div class="row" style="margin-top:8px"><span class="body">${name}<small>${hint}</small></span><button data-pref="${k}" aria-pressed="${prefs[k]}">${prefs[k] ? '已开启' : '已关闭'}</button></div>`).join('');
+				return `<div class="card"><h3>显示</h3><p class="muted">只在这台设备上生效。</p>${seg('font', '字号', FONT_OPTIONS)}${seg('motion', '动画', MOTION_OPTIONS)}</div>
+					<div class="card"><h3>提示</h3>${tips}</div>
 					<div class="card"><h3>玩法说明</h3><dl class="help">${HELP.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
 					<div class="card"><h3>多设备同步</h3><p>${esc(syncStatus)}</p>
 						<p style="margin-top:8px">在另一台手机或电脑打开本页，选择“用同步码恢复”，粘贴下面这串码即可接着玩。</p>
@@ -1657,7 +1677,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			// ---------- 输入 ----------
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-result-close],[data-quick],[data-big],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -1669,10 +1689,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					($('panel') as HTMLElement).focus?.({ preventScroll: true });
 				}
 				else if (d.metab) { meTab = d.metab; renderPanel(); }
-				else if ('guideClose' in d) { store.set(GUIDE_KEY, 'done'); renderPanel(); }
+				else if ('guideClose' in d) { setPrefs({ guide: false }); toast('新手指南已关闭，可以在「我 · 设置」里重新打开'); renderPanel(); }
 				else if ('recapClose' in d) { store.set(RECAP_KEY, d.recapClose ?? ''); renderPanel(); }
 				else if ('share' in d) shareProgress();
-				else if ('big' in d) { store.set(BIG_KEY, store.get(BIG_KEY) === '1' ? '0' : '1'); applyBig(); renderPanel(); }
+				else if (d.pref) {
+					const k = d.pref;
+					if (k === 'font' && FONT_OPTIONS.some(([v]) => v === d.val)) setPrefs({ font: d.val as Prefs['font'] });
+					else if (k === 'motion' && MOTION_OPTIONS.some(([v]) => v === d.val)) setPrefs({ motion: d.val as Prefs['motion'] });
+					else if (TIP_OPTIONS.some(([t]) => t === k)) setPrefs({ [k]: !prefs[k as 'guide' | 'recap' | 'achToast'] });
+					renderPanel();
+				}
 				else if (d.quick !== undefined) {
 					const text = QUICK_CHAT[+d.quick];
 					if (text && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'chat', text }));
@@ -1894,7 +1920,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			// 本地缓存里的所在地如果已经不存在，先挪到出生点而不是判损坏：不然凭证会被清掉，连云端完好的存档都拉不回来
 			try { state = sanitizeState(JSON.parse(store.get(SAVE_KEY) || 'null'), LOC_IDS, { fallbackLoc: region.spawn }); } catch {}
 			if (!cred || !state || state.id !== cred.id) { state = null; cred = null; }
-			applyBig();
+			applyPrefs();
 			renderCreate();
 			render();
 			fetch('/earth/cgi/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: any) => { cgi = m.images || {}; if (state) { renderPanel(); renderEvent(); } }).catch(() => {});

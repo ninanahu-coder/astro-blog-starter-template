@@ -194,11 +194,36 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			assert.match(panel(), new RegExp(`data-metab="${mt}" class="on"`), mt);
 			if (mt === 'log') assert.match(panel(), /class="log-day">第 1 天 · 春季第 1 天/, '日志按天分组');
 			if (mt === 'sync') {
-				await click({ big: '' });
-				assert.equal(rootClasses.contains('big'), true, '开启大字模式');
-				assert.equal(store.get('earth.big.v1'), '1');
-				await click({ big: '' });
-				assert.equal(rootClasses.contains('big'), false, '再点关闭');
+				// 设置（第 28 轮）：字号三档、动画三档、三个提示开关，只存在本机
+				assert.match(panel(), /data-pref="font" data-val="m" class="on" aria-pressed="true"/, '默认标准字号');
+				await click({ pref: 'font', val: 'xl' });
+				assert.ok(rootClasses.contains('fs-xl') && !rootClasses.contains('fs-l'), '特大字号');
+				await click({ pref: 'font', val: 'l' });
+				assert.ok(rootClasses.contains('fs-l') && !rootClasses.contains('fs-xl'), '换成大字号');
+				await click({ pref: 'font', val: '<b>' });
+				assert.ok(rootClasses.contains('fs-l'), '不认识的取值不改');
+				assert.equal(rootClasses.contains('calm'), false, '跟随系统、系统没要求时不减少动画');
+				await click({ pref: 'motion', val: 'reduce' });
+				assert.equal(rootClasses.contains('calm'), true, '选「减少」后关掉动画');
+				await click({ pref: 'motion', val: 'auto' });
+				assert.equal(rootClasses.contains('calm'), false);
+				assert.match(panel(), /data-pref="recap" aria-pressed="true"/);
+				await click({ pref: 'recap' });
+				assert.match(panel(), /data-pref="recap" aria-pressed="false">已关闭/);
+				assert.equal(JSON.parse(store.get('earth.prefs.v1')!).recap, false, '存进本机');
+				await click({ pref: 'recap' });
+				await click({ pref: 'font', val: 'm' });
+				// 关掉新手指南后今天页不再显示，打开后回来
+				await click({ pref: 'guide' });
+				await click({ tab: 'place' });
+				assert.ok(!panel().includes('新手指南'), '关掉后不显示');
+				await click({ tab: 'me' });
+				await click({ metab: 'sync' });
+				await click({ pref: 'guide' });
+				await click({ tab: 'place' });
+				assert.match(panel(), /新手指南 · 第 1 天/, '重新打开后又显示');
+				await click({ tab: 'me' });
+				await click({ metab: 'sync' });
 			}
 		}
 
