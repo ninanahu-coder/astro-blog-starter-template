@@ -278,7 +278,7 @@ export const EVENTS: GameEvent[] = [
 	},
 	// 第 24 轮：给还没有专属事件的 10 个地点各补一条（可重复，数值待平衡）
 	{
-		id: 'freo-doctor', title: '弗里曼特尔医生', icon: '🌬️', locs: ['fremantle'], seasons: ['summer', 'spring'], periods: ['day', 'dusk'], weight: 3,
+		id: 'freo-doctor', title: '弗里曼特尔医生', icon: '🌬️', locs: ['fremantle'], seasons: ['summer', 'spring'], hours: [12, 20], weight: 3,
 		text: '下午的海风准时从海上吹进来，当地人管它叫「弗里曼特尔医生」，热了一上午的街道一下子凉了。',
 		choices: [
 			{ label: '找个露台坐下吹风', ok: { text: '你在风里坐了半小时，热得发昏的脑子清醒了。', fx: { minutes: 30, needs: { fun: 12, energy: 6 } } } },
@@ -350,7 +350,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'monkey-mia-feeding', title: '早上的海豚', icon: '🐬', locs: ['monkey-mia'], periods: ['dawn', 'day'], animal: 'bottlenose-dolphin', weight: 3,
+		id: 'monkey-mia-feeding', title: '早上的海豚', icon: '🐬', locs: ['monkey-mia'], hours: [7, 12], animal: 'bottlenose-dolphin', weight: 3,
 		text: '早上，护林员在浅水里讲解野生海豚的规矩，几只海豚已经游到了岸边。',
 		choices: [
 			{ label: '举手争取当喂鱼的志愿者', check: { skill: 'charisma', dc: 40 }, ok: { text: '护林员挑中了你。你按指示把一条鱼放进水里，海豚轻轻接走了。', fx: { minutes: 45, respect: 1, needs: { fun: 35 } } }, fail: { text: '这次被一个小朋友抢先了，你在旁边看得很开心。', fx: { minutes: 45, needs: { fun: 15 } } } },

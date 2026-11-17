@@ -432,11 +432,12 @@ export function dexProgress(state: PlayerState): { group: string; name: string; 
 	});
 }
 
-function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null, clock: number): boolean {
+export function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode | null, clock: number): boolean {
 	if (ev.venueTypes) return false; // 真实地点事件只由 pickVenueEvent 抽
 	if (ev.seasons && !ev.seasons.includes(dateOf(clock).season)) return false;
 	if (ev.weather && !ev.weather.includes(weatherOn(loc.id, dayOf(clock)).id)) return false;
 	if (ev.periods && !ev.periods.includes(period(clock).id)) return false;
+	if (ev.hours && !isOpen(ev.hours, clock)) return false;
 	if (ev.arrivedBy && (!mode || !ev.arrivedBy.includes(mode))) return false;
 	const scoped = ev.locs || ev.tags || ev.kinds;
 	if (!scoped) return true;

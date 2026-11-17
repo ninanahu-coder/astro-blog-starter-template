@@ -121,9 +121,14 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		writeFileSync(file, await bundlePage());
 		await import(pathToFileURL(file).href);
 		await pause(50);
+		// 页面在请求进行中（body.busy）会直接丢掉点击：点之前、点之后都等它空闲（最多 2 秒），不靠固定睡眠
+		const bodyClasses = (g.document as { body: { classList: ClassList } }).body.classList;
+		const idle = async () => { for (let i = 0; i < 100 && bodyClasses.contains('busy'); i++) await pause(20); assert.equal(bodyClasses.contains('busy'), false, '页面一直忙，点击会被丢掉'); };
 		const click = async (dataset: Record<string, string>, cls = '') => {
+			await idle();
 			docListeners.click({ target: { dataset, disabled: false, classList: { contains: (c: string) => c === cls }, closest: fakeClosest } });
 			await pause(20);
+			await idle();
 		};
 		const panel = () => el('panel').innerHTML;
 
@@ -323,8 +328,11 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.equal(serverState().pending, null, '弗里曼特尔的事件处理完了');
 		await click({ tab: 'go' });
 		await click({ go: 'rottnest', mode: 'ferry' });
-		// 机器忙时（全套测试并行跑）出行请求和渲染可能超过 30 毫秒：最多等 1 秒，弹窗一出现就继续
-		for (let i = 0; i < 50 && el('modal').classList.contains('hidden'); i++) await pause(20);
+		// 先确认出行请求真的到了服务端，再等弹窗画出来
+		for (let i = 0; i < 100 && serverState().loc !== 'rottnest'; i++) await pause(20);
+		assert.equal(serverState().loc, 'rottnest', '出行请求没有发出去');
+		assert.ok(serverState().pending, '罗特尼斯岛首次抵达服务端应该有待处理事件');
+		for (let i = 0; i < 100 && el('modal').classList.contains('hidden'); i++) await pause(20);
 		assert.equal(el('modal').classList.contains('hidden'), false, '罗特尼斯岛首次抵达应该出事件');
 		assert.equal(el('game').inert, true, '弹窗打开时背后页面不可操作');
 		assert.ok(el('modal').focused > 0, '焦点移进弹窗');
@@ -350,9 +358,11 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		night.state.pending = null;
 		data.set('save:' + cred.id, night);
 		docListeners.visibilitychange({});
-		await pause(60);
+		// 回到前台会去服务端同步：等同步回来的夜晚存档真的画进面板（最多 2 秒）
+		const nextCard = () => panel().match(/<div class="next">[\s\S]*?<\/div>/)?.[0] ?? '';
 		await click({ tab: 'place' });
-		assert.match(panel().match(/<div class="next">[\s\S]*?<\/div>/)?.[0] ?? '', /夜深了/);
+		for (let i = 0; i < 100 && !/夜深了/.test(nextCard()); i++) { await pause(20); if (i % 10 === 9) await click({ tab: 'place' }); }
+		assert.match(nextCard(), /夜深了/);
 		// 附近页底部有留言板和输入框
 		assert.match(panel(), /📝 留言板/);
 		assert.match(panel(), /id="note-form"[\s\S]*maxlength="60"/);

@@ -437,6 +437,7 @@ export interface GameEvent {
 	seasons?: string[]; // 只在这些季节出现
 	weather?: string[]; // 只在抵达地点当天是这些天气时出现
 	periods?: ('dawn' | 'day' | 'dusk' | 'night')[]; // 只在抵达时是这些时段出现（清晨 5–8，白天 8–17，傍晚 17–20，夜晚 20–5）
+	hours?: Hours; // 比时段更精确：只在抵达时是 [开, 关) 这几个整点之间出现（真实世界有固定时间的事，如午后海风、早上喂海豚）
 	id: string;
 	title: string;
 	icon: string;

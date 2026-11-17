@@ -65,3 +65,33 @@ test('夜间事件（第 25 轮）：至少 8 条只在夜里出现；大陆上�
 		assert.ok(hit, `${l.id} 天黑后没有夜间事件`);
 	}
 });
+
+test('精确小时的事件：午后海风只在 12–20 点、猴子米亚喂海豚只在 7–12 点抵达时出现', async () => {
+	const { eventMatches } = await import('../../src/game/core/engine.ts');
+	const { YEAR_DAYS: Y, dateOf } = await import('../../src/game/core/time.ts');
+	const at = (id: string, locId: string, hour: number) => {
+		const ev = EVENTS.find((e) => e.id === id)!;
+		const loc = WA.locations.find((l) => l.id === locId)!;
+		// 找一天季节、天气都满足，只剩小时条件
+		for (let d = 1; d < Y; d++) {
+			if (ev.seasons && !ev.seasons.includes(dateOf(d * 1440).season)) continue;
+			if (ev.weather && !ev.weather.includes(weatherOn(locId, d).id)) continue;
+			return eventMatches(ev, loc, 'road', d * 1440 + hour * 60);
+		}
+		throw new Error(`${id} 一年里找不到合适的日子`);
+	};
+	for (const e of EVENTS.filter((x) => x.hours)) {
+		const [o, c] = e.hours!;
+		assert.ok(Number.isInteger(o) && Number.isInteger(c) && o >= 0 && o < 24 && c > 0 && c <= 24 && o !== c, `${e.id} 的 hours 不合法`);
+	}
+	assert.equal(at('freo-doctor', 'fremantle', 8), false, '早上 8 点还没有午后海风');
+	assert.equal(at('freo-doctor', 'fremantle', 11), false, '11 点还没有午后海风');
+	assert.equal(at('freo-doctor', 'fremantle', 12), true, '中午开始有海风');
+	assert.equal(at('freo-doctor', 'fremantle', 15), true, '下午有海风');
+	assert.equal(at('freo-doctor', 'fremantle', 20), false, '20 点以后不算');
+	assert.equal(at('monkey-mia-feeding', 'monkey-mia', 6), false, '6 点还没开始喂');
+	assert.equal(at('monkey-mia-feeding', 'monkey-mia', 7), true, '早上 7 点能遇到');
+	assert.equal(at('monkey-mia-feeding', 'monkey-mia', 11), true, '11 点还能遇到');
+	assert.equal(at('monkey-mia-feeding', 'monkey-mia', 12), false, '中午以后不喂');
+	assert.equal(at('monkey-mia-feeding', 'monkey-mia', 16), false, '下午 4 点不喂');
+});
