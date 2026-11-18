@@ -193,6 +193,12 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			await pause(20);
 		};
 
+		// 开局时页面先画本机缓存，再去服务端拉存档（上面把饱食、现金改了）：等本机缓存换成服务端那份再往下测（最多 2 秒）。
+		// 原来固定只等 50 毫秒，机器忙时偶尔还没拉到就断言，周结算预警那条会时好时坏（第 15 批 20 次重复测试里抓到）
+		const pulled = () => (JSON.parse(store.get('earth.save.v1') ?? 'null') as { cash?: number; needs?: { hunger?: number } } | null);
+		for (let i = 0; i < 100 && !(pulled()?.cash === 120 && pulled()?.needs?.hunger === 15); i++) await pause(20);
+		assert.equal(pulled()?.cash, 120, '开局没有拉到服务端存档');
+		await idle();
 		// 开局：游戏页显示、创建页隐藏，五个标签
 		assert.equal(el('create').classList.contains('hidden'), true);
 		assert.equal(el('game').classList.contains('hidden'), false);
@@ -211,7 +217,20 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(el('hud').innerHTML, /class="wx-pill/, '顶栏有天气');
 		assert.match(el('hud').innerHTML, /class="chip cash">\$120</, '顶栏有现金');
 		// 今天页：下一步在最上面，然后是状态卡，最低的一项标「最缺」
-		assert.ok(panel().indexOf('class="next"') >= 0 && panel().indexOf('class="next"') < panel().indexOf('<h3>状态</h3>'), '下一步排在状态卡前面');
+		// 主界面定稿（第 15 批）：需求环 → 下一步 → 心愿 → 快捷动作
+		assert.ok(panel().indexOf('<h3>状态</h3>') >= 0 && panel().indexOf('<h3>状态</h3>') < panel().indexOf('class="next"'), '需求环排在下一步前面');
+		assert.ok(panel().indexOf('class="next"') < panel().indexOf('<h3>今天的心愿 · 还剩 '), '心愿在下一步后面');
+		assert.ok(panel().indexOf('<h3>今天的心愿 · 还剩 ') < panel().indexOf('class="quick"'), '快捷动作在心愿后面');
+		assert.equal((panel().match(/<div class="wish">/g) ?? []).length, (data.get('save:' + cred.id) as any).state.wishes.length, '每个没做的心愿一张小卡');
+		// 快捷动作：2–4 个，都是这里能做的互动，从最缺的需求起挑
+		const quick = panel().match(/<div class="quick"[^>]*>([\s\S]*?)<\/div>/)?.[1] ?? '';
+		const qActs = [...quick.matchAll(/data-act="([^"]+)"/g)].map((m) => m[1]);
+		assert.ok(qActs.length >= 2 && qActs.length <= 4, `快捷动作 ${qActs.length} 个`);
+		assert.equal(new Set(qActs).size, qActs.length, '快捷动作不重复');
+		for (const id of qActs) assert.match(panel(), new RegExp(`class="row" data-act="${id}"`), `${id} 在完整列表里也有`);
+		// 左上人物名牌：等级环，点了去成长页；右上现金和天气
+		assert.match(el('hud').innerHTML, /<button class="lv-plate" data-tab="grow" aria-label="Lv1 新来的，升级进度 \d+%，去成长页">/);
+		assert.match(el('hud').innerHTML, /<div class="scene-right"><span class="chip cash">\$120<\/span>/);
 		assert.match(panel(), /最缺/);
 		assert.match(panel(), /要付 \$160（房租 \$160），现在只有 \$120，还差 \$40/);
 		// 「下一步」：饱食最低 → 吃饭
@@ -938,7 +957,9 @@ test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，�
 	assert.match(hud, /class="wx-pill[^"]*">[^<]*\d+°/, '顶栏天气带最高气温');
 	// 虚拟人生风格：今天页顶栏是当地小场景，地点名牌、需求环、NPC 立绘
 	assert.match(hud, /<div class="scene"><svg class="scene-art"/);
-	assert.match(hud, /<div class="plate"><h1>[^<]+<\/h1><small>[^<]+<\/small><\/div>/);
+	// 地点名牌：大字地名，下面一行是时间（第 15 批从顶上的时间胶囊挪进来）
+	assert.match(hud, /<div class="plate"><h1>[^<]+<\/h1><small title="[^"]+">[^<]*\d+:\d\d[^<]*<\/small><\/div>/);
+	assert.doesNotMatch(hud, /pill-on/, '顶上不再有单独的时间胶囊');
 	assert.match(panel, /<div class="rings">/);
 	assert.equal((panel.match(/class="ring /g) ?? []).length, 6, '六个需求环');
 	assert.match(panel, /role="img" aria-label="健康 \d+/);
