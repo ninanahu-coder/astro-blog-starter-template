@@ -425,6 +425,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { CHANGELOG, CHANGELOG_LATEST } from '../game/data/changelog.ts';
 			import { NEWS_SEEN_KEY, parseNewsSeen, unseenNews } from '../game/ui/news.ts';
+			import { fmtHalf } from '../game/ui/numfmt.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
@@ -523,12 +524,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const out: { text: string; up: boolean }[] = [];
 				const push = (name: string, d: number, min: number, digits = 0, money = false) => {
 					if (Math.abs(d) < min) return;
-					const v = digits ? Math.abs(d).toFixed(digits) : String(Math.round(Math.abs(d)));
+					const v = digits === -1 ? fmtHalf(Math.abs(d)) : digits ? Math.abs(d).toFixed(digits) : String(Math.round(Math.abs(d)));
 					out.push({ text: `${name} ${d > 0 ? '+' : '−'}${money ? '$' : ''}${money ? Math.round(Math.abs(d)).toLocaleString() : v}`, up: d > 0 });
 				};
 				push('现金', b.cash - a.cash, 1, 0, true);
 				push('健康', b.health - a.health, 1);
-				push('声望', b.respect - a.respect, 0.5, 1);
+				push('声望', b.respect - a.respect, 0.5, -1); // 整数不带 .0，半点显示 .5
 				for (const k of NEED_KEYS) push(NEED_META[k].name, b.needs[k] - a.needs[k], 1);
 				for (const k of SKILL_KEYS) push(SKILL_META[k].name, b.skills[k] - a.skills[k], 0.1, 1);
 				const mins = b.clock - a.clock;
@@ -1690,7 +1691,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					ach: achHtml,
 					me: `<div class="card"><h3>档案</h3><p>${origin.icon} ${origin.name} · 座驾：${veh}</p>
 					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
-						<p>Lv${lv.lv} ${lv.title} · 声望 ${Math.floor(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
+						<p>Lv${lv.lv} ${lv.title} · 声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
 						<div class="tags">${traits || '<span class="muted">没有性格特质</span>'}</div>
 						<div class="inline" style="margin-top:10px"><button data-share>分享我的进度</button></div></div>`,
 					mood: `<div class="card"><h3>心情 ${mb.total}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</h3>

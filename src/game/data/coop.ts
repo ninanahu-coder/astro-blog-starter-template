@@ -11,7 +11,7 @@ export const COOP_EVENTS: CoopDef[] = [
 			{ label: '招呼路人一起来', skill: 'charisma' },
 			{ label: '把渔网拖上岸', skill: 'strength' },
 		],
-		ok: { text: '一整片海滩干干净净，路过的人都冲你们竖大拇指。', fx: { minutes: 60, respect: 4, needs: { social: 25, fun: 10, energy: -12, hygiene: -10 } } },
+		ok: { text: '一整片海滩干干净净，路过的人都冲你们竖大拇指。', fx: { minutes: 60, respect: 0.5, needs: { social: 25, fun: 10, energy: -12, hygiene: -10 } } },
 		fail: { text: '垃圾比想象中多，只清了一小段，不过大家聊得挺开心。', fx: { minutes: 60, needs: { social: 15, energy: -12, hygiene: -10 } } },
 	},
 	{
@@ -22,7 +22,7 @@ export const COOP_EVENTS: CoopDef[] = [
 			{ label: '打拍子招揽观众', skill: 'street' },
 			{ label: '扛着音箱跑场', skill: 'stamina' },
 		],
-		ok: { text: '围了一圈人，琴盒里的零钱叮当作响，大家平分了。', fx: { minutes: 90, cash: 45, respect: 2, needs: { social: 30, fun: 20, energy: -12 } } },
+		ok: { text: '围了一圈人，琴盒里的零钱叮当作响，大家平分了。', fx: { minutes: 90, cash: 45, respect: 0.5, needs: { social: 30, fun: 20, energy: -12 } } },
 		fail: { text: '没几个人停下来，不过合唱得很尽兴。', fx: { minutes: 90, cash: 8, needs: { social: 20, fun: 10, energy: -12 } } },
 	},
 	{
@@ -33,7 +33,7 @@ export const COOP_EVENTS: CoopDef[] = [
 			{ label: '指挥车主打方向', skill: 'driving' },
 			{ label: '找树枝垫在轮子下', skill: 'survival' },
 		],
-		ok: { text: '车子一下子冲了出来，车主非要请你们喝冰可乐。', fx: { minutes: 40, respect: 3, needs: { social: 25, fun: 10, energy: -15, hygiene: -12 } } },
+		ok: { text: '车子一下子冲了出来，车主非要请你们喝冰可乐。', fx: { minutes: 40, respect: 0.5, needs: { social: 25, fun: 10, energy: -15, hygiene: -12 } } },
 		fail: { text: '轮子越陷越深，最后还是等来了拖车。', fx: { minutes: 40, needs: { social: 15, energy: -15, hygiene: -15 } } },
 	},
 	{
@@ -44,8 +44,8 @@ export const COOP_EVENTS: CoopDef[] = [
 			{ label: '不停往它身上浇水', skill: 'swimming' },
 			{ label: '跑去叫护林员', skill: 'survival' },
 		],
-		ok: { text: '海豚摆了摆尾巴游回了深水，浅滩上的人都欢呼起来。', fx: { minutes: 60, respect: 6, needs: { fun: 30, social: 20, energy: -12, hygiene: -10 } } },
-		fail: { text: '你们撑到护林员赶来，海豚被专业人员接手了。', fx: { minutes: 60, respect: 1, needs: { social: 15, energy: -12, hygiene: -10 } } },
+		ok: { text: '海豚摆了摆尾巴游回了深水，浅滩上的人都欢呼起来。', fx: { minutes: 60, respect: 0.5, needs: { fun: 30, social: 20, energy: -12, hygiene: -10 } } },
+		fail: { text: '你们撑到护林员赶来，海豚被专业人员接手了。', fx: { minutes: 60, respect: 0.5, needs: { social: 15, energy: -12, hygiene: -10 } } },
 	},
 	{
 		id: 'fishing-comp', title: '码头钓鱼比赛', icon: '🎣', kinds: ['port', 'coast'], hours: [5, 11], weather: ['sunny', 'cloudy', 'hot'], min: 2, max: 4, dc: 50,
@@ -55,7 +55,7 @@ export const COOP_EVENTS: CoopDef[] = [
 			{ label: '去鱼具店换饵', skill: 'street' },
 			{ label: '把大鱼拽上来', skill: 'strength' },
 		],
-		ok: { text: '你们拿了个第三名，奖品是一张鱼铺的代金券，大家折成现金分了。', fx: { minutes: 120, cash: 30, respect: 2, needs: { social: 25, fun: 25, energy: -10 } } },
+		ok: { text: '你们拿了个第三名，奖品是一张鱼铺的代金券，大家折成现金分了。', fx: { minutes: 120, cash: 30, respect: 0.5, needs: { social: 25, fun: 25, energy: -10 } } },
 		fail: { text: '一上午只钓到几条小鱼，全放回海里了，不过日出很好看。', fx: { minutes: 120, needs: { social: 15, fun: 15, energy: -10 } } },
 	},
 	{
@@ -66,7 +66,7 @@ export const COOP_EVENTS: CoopDef[] = [
 			{ label: '背着大家的水', skill: 'stamina' },
 			{ label: '在难走的地方拉人一把', skill: 'strength' },
 		],
-		ok: { text: '你们一起走到了谷底的水潭，护林员在留言簿上记下了你们的名字。', fx: { minutes: 180, respect: 4, needs: { social: 25, fun: 30, energy: -25, hygiene: -15 }, skills: { survival: 1 } } },
+		ok: { text: '你们一起走到了谷底的水潭，护林员在留言簿上记下了你们的名字。', fx: { minutes: 180, respect: 0.5, needs: { social: 25, fun: 30, energy: -25, hygiene: -15 }, skills: { survival: 1 } } },
 		fail: { text: '走到一半有人扭了脚，大家扶着他慢慢退了回来。', fx: { minutes: 150, needs: { social: 20, fun: 5, energy: -25, hygiene: -15 } } },
 	},
 	{
@@ -77,7 +77,7 @@ export const COOP_EVENTS: CoopDef[] = [
 			{ label: '招呼路过的人来吃', skill: 'charisma' },
 			{ label: '去超市搬吃的', skill: 'stamina' },
 		],
-		ok: { text: '香肠夹面包配洋葱，来了二十多个人，最后连附近的住户都端来了沙拉。', fx: { minutes: 90, cash: -8, respect: 3, needs: { hunger: 40, social: 30, fun: 15 } } },
+		ok: { text: '香肠夹面包配洋葱，来了二十多个人，最后连附近的住户都端来了沙拉。', fx: { minutes: 90, cash: -8, respect: 0.5, needs: { hunger: 40, social: 30, fun: 15 } } },
 		fail: { text: '香肠烤焦了一半，人也没来几个，几个人自己吃饱了。', fx: { minutes: 90, cash: -8, needs: { hunger: 30, social: 20, fun: 5 } } },
 	},
 	{
@@ -88,7 +88,7 @@ export const COOP_EVENTS: CoopDef[] = [
 			{ label: '开借来的厢式车', skill: 'driving' },
 			{ label: '跟房东交接钥匙', skill: 'charisma' },
 		],
-		ok: { text: '一下午搬完，冰箱沙发一样没磕着，主人塞给每人一份辛苦费和一盒披萨。', fx: { minutes: 180, cash: 40, respect: 2, needs: { hunger: 25, social: 20, energy: -25, hygiene: -15 } } },
+		ok: { text: '一下午搬完，冰箱沙发一样没磕着，主人塞给每人一份辛苦费和一盒披萨。', fx: { minutes: 180, cash: 40, respect: 0.5, needs: { hunger: 25, social: 20, energy: -25, hygiene: -15 } } },
 		fail: { text: '楼梯太窄，衣柜卡在半路，最后还是请了专业师傅。主人还是请大家吃了披萨。', fx: { minutes: 180, cash: 10, needs: { hunger: 25, social: 15, energy: -25, hygiene: -15 } } },
 	},
 ];

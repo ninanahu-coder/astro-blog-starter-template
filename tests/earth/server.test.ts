@@ -483,7 +483,7 @@ test('共同事件：发起、加入、只有发起人能开始、人够才开�
 	assert.equal(after.data.results.length, 1);
 	assert.equal(after.data.results[0].id, lobby);
 	assert.equal((await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev + 1 })).status, 404);
-	// 冷却：同一种共同事件每个游戏日一次
+	// 冷却：同一种共同事件每人每 5 个游戏日一次
 	const again = await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 });
 	assert.equal(again.data.ok, false);
 	assert.match(again.data.msg, /今天已经做过/);

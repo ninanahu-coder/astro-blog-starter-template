@@ -9,6 +9,18 @@ import { COOP_EVENTS } from '../data/coop.ts';
 
 /** 每多一个人，团队分 +6 */
 export const COOP_TEAM_BONUS = 6;
+/**
+ * 同一种共同事件每人每几个游戏日能做一次（平衡分析第九轮：原来是每天一次，同一地点几种叠着做，收入和声望都太快，改成 5 天）。
+ * 成败、晕倒都算做过
+ */
+export const COOP_COOLDOWN_DAYS = 5;
+
+/** 这种共同事件还要再等几个游戏日才能做（0 = 现在就行）。存档里的日子比今天还晚（坏数据）时按今天刚做过算，最多等满一个冷却期 */
+export function coopWaitDays(state: PlayerState, def: CoopDef): number {
+	const last = state.coopDays?.[def.id];
+	if (last === undefined) return 0;
+	return Math.max(0, Math.min(COOP_COOLDOWN_DAYS, last + COOP_COOLDOWN_DAYS - dayOf(state.clock)));
+}
 
 export function coopAvailableAt(def: CoopDef, loc: GameLocation): boolean {
 	if (!def.locs && !def.tags && !def.kinds) return true;
@@ -26,7 +38,8 @@ export const coopCostLabel = (def: CoopDef): string => (coopCost(def) ? ` · 每
 /** 这个人现在能不能参加（发起、加入、开始时都要检查）；能参加返回 undefined */
 export function coopBlocked(state: PlayerState, region: Region, def: CoopDef): string | undefined {
 	if (state.pending) return '先处理眼前的事件。';
-	if (state.coopDays?.[def.id] === dayOf(state.clock)) return '今天已经做过这件事，明天再来。';
+	const wait = coopWaitDays(state, def);
+	if (wait) return wait === COOP_COOLDOWN_DAYS ? `今天已经做过这件事，${wait} 天后再来。` : `${COOP_COOLDOWN_DAYS} 天内做过这件事，${wait} 天后再来。`;
 	const cost = coopCost(def);
 	if (cost && state.cash < cost) return `需要 $${cost}（每人凑的钱）`;
 	const loc = getLocation(region, state.loc);
@@ -72,7 +85,7 @@ export function resolveCoop(def: CoopDef, region: Region, members: CoopMember[])
 	const results = states.map((s, i): ActionResult => {
 		const others = members.filter((_, j) => j !== i).map((m) => m.name).join('、');
 		const role = def.roles[members[i].role] ?? def.roles[0];
-		// 每种共同事件每人每个游戏日一次（按开始那天算，成败、晕倒都算做过）
+		// 记下做过的游戏日：每种共同事件每人每 COOP_COOLDOWN_DAYS 天一次（按开始那天算，成败、晕倒都算做过）
 		s.coopDays = { ...s.coopDays, [def.id]: dayOf(members[i].state.clock) };
 		if (applyEffect(s, out.fx, region)) return collapsedResult(s);
 		log(s, `【${def.title}】和${others}一起，你负责${role.label}。${out.text}`);
