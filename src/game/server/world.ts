@@ -17,7 +17,8 @@ import { refreshWishes } from '../core/wishes.ts';
 import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
 import { boardEntry, rankBoard } from '../core/board.ts';
 import type { PlayerState, Region } from '../core/types.ts';
-import { getRegion, REGIONS } from '../data/wa.ts';
+import { FULL_AREAS, WORLD } from '../data/wa.ts';
+import { areaOf } from '../data/areas-base.ts';
 
 const SAVES_ROOM = '@SAVES';
 const MAX_CONNS = 200;
@@ -150,7 +151,9 @@ export class EarthWorld {
 		if ((request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
 			return new Response('expected websocket', { status: 426 });
 		}
-		const region = getRegion(url.searchParams.get('region') || 'wa');
+		// 在线频道按区域分（每个区域一个实例，见 routeEarth）：只认注册过的区域 id，不认 world
+		const regionId = url.searchParams.get('region') || 'wa';
+		const region = FULL_AREAS.find((a) => a.id === regionId);
 		if (!region) return new Response('unknown region', { status: 404 });
 		const id = url.searchParams.get('id') || '';
 		if (!ID_RE.test(id)) return new Response('bad id', { status: 400 });
@@ -475,14 +478,14 @@ export class EarthWorld {
 		if (action === 'create') {
 			if (rec) return json({ ok: false, msg: '这个存档已存在' }, 409);
 			const prof = body.profile ?? {};
-			const region = REGIONS.wa;
+			const region = WORLD;
 			const state = createCharacter({
 				id,
 				name: cleanName(prof.name),
 				avatar: String(prof.avatar ?? ''),
 				origin: String(prof.origin ?? ''),
 				traits: Array.isArray(prof.traits) ? prof.traits.filter((t: unknown) => typeof t === 'string').slice(0, 4) : [],
-				region: region.id,
+				region: areaOf(region.spawn)?.id ?? FULL_AREAS[0].id,
 				spawn: region.spawn,
 				seed: crypto.getRandomValues(new Uint32Array(1))[0],
 			});
@@ -494,7 +497,8 @@ export class EarthWorld {
 		}
 
 		if (!rec) return json({ ok: false, msg: '云端没有这个存档' }, 404);
-		const region = getRegion(rec.state?.region) ?? REGIONS.wa;
+		// 规则用整个世界（所有区域合在一起，第 41 轮）：跨区域出行、找最近的医院、成就都不分区域
+		const region = WORLD;
 		const current = sanitizeState(rec.state, new Set(region.locations.map((l) => l.id)), { fallbackLoc: region.spawn, now });
 		if (!current) return json({ ok: false, msg: '云端存档已损坏' }, 500);
 

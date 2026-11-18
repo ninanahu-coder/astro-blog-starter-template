@@ -151,7 +151,7 @@ export function checkScore(state: PlayerState, k: SkillKey): CheckBreakdown {
 export const wantedStars = (heat: number) => Math.min(5, Math.floor(heat / 20));
 
 const LEVELS = [0, 10, 25, 50, 90, 150, 240, 360, 520, 720];
-const TITLES = ['新来的', '过客', '常客', '熟面孔', '本地通', '老西澳', '传说中的人', '西澳名人', '活地图', '西澳之子'];
+const TITLES = ['新来的', '过客', '常客', '熟面孔', '本地通', '老资格', '传说中的人', '远近闻名', '活地图', '土生土长'];
 
 /** 声望 → 等级与称号 */
 export function level(respect: number): { lv: number; title: string; next: number | null } {

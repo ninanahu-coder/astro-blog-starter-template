@@ -2,6 +2,7 @@
 // 新增事件只需往数组里加一条；effects 全部走 engine.applyEffect，无需写逻辑代码。
 import type { GameEvent } from '../core/types.ts';
 import { VENUE_EVENTS } from './venue-events.ts';
+import { SA_EVENTS } from './events-sa.ts';
 
 export const EVENTS: GameEvent[] = [
 	{
@@ -254,7 +255,7 @@ export const EVENTS: GameEvent[] = [
 	},
 	{
 		id: 'dusk-sunset', title: '海边日落', icon: '🌇', tags: ['beach'], periods: ['dusk'], weather: ['sunny', 'cloudy', 'hot'], weight: 5,
-		text: '太阳正沉进印度洋，整片海滩都被染成了橘红色。',
+		text: '太阳正沉进海里，整片海滩都被染成了橘红色。',
 		choices: [
 			{ label: '坐下来看完', ok: { text: '最后一点光消失时，海滩上有人鼓起了掌。', fx: { minutes: 40, needs: { fun: 25 } } } },
 			{ label: '和旁边的人互相拍照', check: { skill: 'charisma', dc: 25 }, ok: { text: '你们互相拍了几张，还加了联系方式。', fx: { minutes: 30, needs: { social: 25, fun: 15 }, skills: { charisma: 1 } } }, fail: { text: '对方只想安静地看日落。', fx: { minutes: 20, needs: { fun: 10 } } } },
@@ -407,4 +408,5 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	...VENUE_EVENTS,
+	...SA_EVENTS,
 ];

@@ -25,7 +25,7 @@ export const DEX_GROUPS: Record<AnimalDef['group'], { name: string; respect: num
 export const ANIMALS: AnimalDef[] = [
 	// 海洋
 	{ id: 'bottlenose-dolphin', name: '宽吻海豚', icon: '🐬', group: 'sea', desc: '成群在浅湾里追鱼，常凑到船边。', where: { tags: ['dolphin'], locs: ['bunbury', 'rottnest', 'fremantle'] }, chance: 0.3 },
-	{ id: 'humpback-whale', name: '座头鲸', icon: '🐋', group: 'sea', desc: '每年冬春沿西澳海岸南来北往。', where: { tags: ['whale'], locs: ['exmouth'] }, seasons: ['winter', 'spring'], chance: 0.3 },
+	{ id: 'humpback-whale', name: '座头鲸', icon: '🐋', group: 'sea', desc: '每年冬春沿澳洲海岸南来北往。', where: { tags: ['whale'], locs: ['exmouth'] }, seasons: ['winter', 'spring'], chance: 0.3 },
 	{ id: 'southern-right-whale', name: '南露脊鲸', icon: '🐳', group: 'sea', desc: '冬天会进南岸的海湾里生小鲸。', where: { locs: ['albany', 'esperance'] }, seasons: ['winter'], chance: 0.15 },
 	{ id: 'whale-shark', name: '鲸鲨', icon: '🦈', group: 'sea', desc: '世界上最大的鱼，只吃浮游生物。', where: { locs: ['exmouth'] }, seasons: ['autumn', 'winter'], chance: 0.15 },
 	{ id: 'manta-ray', name: '蝠鲼', icon: '🪽', group: 'sea', desc: '在珊瑚礁上方慢慢扇着「翅膀」。', where: { tags: ['reef'], locs: ['exmouth'] }, chance: 0.12 },

@@ -20,6 +20,12 @@ export function addFireSeen(seen: string[], key: string): string[] {
 	return [...seen.filter((k) => k !== key), key].slice(-FIRE_SEEN_MAX);
 }
 
-/** 火险提示的文字：写明是游戏估算、不是真实预警，指向真实来源 */
-export const fireToastText = (levelName: string, advice: string) =>
-	`🔥 今天这里火险${levelName}（游戏里的估算，不是真实预警）：${advice}真实火情请看西澳应急服务 Emergency WA。`;
+/** 各区域发布真实火情的官方机构（第 9 批：南澳是乡村消防局 CFS） */
+export const FIRE_AGENCY: Record<string, { name: string; url: string }> = {
+	wa: { name: '西澳应急服务 Emergency WA', url: 'https://www.emergency.wa.gov.au/' },
+	sa: { name: '南澳乡村消防局 CFS', url: 'https://www.cfs.sa.gov.au/' },
+};
+export const fireAgency = (areaId: string) => (Object.hasOwn(FIRE_AGENCY, areaId) ? FIRE_AGENCY[areaId] : FIRE_AGENCY.wa);
+/** 火险提示的文字：写明是游戏估算、不是真实预警，指向所在区域的真实来源 */
+export const fireToastText = (levelName: string, advice: string, areaId = 'wa') =>
+	`🔥 今天这里火险${levelName}（游戏里的估算，不是真实预警）：${advice}真实火情请看${fireAgency(areaId).name}。`;

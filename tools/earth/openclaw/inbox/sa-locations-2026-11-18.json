@@ -1,0 +1,553 @@
+{
+ "collected": "2026-11-18",
+ "agent": "OpenClaw market-intel (MiniMax-M3)",
+ "runs": [
+  "20261118-072118-427515ca",
+  "20261118-072120-7c9ea21d"
+ ],
+ "locations": [
+  {
+   "id": "adelaide",
+   "name": "阿德莱德",
+   "en": "Adelaide",
+   "lat": -34.93,
+   "lon": 138.6,
+   "coordSource": "https://www.wikidata.org/wiki/Q5112",
+   "kind": "city",
+   "tags": [
+    "airport",
+    "hospital",
+    "market",
+    "gym"
+   ],
+   "radiusKm": 25,
+   "blurb": "南澳大利亚州首府，城市核心按网格规划",
+   "routes": [
+    {
+     "to": "glenelg",
+     "mode": "road"
+    },
+    {
+     "to": "hahndorf",
+     "mode": "road"
+    },
+    {
+     "to": "barossa",
+     "mode": "road"
+    },
+    {
+     "to": "mclaren-vale",
+     "mode": "road"
+    },
+    {
+     "to": "victor-harbor",
+     "mode": "road"
+    }
+   ],
+   "facts": [
+    {
+     "text": "城市中心由威廉·莱特设计，采用棋盘式街道和宽阔广场。",
+     "source": "https://en.wikipedia.org/wiki/Adelaide"
+    },
+    {
+     "text": "阿德莱德公园环绕中心城区，其都市公园布局已列入国家遗产。",
+     "source": "https://en.wikipedia.org/wiki/Adelaide"
+    },
+    {
+     "text": "这里兴起于1836年，最初作为自由移民殖民地的规划首府。",
+     "source": "https://en.wikipedia.org/wiki/Adelaide"
+    }
+   ]
+  },
+  {
+   "id": "glenelg",
+   "name": "格雷尔格",
+   "en": "Glenelg",
+   "lat": -34.97,
+   "lon": 138.52,
+   "coordSource": "https://www.openstreetmap.org/search?query=Glenelg%2C%20South%20Australia",
+   "kind": "coast",
+   "tags": [
+    "beach",
+    "surf",
+    "market",
+    "pub"
+   ],
+   "radiusKm": 10,
+   "blurb": "霍尔斯特湾畔海滨郊区，拥有沙滩、码头和电车",
+   "routes": [
+    {
+     "to": "adelaide",
+     "mode": "road"
+    },
+    {
+     "to": "kangaroo-island",
+     "mode": "ferry"
+    }
+   ],
+   "facts": [
+    {
+     "text": "1836年南澳首次宣布殖民政府之地就在邻近的古胶树。",
+     "source": "https://en.wikipedia.org/wiki/Glenelg,_South_Australia"
+    },
+    {
+     "text": "它被称为南澳大陆最早建立的欧洲人聚居地。",
+     "source": "https://en.wikipedia.org/wiki/Glenelg,_South_Australia"
+    },
+    {
+     "text": "现存码头于1969年启用，早期邮船和袋鼠岛航线曾在此停靠。",
+     "source": "https://en.wikipedia.org/wiki/Glenelg,_South_Australia"
+    }
+   ]
+  },
+  {
+   "id": "hahndorf",
+   "name": "汉多夫",
+   "en": "Hahndorf",
+   "lat": -35.03,
+   "lon": 138.81,
+   "coordSource": "https://www.wikidata.org/wiki/Q547709",
+   "kind": "town",
+   "tags": [
+    "pub",
+    "market"
+   ],
+   "radiusKm": 10,
+   "blurb": "阿德莱德山区的德国移民古镇，以传统建筑闻名",
+   "routes": [
+    {
+     "to": "adelaide",
+     "mode": "road"
+    },
+    {
+     "to": "barossa",
+     "mode": "road"
+    },
+    {
+     "to": "mclaren-vale",
+     "mode": "road"
+    }
+   ],
+   "facts": [
+    {
+     "text": "这里是澳大利亚现存最古老的德国移民聚居地。",
+     "source": "https://en.wikipedia.org/wiki/Hahndorf,_South_Australia"
+    },
+    {
+     "text": "首批德国路德宗教徒于1838年乘斑马号抵达。",
+     "source": "https://en.wikipedia.org/wiki/Hahndorf,_South_Australia"
+    },
+    {
+     "text": "圣米迦勒路德教堂创立于1839年，现仍有会众礼拜。",
+     "source": "https://en.wikipedia.org/wiki/Hahndorf,_South_Australia"
+    }
+   ]
+  },
+  {
+   "id": "barossa",
+   "name": "巴罗萨谷",
+   "en": "Barossa Valley",
+   "lat": -34.52,
+   "lon": 138.97,
+   "coordSource": "https://en.wikipedia.org/wiki/Tanunda,_South_Australia",
+   "kind": "town",
+   "tags": [
+    "wine",
+    "market",
+    "pub"
+   ],
+   "radiusKm": 15,
+   "blurb": "以塔南达为镇中心的著名葡萄酒产区",
+   "routes": [
+    {
+     "to": "adelaide",
+     "mode": "road"
+    },
+    {
+     "to": "hahndorf",
+     "mode": "road"
+    }
+   ],
+   "facts": [
+    {
+     "text": "塔南达周围遍布葡萄园，是澳大利亚重要葡萄酒产区。",
+     "source": "https://en.wikipedia.org/wiki/Tanunda,_South_Australia"
+    },
+    {
+     "text": "Turkey Flat的设拉子葡萄于1847年栽种。",
+     "source": "https://en.wikipedia.org/wiki/Tanunda,_South_Australia"
+    },
+    {
+     "text": "塔南达铜管乐团曾庆祝成立150周年。",
+     "source": "https://en.wikipedia.org/wiki/Tanunda,_South_Australia"
+    }
+   ]
+  },
+  {
+   "id": "mclaren-vale",
+   "name": "麦克拉伦谷",
+   "en": "McLaren Vale",
+   "lat": -35.23,
+   "lon": 138.53,
+   "coordSource": "https://www.openstreetmap.org/node/291555293",
+   "kind": "town",
+   "tags": [
+    "wine",
+    "beach",
+    "surf"
+   ],
+   "radiusKm": 15,
+   "blurb": "阿德莱德以南葡萄酒产区，邻近海滩和酒庄",
+   "routes": [
+    {
+     "to": "adelaide",
+     "mode": "road"
+    },
+    {
+     "to": "victor-harbor",
+     "mode": "road"
+    },
+    {
+     "to": "hahndorf",
+     "mode": "road"
+    }
+   ],
+   "facts": [
+    {
+     "text": "1923年由Gloucester与Bellevue两村合并成今日镇区。",
+     "source": "https://en.wikipedia.org/wiki/McLaren_Vale,_South_Australia"
+    },
+    {
+     "text": "麦克拉伦谷是受保护葡萄酒地理名称区域。",
+     "source": "https://en.wikipedia.org/wiki/McLaren_Vale,_South_Australia"
+    },
+    {
+     "text": "该镇距阿德莱德市中心约33公里。",
+     "source": "https://en.wikipedia.org/wiki/McLaren_Vale,_South_Australia"
+    }
+   ]
+  },
+  {
+   "id": "victor-harbor",
+   "name": "维克多港",
+   "en": "Victor Harbor",
+   "lat": -35.55,
+   "lon": 138.62,
+   "coordSource": "https://www.wikidata.org/wiki/Q1015796",
+   "kind": "coast",
+   "tags": [
+    "beach",
+    "surf",
+    "whale",
+    "dolphin",
+    "market",
+    "pub"
+   ],
+   "radiusKm": 15,
+   "blurb": "弗勒尤半岛南岸度假城市，以花岗岩岛闻名",
+   "routes": [
+    {
+     "to": "adelaide",
+     "mode": "road"
+    },
+    {
+     "to": "mclaren-vale",
+     "mode": "road"
+    },
+    {
+     "to": "kangaroo-island",
+     "mode": "ferry"
+    }
+   ],
+   "facts": [
+    {
+     "text": "1802年弗林德斯与博丹在此相遇，海湾遂名恩考特湾。",
+     "source": "https://en.wikipedia.org/wiki/Victor_Harbor,_South_Australia"
+    },
+    {
+     "text": "花岗岩岛由堤道连接大陆，曾以马拉车服务往来。",
+     "source": "https://en.wikipedia.org/wiki/Victor_Harbor,_South_Australia"
+    },
+    {
+     "text": "当地铁路“蛤蜊号”往返维克多港与古尔瓦。",
+     "source": "https://en.wikipedia.org/wiki/Victor_Harbor,_South_Australia"
+    }
+   ]
+  },
+  {
+   "id": "kangaroo-island",
+   "name": "袋鼠岛",
+   "en": "Kangaroo Island",
+   "lat": -35.653,
+   "lon": 137.634,
+   "coordSource": "https://www.wikidata.org/wiki/Q1361416",
+   "kind": "island",
+   "tags": [
+    "airport",
+    "beach",
+    "whale",
+    "dolphin",
+    "pub"
+   ],
+   "radiusKm": 20,
+   "blurb": "南澳近海大岛，以袋鼠、海岸和野生动物闻名",
+   "routes": [
+    {
+     "to": "adelaide",
+     "mode": "ferry"
+    },
+    {
+     "to": "victor-harbor",
+     "mode": "ferry"
+    },
+    {
+     "to": "glenelg",
+     "mode": "road"
+    }
+   ],
+   "facts": [
+    {
+     "text": "袋鼠岛是澳大利亚第三大岛，仅次于塔斯马尼亚岛和梅尔维尔岛",
+     "source": "https://en.wikipedia.org/wiki/Kangaroo_Island"
+    },
+    {
+     "text": "岛上的威克塞德是南澳最早的欧洲人定居点",
+     "source": "https://en.wikipedia.org/wiki/Kingscote,_South_Australia"
+    },
+    {
+     "text": "海豹湾有大量海狮，岛上也分布着小企鹅",
+     "source": "https://en.wikipedia.org/wiki/Kangaroo_Island"
+    }
+   ]
+  },
+  {
+   "id": "port-lincoln",
+   "name": "林肯港",
+   "en": "Port Lincoln",
+   "lat": -34.732,
+   "lon": 135.861,
+   "coordSource": "https://www.wikidata.org/wiki/Q606268",
+   "kind": "port",
+   "tags": [
+    "airport",
+    "hospital",
+    "pub",
+    "beach",
+    "surf",
+    "whale",
+    "dolphin",
+    "market"
+   ],
+   "radiusKm": 20,
+   "blurb": "艾尔半岛东部港湾城市及重要渔业港口",
+   "routes": [
+    {
+     "to": "adelaide",
+     "mode": "road"
+    },
+    {
+     "to": "ceduna",
+     "mode": "road"
+    },
+    {
+     "to": "victor-harbor",
+     "mode": "road"
+    }
+   ],
+   "facts": [
+    {
+     "text": "林肯港坐落在波士顿湾，湾口向东通向斯潘塞湾",
+     "source": "https://en.wikipedia.org/wiki/Port_Lincoln,_South_Australia"
+    },
+    {
+     "text": "当地原住民称此地为Galinyala，意为“淡水之地”",
+     "source": "https://en.wikipedia.org/wiki/Port_Lincoln,_South_Australia"
+    },
+    {
+     "text": "沿岸冷水上升流支撑金枪鱼和沙丁鱼等重要渔获",
+     "source": "https://en.wikipedia.org/wiki/Port_Lincoln,_South_Australia"
+    }
+   ]
+  },
+  {
+   "id": "coober-pedy",
+   "name": "库伯佩迪",
+   "en": "Coober Pedy",
+   "lat": -29.014,
+   "lon": 134.755,
+   "coordSource": "https://www.wikidata.org/wiki/Q779188",
+   "kind": "mining",
+   "tags": [
+    "airport",
+    "hospital",
+    "pub",
+    "market"
+   ],
+   "radiusKm": 8,
+   "blurb": "著名欧泊 mining 城镇，许多居民住在地下",
+   "routes": [
+    {
+     "to": "adelaide",
+     "mode": "road"
+    },
+    {
+     "to": "ceduna",
+     "mode": "road"
+    },
+    {
+     "to": "flinders-ranges",
+     "mode": "road"
+    }
+   ],
+   "facts": [
+    {
+     "text": "这里被称为“世界欧泊之都”，澳白欧泊多产于此",
+     "source": "https://en.wikipedia.org/wiki/Coober_Pedy"
+    },
+    {
+     "text": "为躲避酷热，许多住宅直接凿入地下砂岩层",
+     "source": "https://en.wikipedia.org/wiki/Coober_Pedy"
+    },
+    {
+     "text": "当地原住民采用的名称Umoona意为“长寿”",
+     "source": "https://en.wikipedia.org/wiki/Coober_Pedy"
+    }
+   ]
+  },
+  {
+   "id": "flinders-ranges",
+   "name": "弗林德斯山脉",
+   "en": "Flinders Ranges",
+   "lat": -31.559,
+   "lon": 138.574,
+   "coordSource": "https://www.wikidata.org/wiki/Q8022873",
+   "kind": "park",
+   "tags": [
+    "gorge",
+    "pub"
+   ],
+   "radiusKm": 30,
+   "blurb": "古老褶皱山脉，以巨型环形山和峡谷闻名",
+   "routes": [
+    {
+     "to": "adelaide",
+     "mode": "road"
+    },
+    {
+     "to": "coober-pedy",
+     "mode": "road"
+    },
+    {
+     "to": "ceduna",
+     "mode": "road"
+    }
+   ],
+   "facts": [
+    {
+     "text": "威尔佩纳盆地是直径很大的天然圆形山谷",
+     "source": "https://en.wikipedia.org/wiki/Wilpena_Pound"
+    },
+    {
+     "text": "山脉内的伊迪亚卡拉山保存了早期动物生命化石",
+     "source": "https://en.wikipedia.org/wiki/Flinders_Ranges"
+    },
+    {
+     "text": "圣玛丽峰海拔1171米，是山脉最高峰",
+     "source": "https://en.wikipedia.org/wiki/Flinders_Ranges"
+    }
+   ]
+  },
+  {
+   "id": "mount-gambier",
+   "name": "甘比尔山",
+   "en": "Mount Gambier",
+   "lat": -37.829,
+   "lon": 140.783,
+   "coordSource": "https://www.wikidata.org/wiki/Q327348",
+   "kind": "city",
+   "tags": [
+    "airport",
+    "hospital",
+    "pub",
+    "market",
+    "gym"
+   ],
+   "radiusKm": 20,
+   "blurb": "建在休眠火山上的南澳第二大城市",
+   "routes": [
+    {
+     "to": "adelaide",
+     "mode": "road"
+    },
+    {
+     "to": "victor-harbor",
+     "mode": "road"
+    },
+    {
+     "to": "port-lincoln",
+     "mode": "road"
+    }
+   ],
+   "facts": [
+    {
+     "text": "城市建在一座休眠火山的山坡和火山口平原上",
+     "source": "https://en.wikipedia.org/wiki/Mount_Gambier,_South_Australia"
+    },
+    {
+     "text": "蓝湖是火山口湖，水色会随季节由灰转蓝",
+     "source": "https://en.wikipedia.org/wiki/Mount_Gambier,_South_Australia"
+    },
+    {
+     "text": "它是南澳人口第二多的城市，靠近维州边界",
+     "source": "https://en.wikipedia.org/wiki/Mount_Gambier,_South_Australia"
+    }
+   ]
+  },
+  {
+   "id": "ceduna",
+   "name": "锡杜纳",
+   "en": "Ceduna",
+   "lat": -32.133,
+   "lon": 133.683,
+   "coordSource": "https://www.wikidata.org/wiki/Q200777",
+   "kind": "coast",
+   "tags": [
+    "airport",
+    "hospital",
+    "pub",
+    "beach",
+    "market"
+   ],
+   "radiusKm": 12,
+   "blurb": "艾尔公路穿越南澳后抵达的滨海小镇",
+   "routes": [
+    {
+     "to": "port-lincoln",
+     "mode": "road"
+    },
+    {
+     "to": "flinders-ranges",
+     "mode": "road"
+    },
+    {
+     "to": "adelaide",
+     "mode": "road"
+    }
+   ],
+   "facts": [
+    {
+     "text": "锡杜纳位于穆拉特湾岸边，附近有特维纳德港",
+     "source": "https://en.wikipedia.org/wiki/Ceduna,_South_Australia"
+    },
+    {
+     "text": "它是穿越纳拉伯平原前最后一个主要定居点",
+     "source": "https://en.wikipedia.org/wiki/Ceduna,_South_Australia"
+    },
+    {
+     "text": "当地旧卫星天线后来用于射电天文观测",
+     "source": "https://en.wikipedia.org/wiki/Ceduna,_South_Australia"
+    }
+   ]
+  }
+ ]
+}

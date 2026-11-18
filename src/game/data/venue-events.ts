@@ -138,7 +138,7 @@ export const VENUE_EVENTS: GameEvent[] = [
 	},
 	{
 		id: 'v-library-talk', title: '免费讲座', icon: '🎤', venueTypes: ['library'], weight: 7,
-		text: '多功能厅在办讲座：在西澳找工作和租房的那些坑。',
+		text: '多功能厅在办讲座：在澳洲找工作和租房的那些坑。',
 		choices: [
 			{ label: '进去听', ok: { text: '你记下了押金、合同和工资单的几条要点。', fx: { minutes: 60, skills: { street: 1.5 }, respect: 0.5 } } },
 			{ label: '下次吧', ok: { text: '你拿了张传单。', fx: {} } },

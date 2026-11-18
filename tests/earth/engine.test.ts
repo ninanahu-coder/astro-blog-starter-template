@@ -12,19 +12,21 @@ import {
 import { haversineKm, locateInRegion } from '../../src/game/core/geo.ts';
 import { ACTIVITIES } from '../../src/game/data/activities.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
-import { WA } from '../../src/game/data/wa.ts';
+import { FULL_AREAS, WA, WORLD } from '../../src/game/data/wa.ts';
 
 const fresh = (origin = 'backpacker', seed = 42) =>
 	createCharacter({ id: 'test-player', name: '测试', avatar: '🧑', origin, region: 'wa', spawn: WA.spawn, seed });
 
 test('区域数据自洽', () => {
-	const ids = new Set(WA.locations.map((l) => l.id));
-	assert.equal(ids.size, WA.locations.length, '地点 id 唯一');
-	for (const r of WA.routes) assert.ok(ids.has(r.a) && ids.has(r.b), `路线端点存在: ${r.a}-${r.b}`);
-	for (const p of WA.pois) assert.ok(ids.has(p.loc), `POI 所属地点存在: ${p.id}`);
-	for (const l of WA.locations) {
-		assert.ok(l.lon > WA.bounds.minLon && l.lon < WA.bounds.maxLon && l.lat > WA.bounds.minLat && l.lat < WA.bounds.maxLat, l.id);
-		assert.ok(WA.routes.some((r) => r.a === l.id || r.b === l.id), `${l.id} 至少有一条路线`);
+	// 第 42 轮起世界由几个区域组成：地点 id 全世界唯一，每个区域的地点在它自己的范围里
+	const ids = new Set(WORLD.locations.map((l) => l.id));
+	assert.equal(ids.size, WORLD.locations.length, '地点 id 唯一');
+	for (const r of WORLD.routes) assert.ok(ids.has(r.a) && ids.has(r.b), `路线端点存在: ${r.a}-${r.b}`);
+	for (const p of WORLD.pois) assert.ok(ids.has(p.loc), `POI 所属地点存在: ${p.id}`);
+	for (const area of FULL_AREAS) for (const l of area.locations) {
+		const b = area.bounds;
+		assert.ok(l.lon > b.minLon && l.lon < b.maxLon && l.lat > b.minLat && l.lat < b.maxLat, l.id);
+		assert.ok(WORLD.routes.some((r) => r.a === l.id || r.b === l.id), `${l.id} 至少有一条路线`);
 	}
 	for (const e of EVENTS) for (const id of e.locs ?? []) assert.ok(ids.has(id), `事件地点存在: ${e.id}`);
 	assert.equal(new Set(EVENTS.map((e) => e.id)).size, EVENTS.length);

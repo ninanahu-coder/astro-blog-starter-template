@@ -6,5 +6,5 @@ export const WEEKLY_GOALS: WeeklyGoal[] = [
 	{ id: 'week-coop', icon: '🤝', title: '一起搭把手', desc: '全服一起完成共同事件（每次每个参加的人都算一份）', metric: 'coop', target: 30, reward: { cash: 60, respect: 3 } },
 	{ id: 'week-trade', icon: '🎁', title: '礼尚往来', desc: '全服一起送礼或在二手摊成交', metric: 'trade', target: 20, reward: { cash: 60, respect: 3 } },
 	{ id: 'week-exp', icon: '🎟️', title: '出门玩一趟', desc: '全服一起完成收费体验', metric: 'experience', target: 40, reward: { cash: 60, respect: 3 } },
-	{ id: 'week-travel', icon: '🧭', title: '满西澳地跑', desc: '全服一起抵达新的地点（每次出行算一次）', metric: 'travel', target: 120, reward: { cash: 60, respect: 3 } },
+	{ id: 'week-travel', icon: '🧭', title: '满地图跑', desc: '全服一起抵达新的地点（每次出行算一次）', metric: 'travel', target: 120, reward: { cash: 60, respect: 3 } },
 ];

@@ -119,4 +119,70 @@ export const FACTS: Record<string, PlaceFact[]> = {
 		{ text: '宁格鲁礁沿海岸绵延 300 多公里，海洋公园里有 200 多种珊瑚。', source: W('Coral_Bay,_Western_Australia') },
 		{ text: '每年 6 月到 10 月，这里有出海观鲸的船。', source: W('Coral_Bay,_Western_Australia') },
 	],
+	// ---------- 南澳（第 42 轮）：OpenClaw 采集（2026-11-18，原始结果见 tools/earth/openclaw/inbox/sa-locations-2026-11-18.json），Claude 核对改写 ----------
+	adelaide: [
+		{ text: '阿德莱德城中心是威廉·莱特规划的，棋盘式街道配几座宽阔的广场。', source: W('Adelaide') },
+		{ text: '一圈公园绿地环绕着城中心，这片公园已列入澳洲国家遗产名录。', source: W('Adelaide_Park_Lands') },
+		{ text: '阿德莱德建于 1836 年，是一座按规划建起来的自由移民首府。', source: W('Adelaide') },
+	],
+	glenelg: [
+		{ text: '1836 年南澳宣布建立殖民地，地点就在格莱内尔格附近的老桉树下。', source: W('Glenelg,_South_Australia') },
+		{ text: '格莱内尔格被认为是南澳大陆上最早的欧洲人定居点。', source: W('Glenelg,_South_Australia') },
+		{ text: '现在的格莱内尔格码头 1969 年建成。', source: W('Glenelg,_South_Australia') },
+	],
+	hahndorf: [
+		{ text: '汉多夫是澳洲现存最古老的德国移民定居点。', source: W('Hahndorf,_South_Australia') },
+		{ text: '第一批德国路德宗移民 1838 年坐「斑马号」来到这里。', source: W('Hahndorf,_South_Australia') },
+		{ text: '镇上的圣米迦勒路德教堂 1839 年创立，至今还有人来做礼拜。', source: W('Hahndorf,_South_Australia') },
+	],
+	barossa: [
+		{ text: '塔南达四周都是葡萄园，巴罗萨是澳洲最有名的葡萄酒产区之一。', source: W('Tanunda,_South_Australia') },
+		{ text: '这里有 1847 年种下的设拉子葡萄藤，是世界上最老的一批之一。', source: W('Tanunda,_South_Australia') },
+		{ text: '巴罗萨谷是 1840 年代英国和德国移民开垦出来的。', source: W('Barossa_Valley') },
+	],
+	'mclaren-vale': [
+		{ text: '1923 年格洛斯特和贝尔维尤两个村合并，成了今天的麦克拉伦谷镇。', source: W('McLaren_Vale,_South_Australia') },
+		{ text: '麦克拉伦谷是受保护的葡萄酒地理标志产区。', source: W('McLaren_Vale,_South_Australia') },
+		{ text: '小镇离阿德莱德市中心约 35 公里。', source: W('McLaren_Vale,_South_Australia') },
+	],
+	'victor-harbor': [
+		{ text: '1802 年英国的弗林德斯和法国的博丹在这片海湾相遇，海湾因此叫「相遇湾」。', source: W('Victor_Harbor,_South_Australia') },
+		{ text: '花岗岩岛靠一条海堤连到岸上，至今还有马拉的电车来回跑。', source: W('Victor_Harbor,_South_Australia') },
+		{ text: '老式蒸汽小火车「鸟蛤号」往返维克多港和古尔瓦。', source: W('Victor_Harbor,_South_Australia') },
+	],
+	'cape-jervis': [
+		{ text: '去袋鼠岛的渡轮从这里开，对岸是岛上的彭尼肖。', source: W('Cape_Jervis,_South_Australia') },
+		{ text: '1802 年弗林德斯用英国海军将领杰维斯的名字给这个海角命名。', source: W('Cape_Jervis,_South_Australia') },
+		{ text: '全长约 1200 公里的海森步道从这里起步，一直通到弗林德斯山脉。', source: W('Cape_Jervis,_South_Australia') },
+	],
+	'kangaroo-island': [
+		{ text: '袋鼠岛是澳洲第三大岛，只比塔斯马尼亚和梅尔维尔岛小。', source: W('Kangaroo_Island') },
+		{ text: '金斯科特旁的里夫斯角，是 1836 年南澳第一个官方殖民定居点。', source: W('Kingscote,_South_Australia') },
+		{ text: '海豹湾的沙滩上躺着成群的澳洲海狮，岛上也有小企鹅。', source: W('Kangaroo_Island') },
+	],
+	'port-lincoln': [
+		{ text: '林肯港在波士顿湾边上，海湾向东通往斯潘塞湾。', source: W('Port_Lincoln,_South_Australia') },
+		{ text: '当地原住民管这里叫 Galinyala，意思是「有淡水的地方」。', source: W('Port_Lincoln,_South_Australia') },
+		{ text: '近海冷水上涌，养活了金枪鱼和沙丁鱼这些重要渔获。', source: W('Port_Lincoln,_South_Australia') },
+	],
+	'coober-pedy': [
+		{ text: '库伯佩迪号称「世界欧泊之都」，世界上大部分白欧泊产在这里。', source: W('Coober_Pedy') },
+		{ text: '为了躲酷热，很多人家直接把房子凿进地下的砂岩里。', source: W('Coober_Pedy') },
+		{ text: '当地原住民给这里起的名字 Umoona 意思是「长寿」。', source: W('Coober_Pedy') },
+	],
+	'flinders-ranges': [
+		{ text: '威尔佩纳盆地是一圈山围出来的巨大天然盆地，像个环形剧场。', source: W('Wilpena_Pound') },
+		{ text: '山里的伊迪卡拉山保存了地球上最早的一批动物化石。', source: W('Flinders_Ranges') },
+		{ text: '圣玛丽峰海拔 1171 米，是弗林德斯山脉的最高峰。', source: W('Flinders_Ranges') },
+	],
+	'mount-gambier': [
+		{ text: '甘比尔山城建在一座休眠火山的山坡和火山口平原上。', source: W('Mount_Gambier,_South_Australia') },
+		{ text: '蓝湖是一座火山口湖，夏天湖水会从灰色变成钴蓝色。', source: W('Mount_Gambier,_South_Australia') },
+		{ text: '它是南澳人口第二多的城市，离维多利亚州边界很近。', source: W('Mount_Gambier,_South_Australia') },
+	],
+	ceduna: [
+		{ text: '锡杜纳在穆拉特湾边上，旁边是特维纳德港。', source: W('Ceduna,_South_Australia') },
+		{ text: '从东往西横穿纳拉伯平原之前，这是最后一个像样的镇子。', source: W('Ceduna,_South_Australia') },
+		{ text: '镇外的旧卫星天线后来改成了射电望远镜。', source: W('Ceduna,_South_Australia') },
+	],
 };
