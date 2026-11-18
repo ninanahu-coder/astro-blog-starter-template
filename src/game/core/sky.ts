@@ -35,7 +35,7 @@ export function realDateLabel(doy: number): string {
 // 海边地点 1 月、7 月平均最高气温取几个纬度上的大致值（布鲁姆、卡那封、珀斯、奥尔巴尼一带），中间线性插值；内陆夏 +4、冬 −1。
 // 一年里按余弦过渡：1 月中最热、7 月中最冷。天气再修正：炎热 +6、多云 −1、小雨 −3、风暴 −5；每天另有 ±2 度起伏（按地点和日子定，所有人一样）。
 export interface Temps { max: number; min: number }
-export const isCoastal = (l: SkyLoc) => l.tags.includes('beach') || l.kind === 'port' || l.kind === 'island' || l.kind === 'coast';
+export const isCoastal = (l: Pick<SkyLoc, 'kind' | 'tags'>) => l.tags.includes('beach') || l.kind === 'port' || l.kind === 'island' || l.kind === 'coast';
 /** [南纬度数, 1 月平均最高, 7 月平均最高]（海边） */
 const CLIMATE: [number, number, number][] = [[18, 33, 29], [25, 32, 24], [32, 31, 19], [35, 25, 16]];
 const WX_TEMP: Record<string, number> = { hot: 6, cloudy: -1, rain: -3, storm: -5 };

@@ -1,6 +1,9 @@
 // 场景背景（虚拟人生风格界面）：今天页顶栏和事件弹窗后面画一幅当地的小场景——天空、云、远山或城市、海、地面、树、你自己。
 // 天色跟着当地真实的日出日落（sky.ts 的 skyPhase），天气换云和雨；地点类型决定画城市、海滩、港口还是内陆红土。
 // 只是背景图：纯装饰（aria-hidden），不参与任何规则；输出确定（同样的输入同样的 SVG），方便测试。
+// 画不画海和气温模型用同一个判断（sky.ts 的 isCoastal）：海滩标签或港口、海岛、海边类型才有海，内陆小镇不画海。
+
+import { isCoastal } from '../core/sky.ts';
 
 export type Phase = 'dawn' | 'day' | 'dusk' | 'night';
 export interface SceneInput {
@@ -45,10 +48,14 @@ const TOWERS: [number, number, number][] = [[28, 22, 70], [52, 18, 96], [72, 26,
 const STARS: [number, number][] = [[30, 20], [80, 44], [130, 16], [190, 52], [226, 24], [260, 70], [350, 110], [18, 96], [160, 88], [372, 22], [300, 14]];
 const SUN_AT: Record<Phase, [number, number, number]> = { dawn: [62, 150, 26], day: [325, 52, 28], dusk: [322, 160, 30], night: [318, 50, 17] };
 
+/** 这个地点的场景里有没有海（和气温模型的「海边」一致） */
+export const sceneWater = (kind: string, tags: string[]): boolean => isCoastal({ kind, tags });
+
 /** 画一幅 390×220 的场景（viewBox；外面按宽度缩放、底部对齐） */
 export function sceneSvg(s: SceneInput): string {
 	const wet = s.weather === 'rain' || s.weather === 'storm';
 	const kind = sceneKind(s.kind, s.tags);
+	const water = sceneWater(s.kind, s.tags);
 	const p: Palette = { ...PAL[s.phase], ...(kind === 'outback' ? RED[s.phase] : {}), ...(wet ? WET : {}), ...(s.weather === 'cloudy' && !wet ? { cloud: s.phase === 'night' ? '#2f4466' : '#e4e9ef' } : {}) };
 	const night = s.phase === 'night';
 	const out: string[] = [];
@@ -72,9 +79,9 @@ export function sceneSvg(s: SceneInput): string {
 	} else if (kind === 'outback') {
 		out.push(r(30, 128, 90, 34, p.far, 14), r(60, 116, 40, 20, p.far, 10));
 	}
-	// 海（城市、海边、小镇）或平原
-	if (kind !== 'outback') out.push(r(0, 160, 390, 26, p.sea), r(26, 168, 50, 2.5, p.foam, 1), r(220, 176, 70, 2.5, p.foam, 1));
-	out.push(r(0, kind === 'outback' ? 160 : 186, 390, 60, p.ground));
+	// 海（海边的地点）或一直铺到远处的地面
+	if (water) out.push(r(0, 160, 390, 26, p.sea), r(26, 168, 50, 2.5, p.foam, 1), r(220, 176, 70, 2.5, p.foam, 1));
+	out.push(r(0, water ? 186 : 160, 390, 60, p.ground));
 	out.push(`<path d="M-10 214 L400 200 L400 214 L-10 228Z" fill="${p.path}"/>`);
 	// 树：海边是棕榈，其他是圆冠树
 	if (kind === 'coast') out.push(r(312, 150, 6, 44, p.trunk, 3), el(306, 150, 22, 7, p.tree), el(326, 150, 22, 7, p.tree), el(316, 144, 8, 14, p.tree));

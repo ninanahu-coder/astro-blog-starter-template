@@ -402,7 +402,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			#modal .ev-body { padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
 			#modal .ev-body > p { margin: 0; font-size: 17px; line-height: 1.6; }
 			#modal .choice { flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 18px; min-height: 64px; border-radius: 22px; border: 2px solid var(--line); }
-			#modal .choice:not([disabled]):first-child { border-color: var(--accent); background: var(--tint-blue); }
+			#modal .choice.first { border-color: var(--accent); background: var(--tint-blue); }
 			#modal .choice .label { font-size: 16px; font-weight: 700; }
 			.pills { display: flex; flex-wrap: wrap; gap: 6px; }
 			.pill { font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 8px; background: var(--tint-blue); color: var(--tint-blue-ink); }
@@ -877,6 +877,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						adopt(data.state, newer ? '已载入最新进度' : undefined);
 						render();
 						void flushQueue();
+						return; // render() 已经把顶栏和面板都画过了，不用再画一次
 					} else syncStatus = '同步失败：' + (data.msg || '');
 				} catch {
 					syncStatus = '离线：可以查看，联网后才能行动';
@@ -2039,7 +2040,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
 					<div class="ev-hero">${img ? `<img src="${esc(img)}" alt="" loading="lazy" />` : loc ? `${sceneSvg({ phase: skyPhase(loc, s.clock), weather: weatherAt(s).id, kind: loc.kind, tags: loc.tags, noFigure: true })}<i class="ev-shade"></i>` : ''}<span class="kicker">${loc ? `到达 ${esc(loc.name)} · ${formatClock(s.clock).split(' ')[1]}` : '事件'}${weatherAt(s).closesSea ? ' · 风暴天' : ''}</span><h2 id="ev-title">${ev.icon} ${esc(ev.title)}</h2></div>
 					<div class="ev-body"><p>${esc(ev.text)}</p>
-					<div class="list">${ev.choices.map((c, i) => {
+					<div class="list">${(() => { let lit = false; return ev.choices.map((c, i) => {
 						const poor = !!c.cost && c.cost > s.cash;
 						const stormBlocked = c.exposed === 'sea' && !!weatherAt(s).closesSea;
 						const pills = [
@@ -2047,8 +2048,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							c.cost ? `<span class="pill ${poor ? 'bad' : 'cost'}">${poor ? `需要 $${c.cost}，钱不够` : `$${c.cost}`}</span>` : '',
 							c.check ? `<span class="pill" title="你 ${checkScore(s, c.check.skill).total} + 随机 0–60，难度 ${c.check.dc}">${SKILL_META[c.check.skill].icon} ${SKILL_META[c.check.skill].name}检定 · 成功率约 ${odds(c.check.skill, c.check.dc)}%</span>` : '',
 						].join('');
-						return `<button class="row choice" data-choice="${i}"${poor || stormBlocked ? ' disabled' : ''}><span class="label">${esc(choiceLabel(c))}</span>${pills ? `<span class="pills">${pills}</span>` : ''}</button>`;
-					}).join('')}</div></div></div>`;
+						// 第一个能选的选项高亮（第一项钱不够或风暴下不了海时，顺延到下一个能选的）
+						const first = !poor && !stormBlocked && !lit;
+						if (first) lit = true;
+						return `<button class="row choice${first ? ' first' : ''}" data-choice="${i}"${poor || stormBlocked ? ' disabled' : ''}><span class="label">${esc(choiceLabel(c))}</span>${pills ? `<span class="pills">${pills}</span>` : ''}</button>`;
+					}).join(''); })()}</div></div></div>`;
 				modal.classList.remove('hidden');
 				// 弹窗打开期间背后的页面不可点、不可聚焦；换成一个新事件时（刚打开或接着下一个）把焦点移到第一个能选的选项
 				game.inert = true;
