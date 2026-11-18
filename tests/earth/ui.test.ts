@@ -196,7 +196,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		// 开局：游戏页显示、创建页隐藏，五个标签
 		assert.equal(el('create').classList.contains('hidden'), true);
 		assert.equal(el('game').classList.contains('hidden'), false);
-		assert.equal(strip(el('tabs').innerHTML), '今天 出行 附近 社交 我');
+		assert.equal(strip(el('tabs').innerHTML), '今天 出行 成长 社交 我');
 		assert.equal(el('map-wrap').classList.contains('hidden'), true, '今天页不显示地图');
 		assert.ok(rootClasses.contains('p-day') && !rootClasses.contains('p-night'), '开局 8 点是白天');
 		// 名字里的 HTML 被转义（服务端可能已清洗掉尖括号；无论如何不能原样出现）
@@ -232,7 +232,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		// 其他标签都能渲染；地图只在出行页
 		// 地图只在出行页画：今天页时 SVG 还是空的
 		assert.equal(el('map').innerHTML, '', '今天页不画地图');
-		for (const t of ['go', 'near', 'social', 'me']) {
+		for (const t of ['go', 'near', 'grow', 'social', 'me']) {
 			await click({ tab: t });
 			assert.ok(strip(panel()).length > 20, `${t} 页是空的`);
 			assert.deepEqual(a11yIssues(panel() + el('hud').innerHTML + el('tabs').innerHTML), [], `${t} 页`);
@@ -241,6 +241,26 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			if (t === 'go') assert.match(panel(), /去了周结算会不够/, '周结算前的路费提醒');
 			if (t === 'go') assert.match(el('hud').innerHTML, /<h1>出行<\/h1>/, '其他页顶栏用页名做大标题');
 			if (t === 'me') assert.match(panel(), /class="card me-head"/, '我页顶上有人物抬头');
+			// 附近并进出行（第 13 批）：两页顶上都有「路线 / 附近」分页，底部亮的都是出行
+			if (t === 'go' || t === 'near') {
+				assert.match(el('tabs').innerHTML, /data-tab="go" class="on" aria-current="page"/, `${t} 页底部应亮出行`);
+				assert.match(panel(), new RegExp(`role="tablist" aria-label="出行"><button role="tab" data-tab="go" class="${t === 'go' ? 'on' : ''}" aria-selected="${t === 'go'}">路线</button><button role="tab" data-tab="near" class="${t === 'near' ? 'on' : ''}" aria-selected="${t === 'near'}">附近</button>`));
+			}
+			if (t === 'near') assert.match(el('hud').innerHTML, /<h1>附近<\/h1>/, '附近分页顶栏仍叫附近');
+			// 成长页：等级卡在最上面，然后是每日奖励和各种收集
+			if (t === 'grow') {
+				assert.match(el('hud').innerHTML, /<h1>成长<\/h1>/);
+				assert.ok(panel().startsWith('<div class="card grow-head">'), '成长页最上面是等级卡');
+				// 前面的事件结果有随机，声望可能是 0 或 0.5：按页面上的数核对「还差」和进度条
+				const lvm = panel().match(/<b>Lv1 新来的<\/b><span>声望 ([\d.]+) \/ 10 · 离下一级还差 ([\d.]+)<\/span><span class="bar" role="img" aria-label="升级进度 (\d+)%"><i style="width:(\d+)%">/);
+				assert.ok(lvm, '等级卡格式不对');
+				assert.equal(Number(lvm![1]) + Number(lvm![2]), 10, '声望 + 还差 = 下一级门槛');
+				assert.equal(Number(lvm![3]), Math.round(Number(lvm![1]) * 10), '进度百分比按声望算');
+				assert.equal(lvm![3], lvm![4], '读屏文字和条宽一致');
+				for (const h of ['每日奖励', '成就 ', '收藏册 ', '天气相册 ', '野生动物图鉴 ', '鱼获 ', '见闻录 ', '足迹 ']) assert.ok(panel().includes(`<h3>${h}`), `成长页缺 ${h}`);
+				assert.ok(panel().indexOf('<h3>每日奖励') < panel().indexOf('<h3>成就 '), '每日奖励在成就前');
+			}
+			if (t === 'me') for (const h of ['每日奖励', '成就 ', '收藏册 ', '足迹 ']) assert.ok(!panel().includes(`<h3>${h}`), `「我」页不该再有 ${h}`);
 		}
 		for (const mt of ['overview', 'assets', 'people', 'log', 'sync']) {
 			await click({ metab: mt });
@@ -313,7 +333,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		}
 
 		// 分享进度：没有系统分享时复制到剪贴板；只含展示信息，不含存档 id 和同步码
-		await click({ metab: 'overview' });
+		await click({ tab: 'grow' });
 		// 足迹：全部地点；点一个没去过的地方跳到出行页并选中它
 		assert.match(panel(), new RegExp(`足迹 1/${WORLD.locations.length}<`));
 		assert.match(panel(), new RegExp(`<p class="trail-area">西澳大利亚 · 1/${WA.locations.length}</p>`), '足迹按区域分组');

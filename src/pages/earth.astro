@@ -258,7 +258,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			/* 今天页：角色卡与「下一步」 */
 			.me-card { display: flex; flex-direction: column; gap: 14px; }
-			.me-head { display: flex; align-items: center; gap: 12px; }
+			.me-head, .grow-head { display: flex; align-items: center; gap: 12px; }
+			.grow-head .name { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+			.grow-head .name b { font-size: 19px; }
+			.grow-head .name > span:not(.bar) { font-size: 13px; color: var(--dim); }
+			.grow-head .lv-badge { flex: none; width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 800; color: var(--accent); background: var(--card); border: 4px solid var(--accent); box-sizing: border-box; }
 			.avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--tint-blue); display: flex; align-items: center; justify-content: center; font-size: 28px; flex: none; }
 			.me-head .name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 			.me-head .name b { font-size: 19px; }
@@ -491,11 +495,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			const SAVE_KEY = 'earth.save.v1';
 			const CRED_KEY = 'earth.cred.v1';
 			const KIND_ICON: Record<string, string> = { city: '🏙️', port: '⚓', island: '🏝️', coast: '🌊', outback: '🏜️', mining: '⛏️', park: '🏞️', town: '🏘️' };
-			// 底部 5 个标签；日志和同步收进「我」
+			// 底部 5 个标签；日志和同步收进「我」。「附近」并进「出行」的分页（页内还是 near），收集和成就单独成「成长」页（第 13 批）
 			const TABS: [string, string, string][] = [
 				['place', '今天', '<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>'],
 				['go', '出行', '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'],
-				['near', '附近', '<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>'],
+				['grow', '成长', '<path d="M12 21v-8M12 13c-4 0-7-3-7-7 4 0 7 3 7 7zM12 13c4 0 7-3 7-7-4 0-7 3-7 7z"/>'],
 				['social', '社交', '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c1.8.7 3 2.4 3.5 5.2"/>'],
 				['me', '我', '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.2 4-6.5 8-6.5s7 2.3 8 6.5"/>'],
 			];
@@ -1140,10 +1144,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const sub: Record<string, string> = {
 						go: `从${loc.name}出发 · ${time}`,
 						near: '真实地点 · 本人到场才能用',
+						grow: `${level(s.respect).title} · 收集与成就`,
 						social: `${loc.name} · ${here ? `${here} 位玩家在线` : '没有其他玩家在线'}`,
 						me: `${dateLabel(s.clock)} · 已过 ${dayOf(s.clock) + 1} 天`,
 					};
-					const title = TABS.find(([id]) => id === tab)?.[1] ?? '';
+					const title = tab === 'near' ? '附近' : TABS.find(([id]) => id === tab)?.[1] ?? '';
 					top = `<div class="hud-top"><div class="hud-title"><span class="hud-sub">${esc(sub[tab] ?? time)}</span><h1>${title}</h1></div>
 						<div class="hud-right">${cash}${starHtml}</div></div>
 						<div class="hud-chips">${moodBtn}${sync}</div>
@@ -1600,7 +1605,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return `${note}<p class="section-title">从${esc(getLocation(region, s.loc)!.name)}出发</p><div class="list">${rows}</div><p class="muted">点地图上的地点可以高亮对应路线。虚线是航班，长虚线是越野土路（需四驱），橙色点是没去过的地方。</p>`;
 			}
 
-			function panelMe() {
+			/** 出行页顶上的分页：路线（地图）和附近（真实地点）；附近原来是单独的底部标签 */
+			function goSeg() {
+				const seg: [string, string][] = [['go', '路线'], ['near', '附近']];
+				return `<div class="seg" role="tablist" aria-label="出行">${seg.map(([id, label]) => `<button role="tab" data-tab="${id}" class="${tab === id ? 'on' : ''}" aria-selected="${tab === id}">${label}</button>`).join('')}</div>`;
+			}
+
+			/** 「我」和「成长」共用一套卡片：成长页放等级、每日奖励和各种收集，「我」页放档案、心情、能力和资产 */
+			function panelMe(view: 'me' | 'grow' = 'me') {
 				const s = state!;
 				const origin = ORIGINS.find((o) => o.id === s.origin)!;
 				// 每项能力在哪练：涨得最多的 3 个互动（只看数据，不管当前在哪）
@@ -1726,7 +1738,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
 					})()}</div>`,
 				};
-				const sections: Record<string, string[]> = { overview: ['daily', 'ach', 'photo', 'mood', 'me', 'story', 'dex', 'fish', 'trail', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
+				if (view === 'grow') {
+					// 人生等级：声望到下一级的进度；满级不画进度条
+					const pct = lv.next !== null ? Math.min(100, Math.round(s.respect / lv.next * 100)) : 100;
+					const lvHtml = `<div class="card grow-head"><span class="lv-badge" aria-hidden="true">${lv.lv}</span><span class="name"><b>Lv${lv.lv} ${esc(lv.title)}</b><span>声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next} · 离下一级还差 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ' · 已到最高级'}</span>${lv.next !== null ? `<span class="bar" role="img" aria-label="升级进度 ${pct}%"><i style="width:${pct}%"></i></span>` : ''}</span></div>`;
+					return lvHtml + ['daily', 'ach', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
+				}
+				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'life', 'bag'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
 				// 「更新」页（第 48 轮）：打开时记下已读；没看过的批次在标签上标「新」
 				if (meTab === 'news') store.set(NEWS_SEEN_KEY, String(CHANGELOG_LATEST));
@@ -1952,7 +1970,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			const HELP: [string, string][] = [
 				['生活需求', '饱食、精力、清洁、娱乐、社交会随时间下降，最低的那项最影响心情；饱食或精力见底会掉健康。今天页的「下一步」会告诉你先做什么。'],
 				['出行与事件', '在「出行」选地方和交通方式。第一次到一个地方常有专属事件，选项上标了花费和成功率。'],
-				['真实地点', '本人走进真实的餐馆、健身房、公园、超市，在「附近」打开定位就能在游戏里吃饭、训练、打卡上班。'],
+				['真实地点', '本人走进真实的餐馆、健身房、公园、超市，在「出行 · 附近」打开定位就能在游戏里吃饭、训练、打卡上班。'],
 				['工作与住处', '在城镇应聘、每天上一个班；租房后回家睡觉恢复更多。每 7 天一次周结算，付房租、房贷和车辆保险。'],
 				['天气', '每个地方每天的天气不一样，所有玩家看到的一样。风暴天海上活动取消，但可以去海边看风暴；抵达时会按天气收一张照片。'],
 				['多设备', '同步码等同于密码：在另一台设备选「用同步码恢复」，或用相机扫「我 · 同步」里的二维码，就能接着玩。存档一直在服务器上，换设备只是把同步码带过去；改本机数据没有用。'],
@@ -1984,7 +2002,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			/** 底部标签栏；社交标签上显示同地点在线的其他玩家数 */
 			function renderTabs() {
 				const hereCount = state ? [...peers.values()].filter((p) => p.loc === state!.loc && p.id !== myPeerId).length : 0;
-				$('tabs').innerHTML = `<div class="tabs-in">${TABS.map(([id, label, icon]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}" ${tab === id ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}${id === 'social' && hereCount ? `<span class="badge" aria-label="这里有 ${hereCount} 位玩家在线">${hereCount}</span>` : ''}</button>`).join('')}</div>`;
+				// 附近是出行的分页：在附近时出行标签也亮
+				const on = (id: string) => id === tab || (id === 'go' && tab === 'near');
+				$('tabs').innerHTML = `<div class="tabs-in">${TABS.map(([id, label, icon]) => `<button data-tab="${id}" class="${on(id) ? 'on' : ''}" ${on(id) ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}${id === 'social' && hereCount ? `<span class="badge" aria-label="这里有 ${hereCount} 位玩家在线">${hereCount}</span>` : ''}</button>`).join('')}</div>`;
 			}
 
 			function renderPanel() {
@@ -1993,7 +2013,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				$('map-wrap').classList.toggle('hidden', tab !== 'go');
 				renderMap();
 				renderHud();
-				const html = { place: panelPlace, near: panelNear, go: panelGo, me: panelMe, social: panelSocial }[tab]!();
+				const html = { place: panelPlace, near: () => goSeg() + panelNear(), go: () => goSeg() + panelGo(), grow: () => panelMe('grow'), me: () => panelMe(), social: panelSocial }[tab]!();
 				$('panel').innerHTML = html;
 				const chat = document.getElementById('chat');
 				if (chat) chat.scrollTop = chat.scrollHeight;
