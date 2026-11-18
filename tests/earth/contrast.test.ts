@@ -33,6 +33,8 @@ const PAIRS: [string, string][] = [
 	['--tint-blue-ink', '--tint-blue'], ['--tint-green-ink', '--tint-green'], ['--tint-amber-ink', '--tint-amber'],
 	['--tint-red-ink', '--tint-red'], ['--tint-cost-ink', '--tint-cost'], ['--low-ink', '--card'], ['--mid-ink', '--card'],
 	['--ink-dim', '--ink'], ['--text', '--warm-bg'], ['--text', '--tint-red'], ['--text', '--soft'], ['--text', '--sky-dawn'], ['--dim', '--sky-dawn'], ['--text', '--sky-dusk'], ['--dim', '--sky-dusk'], ['--text', '--sky-night'], ['--dim', '--sky-night'], ['--map-night-text', '--land-night'], ['--map-night-text', '--ocean-night'],
+	// 「新」标记和底栏在线人数角标：橙底上的字（第 10 批审查问题 3）
+	['--warm-ink', '--warm'],
 ];
 
 for (const [name, t] of [['浅色', light], ['深色', dark]] as const) {

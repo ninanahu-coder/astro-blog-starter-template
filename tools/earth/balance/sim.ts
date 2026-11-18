@@ -7,7 +7,7 @@
 //   npm run earth:sim -- --out=docs/earth-game/balance-report.md
 import { writeFileSync } from 'node:fs';
 import { applyAction, applyCoop, type GameAction } from '../../../src/game/core/actions.ts';
-import { coopsAt } from '../../../src/game/core/coop.ts';
+import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter } from '../../../src/game/core/character.ts';
 import {
@@ -93,8 +93,11 @@ interface Plan {
 	spend?: boolean;
 	/** 有配置时使用保守零工策略 */
 	gig?: GigPlan;
-	/** 第 46 轮：下班后所在地点能做共同事件就拉一个搭档一起做 */
-	coop?: boolean;
+	/**
+	 * 第 46 轮：保命、上班之后，所在地点能做共同事件就拉一个搭档一起做（第 10 批审查后改成三种搭档假设做对照）。
+	 * mateNeeds：搭档的各项需求（100 = 全满）；mateChance：每次想做时有搭档在场的概率
+	 */
+	coop?: { mateNeeds: number; mateChance: number };
 }
 
 const PLANS: Plan[] = [
@@ -110,7 +113,10 @@ const PLANS: Plan[] = [
 	// 第 46 轮新增（只出报告，不改数值）：第 11 轮的两种新职业、第 1 轮起的共同事件。排在原有策略后面，原有各行结果不变
 	{ id: 'bartender', name: '酒保（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'bartender' }, home: 'room' },
 	{ id: 'farmhand', name: '农场工（玛格丽特河，合租）', origin: 'backpacker', traits: ['athletic', 'tough'], job: { loc: 'margaret-river', career: 'farmhand' }, home: 'room' },
-	{ id: 'barista-coop', name: '咖啡店上班族 + 共同事件（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: true },
+	// 共同事件三种搭档假设（第 10 批审查问题 1）：理想（需求全满、随叫随到）是上限，不是保守估计；另外两种看搭档状态和在场率的影响
+	{ id: 'barista-coop', name: '咖啡店 + 共同事件：理想搭档（需求全满、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 100, mateChance: 1 } },
+	{ id: 'barista-coop-tired', name: '咖啡店 + 共同事件：疲惫搭档（需求 40、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 1 } },
+	{ id: 'barista-coop-sparse', name: '咖啡店 + 共同事件：疲惫搭档，一半时候没人（需求 40、在场 50%）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 0.5 } },
 ];
 
 function mulberry(seed: number) {
@@ -309,15 +315,21 @@ function stepSafeDrifter(b: Bot) {
 }
 
 /**
- * 共同事件（第 46 轮）：所在地点有现在能做的就做一件。搭档是每次现场新建的同出身角色（能力是开局水平、需求是满的），
- * 只统计机器人自己的收益；真实玩家的搭档能力更高时团队分会更高，所以这里的成功率偏保守。
+ * 共同事件（第 46 轮）：所在地点有现在能做的就做一件。搭档是每次现场新建的同出身角色（开局能力），需求和在场率按策略的假设；
+ * 和服务端一样，开始前对每个成员都检查 coopBlocked，有人不能参加就不做。只统计机器人自己的收益。
+ * 搭档是假设出来的，结果只说明「在这个假设下」会怎样，不代表真实玩家的分布（第 10 批审查问题 1）。
  */
 function tryCoop(b: Bot): boolean {
 	const s = b.s;
+	const cfg = b.plan.coop!;
 	const open = coopsAt(s, WA).find((x) => !x.blocked);
 	if (!open) return false;
-	const mate = createCharacter({ id: `sim-mate-${b.stats.coops}`, name: 'mate', avatar: '🧑', origin: b.plan.origin, traits: [], region: WA.id, spawn: s.loc, seed: Math.floor(b.rng() * 1e9) });
-	const r = applyCoop(open.def, WA, [{ state: s, role: 0, name: b.plan.id }, { state: { ...mate, loc: s.loc, clock: s.clock }, role: 1, name: 'mate' }]);
+	if (cfg.mateChance < 1 && b.rng() >= cfg.mateChance) return false;
+	const base = createCharacter({ id: `sim-mate-${b.stats.coops}`, name: 'mate', avatar: '🧑', origin: b.plan.origin, traits: [], region: WA.id, spawn: s.loc, seed: Math.floor(b.rng() * 1e9) });
+	const n = cfg.mateNeeds;
+	const mate = { ...base, loc: s.loc, clock: s.clock, needs: { ...base.needs, hunger: n, energy: n, hygiene: n, fun: n, social: n } };
+	if (coopBlocked(s, WA, open.def) || coopBlocked(mate, WA, open.def)) return false;
+	const r = applyCoop(open.def, WA, [{ state: s, role: 0, name: b.plan.id }, { state: mate, role: 1, name: 'mate' }]);
 	const me = r.results[0];
 	if (!me.ok) return false;
 	b.stats.flow.coop = (b.stats.flow.coop ?? 0) + (me.state.cash - s.cash);
@@ -581,7 +593,7 @@ for (const row of collapseDiagRows) out(row);
 out();
 out('## 共同事件（第 46 轮）');
 out();
-out('机器人下班后、需求不太低时，所在地点有能做的共同事件就做一件。搭档是每次新建的同出身角色（开局能力），只统计机器人自己，成功率偏保守。');
+out('机器人保命、上班之后，需求不太低时，所在地点有能做的共同事件就做一件。搭档是每次新建的同出身角色（开局能力），需求和在场率按各行的假设；开始前对双方都检查能不能参加。只统计机器人自己。理想搭档那一行是上限，不是保守估计。');
 out();
 out('| 策略 | 参加次数/人 | 成功率 | 每人每天净现金 | 各种类次数/人 |');
 out('| --- | --- | --- | --- | --- |');

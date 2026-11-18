@@ -60,7 +60,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 		<style is:global>
 			:root {
 				--bg: #f5f2ec; --card: #ffffff; --card2: #fbfaf7; --line: #e4ded4; --text: #17212b; --dim: #5b6672;
-				--accent: #1d5fd1; --accent-ink: #ffffff; --warm: #c2541b; --warm-bg: #fff6ef; --ink: #17212b; --ink-dim: #c9d2db;
+				--accent: #1d5fd1; --accent-ink: #ffffff; --warm: #c2541b; --warm-ink: #ffffff; --warm-bg: #fff6ef; --ink: #17212b; --ink-dim: #c9d2db;
 				--ocean: #dce8f2; --land: #efe3cc; --ok: #2e8b57; --mid: #b7791f; --bad: #c23b3b; --soft: #ece7de;
 				--nav-h: 64px;
 				--text2: #3a4550; --shadow: rgba(23, 33, 43, 0.06); --halo: rgba(255, 255, 255, 0.85); --land-line: #d9c7a6; --seg-bg: #e9e3d8; --tick-line: #c9c1b4;
@@ -74,7 +74,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			@media (prefers-color-scheme: dark) {
 				:root {
 					--bg: #12171d; --card: #1b232c; --card2: #212b35; --line: #2f3a46; --text: #e8edf2; --dim: #9aa6b2;
-					--accent: #7fb0ff; --accent-ink: #0d1b33; --warm: #f08a4b; --warm-bg: #2a2018; --ink: #24313d; --ink-dim: #c9d2db;
+					--accent: #7fb0ff; --accent-ink: #0d1b33; --warm: #f08a4b; --warm-ink: #0d1b33; --warm-bg: #2a2018; --ink: #24313d; --ink-dim: #c9d2db;
 					--ocean: #13283a; --land: #2b2a24; --ok: #4ecb8f; --mid: #e0a23a; --bad: #ef6464; --soft: #2a333d;
 					--text2: #c3ccd5; --shadow: rgba(0, 0, 0, 0.3); --halo: rgba(0, 0, 0, 0.75); --land-line: #4a4436; --seg-bg: #232c36; --tick-line: #4a5562;
 					--tint-blue: #1c2a40; --tint-blue-ink: #a9c7ff; --tint-green: #17301f; --tint-green-ink: #8fe0b0; --tint-amber: #3a2c12; --tint-amber-ink: #f0c674;
@@ -317,7 +317,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.seg { display: flex; gap: 4px; padding: 4px; background: var(--seg-bg); border-radius: 14px; }
 			.seg button { flex: 1; min-height: 44px; border: 0; border-radius: 10px; background: transparent; font-size: 14px; color: var(--text2); padding: 0 4px; }
 			.seg button.on { background: var(--card); color: var(--text); font-weight: 700; box-shadow: 0 1px 2px var(--shadow); }
-			.seg .new-tag { margin-left: 3px; padding: 0 5px; border-radius: 8px; background: var(--warm); color: #fff; font-size: 11px; font-weight: 700; line-height: 16px; display: inline-block; vertical-align: 1px; }
+			.seg .new-tag { margin-left: 3px; padding: 0 5px; border-radius: 8px; background: var(--warm); color: var(--warm-ink); font-size: 11px; font-weight: 700; line-height: 16px; display: inline-block; vertical-align: 1px; }
 			.news ul { margin: 6px 0 0; padding-left: 1.2em; }
 			.news li { margin: 4px 0; line-height: 1.5; }
 			.guide-head { display: flex; justify-content: space-between; align-items: center; }
@@ -384,7 +384,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.skill .train { display: block; font-size: 11px; color: var(--dim); }
 			.warn-text { color: var(--tint-red-ink); font-weight: 600; }
 			#tabs button { position: relative; }
-			#tabs .badge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--warm); color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+			#tabs .badge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--warm); color: var(--warm-ink); font-size: 11px; line-height: 18px; text-align: center; }
 			#modal .ach-line { margin: 0; font-size: 15px; font-weight: 700; color: var(--tint-cost-ink); }
 			button.wide { display: block; width: 100%; margin-top: 10px; min-height: 52px; font-size: 16px; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
