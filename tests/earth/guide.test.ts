@@ -20,7 +20,7 @@ const upTo2 = GUIDE_STEPS.filter((g) => g.day <= 2).map((g) => g.id);
 test('指南数据：id 唯一，每天一组都有步骤，跳转页是已有标签', () => {
 	assert.equal(new Set(GUIDE_STEPS.map((g) => g.id)).size, GUIDE_STEPS.length);
 	for (let d = 1; d <= GUIDE_DAYS; d++) assert.ok(GUIDE_STEPS.some((g) => g.day === d), `第 ${d} 天没有步骤`);
-	for (const g of GUIDE_STEPS) if (g.tab) assert.ok(['place', 'go', 'near', 'social', 'me'].includes(g.tab), g.id);
+	for (const g of GUIDE_STEPS) if (g.tab) assert.ok(['place', 'go', 'near', 'grow', 'social', 'me'].includes(g.tab), g.id);
 });
 
 test('开局：只解开第 1 天这组，下一步是第一条，预告第 2 天', () => {
