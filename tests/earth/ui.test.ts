@@ -1048,6 +1048,53 @@ test('界面：虚拟人生风格——最缺的需求变成想法气泡；NPC �
 	assert.match(modal, /<div class="ev-hero"><svg class="scene-art"[^>]*aria-hidden="true"/);
 	assert.match(modal, /<i class="ev-shade"><\/i>/);
 	assert.deepEqual(a11yIssues(modal), []);
+	assert.equal((modal.match(/class="row choice first"/g) ?? []).length, 1, '只高亮一个选项');
+	assert.match(modal, /class="row choice first" data-choice="0"/, '第一项能选时高亮第一项');
+});
+
+test('界面：想法气泡的边界——并列最低按固定顺序取一个；恰好 60 和全满都不冒气泡（Codex 界面审查问题 3）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'thought-a', '想法甲');
+	const hudWith = async (health: number, needs: Record<string, number>) => {
+		const rec = data.get('save:' + a.cred.id) as any;
+		rec.state.health = health;
+		rec.state.needs = { ...rec.state.needs, ...needs };
+		rec.state.rev += 1;
+		data.set('save:' + a.cred.id, rec);
+		let hud = '';
+		await openWithHash('', { cred: a.cred, state: rec.state }, world, true, { after: async ({ click, el }) => { await click({ tab: 'place' }); hud = el('hud').innerHTML; } });
+		return hud;
+	};
+	const full = { hunger: 100, energy: 100, hygiene: 100, fun: 100, social: 100 };
+	assert.ok(!(await hudWith(100, full)).includes('class="thought"'), '全满不冒气泡');
+	assert.ok(!(await hudWith(100, { ...full, social: 60 })).includes('class="thought"'), '恰好 60 不冒气泡');
+	assert.match(await hudWith(100, { ...full, social: 59 }), /<span class="thought">想找人说说话<\/span>/, '59 冒气泡');
+	// 娱乐和社交一样低：按 健康→饱食→精力→卫生→娱乐→社交 取第一个，只冒一个
+	const tie = await hudWith(100, { ...full, fun: 20, social: 20 });
+	assert.equal((tie.match(/class="thought"/g) ?? []).length, 1);
+	assert.match(tie, /<span class="thought">有点无聊<\/span>/);
+	assert.match(await hudWith(20, { ...full, hunger: 20 }), /<span class="thought">身体不太舒服<\/span>/, '健康排在最前');
+});
+
+test('界面：事件第一项不能选时（钱不够），高亮顺延到第一个能选的选项（Codex 界面审查问题 2）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'first-choice-a', '选项甲');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.loc = 'exmouth';
+	rec.state.cash = 0;
+	rec.state.pending = { eventId: 'whale-shark' };
+	data.set('save:' + a.cred.id, rec);
+	let modal = '', focusedChoice: string | undefined;
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ el }) => {
+			modal = el('modal').innerHTML;
+			focusedChoice = (el('modal') as any).querySelector?.('button:not([disabled])')?.dataset?.choice;
+		},
+	});
+	assert.match(modal, /<button class="row choice" data-choice="0" disabled>/, '第一项钱不够，不能选、不高亮');
+	assert.match(modal, /<button class="row choice first" data-choice="1">/, '高亮顺延到第二项');
+	assert.equal((modal.match(/choice first/g) ?? []).length, 1);
+	if (focusedChoice !== undefined) assert.equal(focusedChoice, '1', '键盘焦点和高亮是同一个选项');
 });
 
 test('界面：跨区域出行（第 43 轮）——西澳地图上有通往南澳的出口；飞到阿德莱德后地图换成南澳，出行列表标出回西澳的航班', async () => {
