@@ -85,7 +85,7 @@ export function resolveCoop(def: CoopDef, region: Region, members: CoopMember[])
 	const results = states.map((s, i): ActionResult => {
 		const others = members.filter((_, j) => j !== i).map((m) => m.name).join('、');
 		const role = def.roles[members[i].role] ?? def.roles[0];
-		// 每种共同事件每人每个游戏日一次（按开始那天算，成败、晕倒都算做过）
+		// 记下做过的游戏日：每种共同事件每人每 COOP_COOLDOWN_DAYS 天一次（按开始那天算，成败、晕倒都算做过）
 		s.coopDays = { ...s.coopDays, [def.id]: dayOf(members[i].state.clock) };
 		if (applyEffect(s, out.fx, region)) return collapsedResult(s);
 		log(s, `【${def.title}】和${others}一起，你负责${role.label}。${out.text}`);

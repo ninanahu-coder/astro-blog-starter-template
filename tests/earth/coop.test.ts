@@ -68,7 +68,7 @@ test('applyCoop：每个人的版本号加一，数值钳制在合法范围', ()
 	for (const x of r.results) for (const v of Object.values(x.state.needs)) assert.ok(v >= 0 && v <= 100);
 });
 
-test('冷却：同一种共同事件每个游戏日一次，第二天又能做；成败都算做过', () => {
+test('冷却：同一种共同事件每人每 5 个游戏日一次，第 5 天以后又能做；成败都算做过', () => {
 	const def = getCoop('beach-cleanup')!;
 	const a = mk('coop-a', 11), b = mk('coop-b', 12);
 	const r = applyCoop(def, WA, [{ state: a, role: 0, name: 'A' }, { state: b, role: 1, name: 'B' }]);

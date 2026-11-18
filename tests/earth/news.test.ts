@@ -23,3 +23,13 @@ test('已读记录：只认 0 到最新批次号之间的整数，其余当没�
 	assert.equal(unseenNews(0), CHANGELOG.length);
 	assert.equal(unseenNews(CHANGELOG_LATEST - 1), 1);
 });
+
+test('声望显示格式（平衡分析第九轮复核）：整数不带 .0，半点显示 .5，浮点误差不露出来', async () => {
+	const { fmtHalf } = await import('../../src/game/ui/numfmt.ts');
+	assert.equal(fmtHalf(1), '1');
+	assert.equal(fmtHalf(0.5), '0.5');
+	assert.equal(fmtHalf(12.5), '12.5');
+	assert.equal(fmtHalf(0.1 + 0.2), '0.3');
+	assert.equal(fmtHalf(1.0000001), '1');
+	assert.equal(fmtHalf(0), '0');
+});
