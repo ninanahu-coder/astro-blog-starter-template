@@ -11,7 +11,7 @@ import { coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, furnitureValue, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, resaleValue, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { weatherAt } from '../../../src/game/core/weather.ts';

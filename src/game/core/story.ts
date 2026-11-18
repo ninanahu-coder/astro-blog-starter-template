@@ -5,8 +5,6 @@ import { addLog, addMoodlet } from './engine.ts';
 import type { PlayerState } from './types.ts';
 import { wishMatches } from './wishes.ts';
 
-export const STORY_DONE_MAX = 20; // 一章最多几个目标（存档清洗用）
-
 /** 当前章；全部写完返回 null */
 export const currentChapter = (state: PlayerState): StoryChapter | null => STORY[state.story.ch] ?? null;
 

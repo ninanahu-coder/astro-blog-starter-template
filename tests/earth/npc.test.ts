@@ -8,7 +8,7 @@ import { parseAction, applyAction } from '../../src/game/core/actions.ts';
 import { isOpen, period } from '../../src/game/core/time.ts';
 import { ITEMS } from '../../src/game/data/items.ts';
 import { NPCS } from '../../src/game/data/npcs.ts';
-import { FULL_AREAS, WA, WORLD } from '../../src/game/data/wa.ts';
+import { WA, WORLD } from '../../src/game/data/wa.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
 const make = () => createCharacter({ id: 'npc-player', name: '测', avatar: '🧑', origin: 'student', region: 'wa', spawn: WA.spawn, seed: 3 });

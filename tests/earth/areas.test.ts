@@ -2,7 +2,7 @@
 // 用一个假的第二区域检查：合并的约束、跨区域出行、存档清洗、找医院、区域判断都不依赖「只有西澳」。
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { AREAS, areaOf, CROSS_ROUTES, exitsOf, getAreaBase, mergeAreas, WORLD_BASE } from '../../src/game/data/areas-base.ts';
+import { AREAS, areaOf, CROSS_ROUTES, exitsOf, getAreaBase, mergeAreas } from '../../src/game/data/areas-base.ts';
 import { WA_BASE } from '../../src/game/data/wa-base.ts';
 import { SA_BASE } from '../../src/game/data/sa-base.ts';
 import { FULL_AREAS, getRegion, WA, WORLD } from '../../src/game/data/wa.ts';
