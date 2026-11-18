@@ -1148,6 +1148,31 @@ test('界面：附近页按所在区域判断有没有真实地点（第 9 批�
 	assert.match(wa, /打开定位，看看附近/);
 });
 
+test('界面：「我 · 更新」页（第 48 轮）——没看过时标签标「新」，打开后记下已读、不再标；本机存的已读是坏值时当没看过', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'news-ui-a', '看更新');
+	const rec = data.get('save:' + a.cred.id) as any;
+	let before = '', news = '', after = '';
+	const r = await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		extra: { 'earth.news.v1': '<b>' },
+		after: async ({ click, el }) => {
+			await click({ tab: 'me' });
+			before = el('panel').innerHTML;
+			await click({ metab: 'news' });
+			news = el('panel').innerHTML;
+			await click({ metab: 'overview' });
+			after = el('panel').innerHTML;
+		},
+	});
+	assert.match(before, /data-metab="news"[^>]*>更新<span class="new-tag">新<\/span>/, '坏值当没看过，标「新」');
+	assert.match(news, /data-metab="news" class="on" aria-selected="true">更新</);
+	assert.match(news, /<div class="card news"><h3>南澳大利亚 <span class="muted">2026-11-18<\/span><\/h3>/);
+	assert.ok(news.indexOf('收尾整理') < news.indexOf('玩法加厚'), '新的在前');
+	assert.deepEqual(a11yIssues(news), []);
+	assert.doesNotMatch(after, /new-tag/, '看过以后不再标');
+	assert.equal(r.store.get('earth.news.v1'), String((await import('../../src/game/data/changelog.ts')).CHANGELOG_LATEST));
+});
+
 test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {
 	const { data, world } = makeWorld();
 	const els = new Map<string, El>();

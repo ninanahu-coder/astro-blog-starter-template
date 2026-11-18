@@ -317,6 +317,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.seg { display: flex; gap: 4px; padding: 4px; background: var(--seg-bg); border-radius: 14px; }
 			.seg button { flex: 1; min-height: 44px; border: 0; border-radius: 10px; background: transparent; font-size: 14px; color: var(--text2); padding: 0 4px; }
 			.seg button.on { background: var(--card); color: var(--text); font-weight: 700; box-shadow: 0 1px 2px var(--shadow); }
+			.seg .new-tag { margin-left: 3px; padding: 0 5px; border-radius: 8px; background: var(--warm); color: #fff; font-size: 11px; font-weight: 700; line-height: 16px; display: inline-block; vertical-align: 1px; }
+			.news ul { margin: 6px 0 0; padding-left: 1.2em; }
+			.news li { margin: 4px 0; line-height: 1.5; }
 			.guide-head { display: flex; justify-content: space-between; align-items: center; }
 			.guide-head button { min-height: 44px; border: 0; background: none; color: var(--accent); font-weight: 600; padding: 0 4px; }
 			.guide ol { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
@@ -420,6 +423,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { storyProgress } from '../game/core/story.ts';
 			import { guideView, type GuideView } from '../game/core/guide.ts';
 			import { recapFor, recapLog } from '../game/core/recap.ts';
+			import { CHANGELOG, CHANGELOG_LATEST } from '../game/data/changelog.ts';
+			import { NEWS_SEEN_KEY, parseNewsSeen, unseenNews } from '../game/ui/news.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
@@ -495,7 +500,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			];
 
 			// 「我」页的分栏
-			const ME_TABS: [string, string][] = [['overview', '概况'], ['assets', '资产'], ['people', '关系'], ['log', '日志'], ['sync', '设置']];
+			const ME_TABS: [string, string][] = [['overview', '概况'], ['assets', '资产'], ['people', '关系'], ['log', '日志'], ['news', '更新'], ['sync', '设置']];
 			let meTab = 'overview';
 
 			type Cred = { id: string; key: string };
@@ -1721,8 +1726,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				};
 				const sections: Record<string, string[]> = { overview: ['daily', 'ach', 'photo', 'mood', 'me', 'story', 'dex', 'fish', 'trail', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'album'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
-				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}</button>`).join('')}</div>`;
-				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
+				// 「更新」页（第 48 轮）：打开时记下已读；没看过的批次在标签上标「新」
+				if (meTab === 'news') store.set(NEWS_SEEN_KEY, String(CHANGELOG_LATEST));
+				const fresh = unseenNews(parseNewsSeen(store.get(NEWS_SEEN_KEY)));
+				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}${id === 'news' && fresh ? '<span class="new-tag">新</span>' : ''}</button>`).join('')}</div>`;
+				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : meTab === 'news' ? panelNews() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
 				return head + seg + bodyHtml;
 			}
 
@@ -1948,6 +1956,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				['多设备', '同步码等同于密码：在另一台设备选「用同步码恢复」，或用相机扫「我 · 同步」里的二维码，就能接着玩。存档一直在服务器上，换设备只是把同步码带过去；改本机数据没有用。'],
 			];
 			// 大字模式：整页放大约 12%，只记在本机
+			/** 「我 · 更新」：游戏内更新日志，新的在前 */
+			function panelNews() {
+				return CHANGELOG.map((e) => `<div class="card news"><h3>${esc(e.title)} <span class="muted">${esc(e.date)}</span></h3><ul>${e.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('');
+			}
+
 			function panelSync() {
 				const seg = (key: 'font' | 'motion', label: string, opts: [string, string][]) =>
 					`<div class="pref-row" role="group" aria-label="${label}"><span>${label}</span><div class="seg">${opts.map(([v, name]) => `<button data-pref="${key}" data-val="${v}" class="${prefs[key] === v ? 'on' : ''}" aria-pressed="${prefs[key] === v}">${name}</button>`).join('')}</div></div>`;
