@@ -17,11 +17,11 @@ export const FURNITURE: FurnitureDef[] = [
 	{ id: 'console', slot: 'fun', name: '游戏机和大电视', price: 600, comfort: 1, unlock: 'relax', desc: '解锁「在家放松」，住处心情 +1。' },
 ];
 
-/** 成套家具：几件都摆在同一个住处时，住处心情再加一点（第 13 轮新增，加成待平衡） */
+/** 成套家具：几件都摆在同一个住处时，住处心情再加一点（第 13 轮新增；平衡分析第九轮把三套都从 3/4/3 降到 1：五件顶配同时叠三套时心情跳档太多，推算） */
 export const FURNITURE_SETS: FurnitureSetDef[] = [
-	{ id: 'restful', name: '安睡套房', items: ['kingbed', 'bathtub'], comfort: 3, desc: '大床配浴缸，睡前泡个澡。' },
-	{ id: 'host', name: '待客之家', items: ['espresso', 'console', 'designer'], comfort: 4, desc: '朋友来了有咖啡、有游戏，屋子也好看。' },
-	{ id: 'full-house', name: '样样齐全', items: ['kingbed', 'espresso', 'bathtub', 'console', 'designer'], comfort: 3, desc: '五个位置都摆上最好的。' },
+	{ id: 'restful', name: '安睡套房', items: ['kingbed', 'bathtub'], comfort: 1, desc: '大床配浴缸，睡前泡个澡。' },
+	{ id: 'host', name: '待客之家', items: ['espresso', 'console', 'designer'], comfort: 1, desc: '朋友来了有咖啡、有游戏，屋子也好看。' },
+	{ id: 'full-house', name: '样样齐全', items: ['kingbed', 'espresso', 'bathtub', 'console', 'designer'], comfort: 1, desc: '五个位置都摆上最好的。' },
 ];
 
 /** 家具折现比例 */

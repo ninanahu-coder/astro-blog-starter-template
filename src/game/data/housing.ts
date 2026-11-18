@@ -8,6 +8,6 @@ export const HOMES: HomeDef[] = [
 	// 第 14 轮新增（租金、舒适度待平衡）
 	{ id: 'campground', name: '房车营地', rentWeek: 90, comfort: 2, vehicleSleep: true, where: { kinds: ['coast', 'park', 'outback', 'town'] }, desc: '一块带电桩的车位，公共淋浴和烧烤台；人睡在自己车里。' },
 	{ id: 'seaview', name: '海景公寓', rentWeek: 480, comfort: 7, where: { tags: ['beach'] }, desc: '高层阳台看海，楼下就是咖啡街。' },
-	// 第 45 轮（南澳）：库伯佩迪的地下屋，只在有 opal 标签的地点（租金、舒适度待平衡：介于合租房间和房车营地之间）
-	{ id: 'dugout', name: '地下屋', rentWeek: 140, comfort: 4, where: { tags: ['opal'] }, desc: '凿进砂岩里的房子，外面四十度时屋里二十几度。' },
+	// 第 45 轮（南澳）：库伯佩迪的地下屋，只在有 opal 标签的地点。租金介于合租房间和房车营地之间；舒适度平衡分析第九轮 4 → 1（落在合租 0 和营地 2 之间，推算）
+	{ id: 'dugout', name: '地下屋', rentWeek: 140, comfort: 1, where: { tags: ['opal'] }, desc: '凿进砂岩里的房子，外面四十度时屋里二十几度。' },
 ];

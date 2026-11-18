@@ -47,8 +47,10 @@ test('考证：时段、钱、只考一次、有待处理事件不行；考完�
 test('持证上班：游戏内每班和真实打卡的时薪都按证书加薪', () => {
 	const base = applyJob(make({ loc: 'fremantle', clock: at(10) }), WA, 'bartender').state;
 	const withCert = { ...base, certs: ['rsa'] };
-	assert.equal(careerPay(base, 'bartender', 0), 140);
-	assert.equal(careerPay(withCert, 'bartender', 0), Math.round(140 * 1.15));
+	// 起薪从数据里读（平衡分析第九轮改过数值，测试只管加薪规则）
+	const pay0 = CAREERS.find((c) => c.id === 'bartender')!.levels[0].pay;
+	assert.equal(careerPay(base, 'bartender', 0), pay0);
+	assert.equal(careerPay(withCert, 'bartender', 0), Math.round(pay0 * 1.15));
 	assert.equal(careerPay(withCert, 'barista', 0), 120, '别的职业不加');
 	const a = workShift({ ...base, clock: at(18) }, WA);
 	const b = workShift({ ...withCert, clock: at(18) }, WA);

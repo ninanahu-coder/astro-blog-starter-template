@@ -318,17 +318,19 @@ test('成套家具：数据自洽；凑齐才加心情，少一件或卖掉一�
 		assert.equal(new Set(defs.map((f) => f!.slot)).size, set.items.length, `${set.id} 每件在不同槽位`);
 		assert.ok(set.comfort > 0);
 	}
+	// 套装加成从数据里读（平衡分析第九轮改过数值，测试只管规则）
+	const bonus = (id: string) => FURNITURE_SETS.find((x) => x.id === id)!.comfort;
 	let s = housed({ cash: 20_000 });
 	s = buyFurniture(s, WA, 'kingbed').state;
 	const one = homeComfort(s);
 	assert.equal(furnitureSets(s).find((x) => x.set.id === 'restful')!.have, 1);
 	s = buyFurniture(s, WA, 'bathtub').state;
-	assert.equal(homeComfort(s), one + 1 + 3, '浴缸 +1，凑齐安睡套房再 +3');
+	assert.equal(homeComfort(s), one + 1 + bonus('restful'), '浴缸 +1，凑齐安睡套房再加套装分');
 	assert.ok(furnitureSets(s).find((x) => x.set.id === 'restful')!.done);
 	for (const id of ['espresso', 'console', 'designer']) s = buyFurniture(s, WA, id).state;
 	const all = homeComfort(s);
-	assert.equal(all, 2 + 1 + 1 + 1 + 5 + 3 + 4 + 3, '五件 + 三套');
-	assert.equal(homeComfort(sellFurniture(s, 'fun').state), all - 1 - 4 - 3, '卖掉游戏机：两套都散了');
+	assert.equal(all, 2 + 1 + 1 + 1 + 5 + bonus('restful') + bonus('host') + bonus('full-house'), '五件 + 三套');
+	assert.equal(homeComfort(sellFurniture(s, 'fun').state), all - 1 - bonus('host') - bonus('full-house'), '卖掉游戏机：两套都散了');
 	assert.ok(cookAtHome({ ...s, needs: { ...s.needs, hunger: 10 } }, WA).ok, '咖啡机厨房也能做饭');
 	assert.equal(homeActionBlocked(s, 'relax'), undefined, '游戏机能放松');
 	assert.deepEqual(furnitureSets({ ...s, home: null }), []);
