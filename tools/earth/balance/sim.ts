@@ -6,11 +6,12 @@
 //   npm run earth:sim -- --days=120 --runs=100
 //   npm run earth:sim -- --out=docs/earth-game/balance-report.md
 import { writeFileSync } from 'node:fs';
-import { applyAction, type GameAction } from '../../../src/game/core/actions.ts';
+import { applyAction, applyCoop, type GameAction } from '../../../src/game/core/actions.ts';
+import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, furnitureValue, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, resaleValue, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { weatherAt } from '../../../src/game/core/weather.ts';
@@ -42,6 +43,10 @@ interface Bot {
 		promoDays: number[];
 		homeDay?: number;
 		diag: BackpackerDiagnostics;
+		/** 第 46 轮：参加共同事件的次数、成功次数、按种类计数 */
+		coops: number;
+		coopOk: number;
+		coopKinds: Record<string, number>;
 	};
 }
 
@@ -88,6 +93,11 @@ interface Plan {
 	spend?: boolean;
 	/** 有配置时使用保守零工策略 */
 	gig?: GigPlan;
+	/**
+	 * 第 46 轮：保命、上班之后，所在地点能做共同事件就拉一个搭档一起做（第 10 批审查后改成三种搭档假设做对照）。
+	 * mateNeeds：搭档的各项需求（100 = 全满）；mateChance：每次想做时有搭档在场的概率
+	 */
+	coop?: { mateNeeds: number; mateChance: number };
 }
 
 const PLANS: Plan[] = [
@@ -100,6 +110,13 @@ const PLANS: Plan[] = [
 		gig: { cashTarget: 700, cashReserve: 200, minEnergy: 55, minHunger: 50, preferred: ['work-cafe', 'work-farm', 'busk', 'work-mine'] },
 	},
 	{ id: 'idle', name: '什么都不干（对照组）', origin: 'backpacker', traits: [] },
+	// 第 46 轮新增（只出报告，不改数值）：第 11 轮的两种新职业、第 1 轮起的共同事件。排在原有策略后面，原有各行结果不变
+	{ id: 'bartender', name: '酒保（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'bartender' }, home: 'room' },
+	{ id: 'farmhand', name: '农场工（玛格丽特河，合租）', origin: 'backpacker', traits: ['athletic', 'tough'], job: { loc: 'margaret-river', career: 'farmhand' }, home: 'room' },
+	// 共同事件三种搭档假设（第 10 批审查问题 1）：理想（需求全满、随叫随到）是上限，不是保守估计；另外两种看搭档状态和在场率的影响
+	{ id: 'barista-coop', name: '咖啡店 + 共同事件：理想搭档（需求全满、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 100, mateChance: 1 } },
+	{ id: 'barista-coop-tired', name: '咖啡店 + 共同事件：疲惫搭档（需求 40、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 1 } },
+	{ id: 'barista-coop-sparse', name: '咖啡店 + 共同事件：疲惫搭档，一半时候没人（需求 40、在场 50%）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 0.5 } },
 ];
 
 function mulberry(seed: number) {
@@ -187,12 +204,32 @@ function tryAct(b: Bot, a: GameAction): boolean {
 const can = (b: Bot, id: string) => activitiesAt(b.s, WA).some((x) => x.act.id === id && !x.blocked);
 const act = (b: Bot, id: string) => can(b, id) && tryAct(b, { t: 'activity', id });
 
-/** 去某地：有直达就走最便宜的可用方式，否则走离目标最近的一站 */
+/** 从 from 到 dest 按路线跳数最少的下一站（广度优先；没有路返回 undefined） */
+function nextHop(from: string, dest: string): string | undefined {
+	const prev = new Map<string, string>([[from, from]]);
+	const queue = [from];
+	while (queue.length) {
+		const at = queue.shift()!;
+		if (at === dest) break;
+		for (const r of WA.routes) {
+			const nb = r.a === at ? r.b : r.b === at ? r.a : null;
+			if (nb && !prev.has(nb)) { prev.set(nb, at); queue.push(nb); }
+		}
+	}
+	if (!prev.has(dest)) return undefined;
+	let hop = dest;
+	while (prev.get(hop) !== from) hop = prev.get(hop)!;
+	return hop;
+}
+
+/** 去某地：有直达就走最便宜的可用方式，否则沿跳数最少的路线先去下一站（第 46 轮补上：农场工要去的玛格丽特河从珀斯没有直达） */
 function headTo(b: Bot, dest: string): boolean {
 	const opts = travelOptions(b.s, WA).filter((o) => o.available);
 	const direct = opts.filter((o) => o.to === dest).sort((x, y) => x.cost - y.cost)[0];
 	if (direct) return tryAct(b, { t: 'travel', to: direct.to, mode: direct.mode });
-	return false;
+	const hop = nextHop(b.s.loc, dest);
+	const step = hop ? opts.filter((o) => o.to === hop).sort((x, y) => x.cost - y.cost)[0] : undefined;
+	return !!step && tryAct(b, { t: 'travel', to: step.to, mode: step.mode });
 }
 
 function recordGigMiss(b: Bot, reason: GigMiss) {
@@ -275,6 +312,32 @@ function stepSafeDrifter(b: Bot) {
 		if (e && tryAct(b, { t: 'buy', item: 'snack' })) return;
 	}
 	act(b, 'rest');
+}
+
+/**
+ * 共同事件（第 46 轮）：所在地点有现在能做的就做一件。搭档是每次现场新建的同出身角色（开局能力），需求和在场率按策略的假设；
+ * 和服务端一样，开始前对每个成员都检查 coopBlocked，有人不能参加就不做。只统计机器人自己的收益。
+ * 搭档是假设出来的，结果只说明「在这个假设下」会怎样，不代表真实玩家的分布（第 10 批审查问题 1）。
+ */
+function tryCoop(b: Bot): boolean {
+	const s = b.s;
+	const cfg = b.plan.coop!;
+	const open = coopsAt(s, WA).find((x) => !x.blocked);
+	if (!open) return false;
+	if (cfg.mateChance < 1 && b.rng() >= cfg.mateChance) return false;
+	const base = createCharacter({ id: `sim-mate-${b.stats.coops}`, name: 'mate', avatar: '🧑', origin: b.plan.origin, traits: [], region: WA.id, spawn: s.loc, seed: Math.floor(b.rng() * 1e9) });
+	const n = cfg.mateNeeds;
+	const mate = { ...base, loc: s.loc, clock: s.clock, needs: { ...base.needs, hunger: n, energy: n, hygiene: n, fun: n, social: n } };
+	if (coopBlocked(s, WA, open.def) || coopBlocked(mate, WA, open.def)) return false;
+	const r = applyCoop(open.def, WA, [{ state: s, role: 0, name: b.plan.id }, { state: mate, role: 1, name: 'mate' }]);
+	const me = r.results[0];
+	if (!me.ok) return false;
+	b.stats.flow.coop = (b.stats.flow.coop ?? 0) + (me.state.cash - s.cash);
+	b.stats.coops++;
+	if (r.success) b.stats.coopOk++;
+	b.stats.coopKinds[open.def.id] = (b.stats.coopKinds[open.def.id] ?? 0) + 1;
+	b.s = me.state;
+	return true;
 }
 
 /** 一步决策：先保命，再上班，再满足需求，最后按策略消磨时间 */
@@ -362,6 +425,9 @@ function step(b: Bot) {
 		}
 	}
 
+	// 3.5 共同事件（第 46 轮的策略）：保命、上班、租房之后，娱乐之前
+	if (plan.coop && s.needs.energy >= 35 && s.needs.hunger >= 35 && tryCoop(b)) return;
+
 	// 4. 没有正式工作的人靠零工
 	if (!s.job && plan.id !== 'idle' && s.cash < 400) {
 		if (tryGigs(b, GIG_IDS)) return;
@@ -401,7 +467,7 @@ function runBot(plan: Plan, seed: number): Bot {
 	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: WA.id, spawn: WA.spawn, seed });
 	const b: Bot = {
 		s, plan, rng: mulberry(seed * 7919),
-		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics() },
+		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), coops: 0, coopOk: 0, coopKinds: {} },
 	};
 	const end = s.clock + DAYS * 1440;
 	let lastDay = dayOf(s.clock);
@@ -444,6 +510,7 @@ const flows: string[] = [];
 const skillRows: [string, number[]][] = [];
 const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
+const coopRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
 for (const plan of PLANS) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, i + 1));
@@ -463,6 +530,14 @@ for (const plan of PLANS) {
 	for (const b of bots) for (const [k, v] of Object.entries(b.stats.flow)) flow[k] = (flow[k] ?? 0) + v / RUNS / DAYS;
 	const top = Object.entries(flow).filter(([, v]) => Math.abs(v) >= 1).sort((x, y) => y[1] - x[1]);
 	flows.push(`| ${plan.name} | ${top.filter(([, v]) => v > 0).map(([k, v]) => `${k} +${Math.round(v)}`).join('，') || '—'} | ${top.filter(([, v]) => v < 0).reverse().map(([k, v]) => `${k} ${Math.round(v)}`).join('，') || '—'} |`);
+	if (plan.coop) {
+		const n = avg(bots.map((b) => b.stats.coops));
+		const ok = bots.reduce((x, b) => x + b.stats.coopOk, 0) / Math.max(1, bots.reduce((x, b) => x + b.stats.coops, 0));
+		const kinds: Record<string, number> = {};
+		for (const b of bots) for (const [k, v] of Object.entries(b.stats.coopKinds)) kinds[k] = (kinds[k] ?? 0) + v / RUNS;
+		const kindText = Object.entries(kinds).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('，') || '—';
+		coopRows.push(`| ${plan.name} | ${n.toFixed(1)} | ${(ok * 100).toFixed(0)}% | ${money(flow.coop ?? 0)} | ${kindText} |`);
+	}
 	if (plan.id === 'drifter' || plan.id === 'drifter-safe') {
 		const perDay = RUNS * DAYS;
 		const started = bots.reduce((n, b) => n + b.stats.diag.gigStarted, 0);
@@ -515,6 +590,14 @@ out();
 out('| 策略 | 晕倒前健康 / 饱食 / 精力（中位） | 回算的见底原因（次/人） | 出行途中晕倒/人 | 常见触发动作（次/人） |');
 out('| --- | --- | --- | --- | --- |');
 for (const row of collapseDiagRows) out(row);
+out();
+out('## 共同事件（第 46 轮）');
+out();
+out('机器人保命、上班之后，需求不太低时，所在地点有能做的共同事件就做一件。搭档是每次新建的同出身角色（开局能力），需求和在场率按各行的假设；开始前对双方都检查能不能参加。只统计机器人自己。理想搭档那一行是上限，不是保守估计。');
+out();
+out('| 策略 | 参加次数/人 | 成功率 | 每人每天净现金 | 各种类次数/人 |');
+out('| --- | --- | --- | --- | --- |');
+for (const row of coopRows) out(row);
 out();
 out('诊断口径：零工“完成”不含途中晕倒且拿不到工资的动作；未开工只统计现金已低于各策略触发线、但因生存门槛或当前地点/时段无法开工的决策。晕倒原因按动作开始状态和该动作耗时回算；“其他”包括事件受伤。当前四种零工都不受天气关闭，因此天气项应为 0。');
 out();

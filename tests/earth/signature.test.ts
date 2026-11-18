@@ -5,7 +5,7 @@ import { applyAction } from '../../src/game/core/actions.ts';
 import { createCharacter } from '../../src/game/core/character.ts';
 import { getPendingEvent } from '../../src/game/core/engine.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
-import { FULL_AREAS, WA, WORLD } from '../../src/game/data/wa.ts';
+import { WA, WORLD } from '../../src/game/data/wa.ts';
 
 test('签名事件：第一次真实定位抵达必出，选完之后不再出现', () => {
 	const sig = EVENTS.filter((e) => e.once && e.locs?.length === 1);
