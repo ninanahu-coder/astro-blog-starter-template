@@ -662,7 +662,7 @@ test('共同事件：结算途中队伍到了 5 分钟也不被过期清掉，�
 });
 
 const peerHash = async (id: string) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(id)))].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
-async function twoPlayers(w: ReturnType<typeof makeWorld>, n: number, inv: Record<string, number> = { snack: 2 }) {
+async function twoPlayers(w: ReturnType<typeof makeWorld>, n: number | string, inv: Record<string, number> = { snack: 2 }) {
 	const A = { id: `trade-from-${n}`, key: 'a'.repeat(24) };
 	const B = { id: `trade-to-${n}`, key: 'b'.repeat(24) };
 	await w.call({ action: 'create', ...A, profile: { ...profile, name: '阿甲' } });
@@ -1088,4 +1088,48 @@ test('服务端：动作编号和存档一次写入——写失败时编号也�
 	assert.ok(retry.data.ok, retry.data.msg);
 	assert.equal(retry.data.dup, undefined);
 	assert.equal(retry.data.state.rev, rev0 + 1);
+});
+
+test('南澳（第 9 批审查问题 6）：双方都在南澳时，共同事件和送礼照常结算，存档的地点和区域留在南澳，不被打回珀斯', async () => {
+	const w = makeWorld();
+	const toSa = (id: string, loc: string) => {
+		const rec = w.data.get('save:' + id);
+		rec.state.loc = loc;
+		rec.state.region = 'sa';
+		w.data.set('save:' + id, rec);
+		return rec.state;
+	};
+	// 共同事件：格莱内尔格的海滩清洁
+	const A = { id: 'sa-coop-host', key: 'a'.repeat(24) };
+	const B = { id: 'sa-coop-mate', key: 'b'.repeat(24) };
+	await w.call({ action: 'create', ...A, profile: { ...profile, name: '阿甲' } });
+	await w.call({ action: 'create', ...B, profile: { ...profile, name: '阿乙' } });
+	const a0 = toSa(A.id, 'glenelg');
+	toSa(B.id, 'glenelg');
+	const opened = await w.call({ action: 'coop', op: 'open', ...A, coop: 'beach-cleanup', role: 0 });
+	assert.ok(opened.data.ok, opened.data.msg);
+	const lobby = opened.data.lobbies[0].id;
+	assert.ok((await w.call({ action: 'coop', op: 'join', ...B, lobby, role: 1 })).data.ok);
+	const started = await w.call({ action: 'coop', op: 'start', ...A, lobby, rev: a0.rev });
+	assert.ok(started.data.ok, started.data.msg);
+	for (const id of [A.id, B.id]) {
+		const st = w.data.get('save:' + id).state;
+		assert.equal(st.loc, 'glenelg', `${id} 还在格莱内尔格`);
+		assert.equal(st.region, 'sa', `${id} 区域是南澳`);
+		assert.match(st.journal.at(-1).text, /海滩清洁/);
+	}
+	// 送礼：阿德莱德
+	const { A: C, B: D, b0 } = await twoPlayers(w, 'sa');
+	toSa(C.id, 'adelaide');
+	const d0 = toSa(D.id, 'adelaide');
+	const sent = await w.call({ action: 'trade', op: 'gift', ...C, to: await peerHash(D.id), toName: '阿乙', item: 'snack' });
+	assert.ok(sent.data.ok, sent.data.msg);
+	const got = await w.call({ action: 'trade', op: 'accept', ...D, offer: sent.data.offers[0].id, rev: d0.rev });
+	assert.ok(got.data.ok, got.data.msg);
+	assert.equal(got.data.state.inventory.snack, (b0.inventory.snack ?? 0) + 1);
+	for (const id of [C.id, D.id]) {
+		const st = w.data.get('save:' + id).state;
+		assert.equal(st.loc, 'adelaide', `${id} 还在阿德莱德`);
+		assert.equal(st.region, 'sa');
+	}
 });

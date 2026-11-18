@@ -1,4 +1,4 @@
-// 南澳的地点签名事件（第 44 轮）：每个南澳地点一条，首次到访优先触发（once）。
+// 南澳的地点签名事件（第 44 轮；第 9 批审查后补上杰维斯角）：每个南澳地点一条，首次到访优先触发（once）。
 // 写的都是真实存在的东西（阿德莱德中央市场、格莱内尔格有轨电车、汉多夫的德式面包、花岗岩岛的马拉电车、袋鼠岛的神奇岩石和海豹湾、
 // 库伯佩迪的地下教堂和翻矿渣找欧泊、蓝湖、锡杜纳的生蚝……），细节按维基百科和政府旅游网站的公开资料。
 // 选项的效果数值是 Claude 参照西澳同类签名事件的量级写的，【待平衡】：合并前请 Codex 在平衡分析里一起看。
@@ -51,6 +51,14 @@ export const SA_EVENTS: GameEvent[] = [
 		choices: [
 			{ label: '坐上去', ok: { text: '车夫说这几匹挽马轮流上班，一天来回好几趟。', fx: { cash: -10, minutes: 40, needs: { fun: 25 } } } },
 			{ label: '走海堤，顺便看有没有鲸鱼', check: { skill: 'survival', dc: 40 }, ok: { text: '远处一道水柱！是一头南露脊鲸。', fx: { minutes: 60, respect: 2, needs: { fun: 35 } } }, fail: { text: '只看到了海鸥。', fx: { minutes: 60, needs: { fun: 5 } } } },
+		],
+	},
+	{
+		id: 'heysen-start', title: '步道起点', icon: '🥾', locs: ['cape-jervis'], once: true, weight: 10,
+		text: '渡轮码头旁边立着海森步道的起点牌子：往北一直走，约 1200 公里后到弗林德斯山脉。一艘渡轮正在靠岸。',
+		choices: [
+			{ label: '沿步道走一段海边悬崖', check: { skill: 'stamina', dc: 30 }, ok: { text: '走了一个多钟头，海峡对面的袋鼠岛看得清清楚楚。', fx: { minutes: 90, needs: { fun: 25, energy: -15 }, skills: { stamina: 2 } } }, fail: { text: '风太大，走了一小段就回来了。', fx: { minutes: 40, needs: { energy: -10 } } } },
+			{ label: '在码头看渡轮进出', ok: { text: '车一辆辆开上船，船尾翻起白浪。', fx: { minutes: 30, needs: { fun: 10 } } } },
 		],
 	},
 	{

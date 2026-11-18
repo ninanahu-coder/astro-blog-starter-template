@@ -223,18 +223,32 @@ test('顶栏时段补注（第 8 批审查问题 4）：玩法时段和画面天
 	assert.equal(phaseNote('day', 'dawn'), '天刚亮');
 });
 
-test('南澳（第 9 批）：日出日落按南澳中部标准时间算；火险提示指向南澳的消防局', async () => {
+test('南澳（第 9 批）：日出日落按南澳中部时间算（夏天夏令时）；火险提示指向南澳的消防局', async () => {
 	const { WORLD } = await import('../../src/game/data/wa.ts');
 	const adl = WORLD.locations.find((l) => l.id === 'adelaide')!;
 	assert.equal(tzMinutes(115.86), 480, '西澳 UTC+8');
 	assert.equal(tzMinutes(adl.lon), 570, '南澳 UTC+9:30');
 	assert.equal(tzMinutes(128.99), 480);
 	assert.equal(tzMinutes(129.01), 570, '州界东经 129°');
-	// 阿德莱德 1 月 10 日实际约 6:15 / 20:29（夏令时），换成标准时间约 5:15 / 19:29
+	// 夏令时（第 9 批审查问题 2）：10 月 4 日到 4 月 4 日南澳快一小时，西澳不变
+	assert.equal(tzMinutes(adl.lon, realDayOfYear(at(SEASON_DAYS + 12, 0))), 630, '南澳 1 月是夏令时 UTC+10:30');
+	assert.equal(tzMinutes(115.86, 10), 480, '西澳没有夏令时');
+	assert.equal(tzMinutes(adl.lon, 275), 570, '10 月 3 日还没开始');
+	assert.equal(tzMinutes(adl.lon, 276), 630, '10 月 4 日开始');
+	assert.equal(tzMinutes(adl.lon, 92), 630, '4 月 3 日还在夏令时');
+	assert.equal(tzMinutes(adl.lon, 93), 570, '4 月 4 日结束');
+	// 阿德莱德 1 月 10 日前后实际约 6:15 日出、20:29 日落（夏令时钟点）
 	const jan = at(SEASON_DAYS + 12, 0);
 	const t = sunTimes(adl, jan);
-	assert.ok(Math.abs(t.rise - (5 * 60 + 15)) <= 8, `日出 ${hhmm(t.rise)}`);
-	assert.ok(Math.abs(t.set - (19 * 60 + 29)) <= 8, `日落 ${hhmm(t.set)}`);
+	assert.ok(Math.abs(t.rise - (6 * 60 + 15)) <= 8, `日出 ${hhmm(t.rise)}`);
+	assert.ok(Math.abs(t.set - (20 * 60 + 29)) <= 8, `日落 ${hhmm(t.set)}`);
+	// 7 月没有夏令时：阿德莱德 7 月 10 日前后约 7:22 日出、17:20 日落
+	const jul = at(3 * SEASON_DAYS + 12, 0);
+	const w = sunTimes(adl, jul);
+	assert.ok(Math.abs(w.rise - (7 * 60 + 22)) <= 8, `冬天日出 ${hhmm(w.rise)}`);
+	assert.ok(Math.abs(w.set - (17 * 60 + 20)) <= 8, `冬天日落 ${hhmm(w.set)}`);
+	// 正午太阳最高：夏令时下阿德莱德 1 月的正午在 13 点多
+	assert.ok(sunElevation(adl, jan + 13 * 60 + 20) > sunElevation(adl, jan + 12 * 60 + 20));
 	assert.match(fireToastText('极端', '远离林区。', 'sa'), /南澳乡村消防局 CFS/);
 	assert.match(fireToastText('极端', '远离林区。', 'wa'), /Emergency WA/);
 	assert.equal(fireAgency('constructor').name, fireAgency('wa').name, '不认识的区域用默认');

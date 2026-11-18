@@ -1,7 +1,7 @@
 ---
 // 「地球人生 / Terra Life」第一阶段客户端：西澳大利亚。
 // 手机优先的单页应用；规则在 src/game/core/engine.ts（纯函数），本页只负责渲染、输入、同步。
-const title = '地球人生 · 西澳';
+const title = '地球人生';
 const description = '在真实地图上生活的在线人生模拟：出行、打工、探索，到达地点触发事件，多端云同步。';
 ---
 
@@ -30,7 +30,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<h1>地球人生</h1>
 					<p class="sub">在真实的西澳和南澳过另一种人生</p>
 					<ul class="points">
-						<li><b>真实地图</b>西澳、南澳 34 个地点，出行、打工、租房买房</li>
+						<li><b>真实地图</b>西澳、南澳 35 个地点，出行、打工、租房买房</li>
 						<li><b>人到现场</b>本人走进真实的餐馆、健身房、公园，游戏里也能做事</li>
 						<li><b>多端同步</b>手机电脑用同一个存档，和同地点的玩家聊天</li>
 					</ul>
@@ -542,7 +542,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let nearFix: { lat: number; lon: number; acc: number; at: number } | null = null; // 只留在本机内存，不存盘
 			// 珀斯一带地点密集，标签手动错开：[dx, dy, anchor]
 			// 挤在一起的地点手动摆标签：西澳珀斯一带；南澳阿德莱德一带（第 42 轮）
-			const LABEL: Record<string, [number, number, string]> = { perth: [8, -3, 'start'], fremantle: [-8, 9, 'end'], rottnest: [-9, -1, 'end'], adelaide: [8, -4, 'start'], glenelg: [-8, 0, 'end'], hahndorf: [8, 8, 'start'], barossa: [8, -2, 'start'], 'mclaren-vale': [-8, 8, 'end'], 'victor-harbor': [8, 10, 'start'], 'kangaroo-island': [-8, 10, 'end'] };
+			const LABEL: Record<string, [number, number, string]> = { perth: [8, -3, 'start'], fremantle: [-8, 9, 'end'], rottnest: [-9, -1, 'end'], adelaide: [8, -4, 'start'], glenelg: [-8, 0, 'end'], hahndorf: [8, 8, 'start'], barossa: [8, -2, 'start'], 'mclaren-vale': [-8, 8, 'end'], 'victor-harbor': [8, 10, 'start'], 'kangaroo-island': [-8, 10, 'end'], 'cape-jervis': [0, -8, 'middle'] };
 
 			const $ = (id: string) => document.getElementById(id)!;
 			const esc = (s: unknown) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
@@ -843,9 +843,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				cache();
 				if (moved && ws && wsArea && wsArea !== curArea().id) {
 					// 到了别的区域：换到那个区域的在线频道
+					// 旧区域的聊天记录也清掉：社交页只显示所在区域的频道（第 9 批审查问题 1）
 					const old = ws;
 					ws = null;
 					peers.clear();
+					chats = [];
 					old.close();
 					connect();
 				} else if (moved && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'move', loc: state.loc }));
@@ -898,6 +900,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const sock = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/api/earth/ws?${q}`);
 				ws = sock;
 				sock.onmessage = (e) => {
+					// 已经换掉的旧连接（跨区域后）还在路上的消息一律不处理，不然旧区域的玩家和聊天会混进新区域（第 9 批审查问题 1）
+					if (ws !== sock) return;
 					let m: any;
 					try { m = JSON.parse(e.data); } catch { return; }
 					if (m.t === 'hello') {
@@ -1915,7 +1919,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const clockHtml = clockCard('');
 				if (venuesState === 'loading' || venuesState === 'idle') return intro + clockHtml + '<div class="card"><p class="muted">正在载入附近的真实地点……</p></div>';
 				if (venuesState === 'failed') return intro + clockHtml + '<div class="card"><p>真实地点数据没载入（可能断网了），联网后再试。</p><div class="inline"><button data-venues-retry>重试</button></div></div>';
-				if (!region.venues.length) return intro + clockHtml + '<div class="card"><p>这个区域的真实地点数据还在采集中（来自 OpenStreetMap）。</p></div>';
+				// 按所在区域判断有没有收录真实地点：西澳收了几百个，不代表南澳也有（第 9 批审查问题 4）
+				const areaLocs = new Set(curArea().locations.map((l) => l.id));
+				if (!region.venues.some((v) => areaLocs.has(v.loc))) return intro + clockHtml + `<div class="card"><p>${esc(curArea().name)}的真实地点数据还在采集中（来自 OpenStreetMap）。</p></div>`;
 				if (!nearFix) return intro + clockHtml;
 				const list = venuesNear(s, region, nearFix.lat, nearFix.lon, nearFix.acc, srvNow());
 				if (!list.length) return intro + clockHtml + '<div class="card"><p>1.5 公里内没有收录的地点。</p></div>';

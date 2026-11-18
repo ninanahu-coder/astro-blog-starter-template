@@ -317,7 +317,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		// 足迹：全部地点；点一个没去过的地方跳到出行页并选中它
 		assert.match(panel(), new RegExp(`足迹 1/${WORLD.locations.length}<`));
 		assert.match(panel(), new RegExp(`<p class="trail-area">西澳大利亚 · 1/${WA.locations.length}</p>`), '足迹按区域分组');
-		assert.match(panel(), /<p class="trail-area">南澳大利亚 · 0\/12<\/p>/);
+		assert.match(panel(), /<p class="trail-area">南澳大利亚 · 0\/13<\/p>/);
 		assert.match(panel(), /见闻录 0\/\d+/);
 		assert.match(panel(), /？？？/);
 		assert.doesNotMatch(panel(), /某个地方/, '每个一次性事件都能提示在哪');
@@ -667,6 +667,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 
 
 /** 扫码打开页面（第 32 轮）：地址栏带 #sync=；本机已有存档 local 时按情况处理。返回页面元素、本机存储和地址栏的变化 */
+type LiveWs = { url: string; closed: boolean; say: (m: unknown) => void };
 type HashOpts = {
 	/** 本机存储里预先放的其他键（比如排队） */
 	extra?: Record<string, string>;
@@ -675,6 +676,8 @@ type HashOpts = {
 	venuesFail?: boolean;
 	/** 启动时页面在后台（document.hidden），after 里用 show() 切回前台 */
 	hidden?: boolean;
+	/** 在线频道当作已连上：每个新建的连接记进这个数组（连接地址 url、收消息 say、是否被关 closed） */
+	liveWs?: LiveWs[];
 	/** 页面启动完、清理之前再做点什么（点按钮、触发联网事件） */
 	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; el: (id: string) => El; show: () => void }) => Promise<void>;
 };
@@ -708,7 +711,12 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 		const res = () => world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: o?.body as string }));
 		return (await opts.reply?.(JSON.parse(o?.body as string), res)) ?? res();
 	};
-	g.WebSocket = class { static OPEN = 1; readyState = 0; send() {} close() {} };
+	const live: LiveWs[] = opts.liveWs ?? [];
+	g.WebSocket = opts.liveWs
+		? class { static OPEN = 1; readyState = 1; onmessage: ((e: { data: string }) => void) | null = null; onclose: (() => void) | null = null;
+			constructor(url: string) { const self = this; live.push({ url, closed: false, say: (m) => self.onmessage?.({ data: JSON.stringify(m) }) }); this.idx = live.length - 1; }
+			idx = 0; send() {} close() { live[this.idx].closed = true; this.readyState = 3; } }
+		: class { static OPEN = 1; readyState = 0; send() {} close() {} };
 	g.setInterval = () => 0;
 	const timers = new Set<ReturnType<typeof setTimeout>>();
 	const realSetTimeout = saved.setTimeout;
@@ -1076,6 +1084,68 @@ test('界面：跨区域出行（第 43 轮）——西澳地图上有通往南�
 	assert.doesNotMatch(after, /data-loc="fremantle"/);
 	assert.match(after, /✈️ 珀斯（西澳大利亚）/);
 	assert.match(afterList, /去西澳大利亚 · /);
+});
+
+test('界面：跨区域换在线频道（第 9 批审查问题 1）——旧区域连接还在路上的进出和聊天不混进新区域，旧区域的聊天记录清掉', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'cross-ws-a', '换频道甲');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.cash = 5000;
+	rec.state.loc = 'perth';
+	data.set('save:' + a.cred.id, rec);
+	const socks: LiveWs[] = [];
+	let social = '', badge = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		liveWs: socks,
+		after: async ({ click, el }) => {
+			assert.equal(socks.length, 1, '开局连上一个在线频道');
+			assert.match(socks[0].url, /region=wa/);
+			socks[0].say({ t: 'hello', you: 'me', emotes: [], players: [] });
+			socks[0].say({ t: 'chat', id: 'p1', name: '西澳人', avatar: '🙂', text: '珀斯今天好热' });
+			await pause(200);
+			await click({ tab: 'go' });
+			await click({ go: 'adelaide', mode: 'air' });
+			for (let i = 0; i < 100 && socks.length < 2; i++) await pause(20);
+			assert.equal(socks.length, 2, '到南澳后换了新连接');
+			assert.equal(socks[0].closed, true, '旧连接关了');
+			assert.match(socks[1].url, /region=sa/);
+			// 旧连接关了，但还有在路上的消息到达
+			socks[0].say({ t: 'join', p: { id: 'p2', name: '迟到的西澳人', avatar: '😎', loc: 'perth' } });
+			socks[0].say({ t: 'chat', id: 'p2', name: '迟到的西澳人', avatar: '😎', text: '还在珀斯' });
+			socks[1].say({ t: 'hello', you: 'me2', emotes: [], players: [] });
+			await pause(200);
+			await click({ tab: 'social' });
+			social = el('panel').innerHTML;
+			badge = el('tabs').innerHTML;
+		},
+	});
+	assert.doesNotMatch(social, /迟到的西澳人/, '旧区域的进出和聊天不显示');
+	assert.doesNotMatch(social, /珀斯今天好热/, '换区域后旧聊天清掉');
+	assert.doesNotMatch(badge, /迟到的西澳人/);
+});
+
+test('界面：附近页按所在区域判断有没有真实地点（第 9 批审查问题 4）——南澳显示还在采集，西澳不显示', async () => {
+	const { data, world } = makeWorld();
+	const near = async (id: string, loc: string) => {
+		const a = await makeChar(world, id, '附近' + loc);
+		const rec = data.get('save:' + a.cred.id) as any;
+		rec.state.loc = loc;
+		data.set('save:' + a.cred.id, rec);
+		let html = '';
+		await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+			after: async ({ click, el }) => {
+				await click({ tab: 'near' });
+				for (let i = 0; i < 100 && /正在载入/.test(el('panel').innerHTML); i++) await pause(20);
+				html = el('panel').innerHTML;
+			},
+		});
+		return html;
+	};
+	const sa = await near('near-sa-a', 'adelaide');
+	assert.match(sa, /南澳大利亚的真实地点数据还在采集中/);
+	const wa = await near('near-wa-a', 'perth');
+	assert.doesNotMatch(wa, /还在采集中/);
+	assert.match(wa, /打开定位，看看附近/);
 });
 
 test('界面：没有存档时显示创建页，选完四步能创建角色并进入游戏', async () => {

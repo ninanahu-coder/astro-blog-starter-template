@@ -64,10 +64,14 @@ export function temps(l: SkyLoc, clock: number, weatherId: string): Temps {
 
 // ---------- 第 37 轮：日出日落 ----------
 // NOAA 的简化太阳位置公式（误差几分钟）。游戏里的钟点就当作当地钟点：东经 129° 以西（西澳）按 AWST（UTC+8），以东（南澳）按 ACST（UTC+9:30）；
-// 都按标准时间算，不算南澳夏天的夏令时（第 9 批）。
+// 南澳夏天实行夏令时（ACDT，UTC+10:30，10 月第一个星期日到 4 月第一个星期日）。游戏日期没有年份和星期，固定取现实日期 10 月 4 日到 4 月 4 日（第 9 批审查问题 2）；
+// 西澳不实行夏令时。
 const RAD = Math.PI / 180;
-/** 当地标准时间比 UTC 快几分钟：西澳 / 南澳的州界就是东经 129° */
-export const tzMinutes = (lon: number) => (lon < 129 ? 8 * 60 : 9.5 * 60);
+/** 南澳夏令时的起止（一年中第几天，0 = 1 月 1 日）：10 月 4 日起、4 月 4 日止（不含） */
+export const SA_DST = { from: 276, to: 93 };
+export const isSaDst = (doy: number) => doy >= SA_DST.from || doy < SA_DST.to;
+/** 当地钟点比 UTC 快几分钟：西澳 / 南澳的州界就是东经 129°；给了现实日期（一年中第几天）时，南澳夏令时再快一小时 */
+export const tzMinutes = (lon: number, doy?: number) => (lon < 129 ? 8 * 60 : 9.5 * 60 + (doy !== undefined && isSaDst(doy) ? 60 : 0));
 function solar(doy: number, minuteOfDay: number) {
 	const g = ((2 * Math.PI) / 365) * (doy + (minuteOfDay / 60 - 12) / 24);
 	const eqTime = 229.18 * (0.000075 + 0.001868 * Math.cos(g) - 0.032077 * Math.sin(g) - 0.014615 * Math.cos(2 * g) - 0.040849 * Math.sin(2 * g));
@@ -79,7 +83,7 @@ export function sunElevation(l: Pick<SkyLoc, 'lat' | 'lon'>, clock: number): num
 	const doy = realDayOfYear(clock);
 	const m = ((clock % 1440) + 1440) % 1440;
 	const { eqTime, decl } = solar(doy, m);
-	const tst = m + eqTime + 4 * l.lon - tzMinutes(l.lon); // 真太阳时（分钟）
+	const tst = m + eqTime + 4 * l.lon - tzMinutes(l.lon, doy); // 真太阳时（分钟）
 	const ha = (tst / 4 - 180) * RAD;
 	const lat = l.lat * RAD;
 	const cosZ = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(ha);
@@ -93,7 +97,7 @@ export function sunTimes(l: Pick<SkyLoc, 'lat' | 'lon'>, clock: number): SunTime
 	const lat = l.lat * RAD;
 	const cosH = Math.cos(90.833 * RAD) / (Math.cos(lat) * Math.cos(decl)) - Math.tan(lat) * Math.tan(decl);
 	const h = Math.acos(Math.min(1, Math.max(-1, cosH))) / RAD;
-	const noon = 720 - 4 * l.lon - eqTime + tzMinutes(l.lon);
+	const noon = 720 - 4 * l.lon - eqTime + tzMinutes(l.lon, doy);
 	return { rise: Math.round(noon - 4 * h), set: Math.round(noon + 4 * h), noon: Math.round(noon) };
 }
 export const hhmm = (min: number) => {

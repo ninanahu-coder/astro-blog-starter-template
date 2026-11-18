@@ -150,6 +150,11 @@ export const FACTS: Record<string, PlaceFact[]> = {
 		{ text: '花岗岩岛靠一条海堤连到岸上，至今还有马拉的电车来回跑。', source: W('Victor_Harbor,_South_Australia') },
 		{ text: '老式蒸汽小火车「鸟蛤号」往返维克多港和古尔瓦。', source: W('Victor_Harbor,_South_Australia') },
 	],
+	'cape-jervis': [
+		{ text: '去袋鼠岛的渡轮从这里开，对岸是岛上的彭尼肖。', source: W('Cape_Jervis,_South_Australia') },
+		{ text: '1802 年弗林德斯用英国海军将领杰维斯的名字给这个海角命名。', source: W('Cape_Jervis,_South_Australia') },
+		{ text: '全长约 1200 公里的海森步道从这里起步，一直通到弗林德斯山脉。', source: W('Cape_Jervis,_South_Australia') },
+	],
 	'kangaroo-island': [
 		{ text: '袋鼠岛是澳洲第三大岛，只比塔斯马尼亚和梅尔维尔岛小。', source: W('Kangaroo_Island') },
 		{ text: '金斯科特旁的里夫斯角，是 1836 年南澳第一个官方殖民定居点。', source: W('Kingscote,_South_Australia') },

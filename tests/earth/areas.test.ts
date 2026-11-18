@@ -192,3 +192,34 @@ test('南澳职业与住处（第 45 轮）：每个南澳地点都有至少一�
 		assert.ok(hit(HOMES.find((h) => h.id === p.homeType)!.where, l), `${p.id} 的房型在 ${l.id} 也能租到`);
 	}
 });
+
+test('袋鼠岛渡轮（第 9 批审查问题 3）：只有杰维斯角—袋鼠岛一条，维克多港没有渡轮；艾拉的日程不写坐渡轮去维克多港', async () => {
+	const ferries = WORLD.routes.filter((r) => r.mode === 'ferry' && (r.a === 'kangaroo-island' || r.b === 'kangaroo-island'));
+	assert.deepEqual(ferries.map((r) => [r.a, r.b].sort().join('–')), ['cape-jervis–kangaroo-island']);
+	assert.ok(!WORLD.routes.some((r) => r.mode === 'ferry' && (r.a === 'victor-harbor' || r.b === 'victor-harbor')));
+	const s = createCharacter({ id: 'ferry-player', name: '渡', avatar: '🧑', origin: 'student', region: 'sa', spawn: 'cape-jervis', seed: 3 });
+	assert.ok(travelOptions(s, WORLD).some((o) => o.to === 'kangaroo-island' && o.mode === 'ferry'), '杰维斯角能坐渡轮上岛');
+	const { NPCS } = await import('../../src/game/data/npcs.ts');
+	const ayla = NPCS.find((n) => n.id === 'ayla')!;
+	for (const p of ayla.schedule ?? []) assert.doesNotMatch(p.note ?? '', /渡轮去维克多港/);
+});
+
+test('不分区域的文案（第 9 批审查问题 5）：网页标题、周目标、等级称号、成就、游泳和日落文案不写死西澳 / 印度洋', async () => {
+	const { readFileSync } = await import('node:fs');
+	const page = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(page, /const title = '地球人生';/);
+	const { WEEKLY_GOALS } = await import('../../src/game/data/weekly.ts');
+	const { ACTIVITIES } = await import('../../src/game/data/activities.ts');
+	const { ACHIEVEMENTS } = await import('../../src/game/data/achievements.ts');
+	const { EVENTS } = await import('../../src/game/data/events.ts');
+	const { level } = await import('../../src/game/core/attributes.ts');
+	const texts = [
+		...WEEKLY_GOALS.map((g: { title: string; desc: string }) => g.title + g.desc),
+		...ACTIVITIES.map((a: { name: string; desc?: string }) => a.name + (a.desc ?? '')),
+		...ACHIEVEMENTS.map((a: { name: string; desc: string }) => a.name + a.desc),
+		// 不限地点的事件（按标签、时段触发，南澳也会遇到）
+		...EVENTS.filter((e) => !e.locs).flatMap((e) => [e.title, e.text, ...e.choices.flatMap((c) => [c.label, c.ok.text, c.fail?.text ?? ''])]),
+		...Array.from({ length: 200 }, (_, i) => level(i * 50).title),
+	];
+	for (const t of texts) assert.doesNotMatch(t, /西澳|印度洋/, t);
+});

@@ -13,6 +13,8 @@ const locations: GameLocation[] = [
 	L('barossa', '巴罗萨谷', 'Barossa Valley', -34.52, 138.96, 'town', ['wine', 'market', 'pub'], 15, '以塔南达镇为中心的著名葡萄酒产区。'),
 	L('mclaren-vale', '麦克拉伦谷', 'McLaren Vale', -35.22, 138.54, 'town', ['wine', 'beach'], 15, '阿德莱德以南的酒乡，离海滩不远。'),
 	L('victor-harbor', '维克多港', 'Victor Harbor', -35.55, 138.62, 'coast', ['beach', 'whale', 'pub', 'market'], 15, '弗勒里厄半岛南岸的度假小城，花岗岩岛连着海堤。'),
+	// 第 9 批审查问题 3：去袋鼠岛的客运渡轮从杰维斯角开到彭尼肖（SeaLink），不经维克多港。坐标按维基百科（35.60°S 138.10°E）
+	L('cape-jervis', '杰维斯角', 'Cape Jervis', -35.6, 138.1, 'coast', ['beach'], 8, '弗勒里厄半岛尖上的小镇，去袋鼠岛的渡轮从这里开。'),
 	L('kangaroo-island', '袋鼠岛', 'Kangaroo Island', -35.65, 137.63, 'island', ['airport', 'beach', 'pub'], 20, '澳洲第三大岛，海狮、袋鼠和小企鹅的家。'),
 	L('port-lincoln', '林肯港', 'Port Lincoln', -34.73, 135.86, 'port', ['airport', 'hospital', 'pub', 'beach', 'market'], 20, '艾尔半岛的渔港，金枪鱼之乡。'),
 	L('coober-pedy', '库伯佩迪', 'Coober Pedy', -29.01, 134.75, 'mining', ['airport', 'hospital', 'pub', 'opal'], 8, '世界欧泊之都，很多人住在地下。'),
@@ -29,7 +31,9 @@ const routes: Route[] = [
 	R('adelaide', 'mclaren-vale'),
 	R('hahndorf', 'mclaren-vale'),
 	R('mclaren-vale', 'victor-harbor'),
-	R('victor-harbor', 'kangaroo-island', 'ferry'),
+	R('mclaren-vale', 'cape-jervis'),
+	R('victor-harbor', 'cape-jervis'),
+	R('cape-jervis', 'kangaroo-island', 'ferry'),
 	R('adelaide', 'kangaroo-island', 'air'),
 	R('adelaide', 'port-lincoln'),
 	R('adelaide', 'port-lincoln', 'air'),
@@ -50,7 +54,7 @@ export const SA_BASE: Region = {
 	// [lon, lat]：西北角起顺时针，北界、东界是直线，南边沿海岸往西（袋鼠岛是岛，不在轮廓里）
 	outline: [
 		[129.0, -26.0], [141.0, -26.0], [141.0, -38.06], [140.65, -38.05], [140.3, -37.85], [139.75, -37.16], [139.85, -36.83], [139.4, -36.2],
-		[138.95, -35.56], [138.62, -35.57], [138.12, -35.63], [138.45, -35.15], [138.48, -35.0], [138.5, -34.85], [138.25, -34.45], [138.15, -34.18],
+		[138.95, -35.56], [138.62, -35.57], [138.05, -35.64], [138.45, -35.15], [138.48, -35.0], [138.5, -34.85], [138.25, -34.45], [138.15, -34.18],
 		[137.92, -34.42], [137.75, -35.08], [136.88, -35.3], [137.0, -34.9], [137.48, -34.5], [137.62, -33.93], [138.02, -33.18], [137.77, -32.49],
 		[137.58, -33.03], [136.92, -33.68], [136.1, -34.37], [135.87, -34.73], [135.6, -34.95], [135.47, -34.6], [134.89, -33.65], [134.2, -32.8],
 		[133.68, -32.13], [132.45, -31.98], [131.1, -31.5], [129.0, -31.69],

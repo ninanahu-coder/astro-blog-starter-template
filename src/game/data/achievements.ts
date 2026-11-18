@@ -4,7 +4,7 @@ import type { AchievementDef } from '../core/achievements.ts';
 
 export const ACHIEVEMENTS: AchievementDef[] = [
 	{ id: 'explore-5', icon: '🧭', name: '出门看看', desc: '去过 5 个地方', metric: 'places', goal: 5 },
-	{ id: 'explore-10', icon: '🗺️', name: '西澳半壁', desc: '去过 10 个地方', metric: 'places', goal: 10 },
+	{ id: 'explore-10', icon: '🗺️', name: '走南闯北', desc: '去过 10 个地方', metric: 'places', goal: 10 },
 	{ id: 'explore-all', icon: '🌏', name: '活地图', desc: '去过地图上全部地方', metric: 'places', goal: 'all-places' },
 	{ id: 'checkin-5', icon: '📌', name: '打卡达人', desc: '本人到场打卡 5 个地点', metric: 'checkins', goal: 5 },
 	{ id: 'collect-5', icon: '🎟️', name: '体验派', desc: '收藏 5 项体验', metric: 'collected', goal: 5 },
@@ -20,7 +20,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
 	{ id: 'worth-100k', icon: '💰', name: '十万身家', desc: '净资产达到 $100,000', metric: 'worth', goal: 100_000 },
 	{ id: 'level-5', icon: '⭐', name: '本地通', desc: '等级达到 5', metric: 'level', goal: 5 },
 	{ id: 'photo-10', icon: '📷', name: '随手拍', desc: '天气相册里有 10 张照片', metric: 'photos', goal: 10 },
-	{ id: 'photo-30', icon: '🖼️', name: '四季西澳', desc: '天气相册里有 30 张照片', metric: 'photos', goal: 30 },
+	{ id: 'photo-30', icon: '🖼️', name: '四季相册', desc: '天气相册里有 30 张照片', metric: 'photos', goal: 30 },
 	{ id: 'rain-5', icon: '☔', name: '雨中漫步', desc: '在 5 个地方拍到下雨', metric: 'rainPhotos', goal: 5 },
 	{ id: 'coop-1', icon: '🙌', name: '搭把手', desc: '和别的玩家一起做过 1 种共同事件', metric: 'coops', goal: 1 },
 	{ id: 'coop-4', icon: '🤜', name: '合作愉快', desc: '一起做过 4 种共同事件', metric: 'coops', goal: 4 },

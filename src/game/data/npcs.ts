@@ -257,7 +257,7 @@ export const NPCS: NpcDef[] = [
 		id: 'ayla', name: '艾拉', role: '护林员', loc: 'kangaroo-island', hours: [8, 17],
 		bio: '在袋鼠岛的保护区工作，能叫出好几只海狮的名字。',
 		schedule: [
-			{ weekdays: [6], loc: 'victor-harbor', hours: [10, 16], note: '周日坐渡轮去维克多港买东西' },
+			{ weekdays: [6], loc: 'victor-harbor', hours: [10, 16], note: '周日坐渡轮过海到杰维斯角，再开车去维克多港买东西' },
 		],
 		gifts: { love: ['coffee'], like: ['snack', 'raincoat'], dislike: ['rod'] },
 		stories: [
