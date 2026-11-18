@@ -1,11 +1,12 @@
 // 导入器的校验规则：纯函数。导入这个文件不会执行导入流程、不写任何文件；
-// 它依赖 wa.ts，所以会读取现有的 wa.pois.json / wa.venues.json（那两个文件损坏时这里也会加载失败）。
+// 它依赖 wa.ts，所以会读取现有的 wa.pois.json / *.venues.json（这些文件损坏时这里也会加载失败）。
+// 地点和「运行时归到最近的地点」都按整个世界（所有区域）算，和服务器一致。
 // import-venues.mjs / import-pois.mjs 和测试共用。
 import { haversineKm, locateInRegion } from '../../../src/game/core/geo.ts';
-import { WA } from '../../../src/game/data/wa.ts';
+import { WORLD } from '../../../src/game/data/wa.ts';
 import { VENUE_TYPES } from '../../../src/game/data/venues.ts';
 
-const LOCS = new Map(WA.locations.map((l) => [l.id, l]));
+const LOCS = new Map(WORLD.locations.map((l) => [l.id, l]));
 const VENUE_TYPE_IDS = new Set(VENUE_TYPES.map((t) => t.id));
 const VENUE_FIELDS = ['id', 'loc', 'name', 'lat', 'lon', 'type', 'source', 'tier'];
 const POI_CATEGORIES = new Set(['park', 'beach', 'landmark', 'heritage', 'market', 'museum', 'lookout', 'food', 'pub', 'wildlife', 'trail']);
@@ -29,7 +30,7 @@ export function checkVenue(v) {
 	const km = haversineKm(v.lat, v.lon, loc.lat, loc.lon);
 	if (km > loc.radiusKm) return `距 ${loc.id} ${km.toFixed(1)}km，超出半径 ${loc.radiusKm}km`;
 	// 半径会重叠：游戏运行时把人归到最近的地点，标成别的地点的话这条数据永远用不上
-	const near = locateInRegion(WA, v.lat, v.lon);
+	const near = locateInRegion(WORLD, v.lat, v.lon);
 	if (near?.id !== loc.id) return `坐标离 ${near?.id} 更近，运行时会归到那里，不能标成 ${loc.id}`;
 	return null;
 }
@@ -50,7 +51,7 @@ export function checkPoi(p) {
 	const km = haversineKm(p.lat, p.lon, loc.lat, loc.lon);
 	if (km > loc.radiusKm) return `距 ${loc.id} ${km.toFixed(1)}km，超出打卡半径 ${loc.radiusKm}km`;
 	// 半径会重叠：游戏运行时把人归到最近的地点，标成别的地点的话这个打卡点永远领不到
-	const near = locateInRegion(WA, p.lat, p.lon);
+	const near = locateInRegion(WORLD, p.lat, p.lon);
 	if (near?.id !== loc.id) return `坐标离 ${near?.id} 更近，运行时会归到那里，不能标成 ${loc.id}`;
 	return null;
 }

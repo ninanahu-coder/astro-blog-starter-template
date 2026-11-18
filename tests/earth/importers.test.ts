@@ -4,8 +4,10 @@ import { test } from 'node:test';
 import { locateInRegion } from '../../src/game/core/geo.ts';
 import { WA } from '../../src/game/data/wa.ts';
 import venuesData from '../../src/game/data/wa.venues.json' with { type: 'json' };
+import saVenuesData from '../../src/game/data/sa.venues.json' with { type: 'json' };
 import poisData from '../../src/game/data/wa.pois.json' with { type: 'json' };
 import { checkPoi, checkVenue, dedupeVenues } from '../../tools/earth/openclaw/checks.mjs';
+import excludeData from '../../tools/earth/openclaw/venue-exclude.json' with { type: 'json' };
 
 const fre = WA.locations.find((l) => l.id === 'fremantle')!;
 const venue = (over = {}) => ({ id: 'osm-node-1', loc: 'fremantle', name: '测试咖啡馆', lat: fre.lat, lon: fre.lon, type: 'cafe', source: 'osm', ...over });
@@ -32,6 +34,28 @@ test('导入器：仓库里现有的地点和打卡点全部通过校验', () =>
 	for (const p of pois) assert.equal(checkPoi(p), null, JSON.stringify(p));
 	assert.ok(venues.length >= 647 && pois.length >= 8);
 	assert.deepEqual(dedupeVenues(venues).dropped, [], '仓库里的地点没有重复记录');
+	// 南澳（2026-11-19）：同样全部过校验、没有重复、id 和西澳不撞
+	const sa = (saVenuesData as { region: string; venues: { id: string }[] });
+	assert.equal(sa.region, 'sa');
+	for (const v of sa.venues) assert.equal(checkVenue(v), null, JSON.stringify(v));
+	assert.ok(sa.venues.length >= 800);
+	assert.deepEqual(dedupeVenues(sa.venues).dropped, [], '南澳地点没有重复记录');
+	const waIds = new Set((venues as { id: string }[]).map((v) => v.id));
+	assert.deepEqual(sa.venues.filter((v) => waIds.has(v.id)), [], '南澳和西澳的 id 不撞');
+});
+
+test('导入器：排除名单（抽查确认关门、私人场所）每条有理由和来源，且不在任何区域的数据里', () => {
+	const ex = (excludeData as { venues: { id: string; region: string; name: string; reason: string; source: string; checked: string }[] }).venues;
+	assert.ok(ex.length >= 2);
+	for (const e of ex) {
+		assert.match(e.id, /^osm-(node|way|relation)-\d+$/, e.id);
+		assert.ok(['wa', 'sa'].includes(e.region), e.id);
+		assert.ok(e.name && e.reason.length >= 6 && e.checked, e.id);
+		assert.match(e.source, /^https:\/\//, e.id);
+	}
+	assert.equal(new Set(ex.map((e) => e.id)).size, ex.length, '排除名单不重复');
+	const all = [...(venuesData as { venues: { id: string }[] }).venues, ...(saVenuesData as { venues: { id: string }[] }).venues].map((v) => v.id);
+	for (const e of ex) assert.ok(!all.includes(e.id), `${e.name}（${e.id}）应该已经从数据里删掉`);
 });
 
 test('导入器：同一场所的重复记录只留一条，不同的场所不误并', () => {

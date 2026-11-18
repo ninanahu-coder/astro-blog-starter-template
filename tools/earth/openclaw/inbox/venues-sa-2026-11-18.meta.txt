@@ -1,0 +1,52 @@
+来源：OpenStreetMap，经 Overpass API（https://overpass-api.de/api/interpreter）
+许可：ODbL，© OpenStreetMap contributors
+查询时间：2026-11-18T22:25:13.991Z
+地点：adelaide, glenelg, hahndorf, barossa, mclaren-vale, victor-harbor, cape-jervis, kangaroo-island, port-lincoln, coober-pedy, flinders-ranges, mount-gambier, ceduna；半径 5 km；每种类型每地最多 40 条（有 wikidata / website / opening_hours 的优先）
+adelaide：OSM 返回 1554，跳过 117，保留 362，数据版本 2026-11-18T16:30:10Z，{"restaurant":40,"fast-food":40,"cafe":40,"pub":40,"gym":33,"sports-centre":29,"pool":1,"park":40,"library":19,"supermarket":40,"clinic":40}
+glenelg：OSM 返回 367，跳过 93，保留 214，数据版本 2026-11-18T16:52:35Z，{"restaurant":40,"fast-food":34,"cafe":40,"pub":11,"gym":7,"sports-centre":6,"park":40,"library":4,"supermarket":22,"clinic":10}
+hahndorf：OSM 返回 80，跳过 31，保留 49，数据版本 2026-11-18T17:12:43Z，{"restaurant":11,"fast-food":2,"cafe":16,"pub":8,"sports-centre":2,"park":4,"supermarket":3,"clinic":3}
+barossa：OSM 返回 32，跳过 5，保留 27，数据版本 2026-11-18T17:40:04Z，{"restaurant":10,"cafe":7,"pub":6,"park":1,"library":1,"supermarket":1,"clinic":1}
+mclaren-vale：OSM 返回 34，跳过 14，保留 20，数据版本 2026-11-18T18:08:21Z，{"restaurant":10,"cafe":7,"park":1,"supermarket":1,"clinic":1}
+victor-harbor：OSM 返回 40，跳过 1，保留 39，数据版本 2026-11-18T18:20:28Z，{"restaurant":3,"fast-food":4,"cafe":7,"pub":3,"gym":1,"sports-centre":2,"park":12,"library":1,"supermarket":5,"clinic":1}
+cape-jervis：OSM 返回 1，跳过 0，保留 1，数据版本 2026-11-18T18:56:05Z，{"pub":1}
+kangaroo-island：OSM 返回 19，跳过 1，保留 18，数据版本 2026-11-18T19:21:20Z，{"restaurant":3,"fast-food":1,"cafe":5,"pub":5,"pool":1,"park":1,"supermarket":1,"clinic":1}
+port-lincoln：OSM 返回 40，跳过 0，保留 40，数据版本 2026-11-18T19:38:35Z，{"restaurant":6,"fast-food":7,"cafe":5,"pub":5,"park":11,"library":1,"supermarket":3,"clinic":2}
+coober-pedy：OSM 返回 19，跳过 0，保留 19，数据版本 2026-11-18T20:13:06Z，{"restaurant":6,"fast-food":3,"cafe":1,"pub":3,"sports-centre":1,"park":1,"library":2,"supermarket":1,"clinic":1}
+flinders-ranges：OSM 返回 0，跳过 0，保留 0，数据版本 2026-11-18T20:42:29Z，{}
+mount-gambier：OSM 返回 98，跳过 0，保留 98，数据版本 2026-11-18T21:14:53Z，{"restaurant":13,"fast-food":20,"cafe":11,"pub":11,"gym":2,"sports-centre":6,"pool":2,"park":17,"library":1,"supermarket":9,"clinic":6}
+ceduna：OSM 返回 14，跳过 0，保留 14，数据版本 2026-11-18T21:58:39Z，{"restaurant":1,"fast-food":3,"cafe":2,"pub":1,"gym":1,"sports-centre":1,"park":1,"supermarket":2,"clinic":2}
+
+查询语句（每种类型一条，以第一个地点为例；矩形范围查询后按到地点中心的距离筛到半径内）：
+[out:json][timeout:90];
+nwr["amenity"="restaurant"]["name"](-34.97492,138.54522,-34.88508,138.65478);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"="fast_food"]["name"](-34.97492,138.54522,-34.88508,138.65478);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"="cafe"]["name"](-34.97492,138.54522,-34.88508,138.65478);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"~"^(pub|bar)$"]["name"](-34.97492,138.54522,-34.88508,138.65478);
+out center tags;
+[out:json][timeout:90];
+nwr["leisure"="fitness_centre"]["name"](-34.97492,138.54522,-34.88508,138.65478);
+out center tags;
+[out:json][timeout:90];
+nwr["leisure"="sports_centre"]["name"](-34.97492,138.54522,-34.88508,138.65478);
+out center tags;
+[out:json][timeout:90];
+nwr["leisure"="swimming_pool"]["access"!~"^(private|no|customers)$"]["name"](-34.97492,138.54522,-34.88508,138.65478);
+out center tags;
+[out:json][timeout:90];
+nwr["leisure"="park"]["name"](-34.97492,138.54522,-34.88508,138.65478);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"="library"]["name"](-34.97492,138.54522,-34.88508,138.65478);
+out center tags;
+[out:json][timeout:90];
+nwr["shop"="supermarket"]["name"](-34.97492,138.54522,-34.88508,138.65478);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"~"^(clinic|doctors|hospital)$"]["name"](-34.97492,138.54522,-34.88508,138.65478);
+out center tags;

@@ -1,0 +1,21 @@
+{
+  "note": "抽查后确认不该收录的真实地点：导入时跳过，已在数据里的删掉。每条要写理由和能打开的来源。",
+  "venues": [
+    {
+      "id": "osm-way-453409538",
+      "region": "sa",
+      "name": "Snap 24 Hour Fitness",
+      "reason": "106 Pirie St 这家已不在品牌官网的南澳门店列表里（列表 7 家，没有 Pirie St）；OSM 记录约 10 年没更新",
+      "source": "https://www.snapfitness.com/au/gyms/",
+      "checked": "2026-11-19，OpenClaw 抽查第 1 组提出，Claude 打开官网门店列表核实"
+    },
+    {
+      "id": "osm-node-2995129929",
+      "region": "sa",
+      "name": "Hahndorf Rifle Club",
+      "reason": "射击俱乐部，会员制，不对公众开放",
+      "source": "https://abr.business.gov.au/ABN/View?abn=63292063892",
+      "checked": "2026-11-19，OpenClaw 抽查第 3 组"
+    }
+  ]
+}

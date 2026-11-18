@@ -3,13 +3,14 @@
 // 第 41 轮起游戏世界由几个区域拼成：规则用 WORLD（所有区域合在一起），单个区域（WA 等）给地图和测试用。
 import type { Region, Venue } from '../core/types.ts';
 import venues from './wa.venues.json' with { type: 'json' };
+import saVenues from './sa.venues.json' with { type: 'json' };
 import { WA_BASE } from './wa-base.ts';
 import { AREAS, CROSS_ROUTES, mergeAreas } from './areas-base.ts';
 
 export const WA: Region = { ...WA_BASE, venues: (venues as { venues: Venue[] }).venues };
 
 /** 各区域的真实地点（按区域 id） */
-const VENUES: Record<string, Venue[]> = { wa: WA.venues };
+const VENUES: Record<string, Venue[]> = { wa: WA.venues, sa: (saVenues as { venues: Venue[] }).venues };
 /** 完整版的各区域 */
 export const FULL_AREAS: Region[] = AREAS.map((a) => (Object.hasOwn(VENUES, a.id) ? { ...a, venues: VENUES[a.id] } : a));
 /** 完整版的世界：服务器结算用它 */

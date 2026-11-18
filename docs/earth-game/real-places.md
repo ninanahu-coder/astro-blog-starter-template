@@ -8,8 +8,19 @@
 
 - 手机的定位（GPS）本身不属于哪家地图，浏览器的 `navigator.geolocation` 直接给出坐标，Google 地图 App 用的也是这个。
 - “附近有哪些餐馆、健身房”这份**地点数据**不能用 Google Places：它的条款不允许把结果缓存进自己的数据库或和别家地图混用，按次计费，而且仓库规则（`AGENTS.md`）只接受 OSM / Wikidata / seed 来源。
-- 所以地点数据只从 OSM 来：`npm run earth:fetch-venues` 经 Overpass API 按类型查询，原样转成 `tools/earth/openclaw/inbox/venues-<日期>.json`（坐标、名字、OSM 编号都不经人工或模型改写），再由 `npm run earth:venues` 校验写进 `src/game/data/wa.venues.json`。
+- 所以地点数据只从 OSM 来：`npm run earth:fetch-venues` 经 Overpass API 按类型查询，原样转成 `tools/earth/openclaw/inbox/venues-<日期>.json`（坐标、名字、OSM 编号都不经人工或模型改写），再由 `npm run earth:venues` 校验写进 `src/game/data/<区域>.venues.json`（西澳 `wa.venues.json`，南澳 `sa.venues.json`）。抓取加 `--region=sa` 换区域（默认西澳，南澳默认抓全部 13 个地点）；每条查询的原始结果缓存在 `tools/earth/openclaw/.cache/<区域>/`（不进仓库），公共服务器 502/504 时重跑只补没拿到的，`--fresh` 忽略缓存。导入时每条地点必须落在批次声明的区域里，否则整批拒绝。
 - 当前数据：2026-11-13 采集的珀斯、弗里曼特尔中心 5 公里内 647 个地点（采集到 649 条，去掉 2 条同一场所的重复记录）（餐馆、快餐、咖啡馆、酒吧各 80，公园 80，健身房 70，诊所 71，超市 60，体育中心 30，图书馆 15，游泳池 3）。查询语句和统计在同目录的 `venues-2026-11-13.meta.txt`。
+- 南澳：2026-11-18（UTC）采集的 13 个地点中心 5 公里内，现有 897 个（采集到 901 条，去掉 2 条同一场所的重复，再按抽查删掉 2 条）。导入时各地数量：阿德莱德 362、格莱内尔格 213、甘比尔山 97、汉多夫 49、林肯港 40、维克多港 39、巴罗萨谷 27、麦克拉伦谷 20、库伯佩迪 19、袋鼠岛 18、锡杜纳 14、杰维斯角 1，弗林德斯山脉 0（OSM 在那里没有这些类型的场所）。查询语句和统计在 `venues-sa-2026-11-18.meta.txt`。导入后按固定规则抽 64 个交 OpenClaw（market-intel）核对是否还在营业、类型对不对，任务书 `tools/earth/openclaw/tasks/2026-11-19-sa-venues-spotcheck.md`，结果见下文「南澳抽查」。
+
+### 南澳抽查（2026-11-19）
+
+- 一次派 64 个时 OpenClaw 在第 48 个左右超时，没留下结论；拆成 4 组各 16 个重派（任务书 `2026-11-19-sa-venues-spotcheck-1.md` 到 `-4.md`）。
+- 第 1–3 组共 48 个有结论：keep 36、drop 1、unsure 11。第 4 组（第 49–64 个：麦克拉伦谷、袋鼠岛、库伯佩迪、锡杜纳、杰维斯角）运行中途停住，没有结论，没有再派：它用的网页搜索一直返回 403。
+- 删掉 2 条，记在 `tools/earth/openclaw/venue-exclude.json`（导入时跳过，已在数据里的删掉，测试检查它们不会回来）：
+  - Hahndorf Rifle Club：射击俱乐部，会员制不对外（OpenClaw 判 drop）。
+  - Snap 24 Hour Fitness（阿德莱德 Pirie St）：OpenClaw 记 unsure，但给了线索；Claude 打开品牌官网南澳门店列表核实，7 家里没有这家。
+- unsure 的 11 条没删：没有关门证据，多是小店查不到官网，或品牌门店页要 JavaScript 才能显示。
+- 抽查样本里 2/48 有问题，按比例全量里可能还有几十条类似的；玩家到了现场发现店不在，后果只是那里做不了事。
 - 本该由 OpenClaw 采集，但现有 agent 没有一个同时能联网和写项目文件，所以改成确定性脚本；以后 OpenClaw 采集新地点时直接跑这个脚本即可。
 
 ## 2. 流程
