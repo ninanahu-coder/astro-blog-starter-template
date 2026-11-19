@@ -18,5 +18,7 @@ export const ASSETS: AssetDef[] = [
 export const ASSET_MIN_TRADE = 10;
 /** 每次买卖花的游戏时间（分钟） */
 export const ASSET_TRADE_MINUTES = 10;
+/** 发给客户端多少天的行情（含今天），界面画走势用 */
+export const QUOTE_DAYS = 30;
 /** 行情最多算到第几天，之后价格不再变（防止损坏的存档让计算量失控；约 55 年） */
 export const MARKET_DAYS_MAX = 20000;

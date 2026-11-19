@@ -717,6 +717,8 @@ type HashOpts = {
 	hidden?: boolean;
 	/** 在线频道当作已连上：每个新建的连接记进这个数组（连接地址 url、收消息 say、是否被关 closed） */
 	liveWs?: LiveWs[];
+	/** prompt() 的回答（默认 null，等于点了取消）；问过的话记进 seen.prompts */
+	prompt?: string | null;
 	/** 页面启动完、清理之前再做点什么（点按钮、触发联网事件） */
 	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; el: (id: string) => El; show: () => void }) => Promise<void>;
 };
@@ -736,8 +738,8 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	const docLs: Record<string, (e: unknown) => void> = {};
 	const winLs: Record<string, (e: unknown) => void> = {};
 	const g = globalThis as any;
-	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
-	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[] };
+	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, prompt: g.prompt, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
+	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[], prompts: [] as string[] };
 	const root = new ClassList();
 	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, documentElement: { classList: root }, hidden: !!opts.hidden };
 	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => { winLs[t] = f; } };
@@ -745,6 +747,7 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	g.location = { protocol: 'http:', host: 'game.test', pathname: '/earth/', search: '', hash, reload() { seen.reloads++; } };
 	g.history = { replaceState: (_s: unknown, _t: string, u: string) => { seen.replaced.push(u); g.location.hash = ''; } };
 	g.confirm = (m: string) => { seen.asked.push(m); return confirmAnswer; };
+	g.prompt = (m: string) => { seen.prompts.push(m); return opts.prompt ?? null; };
 	g.fetch = async (u: string, o?: RequestInit) => {
 		if (String(u) !== '/api/earth/save') return new Response('{}', { status: 404 });
 		const res = () => world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: o?.body as string }));
@@ -1326,4 +1329,54 @@ test('界面：没有存档时显示创建页，选完四步能创建角色并�
 			if (v === undefined) delete g[k]; else g[k] = v;
 		}
 	}
+});
+
+test('界面：「我 · 资产」的理财卡（第 25 批）——行情来自服务端、能买入、净值算上持仓、行情种子不进本机存档', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'invest-ui-a', '理财');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.cash = 2000;
+	let before = '', after = '';
+	const r = await openWithHash('', { cred: a.cred, state: a.state }, world, true, {
+		prompt: '500',
+		after: async ({ click, el }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'assets' });
+			before = el('panel').innerHTML;
+			await click({ asset: 'buy', assetId: 'asx-index' });
+			after = el('panel').innerHTML;
+		},
+	});
+	assert.match(before, /<div class="card invest"><h3>理财<\/h3>/, '没有持仓时标题不带金额');
+	for (const id of ['savings', 'asx-index', 'gold', 'emu-coin']) assert.match(before, new RegExp(`data-asset="buy" data-asset-id="${id}"`), id);
+	assert.match(before, /data-asset="sell" data-asset-id="gold" disabled/, '没有持仓不能卖');
+	assert.match(before, /不能兑换真钱/);
+	assert.deepEqual(a11yIssues(before), []);
+	assert.equal(r.seen.prompts.length, 1, '问了一次金额');
+	const saved = (data.get('save:' + a.cred.id) as any).state;
+	assert.equal(saved.cash, 1500, '服务端扣了 $500');
+	assert.ok(saved.holdings['asx-index'].units > 0, '服务端记下持仓');
+	assert.match(after, /<h3>理财 · 持仓 \$4\d\d<\/h3>/, '买入后卡片显示持仓（扣手续费后不到 $500）');
+	assert.match(after, /data-asset="sell" data-asset-id="asx-index">卖出/, '有持仓可以卖');
+	assert.match(after, / · 理财 \$4\d\d<\/p>/, '资产卡算上理财');
+	const local = JSON.parse(r.store.get('earth.save.v1')!);
+	assert.equal(local.marketSeed, 0, '本机存档没有行情种子');
+	assert.equal(local.seed, 0);
+	assert.equal(local.quotes['asx-index'].length >= 1, true, '本机存档带着服务端算好的行情');
+});
+
+test('界面：理财下单时点取消不发动作；买鸸鹋币要先确认（第 25 批）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'invest-ui-b', '取消');
+	(data.get('save:' + a.cred.id) as any).state.cash = 2000;
+	const r = await openWithHash('', { cred: a.cred, state: a.state }, world, false, {
+		prompt: '300',
+		after: async ({ click }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'assets' });
+			await click({ asset: 'buy', assetId: 'emu-coin' });
+		},
+	});
+	assert.equal(r.seen.asked.filter((m) => m.includes('鸸鹋币')).length, 1, '买虚拟币前确认');
+	assert.equal((data.get('save:' + a.cred.id) as any).state.cash, 2000, '确认时选了取消，没成交');
 });

@@ -14,6 +14,7 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { buyAsset, sellAsset } from './invest.ts';
+import { marketView } from './market.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 
 export type GameAction =
@@ -195,5 +196,6 @@ export function applyWeeklyClaim(state: PlayerState, week: number, count: number
 
 /** 发给客户端的存档：隐去随机数种子，客户端无法预知检定结果 */
 export function publicState(state: PlayerState): PlayerState {
-	return { ...state, seed: 0, marketSeed: 0 }; // 两个种子都不能给客户端：知道种子就能推算以后的随机结果和行情
+	// 两个种子都不能给客户端：知道种子就能推算以后的随机结果和行情。行情改由服务端算好放进 quotes（只到今天）
+	return { ...state, seed: 0, marketSeed: 0, quotes: marketView(state) };
 }

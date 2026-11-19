@@ -516,6 +516,7 @@ export interface PlayerState {
 	home: Home | null;
 	properties: OwnedProperty[];
 	holdings: Record<string, Holding>; // 资产 id -> 持仓（第 25 批）
+	quotes?: Record<string, number[]>; // 只在发给客户端的副本里有（publicState 填）：每种资产最近几天的价格，客户端没有行情种子，靠它显示行情
 	marketSeed: number; // 行情种子：创建时由服务端随机种子派生，不发给客户端（publicState 清零），否则能推算未来价格
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
 	moodlets: Moodlet[]; // 带时限的心情状态

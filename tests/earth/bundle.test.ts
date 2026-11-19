@@ -15,8 +15,11 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  * 首屏脚本（esbuild 压缩后、未 gzip）的上限：第 34 轮拆完约 327KB（Vite 实际构建约 259KB）；
  * 第 8 批（天象、场景界面）和第 9 批（南澳地点、小知识、事件、NPC）正常长到约 374KB，上限提到 400KB。
  * 真实地点约 87KB，打回首屏照样会超。
+ * 第 25 批（经济、理财）：main 的 e429bcd 是 392,671 字节，理财（行情、存档字段、理财卡）加了约 7.6KB 到 400,250，上限提到 410KB。
+ * 试过把理财卡改成按需加载，只省 600 字节（卡片和首屏共用几乎所有代码），不值得。
+ * 同时改成「首屏 = 入口 + 它静态 import 的所有分块」：只量入口的话，按需加载会把共用代码挪进静态分块，数字变小但首屏并没变小。
  */
-export const FIRST_SCREEN_MAX = 400_000;
+export const FIRST_SCREEN_MAX = 410_000;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
@@ -31,8 +34,23 @@ async function split() {
 			// worker 文件按 URL 引用（Vite 的 ?url），这里只关心它不进首屏
 			external: ['*?url'],
 		});
-		const entry = Object.entries(out.metafile.outputs).find(([, o]) => o.entryPoint)!;
-		return { entry: entry[1], outputs: out.metafile.outputs };
+		const outputs = out.metafile.outputs;
+		const entry = Object.entries(outputs).find(([, o]) => o.entryPoint)!;
+		// 首屏要下载的 = 入口 + 它（递归地）静态 import 的分块；动态 import 的分块不算
+		const seen = new Set<string>();
+		const walk = (o: (typeof outputs)[string]) => {
+			for (const im of o.imports) {
+				if (im.kind !== 'import-statement' || seen.has(im.path)) continue;
+				seen.add(im.path);
+				const key = Object.keys(outputs).find((k) => k.endsWith('/' + im.path.split('/').pop()));
+				if (key) walk(outputs[key]);
+			}
+		};
+		walk(entry[1]);
+		const chunks = [...seen].map((p) => Object.entries(outputs).find(([k]) => k.endsWith('/' + p.split('/').pop()))!);
+		const inputs = Object.assign({}, entry[1].inputs, ...chunks.map(([, o]) => o.inputs));
+		const bytes = entry[1].bytes + chunks.reduce((sum, [, o]) => sum + o.bytes, 0);
+		return { entry: { ...entry[1], inputs, bytes }, outputs };
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}
