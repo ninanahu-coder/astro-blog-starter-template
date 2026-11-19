@@ -21,6 +21,7 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'gift-loved', name: '礼物送到了心坎上', icon: '🎁', value: 4, hours: 8 },
 	{ id: 'warm-moment', name: '被人照顾了一下', icon: '☕', value: 4, hours: 12 },
 	{ id: 'promoted', name: '升职了', icon: '📈', value: 12, hours: 72 },
+	{ id: 'vitamins', name: '吃了维生素', icon: '💊', value: 2, hours: 72, regen: 2 }, // 第 23 批，待平衡
 	{ id: 'new-home', name: '乔迁之喜', icon: '🏡', value: 10, hours: 72 },
 	// 负面
 	{ id: 'rough-night', name: '没睡好', icon: '🥱', value: -2, hours: 8 }, // 第七轮起露营改给 camp-calm；保留定义，旧存档里的状态照常显示到过期
