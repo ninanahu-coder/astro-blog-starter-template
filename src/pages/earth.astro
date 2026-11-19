@@ -399,6 +399,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.mood-row:last-child { border-bottom: 0; }
 			.mood-row .up { color: var(--ok); }
 			.mood-row .down { color: var(--bad); }
+			.invest .up, .spark.up { color: var(--ok); }
+			.invest .down, .spark.down { color: var(--bad); }
+			.spark { display: block; color: var(--dim); }
 
 			/* 今天页：角色卡与「下一步」 */
 			.me-card { display: flex; flex-direction: column; gap: 14px; }
@@ -665,6 +668,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { guideView, type GuideView } from '../game/core/guide.ts';
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { fmtHalf } from '../game/ui/numfmt.ts';
+			import { defaultAmount, investCard } from '../game/ui/invest.ts';
+			import { holdingsValue } from '../game/core/market.ts';
 			import { setHtml } from '../game/ui/dom.ts';
 			import { lbAskHtml, lbAskPref, lbCardHtml, parseLbPref, type LbData, type LbDimId } from '../game/ui/board.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
@@ -702,6 +707,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { fireDanger, fireSeason, hasTide, hhmm, phaseNote, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps, tideNow, uvDay, uvLevel } from '../game/core/sky.ts';
 			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
+			import { energyCap, stress } from '../game/core/vitals.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
 			import { FIX_RULES } from '../game/data/venues.ts';
 			import type { VenueOp } from '../game/core/types.ts';
@@ -2126,7 +2132,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 						return `<div class="card"><h3>每日奖励 · 连续 ${s.daily.streak} 天</h3><div class="streak" role="img" aria-label="这一轮 7 天里已到第 ${pos} 天">${dots}</div>
 							<p style="margin-top:8px">明天接着来能领 $${tomorrow.cash}${tomorrow.full ? `（满 ${DAILY.cap} 天大礼，含额外 $${DAILY.bonus}）` : ''}。断一天从头算（$${DAILY.base} 起）。</p></div>`;
 					})(),
-					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>`,
+					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}${holdingsValue(s) ? ` · 理财 $${holdingsValue(s).toLocaleString()}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>`,
+					invest: investCard(s),
 					album: `<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>`,
 					life: `<div class="card"><h3>工作与住处</h3>${life}</div>`,
 					rels: `<div class="card"><h3>人际关系</h3>${rels || '<p>还没认识什么人。去各地看看谁在那里。</p>'}</div>${duoHtml}`,
@@ -2136,7 +2143,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 						const d = derivedStats(s);
 						return `<p>体质 ${d.fitness}（体能 50% + 力量 30% + 游泳 20%）</p>
 							<p>吸引力 ${d.appeal}（魅力 + 体质 15% + 心情修正${s.needs.hygiene < 30 ? ' − 邋遢 10' : ''}）</p>
-							<p>体力消耗 ×${d.exertion} · 恢复 ×${d.recovery}</p>
+							<p>体力消耗 ×${d.exertion} · 恢复 ×${d.recovery}（上班、活动消耗的精力乘消耗，睡觉回的精力乘恢复）</p>
+							<p>精力上限 ${Math.round(energyCap(s))}（80 + 体质 × 0.2，练体能、力量、游泳会永久提高）</p>
+							<p>压力 ${Math.round(stress(s) * 100)}%（娱乐或社交低于 40 开始有，压力大饿得快）</p>
 							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
 					})()}</div>`,
 				};
@@ -2146,7 +2155,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const lvHtml = `<div class="card grow-head"><span class="lv-badge" aria-hidden="true">${lv.lv}</span><span class="name"><b>Lv${lv.lv} ${esc(lv.title)}</b><span>声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next} · 离下一级还差 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ' · 已到最高级'}</span>${lv.next !== null ? `<span class="bar" role="img" aria-label="升级进度 ${pct}%"><i style="width:${pct}%"></i></span>` : ''}</span></div>`;
 					return lvHtml + ['daily', 'ach', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
 				}
-				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'life', 'bag'], people: ['rels'] };
+				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'invest', 'life', 'bag'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
 				// 「更新」页（第 48 轮）：打开时记下已读；没看过的批次在标签上标「新」
 				void loadNews();
@@ -2538,7 +2547,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2605,6 +2614,15 @@ const cardLines = guilloche(400, 260, 14, 9);
 						a = { t: 'property', op: d.prop as 'sell' | 'movein' | 'rentout', id };
 					}
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
+				else if (d.asset) {
+					const id = d.assetId!;
+					const op = d.asset === 'sell' ? 'sell' : 'buy';
+					const q = prompt(op === 'buy' ? '买入多少钱？（按今天的价格成交，扣手续费）' : '卖出多少钱的份额？（超过持仓就全部卖出）', String(defaultAmount(state, id, op)));
+					const amount = Number(q);
+					if (q === null || !(amount > 0)) return;
+					if (op === 'buy' && id === 'emu-coin' && !confirm('鸸鹋币一天涨跌一两成都正常，也可能跌掉大半。确定买入？')) return;
+					act({ t: 'asset', op, id, amount }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.furn) {
 					const a: GameAction = d.furn === 'buy' ? { t: 'furniture', op: 'buy', id: d.furnId! } : { t: 'furniture', op: 'sell', slot: d.slot! };

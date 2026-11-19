@@ -33,6 +33,8 @@ interface Bot {
 	s: PlayerState;
 	rng: () => number;
 	plan: Plan;
+	/** 理财机器人最近一次买入的游戏日 */
+	investDay?: number;
 	stats: {
 		collapses: number;
 		evictions: number;
@@ -119,6 +121,11 @@ interface Plan {
 	 * mateNeeds：搭档的各项需求（100 = 全满）；mateChance：每次想做时有搭档在场的概率
 	 */
 	coop?: { mateNeeds: number; mateChance: number };
+	/**
+	 * 第 25 批（经济设计）：理财。现金超过 keep 时把多出来的买成 asset（每个游戏日最多一次），不买房；
+	 * 现金低于 $300 时卖出 $500 应急。
+	 */
+	invest?: { asset: string; keep: number };
 }
 
 const PLANS: Plan[] = [
@@ -137,6 +144,9 @@ const PLANS: Plan[] = [
 	// 共同事件三种搭档假设（第 10 批审查问题 1）：理想（需求全满、随叫随到）是上限，不是保守估计；另外两种看搭档状态和在场率的影响
 	{ id: 'barista-coop', name: '咖啡店 + 共同事件：理想搭档（需求全满、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 100, mateChance: 1 } },
 	{ id: 'barista-coop-tired', name: '咖啡店 + 共同事件：疲惫搭档（需求 40、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 1 } },
+	{ id: 'barista-savings', name: '咖啡店 + 理财：高息储蓄（不买房）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', invest: { asset: 'savings', keep: 3000 } },
+	{ id: 'barista-index', name: '咖啡店 + 理财：澳股指数基金（不买房）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', invest: { asset: 'asx-index', keep: 3000 } },
+	{ id: 'barista-coin', name: '咖啡店 + 理财：鸸鹋币（不买房）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', invest: { asset: 'emu-coin', keep: 3000 } },
 	{ id: 'barista-coop-sparse', name: '咖啡店 + 共同事件：疲惫搭档，一半时候没人（需求 40、在场 50%）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 0.5 } },
 ];
 
@@ -179,7 +189,7 @@ function blankDiagnostics(): BackpackerDiagnostics {
 
 function actionKey(a: GameAction): string {
 	return a.t === 'activity' ? a.id
-		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' ? `${a.t}-${a.op}`
+		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' || a.t === 'asset' ? `${a.t}-${a.op}`
 			: a.t === 'npc' ? 'npc'
 				: a.t === 'buy' ? `buy-${a.item}`
 					: a.t;
@@ -448,9 +458,18 @@ function step(b: Bot) {
 			const exp = experiencesAt(s, WA).find((o) => o.first && !o.blocked);
 			if (exp && tryAct(b, { t: 'experience', id: exp.exp.id })) return;
 		}
+		// 理财（第 25 批）：现金多出 keep 的部分每天最多买一次；缺钱时卖出应急。理财机器人不买房
+		if (plan.invest) {
+			const day = dayOf(s.clock);
+			if (s.cash < 300 && (s.holdings[plan.invest.asset]?.units ?? 0) > 0 && tryAct(b, { t: 'asset', op: 'sell', id: plan.invest.asset, amount: 500 })) return;
+			if (s.cash > plan.invest.keep + 500 && b.investDay !== day && tryAct(b, { t: 'asset', op: 'buy', id: plan.invest.asset, amount: s.cash - plan.invest.keep })) {
+				b.investDay = day;
+				return;
+			}
+		}
 		// 买房：首付之外还留 $3,000 周转；买了就搬进去
 		const house = propertiesAt(s, WA).find((o) => !o.owned && s.cash >= o.down + 3000);
-		if (house && s.properties.length === 0 && tryAct(b, { t: 'property', op: 'buy', id: house.property.id, loan: s.cash < house.property.price + 3000 })) {
+		if (house && !plan.invest && s.properties.length === 0 && tryAct(b, { t: 'property', op: 'buy', id: house.property.id, loan: s.cash < house.property.price + 3000 })) {
 			tryAct(b, { t: 'property', op: 'movein', id: house.property.id });
 			b.stats.homeDay = dayOf(b.s.clock) + 1;
 			return;
