@@ -664,9 +664,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { storyProgress } from '../game/core/story.ts';
 			import { guideView, type GuideView } from '../game/core/guide.ts';
 			import { recapFor, recapLog } from '../game/core/recap.ts';
-			import { CHANGELOG, CHANGELOG_LATEST } from '../game/data/changelog.ts';
-			import { NEWS_SEEN_KEY, parseNewsSeen, unseenNews } from '../game/ui/news.ts';
 			import { fmtHalf } from '../game/ui/numfmt.ts';
+			import { setHtml } from '../game/ui/dom.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
@@ -1523,7 +1522,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				}
 				const offline = syncStatus.startsWith('离线') ? `现在离线：可以查看；做事、出行等可以先排队，联网后自动补交${queue.length ? `（已排 ${queue.length} 个）` : ''}` : queue.length ? `有 ${queue.length} 个排队的动作等着补交` : '';
 				$('hud').classList.toggle('scened', tab === 'place');
-				$('hud').innerHTML = `${top}${offline ? `<div class="offline" role="status">${offline}</div>` : ''}`;
+				setHtml($('hud'), `${top}${offline ? `<div class="offline" role="status">${offline}</div>` : ''}`);
 			}
 
 			/** 玩家所在的区域（地图按它画）；还没有角色时用第一个区域 */
@@ -1585,7 +1584,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				map.setAttribute('aria-label', `${area.name}地图：点地点看去那里的走法；下面的列表是同样的内容`);
 				map.setAttribute('viewBox', `0 0 ${proj.width} ${proj.height}`);
 				const stars = skyPhase(getLocation(region, s.loc)!, s.clock) === 'night' ? starField(proj.width, proj.height) : '';
-				map.innerHTML = `${stars}<polygon class="land" points="${outline}"/>${routes}${exits}${dots}`;
+				setHtml(map, `${stars}<polygon class="land" points="${outline}"/>${routes}${exits}${dots}`);
 				renderBasemap(s, counts);
 			}
 
@@ -2135,8 +2134,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'life', 'bag'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
 				// 「更新」页（第 48 轮）：打开时记下已读；没看过的批次在标签上标「新」
-				if (meTab === 'news') store.set(NEWS_SEEN_KEY, String(CHANGELOG_LATEST));
-				const fresh = unseenNews(parseNewsSeen(store.get(NEWS_SEEN_KEY)));
+				void loadNews();
+				if (news && meTab === 'news') store.set(news.NEWS_SEEN_KEY, String(news.CHANGELOG_LATEST));
+				const fresh = news ? news.unseenNews(news.parseNewsSeen(store.get(news.NEWS_SEEN_KEY))) : 0;
 				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}${id === 'news' && fresh ? '<span class="new-tag">新</span>' : ''}</button>`).join('')}</div>`;
 				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : meTab === 'news' ? panelNews() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
 				return head + seg + bodyHtml;
@@ -2365,9 +2365,23 @@ const cardLines = guilloche(400, 260, 14, 9);
 				['多设备', '同步码等同于密码：在另一台设备选「用同步码恢复」，或用相机扫「我 · 同步」里的二维码，就能接着玩。存档一直在服务器上，换设备只是把同步码带过去；改本机数据没有用。怀疑同步码被别人看到了，可以在「多设备同步」里更换。'],
 			];
 			// 大字模式：整页放大约 12%，只记在本机
+			// 更新日志和「新」标记按需加载（第 41 批，性能）：日志每批都在变长，不进首屏脚本，第一次打开「我」页时再下。
+			// 下载失败（断网）时页面照常画，「新」标记先不显示；30 秒后再画「我」页时重试，不会连着重试刷屏
+			type NewsMod = typeof import('../game/ui/news.ts') & Pick<typeof import('../game/data/changelog.ts'), 'CHANGELOG' | 'CHANGELOG_LATEST'>;
+			let news: NewsMod | null = null;
+			let newsLoad: Promise<void> | null = null;
+			let newsFailedAt = -Infinity;
+			function loadNews() {
+				if (news || Date.now() - newsFailedAt < 30000) return newsLoad;
+				newsLoad ??= Promise.all([import('../game/ui/news.ts'), import('../game/data/changelog.ts')])
+					.then(([n, c]) => { news = { ...n, CHANGELOG: c.CHANGELOG, CHANGELOG_LATEST: c.CHANGELOG_LATEST }; if (state && tab === 'me') renderPanel(); })
+					.catch(() => { newsLoad = null; newsFailedAt = Date.now(); if (state && tab === 'me') renderPanel(); });
+				return newsLoad;
+			}
 			/** 「我 · 更新」：游戏内更新日志，新的在前 */
 			function panelNews() {
-				return CHANGELOG.map((e) => `<div class="card news"><h3>${esc(e.title)} <span class="muted">${esc(e.date)}</span></h3><ul>${e.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('');
+				if (!news) return `<div class="card news"><p class="muted">${newsLoad ? '更新日志加载中…' : '更新日志没加载出来，联网后再打开这一页。'}</p></div>`;
+				return news.CHANGELOG.map((e) => `<div class="card news"><h3>${esc(e.title)} <span class="muted">${esc(e.date)}</span></h3><ul>${e.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('');
 			}
 
 			function panelSync() {
@@ -2399,7 +2413,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const hereCount = state ? [...peers.values()].filter((p) => p.loc === state!.loc && p.id !== myPeerId).length : 0;
 				// 附近是出行的分页：在附近时出行标签也亮
 				const on = (id: string) => id === tab || (id === 'go' && tab === 'near');
-				$('tabs').innerHTML = `<div class="tabs-in">${TABS.map(([id, label, icon]) => `<button data-tab="${id}" class="${on(id) ? 'on' : ''}" ${on(id) ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}${id === 'social' && hereCount ? `<span class="badge" aria-label="这里有 ${hereCount} 位玩家在线">${hereCount}</span>` : ''}</button>`).join('')}</div>`;
+				setHtml($('tabs'), `<div class="tabs-in">${TABS.map(([id, label, icon]) => `<button data-tab="${id}" class="${on(id) ? 'on' : ''}" ${on(id) ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}${id === 'social' && hereCount ? `<span class="badge" aria-label="这里有 ${hereCount} 位玩家在线">${hereCount}</span>` : ''}</button>`).join('')}</div>`);
 			}
 
 			function renderPanel() {
@@ -2409,7 +2423,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderMap();
 				renderHud();
 				const html = { place: panelPlace, near: () => goSeg() + panelNear(), go: () => goSeg() + panelGo(), grow: () => panelMe('grow'), me: () => panelMe(), social: panelSocial }[tab]!();
-				$('panel').innerHTML = html;
+				setHtml($('panel'), html);
 				const chat = document.getElementById('chat');
 				if (chat) chat.scrollTop = chat.scrollHeight;
 			}
@@ -2425,12 +2439,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 				if (!ev && eventResult) {
 					// 没有下一个待处理事件时，显示刚才那个事件的结果
 					const r = eventResult;
-					modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
+					setHtml(modal, `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
 						<div class="ev-hero"><span class="ev-stamp${modalShown !== r ? ' fresh' : ''}">结果</span><h2 id="ev-title">${r.icon} ${esc(r.title)}</h2></div>
 						<div class="ev-body"><p>${esc(r.text)}</p>
 						${r.delta.length ? `<div class="pills">${r.delta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 						${r.ach.length ? `<p class="ach-line">🏅 达成成就：${r.ach.map(esc).join('、')}</p>` : ''}
-						<button class="primary" data-result-close>继续</button></div></div>`;
+						<button class="primary" data-result-close>继续</button></div></div>`);
 					modal.classList.remove('hidden');
 					game.inert = true;
 					// 选完选项后原来聚焦的按钮被结果页替换掉了：焦点移到「继续」
@@ -2453,7 +2467,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const odds = (skill: Parameters<typeof checkScore>[1], dc: number) => Math.round(Math.max(0, Math.min(1, (checkScore(s, skill).total + 60 - dc) / 60)) * 100);
 				const img = cgi['event:' + ev.id];
 				const key = `${ev.id}@${s.clock}`;
-				modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
+				setHtml(modal, `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
 					<div class="ev-hero">${img ? `<img src="${esc(img)}" alt="" loading="lazy" />` : loc ? `${sceneSvg({ phase: skyPhase(loc, s.clock), weather: weatherAt(s).id, kind: loc.kind, tags: loc.tags, noFigure: true })}<i class="ev-shade"></i>` : ''}<span class="ev-stamp${modalShown !== key ? ' fresh' : ''}">${loc ? `到达 ${esc(loc.name)} · ${formatClock(s.clock).split(' ')[1]}` : '事件'}${weatherAt(s).closesSea ? ' · 风暴天' : ''}</span><h2 id="ev-title">${ev.icon} ${esc(ev.title)}</h2></div>
 					<div class="ev-body"><p>${esc(ev.text)}</p>
 					<div class="list">${(() => { let lit = false; return ev.choices.map((c, i) => {
@@ -2468,7 +2482,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						const first = !poor && !stormBlocked && !lit;
 						if (first) lit = true;
 						return `<button class="row choice${first ? ' first' : ''}" data-choice="${i}"${poor || stormBlocked ? ' disabled' : ''}><span class="label">${esc(choiceLabel(c))}</span>${pills ? `<span class="pills">${pills}</span>` : ''}</button>`;
-					}).join(''); })()}</div></div></div>`;
+					}).join(''); })()}</div></div></div>`);
 				modal.classList.remove('hidden');
 				// 弹窗打开期间背后的页面不可点、不可聚焦；换成一个新事件时（刚打开或接着下一个）把焦点移到第一个能选的选项
 				game.inert = true;
