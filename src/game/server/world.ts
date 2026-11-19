@@ -19,8 +19,13 @@ import { boardEntry, rankBoard } from '../core/board.ts';
 import type { PlayerState, Region } from '../core/types.ts';
 import { FULL_AREAS, WORLD } from '../data/wa.ts';
 import { areaOf } from '../data/areas-base.ts';
+import { actionCounts, BORN_KEEP_DAYS, BORN_PREFIX, cleanBatch, funnelSteps, mergeDays, READ_MAX_DAYS, StatsBuffer, STATS_BODY_MAX, type Counts, type FunnelStep } from './stats.ts';
 
 const SAVES_ROOM = '@SAVES';
+/** 客户端统计上报（界面使用、报错、性能）汇总在这个保留实例，不挤占存档实例 */
+const STATS_ROOM = '@STATS';
+const STATS_WINDOW_MS = 60 * 1000;
+const STATS_LIMIT = 6; // 每 IP 每分钟最多几批（客户端正常一分钟最多一批）
 const MAX_CONNS = 200;
 const MSG_WINDOW_MS = 5000;
 const MSG_LIMIT = 20;
@@ -141,13 +146,20 @@ export class EarthWorld {
 	private notesLoading = new Map<string, Promise<void>>();
 	private notesChain = new Map<string, Promise<unknown>>(); // 同一地点的发帖、删帖排队执行：限额检查和写入之间不会插进别人的
 
+	private stats: StatsBuffer; // 统计计数（见 stats.ts）：内存里攒一会儿再合并落盘
+	private statsRate = new Map<string, { n: number; resetAt: number }>();
+
 	constructor(ctx: DurableObjectState, _env: unknown) {
 		this.ctx = ctx;
+		this.stats = new StatsBuffer(ctx.storage as never);
 	}
 
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 		if (url.pathname === '/api/earth/save') return this.handleSave(request);
+		if (url.pathname === '/api/earth/stats') return this.handleStats(request);
+		// 只有 routeEarth 核对过查询令牌后才会转到这里（外部请求到不了这个路径）
+		if (url.pathname === '/api/earth/stats/read') return this.handleStatsRead(url);
 		if ((request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
 			return new Response('expected websocket', { status: 426 });
 		}
@@ -285,6 +297,60 @@ export class EarthWorld {
 				ws.send(raw);
 			} catch {}
 		}
+	}
+
+	// ---------- 统计（设计见 docs/earth-game/analytics.md） ----------
+
+	/**
+	 * 记一次服务端结算的统计。claim：这次领了每日奖励（= 今天第一次来，算一个活跃日，并按注册日记留存）；
+	 * steps：这次第一次走到的漏斗步骤（记在注册那天的汇总里）。出错只丢统计，不影响游戏。
+	 */
+	private async track(id: string, day: number, add: Counts, claim: { cash: number } | null | undefined, steps: FunnelStep[] = []): Promise<void> {
+		try {
+			this.stats.add(day, claim ? { ...add, active: 1, 'eco.in.daily': claim.cash } : add);
+			if (!claim && steps.length === 0) return;
+			const bornKey = BORN_PREFIX + (await sha256Hex(id)).slice(0, 12);
+			const born = await this.ctx.storage.get<number>(bornKey);
+			if (typeof born !== 'number' || !Number.isInteger(born)) return;
+			const k = day - born;
+			const cohort: Counts = {};
+			if (claim && k >= 1 && k <= BORN_KEEP_DAYS) cohort['ret.' + k] = 1;
+			for (const s of steps) cohort['fn.' + s] = 1;
+			this.stats.add(born, cohort);
+			// 过了留存窗口就删掉注册日：不再需要
+			if (k > BORN_KEEP_DAYS) await this.ctx.storage.delete(bornKey);
+		} catch {}
+	}
+
+	/** 客户端上报一批事件（'@STATS' 实例）：限流、限大小、白名单校验后只记计数 */
+	private async handleStats(request: Request): Promise<Response> {
+		if (request.method !== 'POST') return json({ ok: false }, 405);
+		const ip = request.headers.get('CF-Connecting-IP') || 'local';
+		const now = Date.now();
+		const rate = this.statsRate.get(ip);
+		if (!rate || now > rate.resetAt) {
+			if (this.statsRate.size > 5000) this.statsRate.clear();
+			this.statsRate.set(ip, { n: 1, resetAt: now + STATS_WINDOW_MS });
+		} else if (++rate.n > STATS_LIMIT) return json({ ok: false }, 429);
+		const text = await request.text();
+		if (text.length > STATS_BODY_MAX) return json({ ok: false }, 413);
+		let raw: unknown;
+		try {
+			raw = JSON.parse(text);
+		} catch {
+			return json({ ok: false }, 400);
+		}
+		const counts = cleanBatch(raw);
+		if (!counts) return json({ ok: false }, 400);
+		this.stats.add(realDayOf(now), counts);
+		return json({ ok: true });
+	}
+
+	private async handleStatsRead(url: URL): Promise<Response> {
+		const from = Number(url.searchParams.get('from'));
+		const to = Number(url.searchParams.get('to'));
+		if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < from || to - from > READ_MAX_DAYS) return json({ ok: false, msg: '日期范围无效' }, 400);
+		return json({ ok: true, days: await this.stats.read(from, to) });
 	}
 
 	// ---------- 云存档与权威结算（仅 '@SAVES' 实例；storage 键：save:<id> = { keyHash, state, at }） ----------
@@ -492,7 +558,11 @@ export class EarthWorld {
 			refreshWishes(state);
 			const first = claimDaily(state, realDayOf(now));
 			const created = first ? { ...first.state, rev: 0 } : state;
-			await this.persist(id, keyHash, created, now);
+			// 统计：记下注册日（只存现实日序号，键是 id 哈希前缀；关了统计的玩家不记）
+			const track = body.nt !== true;
+			const day = realDayOf(now);
+			await this.persistMany([{ id, keyHash, state: created, at: now }], undefined, track ? { [BORN_PREFIX + (await sha256Hex(id)).slice(0, 12)]: day } : {});
+			if (track) this.stats.add(day, { new: 1, active: 1, ...(first ? { 'eco.in.daily': first.cash } : {}) });
 			return json({ ok: true, state: publicState(created), at: now, daily: first?.msg });
 		}
 
@@ -512,6 +582,7 @@ export class EarthWorld {
 		// 被改成「今天已领」的每日奖励永远领不到
 		const migrated = JSON.stringify(current) !== JSON.stringify(rec.state);
 		if ((claim || migrated) && action === 'get') await this.persist(id, keyHash, live, now);
+		if (claim && action === 'get' && body.nt !== true) await this.track(id, realDayOf(now), {}, claim);
 
 		if (action === 'get') return json({ ok: true, state: publicState(live), at: now, daily: claim?.msg });
 
@@ -544,6 +615,8 @@ export class EarthWorld {
 			// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
 			else if (migrated) await this.persistMany([{ id, keyHash, state: current, at: now }], undefined, opEntry);
 			else if (op) await this.ctx.storage.put(opEntry);
+			// 统计（玩家关了就不记）：功能使用、现金流入流出、新手漏斗、每日活跃和留存。只按结算结果记，不信客户端
+			if (body.nt !== true) await this.track(id, realDayOf(now), actionCounts(act, live, r.state, r.ok), next !== current ? claim : null, r.ok && !r.collapsed ? funnelSteps(live, r.state) : []);
 			return json({ ok: r.ok, msg: r.msg, state: publicState(next), at: now, daily: claim?.msg });
 		}
 		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, wall, locked);
@@ -865,6 +938,10 @@ export class EarthWorld {
 /** Worker 入口路由：命中 /api/earth/* 返回 Response，否则返回 null 交给 Astro */
 export function routeEarth(request: Request, env: any): Promise<Response> | null {
 	const url = new URL(request.url);
+	if (url.pathname === '/api/earth/stats') {
+		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(STATS_ROOM)).fetch(request);
+	}
+	if (url.pathname === '/api/earth/stats/read') return readStats(request, env);
 	if (url.pathname === '/api/earth/save') {
 		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(SAVES_ROOM)).fetch(request);
 	}
@@ -873,4 +950,24 @@ export function routeEarth(request: Request, env: any): Promise<Response> | null
 		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(region)).fetch(request);
 	}
 	return null;
+}
+
+/**
+ * 查询统计汇总：GET /api/earth/stats/read?from=<现实日>&to=<现实日>，带 Authorization: Bearer <EARTH_STATS_TOKEN>。
+ * 令牌是 Worker 的 secret（不是付费服务）；没配置或不对一律 404，不暴露接口存在。
+ * 合并存档实例（服务端结算的计数）和统计实例（客户端上报的计数）。
+ */
+async function readStats(request: Request, env: any): Promise<Response> {
+	const token = typeof env?.EARTH_STATS_TOKEN === 'string' ? env.EARTH_STATS_TOKEN : '';
+	const auth = request.headers.get('Authorization') || '';
+	if (request.method !== 'GET' || token.length < 32 || !timingSafeEqual(auth, 'Bearer ' + token)) return json({ ok: false }, 404);
+	const q = new URL(request.url).search;
+	const parts: Record<string, Counts>[] = [];
+	for (const room of [SAVES_ROOM, STATS_ROOM]) {
+		const res = await env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(room)).fetch(new Request('https://internal/api/earth/stats/read' + q));
+		const data = (await res.json()) as any;
+		if (!data?.ok) return json(data, res.status);
+		parts.push(data.days);
+	}
+	return json({ ok: true, days: mergeDays(...parts) });
 }

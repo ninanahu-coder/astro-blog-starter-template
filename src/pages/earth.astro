@@ -40,6 +40,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				<div class="field"><span class="step">3</span>出身<div id="c-origins"></div></div>
 				<div class="field"><span class="step">4</span>性格特质（选 2 个）<div id="c-traits" class="chips"></div></div>
 				<button id="c-start" class="primary">开始生活</button>
+				<p class="muted stats-note"><span id="c-stats-text"></span> <button id="c-stats" type="button">关闭统计</button></p>
 				<details class="import">
 					<summary>已有存档？用同步码恢复</summary>
 					<input id="c-code" placeholder="粘贴同步码或扫码得到的链接" aria-label="同步码" autocomplete="off" />
@@ -238,6 +239,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.skill { display: grid; grid-template-columns: 30px 1fr 44px; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; }
 			.skill .bar i { background: var(--accent); }
 			.muted { color: var(--dim); font-size: 13px; }
+			.stats-note { margin-top: 10px; }
 			.chat { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; font-size: 14px; margin: 8px 0; }
 			.chat b { color: var(--accent); font-weight: 600; }
 			.inline { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -452,6 +454,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { fmtHalf } from '../game/ui/numfmt.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
+			import { parseStatsPref, STATS_PREF_KEY, Telemetry, type NavPrivacy } from '../game/ui/telemetry.ts';
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
 			import { codeOf, hashAction, makeQr, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, webglSupported, type Basemap } from '../game/ui/basemap.ts';
@@ -621,6 +624,27 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				prefs = { ...prefs, ...next };
 				store.set(PREFS_KEY, JSON.stringify(prefs));
 				applyPrefs();
+			}
+			// 匿名统计（第 39 批，见 docs/earth-game/analytics.md）：默认开，浏览器开了全局隐私控制/请勿跟踪时默认关；设置里随时关。
+			// 只报白名单事件（页面、报错类别、耗时），攒一批再发，失败留到下次，永远不影响游戏
+			let statsOn = parseStatsPref(store.get(STATS_PREF_KEY), navigator as NavPrivacy);
+			const tm = new Telemetry({
+				enabled: () => statsOn,
+				store,
+				send: async (body) => (await fetch('/api/earth/stats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true })).ok,
+			});
+			function setStats(on: boolean) {
+				statsOn = on;
+				store.set(STATS_PREF_KEY, on ? '1' : '0');
+				if (!on) tm.clear();
+			}
+			const STATS_NOTE = '游戏会记录匿名的使用统计（各功能用了多少、报错和加载速度），不含名字、位置和同步码，用来改进游戏。';
+			tm.track('session');
+			setInterval(() => void tm.flush(), 60000);
+			document.addEventListener('visibilitychange', () => { if (document.hidden) void tm.flush(); });
+			if (typeof window.addEventListener === 'function') {
+				window.addEventListener('error', () => tm.track('err', 'js'));
+				window.addEventListener('unhandledrejection', () => tm.track('err', 'promise'));
 			}
 			const randId = (n: number) => {
 				const a = new Uint8Array(n);
@@ -868,7 +892,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 			const srvNow = () => Date.now() + clockSkew;
 			async function api(body: unknown) {
-				const res = await fetch('/api/earth/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+				const t0 = performance.now();
+				let res: Response;
+				// 关了统计：告诉服务器这次请求不要记统计（nt = no tracking）
+				try { res = await fetch('/api/earth/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(statsOn ? body : { ...(body as object), nt: true }) }); }
+				catch (e) { tm.track('err', 'net'); throw e; }
+				tm.track('perf', 'api', performance.now() - t0);
+				if (res.status >= 500) tm.track('err', 'api5xx');
 				const data = (await res.json()) as any;
 				// 冷却和上班卡都按服务器时间算：用服务器返回的时间校准，手机时钟不准也不影响
 				if (typeof data?.at === 'number' && Number.isFinite(data.at)) clockSkew = data.at - Date.now();
@@ -962,6 +992,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					else return;
 					liveRender();
 				};
+				sock.onerror = () => tm.track('err', 'ws');
 				sock.onclose = () => {
 					if (ws !== sock) return;
 					ws = null;
@@ -2047,6 +2078,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const real = `<div class="row" style="margin-top:8px"><span class="body">真实地图<small>出行页用 OpenStreetMap 真实地图，图块向 OpenFreeMap 请求；关掉或离线时用手绘地图${basemapFailed ? '。这次没加载出来，正在用手绘地图' : ''}</small></span><button data-pref="basemap" aria-pressed="${prefs.basemap}">${prefs.basemap ? '已开启' : '已关闭'}</button></div>`;
 				return `<div class="card"><h3>显示</h3><p class="muted">只在这台设备上生效。</p>${seg('font', '字号', FONT_OPTIONS)}${seg('motion', '动画', MOTION_OPTIONS)}${sound}${real}</div>
 					<div class="card"><h3>提示</h3>${tips}</div>
+					<div class="card"><h3>隐私</h3><div class="row"><span class="body">匿名统计<small>${STATS_NOTE}只存按天汇总的次数，数据存放在 Cloudflare（服务器可能在澳洲境外）。默认开启；浏览器开了「全局隐私控制」或「请勿跟踪」时默认关闭。关掉后立即停止发送。</small></span><button data-pref="stats" aria-pressed="${statsOn}">${statsOn ? '已开启' : '已关闭'}</button></div></div>
 					<div class="card"><h3>玩法说明</h3><dl class="help">${HELP.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
 					<div class="card"><h3>多设备同步</h3><p>${esc(syncStatus)}</p>
 						<p style="margin-top:8px">在另一台手机或电脑打开本页，选择“用同步码恢复”，粘贴下面这串码即可接着玩。</p>
@@ -2169,6 +2201,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const d = t.dataset;
 				if (d.tab) {
 					tab = d.tab;
+					tm.track('tab', tab);
 					if (tab === 'near') retryVenues();
 					if (tab === 'place') maybeFireWarn();
 					if (t.classList.contains('moodchip')) meTab = 'overview';
@@ -2177,7 +2210,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					// 键盘和读屏用户：焦点移到新页面的内容上
 					($('panel') as HTMLElement).focus?.({ preventScroll: true });
 				}
-				else if (d.metab) { meTab = d.metab; renderPanel(); }
+				else if (d.metab) { meTab = d.metab; tm.track('metab', meTab); renderPanel(); }
 				else if ('guideClose' in d) { setPrefs({ guide: false }); toast('新手指南已关闭，可以在「我 · 设置」里重新打开'); renderPanel(); }
 				else if ('venuesRetry' in d) { retryVenues(); renderPanel(); }
 				else if ('queueClear' in d) { queue = []; saveQueue(); toast('排队的动作已全部取消'); render(); }
@@ -2190,6 +2223,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					else if (TIP_OPTIONS.some(([t]) => t === k)) setPrefs({ [k]: !prefs[k as 'guide' | 'recap' | 'achToast'] });
 					else if (k === 'sound') { setPrefs({ sound: !prefs.sound }); sfx('ok'); }
 					// 重新打开时再试一次（上次失败的标记清掉）；关掉就把地图拆了，不再向图块服务发请求
+					else if (k === 'stats') { setStats(!statsOn); toast(statsOn ? '匿名统计已开启' : '匿名统计已关闭，不会再发送'); }
 					else if (k === 'basemap') { setPrefs({ basemap: !prefs.basemap }); basemapFailed = false; if (!prefs.basemap) dropBasemap(); }
 					renderPanel();
 				}
@@ -2467,6 +2501,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			try { state = sanitizeState(JSON.parse(store.get(SAVE_KEY) || 'null'), LOC_IDS, { fallbackLoc: region.spawn }); } catch {}
 			if (!cred || !state || state.id !== cred.id) { state = null; cred = null; }
 			applyPrefs();
+			// 创建角色页的统计告知：可以直接关
+			const renderStatsNote = () => { $('c-stats-text').textContent = STATS_NOTE; $('c-stats').textContent = statsOn ? '关闭统计' : '统计已关闭，点此开启'; };
+			$('c-stats').addEventListener('click', () => { setStats(!statsOn); renderStatsNote(); });
+			renderStatsNote();
 			renderCreate();
 			render();
 			fetch('/earth/cgi/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: any) => { cgi = m.images || {}; if (state) { renderPanel(); renderEvent(); } }).catch(() => {});
@@ -2489,6 +2527,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				});
 			}
 			// 离线外壳：能「添加到主屏幕」、断网时也能打开查看。注册失败不影响游戏
+			// 首屏加载耗时（抽样，见 telemetry.ts）
+			tm.track('perf', 'load', performance.now());
 			if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/earth/sw.js', { scope: '/earth/' }).catch(() => {});
 		</script>
 	</body>
