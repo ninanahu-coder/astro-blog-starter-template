@@ -516,6 +516,7 @@ export interface PlayerState {
 	clockIn: { venue: string; at: number; career?: string } | null; // 真实打卡上班：哪个地点、几点打的卡；career 是按哪份职业打的卡，没有就是零工
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	workDay: number; // 最近一次算过班次的游戏日，−1 表示还没上过；跟人走，不随换工作重置
+	illness: { id: string; since: number; until: number; care: string[]; rx: boolean } | null; // 正在生的病或伤（data/health.ts 的 id）：游戏时钟的起止分钟、这次已做过的就医（gp/pharmacy/ed/rx）、GP 是否开了处方；见 docs/earth-game/health.md
 	journal: JournalEntry[];
 	seed: number;
 	rev: number; // 存档版本号，云同步用

@@ -16,6 +16,7 @@ import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { realDayOf } from './daily.ts';
+import { cleanIllness } from './health.ts';
 // 只用到地点和打卡点，不需要真实地点数据：用首屏版区域，页面不必为此加载 wa.venues.json
 import { AREAS as REGION_AREAS, areaOf, WORLD_BASE } from '../data/areas-base.ts';
 import { COURSES } from '../data/courses.ts';
@@ -163,6 +164,7 @@ export function createCharacter(opts: {
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
+		illness: null,
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		seed: opts.seed >>> 0,
 		rev: 0,
@@ -268,6 +270,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		job: cleanJob(r.job, knownLocs),
 		// 旧存档没有这个字段：用当前工作的 lastDay 补上
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
+		illness: cleanIllness(r.illness, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		...cleanEstate(r, knownLocs),
 		nextWeek: (() => {
 			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周

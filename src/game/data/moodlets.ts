@@ -29,6 +29,8 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'sore', name: '肌肉酸痛', icon: '🦵', value: -3, hours: 12 },
 	{ id: 'hurt', name: '受了点伤', icon: '🩹', value: -6, hours: 24 },
 	{ id: 'in-trouble', name: '惹上了麻烦', icon: '😬', value: -6, hours: 24 },
+	{ id: 'sick-mild', name: '身体不太舒服', icon: '🤧', value: -5, hours: 96 }, // 感冒、扭伤（第 1 版健康系统，待平衡）；时长跟病程走，见 core/health.ts
+	{ id: 'sick-bad', name: '病得难受', icon: '🤒', value: -10, hours: 120 }, // 流感、肠胃炎、热衰竭（待平衡）
 	{ id: 'collapsed', name: '刚从医院出来', icon: '🏥', value: -12, hours: 48 },
 	{ id: 'evicted', name: '被赶出了家门', icon: '📦', value: -15, hours: 72 },
 ];

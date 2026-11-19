@@ -671,7 +671,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
 			import { codeOf, exportName, hashAction, makeQr, parseCred, parsePendingKey, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, webglSupported, type Basemap } from '../game/ui/basemap.ts';
-			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
+			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions, careAt } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { CERTS } from '../game/data/certs.ts';
 			import { SERVICE_KM } from '../game/data/vehicles.ts';
@@ -694,6 +694,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { EVENTS } from '../game/data/events.ts';
 			import { dateLabel, period, PERIOD_IDS, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
 			import { getWish } from '../game/core/wishes.ts';
+			import { coverOf, currentIllness, hoursLeft } from '../game/core/health.ts';
+			import type { CareKind } from '../game/data/health.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
 			import { weatherAt, weatherOn } from '../game/core/weather.ts';
 			import { portraitSvg, ringDash, sceneSvg } from '../game/ui/scene.ts';
@@ -1653,6 +1655,18 @@ const cardLines = guilloche(400, 260, 14, 9);
 					<svg viewBox="0 0 50 50" aria-hidden="true" focusable="false"><circle cx="25" cy="25" r="21" class="track"/><circle cx="25" cy="25" r="21" class="arc" stroke-dasharray="${ringDash(n.v)}" transform="rotate(-90 25 25)"/></svg>
 					<b>${n.v}</b><span><span aria-hidden="true">${n.icon}</span> ${n.name}</span>${n.v === min && min < 60 ? '<em class="lack">最缺</em>' : ''}</div>`).join('')}</div></div>`;
 			}
+			/** 健康卡（健康系统第 1 版）：生病时写病名、还要多久、不能做什么；生病或健康低于 70 时列出这里能做的就医（GP、药房、急诊）和自付金额 */
+			function healthCard(s: PlayerState) {
+				const cur = currentIllness(s);
+				if (!cur && s.health >= 70) return '';
+				const cover = coverOf(s);
+				const LOAD: Record<string, string> = { heavy: '剧烈运动', sea: '下海', work: '上班' };
+				const head = cur ? `<p>${cur.def.icon} <b>${esc(cur.def.name)}</b> · 还要约 ${hoursLeft(s)} 小时${cur.def.blocks.length ? ` · 期间不能${cur.def.blocks.map((b) => LOAD[b]).join('、')}` : ''}</p><p class="muted">${esc(cur.def.desc)}${cur.ill.rx && !cur.ill.care.includes('rx') ? ' 医生开了处方，去药房取药。' : ''}</p>` : `<p>健康 ${Math.round(s.health)}，可以看看医生。</p>`;
+				const rows = careAt(s, region).map(({ care, out, blocked }) => `
+					<button class="row" data-care="${care.id}" ${blocked ? 'disabled' : ''}><span class="ico" aria-hidden="true">${care.icon}</span>
+					<span class="body">${esc(care.name)}<small>${esc(blocked ?? out.notes.join('，'))}</small></span><span class="meta"><b>${out.cost ? '$' + out.cost : '免费'}</b>${minutesLabel(out.minutes)}</span></button>`).join('');
+				return `<div class="card"><h3>${cur ? '生病了' : '身体'} <span class="chip">${esc(cover.name)}</span></h3>${head}${rows ? `<div class="list" style="margin-top:8px">${rows}</div>` : '<p class="muted" style="margin-top:6px">这里没有诊所和药房，去城镇或有医院的地方。</p>'}<p class="muted" style="margin-top:6px">${esc(cover.note)} 游戏里的简化，不是医疗建议。</p></div>`;
+			}
 			/** 四个快捷动作：从最缺的需求起，每项挑这里能补它最多、还没选过的事；有待处理事件或凑不够两个时不显示。只是快捷入口，下面的完整列表照旧 */
 			function quickActs(s: PlayerState) {
 				if (s.pending) return [];
@@ -1919,6 +1933,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				// 主界面定稿（第 15 批）：需求环 → 下一步 → 心愿 → 四个快捷动作，其余卡片照旧往下排
 				return `
 					${needsCard(s)}
+					${healthCard(s)}
 					${nextCard(s, !!homeHere, !!workHere && !shiftWhy)}
 					${wishHtml}
 					${quickHtml(s)}
@@ -2358,6 +2373,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			// 玩法说明（静态文字，放在「设置」里）
 			const HELP: [string, string][] = [
 				['生活需求', '饱食、精力、清洁、娱乐、社交会随时间下降，最低的那项最影响心情；饱食或精力见底会掉健康。今天页的「下一步」会告诉你先做什么。'],
+				['生病和看病', '淋雨、风暴、热天在外、累过头、饿肚子、不洗澡都会让你更容易生病，受伤会扭伤。病中有些事做不了，病好前心情也差。小病去药房、看 GP，重的去急诊；有 Medicare 或 OSHC 的能报销一部分。'],
 				['出行与事件', '在「出行」选地方和交通方式。第一次到一个地方常有专属事件，选项上标了花费和成功率。'],
 				['真实地点', '本人走进真实的餐馆、健身房、公园、超市，在「出行 · 附近」打开定位就能在游戏里吃饭、训练、打卡上班。'],
 				['工作与住处', '在城镇应聘、每天上一个班；租房后回家睡觉恢复更多。每 7 天一次周结算，付房租、房贷和车辆保险。'],
@@ -2520,7 +2536,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2600,6 +2616,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				}
 				else if (d.buy) act({ t: 'buy', item: d.buy }).then((r) => { if (r) { toast(r.msg); render(); } });
 				else if (d.use) act({ t: 'use', item: d.use }).then((r) => { if (r) { toast(r.msg); render(); } });
+				else if (d.care) act({ t: 'care', kind: d.care as CareKind }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.act) act({ t: 'activity', id: d.act }).then((r) => { if (r) { lastOutcome = null; toast(r.msg); render(); } });
 				else if (d.go) {
 					act({ t: 'travel', to: d.go, mode: d.mode as TravelMode }).then((r) => { if (r) { selected = null; lastOutcome = null; tab = 'place'; if (!state!.pending) toast(r.msg); render(); window.scrollTo({ top: 0 }); } });

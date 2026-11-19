@@ -11,6 +11,8 @@ import { fixProblem, roundFix } from './fix.ts';
 export { fixProblem } from './fix.ts';
 import { dayOf } from './time.ts';
 import { FIX_RULES, VENUE_OPS, VENUE_TYPES, type VenueOpDef } from '../data/venues.ts';
+import { illnessBlock } from './health.ts';
+import type { Load } from '../data/health.ts';
 import type { ActionResult, PlayerState, Region, SkillKey, Venue, VenueOp, VenueTypeDef } from './types.ts';
 
 /** 实地到岗的时薪加成（第六轮平衡：1.15 → 1.05） */
@@ -60,6 +62,15 @@ function settleTerms(state: PlayerState, type: VenueTypeDef, venue: Venue, ci: N
 
 /** 除上班外，各动作的结算预览 */
 export function opOutcome(state: PlayerState, op: VenueOp, type: VenueTypeDef, venue: Venue): OpOutcome | null {
+	const out = baseOutcome(state, op, type, venue);
+	const sick = out && !out.blocked ? illnessBlock(state, VENUE_LOAD[op] ?? []) : undefined; // 生病时练不了、跑不了、游不了（core/health.ts）
+	return sick ? { ...out!, blocked: sick } : out;
+}
+
+/** 真实地点动作的负荷（生病时按这个拦）；上班不拦：下班卡要能打 */
+const VENUE_LOAD: Partial<Record<VenueOp, Load[]>> = { train: ['heavy'], run: ['heavy'], swim: ['heavy', 'sea'] };
+
+function baseOutcome(state: PlayerState, op: VenueOp, type: VenueTypeDef, venue: Venue): OpOutcome | null {
 	const tier = venue.tier ?? type.tier;
 	switch (op) {
 		case 'meal': return mealOutcome(state, type, tier);

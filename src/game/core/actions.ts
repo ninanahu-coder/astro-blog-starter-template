@@ -1,7 +1,7 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
+	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, seekCare, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { refreshWishes, settleWishes } from './wishes.ts';
 import { settleStory } from './story.ts';
@@ -14,6 +14,7 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { CARE, type CareKind } from '../data/health.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -39,7 +40,8 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
-	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
+	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number }
+	| { t: 'care'; kind: CareKind };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk'];
@@ -70,6 +72,8 @@ export function parseAction(raw: unknown): GameAction | null {
 			if (!str(a.npc) || !NPC_ACTS.includes(a.act as NpcAction)) return null;
 			if (a.item === undefined) return { t: 'npc', npc: a.npc, act: a.act as NpcAction };
 			return a.act === 'gift' && str(a.item) ? { t: 'npc', npc: a.npc, act: 'gift', item: a.item } : null;
+		case 'care':
+			return CARE.some((c) => c.id === a.kind) ? { t: 'care', kind: a.kind as CareKind } : null;
 		case 'venue':
 			return str(a.venue) && VENUE_OPS.some((o) => o.id === a.op) && finite(a.lat) && finite(a.lon) && finite(a.acc) && Math.abs(a.lat) <= 90 && Math.abs(a.lon) <= 180 && a.acc >= 0 && a.acc <= 10000
 				? { t: 'venue', venue: a.venue, op: a.op as VenueOp, lat: a.lat, lon: a.lon, acc: a.acc }
@@ -131,6 +135,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'care': r = seekCare(state, region, a.kind); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;

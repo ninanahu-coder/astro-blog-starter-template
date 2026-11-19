@@ -28,6 +28,8 @@ import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { fixProblem, roundFix } from './fix.ts';
 import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
+import { applyCare, careAvailableAt, careOutcome, getCare, illnessBlock, illnessTick, injure, loadOfActivity, loadOfEffect, type CareOutcome } from './health.ts';
+import { CARE, type CareKind } from '../data/health.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
 	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
@@ -71,11 +73,13 @@ function advance(state: PlayerState, minutes: number, region: Region, gains?: ()
 		gains?.();
 		return false;
 	}
+	const t0 = state.clock;
 	state.clock = Math.min(CAPS.clock, state.clock + minutes); // 上限只有损坏的存档会碰到；在这里钳住，后面的日志、状态到期时间都用钳过的时间
 	for (const k of NEED_KEYS) state.needs[k] = clamp100(state.needs[k] - DECAY[k] * decayMult(state, k) * minutes);
 	if (state.needs.hunger <= 0 || state.needs.energy <= 0) {
 		state.health = clamp100(state.health - STARVE_DMG * minutes);
 	}
+	for (const text of illnessTick(state, t0, () => roll(state))) log(state, text); // 病程、痊愈、跨午夜发病（core/health.ts）
 	const collapsed = state.health <= 0;
 	if (!collapsed) gains?.();
 	weeklyTick(state, region);
@@ -164,7 +168,9 @@ export function applyEffect(state: PlayerState, fx: Effect, region: Region): boo
 	if (fx.moodlet) addMoodlet(state, fx.moodlet);
 	if (fx.health) {
 		if (fx.health <= -5) addMoodlet(state, 'hurt');
+		const before = state.health;
 		state.health = clamp100(state.health + (fx.health < 0 ? fx.health * hurtMult(state) : fx.health));
+		if (injure(state, before - state.health)) log(state, '🦶 这一下伤得不轻：扭伤了，几天内别做剧烈运动。');
 		if (state.health <= 0) {
 			collapse(state, region);
 			return true;
@@ -520,6 +526,8 @@ export function activitiesAt(state: PlayerState, region: Region): { act: Activit
 function blockedReason(state: PlayerState, act: Activity): string | undefined {
 	if (!isOpen(act.hours, state.clock)) return `营业时间 ${hoursLabel(act.hours!)}`;
 	if (act.exposed === 'sea' && weatherAt(state).closesSea) return '今天有风暴，海上的活动取消了';
+	const sick = illnessBlock(state, loadOfActivity(act));
+	if (sick) return sick;
 	const req = act.requires;
 	if (!req) return undefined;
 	if (req.cash && state.cash < req.cash) return `需要 $${req.cash}`;
@@ -903,7 +911,7 @@ export function shiftBlocked(state: PlayerState): string | undefined {
 	if (job.lastDay === dayOf(state.clock)) return '今天已经上过班了';
 	if (!isOpen(c.start, state.clock)) return `上班时间 ${hoursLabel(c.start)} 开始`;
 	if (state.needs.energy < 20) return '太累了，先休息';
-	return undefined;
+	return illnessBlock(state, ['work', ...loadOfEffect(c.shift)]);
 }
 
 /** 下一级的升职条件，已经是最高级时返回 null */
@@ -1712,4 +1720,33 @@ export function addMoodlet(state: PlayerState, id: string) {
 /** 清掉已过期的心情状态。原地修改 */
 export function pruneMoodlets(state: PlayerState) {
 	state.moodlets = state.moodlets.filter((m) => m.until > state.clock);
+}
+
+// ---------- 看病（第 1 版健康系统，core/health.ts） ----------
+/** 这里能做的就医：GP、药房、急诊，以及各自的费用和不能做的原因 */
+export function careAt(state: PlayerState, region: Region): { care: (typeof CARE)[number]; out: CareOutcome; blocked?: string }[] {
+	const loc = getLocation(region, state.loc);
+	if (!loc) return [];
+	return CARE.filter((c) => careAvailableAt(c, loc)).map((care) => {
+		const out = careOutcome(state, care.id);
+		const blocked = !isOpen(care.hours, state.clock) ? `营业时间 ${hoursLabel(care.hours!)}` : out.blocked;
+		return { care, out, blocked };
+	});
+}
+
+/** 就医：按医疗保障付自付部分、花时间、回健康，有病的缩短剩余病程 */
+export function seekCare(prev: PlayerState, region: Region, kind: CareKind): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const care = getCare(kind);
+	const loc = getLocation(region, prev.loc);
+	if (!care || !loc || !careAvailableAt(care, loc)) return fail(prev, '这里没有这种医疗服务。');
+	if (!isOpen(care.hours, prev.clock)) return fail(prev, `营业时间 ${hoursLabel(care.hours!)}`);
+	const out = careOutcome(prev, kind);
+	if (out.blocked) return fail(prev, out.blocked);
+	const state = clone(prev);
+	if (applyEffect(state, { cash: -out.cost, minutes: out.minutes, health: out.health }, region)) return collapsedResult(state);
+	applyCare(state, kind, out);
+	const msg = `${care.icon} 在${loc.name}${care.name}：${out.notes.join('，')}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
 }
