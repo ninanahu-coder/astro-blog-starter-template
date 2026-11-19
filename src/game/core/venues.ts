@@ -1,7 +1,7 @@
 // 真实地点：玩家拿着手机真的走到某家餐馆、健身房、公园，就能在游戏里做对应的事。
 // 纯函数：现实时间 now（毫秒）由服务端传入，客户端无法伪造；坐标来自手机定位，可以伪造，所以做了精度、距离和速度三道检查。
 import { realDayOf } from './daily.ts';
-import { addMoodlet, applyEffect, certBonus, clone, collapsedResult, fail, getCareer, getLocation, log, pickVenueEvent, tryPromote } from './engine.ts';
+import { addMoodlet, applyEffect, certBonus, clone, collapsedResult, fail, getCareer, getLocation, log, pickVenueEvent, startEvent, tryPromote } from './engine.ts';
 import {
 	drinkOutcome, exerciseOutcome, groceriesOutcome, healOutcome, mealOutcome, relaxOutcome, studyOutcome, trainOutcome, workPay,
 	type OpOutcome,
@@ -217,9 +217,10 @@ function simpleOp(prev: PlayerState, region: Region, venue: Venue, type: VenueTy
 /** 做完一件事后可能遇到事件：同一时间只有一个，现实里至少隔 eventGapMin 分钟 */
 function venueEvent(state: PlayerState, type: VenueTypeDef, now: number): string {
 	if (state.pending || now - state.venueEvAt < FIX_RULES.eventGapMin * 60_000) return '';
-	const ev = pickVenueEvent(state, type.id, FIX_RULES.eventChance);
-	if (!ev) return '';
-	state.pending = { eventId: ev.id };
+	const picked = pickVenueEvent(state, type.id, FIX_RULES.eventChance);
+	if (!picked) return '';
+	const ev = picked.ev;
+	startEvent(state, ev, picked.src);
 	state.venueEvAt = now;
 	return ` 这时：${ev.icon} ${ev.title}。`;
 }

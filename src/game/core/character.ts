@@ -28,6 +28,7 @@ import { NPC_DUOS } from '../data/npc-duos.ts';
 import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
+import { cleanEvMem, emptyMemory } from './event-rules.ts';
 import { validTraits } from './attributes.ts';
 import { WEATHERS } from '../data/weather.ts';
 
@@ -157,6 +158,7 @@ export function createCharacter(opts: {
 		met: {},
 		weekly: { week: 0, n: 0, claimed: false },
 		pending: null,
+		evMem: emptyMemory(),
 		fix: null,
 		venueCd: {},
 		venueEvAt: 0,
@@ -374,6 +376,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		})(),
 		// 只留还存在的事件：事件被删掉或改名后，界面弹不出来，但其他动作都会被「先处理眼前的事件」挡住
 		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
+		evMem: cleanEvMem(r.evMem, EVENTS, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		...cleanReal(r, opts.now),
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,

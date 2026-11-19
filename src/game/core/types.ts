@@ -374,6 +374,36 @@ export interface Activity {
 export interface Outcome {
 	text: string;
 	fx: Effect;
+	/** 事件链：结算到这个结果后解锁这些后续事件（必须是 locked 的事件），之后条件满足时优先出现。见 docs/earth-game/event-engine.md */
+	unlocks?: string[];
+	/** 事件链：结算完立刻接着弹出这个事件（同一场景的下一幕，不掷骰、不受冷却和上限限制） */
+	then?: string;
+}
+
+/** 事件条件里能比较的数值：现金、健康、声望、麻烦值、五项需求、七项能力 */
+export type EventStat = 'cash' | 'health' | 'respect' | 'heat' | NeedKey | SkillKey;
+
+/** 事件的属性、关系、物品条件；全部满足才进抽取池 */
+export interface EventNeed {
+	/** 下限（含）：如 { cash: 500, charisma: 30 } */
+	min?: Partial<Record<EventStat, number>>;
+	/** 上限（含）：如 { energy: 30 } 只在很累时出现 */
+	max?: Partial<Record<EventStat, number>>;
+	/** 和某个 NPC 的关系分（−100..100）在范围内；没认识过算 0 */
+	rel?: { npc: string; min?: number; max?: number }[];
+	/** 身上各至少有 1 个这些物品 */
+	items?: string[];
+}
+
+/** 事件引擎的存档记录（见 core/event-rules.ts）。只记写了对应规则的事件，体积和事件总数无关 */
+export interface EventMemory {
+	day: number; // rand、today 记的是哪个游戏日
+	rand: number; // 这一天随机抽中的事件数（每日总上限只数这一类）
+	today: Record<string, number>; // 写了 daily 的事件：今天出了几次
+	last: Record<string, number>; // 写了 cooldown 的事件：最近一次出现的游戏分钟
+	n: Record<string, number>; // 写了 max 的事件：一共出了几次
+	recent: string[]; // 最近出现的事件 id，新的在后，最多 RECENT_MAX 个
+	open: Record<string, number>; // 已解锁、还没出现的链式事件 -> 解锁时的游戏分钟
 }
 
 /** 共同事件：同一地点两名以上玩家一起做；每人选一个分工（用自己那项能力），合起来做一次团队检定，所有人拿同一个结果 */
@@ -453,6 +483,19 @@ export interface GameEvent {
 	animal?: string; // 事件里见到的动物：抽到这个事件就记进野生动物图鉴
 	breakdown?: boolean; // 抛锚事件：不进普通抽取（weight 写 0），只在该保养的车自驾抵达时按几率抽
 	weight: number;
+	// ---- 事件引擎第一版（docs/earth-game/event-engine.md）：都可不写，不写和以前完全一样 ----
+	/** 属性、关系、物品条件 */
+	need?: EventNeed;
+	/** 冷却：出现后这么多游戏小时内不再出现 */
+	cooldown?: number;
+	/** 每个游戏日最多出现几次 */
+	daily?: number;
+	/** 每个角色一共最多出现几次（once 是 1 次且首次到访优先，max 只限次数） */
+	max?: number;
+	/** 链式事件：只有前面某个结果的 unlocks 解锁后才会出现，出现一次后要再解锁才会再出现；解锁后条件满足就优先出（不看 weight、不掷到达几率） */
+	locked?: boolean;
+	/** 链式事件解锁后这么多游戏日内没出现就作废；不写不过期 */
+	unlockDays?: number;
 	choices: EventChoice[];
 }
 
@@ -510,6 +553,7 @@ export interface PlayerState {
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领
 	met: Record<string, { name: string; avatar: string; n: number; last: number }>; // 常遇见的人：玩家 id 哈希前缀 -> 名字、头像、一起做事的次数、最近一次的现实日
 	pending: { eventId: string } | null;
+	evMem: EventMemory; // 事件引擎记录：冷却、每日上限、最近出过的事件、已解锁的链式事件（见 core/event-rules.ts）
 	fix: { lat: number; lon: number; at: number } | null; // 最近一次真实定位（坐标保留 3 位小数，约 100 米；at 为服务端时间）
 	venueCd: Partial<Record<VenueOp, number>>; // 每种真实地点动作最近一次的服务端时间（毫秒）
 	venueEvAt: number; // 最近一次真实地点事件的服务端时间（毫秒），0 为从未

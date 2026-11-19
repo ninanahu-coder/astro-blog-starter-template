@@ -29,6 +29,7 @@ import { fixProblem, roundFix } from './fix.ts';
 import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
+import { dailyFull, eventReady, memoryOn, needMet, noteResolved, noteTriggered, pickChain, weightedPick, weightOf, type EventSource } from './event-rules.ts';
 import type {
 	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
@@ -37,8 +38,8 @@ import type {
 /** 每游戏分钟的需求衰减 */
 export const DECAY: Record<string, number> = { hunger: 0.07, energy: 0.05, hygiene: 0.035, fun: 0.04, social: 0.03 };
 const STARVE_DMG = 0.02; // 饱食或精力见底时每分钟掉血
-const ARRIVAL_EVENT_CHANCE = 0.55;
-const HEAT_CHECK_AT = 60;
+export const ARRIVAL_EVENT_CHANCE = 0.55;
+export const HEAT_CHECK_AT = 60;
 
 // ---------- 随机数（mulberry32，状态存于 state.seed） ----------
 export function roll(state: PlayerState): number {
@@ -305,9 +306,10 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 		addMoodlet(state, 'festival');
 		log(state, `正赶上${fest.name}：${fest.desc}`);
 	}
-	const ev = pickArrivalEvent(state, loc, mode === 'gps' ? null : mode, first, override);
-	if (ev) {
-		state.pending = { eventId: ev.id };
+	const picked = pickArrivalEvent(state, loc, mode === 'gps' ? null : mode, first, override);
+	if (picked) {
+		const ev = picked.ev;
+		startEvent(state, ev, picked.src);
 		if (ev.id === 'heat-check') addMoodlet(state, 'in-trouble');
 		if (ev.animal) recordAnimal(state, ev.animal);
 	}
@@ -450,32 +452,58 @@ export function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode 
 	);
 }
 
-function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean, override: GameEvent | null = null): GameEvent | null {
-	if (state.heat >= HEAT_CHECK_AT) return EVENTS.find((e) => e.id === 'heat-check') ?? null;
-	const pool = EVENTS.filter((e) => e.weight > 0 && eventMatches(e, loc, mode, state.clock) && !(e.once && state.seen.includes(e.id)));
+/** 这个事件此刻能不能进池：weight（链式事件不看）、once、属性关系条件、冷却和次数（见 core/event-rules.ts） */
+function drawable(state: PlayerState, e: GameEvent): boolean {
+	return (e.locked || e.weight > 0) && !(e.once && state.seen.includes(e.id)) && needMet(e, state) && eventReady(e, state.evMem, state.clock);
+}
+
+/**
+ * 先后：盘查 → 首次到访的签名事件 → override（抛锚） → 已解锁的链式事件 → 按到达几率随机抽。
+ * 掷骰的次数和顺序与第一版之前一致：没有链式事件、防厌倦规则关着时，同一个种子抽到同一个事件。
+ */
+export function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean, override: GameEvent | null = null): { ev: GameEvent; src: EventSource } | null {
+	if (state.heat >= HEAT_CHECK_AT) { const ev = EVENTS.find((e) => e.id === 'heat-check'); return ev ? { ev, src: 'forced' } : null; }
+	state.evMem = memoryOn(state.evMem, state.clock);
+	const pool = EVENTS.filter((e) => eventMatches(e, loc, mode, state.clock) && drawable(state, e));
 	// 首次到访：有签名事件就必出（这趟的抛锚让给它）
 	const signature = pool.filter((e) => e.once);
-	if (first && signature.length) return signature[Math.floor(roll(state) * signature.length)];
-	if (override) return override;
-	if (!pool.length) return null;
-	if (roll(state) > ARRIVAL_EVENT_CHANCE) return null;
-	let r = roll(state) * pool.reduce((s, e) => s + e.weight, 0);
-	for (const e of pool) if ((r -= e.weight) <= 0) return e;
-	return pool[pool.length - 1];
+	if (first && signature.length) return { ev: signature[Math.floor(roll(state) * signature.length)], src: 'signature' };
+	if (override) return { ev: override, src: 'forced' };
+	return pickFrom(state, pool, ARRIVAL_EVENT_CHANCE);
+}
+
+/** 链式事件优先（不掷骰）；否则过每日上限、掷出现几率、按权重抽 */
+function pickFrom(state: PlayerState, pool: GameEvent[], chance: number): { ev: GameEvent; src: EventSource } | null {
+	const chain = pickChain(pool, state.evMem);
+	if (chain) return { ev: chain, src: 'chain' };
+	const random = pool.filter((e) => !e.locked);
+	if (!random.length || dailyFull(state.evMem)) return null;
+	if (roll(state) > chance) return null;
+	return { ev: weightedPick(random, random.map((e) => weightOf(e, state.evMem)), roll(state)), src: 'random' };
 }
 
 /**
  * 在真实地点做完一件事后，按地点类型抽一个事件（用存档里的种子，结果可复现）。
- * 概率和现实时间间隔见 FIX_RULES；返回 null 表示这次没遇到。
+ * 概率和现实时间间隔见 FIX_RULES；返回 null 表示这次没遇到。挂上事件用 startEvent。
  */
-export function pickVenueEvent(state: PlayerState, venueType: string, chance: number): GameEvent | null {
-	const pool = EVENTS.filter((e) => e.weight > 0 && e.venueTypes?.includes(venueType)
-		&& (!e.seasons || e.seasons.includes(dateOf(state.clock).season))
-		&& !(e.once && state.seen.includes(e.id)));
-	if (!pool.length || roll(state) > chance) return null;
-	let r = roll(state) * pool.reduce((s, e) => s + e.weight, 0);
-	for (const e of pool) if ((r -= e.weight) <= 0) return e;
-	return pool[pool.length - 1];
+export function pickVenueEvent(state: PlayerState, venueType: string, chance: number): { ev: GameEvent; src: EventSource } | null {
+	state.evMem = memoryOn(state.evMem, state.clock);
+	const pool = EVENTS.filter((e) => e.venueTypes?.includes(venueType) && venueMatches(e, state) && drawable(state, e));
+	return pickFrom(state, pool, chance);
+}
+/** 真实地点事件的时间条件：季节（第一版之前就有），以及时段、整点、所在城镇当天的天气 */
+function venueMatches(e: GameEvent, state: PlayerState): boolean {
+	if (e.seasons && !e.seasons.includes(dateOf(state.clock).season)) return false;
+	if (e.periods && !e.periods.includes(period(state.clock).id)) return false;
+	if (e.hours && !isOpen(e.hours, state.clock)) return false;
+	if (e.weather && !e.weather.includes(weatherAt(state).id)) return false;
+	return true;
+}
+
+/** 把事件挂成待处理，并记进事件引擎（冷却、每日次数、最近出过、链式解锁消耗）。各种来源的事件都应走这里 */
+export function startEvent(state: PlayerState, ev: GameEvent, src: EventSource = 'forced') {
+	state.pending = { eventId: ev.id };
+	state.evMem = noteTriggered(state.evMem, ev, state.clock, src);
 }
 
 // ---------- 事件 ----------
@@ -499,8 +527,12 @@ export function resolveEvent(prev: PlayerState, region: Region, choiceIdx: numbe
 		const passed = checkScore(state, choice.check.skill).total + roll(state) * 60 >= choice.check.dc;
 		if (!passed && choice.fail) outcome = choice.fail;
 	}
+	state.evMem = noteResolved(state.evMem, outcome, state.clock);
 	if (applyEffect(state, outcome.fx, region)) return collapsedResult(state);
 	log(state, `【${ev.title}】${outcome.text}`);
+	// 事件链：同一场景的下一幕，立刻接上
+	const next = outcome.then ? EVENTS.find((e) => e.id === outcome.then) : undefined;
+	if (next) startEvent(state, next, 'chain');
 	return { ok: true, state, msg: outcome.text };
 }
 
