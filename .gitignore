@@ -200,3 +200,6 @@ dist
 
 ### Astro ###
 .astro/
+
+# CGI 原图（GPT image 2 / ComfyUI 输出的大 PNG，不进仓库）
+tools/earth/comfyui/.raw/
