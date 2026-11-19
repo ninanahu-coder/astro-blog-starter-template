@@ -4,6 +4,9 @@ import { applyAction, parseAction, publicState } from '../../src/game/core/actio
 import { createCharacter } from '../../src/game/core/character.ts';
 import { WA } from '../../src/game/data/wa.ts';
 
+/** gps 动作要服务端时间（没有就当离线拒绝） */
+const GPS_NOW = 1_800_000_000_000;
+
 const make = () => createCharacter({ id: 'act-player', name: '测', avatar: '🧑', origin: 'student', region: 'wa', spawn: WA.spawn, seed: 9 });
 
 test('parseAction 只接受合法形状', () => {
@@ -43,7 +46,7 @@ test('applyAction 覆盖所有动作类型', () => {
 		s = r.state;
 	}
 	if (s.pending) s = applyAction(s, WA, { t: 'event', choice: 0 }).state;
-	assert.ok(applyAction(s, WA, { t: 'gps', lat: -31.96, lon: 115.832 }).ok, 'GPS 打卡回珀斯');
+	assert.ok(applyAction(s, WA, { t: 'gps', lat: -31.96, lon: 115.832, acc: 10 }, GPS_NOW).ok, 'GPS 打卡回珀斯');
 });
 
 test('publicState 隐去随机数种子', () => {

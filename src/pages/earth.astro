@@ -2565,7 +2565,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const f = await locate();
 				if (!f || !state) return;
 				if (state.loc !== v.loc) {
-					const g = await act({ t: 'gps', lat: f.lat, lon: f.lon });
+					const g = await act({ t: 'gps', lat: f.lat, lon: f.lon, acc: f.acc });
 					if (!g || state.pending) { render(); return; }
 				}
 				const r = await act({ t: 'venue', venue: venueId, op, lat: f.lat, lon: f.lon, acc: f.acc });
@@ -2579,7 +2579,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				navigator.geolocation.getCurrentPosition(
 					(pos) => {
 						if (!state) return;
-						act({ t: 'gps', lat: pos.coords.latitude, lon: pos.coords.longitude }).then((r) => { if (r) { if (!state!.pending) toast(r.msg); render(); } });
+						act({ t: 'gps', lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy }).then((r) => { if (r) { if (!state!.pending) toast(r.msg); render(); } });
 					},
 					() => toast('无法获取定位，请检查定位权限'),
 					{ enableHighAccuracy: true, timeout: 10000 },
