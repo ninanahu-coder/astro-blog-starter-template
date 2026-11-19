@@ -221,6 +221,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			#panel { flex: 1; padding: 12px 16px calc(var(--nav-h) + 28px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
 			.card { background: var(--card); border-radius: 20px; padding: 16px; box-shadow: 0 1px 2px var(--shadow); }
 			.card h3 { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
+			.sponsor-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--tint-amber); color: var(--tint-amber-ink); border: 1px solid currentColor; font-size: 13px; font-weight: 700; vertical-align: middle; }
+			.sponsor-offer { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: var(--tint-amber); color: var(--tint-amber-ink); }
+			.sponsor-offer b { display: block; }
+			.sponsor-offer small { display: block; margin-top: 2px; }
 			.card p { margin: 0; color: var(--dim); font-size: 13px; }
 			.hero { height: 140px; border-radius: 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; font-size: 48px; background: #123a5e; overflow: hidden; }
 			.hero img { width: 100%; height: 100%; object-fit: cover; }
@@ -486,6 +490,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
+			import { activeSponsors } from '../game/core/sponsor.ts';
+			import { SPONSORS } from '../game/data/sponsors.ts';
+			import { sponsorOfferHtml, sponsorTagHtml } from '../game/ui/sponsor.ts';
 			import { FIX_RULES } from '../game/data/venues.ts';
 			import type { VenueOp } from '../game/core/types.ts';
 			import { DAILY, dailyReward } from '../game/core/daily.ts';
@@ -2011,7 +2018,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (!nearFix) return intro + clockHtml;
 				const list = venuesNear(s, region, nearFix.lat, nearFix.lon, nearFix.acc, srvNow());
 				if (!list.length) return intro + clockHtml + '<div class="card"><p>1.5 公里内没有收录的地点。</p></div>';
-				const cards = list.slice(0, 20).map(({ venue, type, distM, inRange, ops }) => `<div class="card"><h3>${type.icon} ${esc(venue.name)} <span class="muted">${esc(type.name)} · ${distM} 米</span></h3>
+				// 赞助只加标签和优惠说明，不改排序（仍按距离）、不改任何数值
+				const sponsored = activeSponsors(SPONSORS, srvNow());
+				const cards = list.slice(0, 20).map(({ venue, type, distM, inRange, ops }) => `<div class="card"><h3>${type.icon} ${esc(venue.name)}${sponsored.has(venue.id) ? sponsorTagHtml() : ''} <span class="muted">${esc(type.name)} · ${distM} 米</span></h3>${sponsored.has(venue.id) ? sponsorOfferHtml(sponsored.get(venue.id)!) : ''}
 					${inRange ? ops.map(({ op, outcome, blocked, voids, renews }) => {
 						const clockOut = op.id === 'work' && s.clockIn?.venue === venue.id;
 						const label = op.id === 'work' ? (voids ? '作废上班卡' : renews ? '作废旧卡并重新打卡' : clockOut ? '打下班卡' : '打上班卡') : op.name;
