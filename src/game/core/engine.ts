@@ -10,6 +10,9 @@ import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
 import { NPCS } from '../data/npcs.ts';
+import { GIFT_GAIN, RELATION_GAIN, RELATION_TIERS } from '../data/relations.ts';
+import { favorToday, isFading } from './relations.ts';
+import type { NpcFavor } from '../data/npc-favors.ts';
 import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../data/careers.ts';
 import { HOMES } from '../data/housing.ts';
 import { PROPERTIES } from '../data/properties.ts';
@@ -626,17 +629,10 @@ export function useItem(prev: PlayerState, region: Region, itemId: string): Acti
 }
 
 // ---------- NPC 与关系 ----------
-export const RELATION_TIERS = [
-	{ min: -100, name: '有过节' },
-	{ min: 0, name: '陌生人' },
-	{ min: 10, name: '认识' },
-	{ min: 30, name: '朋友' },
-	{ min: 60, name: '好友' },
-	{ min: 90, name: '挚友' },
-];
+export { RELATION_TIERS, GIFT_GAIN };
 
 export function relationTier(score: number): string {
-	let name = RELATION_TIERS[0].name;
+	let name: string = RELATION_TIERS[0].name;
 	for (const t of RELATION_TIERS) if (score >= t.min) name = t.name;
 	return name;
 }
@@ -644,8 +640,6 @@ export function relationTier(score: number): string {
 export const getRelation = (state: PlayerState, npcId: string): Relation =>
 	state.relations[npcId] ?? { score: 0, last: {}, seen: [], known: [] };
 
-/** 送礼时关系的变化 */
-export const GIFT_GAIN: Record<GiftReaction, number> = { love: 15, like: 9, neutral: 3, dislike: -8 };
 export const GIFT_LABEL: Record<GiftReaction, string> = { love: '最爱', like: '喜欢', neutral: '一般', dislike: '讨厌' };
 
 export function giftReaction(npc: NpcDef, itemId: string): GiftReaction {
@@ -720,6 +714,10 @@ export interface NpcAvailability {
 	gift?: string;
 	/** 下一段剧情的门槛 */
 	nextStory?: number;
+	/** TA 今天开口托你帮的小忙（第 29 批）；有的时候 blocked 里才有 favor 键 */
+	favor?: NpcFavor;
+	/** 好久没来往，关系正在变淡（第 29 批） */
+	fading: boolean;
 }
 
 /** 不指定物品时挑哪件：最爱 > 喜欢 > 一般，讨厌的不挑；随身装备（睡袋、冲浪板……）不会被自动送出，要送得明确指定 */
@@ -748,8 +746,10 @@ export function npcsAt(state: PlayerState, region: Region): NpcAvailability[] {
 		};
 		const perk = perkBlocked(npc, rel, today, !!weatherAt(state).closesSea);
 		if (perk !== null) blocked.perk = perk;
+		const favor = favorToday(state, npc.id, today);
+		if (favor) blocked.favor = (state.inventory[favor.item] ?? 0) < favor.qty ? `需要 ${favor.qty} 件${getItem(favor.item)?.name ?? ''}` : undefined;
 		const nextStory = npc.stories.find((st) => !rel.seen.includes(st.at))?.at;
-		return { npc, rel, tier: relationTier(rel.score), gift, blocked, nextStory };
+		return { npc, rel, tier: relationTier(rel.score), gift, blocked, nextStory, favor, fading: isFading(rel, today) };
 	});
 }
 
@@ -787,7 +787,7 @@ function unlockDuos(state: PlayerState, region: Region, npcId: string): string[]
 
 /**
  * 与 NPC 互动：聊天（魅力检定决定涨多少）、送礼（看 TA 对这件东西的反应）、帮忙（花时间体力，涨声望）、
- * 专属互动（关系够了才解锁，有冷却）。聊天、送礼、帮忙每种每个游戏日一次。
+ * 专属互动（关系够了才解锁，有冷却）、帮个小忙（TA 开口时交出要的东西，每期一次）。聊天、送礼、帮忙每种每个游戏日一次。
  * 关系第一次达到某段剧情的门槛时触发那段剧情和它的回报。
  */
 export function interactNpc(prev: PlayerState, region: Region, npcId: string, action: NpcAction, itemId?: string): ActionResult {
@@ -795,6 +795,7 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 	const here = npcsAt(prev, region).find((a) => a.npc.id === npcId);
 	if (!here) return fail(prev, 'TA现在不在这里。');
 	if (action === 'perk' && !here.npc.perk) return fail(prev, 'TA没有这个互动。');
+	if (action === 'favor' && !here.favor) return fail(prev, 'TA今天没有要你帮的忙。');
 	const why = here.blocked[action];
 	if (why) return fail(prev, why);
 	const gift = action === 'gift' ? itemId ?? here.gift : undefined;
@@ -813,7 +814,7 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 	let text = '';
 	if (action === 'chat') {
 		const good = checkScore(state, 'charisma').total + roll(state) * 60 >= 45;
-		gain = good ? 7 : 3;
+		gain = good ? RELATION_GAIN.chatGood : RELATION_GAIN.chatPlain;
 		if (applyEffect(state, { minutes: 30, needs: { social: 18, fun: 5 }, skills: { charisma: 0.5 } }, region)) return collapsedResult(state);
 		text = good ? `和${npc.name}聊得很投机。` : `和${npc.name}寒暄了几句。`;
 	} else if (action === 'gift') {
@@ -829,12 +830,18 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 		}[r];
 		if (!rel.known.includes(gift!)) rel.known.push(gift!);
 	} else if (action === 'help') {
-		gain = 9;
+		gain = RELATION_GAIN.help;
 		if (applyEffect(state, { minutes: 120, respect: 1, needs: { energy: -18, social: 10 }, skills: { strength: 0.5, stamina: 0.5 } }, region)) return collapsedResult(state);
 		text = `帮${npc.name}干了两小时活。`;
+	} else if (action === 'favor') {
+		// 帮个小忙：交出 TA 要的东西，拿一点跑腿费（第 29 批，数值待平衡）
+		const f = here.favor!;
+		gain = RELATION_GAIN.favor;
+		if (applyEffect(state, { ...f.fx, items: { ...f.fx.items, [f.item]: (f.fx.items?.[f.item] ?? 0) - f.qty } }, region)) return collapsedResult(state);
+		text = `帮${npc.name}带了${f.qty} 件${getItem(f.item)?.name ?? ''}。${f.thanks}`;
 	} else {
 		const perk = npc.perk!;
-		gain = 2;
+		gain = RELATION_GAIN.perk;
 		if (applyEffect(state, perk.fx, region)) return collapsedResult(state);
 		text = `${perk.name}：${perk.desc}`;
 	}

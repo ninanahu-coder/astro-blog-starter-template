@@ -14,6 +14,8 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { settleDecay } from './relations.ts';
+import { dayOf } from './time.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -42,7 +44,7 @@ export type GameAction =
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
-const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk'];
+const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk', 'favor'];
 const ID = /^[a-z0-9-]{1,40}$/;
 
 const str = (v: unknown): v is string => typeof v === 'string' && ID.test(v);
@@ -144,7 +146,8 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
 	}
-	const out = capState({ ...r.state, rev: nextRev(state.rev) });
+	// 跨过午夜：好久没来往的关系变淡（第 29 批）。按动作开始前后的游戏日结算，失败的动作不推进时间
+	const out = capState({ ...settleDecay(r.state, dayOf(state.clock), dayOf(r.state.clock)), rev: nextRev(state.rev) });
 	if (r.ok) rollDay(out); // 跨过午夜：把上一天的变化记成「昨天回顾」（晕倒住院也算）；在钳制数值之后记，记号不越过存档上限
 	return { ...r, msg, state: out };
 }
@@ -159,7 +162,7 @@ export function applyCoop(def: CoopDef, region: Region, members: CoopMember[]): 
 		// 共同事件不算任何心愿，但跨过午夜时要换成新一天的心愿（同一天时 refreshWishes 什么也不做）
 		refreshWishes(x.state);
 		pruneMoodlets(x.state);
-		const out = capState({ ...x.state, rev: nextRev(members[i].state.rev) });
+		const out = capState({ ...settleDecay(x.state, dayOf(members[i].state.clock), dayOf(x.state.clock)), rev: nextRev(members[i].state.rev) });
 		rollDay(out);
 		return { ...x, state: out };
 	});

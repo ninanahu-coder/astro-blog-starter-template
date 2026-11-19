@@ -496,7 +496,7 @@ function cleanRelations(raw: unknown): Record<string, Relation> {
 		const r = (raw as Record<string, any>)[npc.id];
 		if (!r || typeof r !== 'object') continue;
 		const last: Relation['last'] = {};
-		for (const k of ['chat', 'gift', 'help', 'perk'] as const) {
+		for (const k of ['chat', 'gift', 'help', 'perk', 'favor'] as const) {
 			const d = r.last?.[k];
 			if (typeof d === 'number' && Number.isFinite(d) && d >= 0) last[k] = Math.floor(d);
 		}

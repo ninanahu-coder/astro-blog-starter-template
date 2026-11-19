@@ -110,7 +110,8 @@ export interface NpcDef {
 	perk?: NpcPerk;
 }
 
-export type NpcAction = 'chat' | 'gift' | 'help' | 'perk';
+/** favor：帮个小忙（第 29 批，NPC 开口时才有） */
+export type NpcAction = 'chat' | 'gift' | 'help' | 'perk' | 'favor';
 
 export interface Relation {
 	score: number; // −100..100
