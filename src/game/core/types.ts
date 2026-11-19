@@ -72,6 +72,9 @@ export interface NpcSlot {
 	weekdays?: number[]; // 0 = 周一 … 6 = 周日
 	seasons?: SeasonKey[];
 	festival?: string; // 节日进行中
+	/** 天气 id 之一（第 43 批）：看 weatherAt 地点当天的天气，不写就看 NPC 的常驻地点 */
+	weather?: string[];
+	weatherAt?: string;
 	note?: string; // 界面上的说明，如“周日去集市摆摊”
 }
 
