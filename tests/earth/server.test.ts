@@ -285,7 +285,8 @@ test('服务端：落盘的存档永远是规范形式（再校验一次不变�
 	const saved = w.data.get('save:' + ID).state;
 	assert.ok(saved.job.shifts <= 1e6, `班次 ${saved.job.shifts} 不越过上限`);
 	assert.deepEqual(sanitizeState(saved, locs, { fallbackLoc: WA.spawn, now: Date.now() }), saved, '落盘的存档再校验一次不变');
-	assert.deepEqual({ ...r.data.state, seed: saved.seed }, saved, '响应和落盘一致（除了隐藏的种子）');
+	assert.deepEqual({ ...r.data.state, seed: saved.seed, marketSeed: saved.marketSeed }, saved, '响应和落盘一致（除了隐藏的种子和行情种子）');
+	assert.equal(r.data.state.marketSeed, 0, '行情种子不发给客户端');
 	assert.equal(created.data.state.rev + 1, saved.rev);
 	// 垃圾 id 塞满打卡记录的存档：真实打卡点的奖励只能领一次
 	const poi = WA.pois.find((x) => x.loc === 'perth')!;

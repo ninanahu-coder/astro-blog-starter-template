@@ -10,6 +10,8 @@ import { HOMES } from '../data/housing.ts';
 import { CAR_KM_MAX, VEHICLES } from '../data/vehicles.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
+import { ASSETS } from '../data/assets.ts';
+import { deriveMarketSeed } from './market.ts';
 import { WISHES } from '../data/wishes.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { VENUE_OPS } from '../data/venues.ts';
@@ -123,6 +125,8 @@ export function createCharacter(opts: {
 		job: null,
 		home: null,
 		properties: [],
+		holdings: {},
+		marketSeed: deriveMarketSeed(opts.seed >>> 0),
 		nextWeek: 7,
 		moodlets: [],
 		wishes: [],
@@ -249,6 +253,17 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		// 旧存档没有这个字段：用当前工作的 lastDay 补上
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
 		...cleanEstate(r, knownLocs),
+		holdings: (() => {
+			const out: Record<string, { units: number; cost: number }> = {};
+			for (const def of ASSETS) {
+				const h = r.holdings?.[def.id];
+				const units = num(h?.units, 0, 1e15, 0); // 份数上限放宽：虚拟币长期可能跌到几分钱，同样的钱能买很多份
+				if (units > 0) out[def.id] = { units, cost: num(h?.cost, 0, 1e9, 0) };
+			}
+			return out;
+		})(),
+		// 旧存档没有行情种子：用服务端的随机种子派生（同样不发给客户端）
+		marketSeed: typeof r.marketSeed === 'number' && Number.isInteger(r.marketSeed) && r.marketSeed >= 0 && r.marketSeed < 2 ** 32 ? r.marketSeed : deriveMarketSeed(num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0),
 		nextWeek: (() => {
 			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周
 			const today = Math.floor(num(r.clock, 0, 1e9, START_CLOCK) / 1440);
