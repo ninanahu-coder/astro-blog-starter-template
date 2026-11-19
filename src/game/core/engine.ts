@@ -18,6 +18,8 @@ import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } f
 import { BREAKDOWN, CAR_KM_MAX, DEALER_HOURS, DEALER_TAG, GARAGE, SERVICE_KM, VEHICLES } from '../data/vehicles.ts';
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
+import { credentialName, VISA_GIGS } from '../data/education.ts';
+import { logWork, visaBlocked } from './visa.ts';
 import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
 import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, period, weekdayOf } from './time.ts';
 import { FESTIVALS } from '../data/festivals.ts';
@@ -518,6 +520,10 @@ export function activitiesAt(state: PlayerState, region: Region): { act: Activit
 function blockedReason(state: PlayerState, act: Activity): string | undefined {
 	if (!isOpen(act.hours, state.clock)) return `营业时间 ${hoursLabel(act.hours!)}`;
 	if (act.exposed === 'sea' && weatherAt(state).closesSea) return '今天有风暴，海上的活动取消了';
+	if (VISA_GIGS.includes(act.id)) {
+		const visa = visaBlocked(state, act.minutes);
+		if (visa) return visa;
+	}
 	const req = act.requires;
 	if (!req) return undefined;
 	if (req.cash && state.cash < req.cash) return `需要 $${req.cash}`;
@@ -546,6 +552,7 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);
 	if (applyEffect(state, { ...scaledFx(prev, act), minutes: act.minutes }, region)) return collapsedResult(state);
+	if (VISA_GIGS.includes(act.id)) logWork(state, act.minutes, prev.clock);
 	log(state, `在${loc.name}${act.name}。`);
 	return { ok: true, state, msg: `${act.icon} ${act.name}完成。` };
 }
@@ -846,11 +853,13 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 }
 
 // ---------- 职业 ----------
-const matches = (w: Where, loc: GameLocation) => !!(w.kinds?.includes(loc.kind) || w.tags?.some((t) => loc.tags.includes(t)));
+export const matches = (w: Where, loc: GameLocation) => !!(w.kinds?.includes(loc.kind) || w.tags?.some((t) => loc.tags.includes(t)));
 
 /** 是否满足某个职业等级的要求；不满足时返回原因 */
 function unmet(state: PlayerState, lv: CareerLevel): string | undefined {
 	if (lv.req?.respect && state.respect < lv.req.respect) return `声望需达到 ${lv.req.respect}`;
+	const miss = lv.req?.certs?.find((id) => !state.certs.includes(id));
+	if (miss) return `需要${credentialName(miss)}`;
 	for (const k of SKILL_KEYS) {
 		const need = lv.req?.skills?.[k];
 		if (need && state.skills[k] < need) return `${SKILL_META[k].name}需达到 ${need}`;
@@ -895,7 +904,7 @@ export function shiftBlocked(state: PlayerState): string | undefined {
 	if (job.lastDay === dayOf(state.clock)) return '今天已经上过班了';
 	if (!isOpen(c.start, state.clock)) return `上班时间 ${hoursLabel(c.start)} 开始`;
 	if (state.needs.energy < 20) return '太累了，先休息';
-	return undefined;
+	return visaBlocked(state, c.minutes);
 }
 
 /** 下一级的升职条件，已经是最高级时返回 null */
@@ -961,6 +970,7 @@ export function workShift(prev: PlayerState, region: Region): ActionResult {
 	const pay = Math.round(careerPay(state, job.career, job.level) * (good ? 1 + GOOD_BONUS : 1));
 	job.lastDay = state.workDay = dayOf(state.clock);
 	if (applyEffect(state, { ...c.shift, minutes: c.minutes, cash: pay }, region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
+	logWork(state, c.minutes, prev.clock);
 	job.shifts++;
 	if (good) job.good++;
 	const msg = `${lv.title}上班 ${Math.round(c.minutes / 60)} 小时，收入 $${pay}${good ? '（表现出色，有奖金）' : ''}。` + tryPromote(state);

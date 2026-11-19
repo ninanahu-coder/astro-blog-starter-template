@@ -68,6 +68,35 @@ export const CAREERS: CareerDef[] = [
 			{ title: '农场主管', pay: 320, req: { skills: { stamina: 45, survival: 25 }, respect: 25 } },
 		],
 	},
+	// 第 33 批新增（教育与职业发展，docs/earth-game/education-career.md）：入行或升职要持证书或学历（req.certs）。
+	// 工资、班长、门槛都是初始值，待平衡；每个等级的时薪都不低于 $20（和 claude/earth-economy 的 ECON.minHourly 一致）
+	{
+		id: 'builder', name: '建筑工地', where: { kinds: ['city', 'town', 'mining'] }, start: [6, 8], minutes: 480, skill: 'strength',
+		shift: { needs: { energy: -45, hygiene: -30, fun: -10 }, skills: { strength: 1.5, stamina: 1 } },
+		levels: [
+			{ title: '工地普工', pay: 200, req: { certs: ['white-card'] } },
+			{ title: '熟练工', pay: 280, req: { skills: { strength: 35, stamina: 30 } } },
+			{ title: '工长', pay: 380, req: { skills: { strength: 50 }, respect: 30 } },
+		],
+	},
+	{
+		id: 'carer', name: '养老院', where: { kinds: ['city', 'town'] }, start: [6, 14], minutes: 480, skill: 'charisma',
+		shift: { needs: { energy: -35, social: 10, hygiene: -15, fun: -5 }, skills: { charisma: 1, stamina: 0.5 } },
+		levels: [
+			{ title: '护理助理', pay: 176, req: { certs: ['first-aid'] } },
+			{ title: '护理员', pay: 240, req: { skills: { charisma: 30 }, certs: ['cert3-support'] } },
+			{ title: '护理组长', pay: 330, req: { skills: { charisma: 45 }, respect: 30 } },
+		],
+	},
+	{
+		id: 'it-support', name: 'IT 公司', where: { kinds: ['city'] }, start: [8, 10], minutes: 480, skill: 'street',
+		shift: { needs: { energy: -25, social: 5, fun: -5 }, skills: { street: 0.8, charisma: 0.5 } },
+		levels: [
+			{ title: '服务台专员', pay: 200, req: { certs: ['cert4-it'] } },
+			{ title: '系统管理员', pay: 320, req: { skills: { street: 25 }, certs: ['bachelor'] } },
+			{ title: 'IT 主管', pay: 440, req: { skills: { charisma: 40 }, respect: 40 } },
+		],
+	},
 ];
 
 /** 每个等级至少上多少个班、其中多少个表现好，才有资格升到下一级 */

@@ -10,6 +10,13 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		v: 33, date: '2026-11-20', title: '读书和新行业', items: [
+			'城市开了学历课程（英语班、TAFE、大学），分多次上完，毕业拿学历和声望。',
+			'新职业：建筑工地、养老院、IT 公司，入行要证书或学历；新证书 White Card、急救证。',
+			'留学生在读期间每两周最多打工 48 小时。',
+		],
+	},
+	{
 		v: 18, date: '2026-11-19', title: '每个事件都有插图', items: [
 			'84 个事件弹窗全部换成插图：爆胎、路边临检、喜鹊俯冲、中央市场等都有了画面。图片是 AI 生成的示意图。',
 		],

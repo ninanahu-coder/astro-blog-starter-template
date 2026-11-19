@@ -13,6 +13,7 @@ import { resolveCoop, type CoopMember, type CoopResult } from './coop.ts';
 import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
+import { studyProgram } from './education.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 
 export type GameAction =
@@ -36,6 +37,7 @@ export type GameAction =
 	| { t: 'vehicle'; op: 'sell' | 'sleep' | 'service' }
 	| { t: 'course'; id: string }
 	| { t: 'cert'; id: string }
+	| { t: 'study'; id: string }
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
@@ -89,6 +91,7 @@ export function parseAction(raw: unknown): GameAction | null {
 			return { t: a.t };
 		case 'course':
 		case 'cert':
+		case 'study':
 		case 'experience':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
 		case 'property':
@@ -125,6 +128,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 			break;
 		case 'course': r = takeCourse(state, region, a.id); break;
 		case 'cert': r = takeCert(state, region, a.id); break;
+		case 'study': r = studyProgram(state, region, a.id); break;
 		case 'fish': r = goFishing(state, region); break;
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
