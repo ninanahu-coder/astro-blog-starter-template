@@ -16,6 +16,10 @@ export interface SponsorDeal {
 	end: string;
 	/** 线下协议编号（不是网址，不放商户联系方式） */
 	agreement: string;
+	/** 收费（按协议填，单位：澳分，含 GST）：固定月费 + 每次核销。只用于给商户出对账单，不在游戏里显示 */
+	fee: { monthly: number; perRedeem: number };
+	/** 每天最多核销多少次（商户自定，防止账单失控）；不填不限 */
+	dailyCap?: number;
 }
 
 export const SPONSORS: SponsorDeal[] = [];
@@ -30,4 +34,8 @@ export const SPONSOR_RULES = {
 	maxDays: 92,
 	offerMax: 40,
 	termsMax: 80,
+	/** 月费、单次核销费的上限（澳分），只用来拦明显填错的数（例如把元写成分的一百倍） */
+	monthlyMax: 1_000_000,
+	perRedeemMax: 10_000,
+	dailyCapMax: 1000,
 };

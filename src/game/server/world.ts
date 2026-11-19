@@ -19,6 +19,8 @@ import { boardEntry, rankBoard } from '../core/board.ts';
 import type { PlayerState, Region } from '../core/types.ts';
 import { FULL_AREAS, WORLD } from '../data/wa.ts';
 import { areaOf } from '../data/areas-base.ts';
+import { liveDeal, monthOfDay, redeemCode, redeemProblem, statementFor } from '../core/sponsor.ts';
+import { SPONSORS } from '../data/sponsors.ts';
 
 const SAVES_ROOM = '@SAVES';
 const MAX_CONNS = 200;
@@ -141,13 +143,19 @@ export class EarthWorld {
 	private notesLoading = new Map<string, Promise<void>>();
 	private notesChain = new Map<string, Promise<unknown>>(); // 同一地点的发帖、删帖排队执行：限额检查和写入之间不会插进别人的
 
-	constructor(ctx: DurableObjectState, _env: unknown) {
+	private sponsorToken: string; // 商户对账单接口的令牌（Workers 机密 EARTH_SPONSOR_TOKEN）；没配置就不开放这个接口
+	private redeemChain: Promise<unknown> = Promise.resolve(); // 核销计数排队写入：每天、每月的计数是所有玩家共用的
+
+	constructor(ctx: DurableObjectState, env: unknown) {
 		this.ctx = ctx;
+		const t = (env as { EARTH_SPONSOR_TOKEN?: unknown } | null)?.EARTH_SPONSOR_TOKEN;
+		this.sponsorToken = typeof t === 'string' && t.length >= 32 ? t : '';
 	}
 
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 		if (url.pathname === '/api/earth/save') return this.handleSave(request);
+		if (url.pathname === '/api/earth/sponsor-report') return this.handleSponsorReport(request, url);
 		if ((request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
 			return new Response('expected websocket', { status: 426 });
 		}
@@ -548,6 +556,7 @@ export class EarthWorld {
 		}
 		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, wall, locked);
 		if (action === 'trade') return this.handleTrade(body, id, keyHash, current, live, region, now, wall, locked);
+		if (action === 'redeem') return this.handleRedeem(body, id, current, region, now);
 		if (action === 'notes') {
 			// notes { op: 'list' }：这个地点的留言；{ op: 'post', text }：留一句；{ op: 'delete', note }：删自己的
 			const loc = current.loc;
@@ -619,6 +628,54 @@ export class EarthWorld {
 	// coop { op: 'leave', lobby }                退出；发起人退出就解散
 	// coop { op: 'start', lobby, rev }           发起人开始：重新检查每个成员，人够就结算并写所有人的存档
 	// 大厅的过期和结果时间用服务器真实时间（wall），不用为防时钟回拨而沿用的存档时间
+	/**
+	 * 商户赞助的核销 redeem { deal, lat, lon, acc }：只读存档、不改存档。
+	 * 同一个玩家、同一条赞助、同一个珀斯日期只记一次（再点返回同一个核销码）；记一次就给这条赞助的当天、当月计数各加一，
+	 * 当月计数用来出对账单（固定月费 + 每次核销）。商户设了每日上限时，到了上限就不再发。
+	 */
+	private async handleRedeem(body: any, id: string, state: PlayerState, region: Region, now: number): Promise<Response> {
+		const req = { deal: typeof body.deal === 'string' ? body.deal.slice(0, 80) : '', lat: Number(body.lat), lon: Number(body.lon), acc: Number(body.acc) };
+		const bad = redeemProblem(state, region.venues, SPONSORS, req, now);
+		if (bad) return json({ ok: false, msg: bad, at: now });
+		const deal = liveDeal(SPONSORS, req.deal, now)!;
+		const venue = region.venues.find((v) => v.id === deal.venueId)!;
+		const day = realDayOf(now);
+		const hash = (await sha256Hex(id)).slice(0, 12);
+		const code = redeemCode(await sha256Hex(`${deal.id}:${day}:${hash}`));
+		const view = { deal: deal.id, venue: venue.name, offer: deal.offer, terms: deal.terms, code, day };
+		const run = this.redeemChain.then(async () => {
+			const mine = `rd:${deal.id}:${day}:${hash}`;
+			if (await this.ctx.storage.get(mine)) return json({ ok: true, dup: true, msg: '今天已经领过这张优惠，给店员看同一个核销码就行。', redeem: view, at: now });
+			const dayKey = `rdd:${deal.id}:${day}`;
+			const monthKey = `rdm:${deal.id}:${monthOfDay(day)}`;
+			const n = Number((await this.ctx.storage.get<number>(dayKey)) ?? 0);
+			if (deal.dailyCap && n >= deal.dailyCap) return json({ ok: false, msg: '这家店今天的优惠已经发完了，明天再来。', at: now });
+			const m = Number((await this.ctx.storage.get<number>(monthKey)) ?? 0);
+			// 三个键一次写入：要么都记上，要么都没记
+			await this.ctx.storage.put({ [mine]: now, [dayKey]: n + 1, [monthKey]: m + 1 });
+			return json({ ok: true, msg: '已领取，把这个页面给店员看。', redeem: view, at: now });
+		});
+		this.redeemChain = run.catch(() => undefined);
+		return run;
+	}
+
+	/** 商户对账单 GET /api/earth/sponsor-report?month=YYYY-MM，要带 Authorization: Bearer <EARTH_SPONSOR_TOKEN>。只有计数和金额，不含玩家信息 */
+	private async handleSponsorReport(request: Request, url: URL): Promise<Response> {
+		if (!this.sponsorToken) return json({ ok: false, msg: '未开放' }, 404);
+		if (request.method !== 'GET') return json({ ok: false, msg: '请求无效' }, 405);
+		const auth = request.headers.get('Authorization') ?? '';
+		const given = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+		if (!timingSafeEqual(await sha256Hex(given), await sha256Hex(this.sponsorToken))) return json({ ok: false, msg: '未授权' }, 401);
+		const month = url.searchParams.get('month') ?? '';
+		if (!/^\d{4}-\d{2}$/.test(month)) return json({ ok: false, msg: '月份格式应为 YYYY-MM' }, 400);
+		const rows = [];
+		for (const d of SPONSORS) {
+			const r = statementFor(d, month, Number((await this.ctx.storage.get<number>(`rdm:${d.id}:${month}`)) ?? 0));
+			if (r) rows.push(r);
+		}
+		return json({ ok: true, month, currency: 'AUD', unit: 'cents', rows });
+	}
+
 	private pruneLobbies(now: number) {
 		// 正在结算的队伍不清：不然结算写完时大厅已经没了，队友拉不到结果
 		for (const [k, l] of this.lobbies) if (!l.starting && (l.done ? now - l.done.at > COOP_DONE_MS : now - l.at > COOP_OPEN_MS)) this.lobbies.delete(k);
@@ -865,7 +922,7 @@ export class EarthWorld {
 /** Worker 入口路由：命中 /api/earth/* 返回 Response，否则返回 null 交给 Astro */
 export function routeEarth(request: Request, env: any): Promise<Response> | null {
 	const url = new URL(request.url);
-	if (url.pathname === '/api/earth/save') {
+	if (url.pathname === '/api/earth/save' || url.pathname === '/api/earth/sponsor-report') {
 		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(SAVES_ROOM)).fetch(request);
 	}
 	if (url.pathname === '/api/earth/ws') {

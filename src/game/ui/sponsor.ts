@@ -10,3 +10,34 @@ export const sponsorTagHtml = () => `<span class="sponsor-tag" aria-label="赞�
 /** 卡片里的优惠说明：写明这是店铺付费推广，不影响游戏数值 */
 export const sponsorOfferHtml = (d: SponsorDeal) =>
 	`<p class="sponsor-offer"><b>${esc(SPONSOR_LABEL)} · ${esc(d.offer)}</b><small>${esc(d.terms)} · ${esc(d.start)} 至 ${esc(d.end)}。这是店铺付费推广，在店里出示本页即可，不影响游戏里的任何数值。</small></p>`;
+
+/** 服务端核销接口返回的展示内容 */
+export interface RedeemView {
+	deal: string;
+	venue: string;
+	offer: string;
+	terms: string;
+	code: string;
+	day: number; // 珀斯现实日序号
+}
+
+/** 返回值不可信：字段类型不对就丢掉 */
+export function parseRedeemView(v: unknown): RedeemView | null {
+	if (!v || typeof v !== 'object') return null;
+	const o = v as Record<string, unknown>;
+	const str = (k: string) => (typeof o[k] === 'string' ? (o[k] as string) : null);
+	const [deal, venue, offer, terms, code] = ['deal', 'venue', 'offer', 'terms', 'code'].map(str);
+	if (!deal || !venue || !offer || terms === null || !code || !/^\d{4}$/.test(code) || !Number.isInteger(o.day)) return null;
+	return { deal, venue, offer, terms, code, day: o.day as number };
+}
+
+/** 珀斯日期 YYYY-MM-DD */
+const dayLabel = (day: number) => new Date(day * 86_400_000).toISOString().slice(0, 10);
+
+/** 给店员看的核销卡：店名、优惠、今天的日期、4 位核销码；圆点一直在动，静态截图看得出来 */
+export const redeemCardHtml = (r: RedeemView) =>
+	`<div class="redeem-card" role="group" aria-label="优惠核销码"><span class="sponsor-tag">${esc(SPONSOR_LABEL)}</span><span class="redeem-live" aria-hidden="true"></span>
+		<b class="redeem-shop">${esc(r.venue)}</b><p>${esc(r.offer)}</p>
+		<b class="redeem-code" aria-label="核销码 ${esc(r.code)}">${esc(r.code)}</b>
+		<small>${esc(dayLabel(r.day))} 当天有效 · ${esc(r.terms)}</small>
+		<small>店员：核对店名、日期和核销码；右上角圆点在动说明不是截图。</small></div>`;
