@@ -59,15 +59,34 @@ export interface Origin {
 	desc: string;
 	cash: number;
 	vehicle: Vehicle;
+	/** 只写高于起步值的能力；没写的从 BASE_SKILL 开始，完整 7 项用 originSkills() 取 */
 	skills: Partial<Skills>;
+	/** 一句话定位（入境卡上的标签），见 docs/earth-game/initial-stats.md */
+	role: string;
+	/** 这个出身开局就对口的职业（CAREERS 的 id），界面用来提示「适合做什么」 */
+	careers: string[];
+	/** 推荐的特质组合（合法的 MAX_TRAITS 个），只是提示，不限制选择 */
+	suggestTraits: string[];
 }
 
+/** 出身没写的能力从这个值开始 */
+export const BASE_SKILL = 5;
+/** 五项需求的起步值 */
+export const START_NEED = 80;
+
+// 数值（cash、skills）沿用现状，未经 Codex 平衡分析前不改；新出身和调整建议见 docs/earth-game/initial-stats.md（待平衡）
 export const ORIGINS: Origin[] = [
-	{ id: 'backpacker', name: '背包客', icon: '🎒', desc: '钱不多，但能走能扛，适应力强。', cash: 600, vehicle: 'none', skills: { stamina: 30, survival: 25, charisma: 15 } },
-	{ id: 'fifo', name: '矿区轮班工', icon: '⛏️', desc: '飞进飞出的矿工，力气大、存款厚。', cash: 2500, vehicle: 'none', skills: { strength: 35, stamina: 20, driving: 15 } },
-	{ id: 'student', name: '留学生', icon: '🎓', desc: '人缘好脑子快，开着一辆二手小车。', cash: 1200, vehicle: 'car', skills: { charisma: 30, street: 15, driving: 10 } },
-	{ id: 'surfer', name: '冲浪手', icon: '🏄', desc: '为浪而生，海里比岸上自在。', cash: 800, vehicle: 'none', skills: { swimming: 40, stamina: 25, charisma: 10 } },
+	{ id: 'backpacker', name: '背包客', icon: '🎒', desc: '钱不多，但能走能扛，适应力强。', cash: 600, vehicle: 'none', skills: { stamina: 30, survival: 25, charisma: 15 }, role: '穷游 · 野外', careers: ['farmhand', 'guide'], suggestTraits: ['loner', 'frugal'] },
+	{ id: 'fifo', name: '矿区轮班工', icon: '⛏️', desc: '飞进飞出的矿工，力气大、存款厚。', cash: 2500, vehicle: 'none', skills: { strength: 35, stamina: 20, driving: 15 }, role: '体力 · 高薪', careers: ['miner', 'farmhand'], suggestTraits: ['athletic', 'tough'] },
+	{ id: 'student', name: '留学生', icon: '🎓', desc: '人缘好脑子快，开着一辆二手小车。', cash: 1200, vehicle: 'car', skills: { charisma: 30, street: 15, driving: 10 }, role: '城市 · 社交', careers: ['barista', 'bartender'], suggestTraits: ['charming', 'neat'] },
+	{ id: 'surfer', name: '冲浪手', icon: '🏄', desc: '为浪而生，海里比岸上自在。', cash: 800, vehicle: 'none', skills: { swimming: 40, stamina: 25, charisma: 10 }, role: '海岸 · 水上', careers: ['lifeguard', 'guide'], suggestTraits: ['waterborn', 'athletic'] },
 ];
+
+/** 按 id 找出身，找不到回落到第一个（与 createCharacter 一致） */
+export const getOrigin = (id: string): Origin => ORIGINS.find((o) => o.id === id) ?? ORIGINS[0];
+
+/** 出身的完整 7 项起步能力（没写的取 BASE_SKILL）。创建角色和入境卡预览共用 */
+export const originSkills = (o: Origin): Skills => Object.fromEntries(SKILL_KEYS.map((k) => [k, o.skills[k] ?? BASE_SKILL])) as Skills;
 
 export const AVATARS = ['🧑', '👩', '👨', '🧔', '👱', '🧑‍🦱', '👩‍🦰', '🧕', '🤠', '😎'];
 
@@ -86,9 +105,9 @@ export function createCharacter(opts: {
 	seed: number; // 随机种子由服务端生成后传入，引擎内不自己生成随机数
 	traits?: string[];
 }): PlayerState {
-	const origin = ORIGINS.find((o) => o.id === opts.origin) ?? ORIGINS[0];
-	const skills = Object.fromEntries(SKILL_KEYS.map((k) => [k, origin.skills[k] ?? 5])) as Skills;
-	const needs = Object.fromEntries(NEED_KEYS.map((k) => [k, 80])) as Needs;
+	const origin = getOrigin(opts.origin);
+	const skills = originSkills(origin);
+	const needs = Object.fromEntries(NEED_KEYS.map((k) => [k, START_NEED])) as Needs;
 	return {
 		v: 1,
 		id: opts.id,

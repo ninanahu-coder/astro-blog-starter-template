@@ -3,6 +3,15 @@
 // 手机优先的单页应用；规则在 src/game/core/engine.ts（纯函数），本页只负责渲染、输入、同步。
 const title = '地球人生';
 const description = '在真实地图上生活的在线人生模拟：出行、打工、探索，到达地点触发事件，多端云同步。';
+// 开场「护照封皮 + 入境卡」上的防伪细纹：几组相位错开的正弦线，构建时算好写进标记
+const wave = (w: number, y0: number, amp: number, k: number, ph: number) => {
+	const pts: string[] = [];
+	for (let x = 0; x <= w; x += 8) pts.push(`${x},${(y0 + amp * Math.sin(x * k + ph) + amp * 0.35 * Math.sin(x * k * 2.7 + ph * 1.9)).toFixed(1)}`);
+	return 'M' + pts.join(' L');
+};
+const guilloche = (w: number, h: number, n: number, amp: number) => Array.from({ length: n }, (_, i) => wave(w, ((i + 0.5) * h) / n, amp, 0.021 + (i % 3) * 0.004, i * 0.55)).join(' ');
+const coverLines = guilloche(400, 420, 26, 14);
+const cardLines = guilloche(400, 260, 14, 9);
 ---
 
 <!doctype html>
@@ -10,8 +19,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-		<meta name="theme-color" content="#f5f2ec" media="(prefers-color-scheme: light)" />
-		<meta name="theme-color" content="#12171d" media="(prefers-color-scheme: dark)" />
+		<meta name="theme-color" content="#e9efec" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#0b1630" media="(prefers-color-scheme: dark)" />
 		<link rel="icon" type="image/svg+xml" href="/earth/icon.svg" />
 		<link rel="manifest" href="/earth/manifest.webmanifest" />
 		<link rel="apple-touch-icon" href="/earth/icon-180.png" />
@@ -24,27 +33,72 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 	</head>
 	<body>
 		<div id="app">
-			<section id="create" class="hidden">
-				<div class="cover">
-					<img src="/earth/icon.svg" alt="" width="64" height="64" />
-					<h1>地球人生</h1>
-					<p class="sub">在真实的西澳和南澳过另一种人生</p>
-					<ul class="points">
+			<section id="create" class="hidden" aria-labelledby="c-title">
+				<header class="pp">
+					<svg class="pp-lines" viewBox="0 0 400 420" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><path d={coverLines} /></svg>
+					<svg class="pp-emblem" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><circle cx="32" cy="32" r="22" /><ellipse cx="32" cy="32" rx="9" ry="22" /><path d="M11 25h42M11 39h42" /><circle cx="32" cy="32" r="28.5" class="thin" /></svg>
+					<h1 id="c-title"><span class="pp-zh">地球人生</span><span class="pp-en" lang="en">TERRA LIFE</span></h1>
+					<p class="pp-sub">在真实的西澳和南澳过另一种人生</p>
+					<ul class="pp-terms">
 						<li><b>真实地图</b>西澳、南澳 35 个地点，出行、打工、租房买房</li>
 						<li><b>人到现场</b>本人走进真实的餐馆、健身房、公园，游戏里也能做事</li>
 						<li><b>多端同步</b>手机电脑用同一个存档，和同地点的玩家聊天</li>
 					</ul>
+				</header>
+				<div class="bp" role="group" aria-label="登机牌">
+					<div class="bp-route">
+						<div><span class="bp-k">出发<i lang="en">FROM</i></span><b>你的手机</b></div>
+						<svg class="bp-plane" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M3 17.5 13 16l6.5-10h3L19 16l8.5-.5c1.5 0 2.5.7 2.5 1.5s-1 1.5-2.5 1.5L19 18l3.5 10h-3L13 18l-10-.5z" /></svg>
+						<div class="to"><span class="bp-k">到达<i lang="en">TO</i></span><b>西澳 · 南澳</b></div>
+					</div>
+					<dl class="bp-meta">
+						<div><dt>地点</dt><dd>35</dd></div>
+						<div><dt>区域</dt><dd>2</dd></div>
+						<div><dt>存档</dt><dd>云同步</dd></div>
+					</dl>
+					<a class="bp-go" id="c-go" href="#c-card">填写入境卡</a>
+					<details class="bp-stub">
+						<summary>已有存档？出示同步码</summary>
+						<label class="bp-code"><span>同步码</span><input id="c-code" placeholder="粘贴同步码或扫码得到的链接" autocomplete="off" /></label>
+						<button id="c-import">从云端恢复</button>
+					</details>
 				</div>
-				<label class="field"><span class="step">1</span>名字<input id="c-name" maxlength="12" placeholder="给自己起个名字" autocomplete="off" /></label>
-				<div class="field"><span class="step">2</span>形象<div id="c-avatars" class="chips"></div></div>
-				<div class="field"><span class="step">3</span>出身<div id="c-origins"></div></div>
-				<div class="field"><span class="step">4</span>性格特质（选 2 个）<div id="c-traits" class="chips"></div></div>
-				<button id="c-start" class="primary">开始生活</button>
-				<details class="import">
-					<summary>已有存档？用同步码恢复</summary>
-					<input id="c-code" placeholder="粘贴同步码或扫码得到的链接" aria-label="同步码" autocomplete="off" />
-					<button id="c-import">从云端恢复</button>
-				</details>
+				<div class="ac" id="c-card" tabindex="-1" role="group" aria-labelledby="c-card-title">
+					<svg class="ac-lines" viewBox="0 0 400 260" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d={cardLines} /></svg>
+					<div class="ac-head">
+						<h2 id="c-card-title">入境卡<span lang="en">ARRIVAL CARD</span></h2>
+						<p>填好四栏，盖章入境。名字会显示给同地点的玩家。</p>
+					</div>
+					<div class="ac-field">
+						<label class="ac-label" for="c-name">姓名<span lang="en">NAME</span></label>
+						<input id="c-name" maxlength="12" placeholder="给自己起个名字" autocomplete="off" />
+					</div>
+					<div class="ac-field">
+						<div class="ac-label" id="c-photo-l">照片<span lang="en">PHOTO</span></div>
+						<div class="ac-photo">
+							<div class="ac-photo-box" id="c-photo" aria-hidden="true"></div>
+							<div id="c-avatars" class="ac-avatars" role="group" aria-labelledby="c-photo-l"></div>
+						</div>
+					</div>
+					<div class="ac-field">
+						<div class="ac-label" id="c-origin-l">身份<span lang="en">ARRIVING AS</span></div>
+						<div id="c-origins" class="ac-origins" role="group" aria-labelledby="c-origin-l"></div>
+						<ul id="c-gauges" class="ac-gauges" aria-label="起步能力（满分 100）"></ul>
+					</div>
+					<div class="ac-field">
+						<div class="ac-label" id="c-trait-l">性格<span lang="en">CHARACTER</span><em id="c-trait-n"></em></div>
+						<div id="c-traits" class="ac-traits" role="group" aria-labelledby="c-trait-l"></div>
+					</div>
+					<div class="ac-field ac-sign">
+						<button id="c-start" class="ac-submit">盖章入境 · 开始生活</button>
+						<svg class="ac-stamp" id="c-stamp" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+							<circle cx="60" cy="60" r="55" /><circle cx="60" cy="60" r="47" class="thin" />
+							<text x="60" y="52" class="big">入境</text>
+							<text x="60" y="70" id="c-stamp-city"></text>
+							<text x="60" y="86" id="c-stamp-date" class="small"></text>
+						</svg>
+					</div>
+				</div>
 			</section>
 
 			<section id="game" class="hidden">
@@ -58,29 +112,35 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 		<div id="toast" class="hidden" role="status" aria-live="polite"></div>
 
 		<style is:global>
+			/* 入境卡世界（v27）：浅色是摊开的卡纸，深色是合上的护照。设定见 docs/earth-game/main-ui-design.md */
 			:root {
-				--bg: #f5f2ec; --card: #ffffff; --card2: #fbfaf7; --line: #e4ded4; --text: #17212b; --dim: #5b6672;
-				--accent: #1d5fd1; --accent-ink: #ffffff; --warm: #c2541b; --warm-ink: #ffffff; --warm-bg: #fff6ef; --ink: #17212b; --ink-dim: #c9d2db;
-				--ocean: #dce8f2; --land: #efe3cc; --ok: #2e8b57; --mid: #b7791f; --bad: #c23b3b; --soft: #ece7de;
+				--bg: #e9efec; --card: #f7faf8; --card2: #eef3f1; --line: #c8d9d3; --text: #18263f; --dim: #4a586c;
+				--accent: #1d3fbf; --accent-ink: #ffffff; --warm: #b3155c; --warm-ink: #ffffff; --warm-bg: #f8e8ef; --ink: #0d1a35; --ink-dim: #bdc8dc;
+				--ocean: #d3e2e8; --land: #f1efe3; --ok: #1e7a58; --mid: #a36a0e; --bad: #b42b3a; --soft: #dce6e2;
 				--nav-h: 64px;
-				--text2: #3a4550; --shadow: rgba(23, 33, 43, 0.06); --halo: rgba(255, 255, 255, 0.85); --land-line: #d9c7a6; --seg-bg: #e9e3d8; --tick-line: #c9c1b4;
-				--tint-blue: #eef3fb; --tint-blue-ink: #1d4fa8; --tint-green: #e6f2ea; --tint-green-ink: #1f6b40; --tint-amber: #fbf0dc; --tint-amber-ink: #7a4f0f;
-				--sky-dawn: #f8ede2; --sky-dusk: #f7e6dc; --sky-night: #e9edf5;
+				--text2: #2d3b53; --shadow: rgba(13, 26, 53, 0.08); --halo: rgba(247, 250, 248, 0.9); --land-line: #cdc6a6; --seg-bg: #dbe5e1; --tick-line: #a7bcb5;
+				--tint-blue: #e2e8fb; --tint-blue-ink: #1d3fbf; --tint-green: #dbeee5; --tint-green-ink: #175a40; --tint-amber: #f4e8cf; --tint-amber-ink: #66440b;
+				--sky-dawn: #1f3563; --sky-dusk: #2a2852; --sky-night: #0d1a35;
 				--ocean-night: #1e3350; --land-night: #354058; --land-night-line: #4b5875; --map-night-text: #eef2f7; --map-night-halo: rgba(10, 16, 28, 0.8);
-				--tint-red: #fbe4e4; --tint-red-ink: #9b2c2c; --tint-cost: #fdede3; --tint-cost-ink: #a2400f; --warm-line: #f2cdb4; --low-ink: #a62f2f; --mid-ink: #8a5a12;
+				--tint-red: #f6e0e3; --tint-red-ink: #8c2130; --tint-cost: #f8e4ee; --tint-cost-ink: #8f1249; --warm-line: #e6b3c8; --low-ink: #a3243a; --mid-ink: #7a4f0c;
+				--pass: #15284d; --pass-ink: #eef2f8; --mist: #bdc8dc; --gold: #dcbc6c; --gold-2: #c4a865; --rule: #9db8b0;
+				--primary: #15284d; --primary-ink: #ffffff; --stamp-ink: #b3155c; --stamp-paper: rgba(243, 247, 245, 0.94);
+				--serif: 'Terra Serif', 'Songti SC', 'STSong', serif;
 				color-scheme: light;
 			}
-			/* 深色：跟随系统设置。主色换成浅蓝，按钮上的字换成深色，保证对比度 */
+			/* 深色：跟随系统设置。合上的护照：封皮深蓝做底，笔蓝和章色提亮，主按钮换成烫金 */
 			@media (prefers-color-scheme: dark) {
 				:root {
-					--bg: #12171d; --card: #1b232c; --card2: #212b35; --line: #2f3a46; --text: #e8edf2; --dim: #9aa6b2;
-					--accent: #7fb0ff; --accent-ink: #0d1b33; --warm: #f08a4b; --warm-ink: #0d1b33; --warm-bg: #2a2018; --ink: #24313d; --ink-dim: #c9d2db;
-					--ocean: #13283a; --land: #2b2a24; --ok: #4ecb8f; --mid: #e0a23a; --bad: #ef6464; --soft: #2a333d;
-					--text2: #c3ccd5; --shadow: rgba(0, 0, 0, 0.3); --halo: rgba(0, 0, 0, 0.75); --land-line: #4a4436; --seg-bg: #232c36; --tick-line: #4a5562;
-					--tint-blue: #1c2a40; --tint-blue-ink: #a9c7ff; --tint-green: #17301f; --tint-green-ink: #8fe0b0; --tint-amber: #3a2c12; --tint-amber-ink: #f0c674;
-					--sky-dawn: #1f1b19; --sky-dusk: #221a1b; --sky-night: #0d1220;
+					--bg: #0b1630; --card: #13234a; --card2: #182b57; --line: #2b4170; --text: #e9eef7; --dim: #a9b6cd;
+					--accent: #9db1ff; --accent-ink: #0b1630; --warm: #ef6aa3; --warm-ink: #1b0612; --warm-bg: #2e1530; --ink: #070f22; --ink-dim: #bdc8dc;
+					--ocean: #10284a; --land: #24304a; --ok: #4fc99a; --mid: #e3ad4f; --bad: #f0727e; --soft: #22365f;
+					--text2: #cad4e5; --shadow: rgba(0, 0, 0, 0.35); --halo: rgba(11, 22, 48, 0.8); --land-line: #3a4a6a; --seg-bg: #0f1d3f; --tick-line: #4a5d86;
+					--tint-blue: #1d2c5e; --tint-blue-ink: #b9c7ff; --tint-green: #143a32; --tint-green-ink: #8fe0bd; --tint-amber: #3a2d12; --tint-amber-ink: #f0c674;
+					--sky-dawn: #1a2d58; --sky-dusk: #241f48; --sky-night: #070f22;
 					--ocean-night: #0a1522; --land-night: #1c2029; --land-night-line: #2c3240; --map-night-text: #e8edf2; --map-night-halo: rgba(0, 0, 0, 0.8);
-					--tint-red: #3a1c1c; --tint-red-ink: #ffaaaa; --tint-cost: #3a2216; --tint-cost-ink: #ffb385; --warm-line: #5a3a24; --low-ink: #ff9a9a; --mid-ink: #f0c674;
+					--tint-red: #3d1726; --tint-red-ink: #ffb0bf; --tint-cost: #3b1530; --tint-cost-ink: #ff9cc8; --warm-line: #6a2a4a; --low-ink: #ff9aaa; --mid-ink: #f0c674;
+					--pass: #1a3063; --pass-ink: #eef2f8; --rule: #3e5a86;
+					--primary: #dcbc6c; --primary-ink: #0b1630; --stamp-ink: #a3124f;
 					color-scheme: dark;
 				}
 			}
@@ -100,29 +160,113 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 			input { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px; width: 100%; min-width: 0; min-height: 44px; }
 
-			#create { padding: 28px 20px calc(28px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 16px; }
-			#create h1 { margin: 10px 0 0; font-size: 30px; font-weight: 900; }
-			.cover { background: var(--card); border-radius: 24px; padding: 22px 20px; box-shadow: 0 1px 2px var(--shadow); }
-			.cover img { display: block; border-radius: 16px; }
-			.cover .points { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-			.cover .points li { font-size: 14px; color: var(--dim); padding-left: 14px; border-left: 3px solid var(--accent); }
-			.cover .points b { display: block; color: var(--text); font-size: 15px; }
-			.field .step { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700; align-items: center; justify-content: center; margin-right: 6px; }
-			#c-start { min-height: 52px; font-size: 17px; }
-			.sub { margin: 0; color: var(--dim); }
-			.field { display: flex; flex-direction: column; gap: 8px; color: var(--dim); font-size: 13px; font-weight: 600; }
-			.chips { display: flex; flex-wrap: wrap; gap: 8px; }
-			.chip { font-size: 22px; padding: 6px 10px; background: var(--card); }
-			.chip.on, .origin.on, .trait.on { border-color: var(--accent); background: var(--tint-blue); box-shadow: inset 0 0 0 1px var(--accent); }
-			.origin { display: block; width: 100%; text-align: left; margin-bottom: 8px; background: var(--card); padding: 12px 14px; }
-			.origin small { display: block; color: var(--dim); font-weight: 400; }
-			.import { color: var(--dim); font-size: 13px; }
-			#c-traits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-			.trait { font-size: 14px; padding: 10px 12px; text-align: left; background: var(--card); }
-			.trait small { display: block; color: var(--dim); font-size: 12px; }
+			/* ---------- 开场：护照封皮 + 登机牌 + 入境卡（方向见 .impeccable/surfaces） ---------- */
+			@font-face { font-family: 'Terra Serif'; src: url('/earth/fonts/terra-serif.woff2') format('woff2'); font-weight: 200 900; font-display: swap; }
+			body:has(#create:not(.hidden)) { background: #0d1a35; }
+			#create {
+				--pp-navy: #15284d; --pp-deep: #0d1a35; --pp-gold: #dcbc6c; --pp-gold-2: #c4a865; --pp-mist: #bdc8dc;
+				--stock: #f3f7f5; --stock-2: #e6eeeb; --ink-p: #18263f; --ink-p2: #4a586c; --rule: #9db8b0; --rule-2: #cbddd7;
+				--pen: #1d3fbf; --pen-bg: #e2e8fb; --stamp: #b3155c; --serif: 'Terra Serif', 'Songti SC', 'STSong', serif;
+				background: var(--pp-deep); color: var(--ink-p); display: flex; flex-direction: column; min-height: 100dvh; padding-bottom: calc(40px + env(safe-area-inset-bottom));
+			}
+			#create ::selection { background: var(--pen-bg); color: var(--ink-p); }
+			#create button, #create .bp-go, #create input { font: inherit; }
+			#create button:focus-visible, #create a:focus-visible, #create input:focus-visible, #create summary:focus-visible { outline: 2px solid var(--pen); outline-offset: 2px; }
+			#create .pp :focus-visible, #create .bp-go:focus-visible { outline-color: var(--pp-gold); }
+			.pp { position: relative; overflow: hidden; background: var(--pp-navy); color: var(--pp-mist); text-align: center; padding: calc(44px + env(safe-area-inset-top)) 28px 92px; }
+			.pp-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
+			.pp-lines path { fill: none; stroke: var(--pp-gold); stroke-width: 0.6; opacity: 0.16; }
+			.pp > :not(.pp-lines) { position: relative; }
+			.pp-emblem { width: 60px; height: 60px; display: block; margin: 0 auto 18px; fill: none; stroke: var(--pp-gold); stroke-width: 2.4; }
+			.pp-emblem .thin { stroke-width: 0.9; }
+			#create h1 { margin: 0; color: var(--pp-gold); font-family: var(--serif); font-weight: 900; line-height: 1.1; }
+			.pp-zh { display: block; font-size: 44px; letter-spacing: 0.14em; text-indent: 0.14em; }
+			.pp-en { display: block; margin-top: 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.46em; text-indent: 0.46em; color: var(--pp-gold-2); }
+			.pp-sub { margin: 18px 0 0; font-size: 15px; color: #e3e8f2; }
+			.pp-terms { list-style: none; margin: 26px auto 0; padding: 14px 0 0; max-width: 360px; text-align: left; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid rgba(220, 188, 108, 0.35); font-size: 13px; line-height: 1.55; }
+			.pp-terms b { display: block; color: var(--pp-gold); font-size: 15px; }
+			/* 登机牌：压在封皮下沿 */
+			.bp { position: relative; margin: -60px 16px 0; background: var(--stock); border-radius: 18px; padding: 18px 18px 6px; box-shadow: 0 18px 40px rgba(3, 9, 22, 0.45), 0 2px 6px rgba(3, 9, 22, 0.3); }
+			.bp-route { display: grid; grid-template-columns: 1fr 34px 1fr; align-items: end; gap: 8px; }
+			.bp-route b { display: block; font-size: 19px; font-weight: 800; color: var(--ink-p); margin-top: 2px; }
+			.bp-route .to { text-align: right; }
+			.bp-k { font-size: 12px; font-weight: 600; color: var(--ink-p2); }
+			.bp-k i, .ac-label span, .ac-head h2 span { font-style: normal; font-family: var(--serif); font-weight: 700; font-size: 10px; letter-spacing: 0.14em; margin-left: 6px; color: var(--ink-p2); }
+			.bp-plane { width: 30px; height: 30px; fill: var(--ink-p); margin-bottom: 2px; }
+			.bp-meta { display: grid; grid-template-columns: repeat(3, 1fr); margin: 14px 0 16px; padding: 10px 0 0; border-top: 1px solid var(--rule-2); }
+			.bp-meta div { margin: 0; }
+			.bp-meta dt { font-size: 12px; color: var(--ink-p2); }
+			.bp-meta dd { margin: 0; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+			.bp-go { display: flex; align-items: center; justify-content: center; min-height: 54px; border-radius: 14px; background: var(--pp-navy); color: #fff; font-size: 17px; font-weight: 800; letter-spacing: 0.04em; text-decoration: none; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 160ms; }
+			.bp-go:active { transform: translateY(1px); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18); }
+			/* 打孔：虚线 + 两侧半圆缺口（露出底色） */
+			.bp-stub, .ac-field { position: relative; }
+			.bp-stub { margin: 18px -18px 0; padding: 12px 18px 12px; border-top: 1.5px dashed var(--rule); }
+			.bp-stub::before, .bp-stub::after, .ac-field::before, .ac-field::after { content: ''; position: absolute; top: -10px; width: 20px; height: 20px; border-radius: 50%; background: var(--pp-deep); }
+			.bp-stub::before, .ac-field::before { left: -10px; } .bp-stub::after, .ac-field::after { right: -10px; }
+			.bp-stub summary { min-height: 44px; display: flex; align-items: center; justify-content: center; color: var(--ink-p2); font-size: 14px; font-weight: 600; cursor: pointer; list-style: none; }
+			.bp-stub summary::-webkit-details-marker { display: none; }
+			.bp-stub summary::after { content: ''; width: 7px; height: 7px; margin-left: 8px; border: solid var(--ink-p2); border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); transition: transform 200ms; }
+			.bp-stub[open] summary::after { transform: translateY(1px) rotate(-135deg); }
+			.bp-code { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--ink-p2); margin: 4px 0 10px; }
+			/* 入境卡 */
+			.ac { position: relative; margin: 28px 16px 0; background: var(--stock); border-radius: 18px; padding: 0 18px; box-shadow: 0 18px 40px rgba(3, 9, 22, 0.45); overflow: visible; scroll-margin-top: 16px; }
+			.ac:focus { outline: none; }
+			.ac-lines { position: absolute; left: 0; right: 0; top: 0; width: 100%; height: 150px; border-radius: 18px 18px 0 0; }
+			.ac-lines path { fill: none; stroke: #6aa99a; stroke-width: 0.7; opacity: 0.22; }
+			.ac > :not(.ac-lines) { position: relative; }
+			.ac-head { padding: 22px 0 16px; }
+			.ac-head h2 { margin: 0; font-family: var(--serif); font-size: 26px; font-weight: 900; letter-spacing: 0.1em; color: var(--ink-p); }
+			.ac-head h2 span { font-size: 11px; vertical-align: 4px; }
+			.ac-head p { margin: 6px 0 0; font-size: 13px; color: var(--ink-p2); }
+			.ac-field { padding: 18px 0 20px; border-top: 1.5px dashed var(--rule); }
+			.ac-label { display: flex; align-items: baseline; margin-bottom: 10px; font-size: 14px; font-weight: 800; color: var(--ink-p); }
+			.ac-label em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 600; color: var(--ink-p2); font-variant-numeric: tabular-nums; }
+			.ac-label em.done { color: var(--pen); }
+			#create input { width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 6px; border: 1.5px solid var(--ink-p); background: #fff; color: var(--pen); font-size: 18px; font-weight: 700; caret-color: var(--pen); }
+			#create input::placeholder { color: #5a687d; font-weight: 400; font-size: 15px; }
+			.ac-photo { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: start; }
+			.ac-photo-box { width: 96px; height: 120px; border: 1.5px solid var(--ink-p); background: #fff; display: flex; align-items: center; justify-content: center; font-size: 60px; line-height: 1; }
+			.ac-avatars { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+			.ac-ava { min-height: 44px; padding: 0; border-radius: 8px; border: 1px solid var(--rule-2); background: var(--stock-2); font-size: 24px; cursor: pointer; }
+			.ac-ava.on { border: 2px solid var(--pen); background: var(--pen-bg); }
+			.ac-origins, .ac-traits { display: grid; gap: 6px; }
+			.ac-traits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+			.ac-opt { display: grid; grid-template-columns: 20px 1fr auto; gap: 10px; align-items: start; width: 100%; min-height: 44px; padding: 10px 10px; text-align: left; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--ink-p); cursor: pointer; transition: background 160ms, border-color 160ms; }
+			.ac-traits .ac-opt { grid-template-columns: 20px 1fr; padding: 9px 8px; }
+			.ac-opt b { display: block; font-size: 15px; }
+			.ac-opt small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.45; color: var(--ink-p2); }
+			.ac-box { width: 20px; height: 20px; margin-top: 1px; border: 1.5px solid var(--ink-p); border-radius: 3px; background: #fff; position: relative; }
+			.ac-opt.on { background: var(--pen-bg); border-color: rgba(29, 63, 191, 0.35); }
+			.ac-opt.on .ac-box { border-color: var(--pen); }
+			.ac-opt.on .ac-box::after { content: ''; position: absolute; left: 6px; top: 1px; width: 5px; height: 11px; border: solid var(--pen); border-width: 0 2.5px 2.5px 0; transform: rotate(40deg); }
+			.ac-opt:disabled { opacity: 0.45; cursor: not-allowed; }
+			.ac-fx { text-align: right; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+			.ac-fx small { font-weight: 600; }
+			.ac-opt.on .ac-fx { color: var(--pen); }
+			@media (hover: hover) { .ac-opt:not(:disabled):not(.on):hover { background: #fff; border-color: var(--rule-2); } .ac-ava:not(.on):hover { background: #fff; } }
+			/* 起步能力：一排一模一样的小表，随身份一起偏转 */
+			.ac-gauges { list-style: none; margin: 14px 0 0; padding: 12px 0 0; border-top: 1px solid var(--rule-2); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; }
+			.ac-gauges svg { width: 100%; max-width: 46px; height: auto; display: block; margin: 0 auto; overflow: visible; }
+			.ac-gauges .arc { fill: none; stroke: var(--ink-p2); stroke-width: 1.4; }
+			.ac-gauges .tick { stroke: var(--ink-p2); stroke-width: 1; }
+			.ac-gauges .needle { stroke: var(--pen); stroke-width: 2; stroke-linecap: round; transform-origin: 22px 24px; transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1); }
+			.ac-gauges .hub { fill: var(--ink-p); }
+			.ac-gauges b { display: block; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-p); }
+			.ac-gauges span { display: block; font-size: 11px; color: var(--ink-p2); }
+			/* 签名栏：提交 + 入境章 */
+			.ac-sign { padding-bottom: 22px; }
+			.ac-submit { width: 100%; min-height: 56px; border-radius: 14px; border: 0; background: var(--stamp); color: #fff; font-size: 17px; font-weight: 800; letter-spacing: 0.04em; cursor: pointer; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); }
+			.ac-submit:disabled { background: var(--stock-2); color: var(--ink-p2); box-shadow: none; border: 1.5px dashed var(--rule); opacity: 1; }
+			.ac-stamp { position: absolute; right: 6px; top: -46px; width: 118px; height: 118px; pointer-events: none; opacity: 0; transform: rotate(-14deg) scale(1.7); transition: opacity 200ms ease-out, transform 460ms cubic-bezier(0.16, 1, 0.3, 1); }
+			.ac-stamp circle { fill: none; stroke: var(--stamp); stroke-width: 3.2; }
+			.ac-stamp circle.thin { stroke-width: 1.2; }
+			.ac-stamp text { fill: var(--stamp); text-anchor: middle; font-family: var(--serif); font-weight: 900; font-size: 12px; letter-spacing: 0.08em; }
+			.ac-stamp text.big { font-size: 26px; letter-spacing: 0.2em; }
+			.ac-stamp text.small { font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
+			.ac.stamped .ac-stamp { opacity: 0.9; transform: rotate(-14deg) scale(1); }
 			.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 			.tag { font-size: 13px; padding: 4px 10px; border-radius: 10px; background: var(--soft); color: var(--text); }
-			.import input { margin: 8px 0; }
 
 			#game { flex: 1; display: flex; flex-direction: column; min-height: 100dvh; }
 			#hud { padding: calc(10px + env(safe-area-inset-top)) 16px 10px; background: var(--bg); position: sticky; top: 0; z-index: 5; border-bottom: 1px solid transparent; }
@@ -177,12 +321,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			#map-wrap.real #basemap { visibility: visible; }
 			#map-wrap.real #map { visibility: hidden; }
 			.p-night #basemap .maplibregl-canvas { filter: invert(0.92) hue-rotate(180deg) brightness(0.85); }
-			#basemap .pin { display: flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; min-height: 0; font: inherit; font-size: 12px; color: #17212b; cursor: pointer; }
-			#basemap .pin-dot { width: 10px; height: 10px; border-radius: 50%; background: #1d5fd1; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); flex: none; }
-			#basemap .pin.new .pin-dot { background: #fff; border-color: #1d5fd1; }
-			#basemap .pin.here .pin-dot { width: 14px; height: 14px; background: #c2541b; }
-			#basemap .pin.sel .pin-dot { box-shadow: 0 0 0 3px #1d5fd1; }
-			#basemap .pin-label { padding: 1px 5px; border-radius: 6px; background: rgba(255,255,255,0.85); white-space: nowrap; }
+			#basemap .pin { display: flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; min-height: 0; font: inherit; font-size: 12px; color: #18263f; cursor: pointer; }
+			#basemap .pin-dot { width: 10px; height: 10px; border-radius: 50%; background: #1d3fbf; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); flex: none; }
+			#basemap .pin.new .pin-dot { background: #fff; border-color: #b3155c; }
+			#basemap .pin.here .pin-dot { width: 14px; height: 14px; background: #15284d; }
+			#basemap .pin.sel .pin-dot { box-shadow: 0 0 0 3px #1d3fbf; }
+			#basemap .pin-label { padding: 1px 5px; border-radius: 4px; background: rgba(247,250,248,0.9); white-space: nowrap; }
 			#basemap .pin.here .pin-label { font-weight: 700; }
 			#map { display: block; width: 100%; height: 36vh; min-height: 220px; touch-action: manipulation; }
 			#map .land { fill: var(--land); stroke: var(--land-line); stroke-width: 1; }
@@ -222,7 +366,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.card { background: var(--card); border-radius: 20px; padding: 16px; box-shadow: 0 1px 2px var(--shadow); }
 			.card h3 { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
 			.card p { margin: 0; color: var(--dim); font-size: 13px; }
-			.hero { height: 140px; border-radius: 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; font-size: 48px; background: #123a5e; overflow: hidden; }
+			.hero { height: 140px; border-radius: 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; font-size: 48px; background: var(--pass); overflow: hidden; }
 			.hero img { width: 100%; height: 100%; object-fit: cover; }
 			.row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; min-height: 56px; }
 			button.row { background: var(--card); border: 0; border-radius: 16px; padding: 10px 14px; box-shadow: 0 1px 2px var(--shadow); }
@@ -413,15 +557,88 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			button.wide { display: block; width: 100%; margin-top: 10px; min-height: 52px; font-size: 16px; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
+			/* ---------- 主界面：入境之后（v27）。卡纸 + 护照封皮 + 圆珠笔蓝 + 唯一的洋红章；设定见 docs/earth-game/main-ui-design.md ---------- */
+			::selection { background: var(--tint-blue); color: var(--text); }
+			html { scrollbar-color: var(--tick-line) transparent; }
+			input { caret-color: var(--accent); }
+			button.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+			a { color: var(--accent); text-underline-offset: 3px; }
+			.card { border-radius: 16px; border: 1px solid var(--line); box-shadow: 0 1px 2px var(--shadow); }
+			.card h3 { font-size: 16px; }
+			button.row { border: 1px solid var(--line); border-radius: 12px; box-shadow: none; }
+			.row .ico { border-radius: 10px; background: var(--card2); border: 1px solid var(--line); }
+			.row.new { border-color: var(--warm-line); }
+			.row.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+			.section-title { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+			.section-title::after { content: ''; flex: 1; border-top: 1.5px dashed var(--rule); }
+			.pill { border-radius: 6px; }
+			.code { background: var(--card2); border: 1.5px dashed var(--rule); border-radius: 8px; color: var(--accent); }
+			.seg { border: 1px solid var(--line); border-radius: 12px; }
+			.seg button { border-radius: 8px; }
+			.seg button.on { color: var(--accent); }
+			.npc-name { background: var(--pass); color: var(--pass-ink); }
+			.wish .dot, .guide .tick { border-radius: 4px; border: 1.5px solid var(--text2); }
+			.guide li.now .tick { border-color: var(--accent); }
+			.guide li.done .tick { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+			.chip.cash { background: var(--card); color: var(--accent); font-weight: 800; border: 1px solid var(--line); }
+			/* 需求环：轨道画成表盘刻度，和入境卡上的起步能力小表同一套笔法 */
+			.ring .track { fill: var(--card); stroke: var(--tick-line); stroke-width: 3; stroke-dasharray: 1.4 3.0; }
+			/* 顶栏（今天页以外）：一条护照封皮，页名烫金；随时段换蓝的深浅（.p-* 规则用 --sky-*） */
+			#hud { background: var(--pass); color: var(--pass-ink); }
+			html #hud.scened { color: var(--text); }
+			#hud:not(.scened) h1 { color: var(--gold); letter-spacing: 0.06em; }
+			#hud:not(.scened) .hud-sub, #hud:not(.scened) .sync-dot, #hud:not(.scened) .mini-needs .need { color: var(--mist); }
+			#hud:not(.scened) .chip:not(.cash):not(.fire-chip) { background: rgba(255, 255, 255, 0.12); color: var(--pass-ink); }
+			#hud:not(.scened) .bar { background: rgba(255, 255, 255, 0.16); }
+			#hud:not(.scened) :focus-visible { outline-color: var(--gold); }
+			#hud .offline { border: 1px solid var(--mid); }
+			/* 今天页顶栏：地点名牌是一小块护照封皮，中文地名烫金，英文地名是衬线大写小标签 */
+			#hud .plate { background: var(--pass); color: var(--gold); border-radius: 10px; padding: 9px 14px 8px; box-shadow: 0 8px 18px -10px rgba(3, 9, 22, 0.6); }
+			#hud .plate h1 { color: var(--gold); letter-spacing: 0.04em; }
+			#hud .plate .en { margin-top: 2px; font-family: var(--serif); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+			#hud .plate small { margin-top: 3px; color: var(--mist); }
+			#hud .lv-plate, #hud .scene .wx-pill { border: 1px solid var(--line); }
+			#hud .scene .wx-pill:not(.storm) { background: var(--card); color: var(--text); }
+			/* 「下一步」：一张登机牌。海军蓝底、烫金 NEXT、打孔票根线，按钮是全页唯一的洋红 */
+			.next { position: relative; background: var(--pass); color: var(--pass-ink); border-radius: 16px; padding: 18px 18px 16px; box-shadow: 0 14px 28px -16px rgba(3, 9, 22, 0.7); }
+			.next .lbl { color: var(--gold); letter-spacing: 0.08em; }
+			.next .lbl i { margin-left: 8px; font-family: var(--serif); font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: 0.24em; color: var(--gold-2); }
+			.next h2 { color: var(--pass-ink); letter-spacing: 0.02em; }
+			.next p { color: var(--mist); }
+			.next > button { position: relative; margin-top: 14px; border-radius: 12px; background: var(--warm); color: var(--warm-ink); box-shadow: 0 6px 14px -6px rgba(3, 9, 22, 0.6); transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+			.next > button:active { transform: translateY(1px); }
+			.next > button::before { content: ''; position: absolute; left: -18px; right: -18px; top: -15px; border-top: 1.5px dashed rgba(220, 188, 108, 0.45); }
+			.next > button::after { content: ''; position: absolute; left: -28px; right: -28px; top: -24px; height: 20px; background: radial-gradient(circle at 0 50%, var(--bg) 9.5px, transparent 10px), radial-gradient(circle at 100% 50%, var(--bg) 9.5px, transparent 10px); pointer-events: none; }
+			.next > button:focus-visible { outline-color: var(--gold); }
+			.next.clock { background: var(--ink); }
+			/* 出行：地图收成卡片的圆角和细线 */
+			#map-wrap { border-radius: 14px; border: 1px solid var(--line); }
+			.tile { border-radius: 10px; }
+			.tile.on { border-width: 1.5px; box-shadow: inset 0 0 0 1px var(--accent); }
+			/* 底部标签：登机牌存根，上沿一道打孔线；当前标签是圆珠笔蓝，字下一笔 */
+			#tabs { border-top: 0; box-shadow: 0 -8px 18px -14px var(--shadow); }
+			#tabs::before { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: 1.5px dashed var(--rule); }
+			#tabs button.on::after { content: ''; position: absolute; left: calc(50% - 9px); bottom: 7px; width: 18px; height: 2px; border-radius: 1px; background: currentColor; }
+			#tabs button { padding-bottom: 10px; }
+			/* 弹窗：插图和正文之间一道打孔线；选项是卡纸上的勾选栏 */
+			#modal .sheet { border-radius: 20px 20px 0 0; }
+			#modal .ev-hero { border-radius: 20px 20px 0 0; }
+			#modal .ev-body { border-top: 1.5px dashed var(--rule); }
+			#modal .choice { border-radius: 12px; border-width: 1.5px; background: var(--card); }
+			#modal .choice.first { box-shadow: inset 0 0 0 1px var(--accent); }
+
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
 			#modal .sheet { background: var(--bg); border-radius: 24px 24px 0 0; width: 100%; max-width: 560px; max-height: 92dvh; overflow-y: auto; }
-			#modal .ev-hero { background: #123a5e; color: #fff; padding: 22px 20px 20px; display: flex; flex-direction: column; gap: 4px; min-height: 150px; justify-content: flex-end; position: relative; }
+			#modal .ev-hero { background: var(--pass); color: #fff; padding: 22px 20px 20px; display: flex; flex-direction: column; gap: 4px; min-height: 150px; justify-content: flex-end; position: relative; }
 			#modal .ev-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.55; }
 			#modal .ev-hero .scene-art { position: absolute; inset: 0; width: 100%; height: 100%; }
 			#modal .ev-hero .ev-shade { position: absolute; inset: 0; background: rgba(8, 14, 24, 0.62); }
 			#modal .ev-hero { min-height: 170px; border-radius: 24px 24px 0 0; overflow: hidden; }
 			#modal .ev-hero > * { position: relative; }
-			#modal .ev-hero .kicker { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #ffe0c8; }
+			#modal .ev-hero .ev-stamp { position: absolute; top: 14px; right: 14px; max-width: 64%; padding: 5px 10px; border: 2px solid var(--stamp-ink); outline: 1px solid var(--stamp-ink); outline-offset: 2px; border-radius: 6px; background: var(--stamp-paper); color: var(--stamp-ink); font-size: 12px; font-weight: 800; letter-spacing: 0.06em; line-height: 1.35; transform: rotate(-5deg); font-variant-numeric: tabular-nums; }
+			#modal .ev-hero .ev-stamp.fresh { animation: stamp-in 460ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+			@keyframes stamp-in { from { transform: rotate(-12deg) scale(1.55); opacity: 0.25; } to { transform: rotate(-5deg) scale(1); opacity: 1; } }
+			@media (prefers-reduced-motion: reduce) { #modal .ev-hero .ev-stamp.fresh { animation: none; } }
 			#modal h2 { margin: 0; font-size: 30px; font-weight: 900; }
 			#modal .ev-body { padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
 			#modal .ev-body > p { margin: 0; font-size: 17px; line-height: 1.6; }
@@ -433,7 +650,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.pill.cost { background: var(--tint-cost); color: var(--tint-cost-ink); }
 			.pill.up { background: var(--tint-green); color: var(--tint-green-ink); }
 			.pill.bad { background: var(--tint-red); color: var(--tint-red-ink); }
-			#toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: rgba(23, 33, 43, 0.92); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 14px; z-index: 30; max-width: 88vw; text-align: center; }
+			#toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--pass); color: var(--pass-ink); padding: 10px 16px; border-radius: 12px; box-shadow: 0 8px 20px -8px rgba(3, 9, 22, 0.5); font-size: 14px; z-index: 30; max-width: 88vw; text-align: center; }
 		</style>
 
 		<script>
@@ -1286,7 +1503,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					top = `<div class="scene">${sceneSvg({ phase: skyPhase(loc, s.clock), weather: w.id, kind: loc.kind, tags: loc.tags })}
 						<div class="scene-top">${lvPlate}<div class="scene-right">${cash}
 						<span class="wx-pill${w.closesSea ? ' storm' : ''}">${w.icon} ${esc(w.name)} ${temps(loc, s.clock, w.id).max}°${w.closesSea ? ' · 海上关闭' : ''}</span></div></div>
-						<div class="plate"><h1>${esc(loc.name)}</h1><small title="${formatClock(s.clock)}">${time}</small></div>${thought}</div>
+						<div class="plate"><h1>${esc(loc.name)}</h1><span class="en" lang="en">${esc(loc.en)}</span><small title="${formatClock(s.clock)}">${time}</small></div>${thought}</div>
 						<div class="hud-chips"><span class="chip">${esc(role)}</span>${starHtml}${fireChip(s)}${uvChip(s)}${moodBtn}${sync}</div>`;
 				} else {
 					// 其他页：副标题 + 页名；右边现金和心情，下面一条迷你需求条
@@ -1507,7 +1724,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				else if (canWork) { title = '该上班了'; text = '状态不错，正好在工作的地方'; btn = '上班'; attr = 'data-job="work"'; }
 				else if (wishAct) { title = '完成一个心愿'; text = `「${esc(wishAct.w!.text)}」在这里就能做到`; suggestAct(wishAct.act!); }
 				else { title = '状态不错'; text = s.wishes.length ? `今天还有 ${s.wishes.length} 个心愿没完成` : '出去走走，看看会遇到什么'; btn = '去出行'; attr = 'data-tab="go"'; }
-				return `<div class="next"><span class="lbl">下一步</span><h2>${title}</h2><p>${text}</p><button ${attr}>${btn}</button></div>`;
+				return `<div class="next"><span class="lbl">下一步<i lang="en" aria-hidden="true">NEXT</i></span><h2>${title}</h2><p>${text}</p><button ${attr}>${btn}</button></div>`;
 			}
 
 			// 新手指南（第 26 轮）：前三天分步解开，做到了自动打勾；点「知道了」或在设置里关掉后不再显示（只记在本机）
@@ -2209,7 +2426,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					// 没有下一个待处理事件时，显示刚才那个事件的结果
 					const r = eventResult;
 					modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
-						<div class="ev-hero"><span class="kicker">结果</span><h2 id="ev-title">${r.icon} ${esc(r.title)}</h2></div>
+						<div class="ev-hero"><span class="ev-stamp${modalShown !== r ? ' fresh' : ''}">结果</span><h2 id="ev-title">${r.icon} ${esc(r.title)}</h2></div>
 						<div class="ev-body"><p>${esc(r.text)}</p>
 						${r.delta.length ? `<div class="pills">${r.delta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 						${r.ach.length ? `<p class="ach-line">🏅 达成成就：${r.ach.map(esc).join('、')}</p>` : ''}
@@ -2235,8 +2452,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				// 成功率：检定分 + 随机 0–60 ≥ 难度（和引擎同一个公式，只用于显示）
 				const odds = (skill: Parameters<typeof checkScore>[1], dc: number) => Math.round(Math.max(0, Math.min(1, (checkScore(s, skill).total + 60 - dc) / 60)) * 100);
 				const img = cgi['event:' + ev.id];
+				const key = `${ev.id}@${s.clock}`;
 				modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
-					<div class="ev-hero">${img ? `<img src="${esc(img)}" alt="" loading="lazy" />` : loc ? `${sceneSvg({ phase: skyPhase(loc, s.clock), weather: weatherAt(s).id, kind: loc.kind, tags: loc.tags, noFigure: true })}<i class="ev-shade"></i>` : ''}<span class="kicker">${loc ? `到达 ${esc(loc.name)} · ${formatClock(s.clock).split(' ')[1]}` : '事件'}${weatherAt(s).closesSea ? ' · 风暴天' : ''}</span><h2 id="ev-title">${ev.icon} ${esc(ev.title)}</h2></div>
+					<div class="ev-hero">${img ? `<img src="${esc(img)}" alt="" loading="lazy" />` : loc ? `${sceneSvg({ phase: skyPhase(loc, s.clock), weather: weatherAt(s).id, kind: loc.kind, tags: loc.tags, noFigure: true })}<i class="ev-shade"></i>` : ''}<span class="ev-stamp${modalShown !== key ? ' fresh' : ''}">${loc ? `到达 ${esc(loc.name)} · ${formatClock(s.clock).split(' ')[1]}` : '事件'}${weatherAt(s).closesSea ? ' · 风暴天' : ''}</span><h2 id="ev-title">${ev.icon} ${esc(ev.title)}</h2></div>
 					<div class="ev-body"><p>${esc(ev.text)}</p>
 					<div class="list">${(() => { let lit = false; return ev.choices.map((c, i) => {
 						const poor = !!c.cost && c.cost > s.cash;
@@ -2254,12 +2472,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				modal.classList.remove('hidden');
 				// 弹窗打开期间背后的页面不可点、不可聚焦；换成一个新事件时（刚打开或接着下一个）把焦点移到第一个能选的选项
 				game.inert = true;
-				const key = `${ev.id}@${s.clock}`;
 				if (modalShown !== key) { modal.querySelector<HTMLElement>('button:not([disabled])')?.focus(); sfx('event'); }
 				modalShown = key;
 			}
 
 			function render() {
+				// 开场是护照封皮的深蓝：手机状态栏跟着换色，进游戏后还原成浅色/深色主题色
+				for (const m of document.querySelectorAll?.<HTMLMetaElement>('meta[name="theme-color"]') ?? []) {
+					m.dataset.base ??= m.content;
+					m.content = state ? m.dataset.base! : '#15284d';
+				}
 				if (!state) { $('game').classList.add('hidden'); $('create').classList.remove('hidden'); return; }
 				$('create').classList.add('hidden');
 				$('game').classList.remove('hidden');
@@ -2468,7 +2690,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const f = await locate();
 				if (!f || !state) return;
 				if (state.loc !== v.loc) {
-					const g = await act({ t: 'gps', lat: f.lat, lon: f.lon });
+					const g = await act({ t: 'gps', lat: f.lat, lon: f.lon, acc: f.acc });
 					if (!g || state.pending) { render(); return; }
 				}
 				const r = await act({ t: 'venue', venue: venueId, op, lat: f.lat, lon: f.lon, acc: f.acc });
@@ -2482,7 +2704,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				navigator.geolocation.getCurrentPosition(
 					(pos) => {
 						if (!state) return;
-						act({ t: 'gps', lat: pos.coords.latitude, lon: pos.coords.longitude }).then((r) => { if (r) { if (!state!.pending) toast(r.msg); render(); } });
+						act({ t: 'gps', lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy }).then((r) => { if (r) { if (!state!.pending) toast(r.msg); render(); } });
 					},
 					() => toast('无法获取定位，请检查定位权限'),
 					{ enableHighAccuracy: true, timeout: 10000 },
@@ -2494,15 +2716,52 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let pickOrigin = ORIGINS[0].id;
 			let pickTraits: string[] = [];
 			function renderCreate() {
-				$('c-avatars').innerHTML = AVATARS.map((a) => `<button class="chip${a === pickAvatar ? ' on' : ''}" data-avatar="${a}" aria-pressed="${a === pickAvatar}" aria-label="形象 ${a}">${a}</button>`).join('');
-				$('c-origins').innerHTML = ORIGINS.map((o) => `<button class="origin${o.id === pickOrigin ? ' on' : ''}" data-origin="${o.id}" aria-pressed="${o.id === pickOrigin}">${o.icon} ${o.name} · 起始 $${o.cash}${o.vehicle !== 'none' ? ' · 有车' : ''}<small>${o.desc}</small></button>`).join('');
+				$('c-avatars').innerHTML = AVATARS.map((a) => `<button class="ac-ava${a === pickAvatar ? ' on' : ''}" data-avatar="${a}" aria-pressed="${a === pickAvatar}" aria-label="照片 ${a}">${a}</button>`).join('');
+				$('c-photo').textContent = pickAvatar;
+				$('c-origins').innerHTML = ORIGINS.map((o) => `<button class="ac-opt${o.id === pickOrigin ? ' on' : ''}" data-origin="${o.id}" aria-pressed="${o.id === pickOrigin}"><span class="ac-box" aria-hidden="true"></span><span><b>${o.icon} ${esc(o.name)}</b><small>${esc(o.desc)}</small></span><span class="ac-fx">$${o.cash}${o.vehicle !== 'none' ? '<small><br>有车</small>' : ''}</span></button>`).join('');
+				// 起步能力：出身没写的项从 5 开始（和 createPlayer 一致）；指针 0–100 映射到 -60°…60°
+				const og = ORIGINS.find((o) => o.id === pickOrigin) ?? ORIGINS[0];
+				const box = $('c-gauges');
+				const vals = Object.keys(SKILL_META).map((k) => [k, (og.skills as Record<string, number | undefined>)[k] ?? 5] as const);
+				if (!box.children?.length) {
+					box.innerHTML = vals.map(([k]) => `<li data-gauge="${k}"><svg viewBox="0 0 44 28" aria-hidden="true" focusable="false"><path class="arc" d="M5 24a17 17 0 0 1 34 0" />${[-60, -30, 0, 30, 60].map((d) => `<line class="tick" x1="22" y1="5.5" x2="22" y2="8.5" transform="rotate(${d} 22 24)" />`).join('')}<line class="needle" x1="22" y1="24" x2="22" y2="9" /><circle class="hub" cx="22" cy="24" r="2" /></svg><b></b><span>${esc(SKILL_META[k].name)}</span></li>`).join('');
+				}
+				for (const [k, v] of vals) {
+					const li = box.querySelector?.<HTMLElement>(`[data-gauge="${k}"]`);
+					if (typeof li?.querySelector !== 'function') continue;
+					(li.querySelector('.needle') as SVGElement | null)?.style.setProperty('transform', `rotate(${-60 + Math.min(100, v) * 1.2}deg)`);
+					const b = li.querySelector('b');
+					if (b) b.textContent = String(v);
+				}
 				$('c-traits').innerHTML = TRAITS.map((t) => {
 					const on = pickTraits.includes(t.id);
 					const ok = on || validTraits([...pickTraits, t.id], MAX_TRAITS);
-					return `<button class="trait${on ? ' on' : ''}" data-trait="${t.id}" aria-pressed="${on}" ${ok ? '' : 'disabled'}>${esc(t.name)}<small>${esc(t.desc)}</small></button>`;
+					return `<button class="ac-opt trait${on ? ' on' : ''}" data-trait="${t.id}" aria-pressed="${on}" ${ok ? '' : 'disabled'}><span class="ac-box" aria-hidden="true"></span><span><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></span></button>`;
 				}).join('');
-				($('c-start') as HTMLButtonElement).disabled = pickTraits.length !== MAX_TRAITS;
-				$('c-start').textContent = pickTraits.length === MAX_TRAITS ? '开始生活' : `再选 ${MAX_TRAITS - pickTraits.length} 个性格特质`;
+				const left = MAX_TRAITS - pickTraits.length;
+				$('c-trait-n').textContent = left ? `勾选 ${MAX_TRAITS} 项 · 已勾 ${pickTraits.length}` : `已勾 ${MAX_TRAITS} 项`;
+				$('c-trait-n').classList.toggle('done', !left);
+				($('c-start') as HTMLButtonElement).disabled = left !== 0;
+				$('c-start').textContent = left ? `再勾选 ${left} 个性格特质` : '盖章入境 · 开始生活';
+				const spawn = getLocation(region, region.spawn);
+				// 章上的城市写英文大写：标题字体子集只含 A–Z 和开场用到的汉字
+				$('c-stamp-city').textContent = spawn ? spawn.en.toUpperCase() : '';
+				const d = new Date();
+				$('c-stamp-date').textContent = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+			}
+			// 登机牌「填写入境卡」：滚到入境卡，焦点放在卡上（不直接弹键盘）
+			$('c-go').addEventListener('click', (e) => {
+				e.preventDefault();
+				const card = $('c-card') as HTMLElement;
+				const calm = !!document.documentElement?.classList?.contains('calm');
+				card.scrollIntoView?.({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
+				card.focus?.({ preventScroll: true });
+			});
+			/** 盖章：没有减少动态效果时让入境章落下再进游戏；测试环境、减少动效时立刻继续 */
+			function stampDown(): Promise<void> {
+				$('c-card').classList.add('stamped');
+				const calm = !!document.documentElement?.classList?.contains('calm') || typeof matchMedia !== 'function' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+				return calm ? Promise.resolve() : new Promise((r) => setTimeout(r, 700));
 			}
 			$('create').addEventListener('click', (e) => {
 				const t = (e.target as Element).closest<HTMLElement>('[data-avatar],[data-origin],[data-trait]');
@@ -2526,7 +2785,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					if (!data.ok) return toast(data.msg || '创建失败');
 					cred = c;
 					store.set(CRED_KEY, JSON.stringify(cred));
-					if (adopt(data.state)) begin();
+					if (adopt(data.state)) { await stampDown(); begin(); }
 				} catch {
 					toast('需要联网才能创建角色');
 				} finally {

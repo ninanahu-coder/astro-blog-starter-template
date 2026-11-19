@@ -25,6 +25,8 @@ import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
 import { CAPS, clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
+import { fixProblem, roundFix } from './fix.ts';
+import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
@@ -555,10 +557,15 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
  * 用手机真实坐标打卡：
  * - 落在某地点半径内且不是当前所在地 → 直接“抵达”（不花钱不耗时），并触发到达事件；
  * - 再检查 400m 内的 POI，首次打卡给奖励。
+ * 定位要过精度和瞬移检查（GPS_FIX_RULES，now 为服务端时间）；成功后记下这次定位，和真实地点共用。
+ * acc 缺省（旧客户端）直接拒绝并提示刷新：按默认精度放行等于让任何人省掉这个字段就绕过精度检查。
  */
-export function gpsCheckIn(prev: PlayerState, region: Region, lat: number, lon: number): ActionResult {
+export function gpsCheckIn(prev: PlayerState, region: Region, lat: number, lon: number, acc: number | undefined, now: number): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
-	if (!Number.isFinite(lat) || !Number.isFinite(lon)) return fail(prev, '定位无效。');
+	if (!Number.isFinite(now) || now <= 0) return fail(prev, '真实定位需要联网才能用。');
+	if (acc === undefined) return fail(prev, '页面版本过旧，刷新页面后再定位。');
+	const bad = fixProblem(prev, lat, lon, acc, now, GPS_FIX_RULES);
+	if (bad) return fail(prev, bad);
 	const hit = locateInRegion(region, lat, lon);
 	if (!hit) return fail(prev, '你的真实位置不在任何已开放地点附近。');
 	const state = clone(prev);
@@ -577,6 +584,7 @@ export function gpsCheckIn(prev: PlayerState, region: Region, lat: number, lon: 
 		msgs.push(`打卡 ${p.name}：声望 +2`);
 	}
 	if (!msgs.length) return fail(prev, '你已经在这里了，附近暂无新的打卡点。');
+	state.fix = roundFix(lat, lon, now);
 	return { ok: true, state, msg: msgs.join(' ') };
 }
 
