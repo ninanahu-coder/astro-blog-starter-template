@@ -5,11 +5,12 @@
 //   npm run earth:sim                 默认 60 天 × 每种策略 40 个种子
 //   npm run earth:sim -- --days=120 --runs=100
 //   npm run earth:sim -- --out=docs/earth-game/balance-report.md
+//   npm run earth:sim -- --origins     出身对照：每个出身跑同样三种策略（零工 / 咖啡店 / 不干活），都不带特质
 import { writeFileSync } from 'node:fs';
 import { applyAction, applyCoop, type GameAction } from '../../../src/game/core/actions.ts';
 import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
-import { createCharacter } from '../../../src/game/core/character.ts';
+import { createCharacter, ORIGINS } from '../../../src/game/core/character.ts';
 import {
 	activitiesAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
@@ -23,6 +24,7 @@ const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWit
 const DAYS = Number(arg('days', '60'));
 const RUNS = Number(arg('runs', '40'));
 const OUT = arg('out', '');
+const BY_ORIGIN = process.argv.includes('--origins');
 
 // ---------- 机器人 ----------
 interface Bot {
@@ -128,6 +130,19 @@ const PLANS: Plan[] = [
 	{ id: 'barista-coin', name: '咖啡店 + 理财：鸸鹋币（不买房）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', invest: { asset: 'emu-coin', keep: 3000 } },
 	{ id: 'barista-coop-sparse', name: '咖啡店 + 共同事件：疲惫搭档，一半时候没人（需求 40、在场 50%）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 0.5 } },
 ];
+
+// 出身对照（初始属性设计，见 docs/earth-game/initial-stats.md）：同一策略、不带特质，只换出身，看起始现金、车和能力的差别。只出报告，不改数值
+/** 对照组：不工作、不消费、不玩。出身对照里的 idle-<出身> 同样处理 */
+const isIdle = (plan: Plan) => plan.id === 'idle' || plan.id.startsWith('idle-');
+
+const ORIGIN_PLANS: Plan[] = ORIGINS.flatMap((o) => [
+	{
+		id: `gig-${o.id}`, name: `${o.name}：保守零工（珀斯，无房）`, origin: o.id, traits: [], spend: false,
+		gig: { cashTarget: 700, cashReserve: 200, minEnergy: 55, minHunger: 50, preferred: ['work-cafe', 'work-farm', 'busk', 'work-mine'] },
+	},
+	{ id: `barista-${o.id}`, name: `${o.name}：咖啡店（珀斯，合租）`, origin: o.id, traits: [], job: { loc: 'perth', career: 'barista' }, home: 'room' },
+	{ id: `idle-${o.id}`, name: `${o.name}：不干活（对照组）`, origin: o.id, traits: [] },
+]);
 
 function mulberry(seed: number) {
 	let a = seed >>> 0;
@@ -407,7 +422,7 @@ function step(b: Bot) {
 	}
 
 	// 3. 花钱（阶段 A）：升职卡在能力上就上课；钱多就体验、买车
-	if (plan.spend !== false && plan.id !== 'idle') {
+	if (plan.spend !== false && !isIdle(plan)) {
 		if (s.job && s.cash > 600) {
 			const next = getCareer(s.job.career)!.levels[s.job.level + 1];
 			const lacking = SKILL_KEYS.filter((k) => (next?.req?.skills?.[k] ?? 0) > s.skills[k]);
@@ -448,7 +463,7 @@ function step(b: Bot) {
 	if (plan.coop && s.needs.energy >= 35 && s.needs.hunger >= 35 && tryCoop(b)) return;
 
 	// 4. 没有正式工作的人靠零工
-	if (!s.job && plan.id !== 'idle' && s.cash < 400) {
+	if (!s.job && !isIdle(plan) && s.cash < 400) {
 		if (tryGigs(b, GIG_IDS)) return;
 	}
 
@@ -478,7 +493,7 @@ function step(b: Bot) {
 		}
 	}
 	if (s.job && s.loc === s.job.loc && act(b, 'rest')) return; // 有工作就在附近等开工
-	for (const f of ['hike', 'swim', 'busk']) if (plan.id !== 'idle' && act(b, f)) return;
+	for (const f of ['hike', 'swim', 'busk']) if (!isIdle(plan) && act(b, f)) return;
 	act(b, 'rest'); // 兜底：一定能做，保证时间往前走
 }
 
@@ -531,7 +546,7 @@ const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
 const coopRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
-for (const plan of PLANS) {
+for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, i + 1));
 	const at = (d: number) => bots.map((b) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)]);
 	const endD = Math.min(DAYS, 60);
@@ -557,7 +572,7 @@ for (const plan of PLANS) {
 		const kindText = Object.entries(kinds).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('，') || '—';
 		coopRows.push(`| ${plan.name} | ${n.toFixed(1)} | ${(ok * 100).toFixed(0)}% | ${money(flow.coop ?? 0)} | ${kindText} |`);
 	}
-	if (plan.id === 'drifter' || plan.id === 'drifter-safe') {
+	if (plan.id === 'drifter' || plan.gig) {
 		const perDay = RUNS * DAYS;
 		const started = bots.reduce((n, b) => n + b.stats.diag.gigStarted, 0);
 		const completed = bots.reduce((n, b) => n + b.stats.diag.gigCompleted, 0);

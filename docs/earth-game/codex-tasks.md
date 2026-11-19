@@ -42,6 +42,12 @@
    npm run earth:sim -- --runs=100 --days=180 --out=docs/earth-game/balance-report.md
    ```
 
+改了出身（`ORIGINS`）的 PR 另跑一次出身对照，看同一策略下各出身的差别，问题清单见 [initial-stats.md](initial-stats.md) §6：
+
+```bash
+npm run earth:sim -- --origins --runs=100 --days=180 --out=docs/earth-game/origins-report.md
+```
+
 调参建议只写在报告里，**不要直接改数值**：数值改动由 Claude Code 按报告实施，再由 Codex 复核。
 
 ## 任务三：OpenClaw 数据的分析
