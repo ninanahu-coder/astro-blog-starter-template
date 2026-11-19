@@ -666,6 +666,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { fmtHalf } from '../game/ui/numfmt.ts';
 			import { setHtml } from '../game/ui/dom.ts';
+			import { worldCard } from '../game/ui/world.ts';
+			import { loanRateMult, rentOn } from '../game/core/world.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
@@ -1864,13 +1866,13 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const cookWhy = homeActionBlocked(s, 'cook');
 				const relaxWhy = homeActionBlocked(s, 'relax');
 				const homeHtml = homeHere || rentals.length ? `<div class="card"><h3>住处</h3>
-					${homeHere ? `<div class="row" style="margin-top:8px"><span class="body">你的${esc(homeHere.name)}<small>${s.home!.owned ? '自有房产，不交房租' : `每周 $${homeHere.rentWeek}`} · ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算 · 心情 +${homeComfort(s)}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>
+					${homeHere ? `<div class="row" style="margin-top:8px"><span class="body">你的${esc(homeHere.name)}<small>${s.home!.owned ? '自有房产，不交房租' : `每周 $${rentOn(homeHere.rentWeek, dayOf(s.clock))}`} · ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算 · 心情 +${homeComfort(s)}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>
 					<div class="inline" style="margin-top:8px"><button data-home="cook" ${cookWhy ? 'disabled' : ''}>做饭 $${HOME_COOK.cost}</button><button data-home="relax" ${relaxWhy ? 'disabled' : ''}>放松</button></div>
 					${cookWhy || relaxWhy ? `<p style="margin-top:4px">${esc([...new Set([cookWhy, relaxWhy].filter(Boolean))].join('；'))}</p>` : ''}
 					<details style="margin-top:8px"><summary class="muted">添置家具（已有 ${Object.keys(s.home!.furniture).length}/${Object.keys(FURNITURE_SLOTS).length} 类，折现值 $${furnitureValue(s)}）</summary>
 					${furnitureAt(s).map(({ item, owned, net, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${owned ? '✅ ' : ''}${esc(FURNITURE_SLOTS[item.slot])} · ${esc(item.name)}<small>${esc(item.desc)}${!owned && net !== item.price ? ` 换购价 $${net}` : ''}</small></span>${owned ? `<button data-furn="sell" data-slot="${item.slot}">卖</button>` : `<button data-furn="buy" data-furn-id="${item.id}" ${blocked ? 'disabled' : ''}>$${item.price}</button>`}</div>`).join('')}
 					<p style="margin-top:8px" class="muted">成套摆放有额外心情：${furnitureSets(s).map(({ set, have, done }) => `${done ? '✅ ' : ''}${esc(set.name)}（${set.items.map((id) => esc(getFurniture(id)?.name ?? id)).join(' + ')}，${have}/${set.items.length}，心情 +${set.comfort}）`).join('；')}</p></details>` : ''}
-					${rentals.filter((o) => !(homeHere && o.home.id === s.home!.type)).map(({ home, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(home.name)} · $${home.rentWeek}/周<small>${esc(blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}`)}</small></span><button data-home="rent" data-home-id="${home.id}" ${blocked ? 'disabled' : ''}>${s.home ? '搬来' : '租下'}</button></div>`).join('')}</div>` : '';
+					${rentals.filter((o) => !(homeHere && o.home.id === s.home!.type)).map(({ home, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(home.name)} · $${rentOn(home.rentWeek, dayOf(s.clock))}/周<small>${esc(blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}`)}</small></span><button data-home="rent" data-home-id="${home.id}" ${blocked ? 'disabled' : ''}>${s.home ? '搬来' : '租下'}</button></div>`).join('')}</div>` : '';
 				const myVeh = getVehicle(s.vehicle);
 				const exps = experiencesAt(s, region);
 				const expHtml = exps.length ? `<div class="card"><h3>体验</h3>${exps.map(({ exp, first, blocked }) => `
@@ -1896,9 +1898,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const dealer = dealerAt(s, region);
 				const props = propertiesAt(s, region);
 				const propHtml = props.length ? `<div class="card"><h3>房产</h3>${props.map(({ property: pr, owned, down, blockedCash, blockedLoan }) => `
-					<div style="margin-top:10px"><div class="row"><span class="body">${owned ? '🔑 ' : ''}${esc(pr.name)} · $${pr.price.toLocaleString()}<small>${esc(pr.desc)} 物业费 $${pr.weekly}/周，出租 $${pr.rentIncome}/周。</small></span></div>
+					<div style="margin-top:10px"><div class="row"><span class="body">${owned ? '🔑 ' : ''}${esc(pr.name)} · $${pr.price.toLocaleString()}<small>${esc(pr.desc)} 物业费 $${pr.weekly}/周，出租 $${rentOn(pr.rentIncome, dayOf(s.clock))}/周。</small></span></div>
 					${owned ? '<p style="margin-top:4px">已是你的房产，在「角色」页管理。</p>' : `<div class="inline" style="margin-top:6px"><button data-prop="buy" data-prop-id="${pr.id}" ${blockedCash ? 'disabled' : ''}>全款买</button><button data-prop="buyloan" data-prop-id="${pr.id}" ${blockedLoan ? 'disabled' : ''}>贷款买（首付 $${down.toLocaleString()}）</button></div>
-					<p style="margin-top:4px">${esc(blockedLoan ?? `贷款 $${(pr.price - down).toLocaleString()}，每周还约 $${loanPayment(pr, pr.price - down)}，约 ${weeksToPayOff(pr, pr.price - down)} 周还清。`)}</p>`}</div>`).join('')}</div>` : '';
+					<p style="margin-top:4px">${esc(blockedLoan ?? `贷款 $${(pr.price - down).toLocaleString()}，每周还约 $${loanPayment(pr, pr.price - down, loanRateMult(dayOf(s.clock)))}，约 ${weeksToPayOff(pr, pr.price - down)} 周还清。`)}</p>`}</div>`).join('')}</div>` : '';
 				const dealerHtml = dealer.length ? `<div class="card"><h3>车行</h3>${myVeh ? `<p>你的${esc(myVeh.name)}可折抵 $${resaleValue(myVeh.id)}</p>` : ''}${dealer.map(({ vehicle, net, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="ico">${vehicle.icon}</span><span class="body">${esc(vehicle.name)} · $${vehicle.price.toLocaleString()}<small>${esc(blocked ?? `${vehicle.desc}${myVeh ? ` 折抵后付 $${net.toLocaleString()}` : ''}`)}</small></span><button data-veh="buy" data-veh-id="${vehicle.id}" ${blocked ? 'disabled' : ''}>${myVeh ? '换' : '买'}</button></div>`).join('')}
 					${myVeh ? (() => { const why = sellBlocked(s); return `<div class="inline" style="margin-top:8px"><button data-veh="sell" ${why ? 'disabled' : ''}>卖掉${esc(myVeh.name)}（$${resaleValue(myVeh.id)}）</button></div>${why && !why.includes('营业') ? `<p style="margin-top:4px">${esc(why)}</p>` : ''}`; })() : ''}</div>` : '';
@@ -2026,8 +2028,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const pr = getProperty(op.id);
 					if (!pr) return '';
 					const living = s.home?.owned === op.id;
-					const status = living ? '自住' : op.rented ? (op.fresh ? `刚挂牌，下个结算日后起收租 $${pr.rentIncome}/周` : `出租中 +$${pr.rentIncome}/周`) : '空置';
-					return `<div style="margin-top:10px"><div class="row"><span class="body">${esc(pr.name)} · ${esc(getLocation(region, pr.loc)!.name)}<small>${status} · 物业费 $${pr.weekly}/周${op.loan ? ` · 贷款 $${op.loan.toLocaleString()}，每周还 $${loanPayment(pr, op.loan)}` : ' · 无贷款'}${op.missed ? ` · ⚠️ 已欠款 ${op.missed} 次（超过 ${FINANCE.graceWeeks} 次强制卖房）` : ''}</small></span><span class="meta">卖出到手<br/>$${saleProceeds(pr, op.loan).toLocaleString()}</span></div>
+					const status = living ? '自住' : op.rented ? (op.fresh ? `刚挂牌，下个结算日后起收租 $${rentOn(pr.rentIncome, dayOf(s.clock))}/周` : `出租中 +$${rentOn(pr.rentIncome, dayOf(s.clock))}/周`) : '空置';
+					return `<div style="margin-top:10px"><div class="row"><span class="body">${esc(pr.name)} · ${esc(getLocation(region, pr.loc)!.name)}<small>${status} · 物业费 $${pr.weekly}/周${op.loan ? ` · 贷款 $${op.loan.toLocaleString()}，每周还 $${loanPayment(pr, op.loan, loanRateMult(dayOf(s.clock)))}` : ' · 无贷款'}${op.missed ? ` · ⚠️ 已欠款 ${op.missed} 次（超过 ${FINANCE.graceWeeks} 次强制卖房）` : ''}</small></span><span class="meta">卖出到手<br/>$${saleProceeds(pr, op.loan).toLocaleString()}</span></div>
 					<div class="inline" style="margin-top:6px;flex-wrap:wrap">${living ? '' : `<button data-prop="movein" data-prop-id="${op.id}">搬进去</button>`}<button data-prop="rentout" data-prop-id="${op.id}">${op.rented ? '停止出租' : '出租'}</button>${op.loan ? `<button data-prop="repay" data-prop-id="${op.id}">提前还贷</button>` : ''}<button data-prop="sell" data-prop-id="${op.id}">卖掉</button></div></div>`;
 				}).join('');
 				const life = `
@@ -2111,6 +2113,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						return `<div class="card"><h3>每日奖励 · 连续 ${s.daily.streak} 天</h3><div class="streak" role="img" aria-label="这一轮 7 天里已到第 ${pos} 天">${dots}</div>
 							<p style="margin-top:8px">明天接着来能领 $${tomorrow.cash}${tomorrow.full ? `（满 ${DAILY.cap} 天大礼，含额外 $${DAILY.bonus}）` : ''}。断一天从头算（$${DAILY.base} 起）。</p></div>`;
 					})(),
+					world: worldCard(dayOf(s.clock)), // 世界事件（第 43 批）
 					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>`,
 					album: `<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>`,
 					life: `<div class="card"><h3>工作与住处</h3>${life}</div>`,
@@ -2131,7 +2134,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const lvHtml = `<div class="card grow-head"><span class="lv-badge" aria-hidden="true">${lv.lv}</span><span class="name"><b>Lv${lv.lv} ${esc(lv.title)}</b><span>声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next} · 离下一级还差 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ' · 已到最高级'}</span>${lv.next !== null ? `<span class="bar" role="img" aria-label="升级进度 ${pct}%"><i style="width:${pct}%"></i></span>` : ''}</span></div>`;
 					return lvHtml + ['daily', 'ach', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
 				}
-				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'life', 'bag'], people: ['rels'] };
+				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'life', 'bag', 'world'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
 				// 「更新」页（第 48 轮）：打开时记下已读；没看过的批次在标签上标「新」
 				void loadNews();

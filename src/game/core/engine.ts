@@ -13,6 +13,7 @@ import { NPCS } from '../data/npcs.ts';
 import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../data/careers.ts';
 import { HOMES } from '../data/housing.ts';
 import { PROPERTIES } from '../data/properties.ts';
+import { careerPayMult, fuelMult, hiringFrozen, loanRateMult, rentOn, type FareKind } from './world.ts';
 import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, saleProceeds, weeklyInterest, weeklyPrincipal } from './finance.ts';
 import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } from '../data/furniture.ts';
 import { BREAKDOWN, CAR_KM_MAX, DEALER_HOURS, DEALER_TAG, GARAGE, SERVICE_KM, VEHICLES } from '../data/vehicles.ts';
@@ -220,6 +221,7 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 	const straight = haversineKm(from.lat, from.lon, to.lat, to.lon);
 	let km = straight, minutes = 0, cost = 0, label = '', available = true;
 	let reason: string | undefined;
+	let fare: FareKind = r.mode === 'air' ? 'air' : r.mode === 'ferry' ? 'ferry' : r.mode === 'track' ? 'track' : 'road';
 	if (r.mode === 'air') {
 		minutes = 60 + (km / 750) * 60;
 		cost = 120 + km * 0.25;
@@ -239,6 +241,7 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 			cost = km * (v?.costPerKm ?? 0.22);
 		} else if (!v) {
 			label = '🚌 长途巴士';
+			fare = 'bus';
 			minutes = (km / 70) * 60 + 20;
 			cost = 8 + km * 0.12;
 		} else {
@@ -247,7 +250,7 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 			cost = km * v.costPerKm;
 		}
 	}
-	cost = Math.round(cost * costMult(state));
+	cost = Math.round(cost * fuelMult(dayOf(state.clock), fare) * costMult(state)); // 世界事件：油价
 	if (available && state.cash < cost) { available = false; reason = '现金不足'; }
 	return { to: to.id, mode: r.mode, label, km: Math.round(km), minutes: Math.round(minutes), cost, available, reason };
 }
@@ -877,7 +880,7 @@ export function careersAt(state: PlayerState, region: Region): CareerOffer[] {
 	if (!loc) return [];
 	return CAREERS.filter((c) => matches(c.where, loc)).map((career) => ({
 		career,
-		blocked: state.job?.career === career.id && state.job.loc === loc.id ? '你已经在这里工作' : unmet(state, career.levels[0]),
+		blocked: state.job?.career === career.id && state.job.loc === loc.id ? '你已经在这里工作' : hiringFrozen(career.id, dayOf(state.clock)) ?? unmet(state, career.levels[0]),
 	}));
 }
 
@@ -891,7 +894,7 @@ export function certBonus(state: PlayerState, careerId: string): number {
 /** 这份职业某个等级的每班工资（含证书加薪，不含表现奖金） */
 export function careerPay(state: PlayerState, careerId: string, level: number): number {
 	const lv = getCareer(careerId)?.levels[level];
-	return lv ? Math.round(lv.pay * (1 + certBonus(state, careerId))) : 0;
+	return lv ? Math.round(lv.pay * (1 + certBonus(state, careerId)) * careerPayMult(careerId, dayOf(state.clock))) : 0; // 世界事件：矿业景气
 }
 
 /** 当前工作能否上班；可以返回 undefined */
@@ -1024,9 +1027,10 @@ function weeklyTick(state: PlayerState, region: Region) {
 		if (state.home && !state.home.owned) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
-			if (state.cash >= def.rentWeek) {
-				state.cash -= def.rentWeek;
-				log(state, `周结算：支付${place}${def.name}房租 $${def.rentWeek}。`);
+			const rent = rentOn(def.rentWeek, state.nextWeek - 7); // 世界事件：租金指数，按正在结算的这个结算日算
+			if (state.cash >= rent) {
+				state.cash -= rent;
+				log(state, `周结算：支付${place}${def.name}房租 $${rent}。`);
 			} else {
 				const got = vacate(state);
 				addMoodlet(state, 'evicted');
@@ -1063,7 +1067,7 @@ function campBlocks(state: PlayerState, nextVehicle: string): string | undefined
 /** 现在租房要付的首期：按到下一个结算日的天数折算（至少一天） */
 export function firstRent(state: PlayerState, home: HomeDef): number {
 	const days = Math.max(1, Math.min(7, state.nextWeek - dayOf(state.clock)));
-	return Math.round((home.rentWeek * days) / 7);
+	return Math.round((rentOn(home.rentWeek, dayOf(state.clock)) * days) / 7);
 }
 
 export interface HomeOffer {
@@ -1095,7 +1099,7 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string): Act
 	state.home = { type: homeId, loc: state.loc, furniture: {} };
 	addMoodlet(state, 'new-home');
 	if (advance(state, 60, region)) return collapsedResult(state);
-	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}，之后每周 $${offer.home.rentWeek}${sold ? `；旧家具折现 $${sold}` : ''}。`;
+	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}，眼下每周 $${rentOn(offer.home.rentWeek, dayOf(prev.clock))}（随租金行情变）${sold ? `；旧家具折现 $${sold}` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1505,6 +1509,7 @@ export function netWorth(state: PlayerState): number {
 
 /** 每周结算里的房产部分。顺序：租金收入 → 维修 → 物业费与还款 → 断供处理 */
 function settleProperties(state: PlayerState, region: Region) {
+	const day = state.nextWeek - 7; // 正在结算的这个结算日（weeklyTick 已经把 nextWeek 推到下一个）
 	for (const p of [...state.properties]) {
 		const def = getProperty(p.id);
 		if (!def) continue;
@@ -1515,8 +1520,9 @@ function settleProperties(state: PlayerState, region: Region) {
 		} else if (p.rented) {
 			if (roll(state) < FINANCE.vacancy) log(state, `周结算：${def.name}这周空置，没有租金。`);
 			else {
-				state.cash += def.rentIncome;
-				log(state, `周结算：${def.name}租金收入 $${def.rentIncome}。`);
+				const income = rentOn(def.rentIncome, day); // 世界事件：租金指数
+				state.cash += income;
+				log(state, `周结算：${def.name}租金收入 $${income}。`);
 			}
 			if (roll(state) < FINANCE.repairChance) {
 				const [lo, hi] = repairRange(def);
@@ -1525,7 +1531,7 @@ function settleProperties(state: PlayerState, region: Region) {
 				log(state, `${def.name}的租客报修，花了 $${cost}。`);
 			}
 		}
-		const interest = weeklyInterest(p.loan);
+		const interest = weeklyInterest(p.loan, loanRateMult(day)); // 世界事件：利率
 		const principal = weeklyPrincipal(def, p.loan);
 		const due = def.weekly + (p.loan > 0 ? interest + principal : 0);
 		if (state.cash >= due) {
@@ -1592,7 +1598,7 @@ export function buyProperty(prev: PlayerState, region: Region, id: string, withL
 	state.respect += 5;
 	if (advance(state, 120, region)) return collapsedResult(state);
 	const msg = withLoan
-		? `付了 $${paid} 首付买下${def.name}，贷款 $${def.price - paid}，每周还款约 $${loanPayment(def, def.price - paid)}。`
+		? `付了 $${paid} 首付买下${def.name}，贷款 $${def.price - paid}，每周还款约 $${loanPayment(def, def.price - paid, loanRateMult(dayOf(prev.clock)))}。`
 		: `全款 $${paid} 买下了${def.name}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
@@ -1649,7 +1655,7 @@ export function toggleRentOut(prev: PlayerState, id: string): ActionResult {
 		const sold = state.home?.owned === id ? vacate(state) : 0;
 		mine.rented = true;
 		mine.fresh = true;
-		msg = `${def.name}挂牌出租，下个结算日之后开始收租，每周 $${def.rentIncome}${sold ? `；搬出时家具折现 $${sold}` : ''}。`;
+		msg = `${def.name}挂牌出租，下个结算日之后开始收租，眼下每周 $${rentOn(def.rentIncome, dayOf(state.clock))}（随租金行情变）${sold ? `；搬出时家具折现 $${sold}` : ''}。`;
 	}
 	log(state, msg);
 	return { ok: true, state, msg };

@@ -8,6 +8,8 @@ import { VEHICLES } from '../data/vehicles.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { propertyDue } from './finance.ts';
 import { weatherAt } from './weather.ts';
+import { dayOf } from './time.ts';
+import { loanRateMult, rentOn } from './world.ts';
 import { MOODLETS } from '../data/moodlets.ts';
 import type { MoodletDef } from './types.ts';
 import type { ItemDef, NeedKey, PlayerState, SkillKey, TraitDef, TraitMods } from './types.ts';
@@ -61,11 +63,12 @@ export interface WeeklyCosts {
 
 /** 每周固定开销：房租（住自有房时为 0）+ 车辆保险保养 + 房产的物业费与还款。不含租金收入 */
 export function weeklyCosts(state: PlayerState): WeeklyCosts {
-	const rent = state.home && !state.home.owned ? (HOMES.find((h) => h.id === state.home!.type)?.rentWeek ?? 0) : 0;
+	const day = dayOf(state.clock);
+	const rent = state.home && !state.home.owned ? rentOn(HOMES.find((h) => h.id === state.home!.type)?.rentWeek ?? 0, day) : 0; // 世界事件：租金指数
 	const vehicle = VEHICLES.find((v) => v.id === state.vehicle)?.weekly ?? 0;
 	const property = state.properties.reduce((sum, p) => {
 		const def = PROPERTIES.find((d) => d.id === p.id);
-		return sum + (def ? propertyDue(def, p) : 0);
+		return sum + (def ? propertyDue(def, p, loanRateMult(day)) : 0); // 世界事件：利率
 	}, 0);
 	return { rent, vehicle, property, total: rent + vehicle + property };
 }
