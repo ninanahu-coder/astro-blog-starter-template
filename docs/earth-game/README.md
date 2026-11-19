@@ -205,6 +205,8 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 
 审查规则写在仓库根的 [`AGENTS.md`](../../AGENTS.md)。在 Codex 里为本仓库开启 GitHub 代码审查后，PR 上评论 `@codex review` 即可触发。
 
+威胁模型、安全问题清单（含严重性、复现条件、修复状态）和限流参数见 [`security-review.md`](security-review.md)（v40）。限流工具在 `src/game/server/ratelimit.ts`，静态页安全响应头在 `public/_headers`。
+
 ## 9. 路线图
 
 50 轮制作计划（[plan-50.md](plan-50.md)，2026-11-16 到 11-18）已全部做完，总结见 [summary-50.md](summary-50.md)。
