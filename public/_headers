@@ -1,0 +1,9 @@
+# 静态页面的安全响应头（Cloudflare Workers 静态资源读这个文件；安全加固 v40，见 docs/earth-game/security-review.md）
+# CSP 只放不会挡住现有页面的指令：禁止被别的网站嵌进框架（点击劫持）、禁止改 <base>、禁止插件、表单只能提交到本站。
+# script-src 暂不收紧：页面有内联脚本，地图库要用 blob: worker，收紧前要先在真机上过一遍（见文档「后续」）。
+/*
+  Content-Security-Policy: frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), payment=(), usb=(), geolocation=(self)
