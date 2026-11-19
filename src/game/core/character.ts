@@ -1,5 +1,6 @@
 // 角色创建与存档校验。初始属性参考开放世界动作游戏的“能力条”思路：
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
+import { migrateSave } from './save.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type { Home, Job, OwnedProperty, Needs, PlayerState, Relation, Skills, Vehicle } from './types.ts';
 import { ITEMS } from '../data/items.ts';
@@ -209,9 +210,9 @@ export interface SanitizeOpts {
 }
 
 export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: SanitizeOpts = {}): PlayerState | null {
-	if (!raw || typeof raw !== 'object') return null;
-	const r0 = raw as Record<string, any>;
-	if (r0.v !== 1 || typeof r0.id !== 'string' || typeof r0.loc !== 'string') return null;
+	// 先认格式版本：旧版本按迁移表升上来，比这版代码新的尽量读（规范见 save.ts、docs/earth-game/save-sync.md §5）
+	const r0 = migrateSave(raw) as Record<string, any> | null;
+	if (!r0 || typeof r0.id !== 'string' || typeof r0.loc !== 'string') return null;
 	if (!/^[a-zA-Z0-9_-]{6,40}$/.test(r0.id)) return null;
 	let r = r0;
 	if (knownLocs && !knownLocs.has(r.loc)) {

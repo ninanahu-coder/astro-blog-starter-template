@@ -36,6 +36,7 @@ src/game/data/* ──▶ prompts.mjs ──▶ 远程 ComfyUI ──▶ cgi/*.p
 src/game/
   core/types.ts       全部数据结构（PlayerState / Region / GameEvent / Activity / Effect）
   core/character.ts   出身、初始属性、存档校验 sanitizeState()
+  core/save.ts        存档格式版本、迁移、来回部署时保留别的分支加的字段（规范见 save-sync.md §5）
   core/engine.ts      规则引擎：travel / performActivity / resolveEvent / gpsCheckIn（纯函数、确定性）
   core/geo.ts         距离、地图投影、真实坐标 → 游戏地点
   core/formulas.ts    派生属性（体质、吸引力、状态系数……）与真实地点动作的公式
