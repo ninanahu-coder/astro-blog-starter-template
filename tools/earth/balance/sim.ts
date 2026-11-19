@@ -19,6 +19,8 @@ import { weatherAt } from '../../../src/game/core/weather.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
+import { canWork, ieltsAt, visaKindNow, visaOptions } from '../../../src/game/core/immigration.ts';
+import { VISA_RULES } from '../../../src/game/data/visas.ts';
 
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
 const DAYS = Number(arg('days', '60'));
@@ -49,6 +51,10 @@ interface Bot {
 		coops: number;
 		coopOk: number;
 		coopKinds: Record<string, number>;
+		/** 第 43 批：签证过期（不能工作）的天数、拿到 PR 的游戏日、考雅思次数 */
+		visaExpiredDays: number;
+		prDay?: number;
+		ielts: number;
 	};
 }
 
@@ -356,6 +362,32 @@ function tryCoop(b: Bot): boolean {
 }
 
 /** 一步决策：先保命，再上班，再满足需求，最后按策略消磨时间 */
+/**
+ * 第 43 批的签证策略（简单、贪心）：能批的路线按 PR > 491 > 482 > 第二次 485 > 485 的顺序申请（过期了才续读学生签）；
+ * 毕业生签证只差雅思时在城市里考雅思，钱留够申请费 + $300。
+ */
+const VISA_ORDER = ['ens', 'skilled', 'state', 'regionalPr', 'regional', 'sponsored', 'graduate2', 'graduate', 'student'];
+function stepVisa(b: Bot): boolean {
+	const s = b.s;
+	const now = visaKindNow(s);
+	if (now === 'none' || now === 'pr') return false;
+	const opts = visaOptions(s, WA);
+	for (const id of VISA_ORDER) {
+		if (id === 'student' && now !== 'expired') continue;
+		if (id === 'graduate2' && (s.visa.until - dayOf(s.clock)) > 20) continue; // 第一次 485 快到期才续
+		const o = opts.find((x) => x.route.id === id && !x.blocked);
+		if (o && tryAct(b, { t: 'visa', op: 'apply', route: id })) return true;
+	}
+	const grad = opts.find((x) => x.route.id === 'graduate');
+	const wantIelts = s.visa.ielts < VISA_RULES.graduate.minIelts && (grad?.blocked?.includes('雅思') || (s.visa.course && s.visa.course.end - dayOf(s.clock) < 30));
+	const t = wantIelts ? ieltsAt(s, WA) : null;
+	if (t && !t.blocked && s.cash > t.fee + 1300 + 300 && s.needs.energy > 40 && tryAct(b, { t: 'visa', op: 'ielts' })) {
+		b.stats.ielts++;
+		return true;
+	}
+	return false;
+}
+
 function step(b: Bot) {
 	const s = b.s;
 	const plan = b.plan;
@@ -393,6 +425,9 @@ function step(b: Bot) {
 		if (act(b, 'sleep-camp')) return;
 	}
 	if (s.needs.hygiene < 25 && act(b, 'shower')) return;
+
+	// 1.5 签证（第 43 批）：只有留学生出身走签证路线
+	if (!isIdle(plan) && stepVisa(b)) return;
 
 	// 2. 找工作、租房、去上班
 	if (plan.job) {
@@ -482,7 +517,7 @@ function runBot(plan: Plan, seed: number): Bot {
 	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: WA.id, spawn: WA.spawn, seed });
 	const b: Bot = {
 		s, plan, rng: mulberry(seed * 7919),
-		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), coops: 0, coopOk: 0, coopKinds: {} },
+		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0 },
 	};
 	const end = s.clock + DAYS * 1440;
 	let lastDay = dayOf(s.clock);
@@ -498,6 +533,8 @@ function runBot(plan: Plan, seed: number): Bot {
 			lastDay++;
 			b.stats.cashByDay.push(b.s.cash);
 			if (b.s.cash < 20) b.stats.daysBroke++;
+			if (!canWork(b.s)) b.stats.visaExpiredDays++;
+			if (b.stats.prDay === undefined && b.s.visa.kind === 'pr') b.stats.prDay = lastDay;
 		}
 	}
 	// 每个机器人都必须跑满目标天数：卡住的运行会让汇总失真（缺的天按最后一个样本补、分母却按满天数算）
@@ -526,6 +563,7 @@ const skillRows: [string, number[]][] = [];
 const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
 const coopRows: string[] = [];
+const visaRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
 for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, i + 1));
@@ -552,6 +590,12 @@ for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 		for (const b of bots) for (const [k, v] of Object.entries(b.stats.coopKinds)) kinds[k] = (kinds[k] ?? 0) + v / RUNS;
 		const kindText = Object.entries(kinds).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('，') || '—';
 		coopRows.push(`| ${plan.name} | ${n.toFixed(1)} | ${(ok * 100).toFixed(0)}% | ${money(flow.coop ?? 0)} | ${kindText} |`);
+	}
+	if (plan.origin === 'student') {
+		const kinds: Record<string, number> = {};
+		for (const b of bots) kinds[b.s.visa.kind] = (kinds[b.s.visa.kind] ?? 0) + 1;
+		const prs = bots.map((b) => b.stats.prDay).filter((d): d is number => d !== undefined);
+		visaRows.push(`| ${plan.name} | ${Object.entries(kinds).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${k} ${v}`).join('，')} | ${prs.length} / ${prs.length ? `第 ${pct(prs, 0.5)} 天` : '—'} | ${avg(bots.map((b) => b.stats.visaExpiredDays)).toFixed(1)} | ${avg(bots.map((b) => b.stats.ielts)).toFixed(1)} |`);
 	}
 	if (plan.id === 'drifter' || plan.gig) {
 		const perDay = RUNS * DAYS;
@@ -613,6 +657,14 @@ out();
 out('| 策略 | 参加次数/人 | 成功率 | 每人每天净现金 | 各种类次数/人 |');
 out('| --- | --- | --- | --- | --- |');
 for (const row of coopRows) out(row);
+out();
+out('## 签证路线（第 43 批，只有留学生出身）');
+out();
+out('机器人按 stepVisa 的贪心顺序申请（见上面的注释）。过期天数 = 当天结束时签证已过期、不能工作的天数。数值全部待平衡。');
+out();
+out('| 策略 | 期末签证（人数） | 拿到 PR（人 / 中位天数） | 过期天数/人 | 雅思次数/人 |');
+out('| --- | --- | --- | --- | --- |');
+for (const row of visaRows) out(row);
 out();
 out('诊断口径：零工“完成”不含途中晕倒且拿不到工资的动作；未开工只统计现金已低于各策略触发线、但因生存门槛或当前地点/时段无法开工的决策。晕倒原因按动作开始状态和该动作耗时回算；“其他”包括事件受伤。当前四种零工都不受天气关闭，因此天气项应为 0。');
 out();

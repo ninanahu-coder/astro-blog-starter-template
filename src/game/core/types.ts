@@ -1,5 +1,6 @@
 // 「地球人生 / Terra Life」核心类型 —— 前端、Durable Object、测试、数据管线共用。
 // 这里只放纯数据结构，不依赖 DOM / Workers API。
+import type { VisaKind } from '../data/visas.ts';
 
 export const NEED_KEYS = ['hunger', 'energy', 'hygiene', 'fun', 'social'] as const;
 export type NeedKey = (typeof NEED_KEYS)[number];
@@ -516,9 +517,27 @@ export interface PlayerState {
 	clockIn: { venue: string; at: number; career?: string } | null; // 真实打卡上班：哪个地点、几点打的卡；career 是按哪份职业打的卡，没有就是零工
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	workDay: number; // 最近一次算过班次的游戏日，−1 表示还没上过；跟人走，不随换工作重置
+	visa: VisaState; // 签证路线（第 43 批，docs/earth-game/visa.md）；非留学生出身 kind 为 'none'
 	journal: JournalEntry[];
 	seed: number;
 	rev: number; // 存档版本号，云同步用
+}
+
+/** 签证路线的存档（第 43 批）。日子都是游戏日（dayOf），−1 表示没有 */
+export interface VisaState {
+	kind: VisaKind;
+	until: number; // 签证到期日（含这一天）；none / pr / expired 为 −1
+	since: number; // 当前签证批下来的那天
+	age0: number; // 第 0 天的年龄；每 VISA_RULES.daysPerYear 天长一岁。none 为 0
+	ielts: number; // 雅思总分 0–9，半分一档；0 表示没考过
+	degree: 'none' | 'bachelor' | 'master'; // 在澳洲拿到的最高学历
+	course: { end: number; award: 'bachelor' | 'master' } | null; // 正在读的课程：哪天结束、毕业拿什么
+	exp: number; // 在清单职业里攒的工作日数（每个游戏日最多 1）
+	occ: string | null; // 最近一次算进经验的职业 id
+	sponsor: { career: string; days: number } | null; // 482：担保的职业、在担保下上了几天班
+	expAt: number; // 当前签证批下来时的 exp（191 看持 491 期间上了几天班）
+	had: VisaKind[]; // 拿过的签证（第二次 485 之类只能一次）
+	warned: boolean; // 这张签证到期前提醒过没有
 }
 
 export interface ActionResult {

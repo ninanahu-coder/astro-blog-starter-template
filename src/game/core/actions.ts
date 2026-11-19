@@ -14,6 +14,8 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { VISA_ROUTES } from '../data/visas.ts';
+import { applyVisa, settleVisa, takeIelts, visaWorkBlocked } from './immigration.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -39,7 +41,9 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
-	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
+	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number }
+	| { t: 'visa'; op: 'apply'; route: string }
+	| { t: 'visa'; op: 'ielts' };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk'];
@@ -93,6 +97,9 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'cert':
 		case 'experience':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
+		case 'visa':
+			if (a.op === 'ielts') return { t: 'visa', op: 'ielts' };
+			return a.op === 'apply' && typeof a.route === 'string' && VISA_ROUTES.some((r) => r.id === a.route) ? { t: 'visa', op: 'apply', route: a.route } : null;
 		case 'property':
 			if (!str(a.id)) return null;
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
@@ -105,6 +112,8 @@ export function parseAction(raw: unknown): GameAction | null {
 
 /** 执行一个动作。成功时存档版本号 +1。now 为服务端的现实时间（毫秒），只有真实地点动作用到；不传则真实地点不可用 */
 export function applyAction(state: PlayerState, region: Region, a: GameAction, now = 0): ActionResult {
+	const noVisa = visaWorkBlocked(state, a); // 签证过期不能工作（第 43 批）
+	if (noVisa) return { ok: false, state, msg: noVisa };
 	let r: ActionResult;
 	switch (a.t) {
 		case 'travel': r = travel(state, region, a.to, a.mode); break;
@@ -131,6 +140,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'visa': r = a.op === 'ielts' ? takeIelts(state, region) : applyVisa(state, region, a.route); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
@@ -145,6 +155,8 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 			if (chapters.length) msg += ` 📖 ${chapters.join('、')}`;
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
+		const visaNote = settleVisa(state, r.state); // 签证：记经验、毕业、到期提醒和过期（第 43 批）
+		if (visaNote) msg += ` ${visaNote}`;
 	}
 	const out = capState({ ...r.state, rev: nextRev(state.rev) });
 	if (r.ok) rollDay(out); // 跨过午夜：把上一天的变化记成「昨天回顾」（晕倒住院也算）；在钳制数值之后记，记号不越过存档上限
