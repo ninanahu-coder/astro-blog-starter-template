@@ -233,3 +233,9 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 - 南澳的事件、NPC、房产、地下屋数值照西澳同类写，**待平衡**；南澳还没有真实地点和打卡点。
 - 南澳夏令时用固定日期近似，起止日和现实每年差几天。
 - 野生动物和鱼的分布按常识写，还没让 OpenClaw 逐条核实。
+
+## 8. 开场界面（入境卡）
+
+- 第 20 批（2026-11-20）把开场换成「护照封皮 + 登机牌 + 入境卡」。方向和取舍记在 `.impeccable/surfaces/src-pages-earth-astro.md`，产品事实在根目录 `PRODUCT.md`。
+- 标题字体 `public/earth/fonts/terra-serif.woff2` 是 Noto Serif SC（SIL Open Font License 1.1）的子集，只含开场用到的约 60 个字形，13KB，取自 Google Fonts 并自托管。开场要加新的衬线字时，需要重新取子集。
+- 入境卡只是游戏里的风格化卡片，不用任何政府徽章或真实证件样式。
