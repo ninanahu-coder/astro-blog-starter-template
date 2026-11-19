@@ -666,7 +666,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { fmtHalf } from '../game/ui/numfmt.ts';
 			import { setHtml } from '../game/ui/dom.ts';
-			import { lbCardHtml, parseLbPref, type LbData, type LbDimId } from '../game/ui/board.ts';
+			import { lbAskHtml, lbAskPref, lbCardHtml, parseLbPref, type LbData, type LbDimId } from '../game/ui/board.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
@@ -865,6 +865,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			let clockSkew = 0; // 服务器时间 − 本机时间（毫秒）
 			// 排行榜（docs/earth-game/leaderboard.md）：打开「社交」页时拉取，一分钟内不重复拉；换维度/范围/榜时立刻拉
 			let board: LbData | null = null;
+			let lbAsk = false; // 要不要弹上榜提示（服务端说这个角色还没有上榜设置）
+			let lbAskDone = false; // 这次打开已经回答过：回答还在路上时，后台同步带回的 lbAsk 不再弹
 			const lbUi: { dim: LbDimId; scope: 'all' | 'season'; board: 'global' | 'region' | 'friends' } = { dim: 'worth', scope: 'season', board: 'global' };
 			let boardAt = 0;
 			let boardLoading = false;
@@ -1107,6 +1109,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 				// 冷却和上班卡都按服务器时间算：用服务器返回的时间校准，手机时钟不准也不影响
 				if (typeof data?.at === 'number' && Number.isFinite(data.at)) clockSkew = data.at - Date.now();
 				if (typeof data?.daily === 'string') dailyNote = data.daily;
+				// 旧玩家还没回答过要不要上榜：读档时服务端带 lbAsk，弹一次（见 renderEvent）
+				if (data?.lbAsk === true && !lbAskDone) lbAsk = true;
 				return { status: res.status, data };
 			}
 			/** 采用服务器返回的存档；位置变了就通知在线频道 */
@@ -2457,6 +2461,15 @@ const cardLines = guilloche(400, 260, 14, 9);
 					modalShown = r;
 					return;
 				}
+				if (!ev && lbAsk) {
+					// 旧玩家的一次性上榜提示：只在没有事件、没有事件结果时弹，不打断事件
+					setHtml(modal, lbAskHtml());
+					modal.classList.remove('hidden');
+					game.inert = true;
+					if (modalShown !== 'lbask') modal.querySelector<HTMLElement>('button')?.focus();
+					modalShown = 'lbask';
+					return;
+				}
 				if (!ev) {
 					const wasOpen = !modal.classList.contains('hidden');
 					modal.classList.add('hidden');
@@ -2525,7 +2538,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2656,6 +2669,14 @@ const cardLines = guilloche(400, 260, 14, 9);
 					loadBoard(true);
 				}
 				else if (d.lbpref) { const p = parseLbPref(d.lbpref); if (p) setBoardPref(p); }
+				else if (d.lbask) {
+					const p = lbAskPref(d.lbask);
+					if (!p) return;
+					lbAsk = false;
+					lbAskDone = true;
+					renderEvent();
+					setBoardPref(p);
+				}
 				else if (d.giftpick !== undefined) { giftTo = d.giftpick ? { hash: d.giftpick, name: d.giftName ?? '' } : null; sellPick = false; renderPanel(); }
 				else if (d.week === 'claim') claimWeek();
 				else if (d.note === 'delete') noteOp('delete', { note: d.noteId });

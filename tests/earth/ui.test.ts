@@ -122,6 +122,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	rec.state.cash = 120;
 	rec.state.nextWeek = Math.floor(rec.state.clock / 1440) + 1;
 	data.set('save:' + cred.id, rec);
+	// 装成排行榜改版前建的旧角色：没有上榜设置，读档时要弹一次上榜提示
+	const lbKey = 'lbp:' + [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cred.id)))].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
+	assert.ok(data.has(lbKey), '新角色建好时就有上榜设置');
+	data.delete(lbKey);
 
 	const els = new Map<string, El>();
 	const el = (id: string): El => {
@@ -200,6 +204,20 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		for (let i = 0; i < 100 && !(pulled()?.cash === 120 && pulled()?.needs?.hunger === 15); i++) await pause(20);
 		assert.equal(pulled()?.cash, 120, '开局没有拉到服务端存档');
 		await idle();
+		// 旧角色：弹一次上榜提示，背后页面不可点；选「匿名上榜」后关掉并记到服务端
+		for (let i = 0; i < 100 && !el('modal').innerHTML.includes('lbask-title'); i++) await pause(20);
+		assert.match(el('modal').innerHTML, /排行榜要你同意才上榜/);
+		assert.match(el('modal').innerHTML, /不会显示你在哪里/);
+		assert.equal(el('modal').classList.contains('hidden'), false);
+		assert.equal(el('game').inert, true);
+		assert.deepEqual(a11yIssues(el('modal').innerHTML), []);
+		await click({ lbask: 'anon' });
+		for (let i = 0; i < 100 && !data.get(lbKey); i++) await pause(20);
+		assert.equal(el('modal').classList.contains('hidden'), true, '回答后关掉');
+		assert.equal(el('game').inert, false);
+		assert.deepEqual([(data.get(lbKey) as any)?.on, (data.get(lbKey) as any)?.anon], [true, true], '回答记到服务端，换设备也不再问');
+		await pullNow();
+		assert.ok(!el('modal').innerHTML.includes('lbask-title') || el('modal').classList.contains('hidden'), '再读档不再弹');
 		// 开局：游戏页显示、创建页隐藏，五个标签
 		assert.equal(el('create').classList.contains('hidden'), true);
 		assert.equal(el('game').classList.contains('hidden'), false);

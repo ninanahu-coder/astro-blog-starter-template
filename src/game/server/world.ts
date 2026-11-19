@@ -17,7 +17,7 @@ import { refreshWishes } from '../core/wishes.ts';
 import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
 import { carryUnknown, SAVE_VERSION } from '../core/save.ts';
 import {
-	addTitles, cleanLbEntry, cleanPref, cleanSeason, cleanTitles, contestPoints, lbAwards, lbEntry, lbSeasonRec, lbSort, lbView, parseQuery, patchPref,
+	addTitles, cleanLbEntry, cleanPref, LB_PREF_DEFAULT, cleanSeason, cleanTitles, contestPoints, lbAwards, lbEntry, lbSeasonRec, lbSort, lbView, parseQuery, patchPref,
 	seasonDaysLeft, seasonLabel, seasonOfDay, seasonStartDay, titleText, type LbItem, type LbQuery, type LbRanked,
 } from '../core/leaderboard.ts';
 import { LB_CACHE_MS, LB_DIMS, LB_FIRST_SEASON } from '../data/leaderboard.ts';
@@ -705,7 +705,11 @@ export class EarthWorld {
 			refreshWishes(state);
 			const first = claimDaily(state, realDayOf(now));
 			const created = first ? { ...first.state, rev: 0 } : state;
-			await this.persist(id, keyHash, created, now);
+			// 新角色记下默认的上榜设置（不上榜）：只有排行榜上线前就有的旧角色没有这条，读档时据此问一次要不要上榜
+			const ch = (await sha256Hex(id)).slice(0, 12);
+			const pref = { ...LB_PREF_DEFAULT, at: now };
+			await this.persistMany([{ id, keyHash, state: created, at: now }], undefined, { ['lbp:' + ch]: pref });
+			this.lbApply(ch, { pref });
 			return json({ ok: true, state: publicState(created), at: now, daily: first?.msg });
 		}
 
@@ -731,7 +735,11 @@ export class EarthWorld {
 		const migrated = JSON.stringify(carryUnknown(raw, current)) !== JSON.stringify(rec.state);
 		if ((claim || migrated) && action === 'get') await this.persist(id, keyHash, live, now, raw);
 
-		if (action === 'get') return json({ ok: true, state: publicState(live), at: now, daily: claim?.msg });
+		if (action === 'get') {
+			// 旧玩家（排行榜改成「要本人同意」之前建的角色，还没有上榜设置）：告诉页面问一次。回答（包括「暂不上榜」）后写下设置，换设备也不再问
+			const lbAsk = !(await this.ctx.storage.get('lbp:' + (await sha256Hex(id)).slice(0, 12)));
+			return json({ ok: true, state: publicState(live), at: now, daily: claim?.msg, ...(lbAsk ? { lbAsk: true } : {}) });
+		}
 
 		if (action === 'act') {
 			// 客户端看到的版本落后（另一台设备刚玩过）：不执行，把最新存档还给它

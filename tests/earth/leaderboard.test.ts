@@ -13,7 +13,7 @@ import { ANIMALS } from '../../src/game/data/wildlife.ts';
 import { FISH } from '../../src/game/data/fish.ts';
 import { WA } from '../../src/game/data/wa.ts';
 import { EarthWorld } from '../../src/game/server/world.ts';
-import { lbCardHtml, lbScoreText, parseLbPref, type LbData } from '../../src/game/ui/board.ts';
+import { lbAskHtml, lbAskPref, lbCardHtml, lbScoreText, parseLbPref, type LbData } from '../../src/game/ui/board.ts';
 
 const DAY = 86_400_000;
 const T0 = Date.parse('2026-11-20T04:00:00Z');
@@ -517,4 +517,41 @@ test('服务端排行榜：比赛类共同事件结算时给每个成员记比�
 	} finally {
 		delete LB_CONTEST['beach-cleanup'];
 	}
+});
+
+test('旧玩家上榜提示：新角色建好就有「不上榜」设置、不弹；没有设置的旧角色读档时带 lbAsk，回答后不再带', async () => {
+	const w = makeWorld();
+	const fresh = { id: 'lb-ask-fresh1', key: 'f'.repeat(24) };
+	assert.ok((await w.call({ action: 'create', ...fresh, profile })).data.ok);
+	const hf = await hashOf(fresh.id);
+	assert.equal(w.data.get('lbp:' + hf).on, false, '新角色默认不上榜');
+	assert.equal((await w.call({ action: 'get', ...fresh })).data.lbAsk, undefined);
+	assert.equal((await w.call({ action: 'board', ...fresh })).data.pref.on, false);
+	// 旧角色：排行榜改版前建的，没有 lbp:
+	const old = { id: 'lb-ask-old001', key: 'o'.repeat(24) };
+	assert.ok((await w.call({ action: 'create', ...old, profile })).data.ok);
+	const ho = await hashOf(old.id);
+	w.data.delete('lbp:' + ho);
+	w.world.lb = null;
+	const got = await w.call({ action: 'get', ...old });
+	assert.equal(got.data.lbAsk, true);
+	const act = await w.call({ action: 'act', ...old, rev: got.data.state.rev, act: { t: 'activity', id: 'rest' } });
+	assert.equal(act.data.lbAsk, undefined, '只在读档时带');
+	assert.equal(w.data.has('lbp:' + ho), false, '问之前不替玩家做决定');
+	// 「暂不上榜」也算回答过
+	assert.ok((await w.call({ action: 'boardpref', ...old, pref: lbAskPref('no') })).data.ok);
+	assert.equal((await w.call({ action: 'get', ...old })).data.lbAsk, undefined);
+	assert.equal(w.data.get('lbp:' + ho).on, false);
+});
+
+test('旧玩家上榜提示：弹窗三个按钮对应的设置', () => {
+	assert.deepEqual(lbAskPref('nick'), { on: true, anon: false });
+	assert.deepEqual(lbAskPref('anon'), { on: true, anon: true });
+	assert.deepEqual(lbAskPref('no'), { on: false });
+	assert.equal(lbAskPref('x'), null);
+	assert.equal(lbAskPref(undefined), null);
+	const h = lbAskHtml();
+	assert.deepEqual([...h.matchAll(/data-lbask="([a-z]+)"/g)].map((m) => m[1]), ['nick', 'anon', 'no']);
+	for (const m of h.matchAll(/data-lbask="([a-z]+)"/g)) assert.ok(lbAskPref(m[1]), m[1]);
+	assert.match(h, /aria-labelledby="lbask-title"/);
 });

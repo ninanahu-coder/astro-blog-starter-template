@@ -84,3 +84,24 @@ export function parseLbPref(v: string): Record<string, boolean> | null {
 	}
 	return Object.keys(out).length ? out : null;
 }
+
+/**
+ * 给旧玩家的一次性上榜提示（弹窗内容）：排行榜改成「要本人同意」后，旧角色都下了榜。
+ * 三个按钮都会把回答记到服务端（lbp:），之后在任何设备上都不再弹。全是静态文字，没有插值。
+ */
+export function lbAskHtml(): string {
+	return `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="lbask-title">
+		<div class="ev-body"><h2 id="lbask-title">🏆 排行榜要你同意才上榜</h2>
+		<p>排行榜改版了：现在分身家、打卡、图鉴、声望、比赛五个榜，每 4 周一个赛季，赛季前 100 名有称号和徽章（只有外观）。</p>
+		<p>以前所有人默认在净资产榜上，现在要你自己同意。上榜后别人能看到你的名字（或「匿名旅人」）和成绩，<b>不会显示你在哪里</b>。以后随时可以在「社交」页的排行榜里改。</p>
+		<div class="list">
+			<button class="row choice first" data-lbask="nick"><span class="label">用昵称上榜</span></button>
+			<button class="row choice" data-lbask="anon"><span class="label">匿名上榜</span></button>
+			<button class="row choice" data-lbask="no"><span class="label">暂不上榜</span></button>
+		</div></div></div>`;
+}
+
+/** 弹窗按钮 → 要发给服务端的上榜设置 */
+export function lbAskPref(v: string | undefined): Record<string, boolean> | null {
+	return v === 'nick' ? { on: true, anon: false } : v === 'anon' ? { on: true, anon: true } : v === 'no' ? { on: false } : null;
+}
