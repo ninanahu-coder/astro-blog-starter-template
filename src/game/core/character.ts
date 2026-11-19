@@ -2,7 +2,7 @@
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
 import { migrateSave } from './save.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
-import type { Home, Job, OwnedProperty, Needs, PlayerState, Relation, Skills, Vehicle } from './types.ts';
+import type { HobbyState, Home, Job, OwnedProperty, Needs, PlayerState, Relation, Skills, Vehicle } from './types.ts';
 import { ITEMS } from '../data/items.ts';
 import { MAX_TRAITS } from '../data/traits.ts';
 import { NPCS } from '../data/npcs.ts';
@@ -32,6 +32,7 @@ import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
 import { validTraits } from './attributes.ts';
 import { WEATHERS } from '../data/weather.ts';
+import { BIRDS, CRAFTS, HOBBY, HOBBY_IDS, PLANTS } from '../data/hobbies.ts';
 
 /** 天气相册里所有合法的照片 id：地点 × 天气 */
 export const photoIds = (locIds: string[]) => new Set(locIds.flatMap((l) => WEATHERS.map((w) => `${l}|${w.id}`)));
@@ -167,6 +168,7 @@ export function createCharacter(opts: {
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
+		hobby: emptyHobby(),
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		seed: opts.seed >>> 0,
 		rev: 0,
@@ -402,6 +404,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		// 只留还存在的事件：事件被删掉或改名后，界面弹不出来，但其他动作都会被「先处理眼前的事件」挡住
 		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
 		...cleanReal(r, opts.now),
+		hobby: cleanHobby(r.hobby, knownLocs),
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
 		// 版本号超出范围说明存档坏了：归零而不是钳到上限。钳到上限的话，下一次动作加一又超出，再读又被钳回去，客户端每次都版本冲突
@@ -573,4 +576,50 @@ export function formatClock(clock: number): string {
 	const day = Math.floor(clock / 1440) + 1;
 	const m = Math.floor(clock % 1440);
 	return `第${day}天 ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
+export const emptyHobby = (): HobbyState => ({ xp: {}, day: -1, today: {}, bag: {}, best: {}, birds: [], works: {}, plants: [], bed: null, made: [], got: [] });
+
+/** 收集里程碑 id 的形状：收集册 id + ':half' / ':full' */
+const GOT_ID = /^[a-z]{1,12}:(half|full)$/;
+
+/**
+ * 爱好与收集（存档规范见 save-sync.md §5）：旧存档没有就给空的；只留认识的 id；数值钳到范围；条数有上限；幂等。
+ * 地点 id 用 knownLocs 过滤（不传时用世界里的全部地点）
+ */
+export function cleanHobby(raw: unknown, knownLocs?: Set<string>): HobbyState {
+	const r = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+	const own = (k: string) => (Object.hasOwn(r, k) ? r[k] : undefined);
+	const obj = (v: unknown) => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {});
+	/** 只留 keys 里认识的键，值钳到 [lo, hi]，round 为取整方式 */
+	const numMap = (v: unknown, keys: Iterable<string>, lo: number, hi: number, round: (x: number) => number) => {
+		const src = obj(v);
+		const out: Record<string, number> = {};
+		for (const k of keys) {
+			const x = Object.hasOwn(src, k) ? src[k] : undefined;
+			if (typeof x === 'number' && Number.isFinite(x) && x > 0) out[k] = round(clamp(x, lo, hi));
+		}
+		return out;
+	};
+	const fishIds = FISH.map((f) => f.id);
+	const locs = knownLocs ?? new Set(WORLD_BASE.locations.map((l) => l.id));
+	const day = own('day');
+	const bedRaw = obj(own('bed'));
+	const bedDay = bedRaw.day;
+	const bed = typeof bedRaw.plant === 'string' && PLANTS.some((p) => p.id === bedRaw.plant) && typeof bedDay === 'number' && Number.isFinite(bedDay) && bedDay >= 0
+		? { plant: bedRaw.plant, day: Math.floor(Math.min(bedDay, 1e7)) }
+		: null;
+	return {
+		xp: numMap(own('xp'), HOBBY_IDS, 0, HOBBY.xpMax, Math.floor),
+		day: typeof day === 'number' && Number.isFinite(day) ? Math.floor(clamp(day, -1, 1e7)) : -1,
+		today: numMap(own('today'), HOBBY_IDS, 0, 99, Math.floor),
+		bag: numMap(own('bag'), fishIds, 0, 99, Math.floor),
+		best: numMap(own('best'), fishIds, 0, 999, (x) => Math.round(x * 10) / 10),
+		birds: knownList(own('birds'), new Set(BIRDS.map((b) => b.id))),
+		works: numMap(own('works'), locs, 0, 100, Math.floor),
+		plants: knownList(own('plants'), new Set(PLANTS.map((p) => p.id))),
+		bed,
+		made: knownList(own('made'), new Set(CRAFTS.map((c) => c.id))),
+		got: [...new Set(strList(own('got'), 64).filter((x) => GOT_ID.test(x)))],
+	};
 }

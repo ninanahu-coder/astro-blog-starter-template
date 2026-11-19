@@ -6,6 +6,7 @@ import { FISH, FISHING, type FishDef } from '../data/fish.ts';
 import { FACTS, type PlaceFact } from '../data/facts.ts';
 import { NPC_DUOS, type NpcDuo } from '../data/npc-duos.ts';
 import { PHOTO_CHAIN_BONUS, PHOTO_MINUTES, PHOTO_QUESTS, type PhotoQuest } from '../data/photo-quests.ts';
+import { PHOTO_WORK } from '../data/hobbies.ts';
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
@@ -347,6 +348,8 @@ export function takeQuestPhoto(prev: PlayerState, region: Region): ActionResult 
 	// 奖励走 applyEffect 的收获：没晕倒才到账，而且在跨周结算之前，能付刚到期的房租
 	if (applyEffect(state, { minutes: PHOTO_MINUTES, needs: { fun: 8 }, cash: q.cash, respect: q.respect + (last ? PHOTO_CHAIN_BONUS : 0) }, region)) return collapsedResult(state);
 	state.photoQuest += 1;
+	// 任务照片放进摄影作品集（爱好与收集，docs/earth-game/hobbies.md）
+	state.hobby.works[q.loc] = Math.max(state.hobby.works[q.loc] ?? 0, PHOTO_WORK.quest);
 	let msg = `拍下了「${q.title}」，杂志买了这张照片：$${q.cash}，声望 +${q.respect}。`;
 	if (last) msg += ` 摄影任务全部完成！额外声望 +${PHOTO_CHAIN_BONUS}。`;
 	log(state, msg);
@@ -368,28 +371,7 @@ export function fishingAt(state: PlayerState, region: Region): { fish: FishDef[]
 	return { fish, blocked };
 }
 
-/** 钓一次鱼：花时间和体力；按生存能力决定空手几率，钓到的当场卖给鱼铺 */
-export function goFishing(prev: PlayerState, region: Region): ActionResult {
-	if (prev.pending) return fail(prev, '先处理眼前的事件。');
-	const spot = fishingAt(prev, region);
-	if (!spot) return fail(prev, '这里没有能钓鱼的水。');
-	if (spot.blocked) return fail(prev, spot.blocked + '。');
-	const state = clone(prev);
-	const empty = Math.max(FISHING.emptyMin, FISHING.emptyBase - checkScore(state, 'survival').total * FISHING.emptyPerSkill);
-	let r = roll(state) * (empty + spot.fish.reduce((s, f) => s + f.weight, 0)) - empty;
-	const caught = r < 0 ? undefined : spot.fish.find((f) => (r -= f.weight) < 0) ?? spot.fish[spot.fish.length - 1];
-	// 鱼款走 applyEffect 的收获：没晕倒才到账，而且在跨周结算之前，能付刚到期的房租
-	if (applyEffect(state, { minutes: FISHING.minutes, needs: FISHING.needs, skills: { survival: 0.5 }, cash: caught?.price }, region)) return collapsedResult(state);
-	if (!caught) {
-		log(state, '钓了一个半小时，一条也没上钩。');
-		return { ok: true, state, msg: '一条也没钓到，不过吹了吹风。' };
-	}
-	const isNew = !state.fish[caught.id];
-	state.fish[caught.id] = (state.fish[caught.id] ?? 0) + 1;
-	const msg = `钓到一条${caught.icon}${caught.name}${isNew ? '（新鱼种！）' : ''}，卖给鱼铺得 $${caught.price}。`;
-	log(state, msg);
-	return { ok: true, state, msg };
-}
+// 钓一次鱼的动作（goFishing）在 core/hobbies.ts：加了尺寸、数量限制、禁捕和熟练度
 
 // ---------- 野生动物图鉴 ----------
 /** 此刻在这个地方可能看见的动物（还没见过的） */
@@ -407,7 +389,8 @@ function spotAnimal(state: PlayerState, loc: GameLocation): AnimalDef | undefine
 	return animalsAt(state, loc).find((a) => unit(`${state.seed}|${state.clock}|${loc.id}|${a.id}`) < a.chance);
 }
 
-function recordAnimal(state: PlayerState, id: string, text?: string) {
+/** 记进野生动物图鉴（原地修改）；集齐一组发声望。观鸟看见图鉴里的鸟也调它 */
+export function recordAnimal(state: PlayerState, id: string, text?: string) {
 	const a = ANIMALS.find((x) => x.id === id);
 	if (!a || state.dex.includes(id)) return;
 	state.dex.push(id);
