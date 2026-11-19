@@ -1,6 +1,7 @@
 // 运行：npm test（Node ≥ 22.18 原生执行 TypeScript）
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { energyCap } from '../../src/game/core/vitals.ts';
 import { applyAction } from '../../src/game/core/actions.ts';
 import { choiceLabel, netWorth } from '../../src/game/core/engine.ts';
 import { boardEntry, rankBoard } from '../../src/game/core/board.ts';
@@ -72,7 +73,7 @@ test('互动：条件校验与效果', () => {
 	const r = performActivity({ ...s, needs: { ...s.needs, hunger: 20 } }, WA, 'eat');
 	assert.ok(r.ok && r.state.needs.hunger > 60 && r.state.cash === s.cash - 18);
 	const slept = performActivity({ ...s, needs: { ...s.needs, energy: 5 } }, WA, 'sleep-motel');
-	assert.equal(slept.state.needs.energy, 100);
+	assert.equal(slept.state.needs.energy, energyCap(slept.state), '睡醒精力回到精力上限');
 	assert.ok(activitiesAt(s, WA).some((a) => a.act.id === 'gym'));
 });
 

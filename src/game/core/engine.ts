@@ -26,7 +26,7 @@ import { checkScore, costMult, gainMult, getItem, heatMult, homeComfort, hurtMul
 import { CAPS, clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
-import { passTime } from './vitals.ts';
+import { bodyScaled, gainNeed, passTime } from './vitals.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
 	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
@@ -64,13 +64,13 @@ export function getLocation(region: Region, id: string): GameLocation | undefine
  * 时间流逝：需求衰减、饥饿伤害、健康自然恢复、麻烦值冷却（见 vitals.ts），再做跨周结算。返回途中是否晕倒。
  * gains 是本动作的收获（工资等）：没晕倒才入账，而且在跨周结算之前，所以这一班的工资能付刚到期的房租房贷。
  */
-function advance(state: PlayerState, minutes: number, region: Region, gains?: () => void): boolean {
+function advance(state: PlayerState, minutes: number, region: Region, gains?: () => void, asleep = false): boolean {
 	if (minutes <= 0) {
 		gains?.();
 		return false;
 	}
 	state.clock = Math.min(CAPS.clock, state.clock + minutes); // 上限只有损坏的存档会碰到；在这里钳住，后面的日志、状态到期时间都用钳过的时间
-	passTime(state, minutes);
+	passTime(state, minutes, asleep);
 	const collapsed = state.health <= 0;
 	if (!collapsed) gains?.();
 	weeklyTick(state, region);
@@ -154,8 +154,8 @@ export function applyEffect(state: PlayerState, fx: Effect, region: Region): boo
 	};
 	// 先流逝时间（会衰减需求），再结算需求增减，保证“睡 8 小时”后精力确实是满的
 	// 途中晕倒：原动作到此为止，收获、需求、状态、健康都不再结算（不然露营晕倒还会拿到「星空下醒来」）
-	if (advance(state, fx.minutes ?? 0, region, gains)) return true;
-	if (fx.needs) for (const k of NEED_KEYS) if (fx.needs[k]) state.needs[k] = clamp100(state.needs[k] + fx.needs[k]!);
+	if (advance(state, fx.minutes ?? 0, region, gains, !!fx.asleep)) return true;
+	if (fx.needs) for (const k of NEED_KEYS) if (fx.needs[k]) gainNeed(state, k, fx.needs[k]!); // 精力不超过精力上限
 	if (fx.moodlet) addMoodlet(state, fx.moodlet);
 	if (fx.health) {
 		if (fx.health <= -5) addMoodlet(state, 'hurt');
@@ -260,7 +260,7 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 		if (mode === 'track') growSkill(state, 'survival', opt.km / 300);
 	}
 	const ride = selfDrive ? getVehicle(state.vehicle)?.ride : undefined;
-	if (ride) for (const k of NEED_KEYS) if (ride[k]) state.needs[k] = clamp100(state.needs[k] + ride[k]! * opt.minutes);
+	if (ride) for (const k of NEED_KEYS) if (ride[k]) gainNeed(state, k, ride[k]! * opt.minutes);
 	if (advance(state, opt.minutes, region)) return collapsedResult(state); // collapse 已把人送去医院，没到达
 	if (selfDrive) state.car = { km: Math.min(CAR_KM_MAX, state.car.km + opt.km), since: Math.min(CAR_KM_MAX, state.car.since + opt.km) };
 	// 该保养的车按几率抛锚。事件先后：盘查 → 首次到访的签名事件 → 抛锚 → 普通到达事件，所以标的几率就是实际几率（被盘查、首次到访有签名事件时除外）；
@@ -542,7 +542,7 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	const blocked = blockedReason(prev, act);
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);
-	if (applyEffect(state, { ...scaledFx(prev, act), minutes: act.minutes }, region)) return collapsedResult(state);
+	if (applyEffect(state, bodyScaled(prev, { ...scaledFx(prev, act), minutes: act.minutes }), region)) return collapsedResult(state);
 	log(state, `在${loc.name}${act.name}。`);
 	return { ok: true, state, msg: `${act.icon} ${act.name}完成。` };
 }
@@ -957,7 +957,7 @@ export function workShift(prev: PlayerState, region: Region): ActionResult {
 	const good = checkScore(state, c.skill).total + roll(state) * 60 >= SHIFT_DC[Math.min(job.level, SHIFT_DC.length - 1)];
 	const pay = Math.round(careerPay(state, job.career, job.level) * (good ? 1 + GOOD_BONUS : 1));
 	job.lastDay = state.workDay = dayOf(state.clock);
-	if (applyEffect(state, { ...c.shift, minutes: c.minutes, cash: pay }, region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
+	if (applyEffect(state, bodyScaled(prev, { ...c.shift, minutes: c.minutes, cash: pay }), region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
 	job.shifts++;
 	if (good) job.good++;
 	const msg = `${lv.title}上班 ${Math.round(c.minutes / 60)} 小时，收入 $${pay}${good ? '（表现出色，有奖金）' : ''}。` + tryPromote(state);
@@ -1111,7 +1111,7 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	// 睡这一觉用的是入睡时的住处：睡到一半跨过结算日，住处可能因为欠租或断供被收走（state.home 变成 null）
 	const furniture = Object.values(prev.home.furniture);
 	const cosy = homeComfort(prev) >= 3 || 'bed' in prev.home.furniture;
-	if (applyEffect(state, { minutes: 480, health: 15 + def.comfort, needs: { energy: 100, hygiene: 50 + def.comfort * 2, fun: 5 + def.comfort } }, region)) return collapsedResult(state);
+	if (applyEffect(state, bodyScaled(prev, { minutes: 480, asleep: true, health: 15 + def.comfort, needs: { energy: 100, hygiene: 50 + def.comfort * 2, fun: 5 + def.comfort } }), region)) return collapsedResult(state);
 	for (const id of furniture) {
 		const extra = getFurniture(id)?.sleep;
 		if (extra && applyEffect(state, extra, region)) return collapsedResult(state);
@@ -1231,7 +1231,7 @@ export function sleepInVehicle(prev: PlayerState, region: Region): ActionResult 
 	const v = getVehicle(prev.vehicle);
 	if (!v?.sleep) return fail(prev, '你的车不能睡人。');
 	const state = clone(prev);
-	if (applyEffect(state, { ...v.sleep, minutes: 480 }, region)) return collapsedResult(state);
+	if (applyEffect(state, bodyScaled(prev, { ...v.sleep, minutes: 480, asleep: true }), region)) return collapsedResult(state);
 	log(state, `在${v.name}里睡了一觉。`);
 	return { ok: true, state, msg: '在车里睡了一觉。' };
 }

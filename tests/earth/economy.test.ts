@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { energyCap } from '../../src/game/core/vitals.ts';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
@@ -303,7 +304,7 @@ test('跨周结算在动作途中收走住处、房产时，任何动作都不�
 		assert.ok(r.ok, r.msg);
 		assert.equal(r.state.home, null, name);
 		assert.match(r.msg, /住处已经没了/);
-		assert.equal(r.state.needs.energy, 100);
+		assert.equal(r.state.needs.energy, energyCap(r.state), '睡醒精力回到精力上限（第 23 批起上限随体质，不再固定 100）');
 	}
 	assert.ok(applyAction(scenarios['租客付不起房租'], WA, { t: 'home', op: 'sleep' }).state.moodlets.some((m) => m.id === 'great-sleep'));
 });

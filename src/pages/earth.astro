@@ -485,6 +485,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { fireDanger, fireSeason, hasTide, hhmm, phaseNote, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps, tideNow, uvDay, uvLevel } from '../game/core/sky.ts';
 			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
+			import { energyCap, stress } from '../game/core/vitals.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
 			import { FIX_RULES } from '../game/data/venues.ts';
 			import type { VenueOp } from '../game/core/types.ts';
@@ -1791,7 +1792,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						const d = derivedStats(s);
 						return `<p>体质 ${d.fitness}（体能 50% + 力量 30% + 游泳 20%）</p>
 							<p>吸引力 ${d.appeal}（魅力 + 体质 15% + 心情修正${s.needs.hygiene < 30 ? ' − 邋遢 10' : ''}）</p>
-							<p>体力消耗 ×${d.exertion} · 恢复 ×${d.recovery}</p>
+							<p>体力消耗 ×${d.exertion} · 恢复 ×${d.recovery}（上班、活动消耗的精力乘消耗，睡觉回的精力乘恢复）</p>
+							<p>精力上限 ${Math.round(energyCap(s))}（80 + 体质 × 0.2，练体能、力量、游泳会永久提高）</p>
+							<p>压力 ${Math.round(stress(s) * 100)}%（娱乐或社交低于 40 开始有，压力大饿得快）</p>
 							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
 					})()}</div>`,
 				};

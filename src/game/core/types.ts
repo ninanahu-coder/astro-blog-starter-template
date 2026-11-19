@@ -26,6 +26,8 @@ export interface Effect {
 	items?: Record<string, number>;
 	/** 获得一个带时限的心情状态（见 data/moodlets.ts） */
 	moodlet?: string;
+	/** 这段时间在睡觉：饱食、娱乐、社交掉得慢，精力不降，恢复的精力乘恢复系数（见 core/vitals.ts） */
+	asleep?: boolean;
 }
 
 export interface MoodletDef {
@@ -35,6 +37,7 @@ export interface MoodletDef {
 	value: number; // 心情加减
 	hours: number; // 持续的游戏小时
 	gain?: number; // 生效期间所有能力成长的倍率（如「专注」1.25）
+	regen?: number; // 生效期间健康自然恢复的倍率（如「吃了维生素」2）
 }
 
 export interface Moodlet {
