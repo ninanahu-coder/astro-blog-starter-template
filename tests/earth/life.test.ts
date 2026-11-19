@@ -9,6 +9,8 @@ import {
 import { CAREERS, PROMOTE_SHIFTS } from '../../src/game/data/careers.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { sleepQuality } from '../../src/game/core/sleep.ts';
+import { homeSpot } from '../../src/game/core/engine.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
@@ -92,7 +94,12 @@ test('回家睡觉与住房心情加成', () => {
 	const tired = { ...s, needs: { hunger: 80, energy: 5, hygiene: 10, fun: 40, social: 60 } };
 	const r = sleepHome(tired, WA);
 	assert.ok(r.ok);
-	assert.equal(r.state.needs.energy, 100);
+	// 第 43 批：白天 9 点在城里睡，质量打折；醒来精力 = 100 × 质量（睡前 5 点精力先衰减到 0）
+	const q = sleepQuality(tired, WA, homeSpot(tired)).q;
+	assert.ok(q < 1, '白天、城里睡不满');
+	assert.equal(r.state.needs.energy, Math.round(100 * q * 10) / 10);
+	const night = sleepHome({ ...tired, clock: at(22) }, WA);
+	assert.ok(night.state.needs.energy > r.state.needs.energy, '夜里睡比白天睡回得多');
 	assert.equal(sleepHome({ ...tired, loc: 'fremantle' }, WA).ok, false, '不在住处');
 	assert.equal(mood(s) - mood({ ...s, home: null }), 10, '海景小屋 +10 心情');
 });

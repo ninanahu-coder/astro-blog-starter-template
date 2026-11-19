@@ -29,6 +29,7 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'sore', name: '肌肉酸痛', icon: '🦵', value: -3, hours: 12 },
 	{ id: 'hurt', name: '受了点伤', icon: '🩹', value: -6, hours: 24 },
 	{ id: 'in-trouble', name: '惹上了麻烦', icon: '😬', value: -6, hours: 24 },
+	{ id: 'sleep-debt', name: '熬夜没缓过来', icon: '🫠', value: -5, hours: 12 }, // 第 43 批：醒来时睡眠债还多（待平衡）
 	{ id: 'collapsed', name: '刚从医院出来', icon: '🏥', value: -12, hours: 48 },
 	{ id: 'evicted', name: '被赶出了家门', icon: '📦', value: -15, hours: 72 },
 ];

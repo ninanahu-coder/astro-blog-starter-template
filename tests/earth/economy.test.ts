@@ -191,7 +191,9 @@ test('家具效果：睡得更好、在家做饭和放松、心情', () => {
 	assert.equal(mood(s) - mood({ ...s, home: { ...s.home!, furniture: {} } }), 5);
 	const hurt = { ...s, health: 40 };
 	const plain = { ...hurt, home: { ...s.home!, furniture: {} } };
-	assert.equal(sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health, 10, '好床垫 +10 健康');
+	// 好床垫本身 +10 健康；第 43 批起床位有家具、舒适度更高，睡眠质量也更高，基础的 15 + 舒适度那部分也多回一点
+	const diff = sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health;
+	assert.ok(diff >= 10 && diff <= 13, `好床垫 +10 健康，外加睡得更好（实际 ${diff}）`);
 });
 
 test('搬走或被收房：家具半价折现', () => {

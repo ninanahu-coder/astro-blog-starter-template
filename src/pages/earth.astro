@@ -679,6 +679,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { FURNITURE_SLOTS, HOME_COOK } from '../game/data/furniture.ts';
 			import { FINANCE, loanPayment, saleProceeds, weeksToPayOff } from '../game/core/finance.ts';
 			import { dayOf, hoursLabel } from '../game/core/time.ts';
+			import { agenda, timeConflict, type AgendaStatus } from '../game/core/schedule.ts';
+			import { sleepNote, sleepQuality } from '../game/core/sleep.ts';
+			import { homeSpot } from '../game/core/engine.ts';
+			import { SLEEP } from '../game/data/sleep.ts';
 			import { checkScore, furnitureSets, moodBreakdown, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
@@ -1822,13 +1826,20 @@ const cardLines = guilloche(400, 260, 14, 9);
 				return `<div class="card sky"><h3>今天的天${fireSeason(loc, s.clock) ? ' <span class="chip">山火季</span>' : ''}</h3><p class="muted">游戏里的今天大约是现实中的 ${realDateLabel(realDayOfYear(s.clock))}。下面按纬度、季节和天气估算，不是真实预报。</p><div class="list" style="margin-top:8px">${rows.join('')}</div></div>`;
 			}
 
+			// 今日日程（第 43 批）：上班窗口、作息；只提示不拦
+			const AGENDA_MARK: Record<AgendaStatus, string> = { done: '✅ 已完成', now: '🟢 现在', later: '⏳ 稍后', missed: '⛔ 已错过' };
+			function agendaCard(s: PlayerState) {
+				const rows = agenda(s, region).map((it) => `<div class="row" style="margin-top:6px"><span class="ico">${esc(it.icon)}</span><span class="body">${esc(it.title)}<small>${esc(it.when)}${it.note ? ` · ${esc(it.note)}` : ''}</small></span><span class="meta">${AGENDA_MARK[it.status]}</span></div>`).join('');
+				return `<details class="card"><summary><b>🗓️ 今日日程</b></summary>${rows}</details>`;
+			}
+
 			function panelPlace() {
 				const s = state!;
 				const loc = getLocation(region, s.loc)!;
 				const acts = activitiesAt(s, region).map(({ act, blocked }) => `
 					<button class="row" data-act="${act.id}" ${blocked ? 'disabled' : ''}>
 						<span class="ico">${act.icon}</span>
-						<span class="body">${esc(act.name)}<small>${esc(blocked ?? act.desc)}</small></span>
+						<span class="body">${esc(act.name)}<small>${esc(blocked ?? act.desc)}${blocked ? '' : act.bed ? ` · ${esc(sleepNote(sleepQuality(s, region, { bed: act.bed })))}` : (() => { const w = timeConflict(s, act.minutes); return w ? ` · ⚠ ${esc(w)}` : ''; })()}</small></span>
 						<span class="meta"><b>${act.fx.cash ? (act.fx.cash > 0 ? '+' : '−') + '$' + Math.abs(act.fx.cash) : '免费'}</b>${minutesLabel(act.minutes)}</span>
 					</button>`).join('');
 				const pois = region.pois.filter((p) => p.loc === loc.id);
@@ -1864,8 +1875,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const cookWhy = homeActionBlocked(s, 'cook');
 				const relaxWhy = homeActionBlocked(s, 'relax');
 				const homeHtml = homeHere || rentals.length ? `<div class="card"><h3>住处</h3>
-					${homeHere ? `<div class="row" style="margin-top:8px"><span class="body">你的${esc(homeHere.name)}<small>${s.home!.owned ? '自有房产，不交房租' : `每周 $${homeHere.rentWeek}`} · ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算 · 心情 +${homeComfort(s)}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>
-					<div class="inline" style="margin-top:8px"><button data-home="cook" ${cookWhy ? 'disabled' : ''}>做饭 $${HOME_COOK.cost}</button><button data-home="relax" ${relaxWhy ? 'disabled' : ''}>放松</button></div>
+					${homeHere ? `<div class="row" style="margin-top:8px"><span class="body">你的${esc(homeHere.name)}<small>${s.home!.owned ? '自有房产，不交房租' : `每周 $${homeHere.rentWeek}`} · ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算 · 心情 +${homeComfort(s)} · ${esc(sleepNote(sleepQuality(s, region, homeSpot(s))))}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>
+					<div class="inline" style="margin-top:8px"><button data-home="cook" ${cookWhy ? 'disabled' : ''}>做饭 $${HOME_COOK.cost}</button><button data-home="relax" ${relaxWhy ? 'disabled' : ''}>放松</button><button data-home="nap">补觉 ${SLEEP.napMinutes / 60} 小时</button></div>
 					${cookWhy || relaxWhy ? `<p style="margin-top:4px">${esc([...new Set([cookWhy, relaxWhy].filter(Boolean))].join('；'))}</p>` : ''}
 					<details style="margin-top:8px"><summary class="muted">添置家具（已有 ${Object.keys(s.home!.furniture).length}/${Object.keys(FURNITURE_SLOTS).length} 类，折现值 $${furnitureValue(s)}）</summary>
 					${furnitureAt(s).map(({ item, owned, net, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${owned ? '✅ ' : ''}${esc(FURNITURE_SLOTS[item.slot])} · ${esc(item.name)}<small>${esc(item.desc)}${!owned && net !== item.price ? ` 换购价 $${net}` : ''}</small></span>${owned ? `<button data-furn="sell" data-slot="${item.slot}">卖</button>` : `<button data-furn="buy" data-furn-id="${item.id}" ${blocked ? 'disabled' : ''}>$${item.price}</button>`}</div>`).join('')}
@@ -1926,6 +1937,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					${queueCard()}
 					${recapCard(s)}
 					${guideCard(s)}
+					${agendaCard(s)}
 					<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
 						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
 						<p style="margin-top:6px">今天${weatherAt(s).icon} ${esc(weatherAt(s).name)}：${esc(weatherAt(s).desc)} 明天${weatherOn(s.loc, dayOf(s.clock) + 1).icon} ${esc(weatherOn(s.loc, dayOf(s.clock) + 1).name)}。</p>
@@ -2595,7 +2607,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				else if (d.home) {
 					if (d.home === 'leave' && !confirm('确定退租？已付的房租不退，家具半价折现。')) return;
 					if (d.home === 'rent' && state.home && !confirm('搬家会退掉现在的住处，家具半价折现。确定？')) return;
-					const a: GameAction = d.home === 'rent' ? { t: 'home', op: 'rent', home: d.homeId! } : { t: 'home', op: d.home as 'sleep' | 'leave' | 'cook' | 'relax' };
+					const a: GameAction = d.home === 'rent' ? { t: 'home', op: 'rent', home: d.homeId! } : { t: 'home', op: d.home as 'sleep' | 'nap' | 'leave' | 'cook' | 'relax' };
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.buy) act({ t: 'buy', item: d.buy }).then((r) => { if (r) { toast(r.msg); render(); } });

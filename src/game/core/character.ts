@@ -16,6 +16,7 @@ import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { realDayOf } from './daily.ts';
+import { SLEEP } from '../data/sleep.ts';
 // 只用到地点和打卡点，不需要真实地点数据：用首屏版区域，页面不必为此加载 wa.venues.json
 import { AREAS as REGION_AREAS, areaOf, WORLD_BASE } from '../data/areas-base.ts';
 import { COURSES } from '../data/courses.ts';
@@ -163,6 +164,7 @@ export function createCharacter(opts: {
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
+		rest: { wake: START_CLOCK - 60, debt: 0 }, // 第 1 天 07:00 醒来
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		seed: opts.seed >>> 0,
 		rev: 0,
@@ -375,6 +377,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		// 只留还存在的事件：事件被删掉或改名后，界面弹不出来，但其他动作都会被「先处理眼前的事件」挡住
 		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
 		...cleanReal(r, opts.now),
+		rest: cleanRest(r.rest, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
 		// 版本号超出范围说明存档坏了：归零而不是钳到上限。钳到上限的话，下一次动作加一又超出，再读又被钳回去，客户端每次都版本冲突
@@ -429,6 +432,14 @@ function cleanDaily(r: any, now?: number): PlayerState['daily'] {
 	if (now === undefined) return daily;
 	const today = realDayOf(now);
 	return daily.day > today ? { day: today, streak: 0 } : daily;
+}
+
+/** 作息（第 43 批）：醒来时间是游戏时钟，不晚于存档的 clock；旧存档没有就按「刚醒、不欠债」 */
+function cleanRest(v: any, clock: number): PlayerState['rest'] {
+	const o = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+	const wake = Object.hasOwn(o, 'wake') ? Math.floor(num(o.wake, 0, clock, clock)) : clock;
+	const debt = Object.hasOwn(o, 'debt') ? Math.round(num(o.debt, 0, SLEEP.debtMax, 0) * 10) / 10 : 0;
+	return { wake, debt };
 }
 
 /** 真实定位相关字段：坐标只留 3 位小数，时间为非负整数且不能在未来，动作名只留已知的 */

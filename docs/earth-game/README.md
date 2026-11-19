@@ -38,6 +38,8 @@ src/game/
   core/character.ts   出身、初始属性、存档校验 sanitizeState()
   core/save.ts        存档格式版本、迁移、来回部署时保留别的分支加的字段（规范见 save-sync.md §5）
   core/engine.ts      规则引擎：travel / performActivity / resolveEvent / gpsCheckIn（纯函数、确定性）
+  core/sleep.ts       睡眠质量（床、噪音、时差、几点睡）、熬夜睡眠债、补觉（设计见 time-sleep.md）
+  core/schedule.ts    今日日程与「做完会错过上班 / 开始熬夜」的提醒（只提示不拦）
   core/geo.ts         距离、地图投影、真实坐标 → 游戏地点
   core/formulas.ts    派生属性（体质、吸引力、状态系数……）与真实地点动作的公式
   core/venues.ts      真实地点：附近列表、定位检查、吃饭/训练/打卡上班等结算

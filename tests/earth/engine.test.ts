@@ -11,6 +11,7 @@ import {
 } from '../../src/game/core/engine.ts';
 import { haversineKm, locateInRegion } from '../../src/game/core/geo.ts';
 import { ACTIVITIES } from '../../src/game/data/activities.ts';
+import { sleepQuality } from '../../src/game/core/sleep.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
 import { FULL_AREAS, WA, WORLD } from '../../src/game/data/wa.ts';
 
@@ -74,8 +75,11 @@ test('互动：条件校验与效果', () => {
 	assert.equal(performActivity(s, WA, 'buy-car').ok, false, '钱不够');
 	const r = performActivity({ ...s, needs: { ...s.needs, hunger: 20 } }, WA, 'eat');
 	assert.ok(r.ok && r.state.needs.hunger > 60 && r.state.cash === s.cash - 18);
-	const slept = performActivity({ ...s, needs: { ...s.needs, energy: 5 } }, WA, 'sleep-motel');
-	assert.equal(slept.state.needs.energy, 100);
+	// 第 43 批：一觉恢复的精力乘睡眠质量（旅馆的床、城里的噪音、几点睡）；精力 5 睡 8 小时先衰减到 0，醒来 = 100 × 质量
+	const night = { ...s, clock: 22 * 60, needs: { ...s.needs, energy: 5 } };
+	const slept = performActivity(night, WA, 'sleep-motel');
+	assert.equal(slept.state.needs.energy, Math.round(100 * sleepQuality(night, WA, { bed: 'motel' }).q * 10) / 10);
+	assert.ok(slept.state.needs.energy >= 85, '夜里住旅馆睡得不差');
 	assert.ok(activitiesAt(s, WA).some((a) => a.act.id === 'gym'));
 });
 

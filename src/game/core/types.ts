@@ -368,6 +368,8 @@ export interface Activity {
 	exposed?: 'sea';
 	/** 只在这些天气出现（当天天气不符时列表里不显示、也不能做） */
 	weather?: string[];
+	/** 这是一觉（第 43 批）：睡在哪，决定睡眠质量的床（见 data/sleep.ts 的 BED）。写了就走睡眠规则：精力和健康恢复乘质量、记作息 */
+	bed?: 'motel' | 'camp';
 	desc: string;
 }
 
@@ -516,6 +518,8 @@ export interface PlayerState {
 	clockIn: { venue: string; at: number; career?: string } | null; // 真实打卡上班：哪个地点、几点打的卡；career 是按哪份职业打的卡，没有就是零工
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	workDay: number; // 最近一次算过班次的游戏日，−1 表示还没上过；跟人走，不随换工作重置
+	/** 作息（第 43 批）：wake = 最近一次醒来的游戏时钟（分钟，≤ clock）；debt = 睡眠债（小时，0–24，一位小数）。见 docs/earth-game/time-sleep.md */
+	rest: { wake: number; debt: number };
 	journal: JournalEntry[];
 	seed: number;
 	rev: number; // 存档版本号，云同步用
