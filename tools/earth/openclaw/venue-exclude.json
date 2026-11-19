@@ -16,6 +16,14 @@
       "reason": "射击俱乐部，会员制，不对公众开放",
       "source": "https://abr.business.gov.au/ABN/View?abn=63292063892",
       "checked": "2026-11-19，OpenClaw 抽查第 3 组"
+    },
+    {
+      "id": "osm-node-778193148",
+      "region": "wa",
+      "name": "Tennis Club (3.0m)",
+      "reason": "名字不是场所名：OSM 的 name 写成「Tennis Club (3.0m)」，没有俱乐部全名、地址或网站，2016 年后没人改过，查不到对应的俱乐部",
+      "source": "https://www.openstreetmap.org/node/778193148",
+      "checked": "2026-11-19，OpenClaw 西澳抽查第 2 组提出，Claude 读 OSM API 核实标签"
     }
   ]
 }

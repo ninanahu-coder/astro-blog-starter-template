@@ -11,7 +11,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
 	{
 		v: 16, date: '2026-11-19', title: '西澳更多真实地点', items: [
-			'「出行 · 附近」不止珀斯、弗里曼特尔了：班伯里、曼杜拉、布鲁姆、卡尔古利等 18 个地点新收录了 924 个真实的店铺和场所。',
+			'「出行 · 附近」不止珀斯、弗里曼特尔了：班伯里、曼杜拉、布鲁姆、卡尔古利等 18 个地点新收录了 923 个真实的店铺和场所。',
 			'尖峰石阵和卡瑞吉尼附近 OpenStreetMap 上没有这些场所，暂时没有。',
 		],
 	},

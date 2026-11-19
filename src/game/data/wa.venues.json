@@ -13792,15 +13792,6 @@
       "source": "osm"
     },
     {
-      "id": "osm-node-778193148",
-      "loc": "port-hedland",
-      "name": "Tennis Club (3.0m)",
-      "lat": -20.309078,
-      "lon": 118.613013,
-      "type": "sports-centre",
-      "source": "osm"
-    },
-    {
       "id": "osm-node-778230949",
       "loc": "port-hedland",
       "name": "Woolworths",
