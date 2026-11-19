@@ -7,6 +7,7 @@ import { FURNITURE, FURNITURE_SETS } from '../data/furniture.ts';
 import { VEHICLES } from '../data/vehicles.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { propertyDue } from './finance.ts';
+import { flatComfort, flatRentDue } from './flatmates.ts';
 import { weatherAt } from './weather.ts';
 import { MOODLETS } from '../data/moodlets.ts';
 import type { MoodletDef } from './types.ts';
@@ -39,7 +40,7 @@ export function homeComfort(state: PlayerState): number {
 	if (!state.home) return 0;
 	const base = HOMES.find((h) => h.id === state.home!.type)?.comfort ?? 0;
 	const extra = Object.values(state.home.furniture).reduce((a, id) => a + (FURNITURE.find((f) => f.id === id)?.comfort ?? 0), 0);
-	return base + extra + furnitureSets(state).filter((x) => x.done).reduce((a, x) => a + x.set.comfort, 0);
+	return base + extra + furnitureSets(state).filter((x) => x.done).reduce((a, x) => a + x.set.comfort, 0) + flatComfort(state);
 }
 
 /** 住处的成套家具进度：每套已经摆了几件、凑齐没有（没有住处为空） */
@@ -61,7 +62,7 @@ export interface WeeklyCosts {
 
 /** 每周固定开销：房租（住自有房时为 0）+ 车辆保险保养 + 房产的物业费与还款。不含租金收入 */
 export function weeklyCosts(state: PlayerState): WeeklyCosts {
-	const rent = state.home && !state.home.owned ? (HOMES.find((h) => h.id === state.home!.type)?.rentWeek ?? 0) : 0;
+	const rent = flatRentDue(state); // 合租分摊、转租收入后你要掏的那份（core/flatmates.ts）
 	const vehicle = VEHICLES.find((v) => v.id === state.vehicle)?.weekly ?? 0;
 	const property = state.properties.reduce((sum, p) => {
 		const def = PROPERTIES.find((d) => d.id === p.id);

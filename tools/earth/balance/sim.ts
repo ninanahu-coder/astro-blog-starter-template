@@ -16,6 +16,8 @@ import {
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { weatherAt } from '../../../src/game/core/weather.ts';
+import { choreDone, dutyFor, flatChoiceBlocked, getFlatEvent } from '../../../src/game/core/flatmates.ts';
+import { choreBlocked } from '../../../src/game/core/flat-actions.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
@@ -160,7 +162,7 @@ function blankDiagnostics(): BackpackerDiagnostics {
 
 function actionKey(a: GameAction): string {
 	return a.t === 'activity' ? a.id
-		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' ? `${a.t}-${a.op}`
+		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' || a.t === 'flat' ? `${a.t}-${a.op}`
 			: a.t === 'npc' ? 'npc'
 				: a.t === 'buy' ? `buy-${a.item}`
 					: a.t;
@@ -393,6 +395,13 @@ function step(b: Bot) {
 		if (act(b, 'sleep-camp')) return;
 	}
 	if (s.needs.hygiene < 25 && act(b, 'shower')) return;
+	// 室友（docs/earth-game/flatmates.md）：有室友事件就选第一个付得起的选项；轮到自己值日、人在家、精力够就做一次家务
+	if (s.flatshare.ev) {
+		const fe = getFlatEvent(s.flatshare.ev.id);
+		const pick = fe ? fe.choices.findIndex((c) => !flatChoiceBlocked(s, c)) : -1;
+		if (pick >= 0 && tryAct(b, { t: 'flat', op: 'resolve', choice: pick })) return;
+	}
+	if (atHome && dutyFor(s) === 'me' && !choreDone(s) && s.needs.energy > 40 && !choreBlocked(s) && tryAct(b, { t: 'flat', op: 'chore' })) return;
 
 	// 2. 找工作、租房、去上班
 	if (plan.job) {

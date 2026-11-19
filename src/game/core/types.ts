@@ -170,6 +170,23 @@ export interface Home {
 	owned?: string; // 自有房产 id；有值表示住在自己的房子里，不交房租
 }
 
+/** 一位 NPC 室友（人设见 data/flatmates.ts） */
+export interface Flatmate {
+	id: string;
+	vibe: number; // 和你的关系 −100–100
+	since: number; // 搬进来的游戏日
+	owes: number; // 欠你的钱（元）
+	out?: number; // 定好在这个游戏日搬走（提前一周通知）
+}
+
+export interface Flatshare {
+	mates: Flatmate[];
+	clean: number; // 家里卫生 0–100
+	ev: { id: string; mate: string; day: number } | null; // 待处理的室友事件（不挡出行，过几天作废）
+	chore: number; // 你最近一次做家务的游戏日，−1 表示没做过
+	sublet: boolean; // 房间转租出去了：你不能回去住，结算日按比例收回房租
+}
+
 export interface PropertyDef {
 	id: string;
 	name: string;
@@ -496,6 +513,7 @@ export interface PlayerState {
 	job: Job | null;
 	home: Home | null;
 	properties: OwnedProperty[];
+	flatshare: Flatshare; // 室友与合租（见 docs/earth-game/flatmates.md）；没有住处或住自有房时 mates 为空
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
 	moodlets: Moodlet[]; // 带时限的心情状态
 	wishes: string[]; // 今天还没完成的心愿 id

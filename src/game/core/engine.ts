@@ -29,6 +29,7 @@ import { fixProblem, roundFix } from './fix.ts';
 import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
+import { activeMates, afterSleepFlat, emptyFlatshare, fillAutoMates, flatRentDue, settleFlatWeek } from './flatmates.ts';
 import type {
 	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
@@ -1005,6 +1006,7 @@ function vacate(state: PlayerState): number {
 	const got = furnitureValue(state);
 	state.cash += got;
 	state.home = null;
+	state.flatshare = emptyFlatshare(); // 室友留在原处（二房东的租约由室友接手），和你无关了
 	return got;
 }
 
@@ -1014,6 +1016,7 @@ function vacate(state: PlayerState): number {
  */
 function weeklyTick(state: PlayerState, region: Region) {
 	while (dayOf(state.clock) >= state.nextWeek) {
+		const weekEnd = state.nextWeek;
 		state.nextWeek += 7;
 		if (state.home && !state.home.owned && !homeUsable(state)) {
 			const def = getHome(state.home.type)!;
@@ -1024,15 +1027,17 @@ function weeklyTick(state: PlayerState, region: Region) {
 		if (state.home && !state.home.owned) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
-			if (state.cash >= def.rentWeek) {
-				state.cash -= def.rentWeek;
-				log(state, `周结算：支付${place}${def.name}房租 $${def.rentWeek}。`);
+			const due = flatRentDue(state); // 合租分摊、转租收入见 core/flatmates.ts；没有室友时就是 def.rentWeek
+			if (state.cash >= due) {
+				state.cash -= due;
+				log(state, `周结算：支付${place}${def.name}房租 $${due}${due !== def.rentWeek ? '（合租分摊或转租后）' : ''}。`);
 			} else {
 				const got = vacate(state);
 				addMoodlet(state, 'evicted');
 				log(state, `付不起${place}${def.name}的房租，房东收回了房子${got ? `，家具折现 $${got}` : ''}。`);
 			}
 		}
+		if (state.home) settleFlatWeek(state, weekEnd, { log: (t) => log(state, t), mood: (id) => addMoodlet(state, id) });
 		settleProperties(state, region);
 		const v = getVehicle(state.vehicle);
 		if (v?.weekly) {
@@ -1093,9 +1098,10 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string): Act
 	const sold = vacate(state);
 	state.cash -= due;
 	state.home = { type: homeId, loc: state.loc, furniture: {} };
+	const mates = fillAutoMates(state, 'rent'); // 合租房间自带室友
 	addMoodlet(state, 'new-home');
 	if (advance(state, 60, region)) return collapsedResult(state);
-	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}，之后每周 $${offer.home.rentWeek}${sold ? `；旧家具折现 $${sold}` : ''}。`;
+	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}，之后每周 $${offer.home.rentWeek}${sold ? `；旧家具折现 $${sold}` : ''}${mates.length ? `。室友：${mates.join('、')}` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1118,6 +1124,7 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	if (prev.home.loc !== prev.loc) return fail(prev, '要回到住处才能睡。');
 	const def = getHome(prev.home.type)!;
 	if (!homeUsable(prev)) return fail(prev, '没有能睡人的车，营地住不了。');
+	if (prev.flatshare.sublet) return fail(prev, '房间转租出去了，先收回来才能住。');
 	const state = clone(prev);
 	// 睡这一觉用的是入睡时的住处：睡到一半跨过结算日，住处可能因为欠租或断供被收走（state.home 变成 null）
 	const furniture = Object.values(prev.home.furniture);
@@ -1128,6 +1135,8 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 		if (extra && applyEffect(state, extra, region)) return collapsedResult(state);
 	}
 	if (cosy) addMoodlet(state, 'great-sleep');
+	// 室友：社交恢复、家里太乱、相处融洽、室友事件。睡到一半住处没了（state.home 为 null）就不算
+	if (state.home && activeMates(state).length) afterSleepFlat(state, { log: (t) => log(state, t), mood: (id) => addMoodlet(state, id) });
 	log(state, `在${def.name}睡了一觉。`);
 	return { ok: true, state, msg: state.home ? '睡了个好觉。' : '睡了一觉，醒来时住处已经没了（详见日志）。' };
 }
@@ -1465,6 +1474,7 @@ export function sellFurniture(prev: PlayerState, slot: string): ActionResult {
 /** 在家做饭 / 放松不能做的原因 */
 export function homeActionBlocked(state: PlayerState, op: 'cook' | 'relax'): string | undefined {
 	if (!atHome(state)) return '要在住处';
+	if (state.flatshare.sublet) return '房间转租中';
 	if (!homeHas(state, op)) return op === 'cook' ? '需要炊具' : '需要娱乐设备';
 	if (op === 'cook' && state.cash < HOME_COOK.cost) return `需要 $${HOME_COOK.cost}`;
 	return undefined;

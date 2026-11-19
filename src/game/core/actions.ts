@@ -14,6 +14,7 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { askFlatmateOut, doChore, inviteFlatmate, resolveFlatEvent, setSublet } from './flat-actions.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -27,6 +28,9 @@ export type GameAction =
 	| { t: 'job'; op: 'work' | 'quit' }
 	| { t: 'home'; op: 'rent'; home: string }
 	| { t: 'home'; op: 'sleep' | 'leave' | 'cook' | 'relax' }
+	| { t: 'flat'; op: 'chore' | 'sublet' | 'unsublet' }
+	| { t: 'flat'; op: 'invite' | 'askout'; mate: string }
+	| { t: 'flat'; op: 'resolve'; choice: number }
 	| { t: 'furniture'; op: 'buy'; id: string }
 	| { t: 'furniture'; op: 'sell'; slot: string }
 	| { t: 'property'; op: 'buy'; id: string; loan: boolean }
@@ -80,6 +84,10 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'home':
 			if (a.op === 'rent') return str(a.home) ? { t: 'home', op: 'rent', home: a.home } : null;
 			return a.op === 'sleep' || a.op === 'leave' || a.op === 'cook' || a.op === 'relax' ? { t: 'home', op: a.op } : null;
+		case 'flat':
+			if (a.op === 'invite' || a.op === 'askout') return str(a.mate) ? { t: 'flat', op: a.op, mate: a.mate } : null;
+			if (a.op === 'resolve') return Number.isInteger(a.choice) && (a.choice as number) >= 0 && (a.choice as number) < 10 ? { t: 'flat', op: 'resolve', choice: a.choice as number } : null;
+			return a.op === 'chore' || a.op === 'sublet' || a.op === 'unsublet' ? { t: 'flat', op: a.op } : null;
 		case 'furniture':
 			if (a.op === 'buy') return str(a.id) ? { t: 'furniture', op: 'buy', id: a.id } : null;
 			return a.op === 'sell' && str(a.slot) ? { t: 'furniture', op: 'sell', slot: a.slot } : null;
@@ -116,6 +124,13 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'npc': r = interactNpc(state, region, a.npc, a.act, a.item); break;
 		case 'job': r = a.op === 'apply' ? applyJob(state, region, a.career) : a.op === 'work' ? workShift(state, region) : quitJob(state); break;
 		case 'home': r = a.op === 'rent' ? rentHome(state, region, a.home) : a.op === 'sleep' ? sleepHome(state, region) : a.op === 'cook' ? cookAtHome(state, region) : a.op === 'relax' ? relaxAtHome(state, region) : leaveHome(state); break;
+		case 'flat':
+			r = a.op === 'chore' ? doChore(state, region)
+				: a.op === 'invite' ? inviteFlatmate(state, region, a.mate)
+				: a.op === 'askout' ? askFlatmateOut(state, a.mate)
+				: a.op === 'resolve' ? resolveFlatEvent(state, region, a.choice)
+				: setSublet(state, region, a.op === 'sublet');
+			break;
 		case 'furniture': r = a.op === 'buy' ? buyFurniture(state, region, a.id) : sellFurniture(state, a.slot); break;
 		case 'vehicle': r = a.op === 'buy' ? buyVehicle(state, region, a.id) : a.op === 'sell' ? sellVehicle(state, region) : a.op === 'service' ? serviceVehicle(state, region) : sleepInVehicle(state, region); break;
 		case 'property':
