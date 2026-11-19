@@ -41,7 +41,7 @@ async function split() {
 test('首屏脚本不含真实地点、地图库、二维码库，体积在上限内', async () => {
 	const { entry, outputs } = await split();
 	const inputs = Object.keys(entry.inputs);
-	for (const heavy of ['wa.venues.json', 'node_modules/maplibre-gl', 'node_modules/qrcode-generator']) {
+	for (const heavy of ['wa.venues.json', 'sa.venues.json', 'node_modules/maplibre-gl', 'node_modules/qrcode-generator']) {
 		assert.ok(!inputs.some((i) => i.includes(heavy)), `${heavy} 被打进了首屏`);
 		assert.ok(Object.values(outputs).some((o) => Object.keys(o.inputs).some((i) => i.includes(heavy))), `${heavy} 应该在单独的包里`);
 	}

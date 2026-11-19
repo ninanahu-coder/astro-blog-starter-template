@@ -474,23 +474,36 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import type { NpcAction, PlayerState, Region, TravelMode, Venue } from '../game/core/types.ts';
 			import { AREAS as MAP_AREAS, areaOf, exitsOf, WORLD_BASE } from '../game/data/areas-base.ts';
 
-			// 首屏只带不含真实地点的区域；真实地点（wa.venues.json，约 80KB）打开「附近」时再下载（第 34 轮）
+			// 首屏只带不含真实地点的区域；真实地点（<区域>.venues.json，几十到上百 KB）打开「附近」时再按所在区域下载（第 34 轮；南澳单独一个文件）
 			// 规则用整个世界（所有区域合在一起，第 41 轮）；地图、底图、轮廓按所在地点的区域画（curArea）
 			let region: Region = WORLD_BASE;
-			let venuesState: 'idle' | 'loading' | 'ready' | 'failed' = 'idle';
+			type VenuesState = 'idle' | 'loading' | 'ready' | 'failed';
+			/** 各区域真实地点的分包（没有分包的区域直接算载入完成，「附近」页显示还在采集） */
+			const VENUE_FILES: Record<string, () => Promise<{ default: unknown }>> = {
+				wa: () => import('../game/data/wa.venues.json'),
+				sa: () => import('../game/data/sa.venues.json'),
+			};
+			const venueLoads = new Map<string, Exclude<VenuesState, 'idle'>>();
+			/** 当前所在区域的真实地点载入到哪一步了 */
+			const venuesState = (): VenuesState => venueLoads.get(curArea().id) ?? 'idle';
 			// 失败后不自动重试（页面重画又会调用这里，自动重试会变成死循环）：只有点「重试」、重新联网、重新进入「附近」才再试
 			function needVenues() {
-				if (venuesState !== 'idle') return;
-				venuesState = 'loading';
-				import('../game/data/wa.venues.json')
+				const id = curArea().id;
+				if (venueLoads.has(id)) return;
+				const load = Object.hasOwn(VENUE_FILES, id) ? VENUE_FILES[id] : undefined;
+				if (!load) { venueLoads.set(id, 'ready'); return; }
+				venueLoads.set(id, 'loading');
+				load()
 					.then((m) => {
-						region = { ...region, venues: (m.default as { venues: Venue[] }).venues };
-						venuesState = 'ready';
+						const add = (m.default as { venues: Venue[] }).venues;
+						const have = new Set(region.venues.map((v) => v.id));
+						region = { ...region, venues: [...region.venues, ...add.filter((v) => !have.has(v.id))] };
+						venueLoads.set(id, 'ready');
 						if (tab === 'near') renderPanel();
 					})
-					.catch(() => { venuesState = 'failed'; if (tab === 'near') renderPanel(); });
+					.catch(() => { venueLoads.set(id, 'failed'); if (tab === 'near') renderPanel(); });
 			}
-			function retryVenues() { if (venuesState === 'failed') venuesState = 'idle'; }
+			function retryVenues() { for (const [id, st] of venueLoads) if (st === 'failed') venueLoads.delete(id); }
 			const LOC_IDS = new Set(region.locations.map((l) => l.id));
 			const SAVE_KEY = 'earth.save.v1';
 			const CRED_KEY = 'earth.cred.v1';
@@ -1945,8 +1958,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<div class="bar dark"><i style="width:${pct}%"></i></div><p>${note}</p>${clockOutBtn}</div>`;
 				};
 				const clockHtml = clockCard('');
-				if (venuesState === 'loading' || venuesState === 'idle') return intro + clockHtml + '<div class="card"><p class="muted">正在载入附近的真实地点……</p></div>';
-				if (venuesState === 'failed') return intro + clockHtml + '<div class="card"><p>真实地点数据没载入（可能断网了），联网后再试。</p><div class="inline"><button data-venues-retry>重试</button></div></div>';
+				const vs = venuesState();
+				if (vs === 'loading' || vs === 'idle') return intro + clockHtml + '<div class="card"><p class="muted">正在载入附近的真实地点……</p></div>';
+				if (vs === 'failed') return intro + clockHtml + '<div class="card"><p>真实地点数据没载入（可能断网了），联网后再试。</p><div class="inline"><button data-venues-retry>重试</button></div></div>';
 				// 按所在区域判断有没有收录真实地点：西澳收了几百个，不代表南澳也有（第 9 批审查问题 4）
 				const areaLocs = new Set(curArea().locations.map((l) => l.id));
 				if (!region.venues.some((v) => areaLocs.has(v.loc))) return intro + clockHtml + `<div class="card"><p>${esc(curArea().name)}的真实地点数据还在采集中（来自 OpenStreetMap）。</p></div>`;

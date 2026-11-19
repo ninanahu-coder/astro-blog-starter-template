@@ -3,23 +3,30 @@
 // 坐标、名字、OSM 编号全部取自 API 返回，不做任何人工或模型改写。数据许可：ODbL，© OpenStreetMap contributors。
 //
 // 用法：
-//   npm run earth:fetch-venues                         # 默认珀斯、弗里曼特尔，半径 5 公里
+//   npm run earth:fetch-venues                         # 默认西澳的珀斯、弗里曼特尔，半径 5 公里
+//   npm run earth:fetch-venues -- --region=sa          # 南澳：不写 --locs 时采这个区域的全部地点
 //   npm run earth:fetch-venues -- --locs=perth --km=3 --per=40
 //   npm run earth:fetch-venues -- --dry-run            # 只打印查询语句，不联网
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { WA } from '../../../src/game/data/wa.ts';
+import { getAreaBase } from '../../../src/game/data/areas-base.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const args = Object.fromEntries(process.argv.slice(2).map((a) => a.replace(/^--/, '').split('=')).map(([k, v]) => [k, v ?? true]));
-const LOCS = String(args.locs ?? 'perth,fremantle').split(',');
+const REGION = String(args.region ?? 'wa');
+const AREA = getAreaBase(REGION);
+if (!AREA) { console.error(`未知区域 ${REGION}`); process.exit(1); }
+const LOCS = String(args.locs ?? (REGION === 'wa' ? 'perth,fremantle' : AREA.locations.map((l) => l.id).join(','))).split(',');
 const KM = Number(args.km ?? 5);
 const PER = Number(args.per ?? 40); // 每个地点每种类型最多几条
 // 公共 Overpass 服务经常忙：失败后按顺序换镜像、逐次加长等待
 const ENDPOINTS = args.endpoint ? [String(args.endpoint)] : ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter'];
 let ENDPOINT = ENDPOINTS[0];
 const DRY = !!args['dry-run'];
+// 断点续采：每条查询（地点 × 类型）的结果先存一份，公共服务器忙到中途失败时，重跑只补没拿到的。--fresh 忽略缓存重新查
+const CACHE = join(here, '.cache', REGION);
+const FRESH = !!args.fresh;
 
 // OSM 标签 → 游戏地点类型（与 src/game/data/venues.ts 的 VENUE_TYPES 对应）。查询按类型分开发，typeOf 再核对一次
 const RULES = [
@@ -76,7 +83,7 @@ const closed = (t, name) => !!(t.disused || t.abandoned || t.end_date || t['disu
 /** 发一条查询：失败后换镜像、逐次加长等待 */
 async function overpass(q, label) {
 	const errs = [];
-	for (let attempt = 0; attempt < 6; attempt++) {
+	for (let attempt = 0; attempt < 9; attempt++) {
 		const ep = ENDPOINTS[attempt % ENDPOINTS.length];
 		try {
 			const res = await fetch(ep, {
@@ -111,7 +118,10 @@ async function fetchLoc(loc) {
 	const venues = [];
 	let raw = 0, skipped = 0, osmTime;
 	for (const rule of RULES) {
-		const data = await overpass(query(rule, box), `${loc.id}/${rule.type}`);
+		const cacheFile = join(CACHE, `${loc.id}-${rule.type}-${KM}km.json`);
+		const cached = !FRESH && existsSync(cacheFile);
+		const data = cached ? JSON.parse(readFileSync(cacheFile, 'utf8')) : await overpass(query(rule, box), `${loc.id}/${rule.type}`);
+		if (!cached) { mkdirSync(CACHE, { recursive: true }); writeFileSync(cacheFile, JSON.stringify(data)); }
 		osmTime ??= data.osm3s?.timestamp_osm_base;
 		const list = [];
 		for (const el of data.elements ?? []) {
@@ -125,8 +135,8 @@ async function fetchLoc(loc) {
 		}
 		list.sort((a, b) => b.f - a.f || a.v.id.localeCompare(b.v.id));
 		venues.push(...list.slice(0, PER).map((x) => x.v));
-		console.log(`  ${loc.id}/${rule.type}: ${list.length} 条符合，保留 ${Math.min(list.length, PER)}`);
-		await new Promise((ok) => setTimeout(ok, 1500)); // 对公共服务客气一点
+		console.log(`  ${loc.id}/${rule.type}: ${list.length} 条符合，保留 ${Math.min(list.length, PER)}${cached ? '（缓存）' : ''}`);
+		if (!cached) await new Promise((ok) => setTimeout(ok, 1500)); // 对公共服务客气一点
 	}
 	return { venues, raw, skipped, osmTime };
 }
@@ -134,8 +144,8 @@ async function fetchLoc(loc) {
 const all = new Map();
 const stats = [];
 for (const id of LOCS) {
-	const loc = WA.locations.find((l) => l.id === id);
-	if (!loc) { console.error(`未知地点 ${id}`); process.exit(1); }
+	const loc = AREA.locations.find((l) => l.id === id);
+	if (!loc) { console.error(`区域 ${REGION} 里没有地点 ${id}`); process.exit(1); }
 	const r = await fetchLoc(loc);
 	for (const v of r.venues) if (!all.has(v.id)) all.set(v.id, v);
 	const byType = {};
@@ -146,13 +156,13 @@ for (const id of LOCS) {
 if (DRY) process.exit(0);
 
 const day = new Date().toISOString().slice(0, 10);
-const out = join(here, 'inbox', `venues-${day}.json`);
+const out = join(here, 'inbox', `venues-${REGION}-${day}.json`);
 mkdirSync(dirname(out), { recursive: true });
 writeFileSync(out, JSON.stringify({
-	region: 'wa',
+	region: REGION,
 	venues: [...all.values()].sort((a, b) => a.loc.localeCompare(b.loc) || a.type.localeCompare(b.type) || a.id.localeCompare(b.id)),
 }, null, 2) + '\n');
-writeFileSync(join(here, 'inbox', `venues-${day}.meta.txt`), [
+writeFileSync(join(here, 'inbox', `venues-${REGION}-${day}.meta.txt`), [
 	`来源：OpenStreetMap，经 Overpass API（${ENDPOINT}）`,
 	`许可：ODbL，© OpenStreetMap contributors`,
 	`查询时间：${new Date().toISOString()}`,
@@ -160,6 +170,6 @@ writeFileSync(join(here, 'inbox', `venues-${day}.meta.txt`), [
 	...stats.map((s) => `${s.loc}：OSM 返回 ${s.raw}，跳过 ${s.skipped}，保留 ${s.kept}，数据版本 ${s.osmTime ?? '?'}，${JSON.stringify(s.byType)}`),
 	'',
 	'查询语句（每种类型一条，以第一个地点为例；矩形范围查询后按到地点中心的距离筛到半径内）：',
-	...RULES.map((r) => query(r, bbox(WA.locations.find((l) => l.id === LOCS[0]).lat, WA.locations.find((l) => l.id === LOCS[0]).lon, KM))),
+	...RULES.map((r) => query(r, bbox(AREA.locations.find((l) => l.id === LOCS[0]).lat, AREA.locations.find((l) => l.id === LOCS[0]).lon, KM))),
 ].join('\n') + '\n');
 console.log(`已写入 ${out}（${all.size} 条）`);
