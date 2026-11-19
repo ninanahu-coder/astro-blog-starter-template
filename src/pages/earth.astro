@@ -278,6 +278,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.wx-pill { flex: none; padding: 6px 10px; border-radius: 999px; background: var(--tint-blue); color: var(--tint-blue-ink); font-size: 13px; font-weight: 600; white-space: nowrap; }
 			.fire-chip { background: var(--tint-red); color: var(--tint-red-ink); }
 			.wx-pill.storm { background: var(--tint-red); color: var(--tint-red-ink); }
+			/* 第 43 批：灾害预警行，颜色跟 AWS（黄 / 橙 / 红），黄色用默认底 */
+			.row.warn-orange { background: var(--tint-amber); color: var(--tint-amber-ink); }
+			.row.warn-red { background: var(--tint-red); color: var(--tint-red-ink); }
 			.hud-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-variant-numeric: tabular-nums; }
 			.chip { padding: 4px 10px; border-radius: 8px; background: var(--soft); color: var(--text); font-size: 13px; white-space: nowrap; }
 			.chip.cash { background: var(--tint-green); color: var(--tint-green-ink); font-weight: 700; }
@@ -696,6 +699,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { getWish } from '../game/core/wishes.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
 			import { weatherAt, weatherOn } from '../game/core/weather.ts';
+			import { warningsAt } from '../game/core/disasters.ts';
+			import { warningChip, warningRows } from '../game/ui/disasters.ts';
 			import { portraitSvg, ringDash, sceneSvg } from '../game/ui/scene.ts';
 			import { addFireSeen, FIRE_SEEN_KEY, fireAgency, fireKey, fireToastText, parseFireSeen } from '../game/ui/alerts.ts';
 			import { fireDanger, fireSeason, hasTide, hhmm, phaseNote, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps, tideNow, uvDay, uvLevel } from '../game/core/sky.ts';
@@ -1503,7 +1508,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						<div class="scene-top">${lvPlate}<div class="scene-right">${cash}
 						<span class="wx-pill${w.closesSea ? ' storm' : ''}">${w.icon} ${esc(w.name)} ${temps(loc, s.clock, w.id).max}°${w.closesSea ? ' · 海上关闭' : ''}</span></div></div>
 						<div class="plate"><h1>${esc(loc.name)}</h1><span class="en" lang="en">${esc(loc.en)}</span><small title="${formatClock(s.clock)}">${time}</small></div>${thought}</div>
-						<div class="hud-chips"><span class="chip">${esc(role)}</span>${starHtml}${fireChip(s)}${uvChip(s)}${moodBtn}${sync}</div>`;
+						<div class="hud-chips"><span class="chip">${esc(role)}</span>${starHtml}${warningChip(warningsAt(s, region), esc)}${fireChip(s)}${uvChip(s)}${moodBtn}${sync}</div>`;
 				} else {
 					// 其他页：副标题 + 页名；右边现金和心情，下面一条迷你需求条
 					const here = [...peers.values()].filter((p) => p.loc === s.loc && p.id !== myPeerId).length;
@@ -1804,6 +1809,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const t = temps(loc, s.clock, w.id);
 				const sun = sunTimes(loc, s.clock);
 				const rows = [
+					...warningRows(warningsAt(s, region), region, loc, dayOf(s.clock), curArea().id, esc),
 					`<div class="row"><span class="ico" aria-hidden="true">🌡️</span><span class="body">气温 ${t.min}–${t.max}°C<small>${esc(w.name)}</small></span></div>`,
 					`<div class="row"><span class="ico" aria-hidden="true">🌅</span><span class="body">日出 ${hhmm(sun.rise)} · 日落 ${hhmm(sun.set)}<small>白天 ${Math.floor((sun.set - sun.rise) / 60)} 小时 ${(sun.set - sun.rise) % 60} 分；画面明暗跟着日出日落走</small></span></div>`,
 				];
@@ -1855,13 +1861,13 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const career = job ? getCareer(job.career) : undefined;
 				const workHere = job && job.loc === loc.id && career;
 				const offers = careersAt(s, region).filter((o) => !(workHere && o.career.id === job!.career));
-				const shiftWhy = shiftBlocked(s);
+				const shiftWhy = shiftBlocked(s, region);
 				const workHtml = workHere || offers.length ? `<div class="card"><h3>工作</h3>
 					${workHere ? `<div class="row" style="margin-top:8px"><span class="body">${esc(career!.name)} · ${esc(career!.levels[job!.level].title)}<small>每班 $${careerPay(s, job!.career, job!.level)}${certBonus(s, job!.career) ? `（含证书 +${Math.round(certBonus(s, job!.career) * 100)}%）` : ''} · ${Math.round(career!.minutes / 60)} 小时 · ${hoursLabel(career!.start)} 开工</small></span><button class="primary" data-job="work" ${shiftWhy ? 'disabled' : ''}>上班</button></div>${shiftWhy ? `<p style="margin-top:4px">${esc(shiftWhy)}</p>` : ''}` : ''}
 					${offers.map(({ career: c, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(c.name)} · 招${esc(c.levels[0].title)}<small>${esc(blocked ?? `每班 $${careerPay(s, c.id, 0)}，最高可升到${c.levels[c.levels.length - 1].title}`)}</small></span><button data-job="apply" data-career="${c.id}" ${blocked ? 'disabled' : ''}>${job ? '跳槽' : '应聘'}</button></div>`).join('')}</div>` : '';
 				const homeHere = s.home && s.home.loc === loc.id ? getHome(s.home.type) : undefined;
 				const rentals = homesAt(s, region);
-				const cookWhy = homeActionBlocked(s, 'cook');
+				const cookWhy = homeActionBlocked(s, 'cook', region);
 				const relaxWhy = homeActionBlocked(s, 'relax');
 				const homeHtml = homeHere || rentals.length ? `<div class="card"><h3>住处</h3>
 					${homeHere ? `<div class="row" style="margin-top:8px"><span class="body">你的${esc(homeHere.name)}<small>${s.home!.owned ? '自有房产，不交房租' : `每周 $${homeHere.rentWeek}`} · ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算 · 心情 +${homeComfort(s)}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>
