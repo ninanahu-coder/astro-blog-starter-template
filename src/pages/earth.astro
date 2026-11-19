@@ -681,6 +681,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { dayOf, hoursLabel } from '../game/core/time.ts';
 			import { checkScore, furnitureSets, moodBreakdown, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
+			import { HELP_LINES, lowSpell, MIND_ACTS, mindMoodlet, moodletName, mindSignals, pressureSources } from '../game/core/mind.ts';
+			import { MIND_TIPS } from '../game/data/mind.ts';
 			import { NPCS } from '../game/data/npcs.ts';
 			import { NPC_DUOS } from '../game/data/npc-duos.ts';
 			import { coopBlocked, coopCostLabel, coopsAt } from '../game/core/coop.ts';
@@ -2013,6 +2015,24 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const got = all.filter((e) => s.collected.includes(e.id));
 					return `<div class="row" style="margin-top:6px"><span class="body">${esc(a.name)} ${got.length}/${all.length}<small>${all.map((e) => (s.collected.includes(e.id) ? '✅' : '⬜') + esc(e.name)).join(' · ')}</small></span></div>`;
 				}).join('');
+				// 心事（第 43 批）：孤独、思乡、压力每天结算一次；低谷期展开恢复建议和现实求助渠道。所有插值经过 esc()
+				const mindHtml = () => {
+					const sig = mindSignals(s);
+					const why = pressureSources(s).map((p) => p.label);
+					const rows = sig.map((x) => {
+						const md = mindMoodlet(x.key);
+						const rel = x.relievedBy ? moodletName(x.relievedBy) : '';
+						const state = x.active ? '现在有' : rel ? `被「${rel}」缓解着` : x.score >= x.trigger ? '明天可能会有' : '暂时没有';
+						const extra = x.key === 'stressed' && why.length ? ` · ${why.join('、')}` : '';
+						return `<div class="mood-row"><span>${md.icon} ${esc(md.name)} <span class="muted">${esc(state + extra)}</span>${x.active ? `<small style="display:block">${esc(MIND_TIPS[x.key])}</small>` : ''}</span><b class="${x.active ? 'down' : ''}">${x.active ? md.value : '—'}</b></div>`;
+					}).join('');
+					const spell = lowSpell(s);
+					const help = HELP_LINES.map((h) => `<li><b>${esc(h.name)}</b> ${esc(h.contact)}<small style="display:block">${esc(h.desc)} 来源：<a href="${esc(h.url)}" target="_blank" rel="noopener noreferrer">${esc(new URL(h.url).hostname)}</a></small></li>`).join('');
+					return `<h4 style="margin-top:12px">心事</h4><p class="muted" style="font-size:12px">每天过了午夜结算一次：社交太少会孤单，刚来的几周容易想家，钱、身体和麻烦会带来压力。</p>${rows}
+						${spell ? `<p style="margin-top:8px">已经连续 ${s.mind.low} 天心情低落。慢慢来：先吃饱睡好，再做点运动、玩点喜欢的、和人说说话。</p>` : ''}
+						<div class="inline" style="margin-top:8px;flex-wrap:wrap">${(Object.keys(MIND_ACTS) as (keyof typeof MIND_ACTS)[]).map((k) => `<button data-mind="${esc(k)}">${MIND_ACTS[k].icon} ${esc(MIND_ACTS[k].name)}（${MIND_ACTS[k].minutes} 分钟）</button>`).join('')}</div>
+						<details style="margin-top:10px"${spell ? ' open' : ''}><summary>现实中也觉得撑不住？</summary><p style="font-size:13px;margin-top:6px">游戏里的心情只是数字。现实里如果持续低落、焦虑，可以联系下面的服务，也可以找学校的辅导服务（counselling）或家庭医生（GP）。</p><ul style="font-size:13px;padding-left:18px">${help}</ul></details>`;
+				};
 				const lv = level(s.respect);
 				const m = mood(s);
 				const tier = moodTier(m);
@@ -2102,6 +2122,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 							${mb.moodlets.map((x) => `<div class="mood-row"><span>${x.def.icon} ${esc(x.def.name)} <span class="muted">还剩 ${x.minutesLeft >= 120 ? Math.round(x.minutesLeft / 60) + ' 小时' : Math.max(1, Math.round(x.minutesLeft)) + ' 分钟'}</span></span><b class="${x.def.value > 0 ? 'up' : 'down'}">${x.def.value > 0 ? '+' : ''}${x.def.value}</b></div>`).join('')}
 						</div>
 						${mb.moodlets.length ? '' : '<p style="margin-top:6px">做点开心的事——好好吃一顿、睡个好觉、完成心愿、去新地方——会留下几小时到几天的好心情。</p>'}
+						${mindHtml()}
 					</div>`,
 					daily: (() => {
 						// 一周 7 格：今天在第几格；明天接着来能领多少
@@ -2520,7 +2541,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-mind],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2600,6 +2621,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				}
 				else if (d.buy) act({ t: 'buy', item: d.buy }).then((r) => { if (r) { toast(r.msg); render(); } });
 				else if (d.use) act({ t: 'use', item: d.use }).then((r) => { if (r) { toast(r.msg); render(); } });
+				else if (d.mind && Object.hasOwn(MIND_ACTS, d.mind)) act({ t: 'mind', op: d.mind as keyof typeof MIND_ACTS }).then((r) => { if (r) { toast(r.msg); render(); } });
 				else if (d.act) act({ t: 'activity', id: d.act }).then((r) => { if (r) { lastOutcome = null; toast(r.msg); render(); } });
 				else if (d.go) {
 					act({ t: 'travel', to: d.go, mode: d.mode as TravelMode }).then((r) => { if (r) { selected = null; lastOutcome = null; tab = 'place'; if (!state!.pending) toast(r.msg); render(); window.scrollTo({ top: 0 }); } });

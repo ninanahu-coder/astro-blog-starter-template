@@ -1699,12 +1699,12 @@ export function festivalCalendar(clock: number): { festival: FestivalDef; active
 export { roll as rngRoll, log as addLog };
 
 // ---------- 带时限的心情状态 ----------
-/** 获得一个心情状态：同种刷新时长；顺带清掉已过期的。原地修改 */
+/** 获得一个心情状态：同种刷新时长；顺带清掉已过期的和它缓解的心事（relieves）。原地修改 */
 export function addMoodlet(state: PlayerState, id: string) {
 	const def = MOODLETS.find((m) => m.id === id);
 	if (!def) return;
 	const until = state.clock + def.hours * 60;
-	state.moodlets = state.moodlets.filter((m) => m.id !== id && m.until > state.clock);
+	state.moodlets = state.moodlets.filter((m) => m.id !== id && m.until > state.clock && !def.relieves?.includes(m.id)); // relieves：顺带清掉它缓解的心事
 	state.moodlets.push({ id, until });
 	if (state.moodlets.length > MOODLET_MAX) state.moodlets.splice(0, state.moodlets.length - MOODLET_MAX);
 }

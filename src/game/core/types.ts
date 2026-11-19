@@ -35,6 +35,8 @@ export interface MoodletDef {
 	value: number; // 心情加减
 	hours: number; // 持续的游戏小时
 	gain?: number; // 生效期间所有能力成长的倍率（如「专注」1.25）
+	/** 缓解的心事状态 id：获得时清掉这些状态，生效期间每日结算也不会再触发它们（见 core/mind.ts） */
+	relieves?: string[];
 }
 
 export interface Moodlet {
@@ -52,6 +54,8 @@ export interface TraitMods {
 	heat?: number;
 	hurt?: number;
 	mood?: number;
+	/** 心事分数倍率（孤独 / 思乡 / 压力），见 data/mind.ts */
+	mind?: Partial<Record<'lonely' | 'homesick' | 'stressed', number>>;
 }
 
 export interface TraitDef {
@@ -498,6 +502,7 @@ export interface PlayerState {
 	properties: OwnedProperty[];
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
 	moodlets: Moodlet[]; // 带时限的心情状态
+	mind: { day: number; low: number }; // 心事结算：最近结算到哪个游戏日；连续几天心情低落（0–30）。见 core/mind.ts
 	wishes: string[]; // 今天还没完成的心愿 id
 	wishDay: number; // 这批心愿是哪个游戏日生成的，−1 表示还没生成
 	daily: { day: number; streak: number }; // 每日奖励：最近领取的现实日序号、连续天数

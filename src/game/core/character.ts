@@ -13,6 +13,7 @@ import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { WISHES } from '../data/wishes.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
+import { MIND } from '../data/mind.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { realDayOf } from './daily.ts';
@@ -145,6 +146,7 @@ export function createCharacter(opts: {
 		properties: [],
 		nextWeek: 7,
 		moodlets: [],
+		mind: { day: Math.floor(START_CLOCK / 1440), low: 0 },
 		wishes: [],
 		wishDay: -1,
 		daily: { day: 0, streak: 0 },
@@ -287,6 +289,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			}
 			return out.slice(-MOODLET_MAX);
 		})(),
+		mind: cleanMind(r.mind, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		wishes: [...new Set(strList(r.wishes, 10))].filter((id) => WISHES.some((w) => w.id === id)),
 		wishDay: Math.floor(num(r.wishDay, -1, 1e7, -1)),
 		daily: cleanDaily(r, opts.now),
@@ -424,6 +427,13 @@ const finiteIn = (v: unknown, lo: number, hi: number) => typeof v === 'number' &
 const FUTURE_SLACK_MS = 60_000;
 
 /** 每日奖励：领取日在未来的话按「今天已领、连续天数归零」处理，不然要等到那一天才能再领 */
+/** 心事结算记号（第 43 批）：旧存档没有时从今天起算，不补算以前的日子；day 不晚于今天，low 钳到 0–lowCap */
+export function cleanMind(raw: unknown, clock: number): PlayerState['mind'] {
+	const today = Math.floor(clock / 1440);
+	const r = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+	return { day: Math.floor(num(r.day, 0, today, today)), low: Math.floor(num(r.low, 0, MIND.lowCap, 0)) };
+}
+
 function cleanDaily(r: any, now?: number): PlayerState['daily'] {
 	const daily = { day: Math.floor(num(r.daily?.day, 0, 1e7, 0)), streak: Math.floor(num(r.daily?.streak, 0, 1e6, 0)) };
 	if (now === undefined) return daily;
