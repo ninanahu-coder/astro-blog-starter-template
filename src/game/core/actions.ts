@@ -12,6 +12,7 @@ import type { ActionResult, CoopDef, NpcAction, PlayerState, Region, TravelMode,
 import { resolveCoop, type CoopMember, type CoopResult } from './coop.ts';
 import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
+import { buyInsurance } from './insure.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 
@@ -39,6 +40,7 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
+	| { t: 'insure'; id: string }
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
@@ -92,6 +94,7 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'course':
 		case 'cert':
 		case 'experience':
+		case 'insure':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
 		case 'property':
 			if (!str(a.id)) return null;
@@ -131,6 +134,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'insure': r = buyInsurance(state, a.id); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;

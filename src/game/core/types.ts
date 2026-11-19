@@ -26,6 +26,15 @@ export interface Effect {
 	items?: Record<string, number>;
 	/** 获得一个带时限的心情状态（见 data/moodlets.ts） */
 	moodlet?: string;
+	/** 可以走保险的损失（车祸、失窃、风暴……）：有对口保单时只付免赔额，没有就全额自付（见 core/insurance.ts） */
+	loss?: Loss[];
+}
+
+/** 保险能赔的损失种类 */
+export type LossKind = 'collision' | 'tpp' | 'car-theft' | 'car-storm' | 'contents-theft' | 'contents-storm' | 'medical' | 'luggage';
+export interface Loss {
+	kind: LossKind;
+	amount: number; // 损失金额（元）
 }
 
 export interface MoodletDef {
@@ -451,9 +460,18 @@ export interface GameEvent {
 	venueTypes?: string[];
 	once?: boolean; // 每个角色只触发一次（地标签名事件）
 	animal?: string; // 事件里见到的动物：抽到这个事件就记进野生动物图鉴
+	/** 出险事件只对有这样东西的人出现：'car' 自驾抵达（有车），'home' 回到自己的住处 */
+	exposure?: 'car' | 'home';
 	breakdown?: boolean; // 抛锚事件：不进普通抽取（weight 写 0），只在该保养的车自驾抵达时按几率抽
 	weight: number;
 	choices: EventChoice[];
+}
+
+/** 一张保单：从 from 日起生效，到 until 日（不含）止；claims 是最近的理赔日（游戏日，最多 CLAIMS_MAX 条） */
+export interface Cover {
+	from: number;
+	until: number;
+	claims: number[];
 }
 
 export interface JournalEntry {
@@ -497,6 +515,7 @@ export interface PlayerState {
 	home: Home | null;
 	properties: OwnedProperty[];
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
+	cover: Record<string, Cover>; // 保单：保单 id（data/insurance.ts）-> 生效期和理赔记录
 	moodlets: Moodlet[]; // 带时限的心情状态
 	wishes: string[]; // 今天还没完成的心愿 id
 	wishDay: number; // 这批心愿是哪个游戏日生成的，−1 表示还没生成

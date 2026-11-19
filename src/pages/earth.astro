@@ -675,6 +675,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { CERTS } from '../game/data/certs.ts';
 			import { SERVICE_KM } from '../game/data/vehicles.ts';
+			import { insuranceCard } from '../game/ui/insurance.ts';
 			import { AREAS, EXPERIENCES } from '../game/data/experiences.ts';
 			import { FURNITURE_SLOTS, HOME_COOK } from '../game/data/furniture.ts';
 			import { FINANCE, loanPayment, saleProceeds, weeksToPayOff } from '../game/core/finance.ts';
@@ -2114,6 +2115,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>`,
 					album: `<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>`,
 					life: `<div class="card"><h3>工作与住处</h3>${life}</div>`,
+					ins: insuranceCard(s, !!vdef, esc),
 					rels: `<div class="card"><h3>人际关系</h3>${rels || '<p>还没认识什么人。去各地看看谁在那里。</p>'}</div>${duoHtml}`,
 					bag: `<div class="card"><h3>背包</h3>${bag || '<p>空的。在地点页的商店里买东西。</p>'}</div>`,
 					skills: `<div class="card"><h3>能力</h3><p>用得越多涨得越快。</p>${skills}</div>`,
@@ -2131,7 +2133,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const lvHtml = `<div class="card grow-head"><span class="lv-badge" aria-hidden="true">${lv.lv}</span><span class="name"><b>Lv${lv.lv} ${esc(lv.title)}</b><span>声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next} · 离下一级还差 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ' · 已到最高级'}</span>${lv.next !== null ? `<span class="bar" role="img" aria-label="升级进度 ${pct}%"><i style="width:${pct}%"></i></span>` : ''}</span></div>`;
 					return lvHtml + ['daily', 'ach', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
 				}
-				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'life', 'bag'], people: ['rels'] };
+				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'life', 'ins', 'bag'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
 				// 「更新」页（第 48 轮）：打开时记下已读；没看过的批次在标签上标「新」
 				void loadNews();
@@ -2559,6 +2561,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const a: GameAction = d.veh === 'buy' ? { t: 'vehicle', op: 'buy', id: d.vehId! } : { t: 'vehicle', op: d.veh as 'sell' | 'sleep' | 'service' };
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
+				else if (d.insure) act({ t: 'insure', id: d.insure }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.course) act({ t: 'course', id: d.course }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if ('photo' in d) act({ t: 'photo' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if ('fish' in d) act({ t: 'fish' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });

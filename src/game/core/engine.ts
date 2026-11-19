@@ -28,6 +28,7 @@ import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { fixProblem, roundFix } from './fix.ts';
 import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
+import { settleLoss } from './insurance.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
 	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
@@ -93,14 +94,14 @@ export function choiceLabel(c: { label: string; cost?: number }): string {
 export const COLLAPSE_BILL = { base: 100, share: 0.1, max: 500 };
 function collapse(state: PlayerState, region: Region) {
 	const bill = Math.min(state.cash, Math.round(Math.min(COLLAPSE_BILL.max, COLLAPSE_BILL.base + state.cash * COLLAPSE_BILL.share)));
-	state.cash -= bill;
+	const claim = settleLoss(state, { kind: 'medical', amount: bill }, dayOf(state.clock), 0); // 有健康险由保险付
 	state.health = 50;
 	for (const k of NEED_KEYS) state.needs[k] = Math.max(state.needs[k], 50);
 	state.loc = nearestHospital(state, region);
 	state.pending = null;
 	state.clock = Math.min(CAPS.clock, state.clock + 12 * 60);
 	addMoodlet(state, 'collapsed'); // 出院时才开始计时，醒来时剩满 48 小时
-	log(state, `你晕倒了，在${getLocation(region, state.loc)?.name ?? ''}的医院醒来，医药费 $${bill}。`);
+	log(state, `你晕倒了，在${getLocation(region, state.loc)?.name ?? ''}的医院醒来，医药费 $${bill}${claim.insurerPays ? `，${claim.policy!.name}付了 $${claim.insurerPays}` : ''}。`);
 	// 住院又过了 12 小时：跨过结算日的话也要结算，不然醒来能抢在结算前卖房、退租。放在这里，饿晕和受伤致晕两条路都覆盖
 	weeklyTick(state, region);
 }
@@ -142,6 +143,7 @@ export function applyEffect(state: PlayerState, fx: Effect, region: Region): boo
 	if (fx.cash && fx.cash < 0) state.cash = Math.max(0, Math.round(state.cash + fx.cash));
 	if (fx.respect && fx.respect < 0) state.respect = Math.max(0, state.respect + fx.respect);
 	if (fx.heat && fx.heat > 0) state.heat = clamp100(state.heat + fx.heat * heatMult(state));
+	if (fx.loss) for (const l of fx.loss) log(state, settleLoss(state, l, dayOf(state.clock), resaleValue(state.vehicle)).text); // 出险：有保险只付免赔额
 	addItems(state, fx.items, -1);
 	if (fx.skills) {
 		for (const k of SKILL_KEYS) {
@@ -450,9 +452,16 @@ export function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode 
 	);
 }
 
+/** 出险事件只对有车自驾的人 / 回到自己住处的人出现；没写 exposure 的事件不受限 */
+export function exposedTo(ev: GameEvent, state: PlayerState, loc: GameLocation, mode: TravelMode | null): boolean {
+	if (ev.exposure === 'car') return (mode === 'road' || mode === 'track') && !!getVehicle(state.vehicle);
+	if (ev.exposure === 'home') return !!state.home && state.home.loc === loc.id;
+	return true;
+}
+
 function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean, override: GameEvent | null = null): GameEvent | null {
 	if (state.heat >= HEAT_CHECK_AT) return EVENTS.find((e) => e.id === 'heat-check') ?? null;
-	const pool = EVENTS.filter((e) => e.weight > 0 && eventMatches(e, loc, mode, state.clock) && !(e.once && state.seen.includes(e.id)));
+	const pool = EVENTS.filter((e) => e.weight > 0 && eventMatches(e, loc, mode, state.clock) && exposedTo(e, state, loc, mode) && !(e.once && state.seen.includes(e.id)));
 	// 首次到访：有签名事件就必出（这趟的抛锚让给它）
 	const signature = pool.filter((e) => e.once);
 	if (first && signature.length) return signature[Math.floor(roll(state) * signature.length)];
