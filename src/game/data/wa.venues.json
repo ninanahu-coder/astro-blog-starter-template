@@ -4,6 +4,4101 @@
   "attribution": "© OpenStreetMap contributors, ODbL",
   "venues": [
     {
+      "id": "osm-node-11217117716",
+      "loc": "albany",
+      "name": "Haz Beanz",
+      "lat": -35.029994,
+      "lon": 117.886963,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11389466042",
+      "loc": "albany",
+      "name": "Majuba Bistro",
+      "lat": -35.026323,
+      "lon": 117.883905,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11454090236",
+      "loc": "albany",
+      "name": "The Earl of Spencer",
+      "lat": -35.024956,
+      "lon": 117.887124,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11454145761",
+      "loc": "albany",
+      "name": "Taxi Stand Coffee Bar",
+      "lat": -35.026757,
+      "lon": 117.883971,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11458327841",
+      "loc": "albany",
+      "name": "The Yoga Room",
+      "lat": -35.025843,
+      "lon": 117.885572,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11458327842",
+      "loc": "albany",
+      "name": "The Store on Fredrick",
+      "lat": -35.0263,
+      "lon": 117.886657,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11773053969",
+      "loc": "albany",
+      "name": "Ocean and padock fish&chips",
+      "lat": -35.02078,
+      "lon": 117.905444,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12464117645",
+      "loc": "albany",
+      "name": "Sotao",
+      "lat": -35.02739,
+      "lon": 117.88395,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13539984465",
+      "loc": "albany",
+      "name": "Royal Turban Restaurant",
+      "lat": -35.011138,
+      "lon": 117.871427,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13540959414",
+      "loc": "albany",
+      "name": "The Gaffer",
+      "lat": -35.024285,
+      "lon": 117.883752,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13540962321",
+      "loc": "albany",
+      "name": "Premier Hotel Albany",
+      "lat": -35.023978,
+      "lon": 117.883765,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13718108215",
+      "loc": "albany",
+      "name": "Whalley's Beachway Café",
+      "lat": -35.016882,
+      "lon": 117.891213,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13718108216",
+      "loc": "albany",
+      "name": "The Naked Bean Café",
+      "lat": -35.017175,
+      "lon": 117.892868,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1411198000",
+      "loc": "albany",
+      "name": "Rustlers",
+      "lat": -35.027629,
+      "lon": 117.880789,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1411198007",
+      "loc": "albany",
+      "name": "The Albany Hotel",
+      "lat": -35.022714,
+      "lon": 117.883666,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1411205360",
+      "loc": "albany",
+      "name": "Dylans",
+      "lat": -35.027014,
+      "lon": 117.885719,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1411205362",
+      "loc": "albany",
+      "name": "Burrata",
+      "lat": -35.025816,
+      "lon": 117.885482,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1411205363",
+      "loc": "albany",
+      "name": "Southern Viet Bites",
+      "lat": -35.024461,
+      "lon": 117.883756,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14174502200",
+      "loc": "albany",
+      "name": "La Pâtisserie Cottage",
+      "lat": -35.026162,
+      "lon": 117.882505,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1427339610",
+      "loc": "albany",
+      "name": "Sia's Kitchen",
+      "lat": -35.025357,
+      "lon": 117.883829,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1431076577",
+      "loc": "albany",
+      "name": "Chester Pass Lunch Bar",
+      "lat": -35.001222,
+      "lon": 117.867574,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1431076582",
+      "loc": "albany",
+      "name": "Pizza Hut",
+      "lat": -35.018574,
+      "lon": 117.8837,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1431076585",
+      "loc": "albany",
+      "name": "Albany Fish & Chips",
+      "lat": -35.017116,
+      "lon": 117.87758,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1432754177",
+      "loc": "albany",
+      "name": "Woolworths",
+      "lat": -34.990372,
+      "lon": 117.877641,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1679250764",
+      "loc": "albany",
+      "name": "Three Anchors Kiosk",
+      "lat": -35.025581,
+      "lon": 117.916248,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1679252166",
+      "loc": "albany",
+      "name": "Bay Merchants",
+      "lat": -35.025339,
+      "lon": 117.913742,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1679315520",
+      "loc": "albany",
+      "name": "Albany Public Library",
+      "lat": -35.023008,
+      "lon": 117.883148,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1679316734",
+      "loc": "albany",
+      "name": "IGA",
+      "lat": -35.007564,
+      "lon": 117.898296,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1681234004",
+      "loc": "albany",
+      "name": "Hooked Fish & Chips",
+      "lat": -35.025337,
+      "lon": 117.913626,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1681401386",
+      "loc": "albany",
+      "name": "Red Rooster",
+      "lat": -35.017328,
+      "lon": 117.883847,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1681467332",
+      "loc": "albany",
+      "name": "ALDI",
+      "lat": -35.018229,
+      "lon": 117.881402,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1681467723",
+      "loc": "albany",
+      "name": "Dôme",
+      "lat": -35.019279,
+      "lon": 117.881341,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1681468901",
+      "loc": "albany",
+      "name": "Coles",
+      "lat": -35.019868,
+      "lon": 117.882435,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1681552630",
+      "loc": "albany",
+      "name": "IGA",
+      "lat": -35.027406,
+      "lon": 117.884201,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1682176757",
+      "loc": "albany",
+      "name": "IGA",
+      "lat": -35.005019,
+      "lon": 117.874586,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1682176765",
+      "loc": "albany",
+      "name": "Zhivago",
+      "lat": -35.004874,
+      "lon": 117.874425,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1682176845",
+      "loc": "albany",
+      "name": "Domino's",
+      "lat": -35.004348,
+      "lon": 117.865728,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1682176883",
+      "loc": "albany",
+      "name": "Solomon Merchants",
+      "lat": -35.015386,
+      "lon": 117.880326,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1687117147",
+      "loc": "albany",
+      "name": "Brooks Garden Cafe",
+      "lat": -34.990622,
+      "lon": 117.877608,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1862255548",
+      "loc": "albany",
+      "name": "Country Manor Bar & Grill All Seasons",
+      "lat": -35.001312,
+      "lon": 117.862858,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1871231656",
+      "loc": "albany",
+      "name": "Joop Thai",
+      "lat": -35.014453,
+      "lon": 117.885959,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1871983903",
+      "loc": "albany",
+      "name": "Cosi‘s Café",
+      "lat": -35.025988,
+      "lon": 117.883255,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1871983915",
+      "loc": "albany",
+      "name": "Three Plenties Palace",
+      "lat": -35.025554,
+      "lon": 117.88385,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1871983923",
+      "loc": "albany",
+      "name": "Liberté",
+      "lat": -35.026815,
+      "lon": 117.88328,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1871983927",
+      "loc": "albany",
+      "name": "WA Chinese Cafe & Resturant",
+      "lat": -35.025926,
+      "lon": 117.884132,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1880047752",
+      "loc": "albany",
+      "name": "The White Star",
+      "lat": -35.027051,
+      "lon": 117.885947,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1880051263",
+      "loc": "albany",
+      "name": "Albany‘s Indian Tandoori Restaurant",
+      "lat": -35.026221,
+      "lon": 117.885943,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1883252485",
+      "loc": "albany",
+      "name": "Rock Salt",
+      "lat": -35.02673,
+      "lon": 117.855749,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2887112102",
+      "loc": "albany",
+      "name": "Colour Purple",
+      "lat": -35.02078,
+      "lon": 117.905461,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-371357973",
+      "loc": "albany",
+      "name": "KFC",
+      "lat": -35.01981,
+      "lon": 117.883361,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3729387927",
+      "loc": "albany",
+      "name": "Three Anchors",
+      "lat": -35.025709,
+      "lon": 117.916483,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3729387946",
+      "loc": "albany",
+      "name": "Istanbul Kebabs",
+      "lat": -35.024379,
+      "lon": 117.883389,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-465616339",
+      "loc": "albany",
+      "name": "Chicken Treat",
+      "lat": -35.015102,
+      "lon": 117.874802,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-465616340",
+      "loc": "albany",
+      "name": "Highway",
+      "lat": -35.017372,
+      "lon": 117.877961,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-465616343",
+      "loc": "albany",
+      "name": "Hungry Jack's",
+      "lat": -35.020069,
+      "lon": 117.88334,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4751318875",
+      "loc": "albany",
+      "name": "Turkish Bakery",
+      "lat": -35.024336,
+      "lon": 117.883384,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4751318876",
+      "loc": "albany",
+      "name": "Noodler's",
+      "lat": -35.024292,
+      "lon": 117.883385,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4751318877",
+      "loc": "albany",
+      "name": "O'BA-SAN",
+      "lat": -35.024257,
+      "lon": 117.883378,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4751318881",
+      "loc": "albany",
+      "name": "Garrison Bar and Grill",
+      "lat": -35.030972,
+      "lon": 117.912357,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6155097487",
+      "loc": "albany",
+      "name": "Subway",
+      "lat": -35.018742,
+      "lon": 117.881894,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6180126385",
+      "loc": "albany",
+      "name": "Gourmandise Co",
+      "lat": -35.027158,
+      "lon": 117.88658,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6194196948",
+      "loc": "albany",
+      "name": "Rats Bar",
+      "lat": -35.025329,
+      "lon": 117.913873,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6449159201",
+      "loc": "albany",
+      "name": "Barletta",
+      "lat": -35.027616,
+      "lon": 117.886344,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-677411522",
+      "loc": "albany",
+      "name": "McDonald's",
+      "lat": -35.018698,
+      "lon": 117.88083,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-677412574",
+      "loc": "albany",
+      "name": "Woolworths",
+      "lat": -35.019244,
+      "lon": 117.88434,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6971097555",
+      "loc": "albany",
+      "name": "Fredericks",
+      "lat": -35.025587,
+      "lon": 117.883892,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6971146568",
+      "loc": "albany",
+      "name": "Little India",
+      "lat": -35.023701,
+      "lon": 117.883731,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6971146570",
+      "loc": "albany",
+      "name": "Little Italy",
+      "lat": -35.023501,
+      "lon": 117.88371,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6971556837",
+      "loc": "albany",
+      "name": "Venice",
+      "lat": -35.024645,
+      "lon": 117.883376,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6972280786",
+      "loc": "albany",
+      "name": "La Botanic",
+      "lat": -35.027239,
+      "lon": 117.884102,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6975724586",
+      "loc": "albany",
+      "name": "Espresso One",
+      "lat": -35.021084,
+      "lon": 117.882949,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6975777077",
+      "loc": "albany",
+      "name": "Kate‘s Place",
+      "lat": -35.027184,
+      "lon": 117.886834,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6975897588",
+      "loc": "albany",
+      "name": "Sixdegrees",
+      "lat": -35.027129,
+      "lon": 117.886423,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6976079757",
+      "loc": "albany",
+      "name": "Pizza Capers",
+      "lat": -35.018694,
+      "lon": 117.881827,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6976693902",
+      "loc": "albany",
+      "name": "Coles",
+      "lat": -34.993574,
+      "lon": 117.855566,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1191971709",
+      "loc": "albany",
+      "name": "McDonald's",
+      "lat": -34.992536,
+      "lon": 117.856068,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1230237050",
+      "loc": "albany",
+      "name": "Strawberry Hill Farm",
+      "lat": -35.017195,
+      "lon": 117.900686,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1238269764",
+      "loc": "albany",
+      "name": "Due South",
+      "lat": -35.029895,
+      "lon": 117.886133,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1275191058",
+      "loc": "albany",
+      "name": "Duke Street Park",
+      "lat": -35.026831,
+      "lon": 117.880932,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1300438798",
+      "loc": "albany",
+      "name": "Zambrero",
+      "lat": -35.002528,
+      "lon": 117.865599,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1303617646",
+      "loc": "albany",
+      "name": "Albany Community Hospice",
+      "lat": -35.003167,
+      "lon": 117.904363,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-155456114",
+      "loc": "albany",
+      "name": "Cull Park",
+      "lat": -35.014011,
+      "lon": 117.894512,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-155792900",
+      "loc": "albany",
+      "name": "Foundation Park",
+      "lat": -35.026017,
+      "lon": 117.878841,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-155862989",
+      "loc": "albany",
+      "name": "Alison Hartman Gardens",
+      "lat": -35.022707,
+      "lon": 117.882846,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-167183264",
+      "loc": "albany",
+      "name": "Eyre Park",
+      "lat": -35.02421,
+      "lon": 117.910233,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-250484001",
+      "loc": "albany",
+      "name": "Albany Leisure and Aquatic Centre",
+      "lat": -35.009845,
+      "lon": 117.878695,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-250484072",
+      "loc": "albany",
+      "name": "Worra Park",
+      "lat": -35.004026,
+      "lon": 117.880387,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-250487543",
+      "loc": "albany",
+      "name": "Albany Regional Hospital",
+      "lat": -35.003467,
+      "lon": 117.90456,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-310602303",
+      "loc": "albany",
+      "name": "Anzac Peace Park",
+      "lat": -35.029047,
+      "lon": 117.882841,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-316628310",
+      "loc": "albany",
+      "name": "Hybla Tavern",
+      "lat": -35.02392,
+      "lon": 117.914846,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-316648140",
+      "loc": "albany",
+      "name": "Vancouver Street Café",
+      "lat": -35.02609,
+      "lon": 117.876305,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-371309520",
+      "loc": "albany",
+      "name": "BodyCare Health Club",
+      "lat": -35.005741,
+      "lon": 117.87288,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-371309592",
+      "loc": "albany",
+      "name": "Pioneer Health Albany",
+      "lat": -35.009037,
+      "lon": 117.872794,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11104369751",
+      "loc": "broome",
+      "name": "Aquatic Centre",
+      "lat": -17.95369,
+      "lon": 122.222333,
+      "type": "pool",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12141163860",
+      "loc": "broome",
+      "name": "The Millie Cafe",
+      "lat": -17.927703,
+      "lon": 122.213739,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12214090701",
+      "loc": "broome",
+      "name": "Spinifex Brewery Cable Beach",
+      "lat": -17.930378,
+      "lon": 122.216318,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13085667335",
+      "loc": "broome",
+      "name": "Broome Urgent Care Clinic",
+      "lat": -17.960128,
+      "lon": 122.240932,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13434194975",
+      "loc": "broome",
+      "name": "Cable Beach General Store & Cafe",
+      "lat": -17.935607,
+      "lon": 122.213478,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13434243292",
+      "loc": "broome",
+      "name": "Dragonfly Cafe",
+      "lat": -17.953232,
+      "lon": 122.243301,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13439249422",
+      "loc": "broome",
+      "name": "Zookeepers",
+      "lat": -17.93148,
+      "lon": 122.214683,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13439283303",
+      "loc": "broome",
+      "name": "The Wharf",
+      "lat": -17.931229,
+      "lon": 122.215404,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13439416721",
+      "loc": "broome",
+      "name": "Nakamuras Bar & Cafe",
+      "lat": -17.952726,
+      "lon": 122.233969,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13439549999",
+      "loc": "broome",
+      "name": "Mabu Mayi Cafe",
+      "lat": -17.960734,
+      "lon": 122.214713,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13940629202",
+      "loc": "broome",
+      "name": "Good Cartel",
+      "lat": -17.955453,
+      "lon": 122.240228,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14063632070",
+      "loc": "broome",
+      "name": "The Broome Pantry",
+      "lat": -17.967514,
+      "lon": 122.23637,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-247283901",
+      "loc": "broome",
+      "name": "Coles",
+      "lat": -17.951905,
+      "lon": 122.24314,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-247283912",
+      "loc": "broome",
+      "name": "Woolworths",
+      "lat": -17.952603,
+      "lon": 122.228412,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-247283913",
+      "loc": "broome",
+      "name": "The FoodLAB",
+      "lat": -17.967523,
+      "lon": 122.236437,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2502384707",
+      "loc": "broome",
+      "name": "Subway",
+      "lat": -17.952044,
+      "lon": 122.243503,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2900750775",
+      "loc": "broome",
+      "name": "STK Beach Bar & Grille",
+      "lat": -17.967613,
+      "lon": 122.236628,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2900759901",
+      "loc": "broome",
+      "name": "Matso's Broome Brewery",
+      "lat": -17.962085,
+      "lon": 122.240432,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4806648121",
+      "loc": "broome",
+      "name": "Broome Public Library",
+      "lat": -17.960227,
+      "lon": 122.239919,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-568208094",
+      "loc": "broome",
+      "name": "Broome IGA",
+      "lat": -17.960989,
+      "lon": 122.21525,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5839151562",
+      "loc": "broome",
+      "name": "Haven",
+      "lat": -17.952517,
+      "lon": 122.243428,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6725698885",
+      "loc": "broome",
+      "name": "Land of Pharaohs",
+      "lat": -17.952277,
+      "lon": 122.243416,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8677950710",
+      "loc": "broome",
+      "name": "Ginreab Thai",
+      "lat": -17.951992,
+      "lon": 122.24351,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8677950711",
+      "loc": "broome",
+      "name": "DMK - The Kitchen",
+      "lat": -17.951968,
+      "lon": 122.243421,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8677950712",
+      "loc": "broome",
+      "name": "Skylla Lounge Bar",
+      "lat": -17.953717,
+      "lon": 122.244587,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8677950713",
+      "loc": "broome",
+      "name": "Mr Saigon",
+      "lat": -17.953865,
+      "lon": 122.244866,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8677950714",
+      "loc": "broome",
+      "name": "Bushy's Pizza",
+      "lat": -17.953194,
+      "lon": 122.243117,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8677950715",
+      "loc": "broome",
+      "name": "Chi Mayi Kitchen",
+      "lat": -17.953997,
+      "lon": 122.244129,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8677950716",
+      "loc": "broome",
+      "name": "Fresco Hut Juice Bar",
+      "lat": -17.952026,
+      "lon": 122.243352,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8677973017",
+      "loc": "broome",
+      "name": "Phat Toulas",
+      "lat": -17.952085,
+      "lon": 122.243404,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-relation-2922478",
+      "loc": "broome",
+      "name": "Pearlers Bar",
+      "lat": -17.954438,
+      "lon": 122.244213,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1200833159",
+      "loc": "broome",
+      "name": "Broome PCYC",
+      "lat": -17.971339,
+      "lon": 122.231167,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1280782940",
+      "loc": "broome",
+      "name": "Mackie Park",
+      "lat": -17.956132,
+      "lon": 122.213502,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-173208511",
+      "loc": "broome",
+      "name": "Brolga Park",
+      "lat": -17.932658,
+      "lon": 122.236813,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-173353171",
+      "loc": "broome",
+      "name": "Wings Chinese Restaurant",
+      "lat": -17.95573,
+      "lon": 122.242572,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-173355298",
+      "loc": "broome",
+      "name": "Thai Orchid",
+      "lat": -17.955752,
+      "lon": 122.240987,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-173355304",
+      "loc": "broome",
+      "name": "Domino's",
+      "lat": -17.955585,
+      "lon": 122.241027,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-221047540",
+      "loc": "broome",
+      "name": "Roebuck Bay Hotel",
+      "lat": -17.954891,
+      "lon": 122.244238,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-221047877",
+      "loc": "broome",
+      "name": "McDonald's",
+      "lat": -17.955243,
+      "lon": 122.24091,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-221047890",
+      "loc": "broome",
+      "name": "Tong's Chinese",
+      "lat": -17.954662,
+      "lon": 122.240627,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-221048511",
+      "loc": "broome",
+      "name": "Oasis Eatery",
+      "lat": -17.954911,
+      "lon": 122.23713,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-242335706",
+      "loc": "broome",
+      "name": "Broome Hospital",
+      "lat": -17.96079,
+      "lon": 122.236527,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-242337586",
+      "loc": "broome",
+      "name": "Cygnet Park",
+      "lat": -17.934815,
+      "lon": 122.232355,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-272660179",
+      "loc": "broome",
+      "name": "Cable Beach House",
+      "lat": -17.929926,
+      "lon": 122.210363,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-311220155",
+      "loc": "broome",
+      "name": "Green Mango Café",
+      "lat": -17.953792,
+      "lon": 122.243161,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-311220162",
+      "loc": "broome",
+      "name": "Son Ming",
+      "lat": -17.953973,
+      "lon": 122.243058,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-311222107",
+      "loc": "broome",
+      "name": "Soju Korean BBQ",
+      "lat": -17.956181,
+      "lon": 122.241672,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-311222108",
+      "loc": "broome",
+      "name": "Banh Mi Street Food",
+      "lat": -17.956026,
+      "lon": 122.241578,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-311222110",
+      "loc": "broome",
+      "name": "Cairo Cafe",
+      "lat": -17.955958,
+      "lon": 122.241584,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-311222112",
+      "loc": "broome",
+      "name": "Little Indian Restaurant",
+      "lat": -17.956162,
+      "lon": 122.241541,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-311347312",
+      "loc": "broome",
+      "name": "Chicken Treat",
+      "lat": -17.955551,
+      "lon": 122.242029,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-311349001",
+      "loc": "broome",
+      "name": "Broome Recreation and Aquatic Centre",
+      "lat": -17.953391,
+      "lon": 122.222942,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-311349156",
+      "loc": "broome",
+      "name": "Sunset Bar and Grill",
+      "lat": -17.928408,
+      "lon": 122.211152,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-311350962",
+      "loc": "broome",
+      "name": "Divers Tavern",
+      "lat": -17.934812,
+      "lon": 122.21356,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-311356858",
+      "loc": "broome",
+      "name": "Fong's Store",
+      "lat": -17.966841,
+      "lon": 122.231078,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-311356859",
+      "loc": "broome",
+      "name": "PCYC",
+      "lat": -17.971121,
+      "lon": 122.231483,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-562477236",
+      "loc": "broome",
+      "name": "Broome Recreation and Aquatic Centre",
+      "lat": -17.95209,
+      "lon": 122.223213,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-803583622",
+      "loc": "broome",
+      "name": "Demco Park",
+      "lat": -17.973605,
+      "lon": 122.228804,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11170814816",
+      "loc": "bunbury",
+      "name": "Antonio's Pasta",
+      "lat": -33.348866,
+      "lon": 115.648618,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11782009256",
+      "loc": "bunbury",
+      "name": "Last Slice",
+      "lat": -33.320709,
+      "lon": 115.638033,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12348310693",
+      "loc": "bunbury",
+      "name": "Milky Lane",
+      "lat": -33.318257,
+      "lon": 115.639656,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-123589573",
+      "loc": "bunbury",
+      "name": "Lighthouse Beach Resort",
+      "lat": -33.319637,
+      "lon": 115.633745,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-125908092",
+      "loc": "bunbury",
+      "name": "Rogans Bar",
+      "lat": -33.359706,
+      "lon": 115.643237,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1264963734",
+      "loc": "bunbury",
+      "name": "Bunbury Bowling",
+      "lat": -33.335789,
+      "lon": 115.661563,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1266340971",
+      "loc": "bunbury",
+      "name": "PC Payne Oval",
+      "lat": -33.33129,
+      "lon": 115.649195,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1266347151",
+      "loc": "bunbury",
+      "name": "The Birdcage Cafe",
+      "lat": -33.33666,
+      "lon": 115.660559,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1266347166",
+      "loc": "bunbury",
+      "name": "Eagle Boys Pizza",
+      "lat": -33.336505,
+      "lon": 115.663697,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1267061723",
+      "loc": "bunbury",
+      "name": "Cafe 140",
+      "lat": -33.326967,
+      "lon": 115.637205,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-127843052",
+      "loc": "bunbury",
+      "name": "Bunbury Regional Hospital",
+      "lat": -33.366163,
+      "lon": 115.648646,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-130026136",
+      "loc": "bunbury",
+      "name": "KFC",
+      "lat": -33.336901,
+      "lon": 115.662123,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-130026218",
+      "loc": "bunbury",
+      "name": "Red Rooster",
+      "lat": -33.336703,
+      "lon": 115.663034,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-130026325",
+      "loc": "bunbury",
+      "name": "McDonald's",
+      "lat": -33.337935,
+      "lon": 115.658773,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-130026408",
+      "loc": "bunbury",
+      "name": "Hungry Jack's",
+      "lat": -33.336794,
+      "lon": 115.662617,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1350272346",
+      "loc": "bunbury",
+      "name": "Subway",
+      "lat": -33.359795,
+      "lon": 115.643995,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13571534974",
+      "loc": "bunbury",
+      "name": "Froth",
+      "lat": -33.3202,
+      "lon": 115.637089,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1367503866",
+      "loc": "bunbury",
+      "name": "Noodlers Noodle Bar",
+      "lat": -33.360173,
+      "lon": 115.643646,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1369089548",
+      "loc": "bunbury",
+      "name": "Chicken Treat",
+      "lat": -33.335959,
+      "lon": 115.646714,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1432474553",
+      "loc": "bunbury",
+      "name": "Caf-Fez",
+      "lat": -33.325151,
+      "lon": 115.637808,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1432781720",
+      "loc": "bunbury",
+      "name": "Market Eating House",
+      "lat": -33.31922,
+      "lon": 115.636698,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1432785359",
+      "loc": "bunbury",
+      "name": "Melo Velo",
+      "lat": -33.323946,
+      "lon": 115.637087,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1432787278",
+      "loc": "bunbury",
+      "name": "Henry‘s",
+      "lat": -33.321223,
+      "lon": 115.636742,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-148974559",
+      "loc": "bunbury",
+      "name": "St John of God Hospital",
+      "lat": -33.367751,
+      "lon": 115.648409,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1854290832",
+      "loc": "bunbury",
+      "name": "Woolworths",
+      "lat": -33.336854,
+      "lon": 115.659354,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-212731049",
+      "loc": "bunbury",
+      "name": "KFC",
+      "lat": -33.360373,
+      "lon": 115.643913,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2771171277",
+      "loc": "bunbury",
+      "name": "Cafe Bean",
+      "lat": -33.323969,
+      "lon": 115.636794,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2771171279",
+      "loc": "bunbury",
+      "name": "Nicola's",
+      "lat": -33.323775,
+      "lon": 115.637111,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3685937669",
+      "loc": "bunbury",
+      "name": "Co-op Cafe and Bookshop",
+      "lat": -33.366011,
+      "lon": 115.656915,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3685948031",
+      "loc": "bunbury",
+      "name": "Epicure Training Restaurant",
+      "lat": -33.366542,
+      "lon": 115.656247,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-390226303",
+      "loc": "bunbury",
+      "name": "Dôme",
+      "lat": -33.319604,
+      "lon": 115.640127,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4728819519",
+      "loc": "bunbury",
+      "name": "Dôme",
+      "lat": -33.337249,
+      "lon": 115.659964,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5007601279",
+      "loc": "bunbury",
+      "name": "Co-Op Cafe Bookshop",
+      "lat": -33.36743,
+      "lon": 115.653055,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5297473524",
+      "loc": "bunbury",
+      "name": "Anytime Fitness",
+      "lat": -33.334406,
+      "lon": 115.6466,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5884726285",
+      "loc": "bunbury",
+      "name": "MoJos",
+      "lat": -33.321582,
+      "lon": 115.637097,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5950845854",
+      "loc": "bunbury",
+      "name": "Bunbury Boulevard Bakery Cafe",
+      "lat": -33.325062,
+      "lon": 115.63847,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6474578426",
+      "loc": "bunbury",
+      "name": "Parks Centre Cafe",
+      "lat": -33.359488,
+      "lon": 115.645205,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6497145338",
+      "loc": "bunbury",
+      "name": "Lunch Bar",
+      "lat": -33.333583,
+      "lon": 115.643096,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6497145489",
+      "loc": "bunbury",
+      "name": "Central Lunch Bar",
+      "lat": -33.3349,
+      "lon": 115.647457,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6546446441",
+      "loc": "bunbury",
+      "name": "The Butchers Cafe",
+      "lat": -33.337543,
+      "lon": 115.640894,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6555186222",
+      "loc": "bunbury",
+      "name": "Halifax Lunch Supply",
+      "lat": -33.356673,
+      "lon": 115.677451,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6559816211",
+      "loc": "bunbury",
+      "name": "Perky's Kitchen",
+      "lat": -33.358369,
+      "lon": 115.669744,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6562607775",
+      "loc": "bunbury",
+      "name": "Full of Beanz",
+      "lat": -33.341118,
+      "lon": 115.649272,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6565468942",
+      "loc": "bunbury",
+      "name": "Denning Road Lunch Supply",
+      "lat": -33.339741,
+      "lon": 115.652382,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6615588557",
+      "loc": "bunbury",
+      "name": "Smokos",
+      "lat": -33.335848,
+      "lon": 115.648554,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6637199776",
+      "loc": "bunbury",
+      "name": "Old Wok",
+      "lat": -33.336634,
+      "lon": 115.66342,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6658013570",
+      "loc": "bunbury",
+      "name": "Jetts Fitness",
+      "lat": -33.339359,
+      "lon": 115.647215,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6665382922",
+      "loc": "bunbury",
+      "name": "ALDI",
+      "lat": -33.328417,
+      "lon": 115.63881,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6665453895",
+      "loc": "bunbury",
+      "name": "The Geographer Clinic",
+      "lat": -33.339849,
+      "lon": 115.640556,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6665453904",
+      "loc": "bunbury",
+      "name": "Nando's",
+      "lat": -33.336984,
+      "lon": 115.640049,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6665453913",
+      "loc": "bunbury",
+      "name": "Joe's Pizza",
+      "lat": -33.335673,
+      "lon": 115.640127,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6665453975",
+      "loc": "bunbury",
+      "name": "The Admiral",
+      "lat": -33.332666,
+      "lon": 115.640041,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6665453986",
+      "loc": "bunbury",
+      "name": "World Gym",
+      "lat": -33.332391,
+      "lon": 115.640561,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6673721038",
+      "loc": "bunbury",
+      "name": "Bunbury Oral Care",
+      "lat": -33.321951,
+      "lon": 115.635592,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6696553065",
+      "loc": "bunbury",
+      "name": "Plant Organic",
+      "lat": -33.326041,
+      "lon": 115.637812,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-677424905",
+      "loc": "bunbury",
+      "name": "Funkee Monkee",
+      "lat": -33.320761,
+      "lon": 115.636738,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-677424926",
+      "loc": "bunbury",
+      "name": "Marlston",
+      "lat": -33.319276,
+      "lon": 115.638077,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-687551492",
+      "loc": "bunbury",
+      "name": "Buck's Diner",
+      "lat": -33.323147,
+      "lon": 115.637122,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-687551495",
+      "loc": "bunbury",
+      "name": "Old Station Cafe",
+      "lat": -33.324136,
+      "lon": 115.638603,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-687551497",
+      "loc": "bunbury",
+      "name": "Friendship Chinese",
+      "lat": -33.323463,
+      "lon": 115.637103,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-687551500",
+      "loc": "bunbury",
+      "name": "Everest Inn",
+      "lat": -33.323672,
+      "lon": 115.63711,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691502076",
+      "loc": "bunbury",
+      "name": "Coles",
+      "lat": -33.325621,
+      "lon": 115.640275,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691510875",
+      "loc": "bunbury",
+      "name": "The Prince of Wales Hotel",
+      "lat": -33.3263,
+      "lon": 115.638386,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691512564",
+      "loc": "bunbury",
+      "name": "The Rose Hotel",
+      "lat": -33.324471,
+      "lon": 115.637113,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691514883",
+      "loc": "bunbury",
+      "name": "Trafalgars Hotel",
+      "lat": -33.322799,
+      "lon": 115.637104,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691515490",
+      "loc": "bunbury",
+      "name": "The Burlington Hotel",
+      "lat": -33.322021,
+      "lon": 115.636725,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691516128",
+      "loc": "bunbury",
+      "name": "Fitzgerald‘s Irish Bar",
+      "lat": -33.321941,
+      "lon": 115.637161,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691521787",
+      "loc": "bunbury",
+      "name": "The Hungry Hollow",
+      "lat": -33.336239,
+      "lon": 115.626496,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691525522",
+      "loc": "bunbury",
+      "name": "Joe's Pizza",
+      "lat": -33.362137,
+      "lon": 115.630167,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691525716",
+      "loc": "bunbury",
+      "name": "South Bunbury Market Place",
+      "lat": -33.362314,
+      "lon": 115.630444,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691537966",
+      "loc": "bunbury",
+      "name": "McDonald's",
+      "lat": -33.35998,
+      "lon": 115.643494,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691538034",
+      "loc": "bunbury",
+      "name": "Coles",
+      "lat": -33.359747,
+      "lon": 115.645955,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691538500",
+      "loc": "bunbury",
+      "name": "Feedingwell Cafe",
+      "lat": -33.359489,
+      "lon": 115.645341,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691541483",
+      "loc": "bunbury",
+      "name": "Woolworths",
+      "lat": -33.337428,
+      "lon": 115.641291,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691546096",
+      "loc": "bunbury",
+      "name": "The Highway Hotel",
+      "lat": -33.336147,
+      "lon": 115.640586,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691555980",
+      "loc": "bunbury",
+      "name": "The Parade Hotel",
+      "lat": -33.327745,
+      "lon": 115.654855,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691556329",
+      "loc": "bunbury",
+      "name": "Paddy‘s Patties",
+      "lat": -33.327768,
+      "lon": 115.654294,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-691559528",
+      "loc": "bunbury",
+      "name": "IGA Carey Park",
+      "lat": -33.348753,
+      "lon": 115.657288,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959672442",
+      "loc": "bunbury",
+      "name": "Lone Star",
+      "lat": -33.3209,
+      "lon": 115.637082,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959672443",
+      "loc": "bunbury",
+      "name": "Last Slice",
+      "lat": -33.321745,
+      "lon": 115.637092,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959964692",
+      "loc": "bunbury",
+      "name": "Benesse",
+      "lat": -33.323613,
+      "lon": 115.636775,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959964693",
+      "loc": "bunbury",
+      "name": "The White Elephant 2",
+      "lat": -33.32302,
+      "lon": 115.637117,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959964694",
+      "loc": "bunbury",
+      "name": "Orfa Kebabs",
+      "lat": -33.322521,
+      "lon": 115.636691,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959964696",
+      "loc": "bunbury",
+      "name": "Townhouse",
+      "lat": -33.321416,
+      "lon": 115.636745,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959964698",
+      "loc": "bunbury",
+      "name": "A1",
+      "lat": -33.322693,
+      "lon": 115.636683,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959964699",
+      "loc": "bunbury",
+      "name": "Dough Chino",
+      "lat": -33.322429,
+      "lon": 115.636774,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959964700",
+      "loc": "bunbury",
+      "name": "China City",
+      "lat": -33.32168,
+      "lon": 115.636745,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959964701",
+      "loc": "bunbury",
+      "name": "Simply Thai",
+      "lat": -33.321346,
+      "lon": 115.636741,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959964702",
+      "loc": "bunbury",
+      "name": "Yom",
+      "lat": -33.323392,
+      "lon": 115.636251,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959964703",
+      "loc": "bunbury",
+      "name": "Just One Thai",
+      "lat": -33.322605,
+      "lon": 115.636687,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6959964704",
+      "loc": "bunbury",
+      "name": "Lost Bills",
+      "lat": -33.321485,
+      "lon": 115.636752,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6961213558",
+      "loc": "bunbury",
+      "name": "The Side Door",
+      "lat": -33.319483,
+      "lon": 115.637051,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6961235439",
+      "loc": "bunbury",
+      "name": "Aristos Waterfront",
+      "lat": -33.31767,
+      "lon": 115.63975,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6961235440",
+      "loc": "bunbury",
+      "name": "Corners On The Bay",
+      "lat": -33.319025,
+      "lon": 115.639273,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6961253922",
+      "loc": "bunbury",
+      "name": "Bayview",
+      "lat": -33.317778,
+      "lon": 115.639697,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6961281063",
+      "loc": "bunbury",
+      "name": "Kokoro",
+      "lat": -33.322571,
+      "lon": 115.637086,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6961354224",
+      "loc": "bunbury",
+      "name": "La Pause Miam",
+      "lat": -33.325641,
+      "lon": 115.637893,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6961550542",
+      "loc": "bunbury",
+      "name": "The Happy Wife",
+      "lat": -33.327782,
+      "lon": 115.6544,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6961550544",
+      "loc": "bunbury",
+      "name": "Corners on King",
+      "lat": -33.328046,
+      "lon": 115.654125,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6961577913",
+      "loc": "bunbury",
+      "name": "Sears Café",
+      "lat": -33.323552,
+      "lon": 115.637105,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7607738939",
+      "loc": "bunbury",
+      "name": "Sleep And Snore",
+      "lat": -33.32012,
+      "lon": 115.636106,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-765595932",
+      "loc": "bunbury",
+      "name": "South Bunbury Football Club",
+      "lat": -33.345782,
+      "lon": 115.642231,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-765595934",
+      "loc": "bunbury",
+      "name": "Silver Chain",
+      "lat": -33.347245,
+      "lon": 115.644364,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-765762695",
+      "loc": "bunbury",
+      "name": "Withers Library",
+      "lat": -33.36418,
+      "lon": 115.629964,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-765762700",
+      "loc": "bunbury",
+      "name": "Minninup Road Fish and Chips",
+      "lat": -33.362517,
+      "lon": 115.630143,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8105140907",
+      "loc": "bunbury",
+      "name": "Happy Dimsim House",
+      "lat": -33.319322,
+      "lon": 115.638178,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8899798867",
+      "loc": "bunbury",
+      "name": "Bunbury COVID-19 Vaccination Community Clinic",
+      "lat": -33.333603,
+      "lon": 115.647511,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9579894630",
+      "loc": "bunbury",
+      "name": "Slurp On Victoria Street",
+      "lat": -33.325551,
+      "lon": 115.636819,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1042737596",
+      "loc": "bunbury",
+      "name": "Hay Park Athletics Arena",
+      "lat": -33.364441,
+      "lon": 115.640306,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-10868883",
+      "loc": "bunbury",
+      "name": "Melaleuca Park",
+      "lat": -33.354701,
+      "lon": 115.660496,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-10869537",
+      "loc": "bunbury",
+      "name": "Len Ferguson Park",
+      "lat": -33.35171,
+      "lon": 115.659873,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-122372700",
+      "loc": "bunbury",
+      "name": "South West Sports Centre",
+      "lat": -33.368276,
+      "lon": 115.641631,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-122544195",
+      "loc": "bunbury",
+      "name": "Des Ugle Park",
+      "lat": -33.369405,
+      "lon": 115.634058,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-123415357",
+      "loc": "bunbury",
+      "name": "Moorabinda Croquet Club",
+      "lat": -33.367869,
+      "lon": 115.638975,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1303804795",
+      "loc": "bunbury",
+      "name": "St John of God Bunbury Hospital",
+      "lat": -33.367713,
+      "lon": 115.648379,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1304764691",
+      "loc": "bunbury",
+      "name": "Bunbury Regional Hospital",
+      "lat": -33.366716,
+      "lon": 115.648832,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-13432435",
+      "loc": "bunbury",
+      "name": "Jaycee Park",
+      "lat": -33.345863,
+      "lon": 115.658733,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-13613250",
+      "loc": "bunbury",
+      "name": "Armanta Park",
+      "lat": -33.361136,
+      "lon": 115.662716,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-13758173",
+      "loc": "bunbury",
+      "name": "Donaldson Park",
+      "lat": -33.356461,
+      "lon": 115.654234,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-15092401",
+      "loc": "bunbury",
+      "name": "South West Health Campus",
+      "lat": -33.366782,
+      "lon": 115.64852,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-164821134",
+      "loc": "bunbury",
+      "name": "Bellemore Park",
+      "lat": -33.3554,
+      "lon": 115.635796,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-165167753",
+      "loc": "bunbury",
+      "name": "Kelly Park",
+      "lat": -33.348021,
+      "lon": 115.654122,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-165170873",
+      "loc": "bunbury",
+      "name": "Kimberly Park",
+      "lat": -33.36101,
+      "lon": 115.648304,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-16549601",
+      "loc": "bunbury",
+      "name": "Katherine Chauhan Reserve",
+      "lat": -33.371934,
+      "lon": 115.634207,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-16549606",
+      "loc": "bunbury",
+      "name": "Maidens Reserve",
+      "lat": -33.367225,
+      "lon": 115.619014,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-223486305",
+      "loc": "bunbury",
+      "name": "Badminton Hall",
+      "lat": -33.368216,
+      "lon": 115.64072,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-240744757",
+      "loc": "bunbury",
+      "name": "Pioneer Park",
+      "lat": -33.32487,
+      "lon": 115.632942,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-34054260",
+      "loc": "bunbury",
+      "name": "Vat2",
+      "lat": -33.316275,
+      "lon": 115.638413,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-364556631",
+      "loc": "bunbury",
+      "name": "SWIT Library",
+      "lat": -33.365604,
+      "lon": 115.656327,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-390719819",
+      "loc": "bunbury",
+      "name": "PC Payne Park",
+      "lat": -33.331205,
+      "lon": 115.650217,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-391092143",
+      "loc": "bunbury",
+      "name": "Ken Cantwell Park",
+      "lat": -33.352698,
+      "lon": 115.672274,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-462146345",
+      "loc": "bunbury",
+      "name": "Boulters Heights",
+      "lat": -33.327063,
+      "lon": 115.634811,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-543830868",
+      "loc": "bunbury",
+      "name": "Wardandi Memorial Park",
+      "lat": -33.323912,
+      "lon": 115.631603,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-543830870",
+      "loc": "bunbury",
+      "name": "Tim Shaw Park",
+      "lat": -33.334325,
+      "lon": 115.661319,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-543830871",
+      "loc": "bunbury",
+      "name": "Wally Crowd Reserve West",
+      "lat": -33.328015,
+      "lon": 115.659465,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-543830873",
+      "loc": "bunbury",
+      "name": "Honey Park",
+      "lat": -33.349785,
+      "lon": 115.646409,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-543830879",
+      "loc": "bunbury",
+      "name": "Big Swamp Parkland West",
+      "lat": -33.34226,
+      "lon": 115.631499,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-543830881",
+      "loc": "bunbury",
+      "name": "Big Swamp Parkland East",
+      "lat": -33.343799,
+      "lon": 115.63581,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-575852910",
+      "loc": "bunbury",
+      "name": "Bunbury Central Croquet Club",
+      "lat": -33.326271,
+      "lon": 115.64254,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-586334828",
+      "loc": "bunbury",
+      "name": "Waters Edge",
+      "lat": -33.324966,
+      "lon": 115.641725,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-599383949",
+      "loc": "bunbury",
+      "name": "Catalpa Park",
+      "lat": -33.340823,
+      "lon": 115.686403,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-599385487",
+      "loc": "bunbury",
+      "name": "Gidgee Park",
+      "lat": -33.345359,
+      "lon": 115.685209,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-599385491",
+      "loc": "bunbury",
+      "name": "Fenian Park",
+      "lat": -33.346062,
+      "lon": 115.682617,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-599388006",
+      "loc": "bunbury",
+      "name": "John Boyle O'Reilly Park",
+      "lat": -33.346482,
+      "lon": 115.681088,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-599388517",
+      "loc": "bunbury",
+      "name": "Sundew Park",
+      "lat": -33.333933,
+      "lon": 115.691013,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-630211544",
+      "loc": "bunbury",
+      "name": "Bill Beaton Park",
+      "lat": -33.333056,
+      "lon": 115.657198,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-633817408",
+      "loc": "bunbury",
+      "name": "Bocce",
+      "lat": -33.33536,
+      "lon": 115.656928,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-633895260",
+      "loc": "bunbury",
+      "name": "Bunbury Bowling Club",
+      "lat": -33.341646,
+      "lon": 115.647003,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-666702861",
+      "loc": "bunbury",
+      "name": "Koombana Bay Foreshore",
+      "lat": -33.320488,
+      "lon": 115.645921,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-709199781",
+      "loc": "bunbury",
+      "name": "Anzac Park",
+      "lat": -33.327424,
+      "lon": 115.636991,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-709199786",
+      "loc": "bunbury",
+      "name": "Bunbury Library",
+      "lat": -33.327879,
+      "lon": 115.636972,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-709228442",
+      "loc": "bunbury",
+      "name": "Bunbury Indoor Cricket",
+      "lat": -33.33387,
+      "lon": 115.650348,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-737196571",
+      "loc": "bunbury",
+      "name": "Hello Summer Beach Kiosk",
+      "lat": -33.320132,
+      "lon": 115.645433,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-813796083",
+      "loc": "bunbury",
+      "name": "Sam's Park",
+      "lat": -33.347456,
+      "lon": 115.645741,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-813833318",
+      "loc": "bunbury",
+      "name": "Rotoract Park",
+      "lat": -33.362886,
+      "lon": 115.65503,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-960051699",
+      "loc": "bunbury",
+      "name": "Brecken Health Centre",
+      "lat": -33.35682,
+      "lon": 115.640335,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-961214620",
+      "loc": "bunbury",
+      "name": "Bunbury BMX Track",
+      "lat": -33.373601,
+      "lon": 115.639196,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10711435112",
+      "loc": "busselton",
+      "name": "Mano Wraps",
+      "lat": -33.649732,
+      "lon": 115.344606,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1160735130",
+      "loc": "busselton",
+      "name": "Kyst",
+      "lat": -33.645138,
+      "lon": 115.343297,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12560595001",
+      "loc": "busselton",
+      "name": "Rocky Ridge",
+      "lat": -33.647169,
+      "lon": 115.342613,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12990822574",
+      "loc": "busselton",
+      "name": "The Goose",
+      "lat": -33.644613,
+      "lon": 115.34547,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14132306142",
+      "loc": "busselton",
+      "name": "The Good Egg",
+      "lat": -33.652175,
+      "lon": 115.346445,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3094750074",
+      "loc": "busselton",
+      "name": "Coles",
+      "lat": -33.6502,
+      "lon": 115.34657,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3744065710",
+      "loc": "busselton",
+      "name": "Pizza Hut",
+      "lat": -33.651319,
+      "lon": 115.342528,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3744080946",
+      "loc": "busselton",
+      "name": "Muffin Break",
+      "lat": -33.650996,
+      "lon": 115.342767,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3744080947",
+      "loc": "busselton",
+      "name": "Coles",
+      "lat": -33.650781,
+      "lon": 115.342652,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3744179432",
+      "loc": "busselton",
+      "name": "Subway",
+      "lat": -33.652921,
+      "lon": 115.339732,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3744179433",
+      "loc": "busselton",
+      "name": "The Ship Inn",
+      "lat": -33.652914,
+      "lon": 115.341966,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4249936269",
+      "loc": "busselton",
+      "name": "Hummingbird",
+      "lat": -33.650114,
+      "lon": 115.344403,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5080988121",
+      "loc": "busselton",
+      "name": "Sensation Café",
+      "lat": -33.632753,
+      "lon": 115.388868,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5360989626",
+      "loc": "busselton",
+      "name": "The Old Post Office Cafe",
+      "lat": -33.647158,
+      "lon": 115.343563,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6333082885",
+      "loc": "busselton",
+      "name": "The Banksia Tavern",
+      "lat": -33.650772,
+      "lon": 115.345424,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6982496049",
+      "loc": "busselton",
+      "name": "Pan & Grill",
+      "lat": -33.649498,
+      "lon": 115.344234,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6982496052",
+      "loc": "busselton",
+      "name": "Coco‘s Thai",
+      "lat": -33.649481,
+      "lon": 115.344538,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6982496055",
+      "loc": "busselton",
+      "name": "Sandbox",
+      "lat": -33.645096,
+      "lon": 115.343582,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6982496056",
+      "loc": "busselton",
+      "name": "Great Wall",
+      "lat": -33.649416,
+      "lon": 115.34452,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6982496057",
+      "loc": "busselton",
+      "name": "Mr Kebab",
+      "lat": -33.650018,
+      "lon": 115.344812,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6982509835",
+      "loc": "busselton",
+      "name": "The Fire Station",
+      "lat": -33.650344,
+      "lon": 115.34449,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6982509838",
+      "loc": "busselton",
+      "name": "The Tav",
+      "lat": -33.65176,
+      "lon": 115.3452,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6982583348",
+      "loc": "busselton",
+      "name": "Domino's",
+      "lat": -33.652531,
+      "lon": 115.341835,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6982583349",
+      "loc": "busselton",
+      "name": "Jade Cafe",
+      "lat": -33.652411,
+      "lon": 115.342548,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6982583350",
+      "loc": "busselton",
+      "name": "Aldi",
+      "lat": -33.655471,
+      "lon": 115.341035,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6982583354",
+      "loc": "busselton",
+      "name": "Thai Lemongrass",
+      "lat": -33.652519,
+      "lon": 115.341926,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6982584572",
+      "loc": "busselton",
+      "name": "Al Forno",
+      "lat": -33.652931,
+      "lon": 115.33963,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6984021668",
+      "loc": "busselton",
+      "name": "Zen",
+      "lat": -33.649046,
+      "lon": 115.344113,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6984021669",
+      "loc": "busselton",
+      "name": "Bistro Breton",
+      "lat": -33.649274,
+      "lon": 115.344488,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6984021671",
+      "loc": "busselton",
+      "name": "Busselton Thai",
+      "lat": -33.649198,
+      "lon": 115.344168,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6984082968",
+      "loc": "busselton",
+      "name": "Kent Street Bakery",
+      "lat": -33.649807,
+      "lon": 115.345901,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6984085132",
+      "loc": "busselton",
+      "name": "Little Peach",
+      "lat": -33.651189,
+      "lon": 115.344618,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6984110547",
+      "loc": "busselton",
+      "name": "Two Groupers Busselton",
+      "lat": -33.648365,
+      "lon": 115.344267,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6984110548",
+      "loc": "busselton",
+      "name": "Emerald",
+      "lat": -33.648292,
+      "lon": 115.344248,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6984570216",
+      "loc": "busselton",
+      "name": "The Urban Coffee House",
+      "lat": -33.652651,
+      "lon": 115.339597,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1300834470",
+      "loc": "busselton",
+      "name": "Busselton Hospital",
+      "lat": -33.654466,
+      "lon": 115.319667,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1372397960",
+      "loc": "busselton",
+      "name": "Esplanade Hotel",
+      "lat": -33.646954,
+      "lon": 115.345414,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1372610084",
+      "loc": "busselton",
+      "name": "Busselton Bowling Club",
+      "lat": -33.648318,
+      "lon": 115.349906,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1372610087",
+      "loc": "busselton",
+      "name": "Churchill Park",
+      "lat": -33.647439,
+      "lon": 115.351087,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1444476423",
+      "loc": "busselton",
+      "name": "Lavender Park",
+      "lat": -33.663861,
+      "lon": 115.389796,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1444476432",
+      "loc": "busselton",
+      "name": "Airplane Park",
+      "lat": -33.666999,
+      "lon": 115.390826,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-217605393",
+      "loc": "busselton",
+      "name": "Victoria Square",
+      "lat": -33.652694,
+      "lon": 115.344977,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243752391",
+      "loc": "busselton",
+      "name": "Geographe Leisure Centre",
+      "lat": -33.666602,
+      "lon": 115.325262,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243755705",
+      "loc": "busselton",
+      "name": "Paradise Park",
+      "lat": -33.660798,
+      "lon": 115.299668,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243756639",
+      "loc": "busselton",
+      "name": "McBride Park",
+      "lat": -33.66101,
+      "lon": 115.306276,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-314585704",
+      "loc": "busselton",
+      "name": "Woolworths",
+      "lat": -33.649237,
+      "lon": 115.345246,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-316522104",
+      "loc": "busselton",
+      "name": "KFC",
+      "lat": -33.653224,
+      "lon": 115.341296,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-316526728",
+      "loc": "busselton",
+      "name": "McDonald's",
+      "lat": -33.652784,
+      "lon": 115.343621,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-345272971",
+      "loc": "busselton",
+      "name": "Mitchell Park",
+      "lat": -33.650782,
+      "lon": 115.344265,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-370713135",
+      "loc": "busselton",
+      "name": "Hungry Jack's",
+      "lat": -33.652814,
+      "lon": 115.343363,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-370721442",
+      "loc": "busselton",
+      "name": "Japanese Friendship Garden",
+      "lat": -33.651037,
+      "lon": 115.347697,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-370727418",
+      "loc": "busselton",
+      "name": "Red Rooster",
+      "lat": -33.65297,
+      "lon": 115.339161,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-370730442",
+      "loc": "busselton",
+      "name": "Rise & Co",
+      "lat": -33.653805,
+      "lon": 115.335741,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-468706635",
+      "loc": "busselton",
+      "name": "Busselton Tennis Club",
+      "lat": -33.643801,
+      "lon": 115.353557,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-468707628",
+      "loc": "busselton",
+      "name": "Barnard Park",
+      "lat": -33.644444,
+      "lon": 115.350222,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-49961088",
+      "loc": "busselton",
+      "name": "Avignon Park",
+      "lat": -33.666812,
+      "lon": 115.386064,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-50345537",
+      "loc": "busselton",
+      "name": "Sir Stewart Bovell Sporting Complex",
+      "lat": -33.664744,
+      "lon": 115.367673,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-558419432",
+      "loc": "busselton",
+      "name": "Rotary Park",
+      "lat": -33.653413,
+      "lon": 115.347283,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-558430372",
+      "loc": "busselton",
+      "name": "Koolangka Park",
+      "lat": -33.629088,
+      "lon": 115.392693,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-558641971",
+      "loc": "busselton",
+      "name": "Almond Park",
+      "lat": -33.663233,
+      "lon": 115.38299,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-558776862",
+      "loc": "busselton",
+      "name": "Busselton Jetty Foreshore",
+      "lat": -33.645646,
+      "lon": 115.343571,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-558777968",
+      "loc": "busselton",
+      "name": "Yalyalup Park",
+      "lat": -33.671077,
+      "lon": 115.38083,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-580145719",
+      "loc": "busselton",
+      "name": "The Goose",
+      "lat": -33.644644,
+      "lon": 115.345432,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-625180823",
+      "loc": "busselton",
+      "name": "Cloisters Park",
+      "lat": -33.663893,
+      "lon": 115.338926,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3345657897",
+      "loc": "coral-bay",
+      "name": "Foodworks",
+      "lat": -23.141337,
+      "lon": 113.773415,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3345661198",
+      "loc": "coral-bay",
+      "name": "The Reef Cafe",
+      "lat": -23.142427,
+      "lon": 113.772881,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3345661199",
+      "loc": "coral-bay",
+      "name": "Fin's Cafe",
+      "lat": -23.14332,
+      "lon": 113.770867,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3837814545",
+      "loc": "coral-bay",
+      "name": "Bill's",
+      "lat": -23.141496,
+      "lon": 113.773906,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10656531627",
+      "loc": "esperance",
+      "name": "Aurelias Ice Creamery and Cafe",
+      "lat": -33.868305,
+      "lon": 121.891974,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10656531643",
+      "loc": "esperance",
+      "name": "Eljay's Bar and Restaurant",
+      "lat": -33.857639,
+      "lon": 121.896487,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10656531644",
+      "loc": "esperance",
+      "name": "Eljay's Bar and Restaurant",
+      "lat": -33.857605,
+      "lon": 121.896407,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10656635979",
+      "loc": "esperance",
+      "name": "By The Bay Pilates",
+      "lat": -33.857776,
+      "lon": 121.893484,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11468227569",
+      "loc": "esperance",
+      "name": "Top End Takeaway",
+      "lat": -33.865058,
+      "lon": 121.890258,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11879455169",
+      "loc": "esperance",
+      "name": "Taylor St Quarters",
+      "lat": -33.866233,
+      "lon": 121.894969,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12832982910",
+      "loc": "esperance",
+      "name": "Sandy Hook Tavern",
+      "lat": -33.861582,
+      "lon": 121.892778,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12832982911",
+      "loc": "esperance",
+      "name": "ROAST AND TOAST LUNCH BAR AND CAFE",
+      "lat": -33.861609,
+      "lon": 121.892853,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13534168853",
+      "loc": "esperance",
+      "name": "Pizza & Porter",
+      "lat": -33.860242,
+      "lon": 121.891929,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1572734365",
+      "loc": "esperance",
+      "name": "Castletown",
+      "lat": -33.837529,
+      "lon": 121.908186,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1573182507",
+      "loc": "esperance",
+      "name": "IGA",
+      "lat": -33.860005,
+      "lon": 121.877228,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1574186043",
+      "loc": "esperance",
+      "name": "Jax Snax",
+      "lat": -33.859189,
+      "lon": 121.893114,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1574186830",
+      "loc": "esperance",
+      "name": "Red Rooster",
+      "lat": -33.858544,
+      "lon": 121.891823,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1583542269",
+      "loc": "esperance",
+      "name": "Pier Hotel",
+      "lat": -33.861425,
+      "lon": 121.893499,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1583542442",
+      "loc": "esperance",
+      "name": "Esperance Hotel",
+      "lat": -33.861874,
+      "lon": 121.89251,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1583542983",
+      "loc": "esperance",
+      "name": "Travellers Inn",
+      "lat": -33.84294,
+      "lon": 121.904161,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2000241440",
+      "loc": "esperance",
+      "name": "IGA",
+      "lat": -33.862117,
+      "lon": 121.89054,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3212690266",
+      "loc": "esperance",
+      "name": "McDonald's",
+      "lat": -33.864595,
+      "lon": 121.890244,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3859616871",
+      "loc": "esperance",
+      "name": "Subway",
+      "lat": -33.860016,
+      "lon": 121.892162,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5232010721",
+      "loc": "esperance",
+      "name": "Down Town Espresso Bar",
+      "lat": -33.862058,
+      "lon": 121.891374,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5235813621",
+      "loc": "esperance",
+      "name": "Coffee Cat",
+      "lat": -33.85294,
+      "lon": 121.900886,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6180127485",
+      "loc": "esperance",
+      "name": "Ocean Blue Restaurant",
+      "lat": -33.856309,
+      "lon": 121.898019,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-683788400",
+      "loc": "esperance",
+      "name": "Golden Orient",
+      "lat": -33.857056,
+      "lon": 121.894908,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-683788407",
+      "loc": "esperance",
+      "name": "Woolworths",
+      "lat": -33.858209,
+      "lon": 121.890614,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-684482197",
+      "loc": "esperance",
+      "name": "IGA",
+      "lat": -33.837314,
+      "lon": 121.90838,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-684482264",
+      "loc": "esperance",
+      "name": "The Quarters",
+      "lat": -33.866341,
+      "lon": 121.894292,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1101399148",
+      "loc": "esperance",
+      "name": "33 Degrees",
+      "lat": -33.862439,
+      "lon": 121.89276,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1235589160",
+      "loc": "esperance",
+      "name": "Esperance Indoor Sport Stadium",
+      "lat": -33.856279,
+      "lon": 121.885226,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-181662591",
+      "loc": "esperance",
+      "name": "Dauphin Park",
+      "lat": -33.824799,
+      "lon": 121.91342,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-181662593",
+      "loc": "esperance",
+      "name": "Chantilly Park",
+      "lat": -33.824297,
+      "lon": 121.916857,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-181662596",
+      "loc": "esperance",
+      "name": "St Germain Park",
+      "lat": -33.826808,
+      "lon": 121.915132,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-182143668",
+      "loc": "esperance",
+      "name": "Lion's Park",
+      "lat": -33.836422,
+      "lon": 121.909821,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-182144068",
+      "loc": "esperance",
+      "name": "Kalinda Park",
+      "lat": -33.834289,
+      "lon": 121.917473,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-207686335",
+      "loc": "esperance",
+      "name": "Museum Park",
+      "lat": -33.858561,
+      "lon": 121.894809,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-250490104",
+      "loc": "esperance",
+      "name": "Bay of Isles Leisure Centre",
+      "lat": -33.857531,
+      "lon": 121.885011,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-250490144",
+      "loc": "esperance",
+      "name": "Ralph Bower Adventureland Park",
+      "lat": -33.867345,
+      "lon": 121.893617,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-384316966",
+      "loc": "esperance",
+      "name": "Esperance Hospital",
+      "lat": -33.856099,
+      "lon": 121.891951,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-411375547",
+      "loc": "esperance",
+      "name": "Xing's Sushi & Noodle",
+      "lat": -33.861939,
+      "lon": 121.892577,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-602572853",
+      "loc": "esperance",
+      "name": "Port Authority Park",
+      "lat": -33.869395,
+      "lon": 121.892983,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-602572854",
+      "loc": "esperance",
+      "name": "Adventureland Park",
+      "lat": -33.864887,
+      "lon": 121.8933,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-602572855",
+      "loc": "esperance",
+      "name": "Adventureland Park",
+      "lat": -33.865884,
+      "lon": 121.892403,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-602572860",
+      "loc": "esperance",
+      "name": "Bow Park",
+      "lat": -33.861896,
+      "lon": 121.894182,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-602572868",
+      "loc": "esperance",
+      "name": "The Esplande",
+      "lat": -33.857498,
+      "lon": 121.897549,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-602572869",
+      "loc": "esperance",
+      "name": "Tanker Jetty Park",
+      "lat": -33.852547,
+      "lon": 121.900945,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-602572870",
+      "loc": "esperance",
+      "name": "Dempster Heights Park",
+      "lat": -33.871609,
+      "lon": 121.878495,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-602572871",
+      "loc": "esperance",
+      "name": "Skroly Park",
+      "lat": -33.870125,
+      "lon": 121.87236,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-602572874",
+      "loc": "esperance",
+      "name": "Lalor Park",
+      "lat": -33.837948,
+      "lon": 121.905127,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-602572876",
+      "loc": "esperance",
+      "name": "Catherine Park",
+      "lat": -33.828944,
+      "lon": 121.901358,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-606361712",
+      "loc": "esperance",
+      "name": "West Beach Park",
+      "lat": -33.877125,
+      "lon": 121.878114,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-606361713",
+      "loc": "esperance",
+      "name": "Chapman's Point",
+      "lat": -33.878065,
+      "lon": 121.870592,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-606361714",
+      "loc": "esperance",
+      "name": "Blue Haven North",
+      "lat": -33.879732,
+      "lon": 121.865473,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-606361715",
+      "loc": "esperance",
+      "name": "Blue Haven South",
+      "lat": -33.884125,
+      "lon": 121.861451,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-606361716",
+      "loc": "esperance",
+      "name": "James Street Park",
+      "lat": -33.860125,
+      "lon": 121.89356,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-692629434",
+      "loc": "esperance",
+      "name": "Curry Palace",
+      "lat": -33.873652,
+      "lon": 121.881022,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-693491241",
+      "loc": "esperance",
+      "name": "Break Away Cafe",
+      "lat": -33.862415,
+      "lon": 121.89052,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10821061612",
+      "loc": "exmouth",
+      "name": "The Local Society",
+      "lat": -21.931646,
+      "lon": 114.122839,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10821113110",
+      "loc": "exmouth",
+      "name": "Ningaloo Bulk Foods",
+      "lat": -21.931646,
+      "lon": 114.122686,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10821113133",
+      "loc": "exmouth",
+      "name": "Earlybird",
+      "lat": -21.930626,
+      "lon": 114.122248,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10821113134",
+      "loc": "exmouth",
+      "name": "Sweet Exmouth",
+      "lat": -21.930612,
+      "lon": 114.122087,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10823295605",
+      "loc": "exmouth",
+      "name": "Batters Fish and Chips",
+      "lat": -21.932765,
+      "lon": 114.127055,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11166886741",
+      "loc": "exmouth",
+      "name": "Cadillacs Bar and Grill",
+      "lat": -21.937303,
+      "lon": 114.129295,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11166896062",
+      "loc": "exmouth",
+      "name": "Cafe Muiron",
+      "lat": -21.936566,
+      "lon": 114.130343,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11166896068",
+      "loc": "exmouth",
+      "name": "Adrift Cafe",
+      "lat": -21.937876,
+      "lon": 114.126406,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12164726968",
+      "loc": "exmouth",
+      "name": "Exmouth Public Library",
+      "lat": -21.936512,
+      "lon": 114.130172,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12206769121",
+      "loc": "exmouth",
+      "name": "Blue Lips Fish&Chips",
+      "lat": -21.931638,
+      "lon": 114.122894,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12208802171",
+      "loc": "exmouth",
+      "name": "Whalers Restaurant",
+      "lat": -21.945284,
+      "lon": 114.132161,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1978395831",
+      "loc": "exmouth",
+      "name": "Ningaloo Harvest IGA",
+      "lat": -21.930787,
+      "lon": 114.122968,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1978395880",
+      "loc": "exmouth",
+      "name": "Exhale",
+      "lat": -21.931605,
+      "lon": 114.123114,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5699230221",
+      "loc": "exmouth",
+      "name": "The BBQ Father",
+      "lat": -21.935196,
+      "lon": 114.128556,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5699242021",
+      "loc": "exmouth",
+      "name": "Froth Craft Brewery",
+      "lat": -21.930842,
+      "lon": 114.122244,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5699269521",
+      "loc": "exmouth",
+      "name": "Exmouth Yacht Club",
+      "lat": -21.948601,
+      "lon": 114.139181,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9973805365",
+      "loc": "exmouth",
+      "name": "Bamboo",
+      "lat": -21.93129,
+      "lon": 114.122864,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9980860010",
+      "loc": "exmouth",
+      "name": "Exmouth IGA",
+      "lat": -21.931061,
+      "lon": 114.122659,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1279782110",
+      "loc": "exmouth",
+      "name": "Ningaloo Reef Gym",
+      "lat": -21.937375,
+      "lon": 114.128319,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-187081830",
+      "loc": "exmouth",
+      "name": "Federation Park",
+      "lat": -21.931306,
+      "lon": 114.124144,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-187081831",
+      "loc": "exmouth",
+      "name": "Lefroy Park",
+      "lat": -21.931881,
+      "lon": 114.123182,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-187088351",
+      "loc": "exmouth",
+      "name": "Exmouth Hospital",
+      "lat": -21.928133,
+      "lon": 114.119928,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-678772869",
+      "loc": "exmouth",
+      "name": "Paltridge Memorial Swimming Pool",
+      "lat": -21.931514,
+      "lon": 114.125048,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-757747614",
+      "loc": "exmouth",
+      "name": "Exmouth Park",
+      "lat": -21.927123,
+      "lon": 114.123959,
+      "type": "park",
+      "source": "osm"
+    },
+    {
       "id": "osm-node-10290813909",
       "loc": "fremantle",
       "name": "Pearla & Co",
@@ -2710,6 +6805,3849 @@
       "lat": -32.066805,
       "lon": 115.752207,
       "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10917976859",
+      "loc": "geraldton",
+      "name": "Bob's Boutique Bar",
+      "lat": -28.774585,
+      "lon": 114.609486,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11135374644",
+      "loc": "geraldton",
+      "name": "Chicken Treat",
+      "lat": -28.791725,
+      "lon": 114.616363,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11269201663",
+      "loc": "geraldton",
+      "name": "Domino's",
+      "lat": -28.79252,
+      "lon": 114.617277,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14016747013",
+      "loc": "geraldton",
+      "name": "Casa Dolce",
+      "lat": -28.772731,
+      "lon": 114.60987,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14022475153",
+      "loc": "geraldton",
+      "name": "KFC",
+      "lat": -28.758489,
+      "lon": 114.625341,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14022557042",
+      "loc": "geraldton",
+      "name": "Muzz Buzz",
+      "lat": -28.736972,
+      "lon": 114.62412,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14022624790",
+      "loc": "geraldton",
+      "name": "The Mad Mexican",
+      "lat": -28.774492,
+      "lon": 114.613901,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14022747897",
+      "loc": "geraldton",
+      "name": "Sail Inn Snack Bar",
+      "lat": -28.775976,
+      "lon": 114.605052,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14022772102",
+      "loc": "geraldton",
+      "name": "Banh Mi Up",
+      "lat": -28.772905,
+      "lon": 114.609699,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14022781722",
+      "loc": "geraldton",
+      "name": "KFC",
+      "lat": -28.776127,
+      "lon": 114.605525,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14166306185",
+      "loc": "geraldton",
+      "name": "Lunchbox @ 252",
+      "lat": -28.765257,
+      "lon": 114.630358,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14166306190",
+      "loc": "geraldton",
+      "name": "Rigters IGA Wonthella",
+      "lat": -28.76525,
+      "lon": 114.630183,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14348445066",
+      "loc": "geraldton",
+      "name": "30 Knots Distillery",
+      "lat": -28.761387,
+      "lon": 114.616223,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2775879219",
+      "loc": "geraldton",
+      "name": "Dôme",
+      "lat": -28.772493,
+      "lon": 114.608771,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-33682726",
+      "loc": "geraldton",
+      "name": "Coles",
+      "lat": -28.767432,
+      "lon": 114.617127,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3742188025",
+      "loc": "geraldton",
+      "name": "Red Rooster",
+      "lat": -28.733893,
+      "lon": 114.628778,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3751296142",
+      "loc": "geraldton",
+      "name": "Subway",
+      "lat": -28.774311,
+      "lon": 114.612799,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3751296602",
+      "loc": "geraldton",
+      "name": "Woolworths",
+      "lat": -28.774613,
+      "lon": 114.612239,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4151508333",
+      "loc": "geraldton",
+      "name": "Sirocco Bar",
+      "lat": -28.773759,
+      "lon": 114.608236,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4281402556",
+      "loc": "geraldton",
+      "name": "Geraldton Library",
+      "lat": -28.771688,
+      "lon": 114.61118,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4362250289",
+      "loc": "geraldton",
+      "name": "Geraldton Turkish Kitchen",
+      "lat": -28.773954,
+      "lon": 114.610395,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4719620489",
+      "loc": "geraldton",
+      "name": "two foreshore",
+      "lat": -28.774139,
+      "lon": 114.606826,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-473440614",
+      "loc": "geraldton",
+      "name": "McDonald's",
+      "lat": -28.773086,
+      "lon": 114.611943,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4908611225",
+      "loc": "geraldton",
+      "name": "quiet life",
+      "lat": -28.776748,
+      "lon": 114.604121,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4914874626",
+      "loc": "geraldton",
+      "name": "Cafe Fleur",
+      "lat": -28.77472,
+      "lon": 114.607505,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5336034325",
+      "loc": "geraldton",
+      "name": "Skeetas",
+      "lat": -28.768869,
+      "lon": 114.61072,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5608315328",
+      "loc": "geraldton",
+      "name": "Woolworths",
+      "lat": -28.809397,
+      "lon": 114.632369,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6742395205",
+      "loc": "geraldton",
+      "name": "Jaffle Shack",
+      "lat": -28.774754,
+      "lon": 114.607433,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934435387",
+      "loc": "geraldton",
+      "name": "Hog's Breath Cafe",
+      "lat": -28.772902,
+      "lon": 114.612095,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934435392",
+      "loc": "geraldton",
+      "name": "centrelink medicare",
+      "lat": -28.770674,
+      "lon": 114.612564,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934435396",
+      "loc": "geraldton",
+      "name": "Salt Dish",
+      "lat": -28.771535,
+      "lon": 114.611175,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934435398",
+      "loc": "geraldton",
+      "name": "The Freemasons Hotel",
+      "lat": -28.772616,
+      "lon": 114.610308,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934560974",
+      "loc": "geraldton",
+      "name": "Zambrero",
+      "lat": -28.767504,
+      "lon": 114.616243,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934560975",
+      "loc": "geraldton",
+      "name": "The Murchison Tavern",
+      "lat": -28.773577,
+      "lon": 114.611017,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934560977",
+      "loc": "geraldton",
+      "name": "smokin‘ grill and burgery",
+      "lat": -28.773692,
+      "lon": 114.61191,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934684380",
+      "loc": "geraldton",
+      "name": "Armstrongs",
+      "lat": -28.773691,
+      "lon": 114.611045,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934684382",
+      "loc": "geraldton",
+      "name": "The Lemon Grass",
+      "lat": -28.775358,
+      "lon": 114.606899,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934684384",
+      "loc": "geraldton",
+      "name": "L‘Italiano",
+      "lat": -28.774805,
+      "lon": 114.606794,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934700690",
+      "loc": "geraldton",
+      "name": "tarts & co.",
+      "lat": -28.774934,
+      "lon": 114.607123,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934750146",
+      "loc": "geraldton",
+      "name": "The Provincial",
+      "lat": -28.774685,
+      "lon": 114.608141,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6934750147",
+      "loc": "geraldton",
+      "name": "Tanti‘s Restaurant",
+      "lat": -28.774524,
+      "lon": 114.607877,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9963553635",
+      "loc": "geraldton",
+      "name": "The Snazzy Cafe and kebabs",
+      "lat": -28.773756,
+      "lon": 114.611874,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9999145265",
+      "loc": "geraldton",
+      "name": "Hungry Jack's",
+      "lat": -28.791892,
+      "lon": 114.616512,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1018263887",
+      "loc": "geraldton",
+      "name": "Olive Street Reserve",
+      "lat": -28.795023,
+      "lon": 114.616145,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1018480876",
+      "loc": "geraldton",
+      "name": "Mahomets Beach",
+      "lat": -28.794163,
+      "lon": 114.613191,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1018480877",
+      "loc": "geraldton",
+      "name": "Willcock Drive Lookout",
+      "lat": -28.800201,
+      "lon": 114.616933,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1018480878",
+      "loc": "geraldton",
+      "name": "Ackland Park",
+      "lat": -28.805324,
+      "lon": 114.62322,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1022244002",
+      "loc": "geraldton",
+      "name": "Captains Public Open Space",
+      "lat": -28.780532,
+      "lon": 114.580087,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1146462662",
+      "loc": "geraldton",
+      "name": "Panaceum Seacrest",
+      "lat": -28.809678,
+      "lon": 114.631477,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1153622741",
+      "loc": "geraldton",
+      "name": "The Geraldton Hotel",
+      "lat": -28.776949,
+      "lon": 114.605933,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1153622753",
+      "loc": "geraldton",
+      "name": "Flowvitality Cafe",
+      "lat": -28.778059,
+      "lon": 114.60556,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1153622754",
+      "loc": "geraldton",
+      "name": "Straight Up Health",
+      "lat": -28.778861,
+      "lon": 114.605576,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1164410506",
+      "loc": "geraldton",
+      "name": "Panaceum Geraldton",
+      "lat": -28.777078,
+      "lon": 114.60787,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1165043806",
+      "loc": "geraldton",
+      "name": "Spalding Park Tennis Club",
+      "lat": -28.732094,
+      "lon": 114.627859,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1167081778",
+      "loc": "geraldton",
+      "name": "Spalding Child Health Centre",
+      "lat": -28.741358,
+      "lon": 114.630068,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1167709597",
+      "loc": "geraldton",
+      "name": "Kai Lani Cafe",
+      "lat": -28.77042,
+      "lon": 114.610406,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1167938496",
+      "loc": "geraldton",
+      "name": "Edith Cowan Square",
+      "lat": -28.770649,
+      "lon": 114.611225,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1167938497",
+      "loc": "geraldton",
+      "name": "Batavia Park",
+      "lat": -28.771918,
+      "lon": 114.610164,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1174725593",
+      "loc": "geraldton",
+      "name": "Honeysuckle Public Open Space",
+      "lat": -28.752674,
+      "lon": 114.653791,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1174725594",
+      "loc": "geraldton",
+      "name": "Tersonia Public Open Space",
+      "lat": -28.748129,
+      "lon": 114.649134,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1174725605",
+      "loc": "geraldton",
+      "name": "Strathalbyn Park",
+      "lat": -28.757586,
+      "lon": 114.650958,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1175004328",
+      "loc": "geraldton",
+      "name": "Old Man and the Sea Rooftop Bar",
+      "lat": -28.774471,
+      "lon": 114.609438,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1175013210",
+      "loc": "geraldton",
+      "name": "Sutherland Public Open Space",
+      "lat": -28.805204,
+      "lon": 114.633534,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1181996589",
+      "loc": "geraldton",
+      "name": "Bell Hearing",
+      "lat": -28.784946,
+      "lon": 114.616949,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1184902798",
+      "loc": "geraldton",
+      "name": "City Health Geraldton",
+      "lat": -28.7826,
+      "lon": 114.616927,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1184902800",
+      "loc": "geraldton",
+      "name": "Medical Aesthetics",
+      "lat": -28.784459,
+      "lon": 114.617587,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1184902802",
+      "loc": "geraldton",
+      "name": "Midwest Orthopaedics",
+      "lat": -28.784429,
+      "lon": 114.61681,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1188248996",
+      "loc": "geraldton",
+      "name": "Nature's Chinese Medicine & Acupuncture Clinic",
+      "lat": -28.7814,
+      "lon": 114.6162,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1188911960",
+      "loc": "geraldton",
+      "name": "Greenough Oval",
+      "lat": -28.777803,
+      "lon": 114.655155,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1188911978",
+      "loc": "geraldton",
+      "name": "Woorree Park BMX Club",
+      "lat": -28.76771,
+      "lon": 114.660054,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1188911979",
+      "loc": "geraldton",
+      "name": "Woorree Park",
+      "lat": -28.766949,
+      "lon": 114.660874,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1190177319",
+      "loc": "geraldton",
+      "name": "Dewar Public Open Space",
+      "lat": -28.783741,
+      "lon": 114.656972,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1190349759",
+      "loc": "geraldton",
+      "name": "Alexander Public Open Space",
+      "lat": -28.780772,
+      "lon": 114.645886,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1190349766",
+      "loc": "geraldton",
+      "name": "Woodman Street Park",
+      "lat": -28.77766,
+      "lon": 114.646872,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1190349786",
+      "loc": "geraldton",
+      "name": "Alexander Public Open Space",
+      "lat": -28.780772,
+      "lon": 114.64832,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1190349787",
+      "loc": "geraldton",
+      "name": "Alexander Park",
+      "lat": -28.78106,
+      "lon": 114.650411,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1199408585",
+      "loc": "geraldton",
+      "name": "McDonald's",
+      "lat": -28.757361,
+      "lon": 114.625159,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1210949412",
+      "loc": "geraldton",
+      "name": "Kononen Public Open Space",
+      "lat": -28.764318,
+      "lon": 114.619816,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1216462795",
+      "loc": "geraldton",
+      "name": "iMPACT'N - Remedial & Sports Massage",
+      "lat": -28.767474,
+      "lon": 114.624339,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1305270256",
+      "loc": "geraldton",
+      "name": "Pizza Hut",
+      "lat": -28.775869,
+      "lon": 114.614957,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1537939070",
+      "loc": "geraldton",
+      "name": "RT Cafe & Restaurant",
+      "lat": -28.772447,
+      "lon": 114.609975,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1537939076",
+      "loc": "geraldton",
+      "name": "The Foreshore",
+      "lat": -28.772719,
+      "lon": 114.609333,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-240843057",
+      "loc": "geraldton",
+      "name": "Domino's",
+      "lat": -28.760242,
+      "lon": 114.625065,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243041005",
+      "loc": "geraldton",
+      "name": "Tuart Street Park",
+      "lat": -28.78293,
+      "lon": 114.634198,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243041008",
+      "loc": "geraldton",
+      "name": "Hadda Way Public Open Space",
+      "lat": -28.792641,
+      "lon": 114.611728,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243041009",
+      "loc": "geraldton",
+      "name": "Cooper Circuit Park",
+      "lat": -28.792582,
+      "lon": 114.621325,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243041012",
+      "loc": "geraldton",
+      "name": "Zeewyck Park",
+      "lat": -28.790873,
+      "lon": 114.612509,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243041015",
+      "loc": "geraldton",
+      "name": "Hakea Street Park",
+      "lat": -28.797956,
+      "lon": 114.618019,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243041016",
+      "loc": "geraldton",
+      "name": "Paringa Park",
+      "lat": -28.801534,
+      "lon": 114.624532,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243129003",
+      "loc": "geraldton",
+      "name": "Activewest Stadium",
+      "lat": -28.76892,
+      "lon": 114.629966,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243129044",
+      "loc": "geraldton",
+      "name": "Queens Park",
+      "lat": -28.775903,
+      "lon": 114.613011,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243129051",
+      "loc": "geraldton",
+      "name": "Mount Scott",
+      "lat": -28.773394,
+      "lon": 114.61584,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243129052",
+      "loc": "geraldton",
+      "name": "Maitland Park",
+      "lat": -28.778591,
+      "lon": 114.611878,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243142487",
+      "loc": "geraldton",
+      "name": "Coxswains Crescent Park",
+      "lat": -28.780892,
+      "lon": 114.581314,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243142494",
+      "loc": "geraldton",
+      "name": "Muir Park",
+      "lat": -28.753726,
+      "lon": 114.642351,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243142504",
+      "loc": "geraldton",
+      "name": "Levy Street Park",
+      "lat": -28.789104,
+      "lon": 114.630855,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-243270786",
+      "loc": "geraldton",
+      "name": "Glendinning Park",
+      "lat": -28.809065,
+      "lon": 114.622574,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-256946754",
+      "loc": "geraldton",
+      "name": "Hungry Jack's",
+      "lat": -28.767505,
+      "lon": 114.615699,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-315726093",
+      "loc": "geraldton",
+      "name": "Barnacles on the Wharf",
+      "lat": -28.775544,
+      "lon": 114.588,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-331422969",
+      "loc": "geraldton",
+      "name": "Challener Park",
+      "lat": -28.780734,
+      "lon": 114.631255,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-331438039",
+      "loc": "geraldton",
+      "name": "Geraldton Recreation Ground",
+      "lat": -28.780933,
+      "lon": 114.603309,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-331439011",
+      "loc": "geraldton",
+      "name": "Fraser Gregory Park",
+      "lat": -28.785245,
+      "lon": 114.605576,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-331441500",
+      "loc": "geraldton",
+      "name": "Clematis Crescent Park",
+      "lat": -28.786509,
+      "lon": 114.638795,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-331442043",
+      "loc": "geraldton",
+      "name": "Karloo Park",
+      "lat": -28.791519,
+      "lon": 114.644073,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-331444461",
+      "loc": "geraldton",
+      "name": "Tarcoola Park",
+      "lat": -28.797738,
+      "lon": 114.62907,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-335093201",
+      "loc": "geraldton",
+      "name": "Iduna Park",
+      "lat": -28.808808,
+      "lon": 114.631257,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-335098318",
+      "loc": "geraldton",
+      "name": "Ackland Park",
+      "lat": -28.805814,
+      "lon": 114.623581,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-670055125",
+      "loc": "geraldton",
+      "name": "Geraldton Small Bore Rifle Range",
+      "lat": -28.769683,
+      "lon": 114.641291,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-717914693",
+      "loc": "geraldton",
+      "name": "Jaffle Shack",
+      "lat": -28.770079,
+      "lon": 114.610692,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-729422819",
+      "loc": "geraldton",
+      "name": "St John of God Geraldton Hospital",
+      "lat": -28.784129,
+      "lon": 114.615958,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-740756402",
+      "loc": "geraldton",
+      "name": "Beached Barrel",
+      "lat": -28.773345,
+      "lon": 114.60869,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-763258914",
+      "loc": "geraldton",
+      "name": "IGA",
+      "lat": -28.773716,
+      "lon": 114.613981,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-914977649",
+      "loc": "geraldton",
+      "name": "ALDI",
+      "lat": -28.776868,
+      "lon": 114.626869,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-931496154",
+      "loc": "geraldton",
+      "name": "Geraldton Regional Aboriginal Medical Service (GRAMS)",
+      "lat": -28.785005,
+      "lon": 114.629134,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-946771057",
+      "loc": "geraldton",
+      "name": "Geraldton Health Campus",
+      "lat": -28.7834,
+      "lon": 114.611343,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2291428388",
+      "loc": "kalbarri",
+      "name": "Gilgai Tavern",
+      "lat": -27.711507,
+      "lon": 114.165569,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2291428397",
+      "loc": "kalbarri",
+      "name": "Red Bluff",
+      "lat": -27.711521,
+      "lon": 114.165251,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4933494725",
+      "loc": "kalbarri",
+      "name": "The Gorges Cafe",
+      "lat": -27.700505,
+      "lon": 114.168885,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6944588585",
+      "loc": "kalbarri",
+      "name": "Upstairs Resteraunt",
+      "lat": -27.711486,
+      "lon": 114.165128,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6944588586",
+      "loc": "kalbarri",
+      "name": "Little Leaf Kalbarri",
+      "lat": -27.711237,
+      "lon": 114.164445,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6944588589",
+      "loc": "kalbarri",
+      "name": "The Pickled Pelican",
+      "lat": -27.70699,
+      "lon": 114.167942,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6944588595",
+      "loc": "kalbarri",
+      "name": "Golden Wok",
+      "lat": -27.711818,
+      "lon": 114.165547,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6944682185",
+      "loc": "kalbarri",
+      "name": "The Jetty Seafood Shack",
+      "lat": -27.700798,
+      "lon": 114.168599,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6946989790",
+      "loc": "kalbarri",
+      "name": "The Grace of Kalbarri",
+      "lat": -27.701156,
+      "lon": 114.172878,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6948110208",
+      "loc": "kalbarri",
+      "name": "Kalbarri Fish & Chips",
+      "lat": -27.709525,
+      "lon": 114.165973,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6948125014",
+      "loc": "kalbarri",
+      "name": "Kalbarri Library",
+      "lat": -27.709324,
+      "lon": 114.166067,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7118329288",
+      "loc": "kalbarri",
+      "name": "Bean Drifting",
+      "lat": -27.733755,
+      "lon": 114.151909,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-820036829",
+      "loc": "kalbarri",
+      "name": "IGA Kalbarri",
+      "lat": -27.703778,
+      "lon": 114.168395,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1413025350",
+      "loc": "kalbarri",
+      "name": "Edge Resort Pool",
+      "lat": -27.711985,
+      "lon": 114.16725,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-237195256",
+      "loc": "kalbarri",
+      "name": "Kalbarri Hotel",
+      "lat": -27.710352,
+      "lon": 114.165631,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-489986886",
+      "loc": "kalbarri",
+      "name": "Kalbarri Health Centre",
+      "lat": -27.71294,
+      "lon": 114.161584,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-638271315",
+      "loc": "kalbarri",
+      "name": "Kalbarri Pizza & Pasta",
+      "lat": -27.71191,
+      "lon": 114.165988,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-638271362",
+      "loc": "kalbarri",
+      "name": "Finlay's Kalbarri",
+      "lat": -27.713933,
+      "lon": 114.165434,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10241742190",
+      "loc": "kalgoorlie",
+      "name": "Broken Hill Hotel",
+      "lat": -30.785306,
+      "lon": 121.488498,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10241742198",
+      "loc": "kalgoorlie",
+      "name": "Grand Hotel",
+      "lat": -30.78164,
+      "lon": 121.486512,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11459437146",
+      "loc": "kalgoorlie",
+      "name": "Red Rooster",
+      "lat": -30.748818,
+      "lon": 121.469587,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11917334269",
+      "loc": "kalgoorlie",
+      "name": "Goldfields Chiropractic & Healing Centre",
+      "lat": -30.747952,
+      "lon": 121.473295,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11921046669",
+      "loc": "kalgoorlie",
+      "name": "De Bernales",
+      "lat": -30.746908,
+      "lon": 121.473401,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13191786931",
+      "loc": "kalgoorlie",
+      "name": "Zambrero",
+      "lat": -30.747279,
+      "lon": 121.476257,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14247870801",
+      "loc": "kalgoorlie",
+      "name": "Kal Noodle House",
+      "lat": -30.745535,
+      "lon": 121.473398,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14254566002",
+      "loc": "kalgoorlie",
+      "name": "Raj's Copper Bowl",
+      "lat": -30.74508,
+      "lon": 121.472346,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1651873608",
+      "loc": "kalgoorlie",
+      "name": "Golden India Restaurant",
+      "lat": -30.74919,
+      "lon": 121.470151,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1651873629",
+      "loc": "kalgoorlie",
+      "name": "Paddy's Ale House Irish Pub",
+      "lat": -30.746094,
+      "lon": 121.474668,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2320447709",
+      "loc": "kalgoorlie",
+      "name": "O'Connor Fresh IGA",
+      "lat": -30.775541,
+      "lon": 121.460845,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2320527209",
+      "loc": "kalgoorlie",
+      "name": "Hannans IGA",
+      "lat": -30.74025,
+      "lon": 121.466722,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2320527300",
+      "loc": "kalgoorlie",
+      "name": "Woolworths",
+      "lat": -30.749476,
+      "lon": 121.46956,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2320527365",
+      "loc": "kalgoorlie",
+      "name": "The Coffee Club",
+      "lat": -30.749601,
+      "lon": 121.469148,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2320577724",
+      "loc": "kalgoorlie",
+      "name": "Lionel Street IGA",
+      "lat": -30.771532,
+      "lon": 121.483693,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2949196971",
+      "loc": "kalgoorlie",
+      "name": "Hungry Jack's",
+      "lat": -30.748047,
+      "lon": 121.476802,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2949210942",
+      "loc": "kalgoorlie",
+      "name": "McDonald's",
+      "lat": -30.751074,
+      "lon": 121.479884,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3776153491",
+      "loc": "kalgoorlie",
+      "name": "Coles",
+      "lat": -30.730672,
+      "lon": 121.453678,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4235009296",
+      "loc": "kalgoorlie",
+      "name": "Dôme",
+      "lat": -30.746495,
+      "lon": 121.473838,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4235009354",
+      "loc": "kalgoorlie",
+      "name": "The Hot Spot Burger Bar",
+      "lat": -30.74641,
+      "lon": 121.473913,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4235044685",
+      "loc": "kalgoorlie",
+      "name": "Vienna Coffee Lounge",
+      "lat": -30.747243,
+      "lon": 121.47301,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4235196154",
+      "loc": "kalgoorlie",
+      "name": "KFC",
+      "lat": -30.752255,
+      "lon": 121.479838,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5259777826",
+      "loc": "kalgoorlie",
+      "name": "McDonald's",
+      "lat": -30.749443,
+      "lon": 121.467675,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7119538785",
+      "loc": "kalgoorlie",
+      "name": "Domino's",
+      "lat": -30.74533,
+      "lon": 121.473143,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7119538786",
+      "loc": "kalgoorlie",
+      "name": "Subway",
+      "lat": -30.745404,
+      "lon": 121.473238,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8548505849",
+      "loc": "kalgoorlie",
+      "name": "Xings Sushi and Noodle",
+      "lat": -30.746008,
+      "lon": 121.473777,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8548505850",
+      "loc": "kalgoorlie",
+      "name": "Pasta 2 Go",
+      "lat": -30.746037,
+      "lon": 121.473736,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8553494705",
+      "loc": "kalgoorlie",
+      "name": "Yada Thai",
+      "lat": -30.747931,
+      "lon": 121.471658,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1228972108",
+      "loc": "kalgoorlie",
+      "name": "Coles",
+      "lat": -30.75023,
+      "lon": 121.472799,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1234016266",
+      "loc": "kalgoorlie",
+      "name": "Sir Richard Moore Sports Centre",
+      "lat": -30.742626,
+      "lon": 121.468062,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1234143591",
+      "loc": "kalgoorlie",
+      "name": "Victoria Park",
+      "lat": -30.741892,
+      "lon": 121.475834,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1234143597",
+      "loc": "kalgoorlie",
+      "name": "Ray Finlayson Sporting Complex",
+      "lat": -30.748943,
+      "lon": 121.448664,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1234595024",
+      "loc": "kalgoorlie",
+      "name": "Boulder Bowling Club",
+      "lat": -30.784667,
+      "lon": 121.487442,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1452258162",
+      "loc": "kalgoorlie",
+      "name": "Muzz Buzz",
+      "lat": -30.744037,
+      "lon": 121.472475,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-155527501",
+      "loc": "kalgoorlie",
+      "name": "Wallace Park",
+      "lat": -30.745622,
+      "lon": 121.46036,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-201611220",
+      "loc": "kalgoorlie",
+      "name": "Rosenberg Circle Reserve",
+      "lat": -30.755765,
+      "lon": 121.472432,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-201611249",
+      "loc": "kalgoorlie",
+      "name": "Norkal Park",
+      "lat": -30.789837,
+      "lon": 121.480324,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-207396975",
+      "loc": "kalgoorlie",
+      "name": "Goldfields Oasis",
+      "lat": -30.776602,
+      "lon": 121.468297,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-223109646",
+      "loc": "kalgoorlie",
+      "name": "Mosconi Circle Reserve",
+      "lat": -30.774169,
+      "lon": 121.456176,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-223117275",
+      "loc": "kalgoorlie",
+      "name": "Edward Park",
+      "lat": -30.745175,
+      "lon": 121.464951,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-223117285",
+      "loc": "kalgoorlie",
+      "name": "Hammond Park",
+      "lat": -30.741625,
+      "lon": 121.453196,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-223117302",
+      "loc": "kalgoorlie",
+      "name": "Kalgoorlie Regional Hospital",
+      "lat": -30.74094,
+      "lon": 121.470405,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-223117315",
+      "loc": "kalgoorlie",
+      "name": "Lord Forrest Olympic Pool (disused)",
+      "lat": -30.750137,
+      "lon": 121.474527,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-223117342",
+      "loc": "kalgoorlie",
+      "name": "Kingsbury Park",
+      "lat": -30.750656,
+      "lon": 121.473645,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-247176656",
+      "loc": "kalgoorlie",
+      "name": "William Grundt Memorial Library",
+      "lat": -30.753313,
+      "lon": 121.478829,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-320468928",
+      "loc": "kalgoorlie",
+      "name": "Max Bennett Park",
+      "lat": -30.767475,
+      "lon": 121.486058,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-320487148",
+      "loc": "kalgoorlie",
+      "name": "Shepherdson Park",
+      "lat": -30.752562,
+      "lon": 121.453859,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-353631374",
+      "loc": "kalgoorlie",
+      "name": "Boulder Medical Centre",
+      "lat": -30.781571,
+      "lon": 121.48944,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-423874599",
+      "loc": "kalgoorlie",
+      "name": "Orecchiette Kalgoorlie",
+      "lat": -30.747763,
+      "lon": 121.468367,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-424035750",
+      "loc": "kalgoorlie",
+      "name": "Zarraffa's Coffee",
+      "lat": -30.752679,
+      "lon": 121.48011,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-587974851",
+      "loc": "kalgoorlie",
+      "name": "Centennial Park",
+      "lat": -30.762493,
+      "lon": 121.45948,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-587974852",
+      "loc": "kalgoorlie",
+      "name": "Rotary Peace Park",
+      "lat": -30.758777,
+      "lon": 121.4545,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-588024490",
+      "loc": "kalgoorlie",
+      "name": "Hefron Park",
+      "lat": -30.769788,
+      "lon": 121.456636,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-588029547",
+      "loc": "kalgoorlie",
+      "name": "Karlkurla Bushland Park",
+      "lat": -30.712009,
+      "lon": 121.451823,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-921224083",
+      "loc": "kalgoorlie",
+      "name": "Tippett's",
+      "lat": -30.78157,
+      "lon": 121.488574,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-922359098",
+      "loc": "kalgoorlie",
+      "name": "Boulder Rotary Park",
+      "lat": -30.782516,
+      "lon": 121.477785,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12882769140",
+      "loc": "kununurra",
+      "name": "Kimberley Cafe",
+      "lat": -15.773904,
+      "lon": 128.739672,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1537571749",
+      "loc": "kununurra",
+      "name": "Kununurra District Hospital",
+      "lat": -15.775658,
+      "lon": 128.734316,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1537571751",
+      "loc": "kununurra",
+      "name": "Coles",
+      "lat": -15.775613,
+      "lon": 128.739852,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1537571766",
+      "loc": "kununurra",
+      "name": "Pumphouse Restaurant & Bar",
+      "lat": -15.792419,
+      "lon": 128.717725,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1537574561",
+      "loc": "kununurra",
+      "name": "Ivanhoe Café",
+      "lat": -15.764698,
+      "lon": 128.729032,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1537822138",
+      "loc": "kununurra",
+      "name": "IGA Tuckerbox supermarket",
+      "lat": -15.772417,
+      "lon": 128.740091,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1537822154",
+      "loc": "kununurra",
+      "name": "Hotel Kununurra",
+      "lat": -15.776685,
+      "lon": 128.738683,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1537822155",
+      "loc": "kununurra",
+      "name": "St John Ambulance Kununurra",
+      "lat": -15.776235,
+      "lon": 128.733481,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1537822190",
+      "loc": "kununurra",
+      "name": "Gulliver's Tavern",
+      "lat": -15.772856,
+      "lon": 128.74022,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5657973757",
+      "loc": "kununurra",
+      "name": "Subway",
+      "lat": -15.774022,
+      "lon": 128.739312,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5657996925",
+      "loc": "kununurra",
+      "name": "Lunches",
+      "lat": -15.774494,
+      "lon": 128.740486,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5658015038",
+      "loc": "kununurra",
+      "name": "Wild Mango Cafe",
+      "lat": -15.775793,
+      "lon": 128.739233,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5658015039",
+      "loc": "kununurra",
+      "name": "Choppys Chinese",
+      "lat": -15.775802,
+      "lon": 128.739198,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5658015041",
+      "loc": "kununurra",
+      "name": "Cornerside Cafe",
+      "lat": -15.775889,
+      "lon": 128.739098,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-892701267",
+      "loc": "kununurra",
+      "name": "Kununurra Pistol Club",
+      "lat": -15.807124,
+      "lon": 128.749732,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1020457266",
+      "loc": "kununurra",
+      "name": "Pindan Park",
+      "lat": -15.771656,
+      "lon": 128.743261,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1020463456",
+      "loc": "kununurra",
+      "name": "White Gum Park",
+      "lat": -15.771706,
+      "lon": 128.739836,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1021812351",
+      "loc": "kununurra",
+      "name": "Rotary Centenary Park",
+      "lat": -15.779057,
+      "lon": 128.745483,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1076712275",
+      "loc": "kununurra",
+      "name": "Swim Beach Park",
+      "lat": -15.792324,
+      "lon": 128.699928,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1190971505",
+      "loc": "kununurra",
+      "name": "Kununurra District Hospital",
+      "lat": -15.775188,
+      "lon": 128.733351,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1193689639",
+      "loc": "kununurra",
+      "name": "Kununurra Library",
+      "lat": -15.770215,
+      "lon": 128.737314,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1204064182",
+      "loc": "kununurra",
+      "name": "Spilled the Beans",
+      "lat": -15.785482,
+      "lon": 128.736122,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-319640474",
+      "loc": "kununurra",
+      "name": "Kununurra Leisure Centre",
+      "lat": -15.773095,
+      "lon": 128.737976,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-320112111",
+      "loc": "kununurra",
+      "name": "Celebrity Tree Park",
+      "lat": -15.78473,
+      "lon": 128.737489,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-320112136",
+      "loc": "kununurra",
+      "name": "Ord River Sports Club",
+      "lat": -15.772131,
+      "lon": 128.735525,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10259191416",
+      "loc": "mandurah",
+      "name": "Mary Cooper Reserve",
+      "lat": -32.527041,
+      "lon": 115.707251,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11215418637",
+      "loc": "mandurah",
+      "name": "Club Lime",
+      "lat": -32.508284,
+      "lon": 115.74056,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11834093840",
+      "loc": "mandurah",
+      "name": "Coles",
+      "lat": -32.561413,
+      "lon": 115.688671,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11834093841",
+      "loc": "mandurah",
+      "name": "Plus Fitness",
+      "lat": -32.561155,
+      "lon": 115.688514,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11834093843",
+      "loc": "mandurah",
+      "name": "Domino's",
+      "lat": -32.560955,
+      "lon": 115.688853,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11834188176",
+      "loc": "mandurah",
+      "name": "Coles",
+      "lat": -32.492653,
+      "lon": 115.748365,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11834188177",
+      "loc": "mandurah",
+      "name": "Domino's",
+      "lat": -32.492446,
+      "lon": 115.747629,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11834188178",
+      "loc": "mandurah",
+      "name": "Subway",
+      "lat": -32.492517,
+      "lon": 115.747552,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11861656908",
+      "loc": "mandurah",
+      "name": "Woolworths",
+      "lat": -32.520831,
+      "lon": 115.752502,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11941881170",
+      "loc": "mandurah",
+      "name": "The Bay Cafe Mandurah",
+      "lat": -32.533894,
+      "lon": 115.718489,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11941881171",
+      "loc": "mandurah",
+      "name": "Betty's Burgers",
+      "lat": -32.53393,
+      "lon": 115.718807,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11941881172",
+      "loc": "mandurah",
+      "name": "Jetty Fish N Burgers",
+      "lat": -32.533907,
+      "lon": 115.718693,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11964158500",
+      "loc": "mandurah",
+      "name": "Zambrero",
+      "lat": -32.535972,
+      "lon": 115.741563,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11964158561",
+      "loc": "mandurah",
+      "name": "Sporting Globe Bar & Grill",
+      "lat": -32.536015,
+      "lon": 115.74156,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12139940601",
+      "loc": "mandurah",
+      "name": "Oceanic Bar and Grill",
+      "lat": -32.525625,
+      "lon": 115.717107,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12377648920",
+      "loc": "mandurah",
+      "name": "Jamaica Blue",
+      "lat": -32.535255,
+      "lon": 115.741686,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12955338923",
+      "loc": "mandurah",
+      "name": "Red Rooster",
+      "lat": -32.493581,
+      "lon": 115.747013,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13149694813",
+      "loc": "mandurah",
+      "name": "Starbucks",
+      "lat": -32.535803,
+      "lon": 115.738372,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13307583988",
+      "loc": "mandurah",
+      "name": "Hoodburger",
+      "lat": -32.535949,
+      "lon": 115.741256,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13417380707",
+      "loc": "mandurah",
+      "name": "Murray Medical Centre",
+      "lat": -32.53035,
+      "lon": 115.764289,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13943161836",
+      "loc": "mandurah",
+      "name": "DPM",
+      "lat": -32.533676,
+      "lon": 115.719095,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13943161837",
+      "loc": "mandurah",
+      "name": "Wild Waffle Project",
+      "lat": -32.53424,
+      "lon": 115.718787,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13945713744",
+      "loc": "mandurah",
+      "name": "Aldi",
+      "lat": -32.547919,
+      "lon": 115.702399,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13945713746",
+      "loc": "mandurah",
+      "name": "Magic Noodle Bar",
+      "lat": -32.549096,
+      "lon": 115.70283,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13945713747",
+      "loc": "mandurah",
+      "name": "Nori",
+      "lat": -32.548941,
+      "lon": 115.702742,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13945713748",
+      "loc": "mandurah",
+      "name": "McDonald's",
+      "lat": -32.54936,
+      "lon": 115.701401,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13945713749",
+      "loc": "mandurah",
+      "name": "Lad's Kebabs and Pizza",
+      "lat": -32.549042,
+      "lon": 115.702778,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13945713751",
+      "loc": "mandurah",
+      "name": "Perfect Pizza",
+      "lat": -32.54979,
+      "lon": 115.701344,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13945713770",
+      "loc": "mandurah",
+      "name": "Red Rooster",
+      "lat": -32.535465,
+      "lon": 115.738413,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13954045087",
+      "loc": "mandurah",
+      "name": "Flics Kitchen",
+      "lat": -32.533733,
+      "lon": 115.719049,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13954045090",
+      "loc": "mandurah",
+      "name": "Waterside Thai",
+      "lat": -32.53427,
+      "lon": 115.718524,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13954053712",
+      "loc": "mandurah",
+      "name": "Mandurah Asian Groceries",
+      "lat": -32.53487,
+      "lon": 115.721252,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13954053713",
+      "loc": "mandurah",
+      "name": "Gyu En Mandurah",
+      "lat": -32.534882,
+      "lon": 115.721535,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13954053719",
+      "loc": "mandurah",
+      "name": "Snap Fitness",
+      "lat": -32.534557,
+      "lon": 115.724402,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13954053723",
+      "loc": "mandurah",
+      "name": "The Kookaburra’s Coffee",
+      "lat": -32.532407,
+      "lon": 115.719872,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13954053724",
+      "loc": "mandurah",
+      "name": "Coastal Kebabs",
+      "lat": -32.532466,
+      "lon": 115.720028,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13954053728",
+      "loc": "mandurah",
+      "name": "Perch’d",
+      "lat": -32.532944,
+      "lon": 115.719482,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13954053748",
+      "loc": "mandurah",
+      "name": "Gilbert's Mandurah",
+      "lat": -32.515925,
+      "lon": 115.748288,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13986108800",
+      "loc": "mandurah",
+      "name": "Wow Kebabs",
+      "lat": -32.533425,
+      "lon": 115.719866,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13986142201",
+      "loc": "mandurah",
+      "name": "Taku Japanese Kitchen",
+      "lat": -32.531386,
+      "lon": 115.720387,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13986142204",
+      "loc": "mandurah",
+      "name": "Coffee Cove Mandurah",
+      "lat": -32.533711,
+      "lon": 115.721061,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14017766774",
+      "loc": "mandurah",
+      "name": "World Gym",
+      "lat": -32.546463,
+      "lon": 115.704974,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14028823411",
+      "loc": "mandurah",
+      "name": "Woolworths Mandurah Central",
+      "lat": -32.533014,
+      "lon": 115.720677,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1407986044",
+      "loc": "mandurah",
+      "name": "Sonic HealthPlus Medical Centre",
+      "lat": -32.560432,
+      "lon": 115.689204,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14231063501",
+      "loc": "mandurah",
+      "name": "Mandurah Indoor Rock Climbing",
+      "lat": -32.513648,
+      "lon": 115.752611,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14256605901",
+      "loc": "mandurah",
+      "name": "McDonalds",
+      "lat": -32.54934,
+      "lon": 115.701353,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14332487016",
+      "loc": "mandurah",
+      "name": "D'lights Cafe",
+      "lat": -32.524269,
+      "lon": 115.717593,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-189480437",
+      "loc": "mandurah",
+      "name": "Peel Ale House",
+      "lat": -32.550228,
+      "lon": 115.702004,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-189480446",
+      "loc": "mandurah",
+      "name": "Red Rooster",
+      "lat": -32.54997,
+      "lon": 115.700997,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2468613483",
+      "loc": "mandurah",
+      "name": "Nino's Fish & Chips",
+      "lat": -32.524405,
+      "lon": 115.71772,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2470692831",
+      "loc": "mandurah",
+      "name": "The Stage Door",
+      "lat": -32.527901,
+      "lon": 115.718576,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2470709697",
+      "loc": "mandurah",
+      "name": "Peninsula Bar and Restaurant",
+      "lat": -32.528166,
+      "lon": 115.717565,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2470724939",
+      "loc": "mandurah",
+      "name": "Gilberts",
+      "lat": -32.547926,
+      "lon": 115.700902,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2470724940",
+      "loc": "mandurah",
+      "name": "Coles Halls Head",
+      "lat": -32.548732,
+      "lon": 115.703629,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2470860625",
+      "loc": "mandurah",
+      "name": "Dome Coffee Bar",
+      "lat": -32.52123,
+      "lon": 115.704389,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2470882232",
+      "loc": "mandurah",
+      "name": "Catch 22",
+      "lat": -32.523629,
+      "lon": 115.717409,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2470882237",
+      "loc": "mandurah",
+      "name": "Oyster Bar",
+      "lat": -32.525559,
+      "lon": 115.717041,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2470882240",
+      "loc": "mandurah",
+      "name": "Sharkeys Fish & Chips",
+      "lat": -32.523942,
+      "lon": 115.717492,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2481057679",
+      "loc": "mandurah",
+      "name": "Boathouse Tavern",
+      "lat": -32.534176,
+      "lon": 115.72229,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2481057708",
+      "loc": "mandurah",
+      "name": "Foreshore Fish & Chips",
+      "lat": -32.531404,
+      "lon": 115.72045,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2481057723",
+      "loc": "mandurah",
+      "name": "Mandurah Steakhouse",
+      "lat": -32.535116,
+      "lon": 115.722773,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2481057730",
+      "loc": "mandurah",
+      "name": "Mataya Eatery",
+      "lat": -32.532227,
+      "lon": 115.720985,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2481057733",
+      "loc": "mandurah",
+      "name": "Thai Restaurant",
+      "lat": -32.531199,
+      "lon": 115.720334,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2481057744",
+      "loc": "mandurah",
+      "name": "Subway",
+      "lat": -32.531856,
+      "lon": 115.719994,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2481057747",
+      "loc": "mandurah",
+      "name": "The Hummingbird Waterside Cafe",
+      "lat": -32.53228,
+      "lon": 115.719877,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2490899321",
+      "loc": "mandurah",
+      "name": "IGA",
+      "lat": -32.536132,
+      "lon": 115.713985,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4194541789",
+      "loc": "mandurah",
+      "name": "New Asian Delights",
+      "lat": -32.524152,
+      "lon": 115.717555,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4935165149",
+      "loc": "mandurah",
+      "name": "IGA",
+      "lat": -32.520671,
+      "lon": 115.731045,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4946485537",
+      "loc": "mandurah",
+      "name": "Pipers Inn",
+      "lat": -32.536385,
+      "lon": 115.714102,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4950619742",
+      "loc": "mandurah",
+      "name": "Domino's",
+      "lat": -32.534658,
+      "lon": 115.720752,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4970336309",
+      "loc": "mandurah",
+      "name": "Indian Chilli Masala",
+      "lat": -32.534641,
+      "lon": 115.720055,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4971920178",
+      "loc": "mandurah",
+      "name": "Players Bar",
+      "lat": -32.533233,
+      "lon": 115.719657,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4971920180",
+      "loc": "mandurah",
+      "name": "Grill'd",
+      "lat": -32.532793,
+      "lon": 115.719749,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4971920183",
+      "loc": "mandurah",
+      "name": "Wood and Stone Café",
+      "lat": -32.53236,
+      "lon": 115.719875,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4971920184",
+      "loc": "mandurah",
+      "name": "Coco Loco Mandurah",
+      "lat": -32.53247,
+      "lon": 115.719872,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4971920185",
+      "loc": "mandurah",
+      "name": "Mumma's Ice Cream",
+      "lat": -32.531791,
+      "lon": 115.719991,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4971920186",
+      "loc": "mandurah",
+      "name": "Malaysian & Chinese Restaurant",
+      "lat": -32.531945,
+      "lon": 115.719966,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4971920189",
+      "loc": "mandurah",
+      "name": "Cool Eats",
+      "lat": -32.531357,
+      "lon": 115.720318,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4971920190",
+      "loc": "mandurah",
+      "name": "Indian Curry planet",
+      "lat": -32.531288,
+      "lon": 115.720292,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5220080521",
+      "loc": "mandurah",
+      "name": "BOB JO",
+      "lat": -32.531414,
+      "lon": 115.72049,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5268737781",
+      "loc": "mandurah",
+      "name": "Norton park",
+      "lat": -32.555145,
+      "lon": 115.754722,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5315848135",
+      "loc": "mandurah",
+      "name": "Radiata Reserve",
+      "lat": -32.552885,
+      "lon": 115.750735,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-6497183886",
+      "loc": "mandurah",
+      "name": "Nourishing The Soul Cafe",
+      "lat": -32.553904,
+      "lon": 115.733453,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7456202932",
+      "loc": "mandurah",
+      "name": "Sir Walters Cafe",
+      "lat": -32.515693,
+      "lon": 115.756153,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7456204467",
+      "loc": "mandurah",
+      "name": "Mandurah TAFE Library",
+      "lat": -32.517861,
+      "lon": 115.755537,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9414698095",
+      "loc": "mandurah",
+      "name": "Childs Play Park",
+      "lat": -32.522086,
+      "lon": 115.703648,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-9415667001",
+      "loc": "mandurah",
+      "name": "Childs Play Park",
+      "lat": -32.548138,
+      "lon": 115.694865,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-relation-1843509",
+      "loc": "mandurah",
+      "name": "Rigel Reserve",
+      "lat": -32.539032,
+      "lon": 115.736482,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1020524087",
+      "loc": "mandurah",
+      "name": "McDonald's",
+      "lat": -32.529918,
+      "lon": 115.764994,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1020859307",
+      "loc": "mandurah",
+      "name": "Childs Nature Play Park",
+      "lat": -32.547694,
+      "lon": 115.705644,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1020859311",
+      "loc": "mandurah",
+      "name": "Childs Nature Play Park",
+      "lat": -32.548716,
+      "lon": 115.707592,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1255513682",
+      "loc": "mandurah",
+      "name": "Lavender Gardens Reserve",
+      "lat": -32.558516,
+      "lon": 115.689604,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1274538726",
+      "loc": "mandurah",
+      "name": "Hungry Jack's",
+      "lat": -32.493932,
+      "lon": 115.747357,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1290408585",
+      "loc": "mandurah",
+      "name": "Hungry Jack's",
+      "lat": -32.536589,
+      "lon": 115.743156,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1290408586",
+      "loc": "mandurah",
+      "name": "KFC",
+      "lat": -32.536584,
+      "lon": 115.742723,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1291270731",
+      "loc": "mandurah",
+      "name": "McDonald's",
+      "lat": -32.536107,
+      "lon": 115.739886,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1302154224",
+      "loc": "mandurah",
+      "name": "Peel Health Campus - Private",
+      "lat": -32.532885,
+      "lon": 115.762853,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1338210963",
+      "loc": "mandurah",
+      "name": "Mandurah Foreshore",
+      "lat": -32.531293,
+      "lon": 115.719557,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-136806798",
+      "loc": "mandurah",
+      "name": "Keith Holmes Reserve",
+      "lat": -32.525081,
+      "lon": 115.718816,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1568840508",
+      "loc": "mandurah",
+      "name": "Harold Thompson Park",
+      "lat": -32.53866,
+      "lon": 115.728383,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1568840509",
+      "loc": "mandurah",
+      "name": "Tickner Reserve",
+      "lat": -32.540253,
+      "lon": 115.740889,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-171044734",
+      "loc": "mandurah",
+      "name": "Duck Pond Park",
+      "lat": -32.550665,
+      "lon": 115.744575,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-175919644",
+      "loc": "mandurah",
+      "name": "Janis Street Reserve",
+      "lat": -32.530262,
+      "lon": 115.697666,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-176483996",
+      "loc": "mandurah",
+      "name": "Blythewood Reserve",
+      "lat": -32.545061,
+      "lon": 115.73122,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-18404275",
+      "loc": "mandurah",
+      "name": "Oaklands Reserve",
+      "lat": -32.543538,
+      "lon": 115.696999,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-18404571",
+      "loc": "mandurah",
+      "name": "Hall Park",
+      "lat": -32.533824,
+      "lon": 115.715057,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-18404611",
+      "loc": "mandurah",
+      "name": "Kingsley Fairbridge Reserve",
+      "lat": -32.527749,
+      "lon": 115.708113,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-18429232",
+      "loc": "mandurah",
+      "name": "Gallop Street Reserve",
+      "lat": -32.521939,
+      "lon": 115.70293,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-18429460",
+      "loc": "mandurah",
+      "name": "Roy Tuckey Reserve",
+      "lat": -32.546367,
+      "lon": 115.73767,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-18578986",
+      "loc": "mandurah",
+      "name": "Bortolo Park",
+      "lat": -32.528582,
+      "lon": 115.753624,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-238938905",
+      "loc": "mandurah",
+      "name": "Cicerellos Fish & Chips",
+      "lat": -32.528647,
+      "lon": 115.720136,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-238938909",
+      "loc": "mandurah",
+      "name": "Tods",
+      "lat": -32.528921,
+      "lon": 115.720182,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-238938910",
+      "loc": "mandurah",
+      "name": "Han's Restaurant",
+      "lat": -32.527862,
+      "lon": 115.719721,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-238938911",
+      "loc": "mandurah",
+      "name": "Simmos Ice Cream",
+      "lat": -32.528142,
+      "lon": 115.719989,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-239045409",
+      "loc": "mandurah",
+      "name": "Henry Sutton Grove Park",
+      "lat": -32.530964,
+      "lon": 115.712693,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-239045410",
+      "loc": "mandurah",
+      "name": "Joseph Cooper Reserve",
+      "lat": -32.530417,
+      "lon": 115.705762,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-239269808",
+      "loc": "mandurah",
+      "name": "Blackwood Park",
+      "lat": -32.54343,
+      "lon": 115.723848,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-239298753",
+      "loc": "mandurah",
+      "name": "Duverney Park",
+      "lat": -32.540386,
+      "lon": 115.753637,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-239298756",
+      "loc": "mandurah",
+      "name": "Revesby Reserve",
+      "lat": -32.543418,
+      "lon": 115.747657,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-239298757",
+      "loc": "mandurah",
+      "name": "Templetonia Park",
+      "lat": -32.539942,
+      "lon": 115.746708,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-239391732",
+      "loc": "mandurah",
+      "name": "Mississippi Park",
+      "lat": -32.533554,
+      "lon": 115.747897,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-239391734",
+      "loc": "mandurah",
+      "name": "Peel Health Campus",
+      "lat": -32.533156,
+      "lon": 115.764638,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-239556940",
+      "loc": "mandurah",
+      "name": "Birchley Park",
+      "lat": -32.553042,
+      "lon": 115.751749,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-239986035",
+      "loc": "mandurah",
+      "name": "Victor Adam Park",
+      "lat": -32.523783,
+      "lon": 115.708604,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-240121355",
+      "loc": "mandurah",
+      "name": "Borrungar Park",
+      "lat": -32.551778,
+      "lon": 115.733813,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-240361444",
+      "loc": "mandurah",
+      "name": "Mandurah Aquatic & Recreation Centre",
+      "lat": -32.537559,
+      "lon": 115.737477,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-240361449",
+      "loc": "mandurah",
+      "name": "Mandurah Library",
+      "lat": -32.537682,
+      "lon": 115.741376,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-241408336",
+      "loc": "mandurah",
+      "name": "Chocolate San Churros",
+      "lat": -32.5284,
+      "lon": 115.720046,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-241459496",
+      "loc": "mandurah",
+      "name": "The Bridge Garden Bar & Restaurant",
+      "lat": -32.53448,
+      "lon": 115.719225,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-241574139",
+      "loc": "mandurah",
+      "name": "Dalrymple Park",
+      "lat": -32.536254,
+      "lon": 115.719952,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-241574141",
+      "loc": "mandurah",
+      "name": "George Robinson Gardens",
+      "lat": -32.532994,
+      "lon": 115.721524,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-241574144",
+      "loc": "mandurah",
+      "name": "Murphy's Irish Pub",
+      "lat": -32.532085,
+      "lon": 115.720118,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-253570382",
+      "loc": "mandurah",
+      "name": "Doongin Park",
+      "lat": -32.535337,
+      "lon": 115.770777,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-253570385",
+      "loc": "mandurah",
+      "name": "Marungi Reserv",
+      "lat": -32.534095,
+      "lon": 115.76913,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-253570388",
+      "loc": "mandurah",
+      "name": "Eacott Park",
+      "lat": -32.52891,
+      "lon": 115.773844,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-44979556",
+      "loc": "mandurah",
+      "name": "Riverina Park",
+      "lat": -32.556839,
+      "lon": 115.749774,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-500411700",
+      "loc": "mandurah",
+      "name": "Egret Point Park",
+      "lat": -32.553291,
+      "lon": 115.71439,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-503176390",
+      "loc": "mandurah",
+      "name": "Silver Sands Tavern",
+      "lat": -32.519359,
+      "lon": 115.730417,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-504494237",
+      "loc": "mandurah",
+      "name": "Aldi",
+      "lat": -32.532169,
+      "lon": 115.733029,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-507553210",
+      "loc": "mandurah",
+      "name": "Mandurah Noodle House",
+      "lat": -32.535015,
+      "lon": 115.72133,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-518192671",
+      "loc": "mandurah",
+      "name": "Kangaroo Paw Park",
+      "lat": -32.522679,
+      "lon": 115.751325,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-655517290",
+      "loc": "mandurah",
+      "name": "Coles",
+      "lat": -32.53534,
+      "lon": 115.744355,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-655517595",
+      "loc": "mandurah",
+      "name": "Woolworths",
+      "lat": -32.534674,
+      "lon": 115.741911,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-677010129",
+      "loc": "mandurah",
+      "name": "Thai on The Terrace",
+      "lat": -32.527145,
+      "lon": 115.721956,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-677010131",
+      "loc": "mandurah",
+      "name": "Mei Jing Restaurant",
+      "lat": -32.525959,
+      "lon": 115.722531,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10200659737",
+      "loc": "margaret-river",
+      "name": "El Toro",
+      "lat": -33.950905,
+      "lon": 115.075434,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10653261305",
+      "loc": "margaret-river",
+      "name": "Wyl and Co, Cafe",
+      "lat": -33.950414,
+      "lon": 115.072732,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10669409505",
+      "loc": "margaret-river",
+      "name": "Yonder",
+      "lat": -33.950947,
+      "lon": 115.073409,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10669413705",
+      "loc": "margaret-river",
+      "name": "Rhum Burgundy",
+      "lat": -33.949515,
+      "lon": 115.074285,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1160794001",
+      "loc": "margaret-river",
+      "name": "Katch up",
+      "lat": -33.953488,
+      "lon": 115.073784,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-11891355271",
+      "loc": "margaret-river",
+      "name": "Rio's",
+      "lat": -33.949951,
+      "lon": 115.074187,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12128952868",
+      "loc": "margaret-river",
+      "name": "Normal Van",
+      "lat": -33.950524,
+      "lon": 115.074125,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1304645906",
+      "loc": "margaret-river",
+      "name": "Margaret River District Hospital",
+      "lat": -33.952162,
+      "lon": 115.07116,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14307949155",
+      "loc": "margaret-river",
+      "name": "Lasa",
+      "lat": -33.953847,
+      "lon": 115.070146,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1705422226",
+      "loc": "margaret-river",
+      "name": "Margaret River Swimming Center",
+      "lat": -33.95413,
+      "lon": 115.067098,
+      "type": "pool",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1705422228",
+      "loc": "margaret-river",
+      "name": "Margaret River Fitness Center",
+      "lat": -33.954431,
+      "lon": 115.067405,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1823685030",
+      "loc": "margaret-river",
+      "name": "Arc Of Iris",
+      "lat": -33.953426,
+      "lon": 115.073724,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1823702887",
+      "loc": "margaret-river",
+      "name": "Chicken Treat",
+      "lat": -33.952235,
+      "lon": 115.073746,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1823702888",
+      "loc": "margaret-river",
+      "name": "The Tuckshop",
+      "lat": -33.953141,
+      "lon": 115.073649,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1823702889",
+      "loc": "margaret-river",
+      "name": "The Urban Bean",
+      "lat": -33.952954,
+      "lon": 115.073609,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1823909428",
+      "loc": "margaret-river",
+      "name": "Goodfellows Cafe",
+      "lat": -33.948687,
+      "lon": 115.07443,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1823938482",
+      "loc": "margaret-river",
+      "name": "River Fresh Margaret River IGA",
+      "lat": -33.949194,
+      "lon": 115.073829,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1823938508",
+      "loc": "margaret-river",
+      "name": "Settlers Tavern",
+      "lat": -33.949893,
+      "lon": 115.073872,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1823958196",
+      "loc": "margaret-river",
+      "name": "Elkamo",
+      "lat": -33.949555,
+      "lon": 115.074285,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1824337710",
+      "loc": "margaret-river",
+      "name": "Wino`s",
+      "lat": -33.947472,
+      "lon": 115.074668,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1825113338",
+      "loc": "margaret-river",
+      "name": "Bakehouse Lunchbar",
+      "lat": -33.957858,
+      "lon": 115.069894,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2562563943",
+      "loc": "margaret-river",
+      "name": "Glouster Park",
+      "lat": -33.955211,
+      "lon": 115.067778,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3081150923",
+      "loc": "margaret-river",
+      "name": "Margaret River Medical Centre",
+      "lat": -33.9526,
+      "lon": 115.073169,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-370543326",
+      "loc": "margaret-river",
+      "name": "Coles",
+      "lat": -33.951599,
+      "lon": 115.073127,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4271559597",
+      "loc": "margaret-river",
+      "name": "Yahava Koffee Works",
+      "lat": -33.972961,
+      "lon": 115.084332,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4564214055",
+      "loc": "margaret-river",
+      "name": "Teddis big spoon",
+      "lat": -33.950248,
+      "lon": 115.074124,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4564222629",
+      "loc": "margaret-river",
+      "name": "Domino's",
+      "lat": -33.950163,
+      "lon": 115.074145,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4564222630",
+      "loc": "margaret-river",
+      "name": "The Corner Bar",
+      "lat": -33.951104,
+      "lon": 115.073872,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4564222631",
+      "loc": "margaret-river",
+      "name": "Morries",
+      "lat": -33.95337,
+      "lon": 115.073689,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4564222765",
+      "loc": "margaret-river",
+      "name": "RiverSmith",
+      "lat": -33.95075,
+      "lon": 115.073749,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4564222841",
+      "loc": "margaret-river",
+      "name": "Egberts",
+      "lat": -33.950944,
+      "lon": 115.073463,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4564742190",
+      "loc": "margaret-river",
+      "name": "EK",
+      "lat": -33.952343,
+      "lon": 115.074045,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4564786289",
+      "loc": "margaret-river",
+      "name": "Kappadokia",
+      "lat": -33.952439,
+      "lon": 115.074042,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4564786389",
+      "loc": "margaret-river",
+      "name": "Southern Crust",
+      "lat": -33.952543,
+      "lon": 115.073997,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4568829226",
+      "loc": "margaret-river",
+      "name": "Miki",
+      "lat": -33.952048,
+      "lon": 115.073968,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4571231406",
+      "loc": "margaret-river",
+      "name": "Foodroom",
+      "lat": -33.951228,
+      "lon": 115.072443,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5017576621",
+      "loc": "margaret-river",
+      "name": "Brewhouse Margaret River",
+      "lat": -33.942833,
+      "lon": 115.075175,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5883083586",
+      "loc": "margaret-river",
+      "name": "Sidekick Cafe",
+      "lat": -33.949536,
+      "lon": 115.074045,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-687545398",
+      "loc": "margaret-river",
+      "name": "Wild Thyme",
+      "lat": -33.95106,
+      "lon": 115.074608,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-687545404",
+      "loc": "margaret-river",
+      "name": "Blue Ginger",
+      "lat": -33.957568,
+      "lon": 115.070146,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-687545414",
+      "loc": "margaret-river",
+      "name": "Cafe 131",
+      "lat": -33.951879,
+      "lon": 115.073844,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1269006931",
+      "loc": "margaret-river",
+      "name": "Dôme",
+      "lat": -33.948936,
+      "lon": 115.074476,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1269007335",
+      "loc": "margaret-river",
+      "name": "Margaret River Library",
+      "lat": -33.9513,
+      "lon": 115.071309,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1269009619",
+      "loc": "margaret-river",
+      "name": "Woolworths",
+      "lat": -33.950858,
+      "lon": 115.075897,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-171318702",
+      "loc": "margaret-river",
+      "name": "Ruther Park",
+      "lat": -33.953341,
+      "lon": 115.072991,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-249671735",
+      "loc": "margaret-river",
+      "name": "Margaret River Recreation Centre",
+      "lat": -33.954226,
+      "lon": 115.067433,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-675740507",
+      "loc": "margaret-river",
+      "name": "Rotary Park",
+      "lat": -33.944473,
+      "lon": 115.074924,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-675740508",
+      "loc": "margaret-river",
+      "name": "Memorial Park",
+      "lat": -33.950727,
+      "lon": 115.074904,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-442298221",
+      "loc": "monkey-mia",
+      "name": "Boughshed Restaurant",
+      "lat": -25.793555,
+      "lon": 113.718945,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10600782914",
+      "loc": "pemberton",
+      "name": "Source Kitchen",
+      "lat": -34.446997,
+      "lon": 116.030554,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10600782933",
+      "loc": "pemberton",
+      "name": "Wild at Heart",
+      "lat": -34.445201,
+      "lon": 116.034223,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-10600782936",
+      "loc": "pemberton",
+      "name": "Cafe Brasil",
+      "lat": -34.445511,
+      "lon": 116.0336,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12466896472",
+      "loc": "pemberton",
+      "name": "Aerial Adventure Pemberton",
+      "lat": -34.447417,
+      "lon": 116.056821,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12738842230",
+      "loc": "pemberton",
+      "name": "Pemberton Library",
+      "lat": -34.445943,
+      "lon": 116.032255,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1431095833",
+      "loc": "pemberton",
+      "name": "Jaspers",
+      "lat": -34.446577,
+      "lon": 116.031407,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2285772135",
+      "loc": "pemberton",
+      "name": "Pemberton Hotel",
+      "lat": -34.444315,
+      "lon": 116.035839,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2837049527",
+      "loc": "pemberton",
+      "name": "The Millhouse Cafe",
+      "lat": -34.447597,
+      "lon": 116.030308,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-3999315923",
+      "loc": "pemberton",
+      "name": "Lavender & Berry Farm Cafe",
+      "lat": -34.433358,
+      "lon": 116.072357,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4016432379",
+      "loc": "pemberton",
+      "name": "Jarrah Jacks Brewery",
+      "lat": -34.428306,
+      "lon": 116.024615,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4019893456",
+      "loc": "pemberton",
+      "name": "Hidden River Estate",
+      "lat": -34.420046,
+      "lon": 116.030983,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4022143239",
+      "loc": "pemberton",
+      "name": "Gloucester Ridge Winery & Cafe Restaurant",
+      "lat": -34.44939,
+      "lon": 116.051889,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4053770805",
+      "loc": "pemberton",
+      "name": "Foragers",
+      "lat": -34.482038,
+      "lon": 116.012838,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4180192489",
+      "loc": "pemberton",
+      "name": "Cafe Mazz",
+      "lat": -34.444281,
+      "lon": 116.035925,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5248102122",
+      "loc": "pemberton",
+      "name": "Holy Smoke",
+      "lat": -34.450973,
+      "lon": 116.033009,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-250470703",
+      "loc": "pemberton",
+      "name": "Pemberton District Hospital",
+      "lat": -34.445066,
+      "lon": 116.031564,
+      "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-250470706",
+      "loc": "pemberton",
+      "name": "Pemberton Sports Club",
+      "lat": -34.447125,
+      "lon": 116.027755,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-252392606",
+      "loc": "pemberton",
+      "name": "Pemberton Memorial Library",
+      "lat": -34.444788,
+      "lon": 116.03419,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-314600567",
+      "loc": "pemberton",
+      "name": "IGA Pemberton",
+      "lat": -34.446122,
+      "lon": 116.034162,
+      "type": "supermarket",
       "source": "osm"
     },
     {
@@ -5824,6 +13762,384 @@
       "lat": -31.949531,
       "lon": 115.818779,
       "type": "clinic",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13533376980",
+      "loc": "port-hedland",
+      "name": "Pilates on Point",
+      "lat": -20.313466,
+      "lon": 118.576589,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14070450874",
+      "loc": "port-hedland",
+      "name": "Earth & Sea Treats",
+      "lat": -20.310759,
+      "lon": 118.575368,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-14070450875",
+      "loc": "port-hedland",
+      "name": "Rice 2 Meet You",
+      "lat": -20.310821,
+      "lon": 118.575437,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-778193148",
+      "loc": "port-hedland",
+      "name": "Tennis Club (3.0m)",
+      "lat": -20.309078,
+      "lon": 118.613013,
+      "type": "sports-centre",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-778230949",
+      "loc": "port-hedland",
+      "name": "Woolworths",
+      "lat": -20.311488,
+      "lon": 118.608458,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-778230979",
+      "loc": "port-hedland",
+      "name": "Port Hedland public library",
+      "lat": -20.301773,
+      "lon": 118.633183,
+      "type": "library",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1310425465",
+      "loc": "port-hedland",
+      "name": "The Dome",
+      "lat": -20.310243,
+      "lon": 118.577808,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1546687854",
+      "loc": "port-hedland",
+      "name": "Silver Star Cafe",
+      "lat": -20.311855,
+      "lon": 118.576666,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-333755194",
+      "loc": "port-hedland",
+      "name": "Wedge Street Cafe and Shop",
+      "lat": -20.31241,
+      "lon": 118.575529,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-333755237",
+      "loc": "port-hedland",
+      "name": "Harbour Cafe",
+      "lat": -20.311836,
+      "lon": 118.575815,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-333766608",
+      "loc": "port-hedland",
+      "name": "Lion's Park",
+      "lat": -20.31071,
+      "lon": 118.582813,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-333926611",
+      "loc": "port-hedland",
+      "name": "Leap Park",
+      "lat": -20.313078,
+      "lon": 118.57733,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-334811421",
+      "loc": "port-hedland",
+      "name": "Gratwick Fitness Centre",
+      "lat": -20.307905,
+      "lon": 118.613936,
+      "type": "gym",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-334811422",
+      "loc": "port-hedland",
+      "name": "Gratwick Aquatic Centre",
+      "lat": -20.307488,
+      "lon": 118.613922,
+      "type": "pool",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-565044680",
+      "loc": "port-hedland",
+      "name": "Yikara Park",
+      "lat": -20.319879,
+      "lon": 118.645164,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-565045841",
+      "loc": "port-hedland",
+      "name": "Pretty Pool Park",
+      "lat": -20.315817,
+      "lon": 118.642699,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-565049833",
+      "loc": "port-hedland",
+      "name": "Cemetery Beach Park",
+      "lat": -20.308132,
+      "lon": 118.60489,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-565053335",
+      "loc": "port-hedland",
+      "name": "Dome Cafe Field",
+      "lat": -20.309825,
+      "lon": 118.577163,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-565053818",
+      "loc": "port-hedland",
+      "name": "Marapikurrinya Park",
+      "lat": -20.311104,
+      "lon": 118.575126,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-565054141",
+      "loc": "port-hedland",
+      "name": "Art Galley Park",
+      "lat": -20.3121,
+      "lon": 118.576914,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-565059415",
+      "loc": "port-hedland",
+      "name": "Port Hedland Turf Club Field",
+      "lat": -20.311514,
+      "lon": 118.613951,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-565059418",
+      "loc": "port-hedland",
+      "name": "Civic Center Gardens",
+      "lat": -20.307322,
+      "lon": 118.613199,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-565059420",
+      "loc": "port-hedland",
+      "name": "Don Rhodes Mining Museum Park",
+      "lat": -20.311414,
+      "lon": 118.604944,
+      "type": "park",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12512264072",
+      "loc": "rottnest",
+      "name": "Bayside Bar",
+      "lat": -31.998479,
+      "lon": 115.54253,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12512264073",
+      "loc": "rottnest",
+      "name": "Lontara",
+      "lat": -31.998735,
+      "lon": 115.542474,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-12760842395",
+      "loc": "rottnest",
+      "name": "Pelican",
+      "lat": -31.995904,
+      "lon": 115.539629,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13408157480",
+      "loc": "rottnest",
+      "name": "Havza",
+      "lat": -31.989666,
+      "lon": 115.53518,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1362252377",
+      "loc": "rottnest",
+      "name": "Quokka Arms",
+      "lat": -31.998429,
+      "lon": 115.542439,
+      "type": "pub",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-1994979489",
+      "loc": "rottnest",
+      "name": "Frankie's",
+      "lat": -31.995306,
+      "lon": 115.540487,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-2774072504",
+      "loc": "rottnest",
+      "name": "Subway",
+      "lat": -31.995608,
+      "lon": 115.540681,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-4583455993",
+      "loc": "rottnest",
+      "name": "The Lane",
+      "lat": -31.99552,
+      "lon": 115.540603,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5325305585",
+      "loc": "rottnest",
+      "name": "Isola Rottnest",
+      "lat": -31.997277,
+      "lon": 115.541861,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5325306061",
+      "loc": "rottnest",
+      "name": "Rottnest General Store",
+      "lat": -31.995862,
+      "lon": 115.540525,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-5325306189",
+      "loc": "rottnest",
+      "name": "Hotel Rottnest",
+      "lat": -31.998175,
+      "lon": 115.541982,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-7111475266",
+      "loc": "rottnest",
+      "name": "Geordie's Café and Art Gallery",
+      "lat": -31.990641,
+      "lon": 115.5253,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-8655022811",
+      "loc": "rottnest",
+      "name": "Chook Shack",
+      "lat": -31.995668,
+      "lon": 115.540295,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-1316347979",
+      "loc": "rottnest",
+      "name": "Kalli's",
+      "lat": -32.006529,
+      "lon": 115.503546,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-45353458",
+      "loc": "rottnest",
+      "name": "Dôme",
+      "lat": -31.996945,
+      "lon": 115.541175,
+      "type": "cafe",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-972720364",
+      "loc": "rottnest",
+      "name": "Crib Room",
+      "lat": -31.998926,
+      "lon": 115.540227,
+      "type": "fast-food",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13306118113",
+      "loc": "wave-rock",
+      "name": "Hyden Travel Stop",
+      "lat": -32.448197,
+      "lon": 118.86744,
+      "type": "restaurant",
+      "source": "osm"
+    },
+    {
+      "id": "osm-node-13306126673",
+      "loc": "wave-rock",
+      "name": "Hyden IGA",
+      "lat": -32.449298,
+      "lon": 118.864078,
+      "type": "supermarket",
+      "source": "osm"
+    },
+    {
+      "id": "osm-way-391476037",
+      "loc": "wave-rock",
+      "name": "Coronation Park",
+      "lat": -32.448485,
+      "lon": 118.863858,
+      "type": "park",
       "source": "osm"
     }
   ]

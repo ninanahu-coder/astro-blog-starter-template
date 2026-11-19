@@ -33,6 +33,10 @@ test('导入器：仓库里现有的地点和打卡点全部通过校验', () =>
 	for (const v of venues) assert.equal(checkVenue(v), null, JSON.stringify(v));
 	for (const p of pois) assert.equal(checkPoi(p), null, JSON.stringify(p));
 	assert.ok(venues.length >= 647 && pois.length >= 8);
+	// 西澳第二批（2026-11-19）：珀斯、弗里曼特尔以外 18 个地点也有了；尖峰石阵、卡瑞吉尼 OSM 上没有这些场所
+	assert.ok(venues.length >= 1500, `西澳真实地点只有 ${venues.length} 个`);
+	const waLocs = new Set((venues as { loc: string }[]).map((v) => v.loc));
+	for (const loc of ['rottnest', 'bunbury', 'margaret-river', 'albany', 'esperance', 'wave-rock', 'kalgoorlie', 'geraldton', 'kalbarri', 'monkey-mia', 'exmouth', 'port-hedland', 'broome', 'kununurra', 'mandurah', 'busselton', 'pemberton', 'coral-bay']) assert.ok(waLocs.has(loc), `${loc} 没有真实地点`);
 	assert.deepEqual(dedupeVenues(venues).dropped, [], '仓库里的地点没有重复记录');
 	// 南澳（2026-11-19）：同样全部过校验、没有重复、id 和西澳不撞
 	const sa = (saVenuesData as { region: string; venues: { id: string }[] });

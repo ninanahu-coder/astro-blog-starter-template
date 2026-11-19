@@ -1,0 +1,59 @@
+来源：OpenStreetMap，经 Overpass API（https://overpass-api.de/api/interpreter）
+许可：ODbL，© OpenStreetMap contributors
+查询时间：2026-11-19T03:39:59.544Z
+地点：rottnest, pinnacles, bunbury, margaret-river, albany, esperance, wave-rock, kalgoorlie, geraldton, kalbarri, monkey-mia, exmouth, karijini, port-hedland, broome, kununurra, mandurah, busselton, pemberton, coral-bay；半径 5 km；每种类型每地最多 40 条（有 wikidata / website / opening_hours 的优先）
+rottnest：OSM 返回 16，跳过 0，保留 16，数据版本 2026-11-18T22:25:05Z，{"restaurant":4,"fast-food":2,"cafe":7,"pub":2,"supermarket":1}
+pinnacles：OSM 返回 0，跳过 0，保留 0，数据版本 2026-11-18T22:45:26Z，{}
+bunbury：OSM 返回 160，跳过 3，保留 157，数据版本 2026-11-18T22:59:36Z，{"restaurant":27,"fast-food":22,"cafe":26,"pub":15,"gym":3,"sports-centre":12,"park":31,"library":3,"supermarket":7,"clinic":11}
+margaret-river：OSM 返回 50，跳过 1，保留 49，数据版本 2026-11-18T23:18:51Z，{"restaurant":15,"fast-food":3,"cafe":9,"pub":8,"sports-centre":3,"pool":1,"park":3,"library":1,"supermarket":3,"clinic":3}
+albany：OSM 返回 96，跳过 3，保留 93，数据版本 2026-11-18T23:41:20Z，{"restaurant":19,"fast-food":20,"cafe":23,"pub":8,"gym":1,"sports-centre":2,"park":7,"library":1,"supermarket":9,"clinic":3}
+esperance：OSM 返回 55，跳过 0，保留 55，数据版本 2026-11-18T23:57:34Z，{"restaurant":10,"fast-food":5,"cafe":5,"pub":5,"gym":1,"sports-centre":2,"park":22,"supermarket":4,"clinic":1}
+wave-rock：OSM 返回 3，跳过 0，保留 3，数据版本 2026-11-19T00:06:48Z，{"restaurant":1,"park":1,"supermarket":1}
+kalgoorlie：OSM 返回 56，跳过 0，保留 56，数据版本 2026-11-19T00:17:49Z，{"restaurant":9,"fast-food":8,"cafe":6,"pub":3,"sports-centre":6,"park":14,"library":1,"supermarket":6,"clinic":3}
+geraldton：OSM 返回 143，跳过 6，保留 117，数据版本 2026-11-19T00:42:21Z，{"restaurant":13,"fast-food":17,"cafe":13,"pub":9,"sports-centre":4,"park":40,"library":1,"supermarket":6,"clinic":14}
+kalbarri：OSM 返回 18，跳过 0，保留 18，数据版本 2026-11-19T00:48:33Z，{"restaurant":4,"fast-food":3,"cafe":5,"pub":2,"sports-centre":1,"library":1,"supermarket":1,"clinic":1}
+monkey-mia：OSM 返回 1，跳过 0，保留 1，数据版本 2026-11-19T00:58:39Z，{"restaurant":1}
+exmouth：OSM 返回 24，跳过 0，保留 24，数据版本 2026-11-19T01:17:55Z，{"restaurant":3,"fast-food":2,"cafe":7,"pub":2,"gym":1,"sports-centre":1,"park":3,"library":1,"supermarket":3,"clinic":1}
+karijini：OSM 返回 0，跳过 0，保留 0，数据版本 2026-11-19T01:26:59Z，{}
+port-hedland：OSM 返回 23，跳过 0，保留 23，数据版本 2026-11-19T01:39:04Z，{"restaurant":1,"fast-food":3,"cafe":2,"gym":2,"sports-centre":1,"pool":1,"park":11,"library":1,"supermarket":1}
+broome：OSM 返回 58，跳过 0，保留 58，数据版本 2026-11-19T01:49:17Z，{"restaurant":19,"fast-food":9,"cafe":8,"pub":5,"gym":1,"sports-centre":3,"pool":1,"park":4,"library":1,"supermarket":5,"clinic":2}
+kununurra：OSM 返回 26，跳过 0，保留 26，数据版本 2026-11-19T02:07:32Z，{"restaurant":2,"fast-food":2,"cafe":5,"pub":4,"sports-centre":2,"park":5,"library":1,"supermarket":2,"clinic":3}
+mandurah：OSM 返回 158，跳过 9，保留 147，数据版本 2026-11-19T02:31:50Z，{"restaurant":27,"fast-food":28,"cafe":19,"pub":6,"gym":6,"sports-centre":1,"park":40,"library":2,"supermarket":14,"clinic":4}
+busselton：OSM 返回 64，跳过 0，保留 64，数据版本 2026-11-19T02:52:05Z，{"restaurant":12,"fast-food":10,"cafe":11,"pub":6,"sports-centre":4,"park":16,"supermarket":4,"clinic":1}
+pemberton：OSM 返回 19，跳过 0，保留 19，数据版本 2026-11-19T03:07:14Z，{"restaurant":6,"cafe":6,"pub":1,"sports-centre":2,"library":2,"supermarket":1,"clinic":1}
+coral-bay：OSM 返回 4，跳过 0，保留 4，数据版本 2026-11-19T03:26:51Z，{"restaurant":3,"supermarket":1}
+
+查询语句（每种类型一条，以第一个地点为例；矩形范围查询后按到地点中心的距离筛到半径内）：
+[out:json][timeout:90];
+nwr["amenity"="restaurant"]["name"](-32.04492,115.46704,-31.95508,115.57296);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"="fast_food"]["name"](-32.04492,115.46704,-31.95508,115.57296);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"="cafe"]["name"](-32.04492,115.46704,-31.95508,115.57296);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"~"^(pub|bar)$"]["name"](-32.04492,115.46704,-31.95508,115.57296);
+out center tags;
+[out:json][timeout:90];
+nwr["leisure"="fitness_centre"]["name"](-32.04492,115.46704,-31.95508,115.57296);
+out center tags;
+[out:json][timeout:90];
+nwr["leisure"="sports_centre"]["name"](-32.04492,115.46704,-31.95508,115.57296);
+out center tags;
+[out:json][timeout:90];
+nwr["leisure"="swimming_pool"]["access"!~"^(private|no|customers)$"]["name"](-32.04492,115.46704,-31.95508,115.57296);
+out center tags;
+[out:json][timeout:90];
+nwr["leisure"="park"]["name"](-32.04492,115.46704,-31.95508,115.57296);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"="library"]["name"](-32.04492,115.46704,-31.95508,115.57296);
+out center tags;
+[out:json][timeout:90];
+nwr["shop"="supermarket"]["name"](-32.04492,115.46704,-31.95508,115.57296);
+out center tags;
+[out:json][timeout:90];
+nwr["amenity"~"^(clinic|doctors|hospital)$"]["name"](-32.04492,115.46704,-31.95508,115.57296);
+out center tags;
