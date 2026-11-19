@@ -451,6 +451,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { NEWS_SEEN_KEY, parseNewsSeen, unseenNews } from '../game/ui/news.ts';
 			import { fmtHalf } from '../game/ui/numfmt.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
+			import { isLocale, LOCALE_ORDER, LOCALES, t, type Params, type StrKey } from '../game/i18n/index.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
 			import { codeOf, hashAction, makeQr, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
@@ -529,16 +530,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			const CRED_KEY = 'earth.cred.v1';
 			const KIND_ICON: Record<string, string> = { city: '🏙️', port: '⚓', island: '🏝️', coast: '🌊', outback: '🏜️', mining: '⛏️', park: '🏞️', town: '🏘️' };
 			// 底部 5 个标签；日志和同步收进「我」。「附近」并进「出行」的分页（页内还是 near），收集和成就单独成「成长」页（第 13 批）
-			const TABS: [string, string, string][] = [
-				['place', '今天', '<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>'],
-				['go', '出行', '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'],
-				['grow', '成长', '<path d="M12 21v-8M12 13c-4 0-7-3-7-7 4 0 7 3 7 7zM12 13c4 0 7-3 7-7-4 0-7 3-7 7z"/>'],
-				['social', '社交', '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c1.8.7 3 2.4 3.5 5.2"/>'],
-				['me', '我', '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.2 4-6.5 8-6.5s7 2.3 8 6.5"/>'],
+			const TABS: [string, StrKey, string][] = [
+				['place', 'tab.place', '<path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/>'],
+				['go', 'tab.go', '<circle cx="12" cy="12" r="9"/><path d="M15.5 8.5l-2 5-5 2 2-5z"/>'],
+				['grow', 'tab.grow', '<path d="M12 21v-8M12 13c-4 0-7-3-7-7 4 0 7 3 7 7zM12 13c4 0 7-3 7-7-4 0-7 3-7 7z"/>'],
+				['social', 'tab.social', '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.8c1.8.7 3 2.4 3.5 5.2"/>'],
+				['me', 'tab.me', '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4.2 4-6.5 8-6.5s7 2.3 8 6.5"/>'],
 			];
 
 			// 「我」页的分栏
-			const ME_TABS: [string, string][] = [['overview', '概况'], ['assets', '资产'], ['people', '关系'], ['log', '日志'], ['news', '更新'], ['sync', '设置']];
+			const ME_TABS: [string, StrKey][] = [['overview', 'me.overview'], ['assets', 'me.assets'], ['people', 'me.people'], ['log', 'me.log'], ['news', 'me.news'], ['sync', 'me.sync']];
 			let meTab = 'overview';
 
 			type Cred = { id: string; key: string };
@@ -602,6 +603,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const sys = typeof mm === 'function' && mm.call(window, '(prefers-reduced-motion: reduce)').matches;
 				cl.toggle('calm', calmMotion(prefs, sys));
 				for (const [f] of FONT_OPTIONS) cl.toggle(`fs-${f}`, prefs.font === f);
+				document.documentElement.lang = LOCALES[prefs.lang].tag;
 			}
 			// 音效（第 29 轮）：设置里打开才响；AudioContext 等第一次要出声时再建（那时一定是玩家点过按钮之后）
 			let audio: AudioLike | null = null;
@@ -617,6 +619,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					playCue(audio, cue);
 				} catch {}
 			}
+			/** 界面文案（第 38 批）：按设置里的语言取字符串表，结果已经过 esc()，可以直接拼进 HTML。见 docs/earth-game/i18n.md */
+			const tx = (key: StrKey, params?: Params) => esc(t(prefs.lang, key, params));
 			function setPrefs(next: Partial<Prefs>) {
 				prefs = { ...prefs, ...next };
 				store.set(PREFS_KEY, JSON.stringify(prefs));
@@ -1184,7 +1188,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						social: `${loc.name} · ${here ? `${here} 位玩家在线` : '没有其他玩家在线'}`,
 						me: `${dateLabel(s.clock)} · 已过 ${dayOf(s.clock) + 1} 天`,
 					};
-					const title = tab === 'near' ? '附近' : TABS.find(([id]) => id === tab)?.[1] ?? '';
+					const tabKey = TABS.find(([id]) => id === tab)?.[1]; const title = tab === 'near' ? '附近' : tabKey ? tx(tabKey) : '';
 					top = `<div class="hud-top"><div class="hud-title"><span class="hud-sub">${esc(sub[tab] ?? time)}</span><h1>${title}</h1></div>
 						<div class="hud-right">${cash}${starHtml}</div></div>
 						<div class="hud-chips">${moodBtn}${sync}</div>
@@ -1806,7 +1810,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				// 「更新」页（第 48 轮）：打开时记下已读；没看过的批次在标签上标「新」
 				if (meTab === 'news') store.set(NEWS_SEEN_KEY, String(CHANGELOG_LATEST));
 				const fresh = unseenNews(parseNewsSeen(store.get(NEWS_SEEN_KEY)));
-				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}${id === 'news' && fresh ? '<span class="new-tag">新</span>' : ''}</button>`).join('')}</div>`;
+				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${tx(label)}${id === 'news' && fresh ? `<span class="new-tag">${tx('me.news.new')}</span>` : ''}</button>`).join('')}</div>`;
 				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : meTab === 'news' ? panelNews() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
 				return head + seg + bodyHtml;
 			}
@@ -2040,12 +2044,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 
 			function panelSync() {
-				const seg = (key: 'font' | 'motion', label: string, opts: [string, string][]) =>
-					`<div class="pref-row" role="group" aria-label="${label}"><span>${label}</span><div class="seg">${opts.map(([v, name]) => `<button data-pref="${key}" data-val="${v}" class="${prefs[key] === v ? 'on' : ''}" aria-pressed="${prefs[key] === v}">${name}</button>`).join('')}</div></div>`;
+				const seg = (key: 'font' | 'motion', label: StrKey, opts: [string, StrKey][]) =>
+					`<div class="pref-row" role="group" aria-label="${tx(label)}"><span>${tx(label)}</span><div class="seg">${opts.map(([v, name]) => `<button data-pref="${key}" data-val="${v}" class="${prefs[key] === v ? 'on' : ''}" aria-pressed="${prefs[key] === v}">${tx(name)}</button>`).join('')}</div></div>`;
+				const onOff = (v: boolean) => tx(v ? 'pref.on' : 'pref.off');
 				const tips = TIP_OPTIONS.map(([k, name, hint]) => `<div class="row" style="margin-top:8px"><span class="body">${name}<small>${hint}</small></span><button data-pref="${k}" aria-pressed="${prefs[k]}">${prefs[k] ? '已开启' : '已关闭'}</button></div>`).join('');
-				const sound = `<div class="row" style="margin-top:8px"><span class="body">音效<small>做事、事件、成就时的轻提示音，默认关闭</small></span><button data-pref="sound" aria-pressed="${prefs.sound}">${prefs.sound ? '已开启' : '已关闭'}</button></div>`;
-				const real = `<div class="row" style="margin-top:8px"><span class="body">真实地图<small>出行页用 OpenStreetMap 真实地图，图块向 OpenFreeMap 请求；关掉或离线时用手绘地图${basemapFailed ? '。这次没加载出来，正在用手绘地图' : ''}</small></span><button data-pref="basemap" aria-pressed="${prefs.basemap}">${prefs.basemap ? '已开启' : '已关闭'}</button></div>`;
-				return `<div class="card"><h3>显示</h3><p class="muted">只在这台设备上生效。</p>${seg('font', '字号', FONT_OPTIONS)}${seg('motion', '动画', MOTION_OPTIONS)}${sound}${real}</div>
+				const sound = `<div class="row" style="margin-top:8px"><span class="body">${tx('pref.sound')}<small>${tx('pref.sound.hint')}</small></span><button data-pref="sound" aria-pressed="${prefs.sound}">${onOff(prefs.sound)}</button></div>`;
+				const real = `<div class="row" style="margin-top:8px"><span class="body">${tx('pref.basemap')}<small>${tx('pref.basemap.hint')}${basemapFailed ? tx('pref.basemap.failed') : ''}</small></span><button data-pref="basemap" aria-pressed="${prefs.basemap}">${onOff(prefs.basemap)}</button></div>`;
+				// 语言名用各自的语言写，按钮带 lang，读屏和字体回退都按那门语言处理
+				const lang = `<div class="pref-row" role="group" aria-label="${tx('pref.lang')}"><span>${tx('pref.lang')}</span><div class="seg">${LOCALE_ORDER.map((l) => `<button data-pref="lang" data-val="${l}" lang="${LOCALES[l].tag}" class="${prefs.lang === l ? 'on' : ''}" aria-pressed="${prefs.lang === l}">${esc(LOCALES[l].label)}</button>`).join('')}</div></div>${prefs.lang === 'zh-Hans' ? '' : `<p class="muted">${tx('pref.lang.partial')}</p>`}`;
+				return `<div class="card"><h3>${tx('pref.display')}</h3><p class="muted">${tx('pref.display.hint')}</p>${lang}${seg('font', 'pref.font', FONT_OPTIONS)}${seg('motion', 'pref.motion', MOTION_OPTIONS)}${sound}${real}</div>
 					<div class="card"><h3>提示</h3>${tips}</div>
 					<div class="card"><h3>玩法说明</h3><dl class="help">${HELP.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
 					<div class="card"><h3>多设备同步</h3><p>${esc(syncStatus)}</p>
@@ -2062,7 +2069,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const hereCount = state ? [...peers.values()].filter((p) => p.loc === state!.loc && p.id !== myPeerId).length : 0;
 				// 附近是出行的分页：在附近时出行标签也亮
 				const on = (id: string) => id === tab || (id === 'go' && tab === 'near');
-				$('tabs').innerHTML = `<div class="tabs-in">${TABS.map(([id, label, icon]) => `<button data-tab="${id}" class="${on(id) ? 'on' : ''}" ${on(id) ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}${id === 'social' && hereCount ? `<span class="badge" aria-label="这里有 ${hereCount} 位玩家在线">${hereCount}</span>` : ''}</button>`).join('')}</div>`;
+				$('tabs').innerHTML = `<div class="tabs-in">${TABS.map(([id, label, icon]) => `<button data-tab="${id}" class="${on(id) ? 'on' : ''}" ${on(id) ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${tx(label)}${id === 'social' && hereCount ? `<span class="badge" aria-label="${tx('tab.social.online', { n: hereCount })}">${hereCount}</span>` : ''}</button>`).join('')}</div>`;
 			}
 
 			function renderPanel() {
@@ -2191,6 +2198,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					else if (k === 'sound') { setPrefs({ sound: !prefs.sound }); sfx('ok'); }
 					// 重新打开时再试一次（上次失败的标记清掉）；关掉就把地图拆了，不再向图块服务发请求
 					else if (k === 'basemap') { setPrefs({ basemap: !prefs.basemap }); basemapFailed = false; if (!prefs.basemap) dropBasemap(); }
+					else if (k === 'lang' && isLocale(d.val)) setPrefs({ lang: d.val });
 					renderPanel();
 				}
 				else if (d.quick !== undefined) {

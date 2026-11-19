@@ -1,6 +1,7 @@
 // 真实底图（第 31 轮）：能不能用的判断、范围、标记内容与转义、地图生命周期（加载成功、失败退回手绘地图、拆掉）
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { t, TABLES, type Locale } from '../../src/game/i18n/index.ts';
 import { readFileSync } from 'node:fs';
 import { basemapBounds, BASEMAP_STYLE, canUseBasemap, createBasemap, pinHtml, pinLabel, routesGeoJson, webglSupported, type MapLib, type Pin } from '../../src/game/ui/basemap.ts';
 import { DEFAULT_PREFS, parsePrefs } from '../../src/game/ui/prefs.ts';
@@ -140,5 +141,7 @@ test('页面：地图库不进首屏脚本（只能动态加载），设置页�
 	const mod = readFileSync(new URL('../../src/game/ui/basemap.ts', import.meta.url), 'utf8');
 	assert.doesNotMatch(mod, /^import .*maplibre-gl/m, 'basemap.ts 也只能动态导入');
 	assert.match(astro, /data-pref="basemap"/);
-	assert.match(astro, /OpenFreeMap/);
+	// 设置页文案第 38 批搬进了字符串表：页面引用那条文案，文案里写明图块来源（每门语言都要写）
+	assert.match(astro, /tx\('pref\.basemap\.hint'\)/);
+	for (const l of Object.keys(TABLES) as Locale[]) assert.match(t(l, 'pref.basemap.hint'), /OpenFreeMap/, l);
 });

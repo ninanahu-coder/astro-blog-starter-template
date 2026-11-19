@@ -1,0 +1,45 @@
+// 界面字符串表：简体中文，是所有语言的基准（键名、占位符以这里为准）。
+// 键名按「页面.区块.用途」分段，只用小写字母、数字、点和连字符；占位符写 {name}，由 t() 填。
+// 已迁移的范围见 docs/earth-game/i18n.md §9；没迁移的文案仍然直接写在 earth.astro 里。
+
+export const ZH_HANS = {
+	// 底部标签栏
+	'tab.place': '今天',
+	'tab.go': '出行',
+	'tab.grow': '成长',
+	'tab.social': '社交',
+	'tab.me': '我',
+	'tab.social.online': '这里有 {n} 位玩家在线',
+	// 「我」页分栏
+	'me.overview': '概况',
+	'me.assets': '资产',
+	'me.people': '关系',
+	'me.log': '日志',
+	'me.news': '更新',
+	'me.news.new': '新',
+	'me.sync': '设置',
+	// 设置 · 显示
+	'pref.display': '显示',
+	'pref.display.hint': '只在这台设备上生效。',
+	'pref.lang': '语言',
+	'pref.lang.partial': '部分界面还没有翻译，暂时显示简体中文。',
+	'pref.font': '字号',
+	'pref.font.m': '标准',
+	'pref.font.l': '大',
+	'pref.font.xl': '特大',
+	'pref.motion': '动画',
+	'pref.motion.auto': '跟随系统',
+	'pref.motion.reduce': '减少',
+	'pref.motion.full': '正常',
+	'pref.on': '已开启',
+	'pref.off': '已关闭',
+	'pref.sound': '音效',
+	'pref.sound.hint': '做事、事件、成就时的轻提示音，默认关闭',
+	'pref.basemap': '真实地图',
+	'pref.basemap.hint': '出行页用 OpenStreetMap 真实地图，图块向 OpenFreeMap 请求；关掉或离线时用手绘地图',
+	'pref.basemap.failed': '。这次没加载出来，正在用手绘地图',
+	// 游戏内时间（core 的 formatClock 的本地化版）
+	'clock.day': '第{day}天 {time}',
+} as const satisfies Record<string, string>;
+
+export type StrKey = keyof typeof ZH_HANS;
