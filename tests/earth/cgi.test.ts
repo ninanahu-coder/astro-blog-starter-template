@@ -1,8 +1,9 @@
-// CGI 素材：清单里的每张图都在、不太大；每个地点都有主视觉；提示词里不出现玩法标签。
+// CGI 素材：清单里的每张图都在、不太大；每个地点和事件都有图；提示词里不出现玩法标签。
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { test } from 'node:test';
 import { AREAS } from '../../src/game/data/areas-base.ts';
+import { EVENTS } from '../../src/game/data/events.ts';
 import { buildJobs } from '../../tools/earth/comfyui/prompts.mjs';
 
 const dir = new URL('../../public/earth/cgi/', import.meta.url);
@@ -19,9 +20,10 @@ test('CGI 清单：每项指向存在的 WebP，单张不超过 250KB', () => {
 	}
 });
 
-test('CGI：每个地点都有主视觉，清单里没有提示词以外的项', () => {
+test('CGI：每个地点和事件都有图，清单里没有提示词以外的项', () => {
 	const jobs = buildJobs() as { key: string; prompt: string }[];
 	for (const a of AREAS) for (const l of a.locations) assert.ok(manifest.images[l.id], `${l.id} 没有主视觉`);
+	for (const e of EVENTS) assert.ok(manifest.images['event:' + e.id], `事件 ${e.id} 没有插图`);
 	const keys = new Set(jobs.map((j) => j.key));
 	for (const k of Object.keys(manifest.images)) assert.ok(keys.has(k), `清单里多了 ${k}`);
 	// 玩法标签照字面画会让画面又挤又乱
