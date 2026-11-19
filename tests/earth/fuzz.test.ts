@@ -27,6 +27,8 @@ import { CERTS } from '../../src/game/data/certs.ts';
 import { isOpen } from '../../src/game/core/time.ts';
 import { VENUE_OPS, VENUE_TYPES } from '../../src/game/data/venues.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { PAPERS } from '../../src/game/data/paperwork.ts';
+import { paperChecklist, paperGate } from '../../src/game/core/paperwork.ts';
 
 const LOCS = new Set(WA.locations.map((l) => l.id));
 
@@ -71,6 +73,7 @@ function randomAction(s: PlayerState, r: () => number, now: number): GameAction 
 	}
 	if (roll < 0.81) return { t: 'course', id: pick(COURSES).id };
 	if (roll < 0.83) return r() < 0.5 ? { t: 'cert', id: pick(CERTS).id } : { t: 'vehicle', op: 'service' };
+	if (roll < 0.84) return { t: 'paper', id: pick(PAPERS).id };
 	if (roll < 0.86) return r() < 0.7 ? { t: 'experience', id: pick(EXPERIENCES).id } : r() < 0.5 ? { t: 'fish' } : { t: 'photo' };
 	if (roll < 0.95 && WA.venues.length) {
 		// 真实地点：大多站在店门口，偶尔离得很远或精度很差
@@ -116,7 +119,7 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 	if (VEHICLES.find((v) => v.id === s.vehicle)?.sleep) c.push({ t: 'vehicle', op: 'sleep' });
 	for (const x of propertiesAt(s, WA)) {
 		if (!x.owned && !x.blockedCash) c.push({ t: 'property', op: 'buy', id: x.property.id, loan: false });
-		if (!x.owned && !x.blockedLoan) c.push({ t: 'property', op: 'buy', id: x.property.id, loan: true });
+		if (!x.owned && !x.blockedLoan && !paperGate(s, { t: 'property', op: 'buy', loan: true })) c.push({ t: 'property', op: 'buy', id: x.property.id, loan: true });
 	}
 	for (const o of s.properties) {
 		c.push({ t: 'property', op: 'rentout', id: o.id }, { t: 'property', op: 'movein', id: o.id });
@@ -124,7 +127,8 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 		if (r() < 0.2) c.push({ t: 'property', op: 'sell', id: o.id });
 	}
 	for (const x of coursesAt(s, WA)) if (!x.blocked) c.push({ t: 'course', id: x.course.id });
-	for (const x of certsAt(s, WA)) if (!x.blocked) c.push({ t: 'cert', id: x.cert.id });
+	for (const x of certsAt(s, WA)) if (!x.blocked && !paperGate(s, { t: 'cert', id: x.cert.id })) c.push({ t: 'cert', id: x.cert.id });
+	for (const x of paperChecklist(s, WA)) if (!x.blocked) c.push({ t: 'paper', id: x.paper.id });
 	if (garageAt(s, WA) && !garageAt(s, WA)!.blocked) c.push({ t: 'vehicle', op: 'service' });
 	if (photoQuestNow(s, WA) && !photoQuestNow(s, WA)!.blocked) c.push({ t: 'photo' });
 	if (s.needs.fun < 50 && fishingAt(s, WA) && !fishingAt(s, WA)!.blocked) c.push({ t: 'fish' });
@@ -189,7 +193,8 @@ test('随机动作序列：不抛异常、不改入参、数值在范围内、�
 		const traits = run % 3 === 0 ? [] : [TRAITS[run % TRAITS.length].id, TRAITS[(run * 7 + 3) % TRAITS.length].id];
 		let s = createCharacter({ id: 'fuzz-' + run, name: '随机' + run, avatar: '🧑', origin, region: 'wa', spawn: WA.spawn, seed: 7 + run, traits: [...new Set(traits)] });
 		// 三分之一的角色开局很有钱，让买车、买房、贷款这些路径也能走到
-		if (run % 3 === 2) s = { ...s, cash: 300_000 };
+		// 第 43 批：贷款买房要先有银行户和 TFN，有钱的角色也当作已经办好（其他角色靠 paper 动作自己办）
+		if (run % 3 === 2) s = { ...s, cash: 300_000, papers: { phone: { at: 0, ready: 0 }, bank: { at: 0, ready: 0 }, tfn: { at: 0, ready: 0 } } };
 		s = sanitizeState(s, LOCS, { fallbackLoc: WA.spawn }) ?? s;
 		let now = 1_800_000_000_000 + run * 3_600_000;
 		for (let step = 0; step < STEPS; step++) {
@@ -222,7 +227,7 @@ test('随机动作序列：不抛异常、不改入参、数值在范围内、�
 	}
 	// 主要动作的成功路径都要真的走到过，不然这个测试只在测「失败路径」
 	const MUST = ['travel', 'activity', 'event', 'gps', 'buy', 'use', 'npc', 'job:apply', 'job:work', 'job:quit', 'home:rent', 'home:sleep', 'home:cook', 'home:relax',
-		'furniture:buy', 'furniture:sell', 'vehicle:buy', 'vehicle:sell', 'property:buy', 'property:rentout', 'property:movein', 'property:repay', 'property:sell', 'course', 'cert', 'vehicle:service', 'fish', 'experience', 'venue:meal', 'venue:work'];
+		'furniture:buy', 'furniture:sell', 'vehicle:buy', 'vehicle:sell', 'property:buy', 'property:rentout', 'property:movein', 'property:repay', 'property:sell', 'course', 'cert', 'vehicle:service', 'fish', 'experience', 'venue:meal', 'venue:work', 'paper'];
 	const missing = MUST.filter((k) => !stats[k]?.ok);
 	assert.deepEqual(missing, [], `这些动作一次都没成功过：${missing.join('、')}；统计 ${JSON.stringify(stats)}`);
 	assert.ok(ok > 60 * 120 * 0.3, `成功的动作太少：${ok}`);

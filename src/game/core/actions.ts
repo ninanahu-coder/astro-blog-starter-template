@@ -14,6 +14,7 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { doPaper, paperAfter, paperGate } from './paperwork.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -39,7 +40,8 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
-	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
+	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number }
+	| { t: 'paper'; id: string }; // 证件和办事（第 43 批，core/paperwork.ts）
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk'];
@@ -92,6 +94,7 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'course':
 		case 'cert':
 		case 'experience':
+		case 'paper':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
 		case 'property':
 			if (!str(a.id)) return null;
@@ -105,6 +108,9 @@ export function parseAction(raw: unknown): GameAction | null {
 
 /** 执行一个动作。成功时存档版本号 +1。now 为服务端的现实时间（毫秒），只有真实地点动作用到；不传则真实地点不可用 */
 export function applyAction(state: PlayerState, region: Region, a: GameAction, now = 0): ActionResult {
+	// 证件和办事：手续没办好的动作在这里拦下（v1 只拦贷款买房和重型车驾照，见 core/paperwork.ts paperGate）
+	const gate = paperGate(state, a);
+	if (gate) return { ok: false, state, msg: gate };
 	let r: ActionResult;
 	switch (a.t) {
 		case 'travel': r = travel(state, region, a.to, a.mode); break;
@@ -131,11 +137,13 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'paper': r = doPaper(state, region, a.id); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
 	if (!changed) return r;
 	let msg = r.msg;
+	if (r.ok && !r.collapsed) msg += paperAfter(r.state, a); // 看医生按医保退一部分诊费（r.state 是引擎新建的对象，可以原地改）
 	if (r.ok) {
 		// 成功的动作：结算心愿（r.state 是引擎新建的对象，可以原地改）；途中晕倒不算完成
 		if (!r.collapsed) {

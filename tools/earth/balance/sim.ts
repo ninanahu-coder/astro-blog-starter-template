@@ -19,6 +19,7 @@ import { weatherAt } from '../../../src/game/core/weather.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
+import { paperChecklist } from '../../../src/game/core/paperwork.ts';
 
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
 const DAYS = Number(arg('days', '60'));
@@ -409,6 +410,13 @@ function step(b: Bot) {
 	if (plan.home && !s.home && s.cash > 400) {
 		const want = plan.job?.loc ?? WA.spawn;
 		if (s.loc === want && homesAt(s, WA).some((o) => o.home.id === plan.home && !o.blocked) && tryAct(b, { t: 'home', op: 'rent', home: plan.home })) return;
+	}
+
+	// 2.5 手续（第 43 批）：有收入打算的机器人顺路把落地清单上当场能办的办掉（不专门跑路、不换驾照）；
+	// 贷款买房要银行户和 TFN，所以这一步要在买房之前
+	if (plan.spend !== false && !isIdle(plan) && s.needs.energy >= 40) {
+		const row = paperChecklist(s, WA).find((x) => !x.blocked && !x.paper.id.startsWith('licence'));
+		if (row && tryAct(b, { t: 'paper', id: row.paper.id })) return;
 	}
 
 	// 3. 花钱（阶段 A）：升职卡在能力上就上课；钱多就体验、买车

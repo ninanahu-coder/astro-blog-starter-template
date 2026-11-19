@@ -461,6 +461,14 @@ export interface JournalEntry {
 	text: string;
 }
 
+/** 证件和办事的一条记录（见 core/paperwork.ts）：at 递交的游戏日；ready 办成的游戏日（考试没过时是下次能考的日子）；loc 登记的地址；fail 最近一次没考过 */
+export interface PaperRec {
+	at: number;
+	ready: number;
+	loc?: string;
+	fail?: boolean;
+}
+
 export interface PlayerState {
 	v: 1;
 	id: string;
@@ -505,6 +513,7 @@ export interface PlayerState {
 	areas: string[]; // 已获得称号的体验片区 id：集齐时记下，之后加了新体验也不收回、不重复发奖
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
 	certs: string[]; // 已考到的职业证书 id（跟人走，换工作不丢）
+	papers: Record<string, PaperRec>; // 证件和办事：办事项 id -> 记录（第 43 批；旧存档缺这个字段时为 {}，见 core/paperwork.ts cleanPapers）
 	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每 COOP_COOLDOWN_DAYS 天一次）
 	trades: { day: number; out: number; in: number }; // 玩家之间交易：这个现实日已送出 / 收下的次数
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领

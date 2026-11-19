@@ -223,7 +223,10 @@ test('动作协议与存档校验', () => {
 	assert.deepEqual(parseAction({ t: 'property', op: 'repay', id: 'perth-apartment', amount: 99.9 }), { t: 'property', op: 'repay', id: 'perth-apartment', amount: 99 });
 	assert.equal(parseAction({ t: 'property', op: 'repay', id: 'perth-apartment', amount: -1 }), null);
 	assert.equal(parseAction({ t: 'property', op: 'seize', id: 'perth-apartment' }), null);
-	assert.ok(applyAction(make({ cash: 20000, clock: at(10) }), WA, { t: 'property', op: 'buy', id: flat.id, loan: true }).ok);
+	// 第 43 批起贷款买房要先有银行户和 TFN（core/paperwork.ts）
+	const papers = { bank: { at: 0, ready: 0 }, tfn: { at: 0, ready: 0 } };
+	assert.ok(applyAction(make({ cash: 20000, clock: at(10), papers }), WA, { t: 'property', op: 'buy', id: flat.id, loan: true }).ok);
+	assert.match(applyAction(make({ cash: 20000, clock: at(10) }), WA, { t: 'property', op: 'buy', id: flat.id, loan: true }).msg, /银行户/);
 
 	const base = make();
 	const dirty = {

@@ -29,6 +29,7 @@ import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
 import { validTraits } from './attributes.ts';
+import { cleanPapers } from './paper-clean.ts';
 import { WEATHERS } from '../data/weather.ts';
 
 /** 天气相册里所有合法的照片 id：地点 × 天气 */
@@ -152,6 +153,7 @@ export function createCharacter(opts: {
 		areas: [],
 		courseDays: {},
 		certs: [],
+		papers: {},
 		coopDays: {},
 		trades: { day: 0, out: 0, in: 0 },
 		met: {},
@@ -307,6 +309,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			return out;
 		})(),
 		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id)),
+		papers: cleanPapers(r.papers, knownLocs),
 		photoQuest: Math.floor(num(r.photoQuest, 0, PHOTO_QUESTS.length, 0)),
 		story: (() => {
 			const ch = Math.floor(num(r.story?.ch, 0, STORY.length, 0));

@@ -690,6 +690,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import type { WeeklyGoal } from '../game/core/weekly.ts';
 			import { cleanNote, NOTE_MAX, NOTES_PER_LOC } from '../game/core/notes.ts';
 			import { realDayOf } from '../game/core/daily.ts';
+			import { paperChecklist, paperGate, paperProgress, clinicRefund } from '../game/core/paperwork.ts';
 			import { ACTIVITIES } from '../game/data/activities.ts';
 			import { EVENTS } from '../game/data/events.ts';
 			import { dateLabel, period, PERIOD_IDS, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
@@ -1797,6 +1798,31 @@ const cardLines = guilloche(400, 260, 14, 9);
 					<form class="inline" id="note-form" style="margin-top:8px"><input id="note-input" maxlength="${NOTE_MAX}" placeholder="写一句给后来的人…" aria-label="留言内容" autocomplete="off" /><button class="primary">贴上</button></form></div>`;
 			}
 
+			/** 落地清单（第 43 批，core/paperwork.ts）：证件和办事。办完以后收起来，不再占地方 */
+			function paperCard(s: PlayerState) {
+				const rows = paperChecklist(s, region);
+				if (!rows.length) return '';
+				const { done, total } = paperProgress(s);
+				const mark = { todo: '⬜', waiting: '⏳', done: '✅', stale: '⚠️', retry: '🔁' } as const;
+				const state = (r: (typeof rows)[number]) => r.status === 'done' ? '已办好' : r.status === 'waiting' ? `办理中，第 ${s.papers[r.paper.id].ready + 1} 天办好` : r.status === 'stale' ? '搬家了，地址要更新' : r.blocked ?? `${r.paper.fee ? `$${r.paper.fee} · ` : ''}${r.paper.minutes} 分钟${r.paper.where === 'online' ? ' · 网上办' : ''}`;
+				const name = (id: string) => rows.find((x) => x.paper.id === id)?.paper.name ?? id;
+				const item = (r: (typeof rows)[number]) => {
+					const p = r.paper;
+					const wait = p.waitDays ? `游戏里递交后等 ${p.waitDays} 天` : '游戏里当场办好';
+					const pre = [...p.needs.map((id) => `先「${name(id)}」`), ...(p.needsHome ? ['先有住处'] : [])];
+					return `<div style="margin-top:10px"><div class="row"><span class="body">${mark[r.status]} ${esc(p.icon)} ${esc(p.name)}<small>${esc(state(r))}</small></span>${r.status === 'done' ? '' : `<button data-paper="${esc(p.id)}" ${r.blocked ? 'disabled' : ''}>${r.status === 'retry' ? '再考' : r.status === 'stale' ? '更新' : '办理'}</button>`}</div>
+					<details style="margin-top:4px"><summary class="muted">怎么办、办完有什么用</summary>
+					<p style="margin-top:6px">${esc(p.desc)}</p>
+					<p style="margin-top:6px"><b>在哪办：</b>${esc(p.place)}${p.hours ? `，${hoursLabel(p.hours)}` : ''}。<b>前置：</b>${esc(pre.length ? pre.join('，') : '无')}。<b>材料：</b>${esc(p.docs.join('、'))}。<b>等待：</b>${esc(wait)}。</p>
+					<p style="margin-top:6px"><b>办完解锁：</b>${esc([...p.unlocks.now, ...p.unlocks.later.map((x) => `${x}（之后版本）`)].join('；'))}。</p>
+					<p style="margin-top:6px" class="muted"><b>现实中：</b>${esc(p.real.who)}${esc(p.real.steps)}${esc(p.real.wait)}以官方为准：${p.real.sources.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>`).join('、')}。</p></details></div>`;
+				};
+				const refund = clinicRefund(s);
+				return `<details class="card"${done < total ? ' open' : ''}><summary><h3 style="display:inline">🛂 落地清单</h3> <span class="muted">${done}/${total}</span></summary>
+					<p>刚到要办的手续。游戏里的花费、等待天数都是简化过的，现实流程看每项的「现实中」，以官方为准。${refund ? ` 你有医保，看医生报销 $${refund}。` : ''}</p>
+					${rows.map(item).join('')}</details>`;
+			}
+
 			/** 天象卡（第 8 批）：按地点和游戏日期用公式估算，只做显示，不影响玩法 */
 			function skyCard(s: PlayerState) {
 				const loc = getLocation(region, s.loc)!;
@@ -1876,7 +1902,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const expHtml = exps.length ? `<div class="card"><h3>体验</h3>${exps.map(({ exp, first, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="body">${first ? '✨ ' : '✅ '}${esc(exp.name)} · $${exp.price}<small>${esc(blocked ?? (first ? `${exp.desc} 首次：声望 +${exp.respect}，进收藏册` : '已收藏，再来一次只加心情'))}</small></span><button data-exp="${exp.id}" ${blocked ? 'disabled' : ''}>去</button></div>`).join('')}</div>` : '';
 				const certs = certsAt(s, region);
-				const certHtml = certs.length ? `<div class="card"><h3>职业证书</h3><p>考到证后，对应职业每个班的工资上涨；证书跟人走，换工作不丢。</p>${certs.map(({ cert, blocked }) => `
+				const certHtml = certs.length ? `<div class="card"><h3>职业证书</h3><p>考到证后，对应职业每个班的工资上涨；证书跟人走，换工作不丢。</p>${certs.map(({ cert, blocked: b0 }) => ({ cert, blocked: b0 ?? paperGate(s, { t: 'cert', id: cert.id }) })).map(({ cert, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="body">${s.certs.includes(cert.id) ? '✅ ' : ''}${esc(cert.name)} · $${cert.price}<small>${esc(blocked ?? `${getCareer(cert.career)?.name ?? ''}工资 +${Math.round(cert.payBonus * 100)}% · ${Math.round(cert.minutes / 60 * 10) / 10} 小时 · ${cert.desc}`)}</small></span><button data-cert="${cert.id}" ${blocked ? 'disabled' : ''}>报名</button></div>`).join('')}</div>` : '';
 				const facts = placeFacts(s, loc.id);
 				const factHtml = facts.length ? `<details class="card"><summary><b>📖 ${esc(loc.name)}小知识 ${facts.filter((f) => f.unlocked).length}/${facts.length}</b></summary>${facts.map(({ fact, unlocked }, i) => unlocked
@@ -1895,10 +1921,11 @@ const cardLines = guilloche(400, 260, 14, 9);
 					<div class="row" style="margin-top:8px"><span class="body">${esc(course.name)} · $${price}<small>${esc(blocked ?? `${SKILL_META[course.skill].name}（现在 ${Math.floor(s.skills[course.skill])}）· ${Math.round(course.minutes / 60 * 10) / 10} 小时 · ${course.desc}`)}</small></span><button data-course="${course.id}" ${blocked ? 'disabled' : ''}>上课</button></div>`).join('')}</div>` : '';
 				const dealer = dealerAt(s, region);
 				const props = propertiesAt(s, region);
+				const loanGate = paperGate(s, { t: 'property', op: 'buy', loan: true });
 				const propHtml = props.length ? `<div class="card"><h3>房产</h3>${props.map(({ property: pr, owned, down, blockedCash, blockedLoan }) => `
 					<div style="margin-top:10px"><div class="row"><span class="body">${owned ? '🔑 ' : ''}${esc(pr.name)} · $${pr.price.toLocaleString()}<small>${esc(pr.desc)} 物业费 $${pr.weekly}/周，出租 $${pr.rentIncome}/周。</small></span></div>
-					${owned ? '<p style="margin-top:4px">已是你的房产，在「角色」页管理。</p>' : `<div class="inline" style="margin-top:6px"><button data-prop="buy" data-prop-id="${pr.id}" ${blockedCash ? 'disabled' : ''}>全款买</button><button data-prop="buyloan" data-prop-id="${pr.id}" ${blockedLoan ? 'disabled' : ''}>贷款买（首付 $${down.toLocaleString()}）</button></div>
-					<p style="margin-top:4px">${esc(blockedLoan ?? `贷款 $${(pr.price - down).toLocaleString()}，每周还约 $${loanPayment(pr, pr.price - down)}，约 ${weeksToPayOff(pr, pr.price - down)} 周还清。`)}</p>`}</div>`).join('')}</div>` : '';
+					${owned ? '<p style="margin-top:4px">已是你的房产，在「角色」页管理。</p>' : `<div class="inline" style="margin-top:6px"><button data-prop="buy" data-prop-id="${pr.id}" ${blockedCash ? 'disabled' : ''}>全款买</button><button data-prop="buyloan" data-prop-id="${pr.id}" ${blockedLoan || loanGate ? 'disabled' : ''}>贷款买（首付 $${down.toLocaleString()}）</button></div>
+					<p style="margin-top:4px">${esc(blockedLoan ?? loanGate ?? `贷款 $${(pr.price - down).toLocaleString()}，每周还约 $${loanPayment(pr, pr.price - down)}，约 ${weeksToPayOff(pr, pr.price - down)} 周还清。`)}</p>`}</div>`).join('')}</div>` : '';
 				const dealerHtml = dealer.length ? `<div class="card"><h3>车行</h3>${myVeh ? `<p>你的${esc(myVeh.name)}可折抵 $${resaleValue(myVeh.id)}</p>` : ''}${dealer.map(({ vehicle, net, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="ico">${vehicle.icon}</span><span class="body">${esc(vehicle.name)} · $${vehicle.price.toLocaleString()}<small>${esc(blocked ?? `${vehicle.desc}${myVeh ? ` 折抵后付 $${net.toLocaleString()}` : ''}`)}</small></span><button data-veh="buy" data-veh-id="${vehicle.id}" ${blocked ? 'disabled' : ''}>${myVeh ? '换' : '买'}</button></div>`).join('')}
 					${myVeh ? (() => { const why = sellBlocked(s); return `<div class="inline" style="margin-top:8px"><button data-veh="sell" ${why ? 'disabled' : ''}>卖掉${esc(myVeh.name)}（$${resaleValue(myVeh.id)}）</button></div>${why && !why.includes('营业') ? `<p style="margin-top:4px">${esc(why)}</p>` : ''}`; })() : ''}</div>` : '';
@@ -1933,7 +1960,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+					${storyCard}${paperCard(s)}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
 			}
 
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
@@ -2520,7 +2547,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-paper],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2559,6 +2586,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const a: GameAction = d.veh === 'buy' ? { t: 'vehicle', op: 'buy', id: d.vehId! } : { t: 'vehicle', op: d.veh as 'sell' | 'sleep' | 'service' };
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
+				else if (d.paper) act({ t: 'paper', id: d.paper }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.course) act({ t: 'course', id: d.course }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if ('photo' in d) act({ t: 'photo' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if ('fish' in d) act({ t: 'fish' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });

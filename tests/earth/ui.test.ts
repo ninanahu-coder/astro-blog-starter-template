@@ -1519,3 +1519,24 @@ test('界面：留言列表拉取失败（限流、同步码失效、断网）�
 	});
 	assert.ok(notes >= 1 && notes <= 3, `留言列表请求了 ${notes} 次`);
 });
+
+test('界面：落地清单（第 43 批）——今天页显示进度和每项的现实流程、来源；点「办理」真的办好；没办 TFN 时贷款按钮不能点', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'paper-card-a', '办事甲');
+	let before = '', after = '';
+	await openWithHash('', a, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			before = el('panel').innerHTML;
+			await click({ paper: 'phone' });
+			after = el('panel').innerHTML;
+		},
+	});
+	assert.match(before, /🛂 落地清单<\/h3> <span class="muted">0\/\d+<\/span>/);
+	assert.match(before, /以官方为准：<a href="https:\/\/www\.acma\.gov\.au\/id-checks-prepaid-mobiles" target="_blank" rel="noopener">/);
+	assert.match(before, /data-paper="phone" >办理/);
+	assert.match(before, /data-paper="bank" disabled>办理/, '没手机卡不能开户');
+	assert.match(after, /✅ 📱 办手机卡<small>已办好/);
+	assert.match(after, /落地清单<\/h3> <span class="muted">1\/\d+<\/span>/);
+	assert.deepEqual(a11yIssues(before), []);
+});
