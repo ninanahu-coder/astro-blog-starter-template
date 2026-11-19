@@ -323,6 +323,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.talk-choices button { border-radius: 22px; min-height: 44px; padding: 0 16px; }
 			#map .exit-label { font-size: 10px; font-weight: 700; fill: var(--accent); paint-order: stroke; stroke: var(--halo); stroke-width: 3px; }
 			#map .route.exit { stroke-dasharray: 2 3; }
+			/* 真实地图的跨区域出口（v42）：往东的出口圆点在右边，字往左排 */
+			#basemap .pin.exit.end { flex-direction: row-reverse; }
+			#basemap .pin.exit .pin-dot { background: var(--accent); border-radius: 3px; }
+			#basemap .pin.exit .pin-label { font-weight: 700; color: #1d4fa8; }
+			/* 深色模式（v42）：系统是深色时，白天也把真实地图压暗，和夜里同一个滤镜；标记的白底标签保持可读 */
+			@media (prefers-color-scheme: dark) {
+				#basemap .maplibregl-canvas { filter: invert(0.92) hue-rotate(180deg) brightness(0.85); }
+			}
 			.trail-area { margin: 10px 0 4px; font-size: 13px; font-weight: 700; color: var(--text2); }
 			.needs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 18px; row-gap: 12px; }
 			.needs-grid .need { font-size: 13px; color: var(--text2); }
@@ -454,7 +462,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
 			import { codeOf, hashAction, makeQr, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
-			import { basemapBounds, canUseBasemap, createBasemap, webglSupported, type Basemap } from '../game/ui/basemap.ts';
+			import { basemapBounds, canUseBasemap, createBasemap, exitPoint, mapLabel, webglSupported, type Basemap, type Pin } from '../game/ui/basemap.ts';
 			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { CERTS } from '../game/data/certs.ts';
@@ -1251,7 +1259,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						<circle class="hit" data-loc="${l.id}" cx="${x}" cy="${y}" r="15"/>`;
 				}).join('');
 				const map = $('map');
-				map.setAttribute('aria-label', `${area.name}地图：点地点看去那里的走法；下面的列表是同样的内容`);
+				map.setAttribute('aria-label', mapLabel(area.name, false));
 				map.setAttribute('viewBox', `0 0 ${proj.width} ${proj.height}`);
 				const stars = skyPhase(getLocation(region, s.loc)!, s.clock) === 'night' ? starField(proj.width, proj.height) : '';
 				map.innerHTML = `${stars}<polygon class="land" points="${outline}"/>${routes}${exits}${dots}`;
@@ -1278,12 +1286,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const area = curArea();
 				// 换了区域：底图按新区域的范围重建
 				if (basemap && basemapArea !== area.id) dropBasemap();
+				const bounds = basemapBounds(area.locations);
 				if (!basemap) {
 					basemapArea = area.id;
+					$('basemap').setAttribute('aria-label', mapLabel(area.name, true));
 					const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#1d5fd1';
 					basemap = createBasemap({
 						container: $('basemap'),
-						bounds: basemapBounds(area.locations),
+						bounds,
 						doc: document,
 						routeColor: accent,
 						onState: (st) => {
@@ -1293,8 +1303,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					});
 				}
 				basemap.resize();
+				// 跨区域出口（v42）：手绘地图上有，真实地图以前只画了一条伸出去的线、没地方点；现在在地图边上放一个出口标记
+				const exitPins: Pin[] = exitsOf(area).map((r) => {
+					const mine = area.locations.find((l) => l.id === r.a || l.id === r.b)!;
+					const far = getLocation(region, mine.id === r.a ? r.b : r.a)!;
+					const [lon, lat] = exitPoint([mine.lon, mine.lat], [far.lon, far.lat], bounds);
+					return { id: far.id, name: far.name, lon, lat, here: false, visited: true, selected: selected === far.id, wx: '', count: 0, exit: { mode: r.mode, area: areaOf(far.id)?.name ?? '', end: far.lon > mine.lon } };
+				});
 				basemap.update({
-					pins: area.locations.map((l) => ({ id: l.id, name: l.name, lon: l.lon, lat: l.lat, here: l.id === s.loc, visited: !!s.visited[l.id], selected: selected === l.id, wx: weatherOn(l.id, dayOf(s.clock)).icon, count: counts.get(l.id) ?? 0 })),
+					pins: [...area.locations.map((l) => ({ id: l.id, name: l.name, lon: l.lon, lat: l.lat, here: l.id === s.loc, visited: !!s.visited[l.id], selected: selected === l.id, wx: weatherOn(l.id, dayOf(s.clock)).icon, count: counts.get(l.id) ?? 0 })), ...exitPins],
 					routes: [...area.routes, ...exitsOf(area)].map((r) => {
 						const a = getLocation(region, r.a)!, b = getLocation(region, r.b)!;
 						return { a: [a.lon, a.lat] as [number, number], b: [b.lon, b.lat] as [number, number], live: r.a === s.loc || r.b === s.loc };
@@ -2485,6 +2502,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				window.addEventListener('offline', () => { syncStatus = '离线：可以查看，联网后才能行动'; if (state) { renderHud(); if (tab === 'go') renderMap(); } });
 				window.addEventListener('online', () => {
 					retryVenues();
+					// 断网导致真实地图没加载出来的，联网后再试一次（v42）；设置里关掉的不会打开
+					if (basemapFailed) { basemapFailed = false; if (state && tab === 'go') renderMap(); }
 					if (state) { connect(); pullCloud(); if (tab === 'near') renderPanel(); }
 				});
 			}

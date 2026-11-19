@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
-import { basemapBounds, BASEMAP_STYLE, canUseBasemap, createBasemap, pinHtml, pinLabel, routesGeoJson, webglSupported, type MapLib, type Pin } from '../../src/game/ui/basemap.ts';
+import { basemapBounds, BASEMAP_STYLE, canUseBasemap, createBasemap, exitPoint, mapLabel, pinClass, pinHtml, pinLabel, routesGeoJson, webglSupported, type MapLib, type Pin } from '../../src/game/ui/basemap.ts';
 import { DEFAULT_PREFS, parsePrefs } from '../../src/game/ui/prefs.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { AREAS, exitsOf, WORLD_BASE } from '../../src/game/data/areas-base.ts';
 
 const pin = (over: Partial<Pin> = {}): Pin => ({ id: 'perth', name: '珀斯', lon: 115.86, lat: -31.95, here: false, visited: true, selected: false, wx: '☀️', count: 0, ...over });
 
@@ -141,4 +142,96 @@ test('页面：地图库不进首屏脚本（只能动态加载），设置页�
 	assert.doesNotMatch(mod, /^import .*maplibre-gl/m, 'basemap.ts 也只能动态导入');
 	assert.match(astro, /data-pref="basemap"/);
 	assert.match(astro, /OpenFreeMap/);
+});
+
+// ---------- v42：跨区域出口、读屏说明、深色模式、联网重试 ----------
+
+test('读屏说明：按区域名写，真实地图多「真实」二字，都保留「下面的列表是同样的内容」', () => {
+	assert.equal(mapLabel('南澳大利亚', true), '南澳大利亚真实地图：点地点看去那里的走法；下面的列表是同样的内容');
+	assert.equal(mapLabel('西澳大利亚', false), '西澳大利亚地图：点地点看去那里的走法；下面的列表是同样的内容');
+	const astro = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(astro, /\$\('basemap'\)\.setAttribute\('aria-label', mapLabel\(area\.name, true\)\)/, '底图换区域时读屏说明跟着换');
+	assert.doesNotMatch(astro, /\$\('basemap'\)[^\n]*西澳/, '不能写死西澳');
+});
+
+test('出口位置：目的地在范围里就放在目的地；在范围外就停在范围边上（往里收一点），方向不变', () => {
+	const b: [[number, number], [number, number]] = [[0, 0], [10, 10]];
+	assert.deepEqual(exitPoint([5, 5], [7, 6], b), [7, 6]);
+	// 往东出界：停在 x = 10 - 0.6
+	const [x, y] = exitPoint([5, 5], [25, 5], b);
+	assert.ok(Math.abs(x - 9.4) < 1e-9 && Math.abs(y - 5) < 1e-9, `${x},${y}`);
+	// 往西南出界：先碰到的那条边为准，方向保持在连线上
+	const [x2, y2] = exitPoint([5, 5], [-5, 3], b);
+	assert.ok(Math.abs(x2 - 0.6) < 1e-9 && Math.abs(y2 - (5 - 4.4 * 0.2)) < 1e-9, `${x2},${y2}`);
+	// 往北出界
+	const [x3, y3] = exitPoint([5, 5], [5, 30], b);
+	assert.ok(Math.abs(x3 - 5) < 1e-9 && Math.abs(y3 - 9.4) < 1e-9);
+	// 往南出界
+	const [, y4] = exitPoint([5, 5], [5, -30], b);
+	assert.ok(Math.abs(y4 - 0.6) < 1e-9);
+	// 斜着往东北出界：停在先碰到的东边，纬度按连线算（不是直接把终点夹到边上）
+	const [x6, y6] = exitPoint([5, 5], [25, 7], b);
+	assert.ok(Math.abs(x6 - 9.4) < 1e-9 && Math.abs(y6 - (5 + 2 * 0.22)) < 1e-9, `${x6},${y6}`);
+	const [x7, y7] = exitPoint([5, 5], [6, 25], b);
+	assert.ok(Math.abs(x7 - (5 + 0.22)) < 1e-9 && Math.abs(y7 - 9.4) < 1e-9, `${x7},${y7}`);
+	// 起点已在收边之外：不往回走（纬度不往反方向偏）
+	assert.deepEqual(exitPoint([9.9, 5], [39.9, 8], b), [9.4, 5]);
+	// 起点自己在边缘外也不会跑出范围
+	const [x5, y5] = exitPoint([9.9, 9.9], [40, 40], b);
+	assert.ok(x5 <= 9.4 + 1e-9 && y5 <= 9.4 + 1e-9 && x5 >= 0.6 && y5 >= 0.6);
+	// 真实数据：每个区域的每个出口都落在该区域底图范围里
+	for (const area of AREAS) {
+		const bounds = basemapBounds(area.locations);
+		for (const r of exitsOf(area)) {
+			const mine = area.locations.find((l) => l.id === r.a || l.id === r.b)!;
+			const far = WORLD_BASE.locations.find((l) => l.id === (mine.id === r.a ? r.b : r.a))!;
+			const [lon, lat] = exitPoint([mine.lon, mine.lat], [far.lon, far.lat], bounds);
+			assert.ok(lon > bounds[0][0] && lon < bounds[1][0] && lat > bounds[0][1] && lat < bounds[1][1], `${area.id}→${far.id}`);
+			// 朝目的地方向：离目的地比起点更近
+			assert.ok(Math.hypot(far.lon - lon, far.lat - lat) < Math.hypot(far.lon - mine.lon, far.lat - mine.lat), `${area.id}→${far.id} 方向`);
+		}
+	}
+});
+
+test('出口标记：图标 + 目的地（区域），名字转义，读屏念去哪的航线/公路，往东的靠右放', () => {
+	const ex = pin({ id: 'adelaide', name: '<i>阿德莱德</i>', exit: { mode: 'air', area: '南澳<大利亚>', end: true } });
+	const h = pinHtml(ex);
+	assert.ok(!h.includes('<i>') && h.includes('&lt;i&gt;阿德莱德&lt;/i&gt;'));
+	assert.ok(h.includes('（南澳&lt;大利亚&gt;）'));
+	assert.match(h, /<span aria-hidden="true">✈️ <\/span>/);
+	assert.ok(!h.includes('☀️'), '出口不显示天气');
+	assert.equal(pinLabel(pin({ name: '阿德莱德', exit: { mode: 'air', area: '南澳大利亚', end: true } })), '去阿德莱德（南澳大利亚）的航线');
+	assert.equal(pinLabel(pin({ name: '锡杜纳', exit: { mode: 'road', area: '南澳大利亚', end: true } })), '去锡杜纳（南澳大利亚）的公路');
+	assert.match(pinHtml(pin({ exit: { mode: 'road', area: 'x', end: false } })), /🛣️/);
+	assert.equal(pinClass(ex), 'pin exit end');
+	assert.equal(pinClass({ ...ex, selected: true, exit: { ...ex.exit!, end: false } }), 'pin exit sel');
+	// 普通地点照旧
+	assert.equal(pinClass(pin({ here: true })), 'pin here');
+	assert.equal(pinClass(pin({ visited: false, selected: true })), 'pin new sel');
+});
+
+test('出口标记在地图上：带 data-loc（点它出目的地卡片），往东的锚在右边', async () => {
+	const { lib, log, handlers, doc } = fakeLib();
+	const anchors: string[] = [];
+	const Marker = (lib as unknown as { Marker: new (o: { element: unknown; anchor?: string }) => unknown }).Marker;
+	class SpyMarker extends (Marker as unknown as new (o: { element: unknown; anchor?: string }) => object) {
+		constructor(o: { element: unknown; anchor?: string }) { super(o); anchors.push(o.anchor ?? ''); }
+	}
+	const bm = createBasemap({ container: {}, bounds: [[0, 0], [1, 1]], doc, routeColor: '#000', onState: () => {}, load: async () => ({ ...lib, Marker: SpyMarker } as unknown as MapLib) });
+	await tick();
+	handlers.load();
+	bm.update({ pins: [pin(), pin({ id: 'adelaide', name: '阿德莱德', exit: { mode: 'air', area: '南澳大利亚', end: true } }), pin({ id: 'x', exit: { mode: 'road', area: '西澳', end: false } })], routes: [] });
+	assert.deepEqual(anchors, ['left', 'right', 'left']);
+	assert.equal(log.markers[1].el.dataset.loc, 'adelaide');
+	assert.equal(log.markers[1].el.attrs['aria-label'], '去阿德莱德（南澳大利亚）的航线');
+	bm.destroy();
+});
+
+test('页面：深色模式下真实地图也压暗；断网失败的底图联网后重试；出口标记接上了', () => {
+	const astro = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(astro, /@media \(prefers-color-scheme: dark\) \{\s*#basemap \.maplibregl-canvas \{ filter: invert/);
+	const online = astro.slice(astro.indexOf("window.addEventListener('online'"));
+	assert.match(online.slice(0, 600), /if \(basemapFailed\) \{ basemapFailed = false; if \(state && tab === 'go'\) renderMap\(\); \}/);
+	assert.match(astro, /exitPoint\(\[mine\.lon, mine\.lat\], \[far\.lon, far\.lat\], bounds\)/);
+	assert.match(astro, /pins: \[\.\.\.area\.locations\.map\([\s\S]{0,400}\.\.\.exitPins\]/);
 });
