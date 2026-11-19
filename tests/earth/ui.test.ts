@@ -958,7 +958,7 @@ test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，�
 	// 虚拟人生风格：今天页顶栏是当地小场景，地点名牌、需求环、NPC 立绘
 	assert.match(hud, /<div class="scene"><svg class="scene-art"/);
 	// 地点名牌：大字地名，下面一行是时间（第 15 批从顶上的时间胶囊挪进来）
-	assert.match(hud, /<div class="plate"><h1>[^<]+<\/h1><small title="[^"]+">[^<]*\d+:\d\d[^<]*<\/small><\/div>/);
+	assert.match(hud, /<div class="plate"><h1>[^<]+<\/h1><span class="en" lang="en">[^<]+<\/span><small title="[^"]+">[^<]*\d+:\d\d[^<]*<\/small><\/div>/);
 	assert.doesNotMatch(hud, /pill-on/, '顶上不再有单独的时间胶囊');
 	assert.match(panel, /<div class="rings">/);
 	assert.equal((panel.match(/class="ring /g) ?? []).length, 6, '六个需求环');
