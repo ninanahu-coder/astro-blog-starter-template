@@ -3,11 +3,12 @@
 // 另有保留实例 '@SAVES' 负责云存档（跨设备同步）。
 // 权威结算：客户端只发送动作（create / act），由本实例调用规则引擎结算并保存；
 // 客户端不能上传存档，改本地数据不会影响服务器上的进度。
-import { applyAction, applyCoop, applyTrade, applyWeeklyClaim, parseAction, publicState } from '../core/actions.ts';
+import { applyAction, applyBlock, applyCoop, applyTrade, applyWeeklyClaim, parseAction, publicState } from '../core/actions.ts';
+import { addReport, BLOCK_MAX, isBlocked, isReportReason, REPORTS_PER_DAY, reportHidden, type ReportRec } from '../core/safety.ts';
 import { addWeekly, goalOfWeek, weekDaysLeft, weeklyMine, weekOf, type WeeklyMetric } from '../core/weekly.ts';
 import { giveBlocked, saleRange } from '../core/trade.ts';
 import { noteMet } from '../core/social.ts';
-import { cleanNote, NOTES_LOC_DAY, NOTES_PER_DAY, NOTES_PER_LOC } from '../core/notes.ts';
+import { cleanNote, contactError, NOTES_LOC_DAY, NOTES_PER_DAY, NOTES_PER_LOC } from '../core/notes.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
 import { getItem } from '../core/attributes.ts';
 import { coopBlocked } from '../core/coop.ts';
@@ -74,6 +75,8 @@ interface Offer {
 	id: string;
 	kind: 'gift' | 'sale';
 	from: string;
+	/** 挂单人的 id 哈希前缀：屏蔽了他的人看不到这张单 */
+	fromHash: string;
 	fromName: string;
 	fromAvatar: string;
 	to: string | null;
@@ -133,6 +136,8 @@ export class EarthWorld {
 	private boardGen = 0; // 每次写入加一：读榜期间有写入时，读到的旧列表不放进缓存
 	private lobbies = new Map<string, Lobby>();
 	private hintAt = new WeakMap<WebSocket, Record<string, number>>();
+	/** 每个连接屏蔽了谁（id 哈希前缀，客户端按自己存档里的屏蔽名单发来）：这些人的聊天和表情不转给这个连接 */
+	private mutes = new WeakMap<WebSocket, Set<string>>();
 	private offers = new Map<string, Offer>();
 	private week: { week: number; count: number } | null = null; // 这周全服累计数（内存里一份，落盘在 'week:<序号>'）
 	private weekLoading: Promise<void> | null = null;
@@ -216,9 +221,20 @@ export class EarthWorld {
 				break;
 			case 'chat': {
 				const text = String(m.text ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, CHAT_MAX);
-				if (text) this.broadcastAt(me.loc, { t: 'chat', id: me.id, name: me.name, avatar: me.avatar, text, at: now });
+				if (!text) break;
+				// 在线频道不能发网址、联系方式和坐标（第 24 批）：不转发，只告诉发的人
+				const why = contactError(text);
+				if (why) {
+					this.send(ws, { t: 'notice', msg: '没发出去：聊天里' + why });
+					break;
+				}
+				this.broadcastAt(me.loc, { t: 'chat', id: me.id, name: me.name, avatar: me.avatar, text, at: now }, me.id);
 				break;
 			}
+			case 'mute':
+				// 屏蔽名单（第 24 批）：整份替换，只收合法的哈希，最多 BLOCK_MAX 个
+				if (Array.isArray(m.ids)) this.mutes.set(ws, new Set(m.ids.filter((x: unknown): x is string => typeof x === 'string' && HASH_RE.test(x)).slice(0, BLOCK_MAX)));
+				break;
 			case 'coop':
 			case 'trade': {
 				// 共同事件大厅或交易挂单有变化：只提醒同一地点的其他人去拉一次列表，不带任何内容（内容以服务端为准）
@@ -232,7 +248,7 @@ export class EarthWorld {
 				if (EMOTES.includes(m.kind) && typeof m.to === 'string') {
 					// 只能对同一地点的玩家互动
 					for (const [sock, p] of this.sockets) {
-						if (p.id === m.to && p.loc === me.loc) this.send(sock, { t: 'emote', from: me.id, name: me.name, kind: m.kind });
+						if (p.id === m.to && p.loc === me.loc && !this.mutes.get(sock)?.has(me.id)) this.send(sock, { t: 'emote', from: me.id, name: me.name, kind: m.kind });
 					}
 				}
 				break;
@@ -277,10 +293,12 @@ export class EarthWorld {
 			} catch {}
 		}
 	}
-	private broadcastAt(loc: string, data: unknown) {
+	/** from：发消息的人的 id 哈希前缀；屏蔽了他的连接收不到 */
+	private broadcastAt(loc: string, data: unknown, from?: string) {
 		const raw = JSON.stringify(data);
 		for (const [ws, p] of this.sockets) {
 			if (p.loc !== loc) continue;
+			if (from && this.mutes.get(ws)?.has(from)) continue;
 			try {
 				ws.send(raw);
 			} catch {}
@@ -554,7 +572,9 @@ export class EarthWorld {
 			const hash = (await sha256Hex(id)).slice(0, 12);
 			const day = realDayOf(now);
 			const list = await this.notesAt(loc);
-			const view = () => ({ notes: list.map((n) => ({ id: n.id, name: n.name, avatar: n.avatar, text: n.text, at: n.at, mine: n.author === hash })).reverse() });
+			// 屏蔽的人的留言不给我看；最近被好几个人举报的人的留言先对所有人隐藏（自己的照常看得到，第 24 批）
+			const hidden = await this.hiddenAuthors(list.map((n) => n.author), day);
+			const view = () => ({ notes: list.filter((n) => n.author === hash || (!isBlocked(current, n.author) && !hidden.has(n.author))).map((n) => ({ id: n.id, name: n.name, avatar: n.avatar, text: n.text, at: n.at, mine: n.author === hash })).reverse() });
 			if (body.op === 'list') return json({ ok: true, ...view(), at: now });
 			if (body.op === 'post') {
 				const c = cleanNote(body.text);
@@ -592,6 +612,7 @@ export class EarthWorld {
 			}
 			return json({ ok: false, msg: '请求无效' }, 400);
 		}
+		if (action === 'safety') return this.handleSafety(body, id, keyHash, current, live, now, canon);
 		if (action === 'weekly') {
 			// weekly { op: 'status' }：这周的目标、全服进度、我出了几份力；{ op: 'claim', rev }：达成后领奖
 			const day = realDayOf(now);
@@ -745,9 +766,84 @@ export class EarthWorld {
 		for (const [k, o] of this.offers) if (!o.taking && wall - o.at > OFFER_TTL_MS) this.offers.delete(k);
 	}
 
-	private tradeView(id: string, hash: string, loc: string) {
+	/** 最近被足够多的不同的人举报的作者（只查这些作者的举报记录） */
+	private async hiddenAuthors(authors: string[], day: number): Promise<Set<string>> {
+		const keys = [...new Set(authors)].filter((a) => HASH_RE.test(a)).map((a) => 'report:' + a);
+		const out = new Set<string>();
+		if (!keys.length) return out;
+		// 逐个取（最多 NOTES_PER_LOC 个作者）
+		const got = await Promise.all(keys.map((k) => this.ctx.storage.get<ReportRec[]>(k)));
+		keys.forEach((k, i) => { const v = got[i]; if (Array.isArray(v) && reportHidden(v, day)) out.add(k.slice('report:'.length)); });
+		return out;
+	}
+
+	// ---------- 屏蔽与举报（第 24 批） ----------
+	// safety { op: 'block', peer | note, rev }          屏蔽在线的某人（peer = 在线状态里的哈希）或某条留言的作者
+	// safety { op: 'unblock', hash, rev }               解除屏蔽
+	// safety { op: 'report', peer | note, reason, quote?, rev }  举报并顺手屏蔽；留言的原话由服务端从留言板取，聊天的原话由举报人提交（只作参考）
+	// 目标一律由服务端查实：peer 必须是有存档的玩家，note 必须是我所在地点留言板上的留言。别人的真实 id 不出服务端
+	private async handleSafety(body: any, id: string, keyHash: string, current: PlayerState, live: PlayerState, now: number, canon: (s: PlayerState) => PlayerState): Promise<Response> {
+		const hash = (await sha256Hex(id)).slice(0, 12);
+		const day = realDayOf(now);
+		const op = body.op;
+		if (op !== 'block' && op !== 'unblock' && op !== 'report') return json({ ok: false, msg: '请求无效' }, 400);
+		if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: CONFLICT_MSG, state: publicState(current), at: now }, 409);
+		if (op === 'unblock') {
+			if (typeof body.hash !== 'string' || !HASH_RE.test(body.hash)) return json({ ok: false, msg: '请求无效' }, 400);
+			const who = live.blocked[body.hash];
+			const r = applyBlock(live, 'unblock', { hash: body.hash, name: who?.name ?? '对方', avatar: who?.avatar ?? '' }, day);
+			if (!r.ok) return json({ ok: false, msg: r.msg, state: publicState(current), at: now });
+			const next = canon(r.state);
+			await this.persist(id, keyHash, next, now);
+			return json({ ok: true, msg: r.msg, state: publicState(next), at: now });
+		}
+		// 找到对方：在线状态里的哈希，或我所在地点的一条留言
+		let target: { hash: string; name: string; avatar: string; quote: string; ctx: ReportRec['ctx'] } | null = null;
+		if (typeof body.note === 'string' && NOTE_RE.test(body.note)) {
+			const n = (await this.notesAt(current.loc)).find((x) => x.id === body.note);
+			if (n) target = { hash: n.author, name: n.name, avatar: n.avatar, quote: n.text, ctx: 'note' };
+		} else if (typeof body.peer === 'string' && HASH_RE.test(body.peer)) {
+			const pid = await this.ctx.storage.get<string>('h:' + body.peer);
+			const prec = typeof pid === 'string' ? await this.ctx.storage.get<{ state: any }>('save:' + pid) : undefined;
+			if (prec?.state) target = { hash: body.peer, name: cleanName(prec.state.name) || '旅人', avatar: String(prec.state.avatar ?? '🧑').replace(/[<>&"']/g, '').slice(0, 8), quote: typeof body.quote === 'string' ? body.quote : '', ctx: typeof body.quote === 'string' && body.quote ? 'chat' : 'player' };
+		}
+		if (!target) return json({ ok: false, msg: '找不到这位玩家', state: publicState(current), at: now }, 404);
+		if (target.hash === hash) return json({ ok: false, msg: op === 'report' ? '不能举报自己' : '不能屏蔽自己', state: publicState(current), at: now }, 400);
+		let msg = '';
+		if (op === 'report') {
+			if (!isReportReason(body.reason)) return json({ ok: false, msg: '选一个举报原因', state: publicState(current), at: now }, 400);
+			const reason = body.reason;
+			const t = target;
+			const res = await this.inNotes('@report', async () => {
+				// 举报人的每日次数和被举报人的记录排队写：两个人同时举报也不会互相覆盖
+				const cd = await this.ctx.storage.get<{ day: number; n: number }>('reportcd:' + hash);
+				const today = Math.max(day, cd?.day ?? 0);
+				const used = cd && cd.day === today ? cd.n : 0;
+				if (used >= REPORTS_PER_DAY) return `今天已经举报了 ${REPORTS_PER_DAY} 次，明天再来。`;
+				const list = (await this.ctx.storage.get<ReportRec[]>('report:' + t.hash)) ?? [];
+				const next = addReport(Array.isArray(list) ? list : [], { by: hash, reason, ctx: t.ctx, day: today, quote: t.quote });
+				if (typeof next === 'string') return next;
+				await this.ctx.storage.put({ ['report:' + t.hash]: next, ['reportcd:' + hash]: { day: today, n: used + 1 } });
+				return null;
+			});
+			if (typeof res === 'string') return json({ ok: false, msg: res, state: publicState(current), at: now }, 429);
+			msg = '举报收到了，谢谢。';
+		}
+		// 举报顺手屏蔽；已经屏蔽过就只记举报
+		if (isBlocked(live, target.hash)) {
+			if (op === 'block') return json({ ok: false, msg: '已经屏蔽过了。', state: publicState(current), at: now });
+			return json({ ok: true, msg, state: publicState(current), at: now });
+		}
+		const r = applyBlock(live, 'block', target, day, hash);
+		if (!r.ok) return json({ ok: !!msg, msg: msg ? `${msg}${r.msg}` : r.msg, state: publicState(current), at: now });
+		const next = canon(r.state);
+		await this.persist(id, keyHash, next, now);
+		return json({ ok: true, msg: msg ? `${msg}${r.msg}` : r.msg, state: publicState(next), at: now });
+	}
+
+	private tradeView(id: string, hash: string, loc: string, blocked: PlayerState['blocked'] = {}) {
 		const offers = [...this.offers.values()]
-			.filter((o) => o.from === id || (o.loc === loc && (o.kind === 'sale' || o.to === hash)))
+			.filter((o) => o.from === id || (o.loc === loc && (o.kind === 'sale' || o.to === hash) && !Object.hasOwn(blocked, o.fromHash)))
 			.map((o) => ({ id: o.id, kind: o.kind, item: o.item, price: o.price, name: o.fromName, avatar: o.fromAvatar, toName: o.from === id ? o.toName : '', loc: o.loc, mine: o.from === id, taking: !!o.taking }));
 		return { offers };
 	}
@@ -757,7 +853,7 @@ export class EarthWorld {
 		const hash = (await sha256Hex(id)).slice(0, 12);
 		const day = realDayOf(now);
 		const op = body.op;
-		const view = (st: PlayerState) => this.tradeView(id, hash, st.loc);
+		const view = (st: PlayerState) => this.tradeView(id, hash, st.loc, st.blocked);
 		const reply = (extra: Record<string, unknown> = {}) => json({ ok: true, ...view(current), at: now, ...extra });
 		const no = (msg: string, status = 400) => json({ ok: false, msg, ...view(current), at: now }, status);
 		const mineOpen = () => [...this.offers.values()].filter((o) => o.from === id).length;
@@ -786,6 +882,10 @@ export class EarthWorld {
 				const target = await this.ctx.storage.get<string>('h:' + body.to);
 				const trec = typeof target === 'string' ? await this.ctx.storage.get<{ state: any }>('save:' + target) : undefined;
 				if (!target || !trec || trec.state?.loc !== current.loc) return no('对方不在这里，送不了');
+				// 屏蔽（第 24 批）：我屏蔽了对方，或对方屏蔽了我，都送不了；不告诉是谁屏蔽了谁
+				if (isBlocked(current, body.to)) return no('你屏蔽了对方，先解除屏蔽再送');
+				const tb = trec.state?.blocked;
+				if (tb && typeof tb === 'object' && Object.hasOwn(tb, hash)) return no('对方现在收不到礼物');
 				if ([...this.offers.values()].filter((o) => o.toId === target).length >= OFFER_PER_TARGET) return no('对方还有好几份礼物没收，等等再送');
 				to = body.to;
 				toId = target;
@@ -799,7 +899,7 @@ export class EarthWorld {
 			if (this.offers.size >= OFFER_MAX) return no('现在挂单太多了，稍后再试');
 			if ([...this.offers.values()].filter((o) => o.loc === current.loc).length >= OFFER_PER_LOC) return no('这里挂着的东西太多了，稍后再试');
 			const oid = newId();
-			this.offers.set(oid, { id: oid, kind: op, from: id, fromName: current.name, fromAvatar: current.avatar, to, toId, toName, item: item.id, price, loc: current.loc, at: wall });
+			this.offers.set(oid, { id: oid, kind: op, from: id, fromHash: hash, fromName: current.name, fromAvatar: current.avatar, to, toId, toName, item: item.id, price, loc: current.loc, at: wall });
 			return reply({ msg: op === 'gift' ? `${item.icon} 等${toName}收下${item.name}` : `${item.icon} ${item.name}挂上二手摊了，$${price}` });
 		}
 		const o = typeof body.offer === 'string' && OFFER_RE.test(body.offer) ? this.offers.get(body.offer) : undefined;

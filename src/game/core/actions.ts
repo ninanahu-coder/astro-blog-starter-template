@@ -14,6 +14,8 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { claimLive, LIVE_ID_RE } from './live.ts';
+import { blockPlayer, unblockPlayer } from './safety.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -39,6 +41,7 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
+	| { t: 'live'; id: string }
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
@@ -91,6 +94,8 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'cert':
 		case 'experience':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
+		case 'live':
+			return typeof a.id === 'string' && LIVE_ID_RE.test(a.id) ? { t: 'live', id: a.id } : null;
 		case 'property':
 			if (!str(a.id)) return null;
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
@@ -129,6 +134,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'live': r = claimLive(state, region, a.id, now); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
@@ -186,6 +192,18 @@ export function applyWeeklyClaim(state: PlayerState, week: number, count: number
 	if (!r.ok) return r;
 	pruneMoodlets(r.state);
 	return { ...r, state: capState({ ...r.state, rev: nextRev(state.rev) }) };
+}
+
+/**
+ * 屏蔽 / 解除屏蔽（第 24 批）：只由服务端调用（屏蔽对象由服务端按哈希或留言查实）。和 applyAction 一样版本号加一。
+ * 屏蔽名单只影响自己看到什么、谁能给自己送礼，不改游戏数值。
+ */
+export function applyBlock(state: PlayerState, op: 'block' | 'unblock', p: { hash: string; name: string; avatar: string }, day: number, selfHash?: string): ActionResult {
+	const next = op === 'block' ? blockPlayer(state, p, day, selfHash) : unblockPlayer(state, p.hash);
+	if (typeof next === 'string') return { ok: false, state, msg: next };
+	if (next === state) return { ok: false, state, msg: op === 'block' ? '已经屏蔽过了。' : '没有屏蔽这位玩家。' };
+	const msg = op === 'block' ? `已屏蔽${p.name}：看不到对方的聊天、表情、留言和挂单，对方也送不了你东西。` : `已解除对${p.name}的屏蔽。`;
+	return { ok: true, state: capState({ ...next, rev: nextRev(state.rev) }), msg };
 }
 
 /** 发给客户端的存档：隐去随机数种子，客户端无法预知检定结果 */

@@ -508,6 +508,8 @@ export interface PlayerState {
 	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每 COOP_COOLDOWN_DAYS 天一次）
 	trades: { day: number; out: number; in: number }; // 玩家之间交易：这个现实日已送出 / 收下的次数
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领
+	live: string[]; // 领过到场纪念的现实活动 id（第 24 批，见 core/live.ts）
+	blocked: Record<string, { name: string; avatar: string; day: number }>; // 屏蔽的玩家：id 哈希前缀 -> 名字、头像、屏蔽时的现实日（第 24 批，见 core/safety.ts）
 	met: Record<string, { name: string; avatar: string; n: number; last: number }>; // 常遇见的人：玩家 id 哈希前缀 -> 名字、头像、一起做事的次数、最近一次的现实日
 	pending: { eventId: string } | null;
 	fix: { lat: number; lon: number; at: number } | null; // 最近一次真实定位（坐标保留 3 位小数，约 100 米；at 为服务端时间）
