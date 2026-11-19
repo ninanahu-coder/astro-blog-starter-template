@@ -26,6 +26,7 @@
 - 相对导入写完整的 `.ts` 扩展名（Node 直接执行测试需要）。
 - 新玩法内容优先加数据（`src/game/data/`），不要在引擎里写针对某个地点或事件的特例。
 - 界面文案用简体中文。
+- 给 `PlayerState` 加字段、改存档格式，按 `docs/earth-game/save-sync.md` §5 的规范（字段名规则、`cleanXxx`、不改已有字段形状、`SAVE_VERSION` 和迁移）。
 
 ## Review guidelines
 
