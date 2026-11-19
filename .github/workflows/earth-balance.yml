@@ -1,0 +1,36 @@
+# 平衡回归基线（docs/earth-game/balance-tools.md §5）
+# PR 改了规则、数据或模拟器时：跑一次 60 天 × 20 种子的模拟，
+# 1. 和 PR 自己提交的 tools/earth/balance/baseline.json 比 —— 不一致就失败（改了数值要连基线一起提交）；
+# 2. 和目标分支上的基线比 —— 只把变化表写进这次运行的 Summary，给审查和 Codex 看，不判失败。
+# 只读：不部署、不推送、不评论。
+name: earth-balance
+
+on:
+  pull_request:
+    paths:
+      - 'src/game/**'
+      - 'tools/earth/balance/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/earth-balance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: 取目标分支上的基线
+        run: git show "origin/${{ github.base_ref }}:tools/earth/balance/baseline.json" > "$RUNNER_TEMP/base-baseline.json" || rm -f "$RUNNER_TEMP/base-baseline.json"
+      - name: 模拟并对比
+        run: npm run -s earth:baseline -- --against="$RUNNER_TEMP/base-baseline.json" --summary="$GITHUB_STEP_SUMMARY"

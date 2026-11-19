@@ -65,7 +65,7 @@ tools/earth/comfyui/  提示词生成、工作流模板、远程出图脚本
 tests/earth/          引擎与数据自洽性测试
 ```
 
-按功能整理的总览（每个功能给玩家什么、规则要点、现状和待定）见 [features.md](features.md)。人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。
+按功能整理的总览（每个功能给玩家什么、规则要点、现状和待定）见 [features.md](features.md)。人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。给开发者和 Codex 的平衡调试工具（系统开关 A/B、CSV / JSON 导出、经济投放与回收、待平衡数值面板、回归基线、仅开发环境的 GM 沙盒）见 [balance-tools.md](balance-tools.md)。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。
 
 设计原则：
 
