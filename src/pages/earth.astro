@@ -274,13 +274,33 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			#hud .scene { position: relative; height: 212px; overflow: hidden; border-radius: 0 0 26px 26px; container-type: inline-size; margin: 0 -0px; }
 			#hud .scene-art { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 			#hud .scene-top { position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-			#hud .pill-on { padding: 6px 12px; border-radius: 999px; background: var(--card); color: var(--text); font-size: 12px; font-weight: 600; box-shadow: 0 2px 8px var(--shadow); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 			#hud .scene .wx-pill { box-shadow: 0 2px 8px var(--shadow); }
-			#hud .plate { position: absolute; left: 12px; top: calc(50px + env(safe-area-inset-top)); display: flex; flex-direction: column; padding: 8px 14px; border-radius: 14px; background: var(--text); color: var(--bg); max-width: 62%; }
+			#hud .lv-plate { display: flex; align-items: center; gap: 8px; padding: 4px 12px 4px 4px; border: 0; border-radius: 999px; background: var(--card); color: var(--text); font: inherit; text-align: left; box-shadow: 0 2px 8px var(--shadow); min-width: 0; max-width: 62%; cursor: pointer; }
+			#hud .lv-ring { position: relative; width: 44px; height: 44px; flex: none; display: flex; align-items: center; justify-content: center; }
+			#hud .lv-ring svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+			#hud .lv-ring .track { fill: none; stroke: var(--soft); stroke-width: 4; }
+			#hud .lv-ring .arc { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+			#hud .lv-ava { position: relative; font-size: 22px; line-height: 1; }
+			#hud .lv-num { position: absolute; right: -4px; bottom: -3px; min-width: 20px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: var(--accent); color: var(--accent-ink); border: 2px solid var(--card); font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+			#hud .lv-txt { display: flex; flex-direction: column; min-width: 0; }
+			#hud .lv-txt b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			#hud .lv-txt small { font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			#hud .scene-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
+			#hud .scene-right .chip.cash { box-shadow: 0 2px 8px var(--shadow); }
+			#hud .plate { position: absolute; left: 12px; top: calc(66px + env(safe-area-inset-top)); display: flex; flex-direction: column; padding: 8px 14px; border-radius: 14px; background: var(--text); color: var(--bg); max-width: 62%; }
 			#hud .plate h1 { margin: 0; font-size: 21px; line-height: 1.2; color: inherit; }
 			#hud .plate small { font-size: 11px; color: inherit; }
 			#hud .thought { position: absolute; left: calc(50% + 16px); bottom: calc(15.6cqw + 4px); padding: 6px 10px; border-radius: 16px 16px 16px 4px; background: var(--card); color: var(--low-ink); font-size: 12px; font-weight: 700; box-shadow: 0 2px 10px var(--shadow); max-width: calc(50% - 28px); }
 			#hud.scened .hud-chips { padding: 0 16px; margin-top: 10px; }
+			/* 今天页：心愿小卡片（三列）和四个快捷动作 */
+			.wishes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+			.wish { display: flex; align-items: flex-start; gap: 6px; padding: 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--card2); font-size: 12px; line-height: 1.35; min-width: 0; }
+			.wish .dot { width: 14px; height: 14px; flex: none; margin-top: 1px; border-radius: 50%; border: 2px solid var(--accent); box-sizing: border-box; }
+			.quick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+			.quick button { min-height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 2px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; min-width: 0; }
+			.quick .qico { font-size: 22px; line-height: 1; }
+			.quick b { font-size: 12px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			.quick small { font-size: 11px; color: var(--dim); }
 			/* 需求环 */
 			.rings { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
 			.ring { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--text2); text-align: center; }
@@ -1146,11 +1166,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const worst = needs.reduce((a, b) => (b.v < a.v ? b : a));
 					const worstKey = worst.name === '健康' ? 'health' : NEED_KEYS.find((k) => NEED_META[k].name === worst.name) ?? '';
 					const thought = worst.v < 60 && NEED_LOW[worstKey] ? `<span class="thought">${esc(NEED_LOW[worstKey])}</span>` : '';
+					// 主界面定稿（第 15 批）：左上是人物名牌（头像外圈是升级进度环，点了去成长页），右上是现金和天气，时间写在地点名牌里
+					const lvPct = lv.next !== null ? Math.min(100, Math.round((s.respect / lv.next) * 100)) : 100;
+					const lvPlate = `<button class="lv-plate" data-tab="grow" aria-label="Lv${lv.lv} ${esc(lv.title)}，升级进度 ${lvPct}%，去成长页"><span class="lv-ring"><svg viewBox="0 0 46 46" aria-hidden="true" focusable="false"><circle cx="23" cy="23" r="20" class="track"/><circle cx="23" cy="23" r="20" class="arc" stroke-dasharray="${ringDash(lvPct, 20)}" transform="rotate(-90 23 23)"/></svg><span class="lv-ava" aria-hidden="true">${s.avatar}</span><b class="lv-num" aria-hidden="true">${lv.lv}</b></span><span class="lv-txt"><b>${esc(s.name)}</b><small>${esc(lv.title)}${lv.next !== null ? ` · 离下一级 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ''}</small></span></button>`;
 					top = `<div class="scene">${sceneSvg({ phase: skyPhase(loc, s.clock), weather: w.id, kind: loc.kind, tags: loc.tags })}
-						<div class="scene-top"><span class="pill-on" title="${formatClock(s.clock)}">${time}</span>
-						<span class="wx-pill${w.closesSea ? ' storm' : ''}">${w.icon} ${esc(w.name)} ${temps(loc, s.clock, w.id).max}°${w.closesSea ? ' · 海上关闭' : ''}</span></div>
-						<div class="plate"><h1>${esc(loc.name)}</h1><small>${esc(loc.en)}</small></div>${thought}</div>
-						<div class="hud-chips">${cash}<span class="chip">${esc(role)}</span>${starHtml}${fireChip(s)}${uvChip(s)}${moodBtn}${sync}</div>`;
+						<div class="scene-top">${lvPlate}<div class="scene-right">${cash}
+						<span class="wx-pill${w.closesSea ? ' storm' : ''}">${w.icon} ${esc(w.name)} ${temps(loc, s.clock, w.id).max}°${w.closesSea ? ' · 海上关闭' : ''}</span></div></div>
+						<div class="plate"><h1>${esc(loc.name)}</h1><small title="${formatClock(s.clock)}">${time}</small></div>${thought}</div>
+						<div class="hud-chips"><span class="chip">${esc(role)}</span>${starHtml}${fireChip(s)}${uvChip(s)}${moodBtn}${sync}</div>`;
 				} else {
 					// 其他页：副标题 + 页名；右边现金和心情，下面一条迷你需求条
 					const here = [...peers.values()].filter((p) => p.loc === s.loc && p.id !== myPeerId).length;
@@ -1299,6 +1322,25 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return `<div class="card"><h3>状态</h3><div class="rings">${list.map((n) => `<div class="ring ${barCls(n.v)}" role="img" aria-label="${n.name} ${n.v}${n.v === min && min < 60 ? '，最缺' : ''}">
 					<svg viewBox="0 0 50 50" aria-hidden="true" focusable="false"><circle cx="25" cy="25" r="21" class="track"/><circle cx="25" cy="25" r="21" class="arc" stroke-dasharray="${ringDash(n.v)}" transform="rotate(-90 25 25)"/></svg>
 					<b>${n.v}</b><span><span aria-hidden="true">${n.icon}</span> ${n.name}</span>${n.v === min && min < 60 ? '<em class="lack">最缺</em>' : ''}</div>`).join('')}</div></div>`;
+			}
+			/** 四个快捷动作：从最缺的需求起，每项挑这里能补它最多、还没选过的事；有待处理事件或凑不够两个时不显示。只是快捷入口，下面的完整列表照旧 */
+			function quickActs(s: PlayerState) {
+				if (s.pending) return [];
+				const open = activitiesAt(s, region).filter((x) => !x.blocked).map((x) => x.act);
+				const order = [...NEED_KEYS].sort((a, b) => s.needs[a] - s.needs[b]);
+				const pick: (typeof open)[number][] = [];
+				for (const k of order) {
+					const best = open.filter((a) => !pick.includes(a) && (a.fx.needs?.[k] ?? 0) > 0).sort((a, b) => (b.fx.needs![k] ?? 0) - (a.fx.needs![k] ?? 0))[0];
+					if (best) pick.push(best);
+					if (pick.length === 4) break;
+				}
+				return pick.length >= 2 ? pick : [];
+			}
+			function quickHtml(s: PlayerState) {
+				const acts = quickActs(s);
+				if (!acts.length) return '';
+				const cost = (c?: number) => (c ? (c > 0 ? '+' : '−') + '$' + Math.abs(c) : '免费');
+				return `<div class="quick" role="group" aria-label="常用的事">${acts.map((a) => `<button data-act="${a.id}" aria-label="${esc(a.name)}，${cost(a.fx.cash)}，${minutesLabel(a.minutes)}"><span class="qico" aria-hidden="true">${a.icon}</span><b>${esc(a.name)}</b><small>${cost(a.fx.cash)}</small></button>`).join('')}</div>`;
 			}
 			/** 「下一步」：最缺的那项需求 → 这里能补它最多的事；需求都还行时提示上班或出门。只是建议，结算仍由服务器做 */
 			function nextCard(s: PlayerState, homeHere: boolean, canWork: boolean) {
@@ -1540,18 +1582,20 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				// 风暴天这里的海上活动做不了：和海上活动有关的心愿给个提示（去别处海边还能完成）
 				const seaClosed = weatherAt(s).closesSea;
 				const seaWish = (id: string) => { const w = getWish(id); return !!w && w.done.t === 'activity' && w.done.ids.some((a) => ACTIVITIES.find((x) => x.id === a)?.exposed === 'sea'); };
-				const wishHtml = s.wishes.length ? `<div class="card"><h3>今天的心愿</h3><p>做到了加心情和声望，过了今天会换一批。</p><div class="tags">${s.wishes.map((id) => `<span class="tag">✨ ${esc(getWish(id)?.text ?? '')}${seaClosed && seaWish(id) ? '（这里今天有风暴，换个海边）' : ''}</span>`).join('')}</div></div>` : '';
+				const wishHtml = s.wishes.length ? `<div class="card"><h3>今天的心愿 · 还剩 ${s.wishes.length} 个</h3><div class="wishes">${s.wishes.map((id) => `<div class="wish"><span class="dot" aria-hidden="true"></span><span>${esc(getWish(id)?.text ?? '')}${seaClosed && seaWish(id) ? '（这里今天有风暴，换个海边）' : ''}</span></div>`).join('')}</div><p style="margin-top:6px" class="muted">做到了加心情和声望，过了今天会换一批。</p></div>` : '';
 				const { here: festHere, soon: festSoon } = festivalsSoon(s.clock, loc.id);
 				const festHtml = `<div class="card"><h3>${festHere ? `🎉 ${esc(festHere.festival.name)}进行中` : '节日'}</h3>${festHere ? `<p>${esc(festHere.festival.desc)} 节日专属体验在下面的「体验」里。</p>` : ''}
 					${festSoon.map((c) => `<p style="margin-top:4px">${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(c.festival.name)} · ${esc(getLocation(region, c.festival.loc)!.name)}</p>`).join('')}</div>`;
+				// 主界面定稿（第 15 批）：需求环 → 下一步 → 心愿 → 四个快捷动作，其余卡片照旧往下排
 				return `
+					${needsCard(s)}
 					${nextCard(s, !!homeHere, !!workHere && !shiftWhy)}
+					${wishHtml}
+					${quickHtml(s)}
 					${settleCard(s)}
 					${queueCard()}
 					${recapCard(s)}
 					${guideCard(s)}
-					${needsCard(s)}
-					${wishHtml}
 					<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
 						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
 						<p style="margin-top:6px">今天${weatherAt(s).icon} ${esc(weatherAt(s).name)}：${esc(weatherAt(s).desc)} 明天${weatherOn(s.loc, dayOf(s.clock) + 1).icon} ${esc(weatherOn(s.loc, dayOf(s.clock) + 1).name)}。</p>
