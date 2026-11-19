@@ -28,6 +28,7 @@ import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { fixProblem, roundFix } from './fix.ts';
 import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
+import { refRespect } from './respect.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
 	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
@@ -762,7 +763,7 @@ export function npcsAt(state: PlayerState, region: Region): NpcAvailability[] {
 }
 
 /** 关系变化后，触发所有新达到门槛的剧情（可能一次跨过好几档）。原地修改 */
-function unlockStories(state: PlayerState, region: Region, npc: NpcDef, rel: Relation): string[] {
+export function unlockStories(state: PlayerState, region: Region, npc: NpcDef, rel: Relation): string[] {
 	const out: string[] = [];
 	for (const st of npc.stories) {
 		if (rel.score < st.at || rel.seen.includes(st.at)) continue;
@@ -858,7 +859,8 @@ const matches = (w: Where, loc: GameLocation) => !!(w.kinds?.includes(loc.kind) 
 
 /** 是否满足某个职业等级的要求；不满足时返回原因 */
 function unmet(state: PlayerState, lv: CareerLevel): string | undefined {
-	if (lv.req?.respect && state.respect < lv.req.respect) return `声望需达到 ${lv.req.respect}`;
+	// 推荐信（志愿者）在声望门槛上抵一部分：refRespect 见 core/respect.ts
+	if (lv.req?.respect && state.respect + refRespect(state) < lv.req.respect) return `声望需达到 ${lv.req.respect}`;
 	for (const k of SKILL_KEYS) {
 		const need = lv.req?.skills?.[k];
 		if (need && state.skills[k] < need) return `${SKILL_META[k].name}需达到 ${need}`;

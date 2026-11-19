@@ -43,6 +43,8 @@ src/game/
   core/venues.ts      真实地点：附近列表、定位检查、吃饭/训练/打卡上班等结算
   core/board.ts       净资产排行榜：榜单记录与排名
   core/achievements.ts 成就：由存档现算的里程碑（不进存档、不发奖励）
+  core/volunteer.ts   志愿活动：volunteerAt / doVolunteer（设计见 volunteer.md）
+  core/respect.ts     社区信誉、推荐信抵声望门槛、志愿存档清洗
   core/weather.ts     天气：由地点和游戏日确定（人人一样），风暴天取消海上的活动
   core/sky.ts         天象：气温、日出日落（含南澳夏令时）、潮汐、山火季、紫外线，只做显示
   data/achievements.ts 成就表（选指标和目标值即可加一条）
@@ -50,6 +52,7 @@ src/game/
   data/wa-base.ts     西澳首屏版：22 个地点、路线图、海岸线轮廓（不含真实地点）
   data/sa-base.ts     南澳：13 个地点、路线图、州界轮廓
   data/wa.ts          完整版：WA / WORLD（含真实地点，服务器和测试用）
+  data/volunteer.ts   志愿活动表、真实组织（带来源）、防刷与推荐信数值（待平衡）
   data/changelog.ts   游戏内更新日志（「我 · 更新」页）
   data/wa.pois.json   打卡点（OpenClaw 写入）
   data/venues.ts      真实地点的类型、动作和定位规则

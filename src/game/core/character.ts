@@ -30,6 +30,7 @@ import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
 import { validTraits } from './attributes.ts';
 import { WEATHERS } from '../data/weather.ts';
+import { cleanVolunteer, emptyVolunteer } from './respect.ts';
 
 /** 天气相册里所有合法的照片 id：地点 × 天气 */
 export const photoIds = (locIds: string[]) => new Set(locIds.flatMap((l) => WEATHERS.map((w) => `${l}|${w.id}`)));
@@ -163,6 +164,7 @@ export function createCharacter(opts: {
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
+		volunteer: emptyVolunteer(),
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		seed: opts.seed >>> 0,
 		rev: 0,
@@ -268,6 +270,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		job: cleanJob(r.job, knownLocs),
 		// 旧存档没有这个字段：用当前工作的 lastDay 补上
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
+		volunteer: cleanVolunteer(r.volunteer, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		...cleanEstate(r, knownLocs),
 		nextWeek: (() => {
 			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周

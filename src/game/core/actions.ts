@@ -13,6 +13,7 @@ import { resolveCoop, type CoopMember, type CoopResult } from './coop.ts';
 import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
+import { doVolunteer } from './volunteer.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 
 export type GameAction =
@@ -39,6 +40,7 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
+	| { t: 'volunteer'; id: string }
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
@@ -92,6 +94,7 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'course':
 		case 'cert':
 		case 'experience':
+		case 'volunteer':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
 		case 'property':
 			if (!str(a.id)) return null;
@@ -130,6 +133,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'fish': r = goFishing(state, region); break;
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
+		case 'volunteer': r = doVolunteer(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存

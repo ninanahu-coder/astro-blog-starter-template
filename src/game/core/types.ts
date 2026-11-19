@@ -461,6 +461,14 @@ export interface JournalEntry {
 	text: string;
 }
 
+/** 志愿者记录。day 是 today 对应的游戏日（−1 表示从没做过）；n：志愿 id -> 累计次数；refs：已拿到推荐信的志愿 id */
+export interface VolunteerState {
+	day: number;
+	today: string[];
+	n: Record<string, number>;
+	refs: string[];
+}
+
 export interface PlayerState {
 	v: 1;
 	id: string;
@@ -516,6 +524,7 @@ export interface PlayerState {
 	clockIn: { venue: string; at: number; career?: string } | null; // 真实打卡上班：哪个地点、几点打的卡；career 是按哪份职业打的卡，没有就是零工
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	workDay: number; // 最近一次算过班次的游戏日，−1 表示还没上过；跟人走，不随换工作重置
+	volunteer: VolunteerState; // 志愿者：今天做了哪些、各种做过几次、拿到的推荐信（docs/earth-game/volunteer.md）
 	journal: JournalEntry[];
 	seed: number;
 	rev: number; // 存档版本号，云同步用

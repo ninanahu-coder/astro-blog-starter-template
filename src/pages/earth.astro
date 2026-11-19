@@ -683,6 +683,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
 			import { NPC_DUOS } from '../game/data/npc-duos.ts';
+			import { volunteerAt } from '../game/core/volunteer.ts';
+			import { refRespect, volTier } from '../game/core/respect.ts';
+			import { VISA_HINT, VOL_RULES } from '../game/data/volunteer.ts';
 			import { coopBlocked, coopCostLabel, coopsAt } from '../game/core/coop.ts';
 			import { getCoop } from '../game/data/coop.ts';
 			import { giveBlocked, saleRange, takeBlocked } from '../game/core/trade.ts';
@@ -1822,6 +1825,17 @@ const cardLines = guilloche(400, 260, 14, 9);
 				return `<div class="card sky"><h3>今天的天${fireSeason(loc, s.clock) ? ' <span class="chip">山火季</span>' : ''}</h3><p class="muted">游戏里的今天大约是现实中的 ${realDateLabel(realDayOfYear(s.clock))}。下面按纬度、季节和天气估算，不是真实预报。</p><div class="list" style="margin-top:8px">${rows.join('')}</div></div>`;
 			}
 
+			/** 志愿者卡：这里能做的志愿 + 社区信誉、今天次数、推荐信、签证提示（docs/earth-game/volunteer.md） */
+			function volCard(s: PlayerState, vols: ReturnType<typeof volunteerAt>) {
+				const tier = volTier(s);
+				const used = s.volunteer.day === dayOf(s.clock) ? s.volunteer.today.length : 0;
+				const refs = s.volunteer.refs.length;
+				const head = `社区信誉「${esc(tier.name)}」· 做过 ${tier.shifts} 次${tier.next !== null ? `（${tier.next} 次升下一档）` : ''} · 今天 ${used}/${VOL_RULES.dailyMax}${refs ? ` · 推荐信 ${refs} 封（职位声望门槛抵 ${refRespect(s)}）` : ''}`;
+				const rows = vols.map(({ gig, org, count, letter, blocked }) => `
+					<div class="row" style="margin-top:8px"><span class="ico" aria-hidden="true">${esc(gig.icon)}</span><span class="body">${letter ? '✉️ ' : ''}${esc(gig.name)} · 声望 +${esc(String(gig.respect))}<small>${esc(blocked ?? `${gig.desc} ${minutesLabel(gig.minutes)}${count ? `，做过 ${count} 次` : ''}${!letter ? `，满 ${VOL_RULES.refShifts} 次给推荐信` : ''}`)}</small>${org ? `<small>现实里：<a href="${esc(org.source)}" target="_blank" rel="noopener">${esc(org.name)} ${esc(org.en)}</a></small>` : ''}</span><button data-vol="${esc(gig.id)}" ${blocked ? 'disabled' : ''}>去帮忙</button></div>`).join('');
+				return `<div class="card"><h3>志愿者</h3><p>${head}</p>${rows}<details style="margin-top:8px"><summary class="muted">做志愿对签证有用吗？</summary><p style="margin-top:6px">${esc(VISA_HINT.text)} <a class="muted" href="${esc(VISA_HINT.source)}" target="_blank" rel="noopener">来源</a></p></details></div>`;
+			}
+
 			function panelPlace() {
 				const s = state!;
 				const loc = getLocation(region, s.loc)!;
@@ -1875,6 +1889,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const exps = experiencesAt(s, region);
 				const expHtml = exps.length ? `<div class="card"><h3>体验</h3>${exps.map(({ exp, first, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="body">${first ? '✨ ' : '✅ '}${esc(exp.name)} · $${exp.price}<small>${esc(blocked ?? (first ? `${exp.desc} 首次：声望 +${exp.respect}，进收藏册` : '已收藏，再来一次只加心情'))}</small></span><button data-exp="${exp.id}" ${blocked ? 'disabled' : ''}>去</button></div>`).join('')}</div>` : '';
+				const vols = volunteerAt(s, region);
+				const volHtml = vols.length ? volCard(s, vols) : '';
 				const certs = certsAt(s, region);
 				const certHtml = certs.length ? `<div class="card"><h3>职业证书</h3><p>考到证后，对应职业每个班的工资上涨；证书跟人走，换工作不丢。</p>${certs.map(({ cert, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="body">${s.certs.includes(cert.id) ? '✅ ' : ''}${esc(cert.name)} · $${cert.price}<small>${esc(blocked ?? `${getCareer(cert.career)?.name ?? ''}工资 +${Math.round(cert.payBonus * 100)}% · ${Math.round(cert.minutes / 60 * 10) / 10} 小时 · ${cert.desc}`)}</small></span><button data-cert="${cert.id}" ${blocked ? 'disabled' : ''}>报名</button></div>`).join('')}</div>` : '';
@@ -1933,7 +1949,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${volHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
 			}
 
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
@@ -2520,7 +2536,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-vol],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2563,6 +2579,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				else if ('photo' in d) act({ t: 'photo' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if ('fish' in d) act({ t: 'fish' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.cert) act({ t: 'cert', id: d.cert }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.vol) act({ t: 'volunteer', id: d.vol }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.exp) act({ t: 'experience', id: d.exp }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.job) {
 					if (d.job === 'quit' && !confirm('确定辞职？当前等级的进度会清零。')) return;
