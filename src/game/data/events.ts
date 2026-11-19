@@ -254,7 +254,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'dusk-sunset', title: '海边日落', icon: '🌇', tags: ['beach'], periods: ['dusk'], weather: ['sunny', 'cloudy', 'hot'], weight: 5,
+		id: 'dusk-sunset', title: '海边日落', icon: '🌇', tags: ['beach'], periods: ['dusk'], weather: ['sunny', 'cloudy', 'hot', 'cold'], weight: 5,
 		text: '太阳正沉进海里，整片海滩都被染成了橘红色。',
 		choices: [
 			{ label: '坐下来看完', ok: { text: '最后一点光消失时，海滩上有人鼓起了掌。', fx: { minutes: 40, needs: { fun: 25 } } } },
@@ -303,7 +303,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'busselton-jetty-walk', title: '走完长栈桥', icon: '🌉', locs: ['busselton'], weather: ['sunny', 'cloudy', 'hot'], weight: 3,
+		id: 'busselton-jetty-walk', title: '走完长栈桥', icon: '🌉', locs: ['busselton'], weather: ['sunny', 'cloudy', 'hot', 'cold'], weight: 3,
 		text: '木栈桥伸进海湾快两公里，尽头的海面下是一座水下观测站。',
 		choices: [
 			{ label: '一口气走到尽头再走回来', check: { skill: 'stamina', dc: 30 }, ok: { text: '来回快四公里，海风一路吹着，回到岸上腿是软的、心情是好的。', fx: { minutes: 75, needs: { fun: 20, energy: -12 }, skills: { stamina: 1 } } }, fail: { text: '走到一半太晒，你坐上了栈桥小火车。', fx: { minutes: 50, needs: { fun: 12, energy: -6 } } } },
@@ -360,7 +360,7 @@ export const EVENTS: GameEvent[] = [
 	},
 	// 第 25 轮：夜间事件 +6（天黑后抵达时才会抽到，数值待平衡）
 	{
-		id: 'night-milky-way', title: '头顶的银河', icon: '🌌', kinds: ['outback', 'park'], periods: ['night'], weather: ['sunny', 'hot'], weight: 4,
+		id: 'night-milky-way', title: '头顶的银河', icon: '🌌', kinds: ['outback', 'park'], periods: ['night'], weather: ['sunny', 'hot', 'cold'], weight: 4,
 		text: '离城镇太远，一点灯光都没有，银河从地平线一头拱到另一头。',
 		choices: [
 			{ label: '躺在地上认星座', check: { skill: 'survival', dc: 25 }, ok: { text: '你找到了南十字星，顺着它指的方向认出了正南。', fx: { minutes: 40, needs: { fun: 25 }, skills: { survival: 1 } } }, fail: { text: '星星太多，你一个星座也没认出来，但看得很满足。', fx: { minutes: 40, needs: { fun: 18 } } } },

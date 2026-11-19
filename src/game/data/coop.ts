@@ -37,7 +37,7 @@ export const COOP_EVENTS: CoopDef[] = [
 		fail: { text: '轮子越陷越深，最后还是等来了拖车。', fx: { minutes: 40, needs: { social: 15, energy: -15, hygiene: -15 } } },
 	},
 	{
-		id: 'dolphin-rescue', title: '救搁浅的海豚', icon: '🐬', tags: ['dolphin'], weather: ['sunny', 'cloudy', 'hot', 'rain'], min: 2, max: 4, dc: 60,
+		id: 'dolphin-rescue', title: '救搁浅的海豚', icon: '🐬', tags: ['dolphin'], weather: ['sunny', 'cloudy', 'hot', 'rain', 'cold'], min: 2, max: 4, dc: 60,
 		text: '退潮时一只小海豚被困在了浅滩上，得有人帮它回到深水里。',
 		roles: [
 			{ label: '扶住它的身体', skill: 'strength' },
@@ -48,7 +48,7 @@ export const COOP_EVENTS: CoopDef[] = [
 		fail: { text: '你们撑到护林员赶来，海豚被专业人员接手了。', fx: { minutes: 60, respect: 0.5, needs: { social: 15, energy: -12, hygiene: -10 } } },
 	},
 	{
-		id: 'fishing-comp', title: '码头钓鱼比赛', icon: '🎣', kinds: ['port', 'coast'], hours: [5, 11], weather: ['sunny', 'cloudy', 'hot'], min: 2, max: 4, dc: 50,
+		id: 'fishing-comp', title: '码头钓鱼比赛', icon: '🎣', kinds: ['port', 'coast'], hours: [5, 11], weather: ['sunny', 'cloudy', 'hot', 'cold'], min: 2, max: 4, dc: 50,
 		text: '码头上贴了告示：今早钓鱼比赛，按队伍总重量算名次。',
 		roles: [
 			{ label: '守着鱼竿等口', skill: 'survival' },
@@ -59,7 +59,7 @@ export const COOP_EVENTS: CoopDef[] = [
 		fail: { text: '一上午只钓到几条小鱼，全放回海里了，不过日出很好看。', fx: { minutes: 120, needs: { social: 15, fun: 15, energy: -10 } } },
 	},
 	{
-		id: 'gorge-hike', title: '峡谷互助徒步', icon: '🥾', tags: ['gorge'], hours: [6, 15], weather: ['sunny', 'cloudy'], min: 2, max: 4, dc: 55,
+		id: 'gorge-hike', title: '峡谷互助徒步', icon: '🥾', tags: ['gorge'], hours: [6, 15], weather: ['sunny', 'cloudy', 'cold'], min: 2, max: 4, dc: 55,
 		text: '峡谷里那段要手脚并用的路，一个人走有点悬，几个人搭伴就稳多了。',
 		roles: [
 			{ label: '在前面探路', skill: 'survival' },
@@ -70,7 +70,7 @@ export const COOP_EVENTS: CoopDef[] = [
 		fail: { text: '走到一半有人扭了脚，大家扶着他慢慢退了回来。', fx: { minutes: 150, needs: { social: 20, fun: 5, energy: -25, hygiene: -15 } } },
 	},
 	{
-		id: 'community-bbq', title: '社区烧烤', icon: '🍖', kinds: ['town', 'city'], hours: [11, 20], weather: ['sunny', 'cloudy', 'hot'], min: 2, max: 4, dc: 45,
+		id: 'community-bbq', title: '社区烧烤', icon: '🍖', kinds: ['town', 'city'], hours: [11, 20], weather: ['sunny', 'cloudy', 'hot', 'cold'], min: 2, max: 4, dc: 45,
 		text: '公园里的公共烤炉空着，有人提议凑钱买点香肠，给路过的人也分一份。',
 		roles: [
 			{ label: '守着烤炉翻香肠', skill: 'survival' },
