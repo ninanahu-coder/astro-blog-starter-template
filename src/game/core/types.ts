@@ -507,6 +507,7 @@ export interface PlayerState {
 	certs: string[]; // 已考到的职业证书 id（跟人走，换工作不丢）
 	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每 COOP_COOLDOWN_DAYS 天一次）
 	trades: { day: number; out: number; in: number }; // 玩家之间交易：这个现实日已送出 / 收下的次数
+	swap: { day: number; done: string[]; sold: number; dodged: number; lost: number }; // 二手市场（换手墙）：哪个游戏日、当天处理过的挂单 id、当天卖出次数；累计识破 / 被骗次数
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领
 	met: Record<string, { name: string; avatar: string; n: number; last: number }>; // 常遇见的人：玩家 id 哈希前缀 -> 名字、头像、一起做事的次数、最近一次的现实日
 	pending: { eventId: string } | null;

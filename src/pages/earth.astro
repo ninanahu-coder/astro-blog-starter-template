@@ -665,6 +665,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { guideView, type GuideView } from '../game/core/guide.ts';
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { fmtHalf } from '../game/ui/numfmt.ts';
+			import { swapCard } from '../game/ui/secondhand.ts';
+			import type { SwapKind } from '../game/data/secondhand.ts';
 			import { setHtml } from '../game/ui/dom.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
@@ -1933,7 +1935,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${swapCard(s, region)}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
 			}
 
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
@@ -2520,7 +2522,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-swap],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2586,6 +2588,14 @@ const cardLines = guilloche(400, 260, 14, 9);
 						if (d.prop === 'movein' && state.home && !confirm('搬进去会退掉现在的住处，家具半价折现。确定？')) return;
 						a = { t: 'property', op: d.prop as 'sell' | 'movein' | 'rentout', id };
 					}
+					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
+				else if (d.swap) {
+					const a: GameAction = d.swap === 'buy'
+						? { t: 'swap', op: 'buy', id: d.swapId!, ref: d.swapRef!, how: d.swapHow === 'prepay' ? 'prepay' : 'pickup', haggle: !!document.querySelector<HTMLInputElement>('#swap-haggle')?.checked }
+						: { t: 'swap', op: 'sell', kind: d.swapKind as SwapKind, ref: d.swapRef!, buyer: Number(d.swapBuyer), verify: d.swapVerify === '1' };
+					if (a.t === 'swap' && a.op === 'buy' && a.how === 'prepay' && !confirm('没见到东西先转账：如果对方是骗子，钱就拿不回来了。确定？')) return;
+					if (a.t === 'swap' && a.op === 'sell' && !a.verify && !confirm('不等钱到账就交货：如果对方是假付款，东西就拿不回来了。确定？')) return;
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.furn) {

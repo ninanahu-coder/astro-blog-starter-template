@@ -27,6 +27,8 @@ import { CERTS } from '../../src/game/data/certs.ts';
 import { isOpen } from '../../src/game/core/time.ts';
 import { VENUE_OPS, VENUE_TYPES } from '../../src/game/data/venues.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { buyBlocked, sellOffers, swapBoard, swapOwned } from '../../src/game/core/secondhand.ts';
+import { SWAP_GOODS } from '../../src/game/data/secondhand.ts';
 
 const LOCS = new Set(WA.locations.map((l) => l.id));
 
@@ -68,6 +70,13 @@ function randomAction(s: PlayerState, r: () => number, now: number): GameAction 
 		if (op === 'buy') return { t: 'property', op, id, loan: r() < 0.6 };
 		if (op === 'repay') return { t: 'property', op, id, amount: Math.floor(r() * 50000) + 1 };
 		return { t: 'property', op, id };
+	}
+	if (roll < 0.805) {
+		// 二手市场：大多是随手编的挂单号（会被拒），偶尔对上真的挂单
+		const l = swapBoard(s, WA)?.listings;
+		if (l?.length && r() < 0.5) { const x = pick(l); return { t: 'swap', op: 'buy', id: x.id, ref: x.good.ref, how: r() < 0.5 ? 'pickup' : 'prepay', haggle: r() < 0.5 }; }
+		const g = pick(SWAP_GOODS);
+		return r() < 0.5 ? { t: 'swap', op: 'buy', id: `${s.loc}-${Math.floor(r() * 9)}`, ref: g.ref, how: 'pickup', haggle: false } : { t: 'swap', op: 'sell', kind: g.kind, ref: g.ref, buyer: Math.floor(r() * 4), verify: r() < 0.5 };
 	}
 	if (roll < 0.81) return { t: 'course', id: pick(COURSES).id };
 	if (roll < 0.83) return r() < 0.5 ? { t: 'cert', id: pick(CERTS).id } : { t: 'vehicle', op: 'service' };
@@ -129,6 +138,14 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 	if (photoQuestNow(s, WA) && !photoQuestNow(s, WA)!.blocked) c.push({ t: 'photo' });
 	if (s.needs.fun < 50 && fishingAt(s, WA) && !fishingAt(s, WA)!.blocked) c.push({ t: 'fish' });
 	for (const x of experiencesAt(s, WA)) if (!x.blocked) c.push({ t: 'experience', id: x.exp.id });
+	// 换手墙：挂单和买家很多，各只放一个候选，别挤掉其他动作（车卖多了保养就很少轮到）
+	const swapBuys = (swapBoard(s, WA)?.listings ?? []).flatMap((x) => (['pickup', 'prepay'] as const).filter((how) => !buyBlocked(s, x, how)).map((how) => ({ x, how })));
+	if (swapBuys.length) { const { x, how } = pick(swapBuys); c.push({ t: 'swap', op: 'buy', id: x.id, ref: x.good.ref, how, haggle: r() < 0.5 }); }
+	const swapSells = swapOwned(s).filter((g) => g.kind !== 'vehicle' || r() < 0.2).flatMap((g) => {
+		const so = sellOffers(s, WA, g.kind, g.ref);
+		return so && !so.blocked ? so.offers.flatMap((o, i) => (o.done ? [] : [{ g, i }])) : [];
+	});
+	if (swapSells.length) { const { g, i } = pick(swapSells); c.push({ t: 'swap', op: 'sell', kind: g.kind, ref: g.ref, buyer: i, verify: r() < 0.6 }); }
 	const here = WA.venues.filter((v) => v.loc === s.loc);
 	if (here.length) {
 		// 只挑这类地点有的动作，站在门口、精度 10 米
@@ -222,7 +239,7 @@ test('随机动作序列：不抛异常、不改入参、数值在范围内、�
 	}
 	// 主要动作的成功路径都要真的走到过，不然这个测试只在测「失败路径」
 	const MUST = ['travel', 'activity', 'event', 'gps', 'buy', 'use', 'npc', 'job:apply', 'job:work', 'job:quit', 'home:rent', 'home:sleep', 'home:cook', 'home:relax',
-		'furniture:buy', 'furniture:sell', 'vehicle:buy', 'vehicle:sell', 'property:buy', 'property:rentout', 'property:movein', 'property:repay', 'property:sell', 'course', 'cert', 'vehicle:service', 'fish', 'experience', 'venue:meal', 'venue:work'];
+		'furniture:buy', 'furniture:sell', 'vehicle:buy', 'vehicle:sell', 'property:buy', 'property:rentout', 'property:movein', 'property:repay', 'property:sell', 'course', 'cert', 'vehicle:service', 'fish', 'experience', 'venue:meal', 'venue:work', 'swap:buy', 'swap:sell'];
 	const missing = MUST.filter((k) => !stats[k]?.ok);
 	assert.deepEqual(missing, [], `这些动作一次都没成功过：${missing.join('、')}；统计 ${JSON.stringify(stats)}`);
 	assert.ok(ok > 60 * 120 * 0.3, `成功的动作太少：${ok}`);

@@ -13,6 +13,8 @@ import { resolveCoop, type CoopMember, type CoopResult } from './coop.ts';
 import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
+import { buyListing, sellToBuyer } from './secondhand.ts';
+import { SWAP_GOODS, type SwapKind } from '../data/secondhand.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 
 export type GameAction =
@@ -39,6 +41,8 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
+	| { t: 'swap'; op: 'buy'; id: string; ref: string; how: 'pickup' | 'prepay'; haggle: boolean } // 二手市场：买一条挂单（价格、骗局由服务端算）
+	| { t: 'swap'; op: 'sell'; kind: SwapKind; ref: string; buyer: number; verify: boolean } // 二手市场：卖给第 buyer 个买家；verify＝等钱到账再交货
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
@@ -93,6 +97,11 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'cert':
 		case 'experience':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
+		case 'swap':
+			// 只收形状合法的字段；客户端发来的价格等多余字段一律丢掉
+			if (a.op === 'buy') return str(a.id) && str(a.ref) && (a.how === 'pickup' || a.how === 'prepay') ? { t: 'swap', op: 'buy', id: a.id, ref: a.ref, how: a.how, haggle: a.haggle === true } : null;
+			if (a.op !== 'sell' || !str(a.ref) || !SWAP_GOODS.some((g) => g.kind === a.kind && g.ref === a.ref)) return null;
+			return Number.isInteger(a.buyer) && (a.buyer as number) >= 0 && (a.buyer as number) < 10 ? { t: 'swap', op: 'sell', kind: a.kind as SwapKind, ref: a.ref, buyer: a.buyer as number, verify: a.verify === true } : null;
 		case 'property':
 			if (!str(a.id)) return null;
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
@@ -131,6 +140,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'swap': r = a.op === 'buy' ? buyListing(state, region, a.id, a.ref, a.how, a.haggle) : sellToBuyer(state, region, a.kind, a.ref, a.buyer, a.verify); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
