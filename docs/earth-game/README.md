@@ -218,7 +218,7 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 
 下一步的待办（按建议顺序，详见 [summary-50.md](summary-50.md)）：
 
-1. **待平衡的数值**交给 Codex 平衡分析：南澳事件、NPC、地下屋、南澳房产；第 46 轮报告里的共同事件叠做、酒保和农场工收入差（[balance.md](balance.md)）。
+1. **待平衡的数值**交给 Codex 平衡分析：南澳事件、NPC、地下屋、南澳房产；第 46 轮报告里的共同事件叠做、酒保和农场工收入差（[balance.md](balance.md)）；第 23 批的健康自然恢复、麻烦值冷却和需求 / 能力 / 奖罚提议（[activity-attributes.md](activity-attributes.md)）。
 2. **南澳真实地点和打卡点**由 OpenClaw 采集（OSM）。
 3. **全服周目标**的数值和领奖资格要用户定。
 4. **印度洋—太平洋号火车**：要新的出行方式和价格。

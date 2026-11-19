@@ -22,19 +22,19 @@ import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
 import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, period, weekdayOf } from './time.ts';
 import { FESTIVALS } from '../data/festivals.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
-import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
+import { checkScore, costMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
 import { CAPS, clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
+import { passTime } from './vitals.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
 	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
-/** 每游戏分钟的需求衰减 */
-export const DECAY: Record<string, number> = { hunger: 0.07, energy: 0.05, hygiene: 0.035, fun: 0.04, social: 0.03 };
-const STARVE_DMG = 0.02; // 饱食或精力见底时每分钟掉血
+// 需求衰减、饿 / 累掉健康、健康自然恢复、麻烦值冷却都在 vitals.ts（DECAY 在这里转出，模拟脚本沿用旧的导入路径）
+export { DECAY } from './vitals.ts';
 const ARRIVAL_EVENT_CHANCE = 0.55;
 const HEAT_CHECK_AT = 60;
 
@@ -61,7 +61,7 @@ export function getLocation(region: Region, id: string): GameLocation | undefine
 // ---------- 时间与效果 ----------
 /** 返回 true 表示途中晕倒（已被送往医院） */
 /**
- * 时间流逝：需求衰减、饥饿伤害，再做跨周结算。返回途中是否晕倒。
+ * 时间流逝：需求衰减、饥饿伤害、健康自然恢复、麻烦值冷却（见 vitals.ts），再做跨周结算。返回途中是否晕倒。
  * gains 是本动作的收获（工资等）：没晕倒才入账，而且在跨周结算之前，所以这一班的工资能付刚到期的房租房贷。
  */
 function advance(state: PlayerState, minutes: number, region: Region, gains?: () => void): boolean {
@@ -70,10 +70,7 @@ function advance(state: PlayerState, minutes: number, region: Region, gains?: ()
 		return false;
 	}
 	state.clock = Math.min(CAPS.clock, state.clock + minutes); // 上限只有损坏的存档会碰到；在这里钳住，后面的日志、状态到期时间都用钳过的时间
-	for (const k of NEED_KEYS) state.needs[k] = clamp100(state.needs[k] - DECAY[k] * decayMult(state, k) * minutes);
-	if (state.needs.hunger <= 0 || state.needs.energy <= 0) {
-		state.health = clamp100(state.health - STARVE_DMG * minutes);
-	}
+	passTime(state, minutes);
 	const collapsed = state.health <= 0;
 	if (!collapsed) gains?.();
 	weeklyTick(state, region);

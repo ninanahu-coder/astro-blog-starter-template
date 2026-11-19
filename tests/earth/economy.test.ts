@@ -191,7 +191,7 @@ test('家具效果：睡得更好、在家做饭和放松、心情', () => {
 	assert.equal(mood(s) - mood({ ...s, home: { ...s.home!, furniture: {} } }), 5);
 	const hurt = { ...s, health: 40 };
 	const plain = { ...hurt, home: { ...s.home!, furniture: {} } };
-	assert.equal(sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health, 10, '好床垫 +10 健康');
+	assert.equal(Math.round(sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health), 10, '好床垫 +10 健康'); // 第 23 批起睡觉时健康会自然回一点小数，取整比较
 });
 
 test('搬走或被收房：家具半价折现', () => {
