@@ -483,6 +483,21 @@ export interface JournalEntry {
 	text: string;
 }
 
+/** 爱好与收集（docs/earth-game/hobbies.md）。熟练度、作品集、观鸟记录、菜园、手工都记在这一个字段里 */
+export interface HobbyState {
+	xp: Record<string, number>; // 爱好 id -> 熟练度 0–999
+	day: number; // today、bag 记的是哪个游戏日，−1 表示还没有
+	today: Record<string, number>; // 这一天各爱好做了几次（同一天反复做乐趣递减）
+	bag: Record<string, number>; // 这一天带走的鱼：鱼种 id -> 条数（数量限制按它算）
+	best: Record<string, number>; // 鱼种 id -> 钓到过的最大体长（cm，一位小数）
+	birds: string[]; // 观鸟记录：见过的鸟 id
+	works: Record<string, number>; // 作品集：地点 id -> 最好一张的分数 0–100
+	plants: string[]; // 种成过的植物 id
+	bed: { plant: string; day: number } | null; // 菜园里正在长的：哪种、哪个游戏日播的
+	made: string[]; // 做过的手工 id
+	got: string[]; // 已发过奖的收集里程碑，如 'birds:half'（发过不收回、不重发）
+}
+
 export interface PlayerState {
 	v: 1;
 	id: string;
@@ -541,6 +556,7 @@ export interface PlayerState {
 	clockIn: { venue: string; at: number; career?: string } | null; // 真实打卡上班：哪个地点、几点打的卡；career 是按哪份职业打的卡，没有就是零工
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	workDay: number; // 最近一次算过班次的游戏日，−1 表示还没上过；跟人走，不随换工作重置
+	hobby: HobbyState; // 爱好与收集
 	journal: JournalEntry[];
 	seed: number;
 	rev: number; // 存档版本号，云同步用

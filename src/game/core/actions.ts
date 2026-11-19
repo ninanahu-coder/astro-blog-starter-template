@@ -1,9 +1,11 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
+	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { refreshWishes, settleWishes } from './wishes.ts';
+import { doHobby, goFishing } from './hobbies.ts';
+import { HOBBY_IDS, type HobbyId } from '../data/hobbies.ts';
 import { settleStory } from './story.ts';
 import { rollDay } from './recap.ts';
 import { capState, nextRev } from './character.ts';
@@ -40,6 +42,7 @@ export type GameAction =
 	| { t: 'cert'; id: string }
 	| { t: 'fish' }
 	| { t: 'photo' }
+	| { t: 'hobby'; id: HobbyId }
 	| { t: 'experience'; id: string }
 	| { t: 'asset'; op: 'buy' | 'sell'; id: string; amount: number }
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
@@ -92,6 +95,8 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'fish':
 		case 'photo':
 			return { t: a.t };
+		case 'hobby':
+			return HOBBY_IDS.includes(a.id as HobbyId) && a.id !== 'fishing' ? { t: 'hobby', id: a.id as HobbyId } : null;
 		case 'course':
 		case 'cert':
 		case 'experience':
@@ -134,6 +139,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'cert': r = takeCert(state, region, a.id); break;
 		case 'fish': r = goFishing(state, region); break;
 		case 'photo': r = takeQuestPhoto(state, region); break;
+		case 'hobby': r = doHobby(state, region, a.id); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
 		case 'asset': r = a.op === 'buy' ? buyAsset(state, region, a.id, a.amount) : sellAsset(state, region, a.id, a.amount); break;

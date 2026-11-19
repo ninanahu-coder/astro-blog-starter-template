@@ -13,6 +13,7 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'great-sleep', name: '睡了个好觉', icon: '😴', value: 6, hours: 12 },
 	{ id: 'first-visit', name: '新地方的新鲜感', icon: '🧭', value: 4, hours: 12 },
 	{ id: 'wish-done', name: '心愿达成', icon: '✨', value: 5, hours: 8 },
+	{ id: 'hobby-flow', name: '沉浸在爱好里', icon: '🎨', value: 4, hours: 8 }, // 当天第一次做某个爱好（待平衡）
 	{ id: 'good-time', name: '玩得很开心', icon: '🎉', value: 5, hours: 8 },
 	{ id: 'festival', name: '节日气氛', icon: '🏮', value: 8, hours: 24 },
 	{ id: 'experience', name: '难忘的经历', icon: '🌟', value: 10, hours: 48 },

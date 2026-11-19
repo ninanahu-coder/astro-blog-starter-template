@@ -662,6 +662,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { npcStatus } from '../game/core/engine.ts';
 			import { ANIMALS } from '../game/data/wildlife.ts';
 			import { FISH, FISHING } from '../game/data/fish.ts';
+			import { collections, fishRuleAt, hobbiesHere, hobbyStatus, licenceAt, rarityCounts, ruleLabel } from '../game/core/hobbies.ts';
+			import { COLLECTION_REWARD, HOBBIES, RARITY } from '../game/data/hobbies.ts';
+			const RARITY_NAME = Object.fromEntries(Object.entries(RARITY).map(([k, v]) => [k, `${v.icon}${v.name}`])) as Record<string, string>;
 			import { PHOTO_MINUTES, PHOTO_QUESTS } from '../game/data/photo-quests.ts';
 			import { STORY } from '../game/data/story.ts';
 			import { storyProgress } from '../game/core/story.ts';
@@ -1894,8 +1897,16 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const photoQuestHtml = pq ? `<div class="card"><h3>📷 摄影任务 ${pq.index + 1}/${PHOTO_QUESTS.length}：${esc(pq.quest.title)}</h3><p>${esc(pq.quest.hint)}</p>
 					<div class="row" style="margin-top:8px"><span class="body">拍下来<small>${esc(pq.blocked ?? `${PHOTO_MINUTES} 分钟 · $${pq.quest.cash}、声望 +${pq.quest.respect}`)}</small></span><button data-photo ${pq.blocked ? 'disabled' : ''}>拍照</button></div></div>` : '';
 				const spot = fishingAt(s, region);
-				const fishHtml = spot ? `<div class="card"><h3>🎣 钓鱼</h3><p>${spot.fish.length ? `现在能钓到：${spot.fish.map((f) => `${s.fish[f.id] ? f.icon + esc(f.name) : '？？？'}`).join('、')}。` : '这个时候这里钓不到鱼，换个时段或季节再来。'}钓到的当场卖给鱼铺。</p>
+				const lic = licenceAt(loc.id);
+				const fishHtml = spot ? `<div class="card"><h3>🎣 钓鱼 <span class="muted">${hobbyStatus(s, 'fishing').level} 级</span></h3><p>${spot.fish.length ? `现在能钓到：${spot.fish.map((f) => `${s.fish[f.id] ? f.icon + esc(f.name) : '？？？'}`).join('、')}。` : '这个时候这里钓不到鱼，换个时段或季节再来。'}合规定的当场卖给鱼铺，不够尺寸、超过数量或禁捕的放生。</p>
+					${spot.fish.some((f) => s.fish[f.id]) ? `<p class="muted">${spot.fish.filter((f) => s.fish[f.id]).map((f) => `${esc(f.name)}：${esc(ruleLabel(fishRuleAt(f.id, loc.id)))}${s.hobby.day === dayOf(s.clock) && s.hobby.bag[f.id] ? `（今天已带走 ${s.hobby.bag[f.id]}）` : ''}`).join('；')}</p>` : ''}
+					${lic ? `<p class="muted">${esc(lic.text)} <a class="muted" href="${esc(lic.src)}" target="_blank" rel="noopener">来源</a></p>` : ''}
 					<div class="row" style="margin-top:8px"><span class="body">钓一会儿<small>${esc(spot.blocked ?? `${FISHING.minutes} 分钟 · 生存能力越高越不容易空手`)}</small></span><button data-fish ${spot.blocked ? 'disabled' : ''}>去钓</button></div></div>` : '';
+				const hobbyOpts = hobbiesHere(s, region);
+				const hobbyHtml = hobbyOpts.length ? `<div class="card"><h3>爱好</h3>${hobbyOpts.map(({ hobby, label, blocked }) => {
+					const st = hobbyStatus(s, hobby.id);
+					return `<div class="row" style="margin-top:8px"><span class="ico" aria-hidden="true">${hobby.icon}</span><span class="body">${esc(hobby.name)} · ${esc(label)}<small>${esc(blocked ?? `${st.level} 级${st.name} · ${hobby.minutes} 分钟`)}</small></span><button data-hobby="${hobby.id}" ${blocked ? 'disabled' : ''}>去做</button></div>`;
+				}).join('')}</div>` : '';
 				const courses = coursesAt(s, region);
 				const courseHtml = courses.length ? `<div class="card"><h3>课程</h3>${courses.map(({ course, price, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="body">${esc(course.name)} · $${price}<small>${esc(blocked ?? `${SKILL_META[course.skill].name}（现在 ${Math.floor(s.skills[course.skill])}）· ${Math.round(course.minutes / 60 * 10) / 10} 小时 · ${course.desc}`)}</small></span><button data-course="${course.id}" ${blocked ? 'disabled' : ''}>上课</button></div>`).join('')}</div>` : '';
@@ -1939,7 +1950,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${hobbyHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
 			}
 
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
@@ -2078,7 +2089,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${a.icon}</span><span><b>${esc(a.name)}</b><small>${esc(a.desc)}</small></span></div>`
 						: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc(({ sea: '海洋', land: '陆地', bird: '飞鸟' } as Record<string, string>)[a.group])}</small></span><span class="sr">（还没见过）</span></div>`).join('')}</div></div>`;
 				const fishHtml2 = `<div class="card"><h3>鱼获 ${Object.keys(s.fish).length}/${FISH.length}</h3><div class="ach-grid">${FISH.map((f) => s.fish[f.id]
-					? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${f.icon}</span><span><b>${esc(f.name)} ×${s.fish[f.id]}</b><small>${esc(f.desc)}</small></span></div>`
+					? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${f.icon}</span><span><b>${esc(f.name)} ×${s.fish[f.id]}</b><small>${s.hobby.best[f.id] ? `最大 ${s.hobby.best[f.id]} cm · ` : ''}${esc(f.desc)}</small></span></div>`
 					: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>还没钓到</small></span></div>`).join('')}</div></div>`;
 				// 见闻录：一次性的专属事件，见过的显示标题，没见过的只提示在哪
 				const onceEvents = EVENTS.filter((e) => e.once && !e.venueTypes);
@@ -2088,7 +2099,20 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const storyHtml = `<div class="card"><h3>见闻录 ${seenOnce}/${onceEvents.length}</h3><p>只会遇到一次的事。没见过的只告诉你在哪。</p><div class="ach-grid">${onceEvents.map((e) => s.seen.includes(e.id)
 					? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${e.icon}</span><span><b>${esc(e.title)}</b><small>${esc(where(e))}</small></span></div>`
 					: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc(where(e))}</small></span><span class="sr">（还没遇到）</span></div>`).join('')}</div></div>`;
+				// 爱好和收集册（docs/earth-game/hobbies.md）
+				const hobbyLv = `<div class="card"><h3>爱好</h3>${HOBBIES.map((h) => { const st = hobbyStatus(s, h.id); return `<div class="mood-row"><span>${h.icon} ${esc(h.name)} · ${st.level} 级${esc(st.name)}</span><b>${st.next === null ? '满级' : `还差 ${st.next}`}</b></div>`; }).join('')}<p class="muted" style="margin-top:6px">同一天反复做同一件事，乐趣会递减；同好在场时一起做，加好感和社交。</p></div>`;
+				const cols = collections(s, region);
+				const colHtml = `<div class="card"><h3>收集册</h3><p class="muted">${COLLECTION_REWARD.half.respect > 0 ? `收到一半声望 +${COLLECTION_REWARD.half.respect}，收齐 +${COLLECTION_REWARD.full.respect}（野生动物和天气相册按原来的规则）。` : ''}</p>${cols.map((c) => {
+					const rc = rarityCounts(c);
+					const marks = c.reward ? ['half', 'full'].filter((k) => s.hobby.got.includes(`${c.id}:${k}`)).map((k) => (k === 'half' ? '½✅' : '🏆')).join(' ') : '';
+					const grid = ['birds', 'works', 'plants', 'crafts', 'songs'].includes(c.id) ? `<div class="ach-grid">${c.entries.map((e) => e.got
+						? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${e.icon}</span><span><b>${esc(e.name)}</b><small>${esc([e.rarity ? RARITY_NAME[e.rarity] : '', e.detail ?? ''].filter(Boolean).join(' · '))}</small></span></div>`
+						: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>${c.id === 'works' ? esc(e.name) : '？？？'}</b><small>${esc([e.rarity ? RARITY_NAME[e.rarity] : '', e.detail ?? (c.id === 'works' ? '还没有佳作' : '')].filter(Boolean).join(' · '))}</small></span><span class="sr">（还没收到）</span></div>`).join('')}</div>` : '';
+					return `<details style="margin-top:8px"><summary><b>${c.icon} ${esc(c.name)} ${c.got}/${c.total}</b> ${marks}${rc.length ? ` <span class="muted">${rc.map((r) => `${r.icon}${r.got}/${r.total}`).join(' ')}</span>` : ''}</summary>${grid}</details>`;
+				}).join('')}</div>`;
 				const card = {
+					hobby: hobbyLv,
+					collect: colHtml,
 					story: storyHtml,
 					dex: dexHtml,
 					fish: fishHtml2,
@@ -2138,7 +2162,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					// 人生等级：声望到下一级的进度；满级不画进度条
 					const pct = lv.next !== null ? Math.min(100, Math.round(s.respect / lv.next * 100)) : 100;
 					const lvHtml = `<div class="card grow-head"><span class="lv-badge" aria-hidden="true">${lv.lv}</span><span class="name"><b>Lv${lv.lv} ${esc(lv.title)}</b><span>声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next} · 离下一级还差 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ' · 已到最高级'}</span>${lv.next !== null ? `<span class="bar" role="img" aria-label="升级进度 ${pct}%"><i style="width:${pct}%"></i></span>` : ''}</span></div>`;
-					return lvHtml + ['daily', 'ach', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
+					return lvHtml + ['daily', 'ach', 'hobby', 'collect', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
 				}
 				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'invest', 'life', 'bag'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
@@ -2529,7 +2553,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-hobby],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2570,6 +2594,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				}
 				else if (d.course) act({ t: 'course', id: d.course }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if ('photo' in d) act({ t: 'photo' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if ('hobby' in d) act({ t: 'hobby', id: d.hobby as never }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if ('fish' in d) act({ t: 'fish' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.cert) act({ t: 'cert', id: d.cert }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.exp) act({ t: 'experience', id: d.exp }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
