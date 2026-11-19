@@ -9,6 +9,7 @@ import {
 import { CAREERS, PROMOTE_SHIFTS } from '../../src/game/data/careers.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { withholding } from '../../src/game/core/tax.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
@@ -41,13 +42,14 @@ test('应聘：地点与条件', () => {
 
 test('上班：时段、地点、每天一次、发工资', () => {
 	let s = applyJob(make({ clock: at(7) }), WA, 'barista').state;
-	s = rested(s);
+	s = { ...rested(s), tax: { ...s.tax, tfn: 0 } }; // 有 TFN：按正常税率预扣
 	assert.equal(shiftBlocked({ ...s, clock: at(15) }), '上班时间 6:00–11:00 开始');
 	assert.equal(shiftBlocked({ ...s, loc: 'fremantle' }), '要到工作地点才能上班');
 	assert.equal(shiftBlocked({ ...s, needs: { ...s.needs, energy: 10 } }), '太累了，先休息');
 	const r = workShift(s, WA);
 	assert.ok(r.ok, r.msg);
-	assert.ok(r.state.cash >= s.cash + 120 - 1);
+	assert.ok(r.state.cash >= s.cash + 120 - withholding(s, 120) - 1, '到手 = 工资 − 预扣税');
+	assert.equal(r.state.tax.book.wages >= 120, true, '税前工资记进本财年账目');
 	assert.equal(r.state.job!.shifts, 1);
 	assert.equal(workShift(rested(r.state), WA).ok, false, '同一天不能上两个班');
 });

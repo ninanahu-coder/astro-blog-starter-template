@@ -13,10 +13,12 @@ import { resolveCoop, type CoopMember, type CoopResult } from './coop.ts';
 import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
+import { applyAbn, applyTfn, lodgeReturn } from './tax-actions.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
+	| { t: 'tax'; op: 'tfn' | 'abn' | 'lodge' } // 税务：申请 TFN、注册 ABN、申报上一财年
 	| { t: 'activity'; id: string }
 	| { t: 'event'; choice: number }
 	| { t: 'gps'; lat: number; lon: number; acc?: number } // acc：定位精度（米）；旧客户端不带，服务端会拒绝并提示刷新
@@ -98,6 +100,8 @@ export function parseAction(raw: unknown): GameAction | null {
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
 			if (a.op === 'repay') return finite(a.amount) && a.amount > 0 && a.amount <= 1e9 ? { t: 'property', op: 'repay', id: a.id, amount: Math.floor(a.amount) } : null;
 			return a.op === 'sell' || a.op === 'movein' || a.op === 'rentout' ? { t: 'property', op: a.op, id: a.id } : null;
+		case 'tax':
+			return a.op === 'tfn' || a.op === 'abn' || a.op === 'lodge' ? { t: 'tax', op: a.op } : null;
 		default:
 			return null;
 	}
@@ -131,6 +135,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'tax': r = a.op === 'tfn' ? applyTfn(state) : a.op === 'abn' ? applyAbn(state) : lodgeReturn(state); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;

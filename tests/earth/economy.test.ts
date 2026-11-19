@@ -241,10 +241,11 @@ test('阶段 B 的动作协议与旧存档迁移', () => {
 test('跨周结算前先发这一班的工资：工资够付刚到期的房租就不会被收房', () => {
 	const s = housed({ clock: at(9) });
 	const job = { career: 'barista', loc: s.loc, level: 0, shifts: 0, good: 0, lastDay: -1 };
-	const due = { ...s, job, cash: 50, clock: at(7, 6), nextWeek: 6, needs: { hunger: 90, energy: 90, hygiene: 80, fun: 60, social: 60 } };
+	// 有 TFN（按正常税率预扣，见 core/tax.ts）：$80 + 税后工资（表现好有奖金时预扣也多）≥ 房租 $160
+	const due = { ...s, job, cash: 80, clock: at(7, 6), nextWeek: 6, tax: { ...s.tax, tfn: 0 }, needs: { hunger: 90, energy: 90, hygiene: 80, fun: 60, social: 60 } };
 	const r = applyAction(due, WA, { t: 'job', op: 'work' });
 	assert.ok(r.ok && !r.collapsed, r.msg);
-	assert.ok(r.state.home, '$50 + 工资 ≥ 房租 $160，不该被收房');
+	assert.ok(r.state.home, '$80 + 税后工资（表现好有奖金时预扣也多）≥ 房租 $160，不该被收房');
 	assert.equal(r.state.nextWeek, 13);
 	assert.ok(r.state.cash < 50 + 200, '房租照扣');
 });

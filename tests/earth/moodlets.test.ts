@@ -94,7 +94,7 @@ test('上班途中晕倒：不发工资、不计班次、心愿不算完成', ()
 	// 对照：同样的人吃饱了上班，照常发工资、计班次、完成心愿
 	const fine = applyAction({ ...s, needs: { ...s.needs, hunger: 90 }, health: 80 }, WA, { t: 'job', op: 'work' });
 	assert.ok(fine.ok && !fine.collapsed);
-	assert.ok(fine.state.cash >= 120);
+	assert.ok(fine.state.cash >= 120 * (1 - 0.47), '没有 TFN 按 47% 预扣，照样发工资');
 	assert.equal(fine.state.job!.shifts, 1);
 	assert.ok(ids(fine.state).includes('wish-done'));
 });

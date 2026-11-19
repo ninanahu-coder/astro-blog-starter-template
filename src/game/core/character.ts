@@ -29,6 +29,7 @@ import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
 import { validTraits } from './attributes.ts';
+import { cleanTax, newTaxState } from './tax.ts';
 import { WEATHERS } from '../data/weather.ts';
 
 /** 天气相册里所有合法的照片 id：地点 × 天气 */
@@ -163,6 +164,7 @@ export function createCharacter(opts: {
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
+		tax: newTaxState(START_CLOCK),
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		seed: opts.seed >>> 0,
 		rev: 0,
@@ -269,6 +271,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		// 旧存档没有这个字段：用当前工作的 lastDay 补上
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
 		...cleanEstate(r, knownLocs),
+		tax: cleanTax(r.tax, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		nextWeek: (() => {
 			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周
 			const today = Math.floor(num(r.clock, 0, 1e9, START_CLOCK) / 1440);

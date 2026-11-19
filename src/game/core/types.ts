@@ -461,6 +461,25 @@ export interface JournalEntry {
 	text: string;
 }
 
+/** 一个财年的税务账目（游戏金额，都 ≥ 0） */
+export interface TaxBook {
+	wages: number; // 税前工资
+	withheld: number; // 雇主已预扣的税
+	biz: number; // ABN 个体户收入
+	rent: number; // 出租收入
+	rentCost: number; // 出租的可抵扣费用：物业费、维修、贷款利息
+}
+
+export interface TaxState {
+	tfn: number; // −1 没申请；否则拿到 TFN 的游戏日（大于今天表示还在等）
+	abn: boolean; // 是否注册了 ABN
+	fy: number; // 正在记账的财年（= 游戏年，从 1 起）
+	book: TaxBook; // 本财年账目
+	ret: (TaxBook & { fy: number }) | null; // 已结账、等着申报的上一财年
+	debt: number; // 欠 ATO 的税，每周分期扣
+	last: { fy: number; due: number; penalty: number } | null; // 最近一次申报结果：due 正数为补税、负数为退税
+}
+
 export interface PlayerState {
 	v: 1;
 	id: string;
@@ -516,6 +535,7 @@ export interface PlayerState {
 	clockIn: { venue: string; at: number; career?: string } | null; // 真实打卡上班：哪个地点、几点打的卡；career 是按哪份职业打的卡，没有就是零工
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	workDay: number; // 最近一次算过班次的游戏日，−1 表示还没上过；跟人走，不随换工作重置
+	tax: TaxState; // 税务：TFN、ABN、本财年账目、待申报的上一财年、欠税（见 docs/earth-game/tax.md）
 	journal: JournalEntry[];
 	seed: number;
 	rev: number; // 存档版本号，云同步用

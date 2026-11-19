@@ -29,6 +29,7 @@ import { fixProblem, roundFix } from './fix.ts';
 import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
+import { activityIncome, hobbyIncome, recordBiz, recordRent, recordRentCost, recordWage, taxTick, wageSplit } from './tax.ts';
 import type {
 	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
@@ -547,9 +548,16 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	const blocked = blockedReason(prev, act);
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);
-	if (applyEffect(state, { ...scaledFx(prev, act), minutes: act.minutes }, region)) return collapsedResult(state);
-	log(state, `在${loc.name}${act.name}。`);
-	return { ok: true, state, msg: `${act.icon} ${act.name}完成。` };
+	const fx = scaledFx(prev, act);
+	// 税务：临时工工资先预扣；有 ABN 时街头表演按生意收入算（见 core/tax.ts）
+	const kind = fx.cash && fx.cash > 0 ? activityIncome(act.id) : 'none';
+	const gross = kind === 'hobby' ? hobbyIncome(state, fx.cash!) : fx.cash ?? 0;
+	const pay = kind === 'wage' ? wageSplit(state, gross) : { net: gross, withheld: 0 };
+	if (applyEffect(state, { ...fx, cash: kind === 'none' ? fx.cash : pay.net, minutes: act.minutes }, region)) return collapsedResult(state);
+	if (kind === 'wage') recordWage(state, gross, pay.withheld);
+	else if (kind === 'hobby' && state.tax.abn) recordBiz(state, gross);
+	log(state, `在${loc.name}${act.name}${pay.withheld ? `（工资 $${gross}，预扣税 $${pay.withheld}）` : ''}。`);
+	return { ok: true, state, msg: `${act.icon} ${act.name}完成。${pay.withheld ? `工资 $${gross}，预扣税 $${pay.withheld}，到手 $${pay.net}。` : ''}` };
 }
 
 // ---------- 真实定位打卡 ----------
@@ -967,11 +975,13 @@ export function workShift(prev: PlayerState, region: Region): ActionResult {
 	const lv = c.levels[job.level];
 	const good = checkScore(state, c.skill).total + roll(state) * 60 >= SHIFT_DC[Math.min(job.level, SHIFT_DC.length - 1)];
 	const pay = Math.round(careerPay(state, job.career, job.level) * (good ? 1 + GOOD_BONUS : 1));
+	const w = wageSplit(state, pay);
 	job.lastDay = state.workDay = dayOf(state.clock);
-	if (applyEffect(state, { ...c.shift, minutes: c.minutes, cash: pay }, region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
+	if (applyEffect(state, { ...c.shift, minutes: c.minutes, cash: w.net }, region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
+	recordWage(state, pay, w.withheld);
 	job.shifts++;
 	if (good) job.good++;
-	const msg = `${lv.title}上班 ${Math.round(c.minutes / 60)} 小时，收入 $${pay}${good ? '（表现出色，有奖金）' : ''}。` + tryPromote(state);
+	const msg = `${lv.title}上班 ${Math.round(c.minutes / 60)} 小时，收入 $${pay}${good ? '（表现出色，有奖金）' : ''}${w.withheld ? `，预扣税 $${w.withheld}，到手 $${w.net}` : ''}。` + tryPromote(state);
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1044,6 +1054,7 @@ function weeklyTick(state: PlayerState, region: Region) {
 				log(state, `没钱续${v.name}的保险，无保险上路被记了一笔。`);
 			}
 		}
+		for (const m of taxTick(state)) log(state, m);
 	}
 }
 
@@ -1516,12 +1527,14 @@ function settleProperties(state: PlayerState, region: Region) {
 			if (roll(state) < FINANCE.vacancy) log(state, `周结算：${def.name}这周空置，没有租金。`);
 			else {
 				state.cash += def.rentIncome;
+				recordRent(state, def.rentIncome);
 				log(state, `周结算：${def.name}租金收入 $${def.rentIncome}。`);
 			}
 			if (roll(state) < FINANCE.repairChance) {
 				const [lo, hi] = repairRange(def);
 				const cost = Math.min(state.cash, Math.round(lo + roll(state) * (hi - lo)));
 				state.cash -= cost;
+				recordRentCost(state, cost);
 				log(state, `${def.name}的租客报修，花了 $${cost}。`);
 			}
 		}
@@ -1530,6 +1543,7 @@ function settleProperties(state: PlayerState, region: Region) {
 		const due = def.weekly + (p.loan > 0 ? interest + principal : 0);
 		if (state.cash >= due) {
 			state.cash -= due;
+			if (p.rented) recordRentCost(state, def.weekly + (p.loan > 0 ? interest : 0)); // 出租期间的物业费和利息可抵扣，本金不行
 			p.loan -= principal;
 			p.missed = 0;
 			log(state, `周结算：${def.name}物业费 $${def.weekly}${interest + principal ? `，还款 $${interest + principal}（剩余贷款 $${p.loan}）` : ''}。`);
