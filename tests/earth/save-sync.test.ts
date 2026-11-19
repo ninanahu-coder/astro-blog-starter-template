@@ -297,5 +297,7 @@ test('限流：IP 表满了只清过期的，不会把正在被限的人一起�
 	assert.equal((await w.call(bad, 'abuser')).status, 429);
 	for (let i = 0; i < 5001; i++) await w.call(bad, 'ip' + i);
 	assert.equal((await w.call(bad, 'abuser')).status, 429, '还在限');
-	assert.equal((await w.call(bad, 'fresh-ip')).status, 503, '表满且都没过期：新来的先拒绝，不清表');
+	// 和安全分支合并后用 RateLimiter：表满时先清过期，再丢计数最少的一成，正在刷的人计数保留；新来的地址照常服务
+	assert.notEqual((await w.call(bad, 'fresh-ip')).status, 429, '表满时新来的地址不被误拦');
+	assert.equal((await w.call(bad, 'abuser')).status, 429, '腾出空位后刷的人还在限');
 });
