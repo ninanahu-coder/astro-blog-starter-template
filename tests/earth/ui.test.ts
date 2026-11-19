@@ -142,7 +142,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	const winListeners: Record<string, (e: unknown) => void> = {};
 	// 假的 Web Audio：记下建了几个 AudioContext、放了几个音（第 29 轮音效）
 	const audioLog = { ctx: 0, notes: 0, offAt: -1 };
-	class FakeAudio { currentTime = 0; state = 'running'; destination = {}; constructor() { audioLog.ctx++; } createOscillator() { audioLog.notes++; return { type: '', frequency: { value: 0 }, connect() {}, start() {}, stop() {} }; } createGain() { return { gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; } }
+	class FakeAudio { currentTime = 0; state = 'running'; destination = {}; constructor() { audioLog.ctx++; } createOscillator() { audioLog.notes++; return { type: '', frequency: { value: 0 }, connect() {}, start() {}, stop() {} }; } createGain() { return { gain: { setValueAtTime() {}, setTargetAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; } }
 	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => (winListeners[t] = f), AudioContext: FakeAudio };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', reload() {} };
@@ -718,7 +718,9 @@ type HashOpts = {
 	/** 在线频道当作已连上：每个新建的连接记进这个数组（连接地址 url、收消息 say、是否被关 closed） */
 	liveWs?: LiveWs[];
 	/** 页面启动完、清理之前再做点什么（点按钮、触发联网事件） */
-	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; el: (id: string) => El; show: () => void }) => Promise<void>;
+	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; doc: Record<string, (e: unknown) => void>; el: (id: string) => El; show: () => void; hide: () => void }) => Promise<void>;
+	/** 页面能用的 AudioContext（不给就是没有 Web Audio 的浏览器） */
+	audio?: unknown;
 };
 async function openWithHash(hash: string, local: { cred: unknown; state: unknown } | null, world: EarthWorld, confirmAnswer = true, opts: HashOpts = {}) {
 	const els = new Map<string, El>();
@@ -740,7 +742,7 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[] };
 	const root = new ClassList();
 	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, documentElement: { classList: root }, hidden: !!opts.hidden };
-	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => { winLs[t] = f; } };
+	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => { winLs[t] = f; }, AudioContext: opts.audio };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', pathname: '/earth/', search: '', hash, reload() { seen.reloads++; } };
 	g.history = { replaceState: (_s: unknown, _t: string, u: string) => { seen.replaced.push(u); g.location.hash = ''; } };
@@ -768,7 +770,7 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 		await import(pathToFileURL(file).href);
 		for (let i = 0; i < 50; i++) await pause(10);
 		const click = async (dataset: Record<string, string>) => { docLs.click({ target: { dataset, disabled: false, classList: { contains: () => false }, closest: fakeClosest } }); await pause(30); };
-		await opts.after?.({ click, win: winLs, el, show: () => { g.document.hidden = false; } });
+		await opts.after?.({ click, win: winLs, doc: docLs, el, show: () => { g.document.hidden = false; }, hide: () => { g.document.hidden = true; } });
 		return { el, store, seen, root };
 	} finally {
 		for (const id of timers) clearTimeout(id);
@@ -1326,4 +1328,88 @@ test('界面：没有存档时显示创建页，选完四步能创建角色并�
 			if (v === undefined) delete g[k]; else g[k] = v;
 		}
 	}
+});
+
+/** 假的 Web Audio（v37 声音系统）：记录建了几个 AudioContext、起了哪些噪声循环和振荡器、暂停/恢复了几次 */
+function fakeWebAudio() {
+	const log = { ctx: 0, srcStarted: 0, srcStopped: 0, filters: [] as string[], oscs: [] as number[], suspend: 0, resume: 0, gains: [] as number[][] };
+	const param = () => ({ value: 0, setValueAtTime() {}, setTargetAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
+	class Ctx {
+		currentTime = 0; sampleRate = 8000; state = 'running'; destination = {};
+		constructor() { log.ctx++; }
+		suspend() { log.suspend++; this.state = 'suspended'; }
+		resume() { log.resume++; this.state = 'running'; }
+		// 每个增益节点记下设过的值（立即设置和平滑过渡都算）；前四个是混音台的总线、音效、环境音、音乐
+		createGain() { const vals: number[] = []; log.gains.push(vals); return { gain: { ...param(), setValueAtTime: (v: number) => { vals.push(v); }, setTargetAtTime: (v: number) => { vals.push(v); } }, connect() {} }; }
+		createOscillator() { const o = { type: '', frequency: { value: 0 }, connect() {}, start() { log.oscs.push(o.frequency.value); }, stop() {} }; return o; }
+		createBuffer(_c: number, len: number) { const d = new Float32Array(len); return { getChannelData: () => d }; }
+		createBufferSource() { return { buffer: null, loop: false, connect() {}, start() { log.srcStarted++; }, stop() { log.srcStopped++; } }; }
+		createBiquadFilter() { const f = { type: '', frequency: param(), Q: { value: 0 }, connect() { log.filters.push(f.type); } }; return f; }
+	}
+	return { Ctx, log };
+}
+
+test('界面：声音（v37）——打开了环境音和音乐也要等玩家先点一下才出声；切后台暂停、回来恢复；关掉后停；音量存进本机', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'audio-v37', '听声');
+	const { Ctx, log } = fakeWebAudio();
+	const prefs = JSON.stringify({ ambience: true, music: true, sound: false });
+	let afterBoot = -1;
+	const r = await openWithHash('', a, world, true, {
+		audio: Ctx,
+		extra: { 'earth.prefs.v1': prefs },
+		after: async ({ click, doc, hide, show }) => {
+			afterBoot = log.ctx;
+			// 第一次点页面（随便哪里）：这时才建音频，并按地点放环境音和音乐
+			await click({ tab: 'me' });
+			for (let i = 0; i < 20 && log.srcStarted === 0; i++) await pause(10);
+			assert.equal(log.ctx, 1, '点了之后才建音频');
+			assert.ok(log.srcStarted >= 1, '环境音的噪声循环起来了');
+			assert.ok(log.filters.length >= 1, '噪声经过滤波');
+			assert.ok(log.oscs.some((f) => f > 80 && f < 1200), '音乐排了和弦音');
+			await click({ tab: 'place' });
+			assert.equal(log.ctx, 1, '只建一次');
+			// 混音台：音效默认关，音效分轨是 0；打开后马上变成 1（试听的那一声听得见）
+			assert.equal(log.gains[1][0], 0, '音效分轨开始是 0');
+			await click({ pref: 'sound' });
+			assert.equal(log.gains[1].at(-1), 1, '打开音效后音效分轨打开');
+			// 切到后台暂停，回来恢复
+			hide(); doc.visibilitychange({});
+			assert.equal(log.suspend, 1);
+			const resumed = log.resume;
+			show(); doc.visibilitychange({});
+			assert.equal(log.resume, resumed + 1);
+			// 关掉环境音：噪声循环全停
+			await click({ pref: 'ambience' });
+			assert.equal(log.srcStopped, log.srcStarted, '关掉后环境音全停');
+			// 音量换成「轻」，存进本机
+			await click({ pref: 'volume', val: 'low' });
+			await click({ pref: 'volume', val: 'huge' });
+		},
+	});
+	assert.equal(afterBoot, 0, '打开页面时不自动出声（没建 AudioContext）');
+	const saved = JSON.parse(r.store.get('earth.prefs.v1')!);
+	assert.equal(saved.ambience, false);
+	assert.equal(saved.music, true);
+	assert.equal(saved.volume, 'low', '不认识的音量档不改');
+});
+
+test('界面：声音（v37）——设置页有音效、环境音、背景音乐三个开关和音量，并写明不开声音不会错过信息；没有 Web Audio 的浏览器点了也不报错', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'audio-v37b', '无声');
+	let html = '';
+	await openWithHash('', a, world, true, {
+		extra: { 'earth.prefs.v1': JSON.stringify({ ambience: true }) },
+		after: async ({ click, el }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'sync' });
+			html = el('panel').innerHTML;
+			await click({ pref: 'music' });
+		},
+	});
+	for (const k of ['sound', 'ambience', 'music']) assert.match(html, new RegExp(`data-pref="${k}" aria-pressed="(true|false)"`), k);
+	assert.match(html, /data-pref="ambience" aria-pressed="true">已开启/);
+	assert.match(html, /data-pref="volume" data-val="mid" class="on" aria-pressed="true"/);
+	assert.match(html, /不开声音不会错过/);
+	assert.deepEqual(a11yIssues(html), []);
 });
