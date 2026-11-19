@@ -686,6 +686,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { coopBlocked, coopCostLabel, coopsAt } from '../game/core/coop.ts';
 			import { getCoop } from '../game/data/coop.ts';
 			import { giveBlocked, saleRange, takeBlocked } from '../game/core/trade.ts';
+			import { marketCard, swapDesc, swapPicker, type MarketData, type SellPick, type SwapPick } from '../game/ui/market.ts';
+			import type { SwapSide } from '../game/core/exchange.ts';
 			import { metList } from '../game/core/social.ts';
 			import type { WeeklyGoal } from '../game/core/weekly.ts';
 			import { cleanNote, NOTE_MAX, NOTES_PER_LOC } from '../game/core/notes.ts';
@@ -949,7 +951,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				render();
 			}
 			// 送礼与二手摊：挂单以服务端为准；打开社交页、收到在线频道的 trade 提醒时拉取
-			type Offer = { id: string; kind: 'gift' | 'sale'; item: string; price: number; name: string; avatar: string; toName: string; loc: string; mine: boolean; taking: boolean };
+			type Offer = { id: string; kind: 'gift' | 'sale' | 'swap'; item: string; price: number; name: string; avatar: string; toName: string; loc: string; mine: boolean; taking: boolean; give?: SwapSide; want?: SwapSide };
 			let tradeOffers: Offer[] = [];
 			let tradeAt = 0;
 			let tradeLoading = false;
@@ -999,9 +1001,56 @@ const cardLines = guilloche(400, 260, 14, 9);
 					}
 					takeTrade(data);
 					tradeAt = Date.now();
-					if (data.ok) { giftTo = null; sellPick = false; }
+					if (data.ok) { giftTo = null; sellPick = false; swapPick = null; }
 					if (data.msg) toast(data.msg);
 					if (data.ok && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'trade' }));
+				} catch {
+					syncStatus = '离线：可以查看，联网后才能行动';
+					toast('网络断开了，联网后才能行动');
+				} finally {
+					busy = false;
+					document.body.classList.remove('busy');
+				}
+				render();
+			}
+			// 交易所（寄卖、拍卖，docs/earth-game/player-trade.md）：以服务端为准，打开社交页时最多 20 秒拉一次
+			let market: MarketData | null = null;
+			let marketAt = 0;
+			let marketLoading = false;
+			let marketPick: SellPick | null = null;
+			let swapPick: SwapPick | null = null;
+			function takeMarket(data: any) {
+				if (Array.isArray(data?.lots) && Array.isArray(data?.mine) && Array.isArray(data?.mail) && data?.quota) market = data as MarketData;
+			}
+			async function loadMarket(force = false) {
+				if (!cred || !state || credBad || marketLoading || (!force && Date.now() - marketAt < 20_000)) return;
+				marketLoading = true;
+				try {
+					const { data } = await api({ action: 'market', op: 'list', id: cred.id, key: cred.key });
+					takeMarket(data);
+				} catch {}
+				marketAt = Date.now();
+				marketLoading = false;
+				if (tab === 'social') renderPanel();
+			}
+			/** 交易所的改动：带请求编号（断网重交沿用同一个，服务端只执行一次）和版本号 */
+			async function marketOp(op: string, extra: Record<string, unknown>, nonce = newOp()) {
+				if (!state || !cred || busy) return;
+				busy = true;
+				actGen++;
+				document.body.classList.add('busy');
+				const before = state;
+				try {
+					const { status, data } = await api({ action: 'market', op, id: cred.id, key: cred.key, rev: before.rev, nonce, ...extra });
+					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, data.msg); }
+					else if (data.state) {
+						adopt(data.state);
+						if (data.ok && state && state.rev === nextRev(before.rev)) { lastDelta = stateDelta(before, state); lastOutcome = data.msg; }
+					}
+					takeMarket(data);
+					marketAt = Date.now();
+					if (data.ok) marketPick = null;
+					if (data.msg) toast(data.msg);
 				} catch {
 					syncStatus = '离线：可以查看，联网后才能行动';
 					toast('网络断开了，联网后才能行动');
@@ -2198,7 +2247,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const rows = list.slice(0, 12).map((m) => {
 					const p = peers.get(m.hash);
 					const where = p ? (p.loc === s.loc ? '就在这里' : `在线 · ${esc(getLocation(region, p.loc)?.name ?? '')}`) : today - m.last <= 0 ? '今天见过' : `${today - m.last} 天前见过`;
-					return `<div class="row"><span class="ico">${esc(m.avatar)}</span><span class="body">${esc(m.name)}<small>一起做过 ${m.n} 次事 · ${where}</small></span>${p && p.loc === s.loc && p.id !== myPeerId ? `<span class="meta"><button data-giftpick="${esc(m.hash)}" data-gift-name="${esc(m.name)}" aria-label="送${esc(m.name)}一件东西">🎁</button></span>` : ''}</div>`;
+					return `<div class="row"><span class="ico">${esc(m.avatar)}</span><span class="body">${esc(m.name)}<small>一起做过 ${m.n} 次事 · ${where}</small></span>${p && p.loc === s.loc && p.id !== myPeerId ? `<span class="meta"><button data-giftpick="${esc(m.hash)}" data-gift-name="${esc(m.name)}" aria-label="送${esc(m.name)}一件东西">🎁</button> <button data-swappick="${esc(m.hash)}" data-gift-name="${esc(m.name)}" aria-label="和${esc(m.name)}面交换东西">🤝</button></span>` : ''}</div>`;
 				}).join('');
 				return `<div class="card"><h3>常遇见的人</h3><p class="muted">一起做过共同事件、送过礼或做过买卖的玩家。</p><div class="list" style="margin-top:8px">${rows}</div></div>`;
 			}
@@ -2226,10 +2275,18 @@ const cardLines = guilloche(400, 260, 14, 9);
 					}).join('');
 					parts.push(`<div class="trade-pick"><b>送给${esc(giftTo.name)}什么？</b>${rows ? `<div class="list" style="margin-top:8px">${rows}</div>` : '<p class="muted">背包里没有能送的东西。</p>'}<div class="inline" style="margin-top:8px"><button data-trade="pickcancel">不送了</button></div></div>`);
 				}
+				if (swapPick) parts.push(swapPicker(esc, s, swapPick));
 				for (const o of tradeOffers) {
 					const it = getItem(o.item);
 					if (!it) continue;
 					const lid = esc(o.id);
+					if (o.kind === 'swap') {
+						// 面交换物：结算时服务端再查双方背包和额度，这里只显示
+						parts.push(o.mine
+							? `<div class="row"><span class="body">🤝 等${esc(o.toName)}回应：${swapDesc(esc, o.give, o.want)}</span><span class="meta">${o.taking ? '正在交接…' : `<button data-trade="cancel" data-offer="${lid}">撤回</button>`}</span></div>`
+							: `<div class="row"><span class="ico">${esc(o.avatar)}</span><span class="body">🤝 ${esc(o.name)}想面交：${swapDesc(esc, o.give, o.want)}<small>先当面核对清楚；带钱的交易按商店价限价</small></span><span class="meta"><button class="primary" data-trade="accept" data-offer="${lid}" ${o.taking ? 'disabled' : ''}>同意</button> <button data-trade="decline" data-offer="${lid}" ${o.taking ? 'disabled' : ''}>不换</button></span></div>`);
+						continue;
+					}
 					if (o.mine) {
 						const where = o.loc !== s.loc ? `（在${esc(getLocation(region, o.loc)?.name ?? '')}）` : '';
 						const what = o.kind === 'gift' ? `等${esc(o.toName)}收下 ${it.icon} ${esc(it.name)}` : `二手摊上的 ${it.icon} ${esc(it.name)} · $${o.price}`;
@@ -2268,7 +2325,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const PEERS_SHOWN = 30;
 				const more = here.length > PEERS_SHOWN ? `<p class="muted" style="margin-top:6px">还有 ${here.length - PEERS_SHOWN} 位玩家在这里</p>` : '';
 				const people = here.length ? here.slice(0, PEERS_SHOWN).map((p) => `<div class="row"><span class="ico">${esc(p.avatar)}</span><span class="body">${esc(p.name)}</span>
-					<span class="emotes">${emotes.map((e) => `<button data-emote="${esc(e)}" data-to="${esc(p.id)}" aria-label="向${esc(p.name)}发送 ${esc(e)}">${esc(e)}</button>`).join(' ')} <button data-giftpick="${esc(p.id)}" data-gift-name="${esc(p.name)}" aria-label="送${esc(p.name)}一件东西">🎁</button></span></div>`).join('') : '<p class="muted">这里暂时只有你一个人。</p>';
+					<span class="emotes">${emotes.map((e) => `<button data-emote="${esc(e)}" data-to="${esc(p.id)}" aria-label="向${esc(p.name)}发送 ${esc(e)}">${esc(e)}</button>`).join(' ')} <button data-giftpick="${esc(p.id)}" data-gift-name="${esc(p.name)}" aria-label="送${esc(p.name)}一件东西">🎁</button> <button data-swappick="${esc(p.id)}" data-gift-name="${esc(p.name)}" aria-label="和${esc(p.name)}面交换东西">🤝</button></span></div>`).join('') : '<p class="muted">这里暂时只有你一个人。</p>';
 				// 认识的当地人今天在哪：就在这里的标出来，在别处的可以直接看去那里的走法
 				const presentIds = new Set(npcsAt(s, region).map((x) => x.npc.id));
 				const known = Object.entries(s.relations)
@@ -2290,6 +2347,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				return `${knownHtml}<div class="card"><h3>${esc(getLocation(region, s.loc)!.name)}的人</h3><p>${online ? `全区在线 ${peers.size} 人` : '未连接，稍后自动重连…'}</p><div class="list" style="margin-top:8px">${people}</div>${more}</div>
 					${weekCard(s)}
 					${tradeCard(s)}
+					${cred && !credBad ? (loadMarket(), marketCard(esc, s, market, marketPick, srvNow())) : ''}
 					${coopCard(s)}
 					${metCard(s)}
 					<div class="card"><h3>本地频道</h3><p>只有同一地点的玩家能看到。</p>
@@ -2520,7 +2578,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-swappick],[data-swap],[data-mkt],[data-trade],[data-week],[data-note]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2641,7 +2699,30 @@ const cardLines = guilloche(400, 260, 14, 9);
 				else if ('copy' in d) navigator.clipboard?.writeText(codeOf(cred!)).then(() => toast('已复制'), () => toast('复制失败，请长按手动复制'));
 				else if ('pull' in d) pullCloud();
 				else if ('board' in d) loadBoard(true);
-				else if (d.giftpick !== undefined) { giftTo = d.giftpick ? { hash: d.giftpick, name: d.giftName ?? '' } : null; sellPick = false; renderPanel(); }
+				else if (d.giftpick !== undefined) { giftTo = d.giftpick ? { hash: d.giftpick, name: d.giftName ?? '' } : null; sellPick = false; swapPick = null; renderPanel(); }
+				else if (d.swappick !== undefined) { swapPick = d.swappick ? { to: d.swappick, name: d.giftName ?? '' } : null; giftTo = null; sellPick = false; renderPanel(); }
+				else if (d.swap && swapPick) {
+					if (d.swap === 'cancel') swapPick = null;
+					else if (d.swap === 'give') swapPick = { ...swapPick, give: d.item ?? '' };
+					else if (d.swap === 'want') swapPick = { ...swapPick, want: d.item ?? '' };
+					else if (d.swap === 'send') {
+						const sp = swapPick;
+						const one = (item: string | undefined, cash: number) => ({ items: item ? [{ item, n: 1 }] : [], cash });
+						tradeOp('swap', { to: sp.to, toName: sp.name, give: one(sp.give || undefined, Number(d.giveCash) || 0), want: one(sp.want || undefined, Number(d.wantCash) || 0) });
+						return;
+					}
+					renderPanel();
+				}
+				else if (d.mkt) {
+					if (d.mkt === 'pickcancel') { marketPick = null; renderPanel(); }
+					else if (d.mkt === 'sellpick') { marketPick = {}; renderPanel(); }
+					else if (d.mkt === 'pickitem') { marketPick = { item: d.item }; renderPanel(); }
+					else if (d.mkt === 'pickkind' && marketPick) { marketPick = { ...marketPick, kind: d.kind === 'auction' ? 'auction' : 'fixed' }; renderPanel(); }
+					else if (d.mkt === 'sell') marketOp('sell', { kind: d.kind, item: d.item, price: Number(d.price), hours: Number(d.hours) });
+					else if (d.mkt === 'buy' || d.mkt === 'cancel') marketOp(d.mkt, { lot: d.lot });
+					else if (d.mkt === 'bid') marketOp('bid', { lot: d.lot, amount: Number(d.amount) });
+					else if (d.mkt === 'claim') marketOp('claim', {});
+				}
 				else if (d.week === 'claim') claimWeek();
 				else if (d.note === 'delete') noteOp('delete', { note: d.noteId });
 				else if (d.trade) {
