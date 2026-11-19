@@ -23,6 +23,7 @@ import { ANIMALS, DEX_GROUPS } from '../data/wildlife.ts';
 import { FISH } from '../data/fish.ts';
 import { PHOTO_QUESTS } from '../data/photo-quests.ts';
 import { STORY } from '../data/story.ts';
+import { TRAILS } from '../data/trails.ts';
 import { NPC_DUOS } from '../data/npc-duos.ts';
 import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
@@ -137,6 +138,7 @@ export function createCharacter(opts: {
 		met: {},
 		weekly: { week: 0, n: 0, claimed: false },
 		pending: null,
+		trails: {},
 		fix: null,
 		venueCd: {},
 		venueEvAt: 0,
@@ -355,6 +357,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		// 只留还存在的事件：事件被删掉或改名后，界面弹不出来，但其他动作都会被「先处理眼前的事件」挡住
 		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
 		...cleanReal(r, opts.now),
+		trails: cleanTrails(r.trails, opts.now),
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
 		// 版本号超出范围说明存档坏了：归零而不是钳到上限。钳到上限的话，下一次动作加一又超出，再读又被钳回去，客户端每次都版本冲突
@@ -409,6 +412,22 @@ function cleanDaily(r: any, now?: number): PlayerState['daily'] {
 	if (now === undefined) return daily;
 	const today = realDayOf(now);
 	return daily.day > today ? { day: today, streak: 0 } : daily;
+}
+
+/** 主要路线进度：只留已知路线；站数钳到 0..站数；沿途标记只在走到一半时有意义；时间不能在未来 */
+function cleanTrails(raw: any, now?: number): PlayerState['trails'] {
+	const tMax = now === undefined ? 1e15 : now + FUTURE_SLACK_MS;
+	const out: PlayerState['trails'] = {};
+	if (!raw || typeof raw !== 'object') return out;
+	for (const def of TRAILS) {
+		if (!Object.hasOwn(raw, def.id)) continue;
+		const p = raw[def.id];
+		const at = Math.floor(num(p?.at, 0, def.stops.length, 0));
+		const t = finiteIn(p?.t, 0, tMax) ? Math.floor(p.t) : 0;
+		if (at === 0 && !t) continue;
+		out[def.id] = { at, leg: p?.leg === true && at > 0 && at < def.stops.length, t };
+	}
+	return out;
 }
 
 /** 真实定位相关字段：坐标只留 3 位小数，时间为非负整数且不能在未来，动作名只留已知的 */

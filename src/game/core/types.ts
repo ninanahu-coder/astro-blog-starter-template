@@ -510,6 +510,7 @@ export interface PlayerState {
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领
 	met: Record<string, { name: string; avatar: string; n: number; last: number }>; // 常遇见的人：玩家 id 哈希前缀 -> 名字、头像、一起做事的次数、最近一次的现实日
 	pending: { eventId: string } | null;
+	trails: Record<string, { at: number; leg: boolean; t: number }>; // 主要路线（实地路线）进度：路线 id -> 到了几站、这一段沿途事件出没出、到上一站的服务端时间（毫秒，0 为还没出发）。不存坐标
 	fix: { lat: number; lon: number; at: number } | null; // 最近一次真实定位（坐标保留 3 位小数，约 100 米；at 为服务端时间）
 	venueCd: Partial<Record<VenueOp, number>>; // 每种真实地点动作最近一次的服务端时间（毫秒）
 	venueEvAt: number; // 最近一次真实地点事件的服务端时间（毫秒），0 为从未
