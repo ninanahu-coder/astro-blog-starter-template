@@ -190,6 +190,43 @@ export interface OwnedProperty {
 	lived?: boolean; // 自己搬进去住过：「搬了新家」每套房只给一次
 }
 
+/** 银行里的一笔贷款（个人贷款或车贷）。金额都是整数美元，利率是每周利率 */
+export interface BankLoan {
+	kind: 'personal' | 'car';
+	bal: number; // 剩余欠款
+	pay: number; // 每周固定还款（等额本息，审批时定下）
+	rate: number; // 每周利率
+	missed: number; // 连续欠款周数
+	vehicle?: string; // 车贷：抵押的那辆车；被收车后去掉
+	def?: true; // 已记违约（催收中）
+}
+
+/** 一笔先买后付：每期金额、还剩几期 */
+export interface BnplPlan {
+	item: string; // 买的东西（家具 id），只用来显示
+	amt: number;
+	left: number;
+	missed: number;
+	fees: number; // 这笔已收的逾期费合计（有上限）
+	owe: number; // 还没付的逾期费，随下一期一起扣
+	def?: true;
+}
+
+/** 银行账户、信用产品和信用记录。日期都是游戏日 */
+export interface BankState {
+	open: boolean; // 开了户（带借记卡）
+	card: { limit: number; bal: number; missed: number; def?: true } | null;
+	loans: BankLoan[]; // 每种最多一笔
+	bnpl: BnplPlan[];
+	hist: {
+		since: number; // 第一次有信用记录的游戏日，−1 表示没有记录
+		ok: number; // 按时还款的结算周数（有上限）
+		late: number[]; // 逾期记录的日期
+		def: number[]; // 违约记录的日期
+		enq: number[]; // 信用申请的日期
+	};
+}
+
 export interface FurnitureDef {
 	id: string;
 	slot: string;
@@ -496,6 +533,7 @@ export interface PlayerState {
 	job: Job | null;
 	home: Home | null;
 	properties: OwnedProperty[];
+	bank: BankState; // 银行、信用卡、贷款、先买后付和信用记录（banking.md）
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
 	moodlets: Moodlet[]; // 带时限的心情状态
 	wishes: string[]; // 今天还没完成的心愿 id

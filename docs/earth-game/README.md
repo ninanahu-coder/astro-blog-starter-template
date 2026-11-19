@@ -41,6 +41,9 @@ src/game/
   core/geo.ts         距离、地图投影、真实坐标 → 游戏地点
   core/formulas.ts    派生属性（体质、吸引力、状态系数……）与真实地点动作的公式
   core/venues.ts      真实地点：附近列表、定位检查、吃饭/训练/打卡上班等结算
+  core/credit.ts      银行规则：信用分、审批、每周结算、存档清洗（纯函数，设计见 banking.md）
+  core/bank.ts        银行动作：开户、信用卡、个人贷款、车贷、房贷审批、先买后付、还款
+  data/credit.ts      银行数值表（标「来源」的是现实规则，其余待平衡）
   core/board.ts       净资产排行榜：榜单记录与排名
   core/achievements.ts 成就：由存档现算的里程碑（不进存档、不发奖励）
   core/weather.ts     天气：由地点和游戏日确定（人人一样），风暴天取消海上的活动

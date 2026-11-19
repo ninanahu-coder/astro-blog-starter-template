@@ -14,6 +14,8 @@ import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../
 import { HOMES } from '../data/housing.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, saleProceeds, weeklyInterest, weeklyPrincipal } from './finance.ts';
+import { bankDebt, inDefault, settleBank } from './credit.ts';
+import { BANK } from '../data/credit.ts';
 import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } from '../data/furniture.ts';
 import { BREAKDOWN, CAR_KM_MAX, DEALER_HOURS, DEALER_TAG, GARAGE, SERVICE_KM, VEHICLES } from '../data/vehicles.ts';
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
@@ -1033,6 +1035,7 @@ function weeklyTick(state: PlayerState, region: Region) {
 				log(state, `付不起${place}${def.name}的房租，房东收回了房子${got ? `，家具折现 $${got}` : ''}。`);
 			}
 		}
+		const before = state.properties.map((p) => ({ id: p.id, loan: p.loan }));
 		settleProperties(state, region);
 		const v = getVehicle(state.vehicle);
 		if (v?.weekly) {
@@ -1044,6 +1047,7 @@ function weeklyTick(state: PlayerState, region: Region) {
 				log(state, `没钱续${v.name}的保险，无保险上路被记了一笔。`);
 			}
 		}
+		settleBankWeek(state, before);
 	}
 }
 
@@ -1494,13 +1498,13 @@ export function relaxAtHome(prev: PlayerState, region: Region): ActionResult {
 export const getProperty = (id: string): PropertyDef | undefined => PROPERTIES.find((p) => p.id === id);
 export const ownedProperty = (state: PlayerState, id: string): OwnedProperty | undefined => state.properties.find((p) => p.id === id);
 
-/** 净资产 = 现金 + 车辆残值 + 住处家具折现 + 各房产（按正常卖出到手价，已扣贷款） */
+/** 净资产 = 现金 + 车辆残值 + 住处家具折现 + 各房产（按正常卖出到手价，已扣贷款）− 欠银行的钱（信用卡、贷款、先买后付） */
 export function netWorth(state: PlayerState): number {
 	const estate = state.properties.reduce((sum, p) => {
 		const def = getProperty(p.id);
 		return sum + (def ? propertyEquity(def, p.loan) : 0);
 	}, 0);
-	return state.cash + resaleValue(state.vehicle) + furnitureValue(state) + estate;
+	return state.cash + resaleValue(state.vehicle) + furnitureValue(state) + estate - bankDebt(state.bank);
 }
 
 /** 每周结算里的房产部分。顺序：租金收入 → 维修 → 物业费与还款 → 断供处理 */
@@ -1547,6 +1551,25 @@ function settleProperties(state: PlayerState, region: Region) {
 		log(state, `连续欠款，${def.name}被强制卖出，还清贷款后到手 $${got}。`);
 	}
 	void region;
+}
+
+/** 每周结算里的银行部分（信用卡、贷款、先买后付、房贷的信用记录、催收），规则在 credit.ts */
+function settleBankWeek(state: PlayerState, before: { id: string; loan: number }[]) {
+	state.cash = settleBank(state.bank, state.cash, {
+		day: dayOf(state.clock),
+		log: (text) => log(state, text),
+		before,
+		after: state.properties.map((p) => ({ id: p.id, loan: p.loan, missed: p.missed })),
+		propName: (id) => getProperty(id)?.name ?? '房产',
+		repossess: (vehicle) => {
+			if (state.vehicle !== vehicle) return 0; // 车已经不在了（不该发生：有车贷时不能卖车换车）
+			const got = Math.round(resaleValue(vehicle) * BANK.repossessShare);
+			state.vehicle = 'none';
+			state.car = { km: 0, since: 0 };
+			return got;
+		},
+	});
+	if (inDefault(state.bank)) addMoodlet(state, 'debt-collection');
 }
 
 /** 从名下移除一套房；如果正住在里面则搬出（家具折现） */

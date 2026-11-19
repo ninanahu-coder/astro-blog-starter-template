@@ -427,8 +427,9 @@ function step(b: Bot) {
 			const exp = experiencesAt(s, WA).find((o) => o.first && !o.blocked);
 			if (exp && tryAct(b, { t: 'experience', id: exp.exp.id })) return;
 		}
-		// 买房：首付之外还留 $3,000 周转；买了就搬进去
+		// 买房：首付之外还留 $3,000 周转；买了就搬进去。按揭要先开银行账户（banking.md），开户不花钱不花时间
 		const house = propertiesAt(s, WA).find((o) => !o.owned && s.cash >= o.down + 3000);
+		if (house && !s.bank.open && s.properties.length === 0) tryAct(b, { t: 'bank', op: 'open' });
 		if (house && s.properties.length === 0 && tryAct(b, { t: 'property', op: 'buy', id: house.property.id, loan: s.cash < house.property.price + 3000 })) {
 			tryAct(b, { t: 'property', op: 'movein', id: house.property.id });
 			b.stats.homeDay = dayOf(b.s.clock) + 1;

@@ -27,6 +27,9 @@ import { CERTS } from '../../src/game/data/certs.ts';
 import { isOpen } from '../../src/game/core/time.ts';
 import { VENUE_OPS, VENUE_TYPES } from '../../src/game/data/venues.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { bankCapacity, homeLoanOffer } from '../../src/game/core/bank.ts';
+import { bnplBlocked, cardOffer, creditScore, personalOffer } from '../../src/game/core/credit.ts';
+import { DEBT_KINDS } from '../../src/game/data/credit.ts';
 
 const LOCS = new Set(WA.locations.map((l) => l.id));
 
@@ -68,6 +71,15 @@ function randomAction(s: PlayerState, r: () => number, now: number): GameAction 
 		if (op === 'buy') return { t: 'property', op, id, loan: r() < 0.6 };
 		if (op === 'repay') return { t: 'property', op, id, amount: Math.floor(r() * 50000) + 1 };
 		return { t: 'property', op, id };
+	}
+	if (roll < 0.805) {
+		// 银行：大部分合法格式，金额随机（含超过额度的）
+		const op = pick(['open', 'card', 'draw', 'loan', 'carloan', 'bnpl', 'repay'] as const);
+		if (op === 'open' || op === 'card') return { t: 'bank', op };
+		if (op === 'draw' || op === 'loan') return { t: 'bank', op, amount: Math.floor(r() * 8000) + 1 };
+		if (op === 'carloan') return { t: 'bank', op, id: pick(VEHICLES).id };
+		if (op === 'bnpl') return { t: 'bank', op, id: pick(FURNITURE).id, ack: true };
+		return { t: 'bank', op, kind: pick(DEBT_KINDS), amount: Math.floor(r() * 8000) + 1 };
 	}
 	if (roll < 0.81) return { t: 'course', id: pick(COURSES).id };
 	if (roll < 0.83) return r() < 0.5 ? { t: 'cert', id: pick(CERTS).id } : { t: 'vehicle', op: 'service' };
@@ -116,7 +128,19 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 	if (VEHICLES.find((v) => v.id === s.vehicle)?.sleep) c.push({ t: 'vehicle', op: 'sleep' });
 	for (const x of propertiesAt(s, WA)) {
 		if (!x.owned && !x.blockedCash) c.push({ t: 'property', op: 'buy', id: x.property.id, loan: false });
-		if (!x.owned && !x.blockedLoan) c.push({ t: 'property', op: 'buy', id: x.property.id, loan: true });
+		if (!x.owned && !x.blockedLoan && !('blocked' in homeLoanOffer(s, x.property.id))) c.push({ t: 'property', op: 'buy', id: x.property.id, loan: true }, { t: 'property', op: 'buy', id: x.property.id, loan: true });
+	}
+	// 银行：开户、办卡、取现、贷款、车贷、先买后付、还款
+	const day = Math.floor(s.clock / 1440);
+	if (!s.bank.open) c.push({ t: 'bank', op: 'open' });
+	else {
+		if (!('blocked' in cardOffer(s.bank, day, bankCapacity(s)))) c.push({ t: 'bank', op: 'card' }, { t: 'bank', op: 'card' });
+		if (s.bank.card && s.bank.card.limit - s.bank.card.bal > 20) c.push({ t: 'bank', op: 'draw', amount: Math.floor(r() * (s.bank.card.limit - s.bank.card.bal)) + 1 });
+		const amt = Math.floor(300 + r() * 2000);
+		if (!('blocked' in personalOffer(s.bank, day, bankCapacity(s), amt))) c.push({ t: 'bank', op: 'loan', amount: amt });
+		for (const x of dealer) c.push({ t: 'bank', op: 'carloan', id: x.vehicle.id });
+		if (s.home && !bnplBlocked(s.bank, day)) for (const x of furnitureAt(s)) if (!x.owned) c.push({ t: 'bank', op: 'bnpl', id: x.item.id, ack: true });
+		for (const kind of DEBT_KINDS) c.push({ t: 'bank', op: 'repay', kind, amount: Math.floor(r() * 3000) + 1 });
 	}
 	for (const o of s.properties) {
 		c.push({ t: 'property', op: 'rentout', id: o.id }, { t: 'property', op: 'movein', id: o.id });
@@ -157,6 +181,15 @@ function checkInvariants(s: PlayerState, where: string) {
 	inRange(s.rev, 0, CAPS.rev - 1, 'rev');
 	assert.ok(LOCS.has(s.loc), `${where}: 所在地 ${s.loc} 不存在`);
 	for (const p of s.properties) inRange(p.loan, 0, CAPS.cash, `properties.${p.id}.loan`);
+	// 银行：欠款非负、信用卡不超过额度太多（罚金、利息可以略超）、信用分在范围内、没开户就没有信用产品
+	const b = s.bank;
+	if (!b.open) assert.ok(!b.card && !b.loans.length && !b.bnpl.length, `${where}: 没开户却有信用产品`);
+	if (b.card) inRange(b.card.bal, 0, b.card.limit * 3, 'bank.card.bal');
+	for (const l of b.loans) inRange(l.bal, 1, 1e6, `bank.loans.${l.kind}.bal`);
+	assert.ok(b.loans.filter((l) => l.kind === 'car').length <= 1 && b.loans.filter((l) => l.kind === 'personal').length <= 1, `${where}: 同种贷款不止一笔`);
+	for (const p of b.bnpl) inRange(p.left, 1, 3, 'bank.bnpl.left');
+	const score = creditScore(b, Math.floor(s.clock / 1440));
+	if (score !== null) inRange(score, 0, 1000, 'creditScore');
 	inRange(s.car.km, 0, CAR_KM_MAX, 'car.km');
 	inRange(s.car.since, 0, s.car.km, 'car.since');
 	if (s.vehicle === 'none') assert.deepEqual(s.car, { km: 0, since: 0 }, `${where}: 没车却有里程`);
@@ -189,7 +222,8 @@ test('随机动作序列：不抛异常、不改入参、数值在范围内、�
 		const traits = run % 3 === 0 ? [] : [TRAITS[run % TRAITS.length].id, TRAITS[(run * 7 + 3) % TRAITS.length].id];
 		let s = createCharacter({ id: 'fuzz-' + run, name: '随机' + run, avatar: '🧑', origin, region: 'wa', spawn: WA.spawn, seed: 7 + run, traits: [...new Set(traits)] });
 		// 三分之一的角色开局很有钱，让买车、买房、贷款这些路径也能走到
-		if (run % 3 === 2) s = { ...s, cash: 300_000 };
+		// 其中一半换成「付得起首付、买不起全款、有正式工作和银行账户」：银行按收入审批按揭、车贷（banking.md）
+		if (run % 3 === 2) s = run % 2 ? { ...s, cash: 30_000, job: { career: 'barista', loc: WA.spawn, level: 2, shifts: 0, good: 0, lastDay: -1 }, bank: { ...s.bank, open: true } } : { ...s, cash: 300_000 };
 		s = sanitizeState(s, LOCS, { fallbackLoc: WA.spawn }) ?? s;
 		let now = 1_800_000_000_000 + run * 3_600_000;
 		for (let step = 0; step < STEPS; step++) {
@@ -222,7 +256,7 @@ test('随机动作序列：不抛异常、不改入参、数值在范围内、�
 	}
 	// 主要动作的成功路径都要真的走到过，不然这个测试只在测「失败路径」
 	const MUST = ['travel', 'activity', 'event', 'gps', 'buy', 'use', 'npc', 'job:apply', 'job:work', 'job:quit', 'home:rent', 'home:sleep', 'home:cook', 'home:relax',
-		'furniture:buy', 'furniture:sell', 'vehicle:buy', 'vehicle:sell', 'property:buy', 'property:rentout', 'property:movein', 'property:repay', 'property:sell', 'course', 'cert', 'vehicle:service', 'fish', 'experience', 'venue:meal', 'venue:work'];
+		'furniture:buy', 'furniture:sell', 'vehicle:buy', 'vehicle:sell', 'property:buy', 'property:rentout', 'property:movein', 'property:repay', 'property:sell', 'bank:open', 'bank:card', 'bank:draw', 'bank:repay', 'bank:bnpl', 'course', 'cert', 'vehicle:service', 'fish', 'experience', 'venue:meal', 'venue:work'];
 	const missing = MUST.filter((k) => !stats[k]?.ok);
 	assert.deepEqual(missing, [], `这些动作一次都没成功过：${missing.join('、')}；统计 ${JSON.stringify(stats)}`);
 	assert.ok(ok > 60 * 120 * 0.3, `成功的动作太少：${ok}`);
