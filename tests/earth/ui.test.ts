@@ -1303,12 +1303,19 @@ test('界面：没有存档时显示创建页，选完四步能创建角色并�
 		};
 		const tap = async (dataset: Record<string, string>) => { el('create').ls.click({ target: { dataset, disabled: false, closest: fakeClosest } }); await pause(5); };
 		assert.equal(el('c-start').disabled, true, '没选够特质不能开始');
+		assert.match(el('c-start').textContent, /再勾选 2 个性格特质/);
 		await tap({ origin: pickIn('c-origins', 'origin')[1] });
-		await tap({ avatar: pickIn('c-avatars', 'avatar')[2] });
+		// 入境卡（第 50 轮开场）：身份栏写出起始现金，照片栏放大显示选中的形象
+		assert.match(el('c-origins').innerHTML, /ac-opt on" data-origin="fifo"[\s\S]*?\$2500/);
+		const ava = pickIn('c-avatars', 'avatar')[2];
+		await tap({ avatar: ava });
+		assert.equal(el('c-photo').textContent, ava);
 		await tap({ trait: pickIn('c-traits', 'trait')[0] });
 		const second = pickIn('c-traits', 'trait').find((t) => !el('c-traits').innerHTML.includes(`trait on" data-trait="${t}"`));
 		await tap({ trait: second! });
 		assert.equal(el('c-start').disabled, false, '选够两个特质可以开始');
+		assert.equal(el('c-start').textContent, '盖章入境 · 开始生活');
+		assert.equal(el('c-trait-n').textContent, '已勾 2 项');
 		el('c-name').value = '新来的';
 		el('c-start').ls.click({});
 		await pause(80);
