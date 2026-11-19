@@ -1519,3 +1519,36 @@ test('界面：留言列表拉取失败（限流、同步码失效、断网）�
 	});
 	assert.ok(notes >= 1 && notes <= 3, `留言列表请求了 ${notes} 次`);
 });
+
+test('界面：跨州旅行和回国探亲（第 43 批）——珀斯机场列出航线、票价出处、行李和请假提示；点了以后离开几天再回来', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'trip-ui-a', '旅行甲');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.cash = 5000;
+	rec.state.loc = 'perth';
+	rec.state.job = { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 };
+	data.set('save:' + a.cred.id, rec);
+	const clock0 = rec.state.clock;
+	let list = '', saved: any = null;
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'go' });
+			list = el('panel').innerHTML;
+			await click({ trip: 'sydney', days: '3' });
+			for (let i = 0; i < 100 && (data.get('save:' + a.cred.id) as any).state.clock === clock0; i++) await pause(20);
+			saved = (data.get('save:' + a.cred.id) as any).state;
+		},
+	});
+	assert.match(list, /🧳 跨州旅行和回国探亲/);
+	assert.match(list, /data-trip="home-cn" data-days="14"/);
+	assert.match(list, /南航 CZ320 直飞广州/);
+	assert.match(list, /票价出处：Google Flights/);
+	assert.match(list, /飞行约 7 小时 50 分/);
+	assert.match(list, /请假太久，工作会丢/, '14 天超过请假上限');
+	assert.match(list, /工作保留/);
+	assert.match(list, /别忘了：.*护照/);
+	assert.match(list, /🚗 三天自驾游建议/);
+	assert.equal(saved.clock, clock0 + 3 * 1440);
+	assert.equal(saved.inventory['souvenir-syd'], 1);
+	assert.equal(saved.loc, 'perth');
+});

@@ -135,6 +135,10 @@ const EVENT_SCENE = {
 	// 南澳
 	'central-market': 'a bustling covered food market with cheese, bread and fruit stalls, shoppers seen from behind',
 	'glenelg-tram': 'a modern tram arriving at its seaside terminus beside a beach and a long jetty',
+	// 第 43 批：旅行回来的事件（插图暂借已有图，以下提示词待重新出图）
+	'trip-biosecurity': 'an international arrivals hall with baggage carousels, a beagle detector dog sitting beside an open suitcase of packaged food',
+	'trip-mailbox': 'a letterbox stuffed with envelopes and flyers at the front gate of a suburban house, a wheeled suitcase beside it',
+	'trip-jetlag-night': 'a dark bedroom at 3 am, a phone screen glowing on the pillow, an unpacked suitcase on the floor',
 	'hahndorf-bakery': 'a nineteenth-century German stone village street with a bakery displaying pretzels and sausages',
 	'barossa-vintage': 'the open door of an old stone wine cellar with oak barrels, gnarled old vines outside',
 	'mclaren-coast': 'vineyards rolling downhill to coastal cliffs and a sandy beach',

@@ -14,6 +14,7 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { takeTrip } from './trips.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -39,7 +40,8 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
-	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
+	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number }
+	| { t: 'trip'; dest: string; days: number }; // 离开地图的旅行（跨州、回国），见 core/trips.ts
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk'];
@@ -93,6 +95,8 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'cert':
 		case 'experience':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
+		case 'trip':
+			return str(a.dest) && Number.isInteger(a.days) && (a.days as number) >= 1 && (a.days as number) <= 60 ? { t: 'trip', dest: a.dest, days: a.days as number } : null;
 		case 'property':
 			if (!str(a.id)) return null;
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
@@ -131,6 +135,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'trip': r = takeTrip(state, region, a.dest, a.days); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;

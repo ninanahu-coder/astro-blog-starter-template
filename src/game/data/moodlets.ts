@@ -22,6 +22,8 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'warm-moment', name: '被人照顾了一下', icon: '☕', value: 4, hours: 12 },
 	{ id: 'promoted', name: '升职了', icon: '📈', value: 12, hours: 72 },
 	{ id: 'new-home', name: '乔迁之喜', icon: '🏡', value: 10, hours: 72 },
+	{ id: 'trip-glow', name: '旅行回来', icon: '🧳', value: 8, hours: 48 }, // 第 43 批：跨州旅行回来（待平衡）
+	{ id: 'family-time', name: '见到了家人', icon: '🏮', value: 12, hours: 96 }, // 第 43 批：回国探亲回来（待平衡）
 	// 负面
 	{ id: 'rough-night', name: '没睡好', icon: '🥱', value: -2, hours: 8 }, // 第七轮起露营改给 camp-calm；保留定义，旧存档里的状态照常显示到过期
 	{ id: 'camp-calm', name: '星空下醒来', icon: '🌌', value: 10, hours: 24 }, // 露营专属（第七轮平衡：替代「没睡好」，托住穷角色的心情）
@@ -31,6 +33,7 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'in-trouble', name: '惹上了麻烦', icon: '😬', value: -6, hours: 24 },
 	{ id: 'collapsed', name: '刚从医院出来', icon: '🏥', value: -12, hours: 48 },
 	{ id: 'evicted', name: '被赶出了家门', icon: '📦', value: -15, hours: 72 },
+	{ id: 'jetlag', name: '倒时差', icon: '🥴', value: -4, hours: 24 }, // 第 43 批：时差 ≥ 2 小时的旅行回来（待平衡）
 ];
 
 /** 存档里最多保留的状态数 */

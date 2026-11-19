@@ -20,4 +20,9 @@ export const ITEMS: ItemDef[] = [
 	{ id: 'electrolyte', name: '电解质冲剂', icon: '🥤', price: 4, max: 6, shop: { kinds: [...TOWNS, 'outback'] }, use: { needs: { energy: 12, hunger: 3 } }, desc: '热天出汗多，冲一包补回来。' },
 	{ id: 'rod', name: '鱼竿', icon: '🎣', price: 40, max: 1, shop: { kinds: ['port', 'coast', 'town'], tags: ['beach'] }, passive: { survival: 2 }, desc: '带着它就能在海边、码头和河边钓鱼；等鱼上钩练耐心，生存检定 +2（数值待平衡）。' },
 	{ id: 'surfboard', name: '冲浪板', icon: '🏄', price: 350, max: 1, shop: { tags: ['surf', 'beach'] }, passive: { swimming: 5, stamina: 3 }, desc: '游泳检定 +5、体能检定 +3。' },
+	// 纪念品（第 43 批）：跨州旅行、回国探亲带回来的，商店不卖（shop 为空）。price 只是二手交易的参考价，待平衡
+	{ id: 'souvenir-mel', name: '墨尔本咖啡豆', icon: '☕', price: 20, max: 3, shop: {}, use: { needs: { energy: 15, fun: 5 } }, desc: '墨尔本带回来的一袋咖啡豆。自己喝，或者送人。' },
+	{ id: 'souvenir-syd', name: '悉尼港明信片', icon: '🖼️', price: 5, max: 3, shop: {}, use: { needs: { fun: 10 } }, desc: '印着港湾大桥的明信片，翻出来看看心情好。' },
+	{ id: 'souvenir-bne', name: '昆士兰夏威夷果', icon: '🥜', price: 15, max: 3, shop: {}, use: { needs: { hunger: 15, fun: 5 } }, desc: '布里斯班带回来的一袋坚果。' },
+	{ id: 'souvenir-home', name: '家乡零食', icon: '🧧', price: 10, max: 4, shop: {}, use: { needs: { hunger: 20, fun: 10, social: 5 } }, desc: '妈妈塞进箱子的零食，吃一口就想家。' },
 ];

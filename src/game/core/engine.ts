@@ -84,6 +84,16 @@ function advance(state: PlayerState, minutes: number, region: Region, gains?: ()
 	return true;
 }
 
+/**
+ * 人不在地图上的时间流逝（跨州旅行、回国，见 core/trips.ts）：只走时钟和跨周结算（房租、车险、房产照常扣），
+ * 不扣需求、不会晕倒——离开期间吃住另算。原地修改
+ */
+export function passTime(state: PlayerState, minutes: number, region: Region) {
+	if (minutes <= 0) return;
+	state.clock = Math.min(CAPS.clock, state.clock + minutes);
+	weeklyTick(state, region);
+}
+
 /** 事件选项显示给玩家的文字：要先付钱的选项一律带金额（文案里已经写了就不重复） */
 export function choiceLabel(c: { label: string; cost?: number }): string {
 	return c.cost && !c.label.includes(`$${c.cost}`) ? `${c.label}（$${c.cost}）` : c.label;

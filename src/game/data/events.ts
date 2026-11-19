@@ -3,6 +3,7 @@
 import type { GameEvent } from '../core/types.ts';
 import { VENUE_EVENTS } from './venue-events.ts';
 import { SA_EVENTS } from './events-sa.ts';
+import { TRIP_EVENTS } from './trip-events.ts';
 
 export const EVENTS: GameEvent[] = [
 	{
@@ -409,4 +410,5 @@ export const EVENTS: GameEvent[] = [
 	},
 	...VENUE_EVENTS,
 	...SA_EVENTS,
+	...TRIP_EVENTS,
 ];

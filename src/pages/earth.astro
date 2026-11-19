@@ -709,6 +709,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { NEED_KEYS, SKILL_KEYS } from '../game/core/types.ts';
 			import type { NpcAction, PlayerState, Region, TravelMode, Venue } from '../game/core/types.ts';
 			import { AREAS as MAP_AREAS, areaOf, exitsOf, WORLD_BASE } from '../game/data/areas-base.ts';
+			import { awayPreview, fareSeasonsOn, packingList, packingReminders, planRoadTrip, tripOptions } from '../game/core/trips.ts';
 
 			// 首屏只带不含真实地点的区域；真实地点（<区域>.venues.json，几十到上百 KB）打开「附近」时再按所在区域下载（第 34 轮；南澳单独一个文件）
 			// 规则用整个世界（所有区域合在一起，第 41 轮）；地图、底图、轮廓按所在地点的区域画（curArea）
@@ -1989,7 +1990,48 @@ const cardLines = guilloche(400, 260, 14, 9);
 						<span class="body">${esc(to.name)} <span title="今天的天气">${weatherOn(o.to, dayOf(s.clock)).icon}</span><small>${cross}${fresh ? '没去过 · ' : ''}${o.label} · ${o.km} km${o.reason ? ' · ' + esc(o.reason) : ''}${tight ? ` · <span class="warn-text">去了周结算会不够（要付 $${wcGo.total}）</span>` : ''}</small></span>
 						<span class="meta"><b>$${o.cost}</b>${h ? h + ' 小时 ' : ''}${m} 分</span></button>`;
 				}).join('');
-				return `${note}<p class="section-title">从${esc(getLocation(region, s.loc)!.name)}出发</p><div class="list">${rows}</div><p class="muted">点地图上的地点可以高亮对应路线。虚线是航班，长虚线是越野土路（需四驱），橙色点是没去过的地方。</p>`;
+				return `${note}<p class="section-title">从${esc(getLocation(region, s.loc)!.name)}出发</p><div class="list">${rows}</div><p class="muted">点地图上的地点可以高亮对应路线。虚线是航班，长虚线是越野土路（需四驱），橙色点是没去过的地方。</p>${roadTripHtml(s)}${tripsHtml(s)}`;
+			}
+
+			/** 州内自驾游建议（第 43 批）：3 天、不出州，只是建议，点第一站开始 */
+			function roadTripHtml(s: PlayerState) {
+				const plan = planRoadTrip(s, region, 3);
+				if (!plan.stops.length) return '';
+				const names = plan.stops.map((st) => `${esc(getLocation(region, st.to)?.name ?? st.to)}${st.fresh ? '🆕' : ''}`).join(' → ');
+				const first = plan.stops[0].to;
+				return `<p class="section-title">🚗 三天自驾游建议</p><div class="card"><p>${esc(getLocation(region, s.loc)!.name)} → ${names}</p>
+					<p class="muted">共 ${plan.km} km，开车约 ${Math.round(plan.minutes / 60)} 小时，路费约 $${plan.cost}。每天最多开 6 小时，不出本州；住宿、吃饭另算。</p>
+					<button class="wide" data-loc="${esc(first)}">看第一站：${esc(getLocation(region, first)?.name ?? first)}</button></div>`;
+			}
+
+			/** 离开地图的旅行（第 43 批）：只在有这些航线的机场显示 */
+			function tripsHtml(s: PlayerState) {
+				const opts = tripOptions(s);
+				if (!opts.length) return '';
+				const seasons = fareSeasonsOn(s.clock).map((x) => esc(x.name)).join('、');
+				const cards = opts.map((o) => {
+					const pack = packingList(s, o.dest.kind).map((p) => `${p.packed ? '✅' : '⬜'}${esc(p.label)}${p.packed ? '' : `（当地补买 $${p.missCost}）`}`).join(' · ');
+					const remind = packingReminders(o.dest.kind).map(esc).join('；');
+					const fly = o.fare.flightMin ? `<span class="pill">飞行约 ${Math.floor(o.fare.flightMin / 60)} 小时 ${o.fare.flightMin % 60} 分</span>` : '';
+					const btns = o.dest.days.map((d) => {
+						const pv = awayPreview(s, d, o.price + o.packing);
+						const bits = [
+							pv.settlements ? `经过 ${pv.settlements} 次周结算，约 $${pv.weeklyDue}` : '期间没有周结算',
+							pv.loseJob ? '<span class="warn-text">请假太久，工作会丢</span>' : s.job ? '工作保留' : '',
+							pv.short ? '<span class="warn-text">现金可能不够周结算</span>' : '',
+						].filter(Boolean).join(' · ');
+						return `<button class="row" data-trip="${esc(o.dest.id)}" data-days="${d}" ${o.blocked ? 'disabled' : ''}>
+							<span class="body">离开 ${d} 天<small>${bits}${o.blocked ? ' · ' + esc(o.blocked) : ''}</small></span>
+							<span class="meta"><b>$${o.price + o.packing}</b></span></button>`;
+					}).join('');
+					return `<div class="card"><h3>${esc(o.dest.icon)} ${esc(o.dest.name)} <span class="muted">${esc(o.fare.carrier)}</span></h3>
+						<p>${esc(o.dest.blurb)}</p>
+						<div class="pills" style="margin-top:8px"><span class="pill">往返 $${o.price}</span>${fly}${o.fare.note === 'verify' ? '<span class="pill cost">票价待核对</span>' : ''}</div>
+						<p class="muted">行李：${pack}</p><p class="muted">别忘了：${remind}</p>
+						<div class="list">${btns}</div>
+						<p class="muted"><small>票价出处：${esc(o.fare.source)}</small></p></div>`;
+				}).join('');
+				return `<p class="section-title">🧳 跨州旅行和回国探亲</p><p class="muted">离开期间房租、车险照常扣；吃住另算，不掉需求。${seasons ? `现在是${seasons}，机票偏贵。` : ''}</p>${cards}`;
 			}
 
 			/** 出行页顶上的分页：路线（地图）和附近（真实地点）；附近原来是单独的底部标签 */
@@ -2520,7 +2562,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-trip]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2564,6 +2606,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				else if ('fish' in d) act({ t: 'fish' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.cert) act({ t: 'cert', id: d.cert }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.exp) act({ t: 'experience', id: d.exp }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.trip) act({ t: 'trip', dest: d.trip, days: Number(d.days) }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.job) {
 					if (d.job === 'quit' && !confirm('确定辞职？当前等级的进度会清零。')) return;
 					const a: GameAction = d.job === 'apply' ? { t: 'job', op: 'apply', career: d.career! } : { t: 'job', op: d.job as 'work' | 'quit' };
