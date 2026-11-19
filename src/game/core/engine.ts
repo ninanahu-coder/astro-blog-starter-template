@@ -26,6 +26,7 @@ import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, homeComfo
 import { CAPS, clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
+import { modeNeeds, transitOptions, WALK_STAMINA_PER_KM, withRouteFare } from './transport.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
 	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
@@ -198,6 +199,8 @@ export interface TravelOption {
 	cost: number;
 	available: boolean;
 	reason?: string;
+	/** 票价出处、免费等补充说明（第 32 批，公共交通和渡轮） */
+	note?: string;
 }
 
 export function travelOptions(state: PlayerState, region: Region): TravelOption[] {
@@ -209,8 +212,9 @@ export function travelOptions(state: PlayerState, region: Region): TravelOption[
 		if (!toId) continue;
 		const to = getLocation(region, toId);
 		if (!to) continue;
-		out.push(priceRoute(state, r, here, to));
+		out.push(withRouteFare(state, here.id, priceRoute(state, r, here, to)));
 	}
+	out.push(...transitOptions(state, region)); // 第 32 批：公交、区域火车、步行
 	return out.sort((x, y) => x.km - y.km);
 }
 
@@ -262,7 +266,8 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 		growSkill(state, 'driving', opt.km / 150);
 		if (mode === 'track') growSkill(state, 'survival', opt.km / 300);
 	}
-	const ride = selfDrive ? getVehicle(state.vehicle)?.ride : undefined;
+	if (mode === 'walk') growSkill(state, 'stamina', opt.km * WALK_STAMINA_PER_KM);
+	const ride = selfDrive ? getVehicle(state.vehicle)?.ride : modeNeeds(mode);
 	if (ride) for (const k of NEED_KEYS) if (ride[k]) state.needs[k] = clamp100(state.needs[k] + ride[k]! * opt.minutes);
 	if (advance(state, opt.minutes, region)) return collapsedResult(state); // collapse 已把人送去医院，没到达
 	if (selfDrive) state.car = { km: Math.min(CAR_KM_MAX, state.car.km + opt.km), since: Math.min(CAR_KM_MAX, state.car.since + opt.km) };

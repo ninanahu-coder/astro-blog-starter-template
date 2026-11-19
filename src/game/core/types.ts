@@ -11,7 +11,8 @@ export type Skills = Record<SkillKey, number>; // 0–100，用得越多涨得�
 
 /** 车型 id（见 data/vehicles.ts），'none' 表示没有车 */
 export type Vehicle = string;
-export type TravelMode = 'road' | 'track' | 'ferry' | 'air';
+/** road 自驾或长途巴士、track 越野土路、ferry 渡轮、air 航班；第 32 批加 transit 市内公交/火车/电车、rail 区域火车、walk 步行 */
+export type TravelMode = 'road' | 'track' | 'ferry' | 'air' | 'transit' | 'rail' | 'walk';
 
 export interface Effect {
 	cash?: number;

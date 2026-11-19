@@ -371,8 +371,11 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(panel(), /class="tile on" data-dmode="[a-z]+" data-dest="fremantle" aria-pressed="true"/);
 		assert.match(panel(), /路费后剩 \$\d+，1 天后周结算要付 \$160，会不够/);
 		assert.match(panel(), /data-go="fremantle" data-mode="[a-z]+">出发去弗里曼特尔/);
+		// 第 32 批：珀斯—弗里曼特尔多了 Transperth 火车，默认选最便宜的火车，长途巴士是另一个能点的方块（换走法在最后用卡尔古利测）
+		assert.match(panel(), /class="tile on" data-dmode="transit" data-dest="fremantle"/);
 		const alt = panel().match(/class="tile" data-dmode="([a-z]+)" data-dest="fremantle" aria-pressed="false" >/)?.[1];
-		assert.equal(alt, undefined, '这时钱只够走陆路（换走法在最后用卡尔古利测）');
+		assert.equal(alt, 'road');
+		assert.match(panel(), /Transperth 真实票价|今天周日，刷卡免费/, '公交方块写明票价出处');
 		await click({ loc: 'fremantle' });
 		await click({ tab: 'me' });
 		await click({ metab: 'overview' });

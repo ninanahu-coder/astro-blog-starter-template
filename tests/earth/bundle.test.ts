@@ -15,8 +15,9 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  * 首屏脚本（esbuild 压缩后、未 gzip）的上限：第 34 轮拆完约 327KB（Vite 实际构建约 259KB）；
  * 第 8 批（天象、场景界面）和第 9 批（南澳地点、小知识、事件、NPC）正常长到约 374KB，上限提到 400KB。
  * 真实地点约 87KB，打回首屏照样会超。
+ * v32 公交、火车、步行（线路表、3 个事件、更新日志）让首屏到了约 400.6KB，上限提到 420KB（和 v22 主要路线分支同一个数）。
  */
-export const FIRST_SCREEN_MAX = 400_000;
+export const FIRST_SCREEN_MAX = 420_000;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
