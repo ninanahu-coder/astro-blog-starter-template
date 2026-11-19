@@ -32,11 +32,15 @@ const PAIRS: [string, string][] = [
 	['--accent-ink', '--accent'], ['--accent', '--card'], ['--text2', '--card'], ['--text2', '--seg-bg'],
 	['--tint-blue-ink', '--tint-blue'], ['--tint-green-ink', '--tint-green'], ['--tint-amber-ink', '--tint-amber'],
 	['--tint-red-ink', '--tint-red'], ['--tint-cost-ink', '--tint-cost'], ['--low-ink', '--card'], ['--mid-ink', '--card'],
-	['--ink-dim', '--ink'], ['--text', '--warm-bg'], ['--text', '--tint-red'], ['--text', '--soft'], ['--text', '--sky-dawn'], ['--dim', '--sky-dawn'], ['--text', '--sky-dusk'], ['--dim', '--sky-dusk'], ['--text', '--sky-night'], ['--dim', '--sky-night'], ['--map-night-text', '--land-night'], ['--map-night-text', '--ocean-night'],
+	['--ink-dim', '--ink'], ['--text', '--warm-bg'], ['--text', '--tint-red'], ['--text', '--soft'], ['--map-night-text', '--land-night'], ['--map-night-text', '--ocean-night'],
 	// 「新」标记和底栏在线人数角标：橙底上的字（第 10 批审查问题 3）
 	['--warm-ink', '--warm'],
 	// 虚拟人生风格界面（Codex 界面审查建议）：地点名牌 / NPC 名牌、关系文字、对话气泡、高亮的第一个选项
 	['--bg', '--text'], ['--tint-green-ink', '--card'], ['--text', '--tint-blue'],
+	// 入境卡世界（v27）：顶栏是护照封皮（随时段换 --sky-* 的深浅），字是雾白、烫金；地点名牌、下一步卡、主按钮、toast
+	['--pass-ink', '--pass'], ['--mist', '--pass'], ['--gold', '--pass'], ['--gold-2', '--pass'],
+	['--pass-ink', '--sky-dawn'], ['--mist', '--sky-dawn'], ['--gold', '--sky-dawn'], ['--pass-ink', '--sky-dusk'], ['--mist', '--sky-dusk'], ['--gold', '--sky-dusk'],
+	['--pass-ink', '--sky-night'], ['--mist', '--sky-night'], ['--gold', '--sky-night'], ['--ink-dim', '--ink'], ['--primary-ink', '--primary'], ['--accent', '--card2'],
 ];
 // 不是文字的图形（关系条、需求条的填充和轨道）：WCAG 1.4.11 要求至少 3:1
 const GRAPHIC_PAIRS: [string, string][] = [['--ok', '--soft']];
