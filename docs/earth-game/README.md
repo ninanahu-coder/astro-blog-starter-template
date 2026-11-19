@@ -172,7 +172,21 @@ npm run earth:pois                # 校验并合并进 wa.pois.json
 
 校验内容：字段白名单、类别枚举、坐标必须落在所属地点的打卡半径内、id 规范。任何一条不合格整批不写入。
 
-## 7. CGI 素材（远程 ComfyUI）
+## 7. CGI 素材（GPT image 2 / 远程 ComfyUI）
+
+当前的 43 张图（35 个地点主视觉 + 8 张事件插图）由 GPT image 2 生成（2026-11-19）：
+
+```bash
+npm run earth:cgi:gpti -- --dry-run                  # 只看提示词
+npm run earth:cgi:gpti -- --only=perth,event:whale-shark --force
+```
+
+- 走 gpt-image-2-skill 的 Codex 账号通道（不需要 OPENAI_API_KEY），模型默认 `gpt-5.6-sol`（`GPTI_MODEL` 可改；默认的 gpt-5.4 在 ChatGPT 账号下报 model_not_found）。单张 20 秒到 2 分钟。
+- 1536×1024 原图放 `tools/earth/comfyui/.raw/`（不进仓库），网页用的压成 960 宽 WebP（每张约 100KB）。
+- 地点图按 `prompts.mjs` 的 `LOC_SCENE` 一句标志性风景来画；游戏标签（机场、医院、健身房……）不进提示词，试画时它们被照字面画进去，画面又挤又乱。
+- 画面是 AI 生成的示意图，不是实拍；不画可辨认的人。
+
+远程 ComfyUI 版（原有脚本，暂时没有可用的 SDXL 模型）：
 
 ```bash
 npm run earth:cgi -- --dry-run                       # 只看提示词（不需要 ComfyUI）
@@ -214,7 +228,7 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 - 真实定位打卡信任客户端上报的坐标，手机上伪造定位可以“瞬移”打卡。要防这一点需要另做位置可信度校验。
 - 所有存档在同一个 Durable Object 实例里，适合当前规模；玩家多了要按 id 分片。
 - 地图是手工简化的示意轮廓，不是测绘级数据。
-- ComfyUI 脚本已对照 API 协议用模拟服务验证过流程，尚未连真实出图机跑过；首次使用请先 `--only=perth` 试一张。
+- ComfyUI 脚本已对照 API 协议用模拟服务验证过流程，尚未连真实出图机跑过；首次使用请先 `--only=perth` 试一张。现有图片走的是 GPT image 2。
 - 南澳的事件、NPC、房产、地下屋数值照西澳同类写，**待平衡**；南澳还没有真实地点和打卡点。
 - 南澳夏令时用固定日期近似，起止日和现实每年差几天。
 - 野生动物和鱼的分布按常识写，还没让 OpenClaw 逐条核实。

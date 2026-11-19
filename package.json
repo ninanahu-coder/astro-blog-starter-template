@@ -41,6 +41,7 @@
 		"earth:venues": "node tools/earth/openclaw/import-venues.mjs",
 		"earth:fetch-venues": "node tools/earth/openclaw/fetch-venues.mjs",
 		"earth:cgi": "node tools/earth/comfyui/generate.mjs",
+		"earth:cgi:gpti": "node tools/earth/comfyui/generate-gpti.mjs",
 		"earth:sim": "node tools/earth/balance/sim.ts"
 	},
 	"type": "module"
