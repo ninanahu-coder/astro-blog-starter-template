@@ -28,6 +28,7 @@ import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { fixProblem, roundFix } from './fix.ts';
 import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
+import { holdingsValue } from './market.ts';
 import { bodyScaled, gainNeed, passTime } from './vitals.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
@@ -1491,13 +1492,13 @@ export function relaxAtHome(prev: PlayerState, region: Region): ActionResult {
 export const getProperty = (id: string): PropertyDef | undefined => PROPERTIES.find((p) => p.id === id);
 export const ownedProperty = (state: PlayerState, id: string): OwnedProperty | undefined => state.properties.find((p) => p.id === id);
 
-/** 净资产 = 现金 + 车辆残值 + 住处家具折现 + 各房产（按正常卖出到手价，已扣贷款） */
+/** 净资产 = 现金 + 车辆残值 + 住处家具折现 + 各房产（按正常卖出到手价，已扣贷款）+ 金融资产（按今天价格卖出的到手价） */
 export function netWorth(state: PlayerState): number {
 	const estate = state.properties.reduce((sum, p) => {
 		const def = getProperty(p.id);
 		return sum + (def ? propertyEquity(def, p.loan) : 0);
 	}, 0);
-	return state.cash + resaleValue(state.vehicle) + furnitureValue(state) + estate;
+	return state.cash + resaleValue(state.vehicle) + furnitureValue(state) + estate + holdingsValue(state);
 }
 
 /** 每周结算里的房产部分。顺序：租金收入 → 维修 → 物业费与还款 → 断供处理 */

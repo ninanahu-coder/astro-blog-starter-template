@@ -13,6 +13,8 @@ import { resolveCoop, type CoopMember, type CoopResult } from './coop.ts';
 import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
+import { buyAsset, sellAsset } from './invest.ts';
+import { marketView } from './market.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 
 export type GameAction =
@@ -39,6 +41,7 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
+	| { t: 'asset'; op: 'buy' | 'sell'; id: string; amount: number }
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
@@ -98,6 +101,8 @@ export function parseAction(raw: unknown): GameAction | null {
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
 			if (a.op === 'repay') return finite(a.amount) && a.amount > 0 && a.amount <= 1e9 ? { t: 'property', op: 'repay', id: a.id, amount: Math.floor(a.amount) } : null;
 			return a.op === 'sell' || a.op === 'movein' || a.op === 'rentout' ? { t: 'property', op: a.op, id: a.id } : null;
+		case 'asset':
+			return str(a.id) && (a.op === 'buy' || a.op === 'sell') && finite(a.amount) && a.amount > 0 && a.amount <= 1e9 ? { t: 'asset', op: a.op, id: a.id, amount: a.amount } : null;
 		default:
 			return null;
 	}
@@ -131,6 +136,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'asset': r = a.op === 'buy' ? buyAsset(state, region, a.id, a.amount) : sellAsset(state, region, a.id, a.amount); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
@@ -192,5 +198,6 @@ export function applyWeeklyClaim(state: PlayerState, week: number, count: number
 
 /** 发给客户端的存档：隐去随机数种子，客户端无法预知检定结果 */
 export function publicState(state: PlayerState): PlayerState {
-	return { ...state, seed: 0 };
+	// 两个种子都不能给客户端：知道种子就能推算以后的随机结果和行情。行情改由服务端算好放进 quotes（只到今天）
+	return { ...state, seed: 0, marketSeed: 0, quotes: marketView(state) };
 }
