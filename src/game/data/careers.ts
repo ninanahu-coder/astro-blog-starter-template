@@ -25,7 +25,7 @@ export const CAREERS: CareerDef[] = [
 		id: 'guide', name: '旅游公司', where: { kinds: ['park', 'island', 'coast'] }, start: [7, 10], minutes: 480, skill: 'survival',
 		shift: { needs: { energy: -30, social: 20, hygiene: -15 }, skills: { survival: 1.5, charisma: 1 } },
 		levels: [
-			{ title: '导游助理', pay: 150 },
+			{ title: '导游助理', pay: 160 }, // 第 25 批 150 → 160：按 8 小时折算 $18.75/小时，低于游戏最低时薪 $20（core/economy.ts），待平衡
 			{ title: '导游', pay: 225, req: { skills: { survival: 25, charisma: 25 } } },
 			{ title: '探险领队', pay: 330, req: { skills: { survival: 45, charisma: 40 }, respect: 40 } },
 		],
