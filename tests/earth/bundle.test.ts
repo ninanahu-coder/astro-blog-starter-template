@@ -38,10 +38,11 @@ async function split() {
 	}
 }
 
-test('首屏脚本不含真实地点、地图库、二维码库，体积在上限内', async () => {
+test('首屏脚本不含真实地点、地图库、二维码库、更新日志，体积在上限内', async () => {
 	const { entry, outputs } = await split();
 	const inputs = Object.keys(entry.inputs);
-	for (const heavy of ['wa.venues.json', 'sa.venues.json', 'node_modules/maplibre-gl', 'node_modules/qrcode-generator']) {
+	// 更新日志（第 41 批）：每批都变长，打开「我」页才加载
+	for (const heavy of ['wa.venues.json', 'sa.venues.json', 'node_modules/maplibre-gl', 'node_modules/qrcode-generator', 'src/game/data/changelog.ts']) {
 		assert.ok(!inputs.some((i) => i.includes(heavy)), `${heavy} 被打进了首屏`);
 		assert.ok(Object.values(outputs).some((o) => Object.keys(o.inputs).some((i) => i.includes(heavy))), `${heavy} 应该在单独的包里`);
 	}

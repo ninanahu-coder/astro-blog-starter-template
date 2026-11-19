@@ -149,3 +149,26 @@ test('离线外壳：以页面方式打开图标等文件不会把外壳换掉�
 	await Promise.all(waits);
 	assert.deepEqual(t.cached().filter((p) => p.startsWith('/_astro/')), ['/_astro/c2.css', '/_astro/c2.js']);
 });
+
+test('离线外壳：没有新部署时，按需下载的分块（真实地点、地图库、更新日志）不会每次打开都被清掉（第 41 批）', async () => {
+	const t = setup();
+	t.net.files.set('/earth/', page('d1.js', 'd1.css'));
+	for (const f of ['/_astro/d1.js', '/_astro/d1.css', '/_astro/lazy.js', '/earth/manifest.webmanifest', '/earth/icon-192.png', '/earth/icon.svg']) t.net.files.set(f, 'x');
+	await t.fire('install');
+	await t.fire('activate');
+	// 页面运行时动态加载一个分块：经过外壳时被缓存下来
+	assert.ok((await t.fire('fetch', { request: t.req('/_astro/lazy.js') })) instanceof Res);
+	assert.ok(t.cached().includes('/_astro/lazy.js'));
+	// 同一个版本再联网打开：分块还在，不用重新下载
+	await t.fire('fetch', { request: t.req('/earth/', { mode: 'navigate' }) });
+	assert.ok(t.cached().includes('/_astro/lazy.js'), '没有新部署，按需分块保留');
+	t.net.log.length = 0;
+	await t.fire('fetch', { request: t.req('/_astro/lazy.js') });
+	assert.ok(!t.net.log.includes('/_astro/lazy.js'), '直接用缓存');
+	// 新部署（页面引用的文件变了）：旧的按需分块照常清掉，缓存不会无限增长
+	t.net.files.set('/earth/', page('d2.js', 'd2.css'));
+	t.net.files.set('/_astro/d2.js', 'x');
+	t.net.files.set('/_astro/d2.css', 'x');
+	await t.fire('fetch', { request: t.req('/earth/', { mode: 'navigate' }) });
+	assert.deepEqual(t.cached().filter((p) => p.startsWith('/_astro/')), ['/_astro/d2.css', '/_astro/d2.js']);
+});
