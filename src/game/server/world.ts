@@ -19,9 +19,16 @@ import { boardEntry, rankBoard } from '../core/board.ts';
 import type { PlayerState, Region } from '../core/types.ts';
 import { FULL_AREAS, WORLD } from '../data/wa.ts';
 import { areaOf } from '../data/areas-base.ts';
+import { ipKey, RateLimiter, readBounded } from './ratelimit.ts';
 
 const SAVES_ROOM = '@SAVES';
 const MAX_CONNS = 200;
+// 安全加固（v40，见 docs/earth-game/security-review.md）
+const CONNS_PER_IP = 6; // 同一来源在一个区域频道里最多同时连几个：不然一个人开 200 个连接就能把整个区域占满
+const CHAT_WINDOW_MS = 10_000;
+const CHAT_PER_IP = 6; // 同一来源 10 秒内最多发 6 句（多开几个连接也算在一起）；原来只有每个连接 5 秒 20 条的总消息限流，聊天能刷到每秒 4 句
+const CREATE_WINDOW_MS = 60 * 60 * 1000;
+const CREATE_PER_IP = 20; // 同一来源每小时最多新建 20 个角色：挡批量注册刷每日奖励、送礼养大号、灌榜和撑大存储；手机运营商共用出口地址，不能卡太死
 const MSG_WINDOW_MS = 5000;
 const MSG_LIMIT = 20;
 const IDLE_TIMEOUT_MS = 70000; // 客户端每 20s ping
@@ -107,7 +114,11 @@ interface Presence {
 }
 
 const json = (data: unknown, status = 200) =>
-	new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+	new Response(JSON.stringify(data), {
+		status,
+		// 响应里有存档：不进任何缓存；不让浏览器按内容猜类型
+		headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
+	});
 
 async function sha256Hex(s: string): Promise<string> {
 	const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
@@ -126,7 +137,10 @@ export class EarthWorld {
 	private sockets = new Map<WebSocket, Presence>();
 	private lastSeen = new Map<WebSocket, number>();
 	private msgCount = new Map<WebSocket, { n: number; resetAt: number }>();
-	private saveRate = new Map<string, { n: number; resetAt: number }>();
+	private saveRate = new RateLimiter(SAVE_LIMIT, SAVE_WINDOW_MS);
+	private createRate = new RateLimiter(CREATE_PER_IP, CREATE_WINDOW_MS);
+	private chatRate = new RateLimiter(CHAT_PER_IP, CHAT_WINDOW_MS);
+	private sockIp = new Map<WebSocket, string>(); // 连接 -> 来源限流键（只在内存，不广播、不落盘）
 	private sweeper: ReturnType<typeof setInterval> | null = null;
 	private locks = new Map<string, Promise<unknown>>(); // 同一存档的请求排队执行，避免并发读改写
 	private board: [string, unknown][] | null = null; // 榜单记录的内存缓存；所有存档都写在这个实例里，写入时作废
@@ -158,6 +172,8 @@ export class EarthWorld {
 		const id = url.searchParams.get('id') || '';
 		if (!ID_RE.test(id)) return new Response('bad id', { status: 400 });
 		if (this.sockets.size >= MAX_CONNS) return new Response('region full', { status: 503 });
+		const ip = ipKey(request.headers.get('CF-Connecting-IP'));
+		if (this.connsFrom(ip) >= CONNS_PER_IP) return new Response('too many connections', { status: 429 });
 		const locs = new Set(region.locations.map((l) => l.id));
 		const loc = url.searchParams.get('loc') || '';
 		const me: Presence = {
@@ -172,6 +188,7 @@ export class EarthWorld {
 		const server = pair[1];
 		server.accept();
 		this.sockets.set(server, me);
+		this.sockIp.set(server, ip);
 		this.lastSeen.set(server, Date.now());
 		this.send(server, { t: 'hello', you: me.id, players: this.roster(), emotes: EMOTES });
 		this.broadcast({ t: 'join', p: me }, server);
@@ -185,6 +202,12 @@ export class EarthWorld {
 		server.addEventListener('close', drop);
 		server.addEventListener('error', drop);
 		return new Response(null, { status: 101, webSocket: pair[0] } as ResponseInit);
+	}
+
+	private connsFrom(ip: string): number {
+		let n = 0;
+		for (const v of this.sockIp.values()) if (v === ip) n++;
+		return n;
 	}
 
 	/** 同一玩家多设备在线时只列一次（取最新连接） */
@@ -204,6 +227,8 @@ export class EarthWorld {
 		else if (++rate.n > MSG_LIMIT) return;
 		const m = JSON.parse(raw);
 		if (!m || typeof m !== 'object') return;
+		// 聊天另有按来源的限流：超出的句子直接丢掉（不回错误，免得刷屏的人拿它当节拍器）
+		if (m.t === 'chat' && !this.chatRate.hit(this.sockIp.get(ws) ?? 'ws:' + me.id, now)) return;
 		switch (m.t) {
 			case 'ping':
 				this.send(ws, { t: 'pong' });
@@ -243,6 +268,7 @@ export class EarthWorld {
 		const me = this.sockets.get(ws);
 		if (!me) return;
 		this.sockets.delete(ws);
+		this.sockIp.delete(ws);
 		this.lastSeen.delete(ws);
 		this.msgCount.delete(ws);
 		try {
@@ -297,16 +323,13 @@ export class EarthWorld {
 	//   board  { id, key }                                             净资产排行榜（前 20 名和自己的名次），只读
 	private async handleSave(request: Request): Promise<Response> {
 		if (request.method !== 'POST') return json({ ok: false, msg: '请求无效' }, 405);
-		const ip = request.headers.get('CF-Connecting-IP') || 'local';
+		const ip = ipKey(request.headers.get('CF-Connecting-IP'));
 		const now = Date.now();
-		const rate = this.saveRate.get(ip);
-		if (!rate || now > rate.resetAt) {
-			if (this.saveRate.size > 5000) this.saveRate.clear();
-			this.saveRate.set(ip, { n: 1, resetAt: now + SAVE_WINDOW_MS });
-		} else if (++rate.n > SAVE_LIMIT) return json({ ok: false, msg: '操作太频繁' }, 429);
+		if (!this.saveRate.hit(ip, now)) return json({ ok: false, msg: '操作太频繁' }, 429);
 
-		const text = await request.text();
-		if (text.length > SAVE_BODY_MAX) return json({ ok: false, msg: '请求过大' }, 413);
+		// 边读边数：超过上限立刻停，不先把几十 MB 的请求体整个读进内存
+		const text = await readBounded(request, SAVE_BODY_MAX);
+		if (text === null) return json({ ok: false, msg: '请求过大' }, 413);
 		let body: any;
 		try {
 			body = JSON.parse(text);
@@ -317,6 +340,8 @@ export class EarthWorld {
 		if (typeof id !== 'string' || !ID_RE.test(id) || typeof key !== 'string' || !KEY_RE.test(key)) {
 			return json({ ok: false, msg: '同步码无效' }, 400);
 		}
+		// 新建角色另有按来源的限流（在格式检查之后：格式不对的请求不占名额）
+		if (body.action === 'create' && !this.createRate.hit(ip, now)) return json({ ok: false, msg: '这个网络新建角色太频繁了，过一会儿再试' }, 429);
 		// 同一存档串行处理：上一个请求结束后才开始下一个。共同事件开始时要改所有成员的存档，同时排在每个成员的队列后面
 		const ids = [id];
 		let starting: Lobby | undefined;
