@@ -1,6 +1,7 @@
 // 角色创建与存档校验。初始属性参考开放世界动作游戏的“能力条”思路：
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
 import { migrateSave } from './save.ts';
+import { cleanTally, newTally } from './tally.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type { Home, Job, OwnedProperty, Needs, PlayerState, Relation, Skills, Vehicle } from './types.ts';
 import { ITEMS } from '../data/items.ts';
@@ -163,6 +164,7 @@ export function createCharacter(opts: {
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
+		tally: newTally({ clock: START_CLOCK, visited: { [opts.spawn]: 1 }, relations: {}, met: {} }),
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		seed: opts.seed >>> 0,
 		rev: 0,
@@ -375,6 +377,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		// 只留还存在的事件：事件被删掉或改名后，界面弹不出来，但其他动作都会被「先处理眼前的事件」挡住
 		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
 		...cleanReal(r, opts.now),
+		tally: cleanTally(r.tally, tallyCtx(r, visited)),
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
 		// 版本号超出范围说明存档坏了：归零而不是钳到上限。钳到上限的话，下一次动作加一又超出，再读又被钳回去，客户端每次都版本冲突
@@ -416,6 +419,12 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 }
 
 export const JOURNAL_MAX = 40;
+
+/** 生涯统计清洗要的现状：时钟、到过几个地方、认识几个人（和清洗后的 relations、met 条数一致） */
+function tallyCtx(r: any, visited: Record<string, number>) {
+	const met = r.met && typeof r.met === 'object' ? Object.entries(r.met as Record<string, unknown>).slice(0, 60).filter(([k, v]) => /^[a-f0-9]{12}$/.test(k) && v && typeof v === 'object').length : 0;
+	return { clock: num(r.clock, 0, CAPS.clock, START_CLOCK), places: Object.keys(visited).length, people: Object.keys(cleanRelations(r.relations)).length + Math.min(30, met) };
+}
 
 const VENUE_ID = /^[a-z0-9][a-z0-9-]{2,63}$/;
 const finiteIn = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;

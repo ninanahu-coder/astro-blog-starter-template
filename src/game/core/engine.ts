@@ -25,6 +25,7 @@ import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
 import { CAPS, clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
+import { tallyCash } from './tally.ts';
 import { fixProblem, roundFix } from './fix.ts';
 import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
@@ -1015,6 +1016,7 @@ function vacate(state: PlayerState): number {
 function weeklyTick(state: PlayerState, region: Region) {
 	while (dayOf(state.clock) >= state.nextWeek) {
 		state.nextWeek += 7;
+		const c0 = state.cash; // 生涯统计：周结算的钱按住房、车辆分开记，不算到触发它的动作头上
 		if (state.home && !state.home.owned && !homeUsable(state)) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
@@ -1034,6 +1036,8 @@ function weeklyTick(state: PlayerState, region: Region) {
 			}
 		}
 		settleProperties(state, region);
+		tallyCash(state, 'housing', state.cash - c0);
+		const c1 = state.cash;
 		const v = getVehicle(state.vehicle);
 		if (v?.weekly) {
 			if (state.cash >= v.weekly) {
@@ -1044,6 +1048,7 @@ function weeklyTick(state: PlayerState, region: Region) {
 				log(state, `没钱续${v.name}的保险，无保险上路被记了一笔。`);
 			}
 		}
+		tallyCash(state, 'vehicle', state.cash - c1);
 	}
 }
 

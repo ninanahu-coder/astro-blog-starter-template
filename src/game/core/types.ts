@@ -461,6 +461,26 @@ export interface JournalEntry {
 	text: string;
 }
 
+/** 生涯统计的钱款类别（docs/earth-game/career-stats.md）：收入按来源、支出按去向各记一份 */
+export type TallyCat = 'work' | 'transport' | 'shop' | 'housing' | 'vehicle' | 'study' | 'fun' | 'social' | 'event' | 'daily' | 'reward' | 'other';
+/** 一个周期（周、年）开始时的累计数快照；周期结束时和当时的累计数相减得到小结 */
+export interface TallySnap { i: number; earned: number; out: Partial<Record<TallyCat, number>>; km: number; places: number; people: number }
+/** 一个已经结束的周期的小结：第 i 周（年）起 n 个周期里的增量；top 是花钱最多的去向 */
+export interface TallyCard { i: number; n: number; earned: number; spent: number; top: TallyCat | null; topAmt: number; km: number; places: number; people: number }
+/** 生涯统计：只累积计数，不存逐条明细 */
+export interface Tally {
+	from: number; // 从哪个游戏日开始统计（新角色 0；统计上线前的旧存档是迁移那天）
+	km: number; // 累计出行公里（整数）
+	in: Partial<Record<TallyCat, number>>; // 累计收入，按来源，整元
+	out: Partial<Record<TallyCat, number>>; // 累计支出，按去向，整元
+	ms: Record<string, number>; // 里程碑 id -> 达成的游戏日；−1 表示统计上线前就已达成
+	pre: boolean; // 旧存档刚迁移：下一次结算时把已经满足的里程碑记成 −1
+	wk: TallySnap; // 本周开始时的快照（来澳第 i 周，从 0 起）
+	yr: TallySnap; // 本年开始时的快照
+	lastWk: TallyCard | null; // 上一个结束的周
+	lastYr: TallyCard | null; // 上一个结束的年
+}
+
 export interface PlayerState {
 	v: 1;
 	id: string;
@@ -516,6 +536,7 @@ export interface PlayerState {
 	clockIn: { venue: string; at: number; career?: string } | null; // 真实打卡上班：哪个地点、几点打的卡；career 是按哪份职业打的卡，没有就是零工
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	workDay: number; // 最近一次算过班次的游戏日，−1 表示还没上过；跟人走，不随换工作重置
+	tally: Tally; // 生涯统计（「我 · 生涯」）：累计收支、公里、里程碑和周期小结，见 career-stats.md
 	journal: JournalEntry[];
 	seed: number;
 	rev: number; // 存档版本号，云同步用

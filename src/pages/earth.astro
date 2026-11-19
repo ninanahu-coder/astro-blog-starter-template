@@ -486,6 +486,40 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.seg button { flex: 1; min-height: 44px; border: 0; border-radius: 10px; background: transparent; font-size: 14px; color: var(--text2); padding: 0 4px; }
 			.seg button.on { background: var(--card); color: var(--text); font-weight: 700; box-shadow: 0 1px 2px var(--shadow); }
 			.seg .new-tag { margin-left: 3px; padding: 0 5px; border-radius: 8px; background: var(--warm); color: var(--warm-ink); font-size: 11px; font-weight: 700; line-height: 16px; display: inline-block; vertical-align: 1px; }
+			/* 「我 · 生涯」：入境卡的纸色、打孔虚线和缺口、中英栏位标签、圆珠笔蓝的数字（DESIGN.md）；纸色不随深色主题变 */
+			.card.cs { --stock: #f3f7f5; --stock-2: #e6eeeb; --ink-p: #18263f; --ink-p2: #4a586c; --rule: #9db8b0; --pen: #1d3fbf; --pen-bg: #e2e8fb; --stamp: #b3155c; background: var(--stock); color: var(--ink-p); box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18); font-variant-numeric: tabular-nums; }
+			.card.cs p, .card.cs .muted { color: var(--ink-p2); }
+			.cs-head h3 { font-family: var(--serif); font-weight: 900; letter-spacing: 0.08em; color: var(--ink-p); }
+			.cs-label { display: flex; align-items: baseline; font-size: 14px; font-weight: 800; color: var(--ink-p); }
+			.cs-label span, .cs-head h3 span { font-family: var(--serif); font-weight: 700; font-size: 10px; letter-spacing: 0.14em; margin-left: 6px; color: var(--ink-p2); }
+			.cs-label em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 600; color: var(--ink-p2); }
+			.cs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 12px; margin-top: 14px; padding-top: 14px; border-top: 1.5px dashed var(--rule); position: relative; }
+			.cs-cell b { display: block; margin-top: 4px; font-size: 24px; font-weight: 800; color: var(--pen); line-height: 1.15; overflow-wrap: anywhere; }
+			.cs-cell small { display: block; font-size: 12px; color: var(--ink-p2); }
+			.cs-field { position: relative; margin-top: 14px; padding-top: 14px; border-top: 1.5px dashed var(--rule); }
+			.cs-field::before, .cs-field::after, .cs-grid::before, .cs-grid::after { content: ''; position: absolute; top: -8px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg); }
+			.cs-field::before, .cs-grid::before { left: -23px; }
+			.cs-field::after, .cs-grid::after { right: -23px; }
+			.cs-list { list-style: none; margin: 8px 0 0; padding: 0; }
+			.cs-list li { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 4px 0; font-size: 14px; }
+			.cs-list b { color: var(--pen); }
+			.cs-bar { grid-column: 1 / -1; display: block; height: 6px; border-radius: 3px; background: var(--stock-2); overflow: hidden; }
+			.cs-bar i { display: block; height: 100%; background: var(--pen); }
+			.cs-time { list-style: none; margin: 8px 0 0; padding: 0 0 0 14px; border-left: 2px solid var(--rule); }
+			.cs-time li { position: relative; padding: 4px 0; font-size: 14px; }
+			.cs-time li::before { content: ''; position: absolute; left: -20px; top: 10px; width: 8px; height: 8px; border-radius: 50%; background: var(--stock); border: 2px solid var(--rule); }
+			.cs-time li.new::before { border-color: var(--stamp); background: var(--stamp); }
+			.cs-time li span { display: inline-block; min-width: 72px; margin-right: 6px; font-size: 12px; color: var(--ink-p2); }
+			.cs-kv { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin: 10px 0 0; font-size: 14px; }
+			.cs-kv dt { color: var(--ink-p2); }
+			.cs-kv dd { margin: 0; text-align: right; font-weight: 700; color: var(--pen); }
+			.cs-kv dd small { display: block; font-weight: 500; font-size: 12px; color: var(--ink-p2); }
+			.cs-empty { margin-top: 6px !important; }
+			.cs-actions { margin-top: 12px; }
+			.card.cs button { background: var(--stock-2); color: var(--ink-p); border: 1.5px solid var(--ink-p); }
+			.card.cs button.primary { background: var(--stamp); color: #fff; border-color: var(--stamp); }
+			.card.cs button:focus-visible { outline: 2px solid var(--pen); outline-offset: 2px; }
+			.cs-note { margin-top: 8px !important; font-size: 12px !important; }
 			.news ul { margin: 6px 0 0; padding-left: 1.2em; }
 			.news li { margin: 4px 0; line-height: 1.5; }
 			.guide-head { display: flex; justify-content: space-between; align-items: center; }
@@ -756,7 +790,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			];
 
 			// 「我」页的分栏
-			const ME_TABS: [string, string][] = [['overview', '概况'], ['assets', '资产'], ['people', '关系'], ['log', '日志'], ['news', '更新'], ['sync', '设置']];
+			const ME_TABS: [string, string][] = [['overview', '概况'], ['career', '生涯'], ['assets', '资产'], ['people', '关系'], ['log', '日志'], ['news', '更新'], ['sync', '设置']];
 			let meTab = 'overview';
 
 			type Peer = { id: string; name: string; avatar: string; loc: string };
@@ -2138,7 +2172,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				if (news && meTab === 'news') store.set(news.NEWS_SEEN_KEY, String(news.CHANGELOG_LATEST));
 				const fresh = news ? news.unseenNews(news.parseNewsSeen(store.get(news.NEWS_SEEN_KEY))) : 0;
 				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}${id === 'news' && fresh ? '<span class="new-tag">新</span>' : ''}</button>`).join('')}</div>`;
-				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : meTab === 'news' ? panelNews() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
+				const bodyHtml = meTab === 'career' ? panelCareer() : meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : meTab === 'news' ? panelNews() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
 				return head + seg + bodyHtml;
 			}
 
@@ -2378,6 +2412,35 @@ const cardLines = guilloche(400, 260, 14, 9);
 					.catch(() => { newsLoad = null; newsFailedAt = Date.now(); if (state && tab === 'me') renderPanel(); });
 				return newsLoad;
 			}
+			// 「我 · 生涯」（career-stats.md）：页面和分享卡按需加载，不进首屏；失败时 30 秒后再画这一页时重试
+			let career: typeof import('../game/ui/career.ts') | null = null;
+			let careerLoad: Promise<void> | null = null;
+			let careerFailedAt = -Infinity;
+			function panelCareer() {
+				if (!career && Date.now() - careerFailedAt >= 30000) careerLoad ??= import('../game/ui/career.ts')
+					.then((m) => { career = m; if (state && tab === 'me') renderPanel(); })
+					.catch(() => { careerLoad = null; careerFailedAt = Date.now(); if (state && tab === 'me') renderPanel(); });
+				if (!career) return `<div class="card"><p class="muted">${careerLoad ? '生涯档案加载中…' : '生涯档案没加载出来，联网后再打开这一页。'}</p></div>`;
+				return career.careerHtml(state!, (id) => getLocation(region, id)?.name ?? '已关闭的地点');
+			}
+			/** 分享卡：画成 PNG，能分享文件就调系统分享，不能就下载 */
+			async function shareCareer(kind: string) {
+				if (!career || !state || (kind !== 'week' && kind !== 'year' && kind !== 'lastyear')) return;
+				try {
+					const blob = await career.cardPng(career.cardSvg(state, kind));
+					const file = new File([blob], `earth-life-${kind}.png`, { type: 'image/png' });
+					const nav = navigator as Navigator & { canShare?: (d: { files: File[] }) => boolean; share?: (d: { files: File[]; title: string }) => Promise<void> };
+					if (nav.canShare?.({ files: [file] }) && nav.share) { await nav.share({ files: [file], title: '地球人生' }); return; }
+					const a = document.createElement('a');
+					a.href = URL.createObjectURL(blob);
+					a.download = file.name;
+					a.click();
+					setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
+					toast('分享图已保存');
+				} catch (e) {
+					if ((e as Error)?.name !== 'AbortError') toast('分享图没生成出来，换个浏览器试试');
+				}
+			}
 			/** 「我 · 更新」：游戏内更新日志，新的在前 */
 			function panelNews() {
 				if (!news) return `<div class="card news"><p class="muted">${newsLoad ? '更新日志加载中…' : '更新日志没加载出来，联网后再打开这一页。'}</p></div>`;
@@ -2520,7 +2583,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderEvent();
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-career]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2539,6 +2602,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				else if ('queueClear' in d) { queue = []; saveQueue(); toast('排队的动作已全部取消'); render(); }
 				else if ('recapClose' in d) { store.set(RECAP_KEY, d.recapClose ?? ''); renderPanel(); }
 				else if ('share' in d) shareProgress();
+				else if (d.career) void shareCareer(d.career);
 				else if (d.pref) {
 					const k = d.pref;
 					if (k === 'font' && FONT_OPTIONS.some(([v]) => v === d.val)) setPrefs({ font: d.val as Prefs['font'] });

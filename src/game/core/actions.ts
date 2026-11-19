@@ -1,11 +1,12 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
+	travelOptions, applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { refreshWishes, settleWishes } from './wishes.ts';
 import { settleStory } from './story.ts';
 import { rollDay } from './recap.ts';
+import { actionCats, finishTally } from './tally.ts';
 import { capState, nextRev } from './character.ts';
 import { pruneMoodlets } from './engine.ts';
 import type { ActionResult, CoopDef, NpcAction, PlayerState, Region, TravelMode, VenueOp } from './types.ts';
@@ -148,6 +149,8 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 	}
 	const out = capState({ ...r.state, rev: nextRev(state.rev) });
 	if (r.ok) rollDay(out); // 跨过午夜：把上一天的变化记成「昨天回顾」（晕倒住院也算）；在钳制数值之后记，记号不越过存档上限
+	// 生涯统计：收支按类别、出行公里、里程碑、周年小结（career-stats.md）。公里只算真的到了目的地的出行
+	if (r.ok) finishTally(state, out, actionCats(a), a.t === 'travel' && out.loc === a.to && state.loc !== a.to ? travelOptions(state, region).find((o) => o.to === a.to && o.mode === a.mode)?.km ?? 0 : 0);
 	return { ...r, msg, state: out };
 }
 
@@ -163,6 +166,7 @@ export function applyCoop(def: CoopDef, region: Region, members: CoopMember[]): 
 		pruneMoodlets(x.state);
 		const out = capState({ ...x.state, rev: nextRev(members[i].state.rev) });
 		rollDay(out);
+		finishTally(members[i].state, out, ['social', 'social']);
 		return { ...x, state: out };
 	});
 	return { ...r, results };
@@ -177,7 +181,9 @@ export function applyTrade(from: PlayerState, to: PlayerState, itemId: string, p
 	if (typeof r === 'string') return r;
 	const fin = (s: PlayerState, prev: PlayerState) => {
 		pruneMoodlets(s);
-		return capState({ ...s, rev: nextRev(prev.rev) });
+		const out = capState({ ...s, rev: nextRev(prev.rev) });
+		finishTally(prev, out, ['social', 'social']);
+		return out;
 	};
 	return { from: fin(r.from, from), to: fin(r.to, to) };
 }
@@ -187,7 +193,9 @@ export function applyWeeklyClaim(state: PlayerState, week: number, count: number
 	const r = claimWeekly(state, week, count);
 	if (!r.ok) return r;
 	pruneMoodlets(r.state);
-	return { ...r, state: capState({ ...r.state, rev: nextRev(state.rev) }) };
+	const out = capState({ ...r.state, rev: nextRev(state.rev) });
+	finishTally(state, out, ['reward', 'reward']);
+	return { ...r, state: out };
 }
 
 /** 发给客户端的存档：隐去随机数种子，客户端无法预知检定结果 */
