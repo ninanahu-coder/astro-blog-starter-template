@@ -161,6 +161,7 @@ export interface HomeDef {
 	where: Where;
 	desc: string;
 	vehicleSleep?: boolean; // 人睡在自己车里（房车营地）：要有能睡人的车才能租、才能回去睡
+	bondWeeks?: number; // 押金是几周房租；不写用 data/housing.ts 的 BOND_WEEKS
 }
 
 export interface Home {
@@ -168,6 +169,7 @@ export interface Home {
 	loc: string;
 	furniture: Record<string, string>; // 槽位 -> 家具 id
 	owned?: string; // 自有房产 id；有值表示住在自己的房子里，不交房租
+	bond?: number; // 租房押金（第 26 批），搬走时退；自有房没有
 }
 
 export interface PropertyDef {
