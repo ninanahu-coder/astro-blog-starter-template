@@ -202,6 +202,8 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 - 脚本逐张落盘并更新 `manifest.json`，中断可续跑；已存在的图默认跳过。
 - ComfyUI 本身没有鉴权，**不要把 8188 端口直接暴露到公网**：走 VPN / SSH 隧道，或放在带令牌的反向代理后面（`COMFYUI_TOKEN`）。
 
+AIGC 短片和 NPC 语音（第 1 轮试点，远程 H3 + MiniMax TTS）另见 [aigc-media.md](aigc-media.md)：独立清单 `public/earth/media/manifest.json`，不和 CGI 清单混。
+
 ## 8. 审查（Codex）
 
 审查规则写在仓库根的 [`AGENTS.md`](../../AGENTS.md)。在 Codex 里为本仓库开启 GitHub 代码审查后，PR 上评论 `@codex review` 即可触发。
