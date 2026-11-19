@@ -14,6 +14,9 @@ import { ACTIVITIES } from '../../src/game/data/activities.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
 import { FULL_AREAS, WA, WORLD } from '../../src/game/data/wa.ts';
 
+/** gps 动作要服务端时间（没有就当离线拒绝） */
+const GPS_NOW = 1_800_000_000_000;
+
 const fresh = (origin = 'backpacker', seed = 42) =>
 	createCharacter({ id: 'test-player', name: '测试', avatar: '🧑', origin, region: 'wa', spawn: WA.spawn, seed });
 
@@ -87,13 +90,13 @@ test('饿到晕倒会被送医而不是卡死', () => {
 test('GPS 打卡：真实到达 + POI 奖励，不可重复领取', () => {
 	assert.equal(locateInRegion(WA, -32.055, 115.7536)?.id, 'fremantle');
 	assert.equal(locateInRegion(WA, -25.0, 125.0), null);
-	const r = gpsCheckIn(fresh(), WA, -32.055, 115.7536);
+	const r = gpsCheckIn(fresh(), WA, -32.055, 115.7536, 10, GPS_NOW);
 	assert.ok(r.ok);
 	assert.equal(r.state.loc, 'fremantle');
 	assert.ok(r.state.checkins.includes('seed-freo-prison'));
-	const again = gpsCheckIn({ ...r.state, pending: null }, WA, -32.055, 115.7536);
+	const again = gpsCheckIn({ ...r.state, pending: null }, WA, -32.055, 115.7536, 10, GPS_NOW + 60_000);
 	assert.equal(again.ok, false);
-	assert.equal(gpsCheckIn(fresh(), WA, 0, 0).ok, false);
+	assert.equal(gpsCheckIn(fresh(), WA, 0, 0, 10, GPS_NOW).ok, false);
 });
 
 test('相同 seed 结果确定', () => {
@@ -266,12 +269,12 @@ test('一次性奖励的记录被垃圾 id 塞满时，真实的记录不会被�
 	assert.deepEqual(dirty.checkins, [], '不存在的打卡点不保留');
 	assert.deepEqual(dirty.seen, []);
 	// 打卡一次，过一遍存档校验（服务端每次读取都会做），再打一次
-	const first = applyAction({ ...base, checkins: junk }, WA, { t: 'gps', lat: poi.lat, lon: poi.lon });
+	const first = applyAction({ ...base, checkins: junk }, WA, { t: 'gps', lat: poi.lat, lon: poi.lon, acc: 10 }, GPS_NOW);
 	assert.ok(first.ok, first.msg);
 	assert.ok(first.state.respect > base.respect, '第一次有奖励');
 	const reloaded = sanitizeState(first.state, locs)!;
 	assert.ok(reloaded.checkins.includes(poi.id), '真实的打卡记录还在');
-	const second = applyAction(reloaded, WA, { t: 'gps', lat: poi.lat, lon: poi.lon });
+	const second = applyAction(reloaded, WA, { t: 'gps', lat: poi.lat, lon: poi.lon, acc: 10 }, GPS_NOW);
 	assert.equal(second.state.respect, reloaded.respect, '第二次没有奖励');
 	// 一次性事件同理；重复的 id 去重
 	const once = EVENTS.find((e) => e.once)!;

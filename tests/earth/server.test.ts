@@ -291,7 +291,7 @@ test('服务端：落盘的存档永远是规范形式（再校验一次不变�
 	const poi = WA.pois.find((x) => x.loc === 'perth')!;
 	const cur = w.data.get('save:' + ID);
 	w.data.set('save:' + ID, { ...cur, state: { ...cur.state, checkins: Array.from({ length: 2000 }, (_, i) => `junk-${i}`) } });
-	const gps = { t: 'gps', lat: poi.lat, lon: poi.lon };
+	const gps = { t: 'gps', lat: poi.lat, lon: poi.lon, acc: 10 };
 	const a = await w.call({ action: 'act', ...cred, rev: saved.rev, act: gps });
 	assert.ok(a.data.ok, a.data.msg);
 	const b = await w.call({ action: 'act', ...cred, rev: a.data.state.rev, act: gps });
@@ -429,7 +429,7 @@ test('服务端：旧存档没有天气相册字段时读取后补上；抵达�
 	assert.deepEqual(w.data.get('save:' + ID).state.photos, [], '修正后写回');
 	// 真实定位抵达弗里曼特尔：收一张照片并落盘
 	const fre = WA.locations.find((l) => l.id === 'fremantle')!;
-	const r = await w.call({ action: 'act', ...cred, rev: got.data.state.rev, act: { t: 'gps', lat: fre.lat, lon: fre.lon } });
+	const r = await w.call({ action: 'act', ...cred, rev: got.data.state.rev, act: { t: 'gps', lat: fre.lat, lon: fre.lon, acc: 10 } });
 	assert.ok(r.data.ok, r.data.msg);
 	assert.equal(r.data.state.photos.length, 1);
 	assert.match(r.data.state.photos[0], /^fremantle\|/);

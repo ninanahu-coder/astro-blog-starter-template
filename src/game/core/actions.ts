@@ -21,7 +21,7 @@ export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
 	| { t: 'activity'; id: string }
 	| { t: 'event'; choice: number }
-	| { t: 'gps'; lat: number; lon: number }
+	| { t: 'gps'; lat: number; lon: number; acc?: number } // acc：定位精度（米）；旧客户端不带，服务端会拒绝并提示刷新
 	| { t: 'buy'; item: string }
 	| { t: 'use'; item: string }
 	| { t: 'npc'; npc: string; act: NpcAction; item?: string }
@@ -63,7 +63,9 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'event':
 			return Number.isInteger(a.choice) && (a.choice as number) >= 0 && (a.choice as number) < 10 ? { t: 'event', choice: a.choice as number } : null;
 		case 'gps':
-			return finite(a.lat) && finite(a.lon) && Math.abs(a.lat) <= 90 && Math.abs(a.lon) <= 180 ? { t: 'gps', lat: a.lat, lon: a.lon } : null;
+			if (!finite(a.lat) || !finite(a.lon) || Math.abs(a.lat) > 90 || Math.abs(a.lon) > 180) return null;
+			if (a.acc === undefined) return { t: 'gps', lat: a.lat, lon: a.lon }; // 旧客户端：交给 gpsCheckIn 提示刷新
+			return finite(a.acc) && a.acc >= 0 && a.acc <= 1e6 ? { t: 'gps', lat: a.lat, lon: a.lon, acc: a.acc } : null;
 		case 'buy':
 		case 'use':
 			return str(a.item) ? { t: a.t, item: a.item } : null;
@@ -113,7 +115,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'travel': r = travel(state, region, a.to, a.mode); break;
 		case 'activity': r = performActivity(state, region, a.id); break;
 		case 'event': r = resolveEvent(state, region, a.choice); break;
-		case 'gps': r = gpsCheckIn(state, region, a.lat, a.lon); break;
+		case 'gps': r = gpsCheckIn(state, region, a.lat, a.lon, a.acc, now); break;
 		case 'buy': r = buyItem(state, region, a.item); break;
 		case 'use': r = useItem(state, region, a.item); break;
 		case 'npc': r = interactNpc(state, region, a.npc, a.act, a.item); break;
