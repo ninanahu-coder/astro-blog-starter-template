@@ -7,6 +7,8 @@ import {
 	type OpOutcome,
 } from './formulas.ts';
 import { haversineKm } from './geo.ts';
+import { fixProblem, roundFix } from './fix.ts';
+export { fixProblem } from './fix.ts';
 import { dayOf } from './time.ts';
 import { FIX_RULES, VENUE_OPS, VENUE_TYPES, type VenueOpDef } from '../data/venues.ts';
 import type { ActionResult, PlayerState, Region, SkillKey, Venue, VenueOp, VenueTypeDef } from './types.ts';
@@ -79,22 +81,6 @@ function cooldownLeft(state: PlayerState, op: VenueOpDef, now: number): string |
 	if (last === undefined || !op.cooldownMin) return undefined;
 	const left = Math.ceil((last + op.cooldownMin * 60_000 - now) / 60_000);
 	return left > 0 ? `${left} 分钟后可以再${op.name}` : undefined;
-}
-
-/** 定位本身是否可信：精度够不够、和上一次定位比有没有“瞬移” */
-export function fixProblem(state: PlayerState, lat: number, lon: number, acc: number, now: number): string | undefined {
-	if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return '定位无效。';
-	if (!Number.isFinite(acc) || acc < 0 || acc > FIX_RULES.maxAccuracyM) return `定位精度不够（误差 ${Math.round(acc)} 米），到开阔处再试。`;
-	const f = state.fix;
-	if (f) {
-		const km = haversineKm(f.lat, f.lon, lat, lon);
-		const hours = Math.max(now - f.at, 60_000) / 3_600_000;
-		if (km > FIX_RULES.speedFreeKm && km / hours > FIX_RULES.maxSpeedKmh) {
-			const wait = Math.ceil(((km / FIX_RULES.maxSpeedKmh) * 3_600_000 - (now - f.at)) / 60_000);
-			return `定位跳得太快（${Math.round(km)} 公里），${wait} 分钟后再试。`;
-		}
-	}
-	return undefined;
 }
 
 export interface NearbyOp {
@@ -209,7 +195,7 @@ export function venueAction(prev: PlayerState, region: Region, req: VenueRequest
 	if (prev.loc !== venue.loc) return fail(prev, `先用真实定位抵达${getLocation(region, venue.loc)?.name ?? venue.loc}。`);
 
 	const r = req.op === 'work' ? work(prev, region, venue, type, now) : simpleOp(prev, region, venue, type, op, now);
-	if (r.ok) r.state.fix = { lat: Math.round(req.lat * 1000) / 1000, lon: Math.round(req.lon * 1000) / 1000, at: now };
+	if (r.ok) r.state.fix = roundFix(req.lat, req.lon, now);
 	return r;
 }
 

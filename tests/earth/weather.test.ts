@@ -10,6 +10,9 @@ import { weatherAt, weatherOn } from '../../src/game/core/weather.ts';
 import { WEATHERS, WEATHER_WEIGHTS } from '../../src/game/data/weather.ts';
 import { WA } from '../../src/game/data/wa.ts';
 
+/** gps 动作要服务端时间（没有就当离线拒绝） */
+const GPS_NOW = 1_800_000_000_000;
+
 test('天气数据：每季权重合计 100，只引用存在的天气', () => {
 	for (const s of SEASONS) {
 		const t = WEATHER_WEIGHTS[s.id];
@@ -74,7 +77,7 @@ test('天气相册：抵达时按当天天气收一张，同一张不重复；�
 	const s = createCharacter({ id: 'photo-album', name: '相册', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed: 5 });
 	assert.deepEqual(s.photos, []);
 	const fre = WA.locations.find((l) => l.id === 'fremantle')!;
-	const a = applyAction(s, WA, { t: 'gps', lat: fre.lat, lon: fre.lon });
+	const a = applyAction(s, WA, { t: 'gps', lat: fre.lat, lon: fre.lon, acc: 10 }, GPS_NOW);
 	assert.ok(a.ok, a.msg);
 	const shot = `fremantle|${weatherOn('fremantle', Math.floor(a.state.clock / 1440)).id}`;
 	assert.deepEqual(a.state.photos, [shot]);
@@ -83,10 +86,10 @@ test('天气相册：抵达时按当天天气收一张，同一张不重复；�
 	let st = a.state;
 	while (st.pending) st = applyAction(st, WA, { t: 'event', choice: 0 }).state;
 	const per = WA.locations.find((l) => l.id === 'perth')!;
-	st = applyAction(st, WA, { t: 'gps', lat: per.lat, lon: per.lon }).state;
+	st = applyAction(st, WA, { t: 'gps', lat: per.lat, lon: per.lon, acc: 10 }, GPS_NOW + 3_600_000).state; // 隔一小时，不算瞬移
 	while (st.pending) st = applyAction(st, WA, { t: 'event', choice: 0 }).state;
 	if (Math.floor(st.clock / 1440) === Math.floor(a.state.clock / 1440)) {
-		const b = applyAction(st, WA, { t: 'gps', lat: fre.lat, lon: fre.lon });
+		const b = applyAction(st, WA, { t: 'gps', lat: fre.lat, lon: fre.lon, acc: 10 }, GPS_NOW + 7_200_000);
 		assert.equal(b.state.photos.filter((p) => p === shot).length, 1);
 	}
 	// 清洗：未知地点、未知天气、重复、非字符串都丢掉；旧存档没有这个字段时为空
@@ -120,8 +123,8 @@ test('心愿「想拍一张没拍过的照片」：抵达时收到新照片才�
 	assert.ok(w, '有这条心愿');
 	const s = createCharacter({ id: 'photo-wisher', name: '拍照', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed: 2 });
 	const fre = WA.locations.find((l) => l.id === 'fremantle')!;
-	const a = { t: 'gps', lat: fre.lat, lon: fre.lon } as const;
-	const r = applyAction(s, WA, a);
+	const a = { t: 'gps', lat: fre.lat, lon: fre.lon, acc: 10 } as const;
+	const r = applyAction(s, WA, a, GPS_NOW);
 	assert.ok(r.ok);
 	assert.equal(wishMatches(w, a, s, r.state), true, '收到新照片算完成');
 	assert.equal(wishMatches(w, a, r.state, r.state), false, '没收到新照片不算');
@@ -187,7 +190,7 @@ test('天气事件：只在抵达地点当天下雨时出现', async () => {
 		const wet = weatherOn('fremantle', d).id === 'rain';
 		for (let seed = 0; seed < 6; seed++) {
 			const s = { ...base, seed: seed * 7919 + d, clock: d * 1440 + 9 * 60, visited: { ...base.visited, fremantle: 1 } };
-			const r = applyAction(s, WA, { t: 'gps', lat: fre.lat, lon: fre.lon });
+			const r = applyAction(s, WA, { t: 'gps', lat: fre.lat, lon: fre.lon, acc: 10 }, GPS_NOW);
 			const id = r.state.pending?.eventId;
 			if (id && rainOnly.some((e) => e.id === id)) { if (wet) wetHits++; else dryHits++; }
 		}
