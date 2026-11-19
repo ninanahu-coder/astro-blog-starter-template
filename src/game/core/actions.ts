@@ -1,7 +1,7 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
+	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, sellItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { refreshWishes, settleWishes } from './wishes.ts';
 import { settleStory } from './story.ts';
@@ -22,6 +22,7 @@ export type GameAction =
 	| { t: 'gps'; lat: number; lon: number }
 	| { t: 'buy'; item: string }
 	| { t: 'use'; item: string }
+	| { t: 'sell'; item: string }
 	| { t: 'npc'; npc: string; act: NpcAction; item?: string }
 	| { t: 'job'; op: 'apply'; career: string }
 	| { t: 'job'; op: 'work' | 'quit' }
@@ -63,6 +64,7 @@ export function parseAction(raw: unknown): GameAction | null {
 			return finite(a.lat) && finite(a.lon) && Math.abs(a.lat) <= 90 && Math.abs(a.lon) <= 180 ? { t: 'gps', lat: a.lat, lon: a.lon } : null;
 		case 'buy':
 		case 'use':
+		case 'sell':
 			return str(a.item) ? { t: a.t, item: a.item } : null;
 		case 'npc':
 			if (!str(a.npc) || !NPC_ACTS.includes(a.act as NpcAction)) return null;
@@ -111,6 +113,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'gps': r = gpsCheckIn(state, region, a.lat, a.lon); break;
 		case 'buy': r = buyItem(state, region, a.item); break;
 		case 'use': r = useItem(state, region, a.item); break;
+		case 'sell': r = sellItem(state, region, a.item); break;
 		case 'npc': r = interactNpc(state, region, a.npc, a.act, a.item); break;
 		case 'job': r = a.op === 'apply' ? applyJob(state, region, a.career) : a.op === 'work' ? workShift(state, region) : quitJob(state); break;
 		case 'home': r = a.op === 'rent' ? rentHome(state, region, a.home) : a.op === 'sleep' ? sleepHome(state, region) : a.op === 'cook' ? cookAtHome(state, region) : a.op === 'relax' ? relaxAtHome(state, region) : leaveHome(state); break;

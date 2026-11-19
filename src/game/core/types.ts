@@ -275,6 +275,29 @@ export interface ItemDef {
 	use?: Effect; // 可消耗：使用后数量 −1
 	passive?: Partial<Skills>; // 随身装备：持有即获得检定加值
 	weather?: string[]; // 写了的话，随身装备只在这些天气生效（天气 id，见 data/weather.ts）
+	/** 分类（第 34 批）；不写时按 use → 消耗品、passive → 装备推断，见 core/shop.ts 的 itemCat() */
+	cat?: ItemCat;
+	/** 现实里哪类店卖它（第 34 批，见 data/shops.ts 的 STORE_TYPES）；只用于标注和真实店铺对应，不决定游戏里在哪能买（那是 shop） */
+	stores?: StoreType[];
+	/** 易腐（第 34 批）：超市晚上贴打折贴，见 data/shops.ts 的 SHOP_RULES.markdown */
+	perish?: boolean;
+	desc: string;
+}
+
+/** 物品分类：消耗品、装备、礼物、收藏。家具不是背包物品，单独在 data/furniture.ts */
+export type ItemCat = 'consumable' | 'gear' | 'gift' | 'collectible';
+
+/** 现实里的店铺类别（第 34 批） */
+export type StoreType = 'convenience' | 'supermarket' | 'asian-grocer' | 'pharmacy' | 'hardware' | 'outdoor' | 'surf' | 'tackle' | 'florist' | 'cafe';
+
+export interface StoreTypeDef {
+	id: StoreType;
+	name: string;
+	icon: string;
+	/** OpenStreetMap 标签（采集用；写「待核」的要 OpenClaw 先查 OSM wiki 再采） */
+	osm: string;
+	/** 已经采集进 wa/sa.venues.json 的真实地点类型 id；还没采集的不写 */
+	venue?: string;
 	desc: string;
 }
 

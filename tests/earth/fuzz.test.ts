@@ -14,6 +14,8 @@ import { EXPERIENCES } from '../../src/game/data/experiences.ts';
 import { FURNITURE, FURNITURE_SLOTS } from '../../src/game/data/furniture.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
 import { ITEMS } from '../../src/game/data/items.ts';
+import { sellItemBlocked } from '../../src/game/core/shop.ts';
+import { getLocation } from '../../src/game/core/engine.ts';
 import { NPCS } from '../../src/game/data/npcs.ts';
 import { PROPERTIES } from '../../src/game/data/properties.ts';
 import { TRAITS } from '../../src/game/data/traits.ts';
@@ -57,7 +59,7 @@ function randomAction(s: PlayerState, r: () => number, now: number): GameAction 
 		return act === 'gift' && r() < 0.6 ? { t: 'npc', npc: pick(NPCS).id, act, item: pick(ITEMS).id } : { t: 'npc', npc: pick(NPCS).id, act };
 	}
 	if (roll < 0.55) return { t: 'buy', item: pick(ITEMS).id };
-	if (roll < 0.58) return { t: 'use', item: pick(ITEMS).id };
+	if (roll < 0.58) return r() < 0.7 ? { t: 'use', item: pick(ITEMS).id } : { t: 'sell', item: pick(ITEMS).id };
 	if (roll < 0.63) return r() < 0.5 ? { t: 'job', op: 'apply', career: pick(CAREERS).id } : { t: 'job', op: pick(['work', 'work', 'quit'] as const) };
 	if (roll < 0.69) return r() < 0.3 ? { t: 'home', op: 'rent', home: pick(HOMES).id } : { t: 'home', op: pick(['sleep', 'sleep', 'cook', 'relax', 'leave'] as const) };
 	if (roll < 0.72) return r() < 0.7 ? { t: 'furniture', op: 'buy', id: pick(FURNITURE).id } : { t: 'furniture', op: 'sell', slot: pick(Object.keys(FURNITURE_SLOTS)) };
@@ -96,6 +98,7 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 	for (const n of npcsAt(s, WA)) for (const act of ['chat', 'help', 'gift', 'perk'] as const) if (act in n.blocked && !n.blocked[act]) c.push({ t: 'npc', npc: n.npc.id, act });
 	for (const x of shopAt(s, WA)) if (!x.blocked) c.push({ t: 'buy', item: x.item.id });
 	for (const id of Object.keys(s.inventory)) if (s.inventory[id] > 0 && ITEMS.find((i) => i.id === id)?.use) c.push({ t: 'use', item: id });
+	for (const id of Object.keys(s.inventory)) if (!sellItemBlocked(s, getLocation(WA, s.loc), ITEMS.find((i) => i.id === id))) c.push({ t: 'sell', item: id });
 	for (const x of careersAt(s, WA)) if (!x.blocked) c.push({ t: 'job', op: 'apply', career: x.career.id });
 	if (s.job && !shiftBlocked(s)) c.push({ t: 'job', op: 'work' }, { t: 'job', op: 'work' }, { t: 'job', op: 'work' });
 	if (s.job && s.loc !== s.job.loc) for (const o of travelOptions(s, WA)) if (o.available && o.to === s.job.loc) c.push({ t: 'travel', to: o.to, mode: o.mode });
@@ -125,7 +128,8 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 	}
 	for (const x of coursesAt(s, WA)) if (!x.blocked) c.push({ t: 'course', id: x.course.id });
 	for (const x of certsAt(s, WA)) if (!x.blocked) c.push({ t: 'cert', id: x.cert.id });
-	if (garageAt(s, WA) && !garageAt(s, WA)!.blocked) c.push({ t: 'vehicle', op: 'service' });
+	// 有车又在修车厂的时候很少（随机动作常把车卖掉），多放几次；物品表一变随机序列就变，只放一次时覆盖率靠运气
+	if (garageAt(s, WA) && !garageAt(s, WA)!.blocked) c.push({ t: 'vehicle', op: 'service' }, { t: 'vehicle', op: 'service' }, { t: 'vehicle', op: 'service' });
 	if (photoQuestNow(s, WA) && !photoQuestNow(s, WA)!.blocked) c.push({ t: 'photo' });
 	if (s.needs.fun < 50 && fishingAt(s, WA) && !fishingAt(s, WA)!.blocked) c.push({ t: 'fish' });
 	for (const x of experiencesAt(s, WA)) if (!x.blocked) c.push({ t: 'experience', id: x.exp.id });
@@ -221,7 +225,7 @@ test('随机动作序列：不抛异常、不改入参、数值在范围内、�
 		}
 	}
 	// 主要动作的成功路径都要真的走到过，不然这个测试只在测「失败路径」
-	const MUST = ['travel', 'activity', 'event', 'gps', 'buy', 'use', 'npc', 'job:apply', 'job:work', 'job:quit', 'home:rent', 'home:sleep', 'home:cook', 'home:relax',
+	const MUST = ['travel', 'activity', 'event', 'gps', 'buy', 'use', 'sell', 'npc', 'job:apply', 'job:work', 'job:quit', 'home:rent', 'home:sleep', 'home:cook', 'home:relax',
 		'furniture:buy', 'furniture:sell', 'vehicle:buy', 'vehicle:sell', 'property:buy', 'property:rentout', 'property:movein', 'property:repay', 'property:sell', 'course', 'cert', 'vehicle:service', 'fish', 'experience', 'venue:meal', 'venue:work'];
 	const missing = MUST.filter((k) => !stats[k]?.ok);
 	assert.deepEqual(missing, [], `这些动作一次都没成功过：${missing.join('、')}；统计 ${JSON.stringify(stats)}`);
