@@ -1,7 +1,9 @@
 // 角色创建与存档校验。初始属性参考开放世界动作游戏的“能力条”思路：
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
-import type { Home, Job, OwnedProperty, Needs, PlayerState, Relation, Skills, Vehicle } from './types.ts';
+import type { Home, Job, OwnedProperty, Needs, Pet, PlayerState, Relation, Skills, Vehicle } from './types.ts';
+import { getPetKind, PET } from '../data/pets.ts';
+import { dayOf } from './time.ts';
 import { ITEMS } from '../data/items.ts';
 import { MAX_TRAITS } from '../data/traits.ts';
 import { NPCS } from '../data/npcs.ts';
@@ -136,6 +138,7 @@ export function createCharacter(opts: {
 		trades: { day: 0, out: 0, in: 0 },
 		met: {},
 		weekly: { week: 0, n: 0, claimed: false },
+		pet: null,
 		pending: null,
 		fix: null,
 		venueCd: {},
@@ -352,6 +355,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			}
 			return out;
 		})(),
+		pet: cleanPet(r.pet, num(r.clock, 0, CAPS.clock, START_CLOCK), knownLocs),
 		// 只留还存在的事件：事件被删掉或改名后，界面弹不出来，但其他动作都会被「先处理眼前的事件」挡住
 		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
 		...cleanReal(r, opts.now),
@@ -526,4 +530,31 @@ export function formatClock(clock: number): string {
 	const day = Math.floor(clock / 1440) + 1;
 	const m = Math.floor(clock % 1440);
 	return `第${day}天 ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
+/** 存档校验：未知种类丢掉；名字过滤；日期为整数且不晚于今天；寄养地点必须存在、天数不超过上限 */
+export function cleanPet(raw: unknown, clock: number, knownLocs?: Set<string>): Pet | null {
+	if (!raw || typeof raw !== 'object') return null;
+	const r = raw as Record<string, unknown>;
+	const def = typeof r.kind === 'string' ? getPetKind(r.kind) : undefined;
+	if (!def) return null;
+	const t = dayOf(clock);
+	const day = (v: unknown, lo: number, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.floor(Math.max(lo, Math.min(t, v))) : d);
+	const since = day(r.since, 0, t);
+	const b = r.board as Record<string, unknown> | null | undefined;
+	const board = b && typeof b === 'object' && typeof b.loc === 'string' && /^[a-z0-9-]{1,40}$/.test(b.loc) && (!knownLocs || knownLocs.has(b.loc)) && typeof b.until === 'number' && Number.isFinite(b.until)
+		? { loc: b.loc, until: Math.floor(Math.max(0, Math.min(t + PET.boardMaxDays, b.until))) }
+		: null;
+	return {
+		kind: def.id,
+		name: cleanName(r.name).slice(0, PET.nameMax) || def.names[0],
+		from: r.from === 'breeder' && def.buy !== undefined ? 'breeder' : 'shelter',
+		since,
+		bond: typeof r.bond === 'number' && Number.isFinite(r.bond) ? clamp100(r.bond) : PET.startBond,
+		fedDay: day(r.fedDay, -1, since),
+		playDay: day(r.playDay, -1, -1),
+		walkDay: def.walk ? day(r.walkDay, -1, -1) : -1,
+		vetDay: day(r.vetDay, -1, since),
+		board,
+	};
 }

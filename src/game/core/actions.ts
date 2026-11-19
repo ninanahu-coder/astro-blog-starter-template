@@ -14,6 +14,8 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { adoptPet, boardPet, dogJoinsRun, petAction, petTravelBlocked, PET_OPS, type PetOp } from './pets.ts';
+import { PET, PET_KINDS } from '../data/pets.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -39,7 +41,10 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
-	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
+	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number }
+	| { t: 'pet'; op: 'adopt'; kind: string; from: 'shelter' | 'breeder'; name?: string }
+	| { t: 'pet'; op: 'board'; days: number }
+	| { t: 'pet'; op: PetOp };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk'];
@@ -91,6 +96,15 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'cert':
 		case 'experience':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
+		case 'pet':
+			if (a.op === 'adopt') {
+				if (!PET_KINDS.some((k) => k.id === a.kind) || (a.from !== 'shelter' && a.from !== 'breeder')) return null;
+				if (a.name === undefined) return { t: 'pet', op: 'adopt', kind: a.kind as string, from: a.from };
+				// 名字是玩家输入：只查类型和长度，过滤和截断由引擎（cleanName）做
+				return typeof a.name === 'string' && a.name.length <= 40 ? { t: 'pet', op: 'adopt', kind: a.kind as string, from: a.from, name: a.name } : null;
+			}
+			if (a.op === 'board') return Number.isInteger(a.days) && (a.days as number) >= 1 && (a.days as number) <= PET.boardMaxDays ? { t: 'pet', op: 'board', days: a.days as number } : null;
+			return PET_OPS.includes(a.op as PetOp) ? { t: 'pet', op: a.op as PetOp } : null;
 		case 'property':
 			if (!str(a.id)) return null;
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
@@ -105,7 +119,11 @@ export function parseAction(raw: unknown): GameAction | null {
 export function applyAction(state: PlayerState, region: Region, a: GameAction, now = 0): ActionResult {
 	let r: ActionResult;
 	switch (a.t) {
-		case 'travel': r = travel(state, region, a.to, a.mode); break;
+		case 'travel': {
+			const pet = petTravelBlocked(state, a.to, a.mode);
+			r = pet ? { ok: false, state, msg: pet + '。' } : travel(state, region, a.to, a.mode);
+			break;
+		}
 		case 'activity': r = performActivity(state, region, a.id); break;
 		case 'event': r = resolveEvent(state, region, a.choice); break;
 		case 'gps': r = gpsCheckIn(state, region, a.lat, a.lon); break;
@@ -128,7 +146,14 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'fish': r = goFishing(state, region); break;
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
-		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'venue':
+			r = venueAction(state, region, a, now);
+			// GPS 联动：在真实地点跑步时狗跟着去，算遛过（r.state 是引擎新建的对象，可以原地改）
+			if (r.ok && !r.collapsed && a.op === 'run') r = { ...r, msg: r.msg + dogJoinsRun(r.state, region) };
+			break;
+		case 'pet':
+			r = a.op === 'adopt' ? adoptPet(state, region, a.kind, a.from, a.name) : a.op === 'board' ? boardPet(state, region, a.days) : petAction(state, region, a.op);
+			break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;

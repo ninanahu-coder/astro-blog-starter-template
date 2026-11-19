@@ -3,6 +3,7 @@
 import { unit, weatherAt, weatherOn } from './weather.ts';
 import { ANIMALS, DEX_GROUPS, type AnimalDef } from '../data/wildlife.ts';
 import { FISH, FISHING, type FishDef } from '../data/fish.ts';
+import { getPetKind, homeAllowsPet } from '../data/pets.ts';
 import { FACTS, type PlaceFact } from '../data/facts.ts';
 import { NPC_DUOS, type NpcDuo } from '../data/npc-duos.ts';
 import { PHOTO_CHAIN_BONUS, PHOTO_MINUTES, PHOTO_QUESTS, type PhotoQuest } from '../data/photo-quests.ts';
@@ -19,7 +20,8 @@ import { BREAKDOWN, CAR_KM_MAX, DEALER_HOURS, DEALER_TAG, GARAGE, SERVICE_KM, VE
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
 import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
-import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, period, weekdayOf } from './time.ts';
+import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, period, SEASONS, weekdayOf } from './time.ts';
+import { WEATHERS } from '../data/weather.ts';
 import { FESTIVALS } from '../data/festivals.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
@@ -394,12 +396,33 @@ export function goFishing(prev: PlayerState, region: Region): ActionResult {
 // ---------- 野生动物图鉴 ----------
 /** 此刻在这个地方可能看见的动物（还没见过的） */
 export function animalsAt(state: PlayerState, loc: GameLocation): AnimalDef[] {
-	const season = dateOf(state.clock).season;
-	const p = period(state.clock).id;
-	return ANIMALS.filter((a) => !state.dex.includes(a.id)
-		&& (a.where.locs?.includes(loc.id) || matches(a.where, loc))
-		&& (!a.seasons || a.seasons.includes(season))
-		&& (!a.periods || a.periods.includes(p)));
+	const w = weatherOn(loc.id, dayOf(state.clock));
+	return ANIMALS.filter((a) => !state.dex.includes(a.id) && (a.where.locs?.includes(loc.id) || matches(a.where, loc)) && animalActive(a, state.clock, w));
+}
+
+/** 这个时刻、这种天气下它会不会出来：季节、时段、天气都要对；海洋动物风暴天看不到（v31） */
+export function animalActive(a: AnimalDef, clock: number, w: { id: string; closesSea?: boolean }): boolean {
+	if (a.seasons && !a.seasons.includes(dateOf(clock).season)) return false;
+	if (a.periods && !a.periods.includes(period(clock).id)) return false;
+	if (a.weather && !a.weather.includes(w.id)) return false;
+	return !(a.group === 'sea' && w.closesSea);
+}
+
+/** 图鉴上的出没提示：季节、时段、天气（没有限制返回空串） */
+export function animalHint(a: AnimalDef): string {
+	const PERIOD_NAME: Record<string, string> = { dawn: '清晨', day: '白天', dusk: '傍晚', night: '夜里' };
+	const parts = [
+		a.seasons ? `${a.seasons.map((x) => SEASONS.find((y) => y.id === x)!.name).join('、')}季` : '',
+		a.periods ? a.periods.map((p) => PERIOD_NAME[p]).join('、') : '',
+		a.weather ? `${a.weather.map((id) => WEATHERS.find((w) => w.id === id)?.name ?? id).join('、')}天` : '',
+	];
+	return parts.filter(Boolean).join(' · ');
+}
+
+/** 当季限定的动物（只在部分季节出现、本季正好在其中） */
+export function seasonAnimals(clock: number): AnimalDef[] {
+	const season = dateOf(clock).season;
+	return ANIMALS.filter((a) => a.seasons?.includes(season));
 }
 
 /** 抵达时看见哪只新动物（最多一只）。只读种子做哈希、不推进它，所以不影响其他随机结果 */
@@ -1070,6 +1093,7 @@ export function homesAt(state: PlayerState, region: Region): HomeOffer[] {
 		home,
 		blocked: state.home?.type === home.id && state.home.loc === loc.id && !state.home.owned ? '你正住在这里'
 			: home.vehicleSleep && !canSleepIn(state.vehicle) ? '要有能睡人的车（比如露营车）才能住营地'
+			: state.pet && !homeAllowsPet(home.id, state.pet.kind) ? `这里不许养${getPetKind(state.pet.kind)?.name ?? '宠物'}`
 			: state.cash < firstRent(state, home) ? `首期租金 $${firstRent(state, home)}` : undefined,
 	}));
 }
