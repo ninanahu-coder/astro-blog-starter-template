@@ -517,8 +517,37 @@ export interface PlayerState {
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	workDay: number; // 最近一次算过班次的游戏日，−1 表示还没上过；跟人走，不随换工作重置
 	journal: JournalEntry[];
+	sport: SportState; // 运动和比赛（docs/earth-game/sports.md）
 	seed: number;
 	rev: number; // 存档版本号，云同步用
+}
+
+/** 一场比赛的成绩 */
+export interface SportResult {
+	race: string; // RACES 的 id
+	key: string; // 哪一届：每年一次 `id:y年`，每周赛 `id:d游戏日`
+	medal: 'gold' | 'silver' | 'bronze' | 'finish' | 'dnf';
+	place: number; // 名次，未完赛为 0
+	secs: number; // 用时（秒），未完赛为 0
+	day: number; // 比赛的游戏日
+}
+
+/** 运动和比赛的存档（字段名 sport，规范见 save-sync.md §5） */
+export interface SportState {
+	/** 各项运动的准备度：v 0–100（最近一次训练后的值，读取时按天数衰减）、d 最近一次训练的游戏日、n 那天练了几次 */
+	form: Partial<Record<string, { v: number; d: number; n: number }>>;
+	/** 各项运动累计训练次数 */
+	total: Record<string, number>;
+	/** 最近一次拿到「运动后健康 +1」的游戏日，−1 为从未 */
+	hday: number;
+	/** 俱乐部：会员有效到哪个游戏日（不含）、最近一次上训练课的游戏日（−1 为没上过） */
+	club: { id: string; until: number; last: number } | null;
+	/** 已报名、还没比的场次（届的标识，同 SportResult.key），最多 10 条 */
+	entries: string[];
+	/** 最近的比赛成绩，新的在前，最多 20 条 */
+	results: SportResult[];
+	/** 各比赛的个人最好成绩（秒） */
+	pb: Record<string, number>;
 }
 
 export interface ActionResult {

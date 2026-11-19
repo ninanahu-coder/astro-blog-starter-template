@@ -8,6 +8,8 @@ export const MOODLETS: MoodletDef[] = [
 	// 正面
 	{ id: 'well-fed', name: '吃得很满足', icon: '🍽️', value: 4, hours: 6 },
 	{ id: 'fine-dining', name: '吃了顿大餐', icon: '🥂', value: 8, hours: 12 },
+	{ id: 'race-podium', name: '站上领奖台', icon: '🏆', value: 10, hours: 24 },
+	{ id: 'race-finish', name: '跑完全程', icon: '🏅', value: 6, hours: 12 },
 	{ id: 'pumped', name: '练完很精神', icon: '💪', value: 4, hours: 6 },
 	{ id: 'focused', name: '专注', icon: '🎯', value: 3, hours: 6, gain: 1.25 },
 	{ id: 'great-sleep', name: '睡了个好觉', icon: '😴', value: 6, hours: 12 },

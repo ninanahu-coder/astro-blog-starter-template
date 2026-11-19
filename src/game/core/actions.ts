@@ -14,6 +14,7 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { clubSession, enterRace, joinClub, noteTraining, quitClub, runRace } from './sports.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -39,6 +40,8 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
+	| { t: 'sport'; op: 'enter' | 'race' | 'join'; id: string }
+	| { t: 'sport'; op: 'club' | 'quit' }
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
@@ -93,6 +96,9 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'cert':
 		case 'experience':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
+		case 'sport':
+			if (a.op === 'enter' || a.op === 'race' || a.op === 'join') return str(a.id) ? { t: 'sport', op: a.op, id: a.id } : null;
+			return a.op === 'club' || a.op === 'quit' ? { t: 'sport', op: a.op } : null;
 		case 'property':
 			if (!str(a.id)) return null;
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
@@ -131,6 +137,13 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'sport':
+			r = a.op === 'enter' ? enterRace(state, region, a.id)
+				: a.op === 'race' ? runRace(state, region, a.id)
+				: a.op === 'join' ? joinClub(state, a.id)
+				: a.op === 'club' ? clubSession(state, region)
+				: quitClub(state);
+			break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
@@ -143,6 +156,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 			if (done.length) msg += ` ✨ 心愿达成：${done.join('、')}`;
 			const chapters = settleStory(state, r.state, a);
 			if (chapters.length) msg += ` 📖 ${chapters.join('、')}`;
+			noteTraining(r.state, a); // 日常运动记一次训练（跑步、游泳、健身……，见 core/sports.ts）
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
 	}

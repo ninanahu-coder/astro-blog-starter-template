@@ -19,6 +19,7 @@ import { weatherAt } from '../../../src/game/core/weather.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
+import { clubSessionBlocked, formOf, getClub, racesSoon } from '../../../src/game/core/sports.ts';
 
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
 const DAYS = Number(arg('days', '60'));
@@ -100,6 +101,8 @@ interface Plan {
 	 * mateNeeds：搭档的各项需求（100 = 全满）；mateChance：每次想做时有搭档在场的概率
 	 */
 	coop?: { mateNeeds: number; mateChance: number };
+	/** 第 43 批：练哪项运动、加入哪个俱乐部；保命、上班之后报名参赛、上训练课、自己练（见 trySport） */
+	sport?: { sport: 'run'; club: string };
 }
 
 const PLANS: Plan[] = [
@@ -118,6 +121,8 @@ const PLANS: Plan[] = [
 	// 共同事件三种搭档假设（第 10 批审查问题 1）：理想（需求全满、随叫随到）是上限，不是保守估计；另外两种看搭档状态和在场率的影响
 	{ id: 'barista-coop', name: '咖啡店 + 共同事件：理想搭档（需求全满、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 100, mateChance: 1 } },
 	{ id: 'barista-coop-tired', name: '咖啡店 + 共同事件：疲惫搭档（需求 40、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 1 } },
+	// 第 43 批（运动和比赛）：咖啡店上班族 + 跑团 + 周六公园 5 公里和城市长跑。只多一行，不改上面的策略
+	{ id: 'barista-runner', name: '咖啡店 + 跑团 + 比赛（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', sport: { sport: 'run', club: 'swan-river-runners' } },
 	{ id: 'barista-coop-sparse', name: '咖啡店 + 共同事件：疲惫搭档，一半时候没人（需求 40、在场 50%）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 0.5 } },
 ];
 
@@ -394,6 +399,12 @@ function step(b: Bot) {
 	}
 	if (s.needs.hygiene < 25 && act(b, 'shower')) return;
 
+	// 1.5 运动策略（第 43 批）：比赛日先比赛再上班（周六公园 5 公里在早上 7–9 点，和早班撞）
+	if (plan.sport && s.needs.hunger >= 35) {
+		const today = racesSoon(s, WA, 0).find((o) => o.race.sport === plan.sport!.sport && !o.raceBlocked);
+		if (today && tryAct(b, { t: 'sport', op: 'race', id: today.race.id })) return;
+	}
+
 	// 2. 找工作、租房、去上班
 	if (plan.job) {
 		if (!s.job) {
@@ -442,6 +453,8 @@ function step(b: Bot) {
 
 	// 3.5 共同事件（第 46 轮的策略）：保命、上班、租房之后，娱乐之前
 	if (plan.coop && s.needs.energy >= 35 && s.needs.hunger >= 35 && tryCoop(b)) return;
+	// 3.6 运动（第 43 批）：同样排在保命、上班、租房之后
+	if (plan.sport && s.needs.hunger >= 35 && trySport(b)) return;
 
 	// 4. 没有正式工作的人靠零工
 	if (!s.job && !isIdle(plan) && s.cash < 400) {
@@ -476,6 +489,27 @@ function step(b: Bot) {
 	if (s.job && s.loc === s.job.loc && act(b, 'rest')) return; // 有工作就在附近等开工
 	for (const f of ['hike', 'swim', 'busk']) if (!isIdle(plan) && act(b, f)) return;
 	act(b, 'rest'); // 兜底：一定能做，保证时间往前走
+}
+
+/**
+ * 运动（第 43 批）：今天有能跑的比赛就跑；能报名的报名（报完手上还剩 $300）；在俱乐部所在地、会员到期就续费（同样留 $300）；
+ * 能上训练课就上；准备度不到 60、今天还没练过就自己跑一次。都不做返回 false。
+ */
+function trySport(b: Bot): boolean {
+	const s = b.s;
+	const sp = b.plan.sport!;
+	for (const o of racesSoon(s, WA)) {
+		if (o.race.sport !== sp.sport) continue;
+		if (o.startsIn === 0 && !o.raceBlocked && tryAct(b, { t: 'sport', op: 'race', id: o.race.id })) return true;
+		if (o.race.fee > 0 && !o.enterBlocked && s.cash - o.fee >= 300 && tryAct(b, { t: 'sport', op: 'enter', id: o.race.id })) return true;
+	}
+	const club = getClub(sp.club)!;
+	const c = s.sport.club;
+	if (s.loc === club.loc && (!c || c.id !== club.id || c.until <= dayOf(s.clock)) && s.cash - club.fee >= 300 && tryAct(b, { t: 'sport', op: 'join', id: club.id })) return true;
+	if (!clubSessionBlocked(s) && tryAct(b, { t: 'sport', op: 'club' })) return true;
+	const f = s.sport.form[sp.sport];
+	if (formOf(s, sp.sport) < 60 && f?.d !== dayOf(s.clock) && s.needs.energy >= 45 && act(b, 'jog')) return true;
+	return false;
 }
 
 function runBot(plan: Plan, seed: number): Bot {
@@ -526,6 +560,7 @@ const skillRows: [string, number[]][] = [];
 const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
 const coopRows: string[] = [];
+const sportRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
 for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, i + 1));
@@ -553,6 +588,16 @@ for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 		const kindText = Object.entries(kinds).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('，') || '—';
 		coopRows.push(`| ${plan.name} | ${n.toFixed(1)} | ${(ok * 100).toFixed(0)}% | ${money(flow.coop ?? 0)} | ${kindText} |`);
 	}
+	if (plan.sport) {
+		// 第 43 批：比赛次数、各档名次、期末准备度、训练课次数
+		const res = bots.flatMap((b) => b.s.sport.results);
+		const per = (m: string) => (res.filter((x) => x.medal === m).length / RUNS).toFixed(2);
+		const form = pct(bots.map((b) => formOf(b.s, plan.sport!.sport)), 0.5);
+		const total = avg(bots.map((b) => b.s.sport.total[plan.sport!.sport] ?? 0));
+		const bigRace = res.filter((x) => x.race !== 'park-5k').length / RUNS;
+		sportRows.push(`| ${plan.name} | ${(res.length / RUNS).toFixed(1)} | ${bigRace.toFixed(2)} | ${per('gold')} / ${per('silver')} / ${per('bronze')} / ${per('finish')} / ${per('dnf')} | ${total.toFixed(0)} | ${Math.round(form)} |`);
+	}
+
 	if (plan.id === 'drifter' || plan.gig) {
 		const perDay = RUNS * DAYS;
 		const started = bots.reduce((n, b) => n + b.stats.diag.gigStarted, 0);
@@ -613,6 +658,14 @@ out();
 out('| 策略 | 参加次数/人 | 成功率 | 每人每天净现金 | 各种类次数/人 |');
 out('| --- | --- | --- | --- | --- |');
 for (const row of coopRows) out(row);
+out();
+out('## 运动和比赛（第 43 批）');
+out();
+out('只有带运动策略的行：保命、上班之后，今天有能跑的比赛就跑，能报名的就报（报完留 $300），到期续俱乐部会费，能上训练课就上，准备度不到 60 且今天没练过就自己跑一次。数值待平衡。');
+out();
+out('| 策略 | 比赛场次/人 | 其中收费赛/人 | 金 / 银 / 铜 / 完赛 / 未完赛（次/人） | 跑步训练次数/人 | 期末跑步准备度（中位） |');
+out('| --- | --- | --- | --- | --- | --- |');
+for (const row of sportRows) out(row);
 out();
 out('诊断口径：零工“完成”不含途中晕倒且拿不到工资的动作；未开工只统计现金已低于各策略触发线、但因生存门槛或当前地点/时段无法开工的决策。晕倒原因按动作开始状态和该动作耗时回算；“其他”包括事件受伤。当前四种零工都不受天气关闭，因此天气项应为 0。');
 out();

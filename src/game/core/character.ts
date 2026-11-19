@@ -30,6 +30,7 @@ import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
 import { validTraits } from './attributes.ts';
 import { WEATHERS } from '../data/weather.ts';
+import { CLUBS, RACES, SPORT_IDS, SPORT_RULES } from '../data/sports.ts';
 
 /** 天气相册里所有合法的照片 id：地点 × 天气 */
 export const photoIds = (locIds: string[]) => new Set(locIds.flatMap((l) => WEATHERS.map((w) => `${l}|${w.id}`)));
@@ -164,6 +165,7 @@ export function createCharacter(opts: {
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
+		sport: emptySport(),
 		seed: opts.seed >>> 0,
 		rev: 0,
 	};
@@ -376,6 +378,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
 		...cleanReal(r, opts.now),
 		journal,
+		sport: cleanSport(r.sport, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
 		// 版本号超出范围说明存档坏了：归零而不是钳到上限。钳到上限的话，下一次动作加一又超出，再读又被钳回去，客户端每次都版本冲突
 		rev: typeof r.rev === 'number' && Number.isFinite(r.rev) && r.rev >= 0 && r.rev < CAPS.rev ? Math.floor(r.rev) : 0,
@@ -416,6 +419,61 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 }
 
 export const JOURNAL_MAX = 40;
+
+/** 运动存档的初始值 */
+export const emptySport = (): PlayerState['sport'] => ({ form: {}, total: {}, hday: -1, club: null, entries: [], results: [], pb: {} });
+
+const RACE_KEY = /^([a-z0-9-]{1,40}):(y|d)(\d{1,7})$/;
+const MEDAL_IDS = ['gold', 'silver', 'bronze', 'finish', 'dnf'];
+
+/**
+ * 运动存档的清洗（规范见 save-sync.md §5）：旧存档没有给空值；只留已知运动、比赛、俱乐部；
+ * 游戏日不能晚于存档时钟所在的那天；数量有上限；幂等。届的标识要和比赛的类型对得上（每周赛用 d、每年一次用 y）。
+ */
+export function cleanSport(raw: unknown, clock: number): PlayerState['sport'] {
+	const out = emptySport();
+	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+	const r = raw as Record<string, any>;
+	const today = Math.floor(clock / 1440);
+	const day = (v: unknown, lo: number) => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= today ? Math.floor(v) : null);
+	const own = (o: unknown, k: string) => (o && typeof o === 'object' && Object.hasOwn(o, k) ? (o as Record<string, unknown>)[k] : undefined);
+	for (const k of SPORT_IDS) {
+		const f = own(r.form, k) as Record<string, unknown> | undefined;
+		const d = day(f?.d, 0);
+		if (f && d !== null) out.form[k] = { v: Math.round(num(f.v, 0, SPORT_RULES.formMax, 0) * 10) / 10, d, n: Math.floor(num(f.n, 1, 99, 1)) };
+		const n = own(r.total, k);
+		if (typeof n === 'number' && Number.isFinite(n) && n >= 1) out.total[k] = Math.min(1e6, Math.floor(n));
+	}
+	out.hday = day(r.hday, 0) ?? -1;
+	const c = r.club;
+	if (c && typeof c === 'object' && CLUBS.some((x) => x.id === c.id)) {
+		const until = typeof c.until === 'number' && Number.isFinite(c.until) ? Math.floor(Math.max(0, Math.min(c.until, today + SPORT_RULES.clubDays * 13))) : 0;
+		out.club = { id: c.id, until, last: day(c.last, 0) ?? -1 };
+	}
+	const keyOk = (k: unknown): k is string => {
+		if (typeof k !== 'string') return false;
+		const m = RACE_KEY.exec(k);
+		const race = m && RACES.find((x) => x.id === m[1]);
+		return !!race && (race.weekday !== undefined) === (m![2] === 'd');
+	};
+	out.entries = [...new Set(Array.isArray(r.entries) ? r.entries.filter(keyOk) : [])].slice(0, SPORT_RULES.entriesMax);
+	if (Array.isArray(r.results)) {
+		for (const x of r.results.slice(0, SPORT_RULES.resultsMax)) {
+			if (!x || typeof x !== 'object' || !keyOk(x.key) || !x.key.startsWith(`${x.race}:`) || !MEDAL_IDS.includes(x.medal)) continue;
+			const d = day(x.day, 0);
+			if (d === null || out.results.some((y) => y.key === x.key)) continue;
+			const dnf = x.medal === 'dnf';
+			out.results.push({ race: x.race, key: x.key, medal: x.medal, place: dnf ? 0 : Math.floor(num(x.place, 1, 1e6, 1)), secs: dnf ? 0 : Math.floor(num(x.secs, 1, 1e6, 1)), day: d });
+		}
+	}
+	// 已经比过的届不能还挂在报名单上
+	out.entries = out.entries.filter((k) => !out.results.some((x) => x.key === k));
+	for (const race of RACES) {
+		const v = own(r.pb, race.id);
+		if (typeof v === 'number' && Number.isFinite(v) && v >= 1) out.pb[race.id] = Math.min(1e6, Math.floor(v));
+	}
+	return out;
+}
 
 const VENUE_ID = /^[a-z0-9][a-z0-9-]{2,63}$/;
 const finiteIn = (v: unknown, lo: number, hi: number) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
