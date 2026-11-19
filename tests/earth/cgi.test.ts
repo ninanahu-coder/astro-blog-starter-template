@@ -1,9 +1,10 @@
-// CGI 素材：清单里的每张图都在、不太大；每个地点和事件都有图；提示词里不出现玩法标签。
+// CGI 素材：清单里的每张图都在、不太大；每个地点、事件和 NPC 都有图；头像压得够小；提示词里不出现玩法标签。
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { test } from 'node:test';
 import { AREAS } from '../../src/game/data/areas-base.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
+import { NPCS } from '../../src/game/data/npcs.ts';
 import { buildJobs } from '../../tools/earth/comfyui/prompts.mjs';
 
 const dir = new URL('../../public/earth/cgi/', import.meta.url);
@@ -20,12 +21,25 @@ test('CGI 清单：每项指向存在的 WebP，单张不超过 250KB', () => {
 	}
 });
 
-test('CGI：每个地点和事件都有图，清单里没有提示词以外的项', () => {
+test('CGI：每个地点、事件和 NPC 都有图，清单里没有提示词以外的项', () => {
 	const jobs = buildJobs() as { key: string; prompt: string }[];
 	for (const a of AREAS) for (const l of a.locations) assert.ok(manifest.images[l.id], `${l.id} 没有主视觉`);
 	for (const e of EVENTS) assert.ok(manifest.images['event:' + e.id], `事件 ${e.id} 没有插图`);
+	for (const n of NPCS) assert.ok(manifest.images['npc:' + n.id], `NPC ${n.id} 没有头像`);
 	const keys = new Set(jobs.map((j) => j.key));
 	for (const k of Object.keys(manifest.images)) assert.ok(keys.has(k), `清单里多了 ${k}`);
 	// 玩法标签照字面画会让画面又挤又乱
 	for (const j of jobs) assert.doesNotMatch(j.prompt, /\b(airport|hospital|gym|dealer)\b/, j.key);
+});
+
+test('CGI：NPC 头像是方形小图（页面只显示 56px），不超过 40KB', () => {
+	const jobs = (buildJobs() as { key: string; size?: string; width?: number; prompt: string }[]).filter((j) => j.key.startsWith('npc:'));
+	assert.equal(jobs.length, NPCS.length);
+	for (const j of jobs) {
+		assert.equal(j.size, '1024x1024', j.key);
+		assert.ok(j.width && j.width <= 256, j.key);
+		assert.match(j.prompt, /fictional original character, not resembling any real person/, j.key);
+		const file = new URL(manifest.images[j.key].replace('/earth/cgi/', ''), dir);
+		assert.ok(statSync(file).size < 40_000, `${j.key} 太大`);
+	}
 });

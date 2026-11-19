@@ -10,6 +10,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		v: 19, date: '2026-11-19', title: 'NPC 头像', items: [
+			'17 位常驻 NPC 换上了头像：在「这里的人」里能看到米娅、老杰克、由纪他们的样子。都是虚构人物，头像是 AI 生成的示意图。',
+		],
+	},
+	{
 		v: 18, date: '2026-11-19', title: '每个事件都有插图', items: [
 			'84 个事件弹窗全部换成插图：爆胎、路边临检、喜鹊俯冲、中央市场等都有了画面。图片是 AI 生成的示意图。',
 		],

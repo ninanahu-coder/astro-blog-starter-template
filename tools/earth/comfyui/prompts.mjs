@@ -4,6 +4,7 @@ import { EVENTS } from '../../../src/game/data/events.ts';
 import { AREAS } from '../../../src/game/data/areas-base.ts';
 import { SA_EVENTS } from '../../../src/game/data/events-sa.ts';
 import { VENUE_EVENTS } from '../../../src/game/data/venue-events.ts';
+import { NPCS } from '../../../src/game/data/npcs.ts';
 
 export const STYLE = 'cinematic CGI game key art, stylized realism, warm golden light, wide landscape shot, main subject centred in the middle band of the frame, highly detailed, no text, no lettering on signs, no logos, no watermark, no identifiable people';
 export const NEGATIVE = 'text, watermark, logo, signature, lowres, blurry, deformed, extra limbs, real person likeness';
@@ -153,6 +154,29 @@ const SA_IDS = new Set(SA_EVENTS.map((e) => e.id));
 const VENUE_IDS = new Set(VENUE_EVENTS.map((e) => e.id));
 const eventPlace = (id) => (SA_IDS.has(id) ? 'South Australia' : VENUE_IDS.has(id) ? 'an ordinary Australian suburb, no famous landmarks, bridges, opera house or monoliths in view' : 'Western Australia');
 
+// NPC 头像：半身像，背景是他们的常驻地点。都是虚构角色：写「原创、不像任何真人或名人」，不写族裔，只写年龄、职业和穿着。
+// 画面方形，页面上只显示 56px，压成 256 宽
+export const PORTRAIT_STYLE = 'head and shoulders portrait of a fictional original character, not resembling any real person or celebrity, friendly expression looking at the viewer, face centred, stylized realism CGI game character portrait, soft warm light, softly blurred background, no text, no logos, no watermark';
+const NPC_LOOK = {
+	mia: 'a woman around thirty, barista apron over a black t-shirt, hair tied up, busy city cafe with an espresso machine behind her',
+	jack: 'a weathered old fisherman around seventy, white stubble, wool beanie and faded work shirt, fishing harbour with old boats behind him',
+	linda: 'a woman in her forties, park ranger in a khaki uniform shirt and wide-brimmed hat, island scrub and turquoise bay behind her',
+	leo: 'a sun-tanned man around thirty with salty wavy hair, rash vest, surf beach with breaking waves behind him',
+	nan: 'a warm woman in her sixties, cardigan, holding a teapot, cosy seaside guesthouse porch behind her',
+	bill: 'a burly miner in his fifties, orange hi-vis work shirt with red dust on it, old outback hotel bar behind him',
+	sam: 'a man in his thirties, dive guide in a zipped-up black wetsuit with a dive mask pushed up on his forehead, turquoise reef water behind him',
+	dave: 'a road train truck driver in his fifties, cap and flannel shirt, long truck cab lit up at night behind him',
+	yuki: 'a Japanese-Australian woman in her forties, elegant linen shirt, small pearl earrings, tropical pearl shop behind her',
+	tom: 'a rock lobster boat captain in his fifties, oilskin jacket, sun-creased face, fishing port at dawn behind him',
+	harry: 'a retired lighthouse keeper around seventy, grey beard, navy knitted jumper, harbour museum with a ship model behind him',
+	ruby: 'a woman around thirty, gorge guide in a sun shirt and cap, red banded rock gorge behind her',
+	rosa: 'a cheerful grandmother in her late sixties, volunteer polo shirt and sun visor, calm bay shallows behind her',
+	mack: 'a mango farmer in his fifties, broad-brimmed hat and work shirt, rows of mango trees and an irrigation channel behind him',
+	greta: 'a winemaker woman around forty, rolled-up sleeves, holding a glass of red wine, old stone winery and vineyard behind her',
+	kev: 'an opal miner in his fifties, dusty singlet and miner helmet with a lamp, pale underground dugout walls behind him',
+	ayla: 'a woman around thirty, wildlife ranger in a green uniform shirt, wild coastal headland with sea lions on the beach behind her',
+};
+
 export function buildJobs() {
 	const jobs = [];
 	for (const area of AREAS) {
@@ -169,6 +193,11 @@ export function buildJobs() {
 		const scene = EVENT_SCENE[e.id];
 		if (!scene) continue;
 		jobs.push({ key: `event:${e.id}`, file: `event-${e.id}.png`, prompt: `${scene}, ${eventPlace(e.id)}, ${STYLE}` });
+	}
+	for (const n of NPCS) {
+		const look = NPC_LOOK[n.id];
+		if (!look) continue;
+		jobs.push({ key: `npc:${n.id}`, file: `npc-${n.id}.png`, prompt: `${look}, ${PORTRAIT_STYLE}`, size: '1024x1024', width: 256 });
 	}
 	return jobs;
 }

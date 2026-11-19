@@ -17,7 +17,7 @@
 | 逻辑 + 前端 | **Claude Code** | 类型、规则引擎、Durable Object、`/earth` 页面、测试；按 Codex 的分析报告实施调参 | `src/game/`、`src/pages/earth.astro`、`tests/earth/` | 不手写大批量数据、不生成图片、不自己下平衡分析结论 |
 | 数据采集 | **OpenClaw** | 按任务书采集 POI、地点和节日的真实资料（OSM / Wikidata） | `tools/earth/openclaw/inbox/*.json` → `src/game/data/wa.pois.json` | 不改代码；只交 JSON |
 | 检查与分析 | **Codex** | 审 PR（规则正确性、安全、数据许可）；跑数值模拟并写平衡分析；分析 OpenClaw 的数据。任务书 [codex-tasks.md](codex-tasks.md) | PR 审查评论；`docs/earth-game/balance.md` 的分析小节 | 不写逻辑和前端；调参只提建议 |
-| CGI 素材 | **GPT image 2**（备选远程 ComfyUI） | 35 个地点主视觉、84 个事件插图 | `public/earth/cgi/*.webp` + `manifest.json` | 不参与逻辑；缺图时前端自动用占位图 |
+| CGI 素材 | **GPT image 2**（备选远程 ComfyUI） | 35 个地点主视觉、84 个事件插图、17 个 NPC 头像 | `public/earth/cgi/*.webp` + `manifest.json` | 不参与逻辑；缺图时前端自动用占位图 |
 
 四者之间只通过**仓库里的文件**交接，互不依赖对方在线：
 
@@ -174,7 +174,7 @@ npm run earth:pois                # 校验并合并进 wa.pois.json
 
 ## 7. CGI 素材（GPT image 2 / 远程 ComfyUI）
 
-当前的 119 张图（35 个地点主视觉 + 84 张事件插图，每个事件一张）由 GPT image 2 生成（2026-11-19）：
+当前的 136 张图（35 个地点主视觉 + 84 张事件插图 + 17 张 NPC 头像，每个事件和 NPC 各一张）由 GPT image 2 生成（2026-11-19）：
 
 ```bash
 npm run earth:cgi:gpti -- --dry-run                  # 只看提示词
@@ -185,7 +185,8 @@ npm run earth:cgi:gpti -- --only=perth,event:whale-shark --force
 - 1536×1024 原图放 `tools/earth/comfyui/.raw/`（不进仓库），网页用的压成 960 宽 WebP（每张约 100KB）。
 - 地点图按 `prompts.mjs` 的 `LOC_SCENE` 一句标志性风景来画；游戏标签（机场、医院、健身房……）不进提示词，试画时它们被照字面画进去，画面又挤又乱。
 - 画面是 AI 生成的示意图，不是实拍；不画可辨认的人：事件里有人的画面一律写背影、剪影或只露手，警察不画徽章和字。
-- 新增事件要在 `EVENT_SCENE` 补一句画面描述再跑脚本，否则 `cgi.test.ts` 会报「没有插图」。南澳事件的地名自动写成 South Australia；店铺通用事件两州都会触发，写「普通澳洲郊区、不要地标」，只写 Australia 时画出了悉尼歌剧院和乌鲁鲁。
+- NPC 头像按 `NPC_LOOK` 写年龄、职业、穿着和常驻地点背景，不写族裔（由纪按角色设定写日裔澳洲人）；提示词固定带「虚构原创角色、不像任何真人或名人」。方形 1024 原图，压成 256 宽，页面里 56px 显示；没有图时退回按 id 画的 SVG 立绘。
+- 新增事件或 NPC 要在 `EVENT_SCENE` / `NPC_LOOK` 补一句画面描述再跑脚本，否则 `cgi.test.ts` 会报「没有插图」或「没有头像」。南澳事件的地名自动写成 South Australia；店铺通用事件两州都会触发，写「普通澳洲郊区、不要地标」，只写 Australia 时画出了悉尼歌剧院和乌鲁鲁。
 
 远程 ComfyUI 版（原有脚本，暂时没有可用的 SDXL 模型）：
 
