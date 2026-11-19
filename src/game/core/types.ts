@@ -421,9 +421,9 @@ export interface FestivalDef {
 /** 哪种动作算完成一个心愿 */
 export type WishDone =
 	| { t: 'activity'; ids: string[] }
-	| { t: 'npc'; acts: NpcAction[] }
+	| { t: 'npc'; acts: NpcAction[]; npc?: string } // npc：只算和这位 NPC 的互动
 	| { t: 'home'; ops: string[] }
-	| { t: 'job' | 'course' | 'experience' | 'buy' | 'travel' | 'newplace' | 'photo' };
+	| { t: 'job' | 'course' | 'experience' | 'buy' | 'travel' | 'newplace' | 'photo' | 'fish' }; // fish：钓到了鱼（空军不算）
 
 export interface WishDef {
 	id: string;
@@ -508,6 +508,9 @@ export interface PlayerState {
 	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每 COOP_COOLDOWN_DAYS 天一次）
 	trades: { day: number; out: number; in: number }; // 玩家之间交易：这个现实日已送出 / 收下的次数
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领
+	achClaimed: string[]; // 已领过奖励的成就 id（领过就记下，之后成就条件丢了也不收回、不重复发）
+	side: { done: string[]; cur: Record<string, Record<string, number>> }; // 支线：已完成的支线 id；进行中的支线各目标进度
+	title: string; // 佩戴的称号 id（见 core/titles.ts），'' 为不戴
 	met: Record<string, { name: string; avatar: string; n: number; last: number }>; // 常遇见的人：玩家 id 哈希前缀 -> 名字、头像、一起做事的次数、最近一次的现实日
 	pending: { eventId: string } | null;
 	fix: { lat: number; lon: number; at: number } | null; // 最近一次真实定位（坐标保留 3 位小数，约 100 米；at 为服务端时间）

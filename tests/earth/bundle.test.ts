@@ -14,9 +14,10 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 /**
  * 首屏脚本（esbuild 压缩后、未 gzip）的上限：第 34 轮拆完约 327KB（Vite 实际构建约 259KB）；
  * 第 8 批（天象、场景界面）和第 9 批（南澳地点、小知识、事件、NPC）正常长到约 374KB，上限提到 400KB。
+ * 第 28 批（任务总览、支线、成就领奖、称号）长到约 404KB，上限提到 420KB。
  * 真实地点约 87KB，打回首屏照样会超。
  */
-export const FIRST_SCREEN_MAX = 400_000;
+export const FIRST_SCREEN_MAX = 420_000;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
