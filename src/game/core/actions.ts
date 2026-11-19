@@ -14,6 +14,7 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { closeShop, doGig, getLicense, hireStaff, openShop, restockShop, settleBiz, tendShop } from './business.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -39,7 +40,11 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
-	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
+	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number }
+	| { t: 'biz'; op: 'gig' | 'license'; id: string }
+	| { t: 'biz'; op: 'open'; shop: string; site: string }
+	| { t: 'biz'; op: 'restock'; qty: number }
+	| { t: 'biz'; op: 'hire' | 'fire' | 'tend' | 'close' };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk'];
@@ -98,6 +103,11 @@ export function parseAction(raw: unknown): GameAction | null {
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
 			if (a.op === 'repay') return finite(a.amount) && a.amount > 0 && a.amount <= 1e9 ? { t: 'property', op: 'repay', id: a.id, amount: Math.floor(a.amount) } : null;
 			return a.op === 'sell' || a.op === 'movein' || a.op === 'rentout' ? { t: 'property', op: a.op, id: a.id } : null;
+		case 'biz':
+			if (a.op === 'gig' || a.op === 'license') return str(a.id) ? { t: 'biz', op: a.op, id: a.id } : null;
+			if (a.op === 'open') return str(a.shop) && str(a.site) ? { t: 'biz', op: 'open', shop: a.shop, site: a.site } : null;
+			if (a.op === 'restock') return Number.isInteger(a.qty) && (a.qty as number) >= 1 && (a.qty as number) <= 1000 ? { t: 'biz', op: 'restock', qty: a.qty as number } : null;
+			return a.op === 'hire' || a.op === 'fire' || a.op === 'tend' || a.op === 'close' ? { t: 'biz', op: a.op } : null;
 		default:
 			return null;
 	}
@@ -131,6 +141,15 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
 		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'biz':
+			r = a.op === 'gig' ? doGig(state, region, a.id)
+				: a.op === 'license' ? getLicense(state, region, a.id)
+				: a.op === 'open' ? openShop(state, region, a.shop, a.site)
+				: a.op === 'restock' ? restockShop(state, region, a.qty)
+				: a.op === 'tend' ? tendShop(state, region)
+				: a.op === 'close' ? closeShop(state, region)
+				: hireStaff(state, region, a.op);
+			break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
@@ -145,6 +164,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 			if (chapters.length) msg += ` 📖 ${chapters.join('、')}`;
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
+		msg += settleBiz(r.state, region); // 自己的店结算到昨天（没有店时什么也不做、不消耗随机数）
 	}
 	const out = capState({ ...r.state, rev: nextRev(state.rev) });
 	if (r.ok) rollDay(out); // 跨过午夜：把上一天的变化记成「昨天回顾」（晕倒住院也算）；在钳制数值之后记，记号不越过存档上限

@@ -1,6 +1,7 @@
 // 角色创建与存档校验。初始属性参考开放世界动作游戏的“能力条”思路：
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
 import { migrateSave } from './save.ts';
+import { cleanBiz, emptyBiz } from './business-save.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type { Home, Job, OwnedProperty, Needs, PlayerState, Relation, Skills, Vehicle } from './types.ts';
 import { ITEMS } from '../data/items.ts';
@@ -164,6 +165,7 @@ export function createCharacter(opts: {
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
+		biz: emptyBiz(),
 		seed: opts.seed >>> 0,
 		rev: 0,
 	};
@@ -376,6 +378,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
 		...cleanReal(r, opts.now),
 		journal,
+		biz: cleanBiz(r.biz, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
 		// 版本号超出范围说明存档坏了：归零而不是钳到上限。钳到上限的话，下一次动作加一又超出，再读又被钳回去，客户端每次都版本冲突
 		rev: typeof r.rev === 'number' && Number.isFinite(r.rev) && r.rev >= 0 && r.rev < CAPS.rev ? Math.floor(r.rev) : 0,

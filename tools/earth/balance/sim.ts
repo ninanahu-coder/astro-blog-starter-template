@@ -19,6 +19,8 @@ import { weatherAt } from '../../../src/game/core/weather.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
+import { gigsAt, licenseValid, shopActions, shopOffersAt } from '../../../src/game/core/business.ts';
+import { getShopSite, getShopType } from '../../../src/game/core/business.ts';
 
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
 const DAYS = Number(arg('days', '60'));
@@ -49,6 +51,8 @@ interface Bot {
 		coops: number;
 		coopOk: number;
 		coopKinds: Record<string, number>;
+		/** 副业与小生意（docs/earth-game/side-business.md）：副业次数、开店那天、倒闭次数、店铺结算净额 */
+		biz: { gigs: Record<string, number>; openDay?: number; bankrupt: number; shopNet: number };
 	};
 }
 
@@ -100,6 +104,10 @@ interface Plan {
 	 * mateNeeds：搭档的各项需求（100 = 全满）；mateChance：每次想做时有搭档在场的概率
 	 */
 	coop?: { mateNeeds: number; mateChance: number };
+	/** 副业：要办的证照、依次尝试的副业（精力、饱食都不低于 45 时才做） */
+	side?: { licenses: string[]; gigs: string[] };
+	/** 开店：现金到 openAt 时在 site 开 type，雇 staff 个人，库存低于 restockBelow 就补货 */
+	shop?: { type: string; site: string; openAt: number; staff: number; restockBelow: number };
 }
 
 const PLANS: Plan[] = [
@@ -119,6 +127,11 @@ const PLANS: Plan[] = [
 	{ id: 'barista-coop', name: '咖啡店 + 共同事件：理想搭档（需求全满、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 100, mateChance: 1 } },
 	{ id: 'barista-coop-tired', name: '咖啡店 + 共同事件：疲惫搭档（需求 40、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 1 } },
 	{ id: 'barista-coop-sparse', name: '咖啡店 + 共同事件：疲惫搭档，一半时候没人（需求 40、在场 50%）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 0.5 } },
+	// 副业与小生意（side-business.md）新增：排在最后，原有各行结果不变
+	{ id: 'side-gig', name: '副业留学生：家教 + 送外卖（珀斯，合租，无正式工作）', origin: 'student', traits: ['charming', 'neat'], home: 'room', spend: false, side: { licenses: ['abn', 'wwc-wa'], gigs: ['tutor', 'delivery', 'daigou'] } },
+	{ id: 'barista-side', name: '咖啡店 + 下班家教（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, side: { licenses: ['wwc-wa'], gigs: ['tutor'] } },
+	{ id: 'shop-milktea', name: '咖啡店攒钱开奶茶店（北桥，雇 1 人）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, shop: { type: 'milk-tea', site: 'northbridge', openAt: 14_000, staff: 1, restockBelow: 150 } },
+	{ id: 'shop-repair', name: '咖啡店攒钱开手机维修铺（维多利亚公园，不雇人、自己看店）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, shop: { type: 'phone-repair', site: 'victoria-park', openAt: 7_000, staff: 0, restockBelow: 20 } },
 ];
 
 // 出身对照（初始属性设计，见 docs/earth-game/initial-stats.md）：同一策略、不带特质，只换出身，看起始现金、车和能力的差别。只出报告，不改数值
@@ -159,6 +172,7 @@ function blankDiagnostics(): BackpackerDiagnostics {
 }
 
 function actionKey(a: GameAction): string {
+	if (a.t === 'biz') return a.op === 'gig' ? `biz-${a.id}` : `biz-${a.op}`;
 	return a.t === 'activity' ? a.id
 		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' ? `${a.t}-${a.op}`
 			: a.t === 'npc' ? 'npc'
@@ -192,7 +206,15 @@ function tryAct(b: Bot, a: GameAction): boolean {
 	}
 	b.s = r.state;
 	const key = actionKey(a);
-	b.stats.flow[key] = (b.stats.flow[key] ?? 0) + (b.s.cash - before.cash);
+	// 店铺结算挂在任意动作之后：把这次结算出的净额单独记成 shop-days，不算进触发它的动作
+	const shopNow = b.s.biz.shop;
+	const settledNet = shopNow ? shopNow.hist.filter((h) => h.d > (before.biz.shop?.last ?? Infinity)).reduce((n, h) => n + h.net, 0) : 0;
+	if (settledNet) b.stats.flow['shop-days'] = (b.stats.flow['shop-days'] ?? 0) + settledNet;
+	if (before.biz.shop && !b.s.biz.shop && !(a.t === 'biz' && a.op === 'close')) b.stats.biz.bankrupt++;
+	if (!before.biz.shop && b.s.biz.shop) b.stats.biz.openDay ??= dayOf(b.s.clock);
+	if (a.t === 'biz' && a.op === 'gig') b.stats.biz.gigs[a.id] = (b.stats.biz.gigs[a.id] ?? 0) + 1;
+	b.stats.biz.shopNet += settledNet;
+	b.stats.flow[key] = (b.stats.flow[key] ?? 0) + (b.s.cash - before.cash) - settledNet;
 	if (a.t === 'activity' && (GIG_IDS as readonly string[]).includes(a.id)) {
 		b.stats.diag.gigStarted++;
 		if (r.collapsed) b.stats.diag.gigCollapsed++;
@@ -411,6 +433,9 @@ function step(b: Bot) {
 		if (s.loc === want && homesAt(s, WA).some((o) => o.home.id === plan.home && !o.blocked) && tryAct(b, { t: 'home', op: 'rent', home: plan.home })) return;
 	}
 
+	// 2.5 副业与小生意（只有带 side / shop 的策略）
+	if ((plan.side || plan.shop) && stepBiz(b)) return;
+
 	// 3. 花钱（阶段 A）：升职卡在能力上就上课；钱多就体验、买车
 	if (plan.spend !== false && !isIdle(plan)) {
 		if (s.job && s.cash > 600) {
@@ -478,11 +503,47 @@ function step(b: Bot) {
 	act(b, 'rest'); // 兜底：一定能做，保证时间往前走
 }
 
+/** 副业与小生意的一步：办证 → 开店、补货、雇人 → 副业。做了一件事返回 true */
+function stepBiz(b: Bot): boolean {
+	const s = b.s;
+	const plan = b.plan;
+	const shopPlan = plan.shop;
+	const want = [...(plan.side?.licenses ?? []), ...(shopPlan ? ['abn', 'bizname', ...(getShopType(shopPlan.type)!.food ? [`food-${getShopSite(shopPlan.site)!.state}`] : [])] : [])];
+	const readyForShop = !shopPlan || s.biz.shop || s.cash >= shopPlan.openAt;
+	for (const id of want) if (readyForShop && !licenseValid(s, id) && s.cash > 400 && tryAct(b, { t: 'biz', op: 'license', id })) return true;
+	if (shopPlan) {
+		const site = getShopSite(shopPlan.site)!;
+		if (!s.biz.shop && s.cash >= shopPlan.openAt) {
+			if (s.loc !== site.loc) return headTo(b, site.loc);
+			if (shopOffersAt(s).some((o) => o.site.id === site.id && o.type.id === shopPlan.type && !o.blocked)) return tryAct(b, { t: 'biz', op: 'open', shop: shopPlan.type, site: shopPlan.site });
+		}
+		const shop = s.biz.shop;
+		if (shop && s.loc === site.loc) {
+			const can = shopActions(s);
+			const type = getShopType(shop.type)!;
+			if (shop.stock < shopPlan.restockBelow && !can.restock && s.cash > 300) {
+				const qty = Math.min(type.maxStock - shop.stock, Math.floor((s.cash - 300) / type.unitCost), 1000);
+				if (qty >= 1 && tryAct(b, { t: 'biz', op: 'restock', qty })) return true;
+			}
+			if (shop.staff < shopPlan.staff && !can.hire && tryAct(b, { t: 'biz', op: 'hire' })) return true;
+			// 不雇人的店：上班之外的空当自己看店（精力够、没有正式班要上时）
+			if (shopPlan.staff === 0 && !can.tend && s.needs.energy >= 45 && s.needs.hunger >= 40 && tryAct(b, { t: 'biz', op: 'tend' })) return true;
+		}
+	}
+	if (plan.side && s.needs.energy >= 45 && s.needs.hunger >= 45) {
+		for (const id of plan.side.gigs) {
+			const g = gigsAt(s, WA).find((o) => o.gig.id === id);
+			if (g && !g.blocked && tryAct(b, { t: 'biz', op: 'gig', id })) return true;
+		}
+	}
+	return false;
+}
+
 function runBot(plan: Plan, seed: number): Bot {
 	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: WA.id, spawn: WA.spawn, seed });
 	const b: Bot = {
 		s, plan, rng: mulberry(seed * 7919),
-		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), coops: 0, coopOk: 0, coopKinds: {} },
+		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), coops: 0, coopOk: 0, coopKinds: {}, biz: { gigs: {}, bankrupt: 0, shopNet: 0 } },
 	};
 	const end = s.clock + DAYS * 1440;
 	let lastDay = dayOf(s.clock);
@@ -526,6 +587,7 @@ const skillRows: [string, number[]][] = [];
 const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
 const coopRows: string[] = [];
+const bizRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
 for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, i + 1));
@@ -545,6 +607,12 @@ for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	for (const b of bots) for (const [k, v] of Object.entries(b.stats.flow)) flow[k] = (flow[k] ?? 0) + v / RUNS / DAYS;
 	const top = Object.entries(flow).filter(([, v]) => Math.abs(v) >= 1).sort((x, y) => y[1] - x[1]);
 	flows.push(`| ${plan.name} | ${top.filter(([, v]) => v > 0).map(([k, v]) => `${k} +${Math.round(v)}`).join('，') || '—'} | ${top.filter(([, v]) => v < 0).reverse().map(([k, v]) => `${k} ${Math.round(v)}`).join('，') || '—'} |`);
+	if (plan.side || plan.shop) {
+		const gigText = Object.entries(bots.reduce((acc, b) => { for (const [k, v] of Object.entries(b.stats.biz.gigs)) acc[k] = (acc[k] ?? 0) + v / RUNS; return acc; }, {} as Record<string, number>)).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('，') || '—';
+		const opened = bots.map((b) => b.stats.biz.openDay).filter((d): d is number => d !== undefined);
+		const stillOpen = bots.filter((b) => b.s.biz.shop).length;
+		bizRows.push(`| ${plan.name} | ${gigText} | ${plan.shop ? `${opened.length}/${RUNS}${opened.length ? `，第 ${pct(opened, 0.5)} 天` : ''}` : '—'} | ${plan.shop ? `${stillOpen}/${RUNS}` : '—'} | ${plan.shop ? avg(bots.map((b) => b.stats.biz.bankrupt)).toFixed(2) : '—'} | ${plan.shop ? money(avg(bots.map((b) => b.stats.biz.shopNet / DAYS))) : '—'} | ${bots.filter((b) => b.s.biz.gst).length}/${RUNS} | ${money(pct(bots.map((b) => b.s.biz.book.gross), 0.5))} |`);
+	}
 	if (plan.coop) {
 		const n = avg(bots.map((b) => b.stats.coops));
 		const ok = bots.reduce((x, b) => x + b.stats.coopOk, 0) / Math.max(1, bots.reduce((x, b) => x + b.stats.coops, 0));
@@ -614,6 +682,16 @@ out('| 策略 | 参加次数/人 | 成功率 | 每人每天净现金 | 各种类
 out('| --- | --- | --- | --- | --- |');
 for (const row of coopRows) out(row);
 out();
+if (bizRows.length) {
+	out('## 副业与小生意');
+	out();
+	out('副业策略在精力、饱食都不低于 45 时按顺序做第一份能做的副业；开店策略攒到开店线后办齐证照、开店、补货、雇人（或自己看店）。店铺结算净额（租金、工资、销售、事件）单独记在「每天的钱」表的 shop-days 里，不算进触发结算的动作。');
+	out();
+	out('| 策略 | 副业次数/人 | 开店人数，开店日（中位） | 期末还开着 | 倒闭/人 | 店铺日均净额 | 登记 GST | 期末本年营业额（中位） |');
+	out('| --- | --- | --- | --- | --- | --- | --- | --- |');
+	for (const row of bizRows) out(row);
+	out();
+}
 out('诊断口径：零工“完成”不含途中晕倒且拿不到工资的动作；未开工只统计现金已低于各策略触发线、但因生存门槛或当前地点/时段无法开工的决策。晕倒原因按动作开始状态和该动作耗时回算；“其他”包括事件受伤。当前四种零工都不受天气关闭，因此天气项应为 0。');
 out();
 out('说明：日均净收入 = (期末现金 − 开局现金) / 天数；破产天数 = 当天结束时现金低于 $20 的天数。');
