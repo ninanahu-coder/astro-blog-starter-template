@@ -81,7 +81,7 @@ function randomAction(s: PlayerState, r: () => number, now: number): GameAction 
 	}
 	if (roll < 0.98) {
 		const l = pick(WA.locations);
-		return { t: 'gps', lat: l.lat, lon: l.lon };
+		return { t: 'gps', lat: l.lat, lon: l.lon, acc: 10 };
 	}
 	return { t: 'activity', id: 'no-such-activity' };
 }

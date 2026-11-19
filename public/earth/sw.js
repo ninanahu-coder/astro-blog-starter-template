@@ -17,10 +17,15 @@ function assetsOf(html) {
 /** 按这份 HTML 更新缓存：存页面、补齐它引用的构建文件、删掉不再引用的旧构建文件 */
 async function refreshFrom(cache, html, pageRes) {
 	const assets = assetsOf(html);
+	const old = await cache.match(PAGE);
+	const before = old ? assetsOf(await old.text()) : null;
 	const missing = [];
 	for (const a of assets) if (!(await cache.match(a))) missing.push(a);
 	await cache.addAll(missing);
 	await cache.put(PAGE, pageRes);
+	// 页面引用的构建文件和上次一样（没有新部署）就不清理（第 41 批，性能）：按需下载的分块（真实地点、地图库、
+	// 更新日志）不写在页面里，以前每次联网打开都会被当成旧文件删掉，下次又得重新下载
+	if (before && before.length === assets.length && before.every((a) => assets.includes(a))) return;
 	const keep = new Set(assets.map((a) => new URL(a, self.location.origin).pathname));
 	for (const req of await cache.keys()) {
 		const path = new URL(req.url).pathname;

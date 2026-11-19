@@ -9,6 +9,9 @@ import { weatherOn } from '../../src/game/core/weather.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
 import { WA } from '../../src/game/data/wa.ts';
 
+/** gps 动作要服务端时间（没有就当离线拒绝） */
+const GPS_NOW = 1_800_000_000_000;
+
 test('昼夜数据自洽：事件写的时段都存在且不为空；每个时段限定事件都有能触发的地点', () => {
 	const ids = new Set<string>(PERIOD_IDS);
 	const timed = EVENTS.filter((e) => e.periods);
@@ -31,7 +34,7 @@ test('时段事件：只在抵达时刻属于对应时段时出现，对应时�
 		for (let h = 0; h < 24; h++) {
 			for (let seed = 0; seed < 4; seed++) {
 				const s = { ...base, seed: seed * 7919 + d * 31 + h, clock: d * 1440 + h * 60, visited: { ...base.visited, fremantle: 1 } };
-				const r = applyAction(s, WA, { t: 'gps', lat: fre.lat, lon: fre.lon });
+				const r = applyAction(s, WA, { t: 'gps', lat: fre.lat, lon: fre.lon, acc: 10 }, GPS_NOW);
 				const id = r.state.pending?.eventId;
 				const ps = id ? timed.get(id) : undefined;
 				if (!ps) continue;

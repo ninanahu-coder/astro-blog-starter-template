@@ -33,12 +33,20 @@
    | 矿工净资产 / 上班族净资产 | ≤ 3 倍 | 给出调整建议 |
    | 买了马上卖（车、家具、房） | 一定亏钱 | 有套利就是严重问题 |
 
+   经济口径（第 25 批，[economy-design.md](economy-design.md)）另看三条：零工时薪是否落在对口职业入门与最高级之间、每个职业等级时薪是否不低于 `ECON.minHourly`、背包客改用临时工工资后的生存数据（该文第 9 节有改动前后对比）。这三条测试已守住公式，要判断的是数值本身合不合适。金融资产（该文第 11 节）另看：三个理财策略和买房策略的净资产差距、鸸鹋币的分散程度、排行榜要不要计入持仓。
+
 3. 结论写进 `docs/earth-game/balance.md`，新起一节「第 N 轮」，写：改了什么、前后对比表、哪些指标越界、建议怎么调（给出具体数值和文件位置）。
 4. 用新结果覆盖 `docs/earth-game/balance-report.md`：
 
    ```bash
    npm run earth:sim -- --runs=100 --days=180 --out=docs/earth-game/balance-report.md
    ```
+
+改了出身（`ORIGINS`）的 PR 另跑一次出身对照，看同一策略下各出身的差别，问题清单见 [initial-stats.md](initial-stats.md) §6：
+
+```bash
+npm run earth:sim -- --origins --runs=100 --days=180 --out=docs/earth-game/origins-report.md
+```
 
 调参建议只写在报告里，**不要直接改数值**：数值改动由 Claude Code 按报告实施，再由 Codex 复核。
 

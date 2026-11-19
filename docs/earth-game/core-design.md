@@ -28,7 +28,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 | 分组 | 字段 | 范围 | 说明 |
 | --- | --- | --- | --- |
 | 身份 | `id` `name` `avatar` `origin` `traits` | — | 出身决定开局；特质创建时选 2 个，之后不可改 |
-| 生活需求 | `needs.hunger/energy/hygiene/fun/social` | 0–100 | 随游戏时间下降；饱食或精力为 0 时持续掉健康 |
+| 生活需求 | `needs.hunger/energy/hygiene/fun/social` | 0–100 | 随游戏时间下降；饱食或精力为 0 时持续掉健康，两项都 ≥ 50 时健康慢慢回升（第 23 批，见 [activity-attributes.md](activity-attributes.md)） |
 | 能力 | `skills.stamina/strength/driving/swimming/charisma/survival/street` | 0–100 | 靠行为成长，边际递减：增长 = 原值 × 特质倍率 × 0.35 × (1 − 当前值/110) |
 | 收藏 | `collected` `courseDays` `photos` | — | 已完成的体验；每门课最近一次上课的游戏日；天气相册（`地点|天气`，抵达时按当天天气收集，只是收藏） |
 | 状态 | `cash` `health` `respect` `heat` `vehicle` | 见下 | 现金 ≥0；健康 0–100；声望 ≥0；麻烦值 0–100 |
@@ -114,7 +114,7 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 
 1. 付出：扣现金、扣声望、麻烦值上涨（× 特质 `heat`）、用掉的物品
 2. 能力成长（× 特质 `gain`）。这是唯一在时间流逝前结算的收获，途中晕倒也保留
-3. 时间流逝：需求按衰减率 × 特质 `decay` 下降，饿着或累着会掉健康，健康归零即晕倒
+3. 时间流逝（`core/vitals.ts`）：需求按衰减率 × 特质 `decay` 下降；饱食或精力见底之后的那段时间掉健康，两项都 ≥ 50 的那段时间回健康，麻烦值匀速冷却；健康归零即晕倒
 4. 没晕倒才结算的收获：得到的现金、声望、麻烦值下降、换座驾、得到的物品（钳制到携带上限）
 5. 周结算（这段时间跨过了结算日才有）。排在收获之后，所以这一班的工资能用来付刚到期的房租和房贷
 6. 需求增减、心情状态

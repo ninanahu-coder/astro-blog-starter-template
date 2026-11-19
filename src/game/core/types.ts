@@ -26,6 +26,8 @@ export interface Effect {
 	items?: Record<string, number>;
 	/** 获得一个带时限的心情状态（见 data/moodlets.ts） */
 	moodlet?: string;
+	/** 这段时间在睡觉：饱食、娱乐、社交掉得慢，精力不降，恢复的精力乘恢复系数（见 core/vitals.ts） */
+	asleep?: boolean;
 }
 
 export interface MoodletDef {
@@ -35,6 +37,7 @@ export interface MoodletDef {
 	value: number; // 心情加减
 	hours: number; // 持续的游戏小时
 	gain?: number; // 生效期间所有能力成长的倍率（如「专注」1.25）
+	regen?: number; // 生效期间健康自然恢复的倍率（如「吃了维生素」2）
 }
 
 export interface Moodlet {
@@ -188,6 +191,25 @@ export interface OwnedProperty {
 	missed: number; // 连续欠款周数
 	fresh?: boolean; // 这个结算期内才挂牌出租：到下个结算日不计租
 	lived?: boolean; // 自己搬进去住过：「搬了新家」每套房只给一次
+}
+
+/** 金融资产（第 25 批）：储蓄、指数基金、金条、虚拟币。价格按玩家私有的行情种子逐日生成，见 core/market.ts */
+export interface AssetDef {
+	id: string;
+	name: string;
+	icon: string;
+	kind: 'cash' | 'stock' | 'metal' | 'crypto';
+	start: number; // 第 0 天的单价
+	drift: number; // 年化期望收益（对数漂移），待平衡
+	vol: number; // 年化波动率，待平衡
+	fee: number; // 买入和卖出各收的手续费比例（含买卖价差）
+	desc: string;
+}
+
+/** 持有的一种资产：份数和累计成本（卖出时按比例扣减成本，界面算盈亏用） */
+export interface Holding {
+	units: number;
+	cost: number;
 }
 
 export interface FurnitureDef {
@@ -513,6 +535,9 @@ export interface PlayerState {
 	job: Job | null;
 	home: Home | null;
 	properties: OwnedProperty[];
+	holdings: Record<string, Holding>; // 资产 id -> 持仓（第 25 批）
+	quotes?: Record<string, number[]>; // 只在发给客户端的副本里有（publicState 填）：每种资产最近几天的价格，客户端没有行情种子，靠它显示行情
+	marketSeed: number; // 行情种子：创建时由服务端随机种子派生，不发给客户端（publicState 清零），否则能推算未来价格
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
 	moodlets: Moodlet[]; // 带时限的心情状态
 	wishes: string[]; // 今天还没完成的心愿 id
