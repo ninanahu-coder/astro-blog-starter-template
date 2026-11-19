@@ -13,6 +13,7 @@ import { getItem } from '../core/attributes.ts';
 import { coopBlocked } from '../core/coop.ts';
 import { getCoop } from '../data/coop.ts';
 import { claimDaily, realDayOf } from '../core/daily.ts';
+import { noteReturn } from '../core/onboard.ts';
 import { refreshWishes } from '../core/wishes.ts';
 import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
 import { boardEntry, rankBoard } from '../core/board.ts';
@@ -506,7 +507,8 @@ export class EarthWorld {
 		// 落盘和返回之前统一再过一遍存档校验：存下来的永远是规范形式，不依赖每条规则各自守住上限
 		const locs = new Set(region.locations.map((l) => l.id));
 		const canon = (s: typeof current) => sanitizeState(s, locs, { fallbackLoc: region.spawn, now }) ?? s;
-		const claim = claimDaily(current, realDayOf(now));
+		// 回流（v36）：离开几天后第一次回来，在发每日奖励之前记下离开了多久（领奖会把 daily.day 改成今天）
+		const claim = claimDaily(noteReturn(current, realDayOf(now)), realDayOf(now));
 		const live = claim ? canon(claim.state) : current;
 		// 校验时修过存档（挪了地点、清了未来的时间戳等）也要写回：不然只上线不操作的话，每次都重新修一遍，
 		// 被改成「今天已领」的每日奖励永远领不到

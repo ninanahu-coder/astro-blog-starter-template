@@ -14,6 +14,7 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { applyOnboard, parseOnboardOp, settleOnboard, type OnboardOp } from './onboard.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -39,7 +40,8 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
-	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
+	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number }
+	| ({ t: 'onboard' } & OnboardOp);
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk'];
@@ -96,6 +98,10 @@ export function parseAction(raw: unknown): GameAction | null {
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
 			if (a.op === 'repay') return finite(a.amount) && a.amount > 0 && a.amount <= 1e9 ? { t: 'property', op: 'repay', id: a.id, amount: Math.floor(a.amount) } : null;
 			return a.op === 'sell' || a.op === 'movein' || a.op === 'rentout' ? { t: 'property', op: a.op, id: a.id } : null;
+		case 'onboard': {
+			const o = parseOnboardOp(a);
+			return o ? { t: 'onboard', ...o } : null;
+		}
 		default:
 			return null;
 	}
@@ -103,6 +109,11 @@ export function parseAction(raw: unknown): GameAction | null {
 
 /** 执行一个动作。成功时存档版本号 +1。now 为服务端的现实时间（毫秒），只有真实地点动作用到；不传则真实地点不可用 */
 export function applyAction(state: PlayerState, region: Region, a: GameAction, now = 0): ActionResult {
+	// 新手引导动作（v36）：只改 onboard 字段，不花时间，不算心愿和主线；有待处理事件时也能关提示。没有变化就不加版本号
+	if (a.t === 'onboard') {
+		const r = applyOnboard(state, a);
+		return r.state === state ? r : { ...r, state: { ...r.state, rev: nextRev(state.rev) } };
+	}
 	let r: ActionResult;
 	switch (a.t) {
 		case 'travel': r = travel(state, region, a.to, a.mode); break;
@@ -141,6 +152,8 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 			if (done.length) msg += ` ✨ 心愿达成：${done.join('、')}`;
 			const chapters = settleStory(state, r.state, a);
 			if (chapters.length) msg += ` 📖 ${chapters.join('、')}`;
+			const feats = settleOnboard(r.state);
+			if (feats.length) msg += ` 🔓 新出现：${feats.map((f) => f.name).join('、')}`;
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
 	}
