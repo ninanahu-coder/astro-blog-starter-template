@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { activeSponsors, dealDay, monthOfDay, redeemCode, redeemProblem, statementFor, validateSponsors } from '../../src/game/core/sponsor.ts';
 import { SPONSORS, SPONSOR_LABEL, type SponsorDeal } from '../../src/game/data/sponsors.ts';
-import { parseRedeemView, redeemCardHtml, sponsorOfferHtml, sponsorTagHtml } from '../../src/game/ui/sponsor.ts';
+import { parseRedeemView, pinInputId, redeemCardHtml, sponsorOfferHtml, sponsorTagHtml } from '../../src/game/ui/sponsor.ts';
 import { createCharacter } from '../../src/game/core/character.ts';
 import { realDayOf } from '../../src/game/core/daily.ts';
 import { EarthWorld } from '../../src/game/server/world.ts';
@@ -144,6 +144,14 @@ test('核销卡：服务端返回值要校验，所有文字都转义', () => {
 	assert.match(html, /0042/);
 	assert.match(html, /2026-12-05 当天有效/);
 	assert.match(html, />赞助</);
+	assert.equal(v.confirmed, false);
+	assert.match(html, /type="password"/);
+	assert.match(html, /data-redeem-confirm="a"/);
+	const done = redeemCardHtml({ ...v, confirmed: true });
+	assert.match(done, /已核销/);
+	assert.ok(!done.includes('<input'), '确认过不再给输入框');
+	assert.equal(parseRedeemView({ deal: 'a', venue: 'b', offer: 'c', terms: '', code: '1234', day: 1, confirmed: 'yes' })!.confirmed, false, '只认布尔 true');
+	assert.equal(pinInputId('sp-x"><img'), 'redeem-pin-sp-ximg');
 });
 
 // 服务端：把一家虚构的店和一条虚构的赞助临时放进世界数据（只在这个测试进程里）
@@ -166,65 +174,132 @@ function makeWorld(env: Record<string, unknown> = {}) {
 		const res = await world.fetch(new Request(`https://example.test/api/earth/sponsor-report?month=${month}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} }));
 		return { status: res.status, data: (await res.json()) as any };
 	};
-	return { data, call, report };
+	const makePin = async (deal: string, token?: string, method = 'POST') => {
+		const res = await world.fetch(new Request('https://example.test/api/earth/sponsor-pin', { method, headers: token ? { Authorization: `Bearer ${token}` } : {}, ...(method === 'POST' ? { body: JSON.stringify({ deal }) } : {}) }));
+		return { status: res.status, data: (await res.json()) as any };
+	};
+	return { data, call, report, makePin };
 }
 
-test('服务端核销：在店里才发码；同一人同一天只记一次；每日上限；当月计数进对账单', async () => {
-	const shop: Venue = { id: 't-sponsor-cafe', loc: 'perth', name: '测试咖啡（虚构）', lat: -31.9505, lon: 115.8605, type: 'cafe', source: 'osm' };
-	WORLD.venues.push(shop);
+const SHOP: Venue = { id: 't-sponsor-cafe', loc: 'perth', name: '测试咖啡（虚构）', lat: -31.9505, lon: 115.8605, type: 'cafe', source: 'osm' };
+const TOKEN = 't'.repeat(40);
+const profile = { name: '测', avatar: '🧑', origin: 'student', traits: [] };
+
+/** 把虚构的店和赞助临时放进世界数据（只在这个测试进程里），跑完拿掉 */
+async function withDeal(over: Partial<SponsorDeal>, fn: (d: SponsorDeal) => Promise<void>) {
 	const today = realDayOf(Date.now());
 	const ymd = (day: number) => new Date(day * 86_400_000).toISOString().slice(0, 10);
-	const d = deal({ id: 'sp-t-sponsor-cafe', venueId: shop.id, start: ymd(today - 1), end: ymd(today + 1), dailyCap: 2 });
+	const d = deal({ id: 'sp-t-sponsor-cafe', venueId: SHOP.id, start: ymd(today - 1), end: ymd(today + 1), ...over });
+	WORLD.venues.push(SHOP);
 	SPONSORS.push(d);
 	try {
-		const token = 't'.repeat(40);
-		const w = makeWorld({ EARTH_SPONSOR_TOKEN: token });
-		const players = ['sponsor-p1', 'sponsor-p2', 'sponsor-p3'].map((id) => ({ id, key: 'k'.repeat(24) }));
-		for (const p of players) assert.ok((await w.call({ action: 'create', ...p, profile: { name: '测', avatar: '🧑', origin: 'student', traits: [] } })).data.ok);
-		const here = { deal: d.id, lat: shop.lat, lon: shop.lon, acc: 10 };
-		const [p1, p2, p3] = players;
+		await fn(d);
+	} finally {
+		SPONSORS.splice(SPONSORS.indexOf(d), 1);
+		WORLD.venues.splice(WORLD.venues.indexOf(SHOP), 1);
+	}
+}
+const here = (d: SponsorDeal) => ({ deal: d.id, lat: SHOP.lat, lon: SHOP.lon, acc: 10 });
 
-		const far = await w.call({ action: 'redeem', ...p1, ...here, lat: shop.lat + 0.01 });
+test('店员 PIN 接口：要令牌，只返回一次，服务端只存加盐哈希，重置后旧的失效', async () => {
+	await withDeal({}, async (d) => {
+		const w = makeWorld({ EARTH_SPONSOR_TOKEN: TOKEN });
+		assert.equal((await w.makePin(d.id)).status, 401);
+		assert.equal((await w.makePin(d.id, 'wrong')).status, 401);
+		assert.equal((await w.makePin(d.id, TOKEN, 'GET')).status, 405);
+		assert.equal((await w.makePin('nope', TOKEN)).status, 404);
+		const a = await w.makePin(d.id, TOKEN);
+		assert.equal(a.status, 200);
+		assert.match(a.data.pin, /^\d{6}$/);
+		const rec = w.data.get(`pin:${d.id}`);
+		assert.ok(!JSON.stringify(rec).includes(a.data.pin), '不存明文 PIN');
+		const b = await w.makePin(d.id, TOKEN);
+		assert.notDeepEqual(w.data.get(`pin:${d.id}`), rec, '重置后换了盐和哈希');
+		assert.equal((await makeWorld().makePin(d.id, TOKEN)).status, 404, '没配置令牌就不开放');
+		void b;
+	});
+});
+
+test('服务端核销：在店里领码不计费；店员输对 PIN 才计费；每日上限；输错锁定；对账单只按确认数收费', async () => {
+	await withDeal({ dailyCap: 2 }, async (d) => {
+		const w = makeWorld({ EARTH_SPONSOR_TOKEN: TOKEN });
+		const [p1, p2, p3, p4] = ['sponsor-p1', 'sponsor-p2', 'sponsor-p3', 'sponsor-p4'].map((id) => ({ id, key: 'k'.repeat(24) }));
+		for (const p of [p1, p2, p3, p4]) assert.ok((await w.call({ action: 'create', ...p, profile })).data.ok);
+		const { pin } = (await w.makePin(d.id, TOKEN)).data;
+		const wrong = pin === '000000' ? '111111' : '000000';
+		const claim = (p: typeof p1, extra = {}) => w.call({ action: 'redeem', op: 'claim', ...p, ...here(d), ...extra });
+		const confirm = (p: typeof p1, pinText: string) => w.call({ action: 'redeem', op: 'confirm', ...p, deal: d.id, pin: pinText });
+		const today = realDayOf(Date.now());
+		const month = monthOfDay(today);
+
+		const far = await claim(p1, { lat: SHOP.lat + 0.01 });
 		assert.equal(far.data.ok, false);
 		assert.match(far.data.msg, /人在店里/);
-		assert.equal((await w.call({ action: 'redeem', ...p1, key: 'x'.repeat(24), ...here })).status, 403, '同步码不对不能领');
+		assert.equal((await claim({ ...p1, key: 'x'.repeat(24) })).status, 403, '同步码不对不能领');
+		assert.match((await confirm(p2, pin)).data.msg, /先在店里/, '没领码不能确认');
 
-		const first = await w.call({ action: 'redeem', ...p1, ...here });
+		const first = await claim(p1);
 		assert.ok(first.data.ok, first.data.msg);
 		assert.match(first.data.redeem.code, /^\d{4}$/);
-		assert.equal(first.data.redeem.venue, shop.name);
+		assert.equal(first.data.redeem.confirmed, false);
 		assert.ok(!JSON.stringify(first.data).includes(p1.id), '返回里不带玩家 id');
-		const again = await w.call({ action: 'redeem', ...p1, ...here });
+		assert.equal(w.data.get(`rdm:${d.id}:${month}`), undefined, '领码不计费');
+		const again = await claim(p1);
 		assert.ok(again.data.dup);
 		assert.equal(again.data.redeem.code, first.data.redeem.code, '同一天再点是同一个码');
 
-		assert.ok((await w.call({ action: 'redeem', ...p2, ...here })).data.ok);
-		const capped = await w.call({ action: 'redeem', ...p3, ...here });
-		assert.equal(capped.data.ok, false);
-		assert.match(capped.data.msg, /发完了/);
+		const bad = await confirm(p1, wrong);
+		assert.equal(bad.data.ok, false);
+		assert.match(bad.data.msg, /还能试 4 次/);
+		assert.equal((await confirm(p1, '12ab')).data.ok, false, '格式不对也算输错');
+		const ok = await confirm(p1, pin);
+		assert.ok(ok.data.ok, ok.data.msg);
+		assert.equal(ok.data.redeem.confirmed, true);
+		assert.equal(w.data.get(`rdm:${d.id}:${month}`), 1);
+		assert.ok((await confirm(p1, pin)).data.dup, '确认过再确认不重复计费');
+		assert.equal(w.data.get(`rdm:${d.id}:${month}`), 1);
+		assert.equal((await claim(p1)).data.redeem.confirmed, true, '再打开显示已核销');
 
-		const month = monthOfDay(today);
+		// 每日上限 2：p2、p3 都领到码；p2 确认后到上限，p3 确认不了，p4 领不到
+		assert.ok((await claim(p2)).data.ok);
+		assert.ok((await claim(p3)).data.ok);
+		assert.ok((await confirm(p2, pin)).data.ok);
+		assert.match((await confirm(p3, pin)).data.msg, /发完了/);
+		assert.match((await claim(p4)).data.msg, /发完了/);
 		assert.equal(w.data.get(`rdd:${d.id}:${today}`), 2);
-		assert.equal(w.data.get(`rdm:${d.id}:${month}`), 2);
+
+		// 每人每天最多输错 5 次
+		for (let i = 0; i < 5; i++) assert.equal((await confirm(p3, wrong)).data.ok, false);
+		assert.match((await confirm(p3, pin)).data.msg, /已锁定/);
+
 		// 核销不改存档
 		assert.equal(w.data.get('save:' + p1.id).state.fix, null);
 
-		assert.equal((await w.report(month)).status, 401);
-		assert.equal((await w.report(month, 'wrong')).status, 401);
-		assert.equal((await w.report('2026-1', token)).status, 400);
-		const rep = await w.report(month, token);
+		const rep = await w.report(month, TOKEN);
 		assert.equal(rep.status, 200);
 		const row = rep.data.rows.find((r: any) => r.deal === d.id);
-		assert.equal(row.redeems, 2);
+		assert.equal(row.redeems, 2, '只按店员确认过的计费');
+		assert.equal(row.claims, 3);
+		assert.equal(row.pin, true);
 		assert.equal(row.redeemPart, 300);
 		assert.equal(row.total, row.monthlyPart + 300);
 		assert.ok(!JSON.stringify(rep.data).includes('sponsor-p'), '对账单不含玩家信息');
+		assert.ok(!JSON.stringify(rep.data).includes(pin), '对账单不含 PIN');
+		assert.equal((await w.report(month)).status, 401);
+		assert.equal((await w.report('2026-1', TOKEN)).status, 400);
+		assert.equal((await makeWorld({ EARTH_SPONSOR_TOKEN: 'short' }).report(month, 'short')).status, 404, '令牌太短等于没配置');
+	});
+});
 
-		// 没配置令牌（或太短）就不开放
-		assert.equal((await makeWorld().report(month, token)).status, 404);
-		assert.equal((await makeWorld({ EARTH_SPONSOR_TOKEN: 'short' }).report(month, 'short')).status, 404);
-	} finally {
-		SPONSORS.splice(SPONSORS.indexOf(d), 1);
-		WORLD.venues.splice(WORLD.venues.indexOf(shop), 1);
-	}
+test('服务端核销：没开通 PIN 不能确认；整条赞助当天输错太多就锁定', async () => {
+	await withDeal({}, async (d) => {
+		const w = makeWorld({ EARTH_SPONSOR_TOKEN: TOKEN });
+		const p = { id: 'sponsor-q1', key: 'k'.repeat(24) };
+		assert.ok((await w.call({ action: 'create', ...p, profile })).data.ok);
+		assert.ok((await w.call({ action: 'redeem', op: 'claim', ...p, ...here(d) })).data.ok);
+		assert.match((await w.call({ action: 'redeem', op: 'confirm', ...p, deal: d.id, pin: '123456' })).data.msg, /还没开通/);
+		const { pin } = (await w.makePin(d.id, TOKEN)).data;
+		w.data.set(`rdf:${d.id}:${realDayOf(Date.now())}`, 100);
+		assert.match((await w.call({ action: 'redeem', op: 'confirm', ...p, deal: d.id, pin })).data.msg, /已锁定/);
+	});
 });

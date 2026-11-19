@@ -19,6 +19,7 @@ export interface RedeemView {
 	terms: string;
 	code: string;
 	day: number; // 珀斯现实日序号
+	confirmed: boolean; // 店员已输入 PIN 确认
 }
 
 /** 返回值不可信：字段类型不对就丢掉 */
@@ -28,16 +29,26 @@ export function parseRedeemView(v: unknown): RedeemView | null {
 	const str = (k: string) => (typeof o[k] === 'string' ? (o[k] as string) : null);
 	const [deal, venue, offer, terms, code] = ['deal', 'venue', 'offer', 'terms', 'code'].map(str);
 	if (!deal || !venue || !offer || terms === null || !code || !/^\d{4}$/.test(code) || !Number.isInteger(o.day)) return null;
-	return { deal, venue, offer, terms, code, day: o.day as number };
+	return { deal, venue, offer, terms, code, day: o.day as number, confirmed: o.confirmed === true };
 }
 
 /** 珀斯日期 YYYY-MM-DD */
 const dayLabel = (day: number) => new Date(day * 86_400_000).toISOString().slice(0, 10);
 
-/** 给店员看的核销卡：店名、优惠、今天的日期、4 位核销码；圆点一直在动，静态截图看得出来 */
+/** PIN 输入框的元素 id（赞助编号只含小写字母、数字和连字符） */
+export const pinInputId = (dealId: string) => `redeem-pin-${dealId.replace(/[^a-z0-9-]/g, '')}`;
+
+/**
+ * 给店员看的核销卡：店名、优惠、今天的日期、4 位核销码；圆点一直在动，静态截图看得出来。
+ * 没确认时下面是店员输入 PIN 的框；确认过显示「已核销」，不再给输入框。
+ */
 export const redeemCardHtml = (r: RedeemView) =>
-	`<div class="redeem-card" role="group" aria-label="优惠核销码"><span class="sponsor-tag">${esc(SPONSOR_LABEL)}</span><span class="redeem-live" aria-hidden="true"></span>
+	`<div class="redeem-card${r.confirmed ? ' done' : ''}" role="group" aria-label="优惠核销码"><span class="sponsor-tag">${esc(SPONSOR_LABEL)}</span><span class="redeem-live" aria-hidden="true"></span>
 		<b class="redeem-shop">${esc(r.venue)}</b><p>${esc(r.offer)}</p>
 		<b class="redeem-code" aria-label="核销码 ${esc(r.code)}">${esc(r.code)}</b>
 		<small>${esc(dayLabel(r.day))} 当天有效 · ${esc(r.terms)}</small>
-		<small>店员：核对店名、日期和核销码；右上角圆点在动说明不是截图。</small></div>`;
+		${r.confirmed
+		? '<b class="redeem-ok">✅ 已核销</b>'
+		: `<label class="redeem-pin" for="${esc(pinInputId(r.deal))}">店员输入店铺 PIN 确认<input id="${esc(pinInputId(r.deal))}" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off"></label>
+		<button class="primary wide" data-redeem-confirm="${esc(r.deal)}">确认核销</button>
+		<small>店员：核对店名、日期和核销码，右上角圆点在动说明不是截图；给了优惠再输入 PIN。</small>`}</div>`;
