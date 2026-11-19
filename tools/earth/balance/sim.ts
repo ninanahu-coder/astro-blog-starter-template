@@ -12,9 +12,10 @@ import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter, ORIGINS } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
+import { viewedOk } from '../../../src/game/core/rental.ts';
 import { weatherAt } from '../../../src/game/core/weather.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
@@ -160,7 +161,7 @@ function blankDiagnostics(): BackpackerDiagnostics {
 
 function actionKey(a: GameAction): string {
 	return a.t === 'activity' ? a.id
-		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' ? `${a.t}-${a.op}`
+		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' || a.t === 'rental' ? `${a.t}-${a.op}`
 			: a.t === 'npc' ? 'npc'
 				: a.t === 'buy' ? `buy-${a.item}`
 					: a.t;
@@ -408,8 +409,19 @@ function step(b: Bot) {
 	}
 	if (plan.home && !s.home && s.cash > 400) {
 		const want = plan.job?.loc ?? WA.spawn;
-		if (s.loc === want && homesAt(s, WA).some((o) => o.home.id === plan.home && !o.blocked) && tryAct(b, { t: 'home', op: 'rent', home: plan.home })) return;
+		// 租房市场（rental 批次）：先看房再递申请（固定期限）；被拒当天这套房不可申请，第二天再来
+		if (s.loc === want && homesAt(s, WA).some((o) => o.home.id === plan.home && !o.blocked)) {
+			if (!viewedOk(s.rental, s.loc, plan.home, dayOf(s.clock)) && tryAct(b, { t: 'rental', op: 'inspect', home: plan.home })) return;
+			if (tryAct(b, { t: 'home', op: 'rent', home: plan.home, term: 'fixed' })) return;
+		}
 	}
+	// 租约：交入住检查报告、坏了就报修、固定期快到就续约、押金扣款有报告就申诉
+	if (s.home && !s.home.owned) {
+		if (!leaseBlocked(s, 'report') && tryAct(b, { t: 'rental', op: 'report' })) return;
+		if (!leaseBlocked(s, 'repair') && tryAct(b, { t: 'rental', op: 'repair' })) return;
+		if (s.rental.lease?.end && !leaseBlocked(s, 'renew') && tryAct(b, { t: 'rental', op: 'renew' })) return;
+	}
+	if (s.rental.claim && tryAct(b, { t: 'rental', op: s.rental.claim.prior ? 'dispute' : 'accept' })) return;
 
 	// 3. 花钱（阶段 A）：升职卡在能力上就上课；钱多就体验、买车
 	if (plan.spend !== false && !isIdle(plan)) {

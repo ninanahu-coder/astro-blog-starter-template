@@ -1,6 +1,7 @@
 // 派生属性：全部由 PlayerState 现算，不落盘，避免存档里出现互相矛盾的冗余字段。
 // 引擎所有涉及特质 / 物品 / 心情的数值都走这里，调参只改这一个文件和 data/。
 import { ITEMS } from '../data/items.ts';
+import { faultComfort } from './rental.ts';
 import { TRAITS } from '../data/traits.ts';
 import { HOMES } from '../data/housing.ts';
 import { FURNITURE, FURNITURE_SETS } from '../data/furniture.ts';
@@ -39,7 +40,8 @@ export function homeComfort(state: PlayerState): number {
 	if (!state.home) return 0;
 	const base = HOMES.find((h) => h.id === state.home!.type)?.comfort ?? 0;
 	const extra = Object.values(state.home.furniture).reduce((a, id) => a + (FURNITURE.find((f) => f.id === id)?.comfort ?? 0), 0);
-	return base + extra + furnitureSets(state).filter((x) => x.done).reduce((a, x) => a + x.set.comfort, 0);
+	// 紧急故障没修好（租房市场，rental.ts）：舒适度打折扣
+	return base + extra + furnitureSets(state).filter((x) => x.done).reduce((a, x) => a + x.set.comfort, 0) - faultComfort(state);
 }
 
 /** 住处的成套家具进度：每套已经摆了几件、凑齐没有（没有住处为空） */

@@ -31,6 +31,7 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'in-trouble', name: '惹上了麻烦', icon: '😬', value: -6, hours: 24 },
 	{ id: 'collapsed', name: '刚从医院出来', icon: '🏥', value: -12, hours: 48 },
 	{ id: 'evicted', name: '被赶出了家门', icon: '📦', value: -15, hours: 72 },
+	{ id: 'scammed', name: '被骗租了', icon: '🪤', value: -10, hours: 48 }, // 租房市场（待平衡）
 ];
 
 /** 存档里最多保留的状态数 */

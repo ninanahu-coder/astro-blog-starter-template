@@ -655,7 +655,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 
 		<script>
 			import { AVATARS, NEED_META, ORIGINS, SKILL_META, formatClock, nextRev, sanitizeState } from '../game/core/character.ts';
-			import type { GameAction } from '../game/core/actions.ts';
+			import type { GameAction, RentalOp } from '../game/core/actions.ts';
 			import { npcStatus } from '../game/core/engine.ts';
 			import { ANIMALS } from '../game/data/wildlife.ts';
 			import { FISH, FISHING } from '../game/data/fish.ts';
@@ -671,8 +671,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
 			import { codeOf, exportName, hashAction, makeQr, parseCred, parsePendingKey, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, webglSupported, type Basemap } from '../game/ui/basemap.ts';
-			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, bondFor, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
+			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, bondFor, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getAreaBody, leaseBlocked, oddsInput, scamHere, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
+			import { applyOdds, breakFee, needsLease, oddsLabel, rentDue, viewedOk } from '../game/core/rental.ts';
+			import { RENTAL, SCAM_TIP } from '../game/data/rental.ts';
 			import { CERTS } from '../game/data/certs.ts';
 			import { SERVICE_KM } from '../game/data/vehicles.ts';
 			import { AREAS, EXPERIENCES } from '../game/data/experiences.ts';
@@ -1863,14 +1865,32 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const rentals = homesAt(s, region);
 				const cookWhy = homeActionBlocked(s, 'cook');
 				const relaxWhy = homeActionBlocked(s, 'relax');
-				const homeHtml = homeHere || rentals.length ? `<div class="card"><h3>住处</h3>
-					${homeHere ? `<div class="row" style="margin-top:8px"><span class="body">你的${esc(homeHere.name)}<small>${s.home!.owned ? '自有房产，不交房租' : `每周 $${homeHere.rentWeek}${s.home!.bond ? `，押金 $${s.home!.bond}` : ''}`} · ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算 · 心情 +${homeComfort(s)}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>
+				// 租房市场（rental 批次）：租约、检查报告、报修、续约、押金扣款、骗租广告
+				const today = dayOf(s.clock);
+				const lease = homeHere && !s.home!.owned ? s.rental.lease : null;
+				const claim = s.rental.claim;
+				const scam = scamHere(s, region);
+				const leaseHtml = lease ? `<div class="row" style="margin-top:8px"><span class="body">租约<small>${esc(`${lease.end ? `固定期限，还有 ${lease.end - today} 天到期` : '周期租约'} · 押金在${getAreaBody(lease.loc).bond}托管${lease.rise ? ` · ${lease.rise.at - today} 天后房租涨到 $${lease.rise.to}` : ''}${lease.fault ? ` · ${lease.fault.name}${lease.fault.asked >= 0 ? '（已报修）' : ''}` : ''}${lease.report === 0 ? ` · 入住检查报告还有 ${lease.start + RENTAL.reportDays - today} 天交回` : lease.report === -1 ? ' · 入住检查报告没交' : ''}`)}</small></span></div>
+					<div class="inline" style="margin-top:8px">${lease.report === 0 ? `<button data-rental="report" ${leaseBlocked(s, 'report') ? 'disabled' : ''}>交入住检查报告</button>` : ''}${lease.fault && lease.fault.asked < 0 ? `<button data-rental="repair">书面报修</button>` : ''}<button data-rental="renew" ${leaseBlocked(s, 'renew') ? 'disabled' : ''}>续约 ${RENTAL.fixedDays} 天</button></div>` : '';
+				const claimHtml = claim ? `<div class="row" style="margin-top:8px"><span class="body">押金扣款 $${claim.amount}<small>${esc(`房东申请从押金里扣钱修损坏，钱还在托管机构。${claim.prior ? '你交过入住检查报告，申诉能要回入住时就有的损坏那部分。' : '你没交入住检查报告，申诉多半赢不了。'}`)}</small></span><span class="inline"><button data-rental="accept">接受</button><button data-rental="dispute">申诉</button></span></div>` : '';
+				const scamHtml = scam ? `<div class="row" style="margin-top:8px"><span class="body">${esc(scam.home.name)} · $${scam.rent}/周<small>${esc(`房东在国外，不能看房；先转押金和 ${RENTAL.scamWeeks} 周房租共 $${scam.ask}，钥匙快递给你。`)}</small></span><span class="inline"><button data-rental="scam-pay">先转钱订下</button><button data-rental="scam-check">核实一下</button></span></div>` : '';
+				const offerHtml = ({ home, blocked }: (typeof rentals)[number]) => {
+					const viewed = viewedOk(s.rental, loc.id, home.id, today);
+					const info = blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}${bondFor(home) ? ` + 押金 $${bondFor(home)}（搬走时退）` : ''}${viewed ? ` · 看房来了 ${s.rental.viewed!.n} 组人，你的申请${oddsLabel(applyOdds(oddsInput(s, home)))}` : ''}`;
+					const btns = !needsLease(home) ? `<button data-home="rent" data-home-id="${home.id}" ${blocked ? 'disabled' : ''}>${s.home ? '搬来' : '租下'}</button>`
+						: !viewed ? `<button data-rental="inspect" data-home-id="${home.id}">看房</button>`
+						: `<span class="inline"><button data-home="rent" data-home-id="${home.id}" data-term="fixed" ${blocked ? 'disabled' : ''}>申请 · 固定 ${RENTAL.fixedDays} 天</button><button data-home="rent" data-home-id="${home.id}" data-term="periodic" ${blocked ? 'disabled' : ''}>申请 · 周期</button></span>`;
+					return `<div class="row" style="margin-top:8px"><span class="body">${esc(home.name)} · $${home.rentWeek}/周<small>${esc(info)}</small></span>${btns}</div>`;
+				};
+				const homeHtml = homeHere || rentals.length || claim ? `<div class="card"><h3>住处</h3>
+					${homeHere ? `<div class="row" style="margin-top:8px"><span class="body">你的${esc(homeHere.name)}<small>${s.home!.owned ? '自有房产，不交房租' : `每周 $${rentDue(s, homeHere)}${s.home!.bond ? `，押金 $${s.home!.bond}` : ''}`} · ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算 · 心情 +${homeComfort(s)}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>${leaseHtml}
 					<div class="inline" style="margin-top:8px"><button data-home="cook" ${cookWhy ? 'disabled' : ''}>做饭 $${HOME_COOK.cost}</button><button data-home="relax" ${relaxWhy ? 'disabled' : ''}>放松</button></div>
 					${cookWhy || relaxWhy ? `<p style="margin-top:4px">${esc([...new Set([cookWhy, relaxWhy].filter(Boolean))].join('；'))}</p>` : ''}
 					<details style="margin-top:8px"><summary class="muted">添置家具（已有 ${Object.keys(s.home!.furniture).length}/${Object.keys(FURNITURE_SLOTS).length} 类，折现值 $${furnitureValue(s)}）</summary>
 					${furnitureAt(s).map(({ item, owned, net, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${owned ? '✅ ' : ''}${esc(FURNITURE_SLOTS[item.slot])} · ${esc(item.name)}<small>${esc(item.desc)}${!owned && net !== item.price ? ` 换购价 $${net}` : ''}</small></span>${owned ? `<button data-furn="sell" data-slot="${item.slot}">卖</button>` : `<button data-furn="buy" data-furn-id="${item.id}" ${blocked ? 'disabled' : ''}>$${item.price}</button>`}</div>`).join('')}
 					<p style="margin-top:8px" class="muted">成套摆放有额外心情：${furnitureSets(s).map(({ set, have, done }) => `${done ? '✅ ' : ''}${esc(set.name)}（${set.items.map((id) => esc(getFurniture(id)?.name ?? id)).join(' + ')}，${have}/${set.items.length}，心情 +${set.comfort}）`).join('；')}</p></details>` : ''}
-					${rentals.filter((o) => !(homeHere && o.home.id === s.home!.type)).map(({ home, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(home.name)} · $${home.rentWeek}/周<small>${esc(blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}${bondFor(home) ? ` + 押金 $${bondFor(home)}（搬走时退）` : ''}`)}</small></span><button data-home="rent" data-home-id="${home.id}" ${blocked ? 'disabled' : ''}>${s.home ? '搬来' : '租下'}</button></div>`).join('')}</div>` : '';
+					${claimHtml}${rentals.filter((o) => !(homeHere && o.home.id === s.home!.type)).map(offerHtml).join('')}${scamHtml}
+					${rentals.some((o) => needsLease(o.home)) ? `<p style="margin-top:8px" class="muted">${esc(`租房先看房，再递申请；房东从申请人里挑。${SCAM_TIP}`)}</p>` : ''}</div>` : '';
 				const myVeh = getVehicle(s.vehicle);
 				const exps = experiencesAt(s, region);
 				const expHtml = exps.length ? `<div class="card"><h3>体验</h3>${exps.map(({ exp, first, blocked }) => `
@@ -2588,14 +2608,22 @@ const cardLines = guilloche(400, 260, 14, 9);
 					}
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
+				else if (d.rental) {
+					if (d.rental === 'scam-pay' && !confirm('对方不让看房，要你先转钱。确定要转吗？')) return;
+					const a: GameAction = d.rental === 'inspect' ? { t: 'rental', op: 'inspect', home: d.homeId! } : { t: 'rental', op: d.rental as RentalOp };
+					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
 				else if (d.furn) {
 					const a: GameAction = d.furn === 'buy' ? { t: 'furniture', op: 'buy', id: d.furnId! } : { t: 'furniture', op: 'sell', slot: d.slot! };
 					act(a).then((r) => { if (r) { toast(r.msg); render(); } });
 				}
 				else if (d.home) {
-					if (d.home === 'leave' && !confirm('确定退租？已付的房租不退，家具半价折现。')) return;
-					if (d.home === 'rent' && state.home && !confirm('搬家会退掉现在的住处，家具半价折现。确定？')) return;
-					const a: GameAction = d.home === 'rent' ? { t: 'home', op: 'rent', home: d.homeId! } : { t: 'home', op: d.home as 'sleep' | 'leave' | 'cook' | 'relax' };
+					const fee = breakFee(state, dayOf(state.clock));
+					const feeNote = fee ? `固定期还没到，要付违约金 $${fee}。` : '';
+					if (d.home === 'leave' && !confirm(`确定退租？已付的房租不退，家具半价折现。${feeNote}`)) return;
+					if (d.home === 'rent' && state.home && !confirm(`搬家会退掉现在的住处，家具半价折现。${feeNote}确定？`)) return;
+					const term = d.term === 'fixed' || d.term === 'periodic' ? d.term : undefined;
+					const a: GameAction = d.home === 'rent' ? { t: 'home', op: 'rent', home: d.homeId!, ...(term ? { term } : {}) } : { t: 'home', op: d.home as 'sleep' | 'leave' | 'cook' | 'relax' };
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.buy) act({ t: 'buy', item: d.buy }).then((r) => { if (r) { toast(r.msg); render(); } });

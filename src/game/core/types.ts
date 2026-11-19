@@ -172,6 +172,32 @@ export interface Home {
 	bond?: number; // 租房押金（第 26 批），搬走时退；自有房没有
 }
 
+/** 租约（rental 批次，见 docs/earth-game/rental.md §4–6）。日期都是游戏日 */
+export interface Lease {
+	home: string; // 房型 id，必须和 state.home.type 一致
+	loc: string; // 地点 id，必须和 state.home.loc 一致
+	start: number; // 起租日
+	end: number; // 固定期限到期日；0 = 周期租约
+	rent: number; // 现行周租（涨租后不等于挂牌价 HomeDef.rentWeek）
+	lastRise: number; // 上次涨租（或起租）的日子
+	rise: { at: number; to: number } | null; // 已收到通知的涨租：从 at 日起按 to
+	report: -1 | 0 | 1; // 入住检查报告：0 待交、1 已交、-1 过期没交
+	prior: number; // 入住时原有损坏 0–100
+	wear: number; // 租住期间造成的损坏 0–100
+	fault: { urgent: boolean; name: string; since: number; asked: number } | null; // 没修好的故障；asked 是报修日，−1 没报
+}
+
+/** 租房市场的个人记录（跟人走） */
+export interface RentalState {
+	lease: Lease | null;
+	refs: number; // 好的退租记录（推荐人）0–9
+	marks: number; // 被收房记录 0–9
+	viewed: { loc: string; home: string; day: number; n: number } | null; // 最近一次看房；n 是来看房的组数
+	rejected: { loc: string; home: string; day: number } | null; // 最近一次被拒
+	claim: { amount: number; prior: number; day: number } | null; // 退房时房东申请扣、还在托管机构的押金；prior 是申诉能要回的部分（交过入住检查报告时 = 原有损坏那部分，没交为 0）
+	scam: number; // 最近一次处理骗租广告（转了钱或识破）的游戏日，−1 为从未；当天不再显示那条广告
+}
+
 export interface PropertyDef {
 	id: string;
 	name: string;
@@ -497,6 +523,7 @@ export interface PlayerState {
 	relations: Record<string, Relation>; // npcId -> 关系
 	job: Job | null;
 	home: Home | null;
+	rental: RentalState; // 租房市场（rental 批次）：租约、看房、退租记录、待处理的押金扣款
 	properties: OwnedProperty[];
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
 	moodlets: Moodlet[]; // 带时限的心情状态

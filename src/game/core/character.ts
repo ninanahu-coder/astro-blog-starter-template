@@ -29,6 +29,7 @@ import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
 import { validTraits } from './attributes.ts';
+import { cleanRental, emptyRental } from './rental.ts';
 import { WEATHERS } from '../data/weather.ts';
 
 /** 天气相册里所有合法的照片 id：地点 × 天气 */
@@ -142,6 +143,7 @@ export function createCharacter(opts: {
 		relations: {},
 		job: null,
 		home: null,
+		rental: emptyRental(),
 		properties: [],
 		nextWeek: 7,
 		moodlets: [],
@@ -269,6 +271,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		// 旧存档没有这个字段：用当前工作的 lastDay 补上
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
 		...cleanEstate(r, knownLocs),
+		rental: cleanRental(r.rental, cleanEstate(r, knownLocs).home, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), knownLocs),
 		nextWeek: (() => {
 			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周
 			const today = Math.floor(num(r.clock, 0, 1e9, START_CLOCK) / 1440);
