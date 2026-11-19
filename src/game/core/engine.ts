@@ -26,6 +26,8 @@ import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, homeComfo
 import { CAPS, clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { fixProblem, roundFix } from './fix.ts';
+import { applyLawOutcome, heatCooldown, lawWeekly, licenceBanned, noteDrink, serveCommunity } from './law.ts';
+import { COMMUNITY_SERVICE } from '../data/law.ts';
 import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
@@ -73,6 +75,7 @@ function advance(state: PlayerState, minutes: number, region: Region, gains?: ()
 	}
 	state.clock = Math.min(CAPS.clock, state.clock + minutes); // 上限只有损坏的存档会碰到；在这里钳住，后面的日志、状态到期时间都用钳过的时间
 	for (const k of NEED_KEYS) state.needs[k] = clamp100(state.needs[k] - DECAY[k] * decayMult(state, k) * minutes);
+	heatCooldown(state, minutes);
 	if (state.needs.hunger <= 0 || state.needs.energy <= 0) {
 		state.health = clamp100(state.health - STARVE_DMG * minutes);
 	}
@@ -230,11 +233,11 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 		label = '⛴️ 渡轮';
 	} else {
 		km = straight * 1.25; // 公路绕行系数
-		const v = getVehicle(state.vehicle);
+		const v = licenceBanned(state) ? undefined : getVehicle(state.vehicle); // 驾照暂停：有车也只能坐大巴
 		if (r.mode === 'track') {
 			label = `${v?.icon ?? '🚙'} 越野土路`;
 			const speed = v?.trackSpeed ?? 0;
-			if (!speed) { available = false; reason = '需要能走土路的车（四驱或露营车）'; }
+			if (!speed) { available = false; reason = licenceBanned(state) ? '驾照暂停中，不能自己开车' : '需要能走土路的车（四驱或露营车）'; }
 			minutes = (km / ((speed || 55) + state.skills.driving * 0.15)) * 60;
 			cost = km * (v?.costPerKm ?? 0.22);
 		} else if (!v) {
@@ -259,7 +262,7 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 	if (!opt.available) return fail(prev, opt.reason ?? '暂时无法出行。');
 	const state = clone(prev);
 	state.cash -= opt.cost;
-	const selfDrive = (mode === 'road' || mode === 'track') && !!getVehicle(state.vehicle);
+	const selfDrive = (mode === 'road' || mode === 'track') && !!getVehicle(state.vehicle) && !licenceBanned(state);
 	if (selfDrive) {
 		growSkill(state, 'driving', opt.km / 150);
 		if (mode === 'track') growSkill(state, 'survival', opt.km / 300);
@@ -452,7 +455,8 @@ export function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode 
 
 function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean, override: GameEvent | null = null): GameEvent | null {
 	if (state.heat >= HEAT_CHECK_AT) return EVENTS.find((e) => e.id === 'heat-check') ?? null;
-	const pool = EVENTS.filter((e) => e.weight > 0 && eventMatches(e, loc, mode, state.clock) && !(e.once && state.seen.includes(e.id)));
+	const selfDrive = mode === 'road' && !!getVehicle(state.vehicle) && !licenceBanned(state);
+	const pool = EVENTS.filter((e) => e.weight > 0 && eventMatches(e, loc, mode, state.clock) && !(e.once && state.seen.includes(e.id)) && (!e.driving || selfDrive));
 	// 首次到访：有签名事件就必出（这趟的抛锚让给它）
 	const signature = pool.filter((e) => e.once);
 	if (first && signature.length) return signature[Math.floor(roll(state) * signature.length)];
@@ -499,9 +503,12 @@ export function resolveEvent(prev: PlayerState, region: Region, choiceIdx: numbe
 		const passed = checkScore(state, choice.check.skill).total + roll(state) * 60 >= choice.check.dc;
 		if (!passed && choice.fail) outcome = choice.fail;
 	}
+	if (choice.risk !== undefined && choice.fail && roll(state) < choice.risk) outcome = choice.fail;
 	if (applyEffect(state, outcome.fx, region)) return collapsedResult(state);
-	log(state, `【${ev.title}】${outcome.text}`);
-	return { ok: true, state, msg: outcome.text };
+	const law = outcome.law ? applyLawOutcome(state, outcome.law) : '';
+	const text = law ? `${outcome.text}${law}` : outcome.text;
+	log(state, `【${ev.title}】${text}`);
+	return { ok: true, state, msg: text };
 }
 
 // ---------- 地点互动 ----------
@@ -519,6 +526,7 @@ export function activitiesAt(state: PlayerState, region: Region): { act: Activit
 
 function blockedReason(state: PlayerState, act: Activity): string | undefined {
 	if (!isOpen(act.hours, state.clock)) return `营业时间 ${hoursLabel(act.hours!)}`;
+	if (act.id === COMMUNITY_SERVICE.activity && state.law.cs <= 0) return '没有要做的社区服务';
 	if (act.exposed === 'sea' && weatherAt(state).closesSea) return '今天有风暴，海上的活动取消了';
 	const req = act.requires;
 	if (!req) return undefined;
@@ -548,6 +556,12 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);
 	if (applyEffect(state, { ...scaledFx(prev, act), minutes: act.minutes }, region)) return collapsedResult(state);
+	noteDrink(state, act.id);
+	if (act.id === COMMUNITY_SERVICE.activity) {
+		const left = serveCommunity(state, act.minutes / 60);
+		log(state, `在${loc.name}做了 ${act.minutes / 60} 小时社区服务，${left ? `还差 ${left} 小时` : '全部做完了'}。`);
+		return { ok: true, state, msg: `${act.icon} ${left ? `社区服务还差 ${left} 小时` : '社区服务全部做完了'}` };
+	}
 	log(state, `在${loc.name}${act.name}。`);
 	return { ok: true, state, msg: `${act.icon} ${act.name}完成。` };
 }
@@ -1044,6 +1058,7 @@ function weeklyTick(state: PlayerState, region: Region) {
 				log(state, `没钱续${v.name}的保险，无保险上路被记了一笔。`);
 			}
 		}
+		for (const line of lawWeekly(state)) log(state, line);
 	}
 }
 

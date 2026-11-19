@@ -374,6 +374,8 @@ export interface Activity {
 export interface Outcome {
 	text: string;
 	fx: Effect;
+	/** 法律后果（见 core/law.ts）：违章 id，或 'breath'（呼气测试，喝过酒才算违章） */
+	law?: string;
 }
 
 /** 共同事件：同一地点两名以上玩家一起做；每人选一个分工（用自己那项能力），合起来做一次团队检定，所有人拿同一个结果 */
@@ -404,6 +406,8 @@ export interface EventChoice {
 	check?: { skill: SkillKey; dc: number };
 	/** 'sea'：要下海或出海，风暴天不能选（事件里必须还有别的选项） */
 	exposed?: 'sea';
+	/** 不靠能力、按几率出 fail 结果（0–1）：违法的选项是否被查到看运气，不让能力高的人「更会违法」 */
+	risk?: number;
 	ok: Outcome;
 	fail?: Outcome;
 }
@@ -451,6 +455,7 @@ export interface GameEvent {
 	venueTypes?: string[];
 	once?: boolean; // 每个角色只触发一次（地标签名事件）
 	animal?: string; // 事件里见到的动物：抽到这个事件就记进野生动物图鉴
+	driving?: boolean; // 只在自己开车（有车且驾照没暂停）抵达时出现：路检、测速、停车
 	breakdown?: boolean; // 抛锚事件：不进普通抽取（weight 写 0），只在该保养的车自驾抵达时按几率抽
 	weight: number;
 	choices: EventChoice[];
@@ -459,6 +464,17 @@ export interface GameEvent {
 export interface JournalEntry {
 	t: number; // 游戏时钟（分钟）
 	text: string;
+}
+
+/** 法律记录（第 43 批，见 core/law.ts） */
+export interface LawRecord {
+	hist: { t: number; id: string; n: number }[]; // 违章记录：游戏时钟、违章 id、扣了几分（扣满停驾后清零），最多 30 条
+	ban: number; // 驾照暂停到这个游戏时钟，0 为没有
+	owed: number; // 没交上的罚款（澳元）
+	cs: number; // 还欠的社区服务小时
+	csDue: number; // 社区服务期限（游戏日），没有为 −1
+	record: number; // 法庭定罪次数
+	drank: number; // 最近一次喝酒的游戏时钟，−1 为没有或已过窗口
 }
 
 export interface PlayerState {
@@ -474,6 +490,7 @@ export interface PlayerState {
 	health: number; // 0–100
 	respect: number; // 声望，≥0
 	heat: number; // 麻烦值 0–100，过高会被盘查
+	law: LawRecord; // 违章、罚款、停驾、社区服务、定罪记录
 	needs: Needs;
 	skills: Skills;
 	vehicle: Vehicle;

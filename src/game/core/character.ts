@@ -17,6 +17,7 @@ import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { realDayOf } from './daily.ts';
 // 只用到地点和打卡点，不需要真实地点数据：用首屏版区域，页面不必为此加载 wa.venues.json
+import { cleanLaw, emptyLaw } from './law.ts';
 import { AREAS as REGION_AREAS, areaOf, WORLD_BASE } from '../data/areas-base.ts';
 import { COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
@@ -121,6 +122,7 @@ export function createCharacter(opts: {
 		health: 100,
 		respect: 0,
 		heat: 0,
+		law: emptyLaw(),
 		needs,
 		skills,
 		vehicle: origin.vehicle,
@@ -250,6 +252,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		health: num(r.health, 0, 100, 100),
 		respect: num(r.respect, 0, CAPS.respect, 0),
 		heat: num(r.heat, 0, 100, 0),
+		law: cleanLaw(r.law, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		needs,
 		skills,
 		vehicle: VEHICLES.some((v) => v.id === r.vehicle) ? r.vehicle : 'none',
