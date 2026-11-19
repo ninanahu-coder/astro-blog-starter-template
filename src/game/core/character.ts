@@ -1,5 +1,6 @@
 // 角色创建与存档校验。初始属性参考开放世界动作游戏的“能力条”思路：
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
+import { cleanCooking, newCooking } from './cooking-save.ts';
 import { migrateSave } from './save.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type { Home, Job, OwnedProperty, Needs, PlayerState, Relation, Skills, Vehicle } from './types.ts';
@@ -164,6 +165,7 @@ export function createCharacter(opts: {
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
+		cooking: newCooking(),
 		seed: opts.seed >>> 0,
 		rev: 0,
 	};
@@ -375,6 +377,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		// 只留还存在的事件：事件被删掉或改名后，界面弹不出来，但其他动作都会被「先处理眼前的事件」挡住
 		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
 		...cleanReal(r, opts.now),
+		cooking: cleanCooking(r.cooking, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		journal,
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
 		// 版本号超出范围说明存档坏了：归零而不是钳到上限。钳到上限的话，下一次动作加一又超出，再读又被钳回去，客户端每次都版本冲突

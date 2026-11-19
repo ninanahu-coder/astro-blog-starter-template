@@ -41,6 +41,7 @@ src/game/
   core/geo.ts         距离、地图投影、真实坐标 → 游戏地点
   core/formulas.ts    派生属性（体质、吸引力、状态系数……）与真实地点动作的公式
   core/venues.ts      真实地点：附近列表、定位检查、吃饭/训练/打卡上班等结算
+  core/cooking.ts     做饭：买食材、保质期、食谱、烹饪技能、请客、外卖（设计见 cooking.md）
   core/board.ts       净资产排行榜：榜单记录与排名
   core/achievements.ts 成就：由存档现算的里程碑（不进存档、不发奖励）
   core/weather.ts     天气：由地点和游戏日确定（人人一样），风暴天取消海上的活动

@@ -198,7 +198,51 @@ export interface FurnitureDef {
 	comfort?: number; // 住处心情加成
 	sleep?: Effect; // 回家睡觉的额外恢复
 	unlock?: 'cook' | 'relax';
+	kitchen?: number; // 厨房设备等级：1 炉灶、2 烤箱（做饭分支，见 data/cooking.ts）
 	desc: string;
+}
+
+// ---------- 做饭（见 data/cooking.ts、core/cooking.ts） ----------
+export interface IngredientDef {
+	id: string;
+	name: string;
+	icon: string;
+	price: number; // 一份的价钱
+	days: number; // 保质期（游戏日）
+	store: 'super' | 'asian'; // 超市 / 亚洲超市
+	desc: string;
+}
+
+export interface RecipeDef {
+	id: string;
+	name: string;
+	icon: string;
+	cuisine: 'basic' | 'zh' | 'au';
+	ingredients: Record<string, number>; // 食材 id -> 份数（一锅）
+	cash?: number; // 不用食材、直接花钱
+	minutes: number;
+	kitchen: number; // 要求的厨房设备等级
+	serves: number; // 一锅够几个人
+	hunger: number;
+	fun: number;
+	health: number;
+	xp: number; // 烹饪技能的基础成长
+	unlock?: { skill: number } | { npc: string; at: number }; // 不写：一开始就会
+	desc: string;
+}
+
+/** 一批食材：同一天买的同一种合在一起，exp 是过期的游戏分钟 */
+export interface PantryRow {
+	id: string;
+	n: number;
+	exp: number;
+}
+
+export interface Cooking {
+	xp: number; // 烹饪技能 0–100
+	made: Record<string, number>; // 食谱 id -> 做过几次
+	pantry: PantryRow[];
+	hostDay: number; // 最近一次请客的游戏日，−1 表示没请过
 }
 
 export interface FurnitureSetDef {
@@ -517,6 +561,7 @@ export interface PlayerState {
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	workDay: number; // 最近一次算过班次的游戏日，−1 表示还没上过；跟人走，不随换工作重置
 	journal: JournalEntry[];
+	cooking: Cooking; // 做饭：烹饪技能、做过的菜、食材柜、请客冷却（做饭分支）
 	seed: number;
 	rev: number; // 存档版本号，云同步用
 }

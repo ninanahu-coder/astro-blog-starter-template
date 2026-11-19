@@ -1,8 +1,10 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
+	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
+import { buyGroceries, cookRecipe, hostDinner, orderDelivery } from './cooking.ts';
+import { GROCER_BATCH_MAX } from '../data/cooking.ts';
 import { refreshWishes, settleWishes } from './wishes.ts';
 import { settleStory } from './story.ts';
 import { rollDay } from './recap.ts';
@@ -26,7 +28,10 @@ export type GameAction =
 	| { t: 'job'; op: 'apply'; career: string }
 	| { t: 'job'; op: 'work' | 'quit' }
 	| { t: 'home'; op: 'rent'; home: string }
-	| { t: 'home'; op: 'sleep' | 'leave' | 'cook' | 'relax' }
+	| { t: 'home'; op: 'sleep' | 'leave' | 'relax' | 'delivery' }
+	| { t: 'home'; op: 'cook'; recipe?: string } // 不带 recipe：随手做一顿（旧客户端）
+	| { t: 'home'; op: 'host'; recipe: string }
+	| { t: 'grocery'; id: string; n: number }
 	| { t: 'furniture'; op: 'buy'; id: string }
 	| { t: 'furniture'; op: 'sell'; slot: string }
 	| { t: 'property'; op: 'buy'; id: string; loan: boolean }
@@ -79,7 +84,11 @@ export function parseAction(raw: unknown): GameAction | null {
 			return a.op === 'work' || a.op === 'quit' ? { t: 'job', op: a.op } : null;
 		case 'home':
 			if (a.op === 'rent') return str(a.home) ? { t: 'home', op: 'rent', home: a.home } : null;
-			return a.op === 'sleep' || a.op === 'leave' || a.op === 'cook' || a.op === 'relax' ? { t: 'home', op: a.op } : null;
+			if (a.op === 'cook') return a.recipe === undefined ? { t: 'home', op: 'cook' } : str(a.recipe) ? { t: 'home', op: 'cook', recipe: a.recipe } : null;
+			if (a.op === 'host') return str(a.recipe) ? { t: 'home', op: 'host', recipe: a.recipe } : null;
+			return a.op === 'sleep' || a.op === 'leave' || a.op === 'relax' || a.op === 'delivery' ? { t: 'home', op: a.op } : null;
+		case 'grocery':
+			return str(a.id) && Number.isInteger(a.n) && (a.n as number) >= 1 && (a.n as number) <= GROCER_BATCH_MAX ? { t: 'grocery', id: a.id, n: a.n as number } : null;
 		case 'furniture':
 			if (a.op === 'buy') return str(a.id) ? { t: 'furniture', op: 'buy', id: a.id } : null;
 			return a.op === 'sell' && str(a.slot) ? { t: 'furniture', op: 'sell', slot: a.slot } : null;
@@ -115,7 +124,16 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'use': r = useItem(state, region, a.item); break;
 		case 'npc': r = interactNpc(state, region, a.npc, a.act, a.item); break;
 		case 'job': r = a.op === 'apply' ? applyJob(state, region, a.career) : a.op === 'work' ? workShift(state, region) : quitJob(state); break;
-		case 'home': r = a.op === 'rent' ? rentHome(state, region, a.home) : a.op === 'sleep' ? sleepHome(state, region) : a.op === 'cook' ? cookAtHome(state, region) : a.op === 'relax' ? relaxAtHome(state, region) : leaveHome(state); break;
+		case 'home':
+			r = a.op === 'rent' ? rentHome(state, region, a.home)
+				: a.op === 'sleep' ? sleepHome(state, region)
+				: a.op === 'cook' ? cookRecipe(state, region, a.recipe)
+				: a.op === 'host' ? hostDinner(state, region, a.recipe)
+				: a.op === 'delivery' ? orderDelivery(state, region)
+				: a.op === 'relax' ? relaxAtHome(state, region)
+				: leaveHome(state);
+			break;
+		case 'grocery': r = buyGroceries(state, region, a.id, a.n); break;
 		case 'furniture': r = a.op === 'buy' ? buyFurniture(state, region, a.id) : sellFurniture(state, a.slot); break;
 		case 'vehicle': r = a.op === 'buy' ? buyVehicle(state, region, a.id) : a.op === 'sell' ? sellVehicle(state, region) : a.op === 'service' ? serviceVehicle(state, region) : sleepInVehicle(state, region); break;
 		case 'property':

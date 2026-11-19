@@ -15,6 +15,8 @@ import {
 	activitiesAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
+import { cookBlocked, groceriesAt, hostBlocked, kitchenLevel, pantryTotal, recipeKnown } from '../../../src/game/core/cooking.ts';
+import { RECIPES } from '../../../src/game/data/cooking.ts';
 import { weatherAt } from '../../../src/game/core/weather.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
@@ -355,6 +357,26 @@ function tryCoop(b: Bot): boolean {
 	return true;
 }
 
+/** 做饭分支：食材柜里够做哪道菜就做，饱食最高的优先 */
+function cookFromPantry(b: Bot): boolean {
+	const dish = RECIPES.filter((r) => r.cuisine !== 'basic' && !cookBlocked(b.s, r.id)).sort((x, y) => y.hunger - x.hunger)[0];
+	return !!dish && tryAct(b, { t: 'home', op: 'cook', recipe: dish.id });
+}
+
+/** 做饭分支：在住处所在地、有厨房、食材快用完、手头宽裕时，挑一道这里买得齐的、做得最少的菜，买两顿的量 */
+function shopForDish(b: Bot): boolean {
+	const s = b.s;
+	if (!s.home || s.loc !== s.home.loc || kitchenLevel(s) < 1 || pantryTotal(s) >= 4 || s.cash < 300) return false;
+	const offers = groceriesAt(s, WA);
+	const ok = (id: string) => offers.some((o) => o.item.id === id && !o.blocked);
+	const dish = RECIPES.filter((r) => r.cuisine !== 'basic' && recipeKnown(s, r) && r.kitchen <= kitchenLevel(s) && Object.keys(r.ingredients).every(ok))
+		.sort((x, y) => (s.cooking.made[x.id] ?? 0) - (s.cooking.made[y.id] ?? 0))[0];
+	if (!dish) return false;
+	let bought = false;
+	for (const [id, n] of Object.entries(dish.ingredients)) bought = tryAct(b, { t: 'grocery', id, n: n * 2 }) || bought;
+	return bought;
+}
+
 /** 一步决策：先保命，再上班，再满足需求，最后按策略消磨时间 */
 function step(b: Bot) {
 	const s = b.s;
@@ -379,6 +401,7 @@ function step(b: Bot) {
 	if (s.cash < 60 && s.needs.hunger < 80 && (act(b, 'charity-meal') || act(b, 'charity-dinner'))) return;
 	if (s.health < 35 && (act(b, 'clinic') || (s.inventory.firstaid && tryAct(b, { t: 'use', item: 'firstaid' })))) return;
 	if (s.needs.hunger < 35) {
+		if (cookFromPantry(b)) return;
 		if (!homeActionBlocked(s, 'cook') && tryAct(b, { t: 'home', op: 'cook' })) return;
 		if (act(b, 'eat')) return;
 		if (s.inventory.snack && tryAct(b, { t: 'use', item: 'snack' })) return;
@@ -448,8 +471,14 @@ function step(b: Bot) {
 		if (tryGigs(b, GIG_IDS)) return;
 	}
 
+	// 4.5 做饭分支：住处所在地补食材
+	if (plan.spend !== false && !isIdle(plan) && shopForDish(b)) return;
+
 	// 5. 娱乐和社交
 	if (s.needs.social < 40) {
+		// 做饭分支：在家、食材够一桌，就请客
+		const feast = RECIPES.find((r) => r.cuisine !== 'basic' && !hostBlocked(s, r.id));
+		if (feast && tryAct(b, { t: 'home', op: 'host', recipe: feast.id })) return;
 		const npc = npcsAt(s, WA).find((n) => !n.blocked.chat);
 		if (npc && tryAct(b, { t: 'npc', npc: npc.npc.id, act: 'chat' })) return;
 		if (s.cash > 150 && act(b, 'pub')) return;
