@@ -11,7 +11,8 @@ import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
 import { NPCS } from '../data/npcs.ts';
 import { GIFT_GAIN, RELATION_GAIN, RELATION_TIERS } from '../data/relations.ts';
-import { favorToday, isFading } from './relations.ts';
+import { bondBlocked, confideDue, confideLine, favorToday, isConfidant, isFading } from './relations.ts';
+import { CONFIDANT } from '../data/relations.ts';
 import type { NpcFavor } from '../data/npc-favors.ts';
 import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../data/careers.ts';
 import { HOMES } from '../data/housing.ts';
@@ -718,6 +719,8 @@ export interface NpcAvailability {
 	favor?: NpcFavor;
 	/** 好久没来往，关系正在变淡（第 29 批） */
 	fading: boolean;
+	/** 是知己（第 29 批）：blocked 里有 unbond 键；够格结为知己时有 bond 键 */
+	confidant: boolean;
 }
 
 /** 不指定物品时挑哪件：最爱 > 喜欢 > 一般，讨厌的不挑；随身装备（睡袋、冲浪板……）不会被自动送出，要送得明确指定 */
@@ -749,7 +752,11 @@ export function npcsAt(state: PlayerState, region: Region): NpcAvailability[] {
 		const favor = favorToday(state, npc.id, today);
 		if (favor) blocked.favor = (state.inventory[favor.item] ?? 0) < favor.qty ? `需要 ${favor.qty} 件${getItem(favor.item)?.name ?? ''}` : undefined;
 		const nextStory = npc.stories.find((st) => !rel.seen.includes(st.at))?.at;
-		return { npc, rel, tier: relationTier(rel.score), gift, blocked, nextStory, favor, fading: isFading(rel, today) };
+		const bond = bondBlocked(state, rel, today);
+		if (bond !== null) blocked.bond = bond;
+		const confidant = isConfidant(rel);
+		if (confidant) blocked.unbond = undefined;
+		return { npc, rel, tier: relationTier(rel.score), gift, blocked, nextStory, favor, fading: isFading(rel, today), confidant };
 	});
 }
 
@@ -796,6 +803,8 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 	if (!here) return fail(prev, 'TA现在不在这里。');
 	if (action === 'perk' && !here.npc.perk) return fail(prev, 'TA没有这个互动。');
 	if (action === 'favor' && !here.favor) return fail(prev, 'TA今天没有要你帮的忙。');
+	if (action === 'bond' && !('bond' in here.blocked)) return fail(prev, `关系到「${relationTier(CONFIDANT.minScore)}」、看过那一段故事后才能结为知己。`);
+	if (action === 'unbond' && !here.confidant) return fail(prev, 'TA还不是你的知己。');
 	const why = here.blocked[action];
 	if (why) return fail(prev, why);
 	const gift = action === 'gift' ? itemId ?? here.gift : undefined;
@@ -813,10 +822,13 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 	let gain = 0;
 	let text = '';
 	if (action === 'chat') {
+		// 知己每隔几天会多讲一段近况（第 29 批，只给心情）
+		const confide = confideDue(rel, dayOf(prev.clock)) ? confideLine(npcId, dayOf(prev.clock)) : undefined;
+		if (confide) rel.told = dayOf(prev.clock);
 		const good = checkScore(state, 'charisma').total + roll(state) * 60 >= 45;
 		gain = good ? RELATION_GAIN.chatGood : RELATION_GAIN.chatPlain;
-		if (applyEffect(state, { minutes: 30, needs: { social: 18, fun: 5 }, skills: { charisma: 0.5 } }, region)) return collapsedResult(state);
-		text = good ? `和${npc.name}聊得很投机。` : `和${npc.name}寒暄了几句。`;
+		if (applyEffect(state, { minutes: 30, needs: { social: 18, fun: 5 }, skills: { charisma: 0.5 }, moodlet: confide ? 'heart-to-heart' : undefined }, region)) return collapsedResult(state);
+		text = (good ? `和${npc.name}聊得很投机。` : `和${npc.name}寒暄了几句。`) + (confide ? `【近况】${confide}` : '');
 	} else if (action === 'gift') {
 		const r = giftReaction(npc, gift!);
 		gain = GIFT_GAIN[r];
@@ -833,6 +845,16 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 		gain = RELATION_GAIN.help;
 		if (applyEffect(state, { minutes: 120, respect: 1, needs: { energy: -18, social: 10 }, skills: { strength: 0.5, stamina: 0.5 } }, region)) return collapsedResult(state);
 		text = `帮${npc.name}干了两小时活。`;
+	} else if (action === 'bond') {
+		// 结为知己（第 29 批）：不涨分，之后关系不再变淡，聊天时会听到近况
+		rel.bond = dayOf(prev.clock);
+		if (applyEffect(state, { minutes: CONFIDANT.minutes, moodlet: 'confidant' }, region)) return collapsedResult(state);
+		text = `你和${npc.name}聊到很晚，从此成了知己。`;
+	} else if (action === 'unbond') {
+		delete rel.bond;
+		delete rel.told;
+		if (applyEffect(state, { minutes: 10 }, region)) return collapsedResult(state);
+		text = `你和${npc.name}说好不再算知己了，还是朋友。`;
 	} else if (action === 'favor') {
 		// 帮个小忙：交出 TA 要的东西，拿一点跑腿费（第 29 批，数值待平衡）
 		const f = here.favor!;

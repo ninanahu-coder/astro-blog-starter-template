@@ -44,7 +44,7 @@ export type GameAction =
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
-const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk', 'favor'];
+const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond'];
 const ID = /^[a-z0-9-]{1,40}$/;
 
 const str = (v: unknown): v is string => typeof v === 'string' && ID.test(v);

@@ -47,3 +47,17 @@ export const FAVOR_RULE = {
 	/** 约多少期里有一期有事相求：hash % odds === 0 */
 	odds: 2, // 待平衡
 } as const;
+
+/**
+ * 知己（第 29 批，用户定：不做恋爱，做挚友之后的深交。全部待平衡）：
+ * 关系到 minScore 且看过那一段剧情后，可以当面「结为知己」，同时最多 max 位。
+ * 知己的关系不会变淡；每隔 every 个游戏日，和 TA 聊天会多听到一段近况（只给心情，不给钱和能力）。
+ * 解除后 cooldown 天内不能和同一位再结，防止反复结、解刷心情。
+ */
+export const CONFIDANT = {
+	minScore: 90, // 待平衡
+	max: 3, // 待平衡
+	every: 7, // 待平衡
+	cooldown: 7, // 待平衡
+	minutes: 30, // 待平衡
+} as const;

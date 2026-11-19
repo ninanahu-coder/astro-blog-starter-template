@@ -18,6 +18,8 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'experience', name: '难忘的经历', icon: '🌟', value: 10, hours: 48 },
 	{ id: 'new-friend', name: '交了新朋友', icon: '🤝', value: 8, hours: 72 },
 	{ id: 'best-friend', name: '有了一位挚友', icon: '💛', value: 12, hours: 120 },
+	{ id: 'confidant', name: '有了一位知己', icon: '🫶', value: 10, hours: 120 }, // 第 29 批，待平衡
+	{ id: 'heart-to-heart', name: '说了会儿心里话', icon: '🍵', value: 5, hours: 24 }, // 第 29 批，待平衡
 	{ id: 'gift-loved', name: '礼物送到了心坎上', icon: '🎁', value: 4, hours: 8 },
 	{ id: 'warm-moment', name: '被人照顾了一下', icon: '☕', value: 4, hours: 12 },
 	{ id: 'promoted', name: '升职了', icon: '📈', value: 12, hours: 72 },

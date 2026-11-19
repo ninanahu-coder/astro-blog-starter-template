@@ -5,10 +5,11 @@ import { createCharacter, sanitizeState } from '../../src/game/core/character.ts
 import { getRelation, interactNpc, npcPresent, npcsAt } from '../../src/game/core/engine.ts';
 import { applyAction, applyCoop, parseAction } from '../../src/game/core/actions.ts';
 import { getCoop } from '../../src/game/data/coop.ts';
-import { decayedScore, favorOn, favorPeriod, favorToday, isFading, lastTouch, settleDecay } from '../../src/game/core/relations.ts';
+import { bondBlocked, confidantCount, confideDue, confideLine, decayedScore, favorOn, favorPeriod, favorToday, isFading, lastTouch, settleDecay } from '../../src/game/core/relations.ts';
+import { CONFIDE_LINES } from '../../src/game/data/npc-confidants.ts';
 import { dayOf } from '../../src/game/core/time.ts';
 import { NPC_FAVORS } from '../../src/game/data/npc-favors.ts';
-import { FAVOR_RULE, RELATION_DECAY, RELATION_GAIN, RELATION_TIERS } from '../../src/game/data/relations.ts';
+import { CONFIDANT, FAVOR_RULE, RELATION_DECAY, RELATION_GAIN, RELATION_TIERS } from '../../src/game/data/relations.ts';
 import { ITEMS } from '../../src/game/data/items.ts';
 import { MOODLETS } from '../../src/game/data/moodlets.ts';
 import { NPCS } from '../../src/game/data/npcs.ts';
@@ -176,4 +177,119 @@ test('共同事件跨过午夜也结算变淡', () => {
 		assert.equal(dayOf(x.state.clock), 10);
 		assert.equal(x.state.relations.mia.score, 79);
 	}
+});
+
+// ---------- 知己 ----------
+const bestie = (day: number, extra: Partial<Relation> = {}): Relation => ({ score: 95, last: { chat: day - 1 }, seen: [10, 30, 60, 90], known: [], ...extra });
+function miaDay(from = 1): number {
+	const mia = NPCS.find((n) => n.id === 'mia')!;
+	let d = from;
+	while (!npcPresent(mia, 'perth', at(10, d))) d++;
+	return d;
+}
+
+test('知己数据：每位 NPC 都有 90 那段剧情和两段近况，心情存在', () => {
+	for (const n of NPCS) {
+		assert.ok(n.stories.some((st) => st.at === CONFIDANT.minScore), `${n.id} 有 ${CONFIDANT.minScore} 剧情`);
+		assert.ok((CONFIDE_LINES[n.id]?.length ?? 0) >= 2 && CONFIDE_LINES[n.id].every(Boolean), `${n.id} 有近况`);
+	}
+	for (const id of Object.keys(CONFIDE_LINES)) assert.ok(NPCS.some((n) => n.id === id), `${id} 是 NPC`);
+	for (const m of ['confidant', 'heart-to-heart']) assert.ok(MOODLETS.some((x) => x.id === m));
+	assert.ok(CONFIDANT.max >= 1 && CONFIDANT.every >= 1 && CONFIDANT.cooldown >= 1);
+});
+
+test('结为知己：要到挚友且看过那段剧情，最多 max 位；之后不变淡', () => {
+	const d = miaDay(20);
+	const base: PlayerState = { ...make(), loc: 'perth', clock: at(10, d), relations: { mia: bestie(d) } };
+	// 不够格：不显示按钮，也不能硬结
+	for (const r of [bestie(d, { score: CONFIDANT.minScore - 1 }), bestie(d, { seen: [10, 30, 60] })]) {
+		const s = { ...base, relations: { mia: r } };
+		assert.equal('bond' in npcsAt(s, WA).find((x) => x.npc.id === 'mia')!.blocked, false);
+		assert.equal(bondBlocked(s, r, d), null);
+		assert.equal(interactNpc(s, WA, 'mia', 'bond').ok, false);
+	}
+	// 已满
+	const full: PlayerState = { ...base, relations: { mia: bestie(d), jack: bestie(d, { bond: 1 }), linda: bestie(d, { bond: 1 }), leo: bestie(d, { bond: 1 }) } };
+	assert.equal(confidantCount(full), 3);
+	assert.match(npcsAt(full, WA).find((x) => x.npc.id === 'mia')!.blocked.bond!, /最多 3 位/);
+	assert.equal(interactNpc(full, WA, 'mia', 'bond').ok, false);
+
+	const snap = structuredClone(base);
+	const r = applyAction(base, WA, { t: 'npc', npc: 'mia', act: 'bond' });
+	assert.ok(r.ok, r.msg);
+	assert.deepEqual(base, snap, '不改入参');
+	assert.equal(r.state.relations.mia.bond, d);
+	assert.equal(r.state.relations.mia.score, 95, '不涨分');
+	assert.ok(r.state.moodlets.some((m) => m.id === 'confidant'));
+	const here = npcsAt(r.state, WA).find((x) => x.npc.id === 'mia')!;
+	assert.equal(here.confidant, true);
+	assert.equal('bond' in here.blocked, false, '已经是知己就不再显示结');
+	assert.equal(applyAction(r.state, WA, { t: 'npc', npc: 'mia', act: 'bond' }).ok, false);
+	// 不变淡、不提示变淡
+	const rel = r.state.relations.mia;
+	assert.equal(decayedScore(rel, d, d + 500), 95);
+	assert.equal(isFading(rel, d + 100), false);
+	assert.equal(settleDecay(r.state, d, d + 500), r.state);
+});
+
+test('知己的近况：每 every 天一次，聊天时附上，只给心情', () => {
+	const d = miaDay(30);
+	const s0: PlayerState = { ...make(), loc: 'perth', clock: at(10, d), cash: 100, nextWeek: 1e6, relations: { mia: bestie(d, { bond: d - 10 }) } };
+	assert.ok(confideDue(s0.relations.mia, d));
+	const r1 = interactNpc(s0, WA, 'mia', 'chat');
+	assert.ok(r1.ok);
+	assert.ok(r1.msg.includes(confideLine('mia', d)!), '附上近况');
+	assert.equal(r1.state.relations.mia.told, d);
+	assert.ok(r1.state.moodlets.some((m) => m.id === 'heart-to-heart'));
+	assert.equal(r1.state.cash, 100, '不给钱');
+	// 没到下一期：聊天不附近况
+	const d2 = miaDay(d + 1);
+	if (d2 - d < CONFIDANT.every) {
+		const r2 = interactNpc({ ...r1.state, clock: at(10, d2), moodlets: [] }, WA, 'mia', 'chat');
+		assert.ok(r2.ok);
+		assert.ok(!r2.msg.includes('【近况】'));
+		assert.ok(!r2.state.moodlets.some((m) => m.id === 'heart-to-heart'));
+	}
+	assert.equal(confideDue(r1.state.relations.mia, d + CONFIDANT.every - 1), false);
+	assert.equal(confideDue(r1.state.relations.mia, d + CONFIDANT.every), true);
+	// 不是知己不讲
+	const plain = interactNpc({ ...s0, relations: { mia: bestie(d) } }, WA, 'mia', 'chat');
+	assert.ok(!plain.msg.includes('【近况】'));
+	// 两段轮流
+	assert.notEqual(confideLine('mia', 0), confideLine('mia', CONFIDANT.every));
+	assert.equal(confideLine('nobody', 0), undefined);
+});
+
+test('解除知己：分数不变、重新会变淡，冷却期内不能再结', () => {
+	const d = miaDay(40);
+	const s: PlayerState = { ...make(), loc: 'perth', clock: at(10, d), relations: { mia: bestie(d, { bond: d - 20, told: d - 3 }) } };
+	assert.equal(interactNpc({ ...s, relations: { mia: bestie(d) } }, WA, 'mia', 'unbond').ok, false, '不是知己不能解除');
+	const r = applyAction(s, WA, { t: 'npc', npc: 'mia', act: 'unbond' });
+	assert.ok(r.ok, r.msg);
+	const rel = r.state.relations.mia;
+	assert.equal(rel.bond, undefined);
+	assert.equal(rel.told, undefined);
+	assert.equal(rel.score, 95);
+	assert.equal(rel.last.unbond, d);
+	assert.match(bondBlocked(r.state, rel, d)!, /天后才能再结/);
+	assert.match(bondBlocked(r.state, rel, d + CONFIDANT.cooldown - 1)!, /1 天后/);
+	assert.equal(bondBlocked(r.state, rel, d + CONFIDANT.cooldown), undefined);
+	assert.ok(decayedScore(rel, d, d + 100) < 95, '解除后会变淡');
+});
+
+test('知己的服务端校验与存档清洗', () => {
+	for (const act of ['bond', 'unbond']) {
+		assert.deepEqual(parseAction({ t: 'npc', npc: 'mia', act }), { t: 'npc', npc: 'mia', act });
+		assert.equal(parseAction({ t: 'npc', npc: 'mia', act, item: 'water' }), null);
+	}
+	const rels: Record<string, unknown> = {};
+	for (const n of NPCS.slice(0, 5)) rels[n.id] = { score: 95, last: { bond: 3, unbond: 'x' }, seen: [90], known: [], bond: 3, told: 4 };
+	rels[NPCS[5].id] = { score: 95, last: {}, seen: [], known: [], bond: -1, told: 2 };
+	const clean = sanitizeState(JSON.parse(JSON.stringify({ ...make(), relations: rels })))!;
+	assert.equal(confidantCount(clean), CONFIDANT.max, '超过上限的丢掉');
+	assert.deepEqual(clean.relations[NPCS[0].id].last, { bond: 3 });
+	assert.equal(clean.relations[NPCS[0].id].told, 4);
+	assert.equal(clean.relations[NPCS[4].id].bond, undefined);
+	assert.equal(clean.relations[NPCS[5].id].bond, undefined, '坏日子丢掉');
+	assert.equal(clean.relations[NPCS[5].id].told, undefined, '不是知己不留近况日期');
 });
