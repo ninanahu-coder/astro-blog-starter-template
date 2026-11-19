@@ -39,10 +39,10 @@ test('车行：买、换、卖；营业时间；钱不够', () => {
 	const r1 = buyVehicle(s, WA, 'car');
 	assert.ok(r1.ok);
 	assert.equal(r1.state.vehicle, 'car');
-	assert.equal(r1.state.cash, 15500);
+	assert.equal(r1.state.cash, 20000 - 4500 - 124, '车价 + 西澳过户印花税 4500 × 2.75% ≈ $124（第 26 批）');
 	const r2 = buyVehicle({ ...r1.state, clock: at(10, 1) }, WA, '4wd');
 	assert.ok(r2.ok, '以旧换新');
-	assert.equal(r2.state.cash, 15500 - (12000 - resaleValue('car')));
+	assert.equal(r2.state.cash, 15376 - (12000 + 330 - resaleValue('car')), '新车价 + 印花税 12000 × 2.75% − 旧车折抵（没开过，不折旧）');
 	const r3 = sellVehicle({ ...r2.state, clock: at(10, 2) }, WA);
 	assert.ok(r3.ok);
 	assert.equal(r3.state.vehicle, 'none');
@@ -156,7 +156,7 @@ test('租房首期按到结算日的天数折算', () => {
 	assert.equal(firstRent(make({ clock: at(9) }), room), 160, '第 1 天租：整周');
 	assert.equal(firstRent(make({ clock: at(9, 5) }), room), Math.round((160 * 2) / 7), '第 6 天租：只付 2 天');
 	const r = rentHome(make({ cash: 1000, clock: at(9, 5) }), WA, 'room');
-	assert.equal(r.state.cash, 1000 - 46);
+	assert.equal(r.state.cash, 1000 - 46 - 320, '首期只付 2 天，押金照收 2 周（第 26 批）');
 });
 
 test('家具：要在住处买、同槽位替换半价折旧、可卖', () => {
@@ -199,11 +199,12 @@ test('搬走或被收房：家具半价折现', () => {
 	s = buyFurniture(s, WA, 'mattress').state;
 	s = buyFurniture(s, WA, 'plants').state;
 	assert.equal(furnitureValue(s), 275);
+	assert.equal(s.home!.bond, 320, '合租房间押金 = 2 周房租（第 26 批）');
 	const left = leaveHome(s);
-	assert.equal(left.state.cash, s.cash + 275);
+	assert.equal(left.state.cash, s.cash + 275 + 320, '家具折现 + 押金全退');
 	const evicted = applyAction({ ...s, cash: 10, clock: at(20, 6) }, WA, { t: 'activity', id: 'sleep-camp' }).state;
 	assert.equal(evicted.home, null);
-	assert.equal(evicted.cash, 10 + 275);
+	assert.equal(evicted.cash, 10 + 275 + 160, '押金先扣一周房租 $160，剩下 $160 退回');
 });
 
 test('每周结算：房租 + 车辆保险；没钱续保记麻烦值', () => {
