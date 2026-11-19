@@ -6,6 +6,7 @@ import { AREAS, areaOf, CROSS_ROUTES, exitsOf, getAreaBase, mergeAreas } from '.
 import { WA_BASE } from '../../src/game/data/wa-base.ts';
 import { SA_BASE } from '../../src/game/data/sa-base.ts';
 import { FULL_AREAS, getRegion, WA, WORLD } from '../../src/game/data/wa.ts';
+import saVenues from '../../src/game/data/sa.venues.json' with { type: 'json' };
 import { applyAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import { travelOptions } from '../../src/game/core/engine.ts';
@@ -73,7 +74,12 @@ test('现在的世界：西澳 + 南澳（第 42 轮）；规则看到的世界�
 	for (const bad of ['world', 'constructor', '__proto__', 'toString', 1, null]) assert.equal(getAreaBase(bad), undefined, String(bad));
 	assert.deepEqual(WORLD.locations, [...WA.locations, ...SA_BASE.locations]);
 	assert.deepEqual(WORLD.routes, [...WA.routes, ...SA_BASE.routes, ...CROSS_ROUTES]);
-	assert.deepEqual(WORLD.venues, WA.venues, '南澳还没有真实地点');
+	// 南澳真实地点（2026-11-19 从 OSM 采集）：世界里是西澳的接上南澳的，每个都落在南澳的地点上
+	const sa = (saVenues as { venues: { loc: string }[] }).venues;
+	assert.ok(sa.length >= 800, `南澳真实地点只有 ${sa.length} 个`);
+	assert.deepEqual(WORLD.venues, [...WA.venues, ...sa]);
+	for (const v of sa) assert.equal(areaOf(v.loc)?.id, 'sa', v.loc);
+	assert.deepEqual(FULL_AREAS.find((a) => a.id === 'sa')!.venues, sa);
 	assert.equal(WORLD.spawn, 'perth', '新角色还在珀斯出生');
 	assert.equal(getRegion('world'), WORLD);
 	assert.equal(getRegion('wa'), FULL_AREAS[0]);

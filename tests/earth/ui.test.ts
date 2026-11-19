@@ -51,7 +51,7 @@ async function bundlePage(opts: { venuesFail?: boolean } = {}): Promise<string> 
 		// 真实底图的地图库是动态加载的：测试环境没有 WebGL，走手绘地图，不需要把它打进来
 		external: ['maplibre-gl', 'maplibre-gl/*'],
 		// venuesFail：真实地点分包下载失败（断网时打开「附近」）——把它换成一个一加载就报错的模块
-		plugins: opts.venuesFail ? [{ name: 'venues-fail', setup(b) { b.onLoad({ filter: /wa\.venues\.json$/ }, () => ({ contents: 'throw new Error("offline")', loader: 'js' })); } }] : [],
+		plugins: opts.venuesFail ? [{ name: 'venues-fail', setup(b) { b.onLoad({ filter: /\.venues\.json$/ }, () => ({ contents: 'throw new Error("offline")', loader: 'js' })); } }] : [],
 	});
 	return out.outputFiles[0].text;
 }
@@ -1212,7 +1212,7 @@ test('界面：跨区域换在线频道（第 9 批审查问题 1）——旧区
 	assert.doesNotMatch(badge, /迟到的西澳人/);
 });
 
-test('界面：附近页按所在区域判断有没有真实地点（第 9 批审查问题 4）——南澳显示还在采集，西澳不显示', async () => {
+test('界面：附近页按所在区域载入真实地点（第 9 批审查问题 4；2026-11-19 南澳采集完）——南澳、西澳都不再显示还在采集', async () => {
 	const { data, world } = makeWorld();
 	const near = async (id: string, loc: string) => {
 		const a = await makeChar(world, id, '附近' + loc);
@@ -1230,7 +1230,9 @@ test('界面：附近页按所在区域判断有没有真实地点（第 9 批�
 		return html;
 	};
 	const sa = await near('near-sa-a', 'adelaide');
-	assert.match(sa, /南澳大利亚的真实地点数据还在采集中/);
+	assert.doesNotMatch(sa, /还在采集中/, '南澳的真实地点分包没载入');
+	assert.doesNotMatch(sa, /没载入/);
+	assert.match(sa, /打开定位，看看附近/);
 	const wa = await near('near-wa-a', 'perth');
 	assert.doesNotMatch(wa, /还在采集中/);
 	assert.match(wa, /打开定位，看看附近/);
