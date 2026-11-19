@@ -311,7 +311,10 @@ test('服务端：净资产排行榜按净资产排名，标出自己，不泄�
 		const rec = w.data.get('save:' + p.id);
 		w.data.set('save:' + p.id, { ...rec, state: { ...rec.state, cash: p.cash } });
 		await w.call({ action: 'act', id: p.id, key: p.key, rev: rec.state.rev, act: { t: 'activity', id: 'rest' } });
+		// 排行榜第一版起上榜要本人同意（docs/earth-game/leaderboard.md）
+		assert.ok((await w.call({ action: 'boardpref', id: p.id, key: p.key, pref: { on: true } })).data.ok);
 	}
+	w.world['lbTtl'] = 0; // 这条测的是数据跟着变，不测缓存
 	const before = w.puts();
 	const r = await w.call({ action: 'board', id: players[1].id, key: players[1].key });
 	assert.equal(r.status, 200, r.data.msg);
@@ -329,9 +332,9 @@ test('服务端：净资产排行榜按净资产排名，标出自己，不泄�
 		assert.ok(!text.includes(w.data.get('save:' + p.id).keyHash), '不含同步码哈希');
 	}
 	assert.ok(!/seed/.test(text), '不含种子');
-	// 净资产变化后榜单跟着变：阿博发财了
+	// 净资产变化后榜单跟着变：阿博发财了（涨幅在异常值复核线以内，见 leaderboard.test.ts）
 	const bob = w.data.get('save:' + players[1].id);
-	w.data.set('save:' + players[1].id, { ...bob, state: { ...bob.state, cash: 99999 } });
+	w.data.set('save:' + players[1].id, { ...bob, state: { ...bob.state, cash: 25000 } });
 	await w.call({ action: 'act', id: players[1].id, key: players[1].key, rev: bob.state.rev, act: { t: 'activity', id: 'rest' } });
 	const r2 = await w.call({ action: 'board', id: players[0].id, key: players[0].key });
 	assert.deepEqual(r2.data.top.map((x: { name: string }) => x.name), ['阿博', '阿凯', '阿丽']);
@@ -346,14 +349,18 @@ test('服务端：净资产没变的动作不会让同分的先到者掉到后�
 	const w = makeWorld();
 	const a = { id: 'board-first-01', key: 'f'.repeat(24) };
 	const b = { id: 'board-later-02', key: 'l'.repeat(24) };
-	for (const p of [a, b]) await w.call({ action: 'create', ...p, profile: { ...profile, name: p === a ? '先到' : '后到' } });
+	for (const p of [a, b]) {
+		await w.call({ action: 'create', ...p, profile: { ...profile, name: p === a ? '先到' : '后到' } });
+		await w.call({ action: 'boardpref', ...p, pref: { on: true } });
+	}
+	w.world['lbTtl'] = 0;
 	// 两人净资产一样，先到的记录时间更早
 	const ranks = [...w.data.keys()].filter((k) => k.startsWith('rank:'));
 	assert.equal(ranks.length, 2);
 	const order = async () => (await w.call({ action: 'board', ...a })).data.top.map((x: { name: string }) => x.name);
 	for (const k of ranks) w.data.set(k, { ...w.data.get(k), at: w.data.get(k).name === '先到' ? 1000 : 2000 });
 	assert.equal(w.data.get(ranks[0]).worth, w.data.get(ranks[1]).worth);
-	w.world['board'] = null;
+	w.world['lb'] = null;
 	assert.deepEqual(await order(), ['先到', '后到']);
 	// 先到的人做一个不改变净资产的动作
 	const worth = w.data.get(ranks.find((k) => w.data.get(k).name === '先到')!).worth;
@@ -388,9 +395,11 @@ test('服务端：看榜读列表时别人的存档正好写完，不出错，�
 		const b = { id: 'board-race-002', key: 's'.repeat(24) };
 		await w.call({ action: 'create', ...a, profile });
 		await w.call({ action: 'create', ...b, profile });
+		for (const p of [a, b]) await w.call({ action: 'boardpref', ...p, pref: { on: true } });
 		const rec = w.data.get('save:' + b.id);
-		w.data.set('save:' + b.id, { ...rec, state: { ...rec.state, cash: 77777 } });
-		w.world['board'] = null;
+		w.data.set('save:' + b.id, { ...rec, state: { ...rec.state, cash: 35000 } });
+		w.world['lb'] = null;
+		w.world['lbTtl'] = 0;
 		armed = true;
 		const act = w.call({ action: 'act', ...b, rev: rec.state.rev, act: { t: 'activity', id: 'rest' } });
 		await parkedP;
@@ -400,13 +409,16 @@ test('服务端：看榜读列表时别人的存档正好写完，不出错，�
 		assert.ok((await act).data.ok);
 		// 乙的写入已经完成，再看榜必须是新数据
 		const after = await w.call({ action: 'board', ...a });
-		assert.ok(after.data.top[0].worth > 70000, order + '：缓存里不能是读榜期间拿到的旧列表');
+		assert.ok(after.data.top[0].worth > 30000, order + '：缓存里不能是读榜期间拿到的旧列表');
 	}
 });
 
 test('服务端：榜单记录损坏时跳过那一条，不影响其他人', async () => {
 	const w = makeWorld();
 	await w.call({ action: 'create', ...cred, profile });
+	await w.call({ action: 'boardpref', ...cred, pref: { on: true } });
+	w.data.set('lbp:broken00001', { on: true });
+	w.data.set('lbp:broken00002', { on: true });
 	w.data.set('rank:broken00001', { name: 7, worth: 'lots' });
 	w.data.set('rank:broken00002', { name: '<b>坏</b>', avatar: '🧑', worth: Infinity, day: 1, at: 1 });
 	const r = await w.call({ action: 'board', ...cred });
