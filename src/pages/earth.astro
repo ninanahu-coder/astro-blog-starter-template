@@ -390,6 +390,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.muted { color: var(--dim); font-size: 13px; }
 			.chat { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; font-size: 14px; margin: 8px 0; }
 			.chat b { color: var(--accent); font-weight: 600; }
+			.chat button.mini { font-size: 11px; padding: 0 6px; min-height: 0; margin-left: 4px; opacity: 0.7; }
 			.inline { display: flex; gap: 8px; flex-wrap: wrap; }
 			.note { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); }
 			.note .body { flex: 1; overflow-wrap: anywhere; }
@@ -705,6 +706,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { getCoop } from '../game/data/coop.ts';
 			import { giveBlocked, saleRange, takeBlocked } from '../game/core/trade.ts';
 			import { metList } from '../game/core/social.ts';
+			import { liveBlocked, liveCalendar, liveDateLabel } from '../game/core/live.ts';
+			import { isBlocked, REPORT_REASONS } from '../game/core/safety.ts';
 			import type { WeeklyGoal } from '../game/core/weekly.ts';
 			import { cleanNote, NOTE_MAX, NOTES_PER_LOC } from '../game/core/notes.ts';
 			import { realDayOf } from '../game/core/daily.ts';
@@ -1075,6 +1078,42 @@ const cardLines = guilloche(400, 260, 14, 9);
 				}
 				render();
 			}
+			// ---------- 屏蔽与举报（第 24 批） ----------
+			/** 正在选举报原因的对象：在线的人（peer 哈希，聊天时带原话）或一条留言 */
+			let reportPick: { peer?: string; note?: string; name: string; quote?: string } | null = null;
+			/** 把屏蔽名单告诉在线频道：服务器不再把这些人的聊天、表情转过来 */
+			function sendMute() {
+				if (state && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'mute', ids: Object.keys(state.blocked ?? {}) }));
+			}
+			async function safetyOp(op: 'block' | 'unblock' | 'report', extra: Record<string, unknown>) {
+				if (!state || !cred || busy) return;
+				busy = true;
+				actGen++;
+				document.body.classList.add('busy');
+				try {
+					const { data } = await api({ action: 'safety', op, id: cred.id, key: cred.key, rev: state.rev, ...extra });
+					if (data?.state) adopt(data.state);
+					if (data?.ok) reportPick = null;
+					if (data?.msg) toast(data.msg);
+				} catch {
+					toast('网络断开了，联网后才能操作');
+				} finally {
+					busy = false;
+					document.body.classList.remove('busy');
+				}
+				sendMute();
+				// 屏蔽后留言板和挂单马上按新名单重拉
+				notesAt = 0;
+				render();
+			}
+			/** 举报时选原因的小卡片 */
+			function reportCard() {
+				if (!reportPick) return '';
+				const r = reportPick;
+				const reasons = Object.entries(REPORT_REASONS).map(([k, v]) => `<button data-report="${k}">${esc(v)}</button>`).join(' ');
+				return `<div class="card"><h3>举报${esc(r.name)}</h3>${r.quote ? `<p class="muted">「${esc(r.quote)}」</p>` : ''}<p class="muted">选一个原因。举报后会顺手屏蔽对方；举报记录只给管理员看，对方不会知道是谁举报的。</p>
+					<div class="quick" style="margin-top:8px">${reasons}</div><div class="inline" style="margin-top:8px"><button data-report="cancel">算了</button></div></div>`;
+			}
 			// 地点留言板：打开附近页时拉取（每个地点 30 秒内不重复拉）
 			type NoteView = { id: string; name: string; avatar: string; text: string; at: number; mine: boolean };
 			let notesLoc = '';
@@ -1298,9 +1337,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 						myPeerId = m.you;
 						emotes = m.emotes || [];
 						peers = new Map((m.players as Peer[]).map((p) => [p.id, p]));
+						sendMute();
 					} else if (m.t === 'join') peers.set(m.p.id, m.p);
 					else if (m.t === 'leave') peers.delete(m.id);
 					else if (m.t === 'move') { const p = peers.get(m.id); if (p) p.loc = m.loc; }
+					else if (m.t === 'notice') { if (typeof m.msg === 'string') toast(m.msg); return; }
+					else if ((m.t === 'chat' && state && isBlocked(state, m.id)) || (m.t === 'emote' && state && isBlocked(state, m.from))) return;
 					else if (m.t === 'chat') { chats.push(m); chats = chats.slice(-50); if (tab !== 'social') toast(`${m.name}: ${m.text}`); }
 					else if (m.t === 'emote') toast(`${m.name} 向你 ${m.kind}`);
 					else if (m.t === 'coop') { coopHint(); return; }
@@ -1814,10 +1856,29 @@ const cardLines = guilloche(400, 260, 14, 9);
 				loadNotes();
 				const list = notesLoc === s.loc ? notesList : [];
 				const ago = (at: number) => { const m = Math.max(0, Math.round((srvNow() - at) / 60_000)); return m < 60 ? `${m} 分钟前` : m < 1440 ? `${Math.round(m / 60)} 小时前` : `${Math.round(m / 1440)} 天前`; };
-				const rows = list.map((n) => `<div class="note"><span class="ico">${esc(n.avatar)}</span><span class="body"><b>${esc(n.name)}</b> <small class="muted">${ago(n.at)}</small><br />${esc(n.text)}</span>${n.mine ? `<button data-note="delete" data-note-id="${esc(n.id)}" aria-label="删掉这条留言">删</button>` : ''}</div>`).join('');
-				return `<div class="card"><h3>📝 留言板</h3><p class="muted">给后来到${esc(getLocation(region, s.loc)!.name)}的人留一句话。不能带网址和联系方式；每人每天最多 3 条，同一个地方一天一条。</p>
+				const rows = list.map((n) => `<div class="note"><span class="ico">${esc(n.avatar)}</span><span class="body"><b>${esc(n.name)}</b> <small class="muted">${ago(n.at)}</small><br />${esc(n.text)}</span>${n.mine ? `<button data-note="delete" data-note-id="${esc(n.id)}" aria-label="删掉这条留言">删</button>` : `<span class="meta"><button data-safety="block" data-note-id="${esc(n.id)}" aria-label="屏蔽${esc(n.name)}">屏蔽</button> <button data-report-pick="note" data-note-id="${esc(n.id)}" data-name="${esc(n.name)}" data-quote="${esc(n.text)}" aria-label="举报这条留言">举报</button></span>`}</div>`).join('');
+				return `${reportPick?.note ? reportCard() : ''}<div class="card"><h3>📝 留言板</h3><p class="muted">给后来到${esc(getLocation(region, s.loc)!.name)}的人留一句话。不能带网址和联系方式；每人每天最多 3 条，同一个地方一天一条。</p>
 					${rows || '<p class="muted">还没有人在这里留言。</p>'}
 					<form class="inline" id="note-form" style="margin-top:8px"><input id="note-input" maxlength="${NOTE_MAX}" placeholder="写一句给后来的人…" aria-label="留言内容" autocomplete="off" /><button class="primary">贴上</button></form></div>`;
+			}
+
+			/** 现实活动（第 24 批）：按服务器时间和当地时区自动上线、下线；能不能领以服务器结算为准 */
+			function liveCard(s: PlayerState) {
+				const now = srvNow();
+				const cal = liveCalendar(now, 30);
+				if (!cal.length) return '';
+				const myArea = areaOf(s.loc)?.id;
+				const rows = cal.filter((c) => c.active || c.event.area === myArea).slice(0, 6).map((c) => {
+					const ev = c.event;
+					const where = ev.loc ? getLocation(region, ev.loc)?.name ?? '' : ev.area === 'wa' ? '西澳全境' : '南澳全境';
+					const days = Math.ceil(c.startsInMs / 86_400_000);
+					const when = c.active ? '进行中' : days <= 1 ? '明天前开始' : `${days} 天后开始`;
+					const why = c.active ? liveBlocked(s, region, ev, now) : undefined;
+					const btn = c.active ? `<button class="${why ? '' : 'primary'}" data-live="${esc(ev.id)}" ${why ? 'disabled' : ''}>${(s.live ?? []).includes(ev.id) ? '已领' : '到场'}</button>` : '';
+					return `<div class="row"><span class="ico">${ev.kind === 'festival' ? '🎪' : '🎉'}</span><span class="body">${esc(ev.name)} · ${esc(where)}<small>${when} · ${esc(liveDateLabel(ev))}${why && !(s.live ?? []).includes(ev.id) ? ` · ${esc(why)}` : ''} · <a href="${esc(ev.source)}" target="_blank" rel="noopener noreferrer">来源</a></small></span><span class="meta">${btn}</span></div>`;
+				}).join('');
+				if (!rows) return '';
+				return `<div class="card"><h3>现实里的节日和假期</h3><p class="muted">跟真实日历走，和游戏里的季节无关。在活动地点（假期是同一个州）可以领一次到场纪念。</p><div class="list" style="margin-top:8px">${rows}</div></div>`;
 			}
 
 			/** 天象卡（第 8 批）：按地点和游戏日期用公式估算，只做显示，不影响玩法 */
@@ -1980,7 +2041,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${petHtml}${courseHtml}${certHtml}${studyHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+					${storyCard}${liveCard(s)}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${petHtml}${courseHtml}${certHtml}${studyHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
 			}
 
 			/** 地点卡里的一行气候说明：气候区 + 参照的气象站（第 30 批） */
@@ -2329,12 +2390,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 			function panelSocial() {
 				const s = state!;
 				const online = ws?.readyState === WebSocket.OPEN;
-				const here = [...peers.values()].filter((p) => p.loc === s.loc && p.id !== myPeerId);
+				const here = [...peers.values()].filter((p) => p.loc === s.loc && p.id !== myPeerId && !isBlocked(s, p.id));
 				// 人很多时只列前 PEERS_SHOWN 位（每人一排按钮），其余写个数
 				const PEERS_SHOWN = 30;
 				const more = here.length > PEERS_SHOWN ? `<p class="muted" style="margin-top:6px">还有 ${here.length - PEERS_SHOWN} 位玩家在这里</p>` : '';
 				const people = here.length ? here.slice(0, PEERS_SHOWN).map((p) => `<div class="row"><span class="ico">${esc(p.avatar)}</span><span class="body">${esc(p.name)}</span>
-					<span class="emotes">${emotes.map((e) => `<button data-emote="${esc(e)}" data-to="${esc(p.id)}" aria-label="向${esc(p.name)}发送 ${esc(e)}">${esc(e)}</button>`).join(' ')} <button data-giftpick="${esc(p.id)}" data-gift-name="${esc(p.name)}" aria-label="送${esc(p.name)}一件东西">🎁</button></span></div>`).join('') : '<p class="muted">这里暂时只有你一个人。</p>';
+					<span class="emotes">${emotes.map((e) => `<button data-emote="${esc(e)}" data-to="${esc(p.id)}" aria-label="向${esc(p.name)}发送 ${esc(e)}">${esc(e)}</button>`).join(' ')} <button data-giftpick="${esc(p.id)}" data-gift-name="${esc(p.name)}" aria-label="送${esc(p.name)}一件东西">🎁</button> <button data-safety="block" data-peer="${esc(p.id)}" aria-label="屏蔽${esc(p.name)}">屏蔽</button> <button data-report-pick="peer" data-peer="${esc(p.id)}" data-name="${esc(p.name)}" aria-label="举报${esc(p.name)}">举报</button></span></div>`).join('') : '<p class="muted">这里暂时只有你一个人。</p>';
 				// 认识的当地人今天在哪：就在这里的标出来，在别处的可以直接看去那里的走法
 				const presentIds = new Set(npcsAt(s, region).map((x) => x.npc.id));
 				const known = Object.entries(s.relations)
@@ -2354,13 +2415,13 @@ const cardLines = guilloche(400, 260, 14, 9);
 							? `<div class="row"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta">${st === 'after' ? '今天已经走了' : '还没到时间'}</span></div>`
 							: `<button class="row" data-loc="${plan.loc}"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta"><b>怎么去</b></span></button>`;
 				}).join('')}</div></div>` : '';
-				return `${knownHtml}<div class="card"><h3>${esc(getLocation(region, s.loc)!.name)}的人</h3><p>${online ? `全区在线 ${peers.size} 人` : '未连接，稍后自动重连…'}</p><div class="list" style="margin-top:8px">${people}</div>${more}</div>
+				return `${reportPick && !reportPick.note ? reportCard() : ''}${knownHtml}<div class="card"><h3>${esc(getLocation(region, s.loc)!.name)}的人</h3><p>${online ? `全区在线 ${peers.size} 人` : '未连接，稍后自动重连…'}</p><div class="list" style="margin-top:8px">${people}</div>${more}</div>
 					${weekCard(s)}
 					${tradeCard(s)}
 					${coopCard(s)}
 					${metCard(s)}
-					<div class="card"><h3>本地频道</h3><p>只有同一地点的玩家能看到。</p>
-						<div class="chat" id="chat">${chats.map((c) => `<div>${esc(c.avatar)} <b>${esc(c.name)}</b> ${esc(c.text)}</div>`).join('')}</div>
+					<div class="card"><h3>本地频道</h3><p>只有同一地点的玩家能看到。不能发网址、电话、账号和坐标；别人看不到你的真实位置。</p>
+						<div class="chat" id="chat">${chats.filter((c) => !isBlocked(s, c.id)).map((c) => `<div>${esc(c.avatar)} <b>${esc(c.name)}</b> ${esc(c.text)}${c.id !== myPeerId ? ` <button class="mini" data-report-pick="peer" data-peer="${esc(c.id)}" data-name="${esc(c.name)}" data-quote="${esc(c.text)}" aria-label="举报这句话">举报</button>` : ''}</div>`).join('')}</div>
 						<div class="quick">${QUICK_CHAT.map((q, i) => `<button data-quick="${i}" ${online ? '' : 'disabled'}>${q}</button>`).join('')}</div>
 						<form class="inline" id="chat-form"><input id="chat-input" maxlength="120" placeholder="说点什么…" aria-label="聊天消息" autocomplete="off" ${online ? '' : 'disabled'} /><button class="primary" ${online ? '' : 'disabled'}>发送</button></form></div>
 					${boardCard()}`;
@@ -2451,6 +2512,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 				return news.CHANGELOG.map((e) => `<div class="card news"><h3>${esc(e.title)} <span class="muted">${esc(e.date)}</span></h3><ul>${e.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('');
 			}
 
+			/** 已屏蔽的人（第 24 批） */
+			function blockedCard(s: PlayerState) {
+				const list = Object.entries(s.blocked ?? {});
+				const rows = list.map(([h, b]) => `<div class="row"><span class="ico">${esc(b.avatar)}</span><span class="body">${esc(b.name)}</span><span class="meta"><button data-safety="unblock" data-hash="${esc(h)}">解除</button></span></div>`).join('');
+				return `<div class="card"><h3>已屏蔽的人</h3><p class="muted">看不到他们的聊天、表情、留言和挂单，他们也送不了你东西。对方不会收到通知。</p>${rows ? `<div class="list" style="margin-top:8px">${rows}</div>` : '<p class="muted">还没有屏蔽任何人。</p>'}</div>`;
+			}
 			function panelSync() {
 				const seg = (key: 'font' | 'motion', label: string, opts: [string, string][]) =>
 					`<div class="pref-row" role="group" aria-label="${label}"><span>${label}</span><div class="seg">${opts.map(([v, name]) => `<button data-pref="${key}" data-val="${v}" class="${prefs[key] === v ? 'on' : ''}" aria-pressed="${prefs[key] === v}">${name}</button>`).join('')}</div></div>`;
@@ -2459,6 +2526,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const real = `<div class="row" style="margin-top:8px"><span class="body">真实地图<small>出行页用 OpenStreetMap 真实地图，图块向 OpenFreeMap 请求；关掉或离线时用手绘地图${basemapFailed ? '。这次没加载出来，正在用手绘地图' : ''}</small></span><button data-pref="basemap" aria-pressed="${prefs.basemap}">${prefs.basemap ? '已开启' : '已关闭'}</button></div>`;
 				return `<div class="card"><h3>显示</h3><p class="muted">只在这台设备上生效。</p>${seg('font', '字号', FONT_OPTIONS)}${seg('motion', '动画', MOTION_OPTIONS)}${sound}${real}</div>
 					<div class="card"><h3>提示</h3>${tips}</div>
+					${blockedCard(state!)}
 					<div class="card"><h3>玩法说明</h3><dl class="help">${HELP.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
 					${credBad ? `<div class="card"><h3>同步码已失效</h3><p>服务器不认这台设备上的同步码了：可能在另一台设备上更换过，或者账号已删除。输入新的同步码就能接着玩，排队的动作会在那之后补交。</p>
 						<input id="s-code" placeholder="粘贴新的同步码" aria-label="新的同步码" autocomplete="off" style="margin-top:8px" />
@@ -2640,7 +2708,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				} catch {}
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2792,6 +2860,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 				else if (d.giftpick !== undefined) { giftTo = d.giftpick ? { hash: d.giftpick, name: d.giftName ?? '' } : null; sellPick = false; renderPanel(); }
 				else if (d.week === 'claim') claimWeek();
 				else if (d.note === 'delete') noteOp('delete', { note: d.noteId });
+				else if (d.live) act({ t: 'live', id: d.live });
+				else if (d.safety === 'unblock' && d.hash) safetyOp('unblock', { hash: d.hash });
+				else if (d.safety === 'block') safetyOp('block', d.noteId ? { note: d.noteId } : { peer: d.peer });
+				else if (d.reportPick) { reportPick = d.reportPick === 'note' ? { note: d.noteId, name: d.name ?? '', quote: d.quote } : { peer: d.peer, name: d.name ?? '', quote: d.quote }; renderPanel(); }
+				else if (d.report === 'cancel') { reportPick = null; renderPanel(); }
+				else if (d.report && reportPick) safetyOp('report', { reason: d.report, ...(reportPick.note ? { note: reportPick.note } : { peer: reportPick.peer, quote: reportPick.quote ?? '' }) });
 				else if (d.trade) {
 					if (d.trade === 'pickcancel') { giftTo = null; sellPick = false; renderPanel(); }
 					else if (d.trade === 'sellpick') { sellPick = true; giftTo = null; renderPanel(); }

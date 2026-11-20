@@ -36,6 +36,11 @@ import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
 import { validTraits } from './attributes.ts';
 import { WEATHERS } from '../data/weather.ts';
+import { cleanBlocked } from './safety.ts';
+
+/** 现实活动的到场纪念（第 24 批，见 core/live.ts）：存档最多记多少个、id 的格式 */
+export const LIVE_MAX = 200;
+export const LIVE_ID_RE = /^[a-z0-9-]{1,48}$/;
 
 /** 天气相册里所有合法的照片 id：地点 × 天气 */
 export const photoIds = (locIds: string[]) => new Set(locIds.flatMap((l) => WEATHERS.map((w) => `${l}|${w.id}`)));
@@ -165,6 +170,8 @@ export function createCharacter(opts: {
 		coopDays: {},
 		trades: { day: 0, out: 0, in: 0 },
 		met: {},
+		live: [],
+		blocked: {},
 		weekly: { week: 0, n: 0, claimed: false },
 		pet: null,
 		pending: null,
@@ -389,6 +396,8 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			n: Math.floor(num(r.weekly?.n, 0, 1e6, 0)),
 			claimed: r.weekly?.claimed === true,
 		},
+		live: Array.isArray(r.live) ? [...new Set((r.live as unknown[]).filter((x): x is string => typeof x === 'string' && LIVE_ID_RE.test(x)))].slice(-LIVE_MAX) : [],
+		blocked: cleanBlocked(r.blocked, cleanName),
 		met: (() => {
 			const out: PlayerState['met'] = {};
 			if (r.met && typeof r.met === 'object') {
