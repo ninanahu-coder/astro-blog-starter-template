@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic a coastal wine-country landscape at golden hour, rows of green vines in the foreground, a eucalyptus forest in the middle and a long surf beach with rolling waves under a pink sky, with the the vineyard rows, the forest, the beach and the composition shown in <Picture 1> preserved. From the first frame long lines of surf roll toward the beach and break in white foam. The camera pushes in with small amplitude at slow speed toward the beach and the surf and comes to rest on a slightly tighter wide shot of the forest and the surf beach in the final second. The vine leaves flutter gently in a light breeze, soft clouds drift slowly across the sky, and the eucalyptus branches at the top left sway lightly, and the vineyard posts and the forest stay still.
+
+overall_soundscape: Distant rolling surf and a light breeze through vine leaves; soft rustle of leaves.
+
+non_diegetic_music: N/A

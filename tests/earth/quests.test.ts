@@ -308,3 +308,12 @@ test('服务端：成就领奖由服务端核对；同一动作编号重交不�
 	w.data.set('save:' + cred.id, { ...rec2, state: { ...rec2.state, title: 'ach.worth-100k' } });
 	assert.equal((await w.call({ action: 'get', ...cred })).data.state.title, '');
 });
+
+test('成长页（页面模板）：任务卡排第一、称号卡在成就后面，成就卡写出奖励，领奖和戴称号的点击接上了', async () => {
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(src, /\['quests', 'daily', 'ach', 'titles', /, '成长页卡片顺序');
+	assert.match(src, /const r = achReward\(a\.def\);/, '成就卡奖励');
+	const click = src.match(/closest<HTMLElement>\('\[data-tab\][^']*'\)/)?.[0] ?? '';
+	for (const a of ['claim', 'wear', 'trail', 'live', 'pet']) assert.ok(click.includes(`[data-${a}]`), `点击委托缺 data-${a}`);
+});

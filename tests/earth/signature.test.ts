@@ -7,13 +7,16 @@ import { getPendingEvent } from '../../src/game/core/engine.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
 import { WA, WORLD } from '../../src/game/data/wa.ts';
 
+/** gps 动作要服务端时间（没有就当离线拒绝） */
+const GPS_NOW = 1_800_000_000_000;
+
 test('签名事件：第一次真实定位抵达必出，选完之后不再出现', () => {
 	const sig = EVENTS.filter((e) => e.once && e.locs?.length === 1);
 	for (const id of ['pinnacles-dusk', 'lucky-bay-roos', 'albany-whales', 'wave-rock-top']) assert.ok(sig.some((e) => e.id === id), id);
 	for (const ev of sig) {
 		const loc = WORLD.locations.find((l) => l.id === ev.locs![0])!;
 		const s = createCharacter({ id: 'sig-' + ev.id, name: '签名', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 11 });
-		const r = applyAction(s, WORLD, { t: 'gps', lat: loc.lat, lon: loc.lon });
+		const r = applyAction(s, WORLD, { t: 'gps', lat: loc.lat, lon: loc.lon, acc: 10 }, GPS_NOW);
 		assert.ok(r.ok, `${ev.id}: ${r.msg}`);
 		assert.equal(getPendingEvent(r.state)?.id, ev.id, `${loc.name} 第一次抵达应该出「${ev.title}」`);
 		// 选最后一个（不花钱、不检定或检定失败也能结算）的选项
