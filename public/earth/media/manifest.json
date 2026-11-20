@@ -3,7 +3,8 @@
 	"loc": {
 		"busselton": {
 			"src": "/earth/media/loc/busselton.mp4",
-			"poster": "/earth/cgi/busselton.webp"
+			"poster": "/earth/cgi/busselton.webp",
+			"once": true
 		},
 		"karijini": {
 			"src": "/earth/media/loc/karijini.mp4",
