@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>按摩店流量与收入提升方案 · 盈扬 YNG LAB</title>
+<style>
+:root{--bg:#060A14;--ink:#0A101E;--panel:#111A2E;--panel2:#0D1526;--line:rgba(233,236,245,.13);
+--text:#E9ECF5;--muted:#96A0BA;--dim:#6B7590;--gold:#E3A83E;--gold-soft:rgba(227,168,62,.14);
+--teal:#43BFA0;--red:#E06070;
+--serif:"Songti SC","Noto Serif SC","STSong",Georgia,serif;
+--sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",-apple-system,sans-serif;
+--mono:ui-monospace,"SF Mono",Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#deck{width:1280px;height:720px;position:relative;transform-origin:center center;flex:none}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;padding:64px 84px 58px;
+background:radial-gradient(900px 500px at 85% -10%,rgba(227,168,62,.06),transparent 60%),
+radial-gradient(700px 500px at -10% 110%,rgba(67,191,160,.05),transparent 60%),var(--ink);border:1px solid var(--line)}
+.slide.active{display:flex}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;color:var(--gold);text-transform:uppercase;display:flex;gap:14px;margin-bottom:18px}
+.eyebrow .no{color:var(--dim)}
+.foot{position:absolute;left:84px;right:84px;bottom:22px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.12em}
+h1{font-family:var(--serif);font-weight:600;font-size:52px;line-height:1.2;text-wrap:balance}
+h2.t{font-family:var(--serif);font-weight:600;font-size:38px;line-height:1.2;margin-bottom:10px}
+.sub{color:var(--muted);font-size:17px;line-height:1.65;max-width:44em}
+.body{flex:1;display:flex;flex-direction:column;justify-content:center;gap:20px;min-height:0}
+.cols{display:grid;gap:18px}.c2{grid-template-columns:1fr 1fr}.c3{grid-template-columns:1fr 1fr 1fr}.c32{grid-template-columns:3fr 2fr}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px}
+.card h3{font-size:16.5px;margin-bottom:8px;font-weight:600}
+.card p,.card li{font-size:13.5px;color:var(--muted);line-height:1.6}
+.card.hl{border-color:rgba(227,168,62,.45);background:linear-gradient(180deg,var(--gold-soft),var(--panel))}
+.kpi{font-family:var(--mono);font-size:42px;color:var(--gold);line-height:1.1}
+.kpi small{font-size:15px;color:var(--muted);font-family:var(--sans)}
+.kcap{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+ul.list{list-style:none;display:flex;flex-direction:column;gap:12px}
+ul.list li{padding-left:20px;position:relative;font-size:15.5px;line-height:1.6}
+ul.list li::before{content:"";position:absolute;left:0;top:.62em;width:8px;height:2px;background:var(--gold)}
+ul.list li span{color:var(--muted)}
+.tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--teal);border:1px solid rgba(67,191,160,.4);border-radius:3px;padding:3px 8px;margin-right:6px}
+.tag.gd{color:var(--gold);border-color:rgba(227,168,62,.4)}
+.src{font-size:11.5px;color:var(--dim);margin-top:12px;line-height:1.5}
+table.tbl{width:100%;border-collapse:collapse;font-size:14px}
+table.tbl th{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;color:var(--gold);text-align:left;padding:10px 12px;border-bottom:1px solid rgba(227,168,62,.35);font-weight:500}
+table.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);color:var(--muted);line-height:1.55}
+table.tbl td:first-child{color:var(--text);font-weight:500}
+table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
+.flow{display:flex;align-items:stretch;gap:0}
+.flow .step{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px 14px;text-align:center}
+.flow .step h4{font-size:14.5px;margin-bottom:6px}
+.flow .step p{font-size:12.5px;color:var(--muted);line-height:1.5}
+.flow .arr{display:flex;align-items:center;padding:0 8px;color:var(--gold);font-family:var(--mono);font-size:18px}
+.big-serif{font-family:var(--serif);font-size:28px;line-height:1.55;max-width:26em}
+.big-serif em{color:var(--gold);font-style:normal}
+.cover{justify-content:space-between}
+.cover .meta{display:flex;gap:34px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.rule{height:1px;background:linear-gradient(90deg,var(--gold),transparent);margin:26px 0}
+#prog{position:fixed;top:0;left:0;height:3px;background:var(--gold);z-index:9;transition:width .25s}
+#ctr{position:fixed;right:16px;bottom:12px;font-family:var(--mono);font-size:12px;color:var(--dim);z-index:9}
+@media screen and (max-width:700px) and (orientation:portrait){
+body{overflow:auto}#stage{position:static;display:block}#deck{width:auto;height:auto;transform:none!important}
+.slide{position:relative;inset:auto;display:flex!important;height:auto;padding:26px 18px 20px;border:none;border-bottom:1px solid var(--line)}
+h1{font-size:30px}h2.t{font-size:22px}.cols,.c2,.c3,.c32{grid-template-columns:1fr}
+.flow{flex-direction:column}.flow .arr{transform:rotate(90deg);justify-content:center}
+table.tbl{display:block;overflow-x:auto}.foot{position:static;margin-top:14px}#ctr,#prog{display:none}}
+@page{size:1280px 720px;margin:0}
+@media print{body{overflow:visible}#stage{position:static;display:block}#deck{transform:none!important;width:auto;height:auto}
+.slide{position:relative;display:flex!important;width:1280px;height:720px;page-break-after:always;border:none}#prog,#ctr{display:none}}
+</style>
+</head>
+<body>
+<div id="prog"></div><div id="ctr"></div>
+<div id="stage"><div id="deck">
+
+<!-- 01 封面 -->
+<section class="slide cover">
+  <div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <svg width="46" height="46" viewBox="0 0 46 46"><circle cx="23" cy="23" r="21" fill="none" stroke="#E3A83E" stroke-width="1.6" opacity=".85"/><rect x="12" y="26" width="5" height="8" rx="1" fill="#43BFA0"/><rect x="20.5" y="20" width="5" height="14" rx="1" fill="#E3A83E" opacity=".72"/><rect x="29" y="14" width="5" height="20" rx="1" fill="#E3A83E"/><path d="M28.5 13.5 L31.5 8.5 L34.5 13.5" fill="none" stroke="#E3A83E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span style="display:flex;flex-direction:column;gap:4px"><b style="font-family:var(--mono);font-size:17px;letter-spacing:.3em;color:var(--gold)">YNG LAB</b><small style="font-size:11px;letter-spacing:.4em;color:var(--muted)">盈扬工作室 · PERTH</small></span>
+    </div>
+    <div class="rule"></div>
+  </div>
+  <div>
+    <h1>让预约自己找上门，<br>让爽约的钱回到账上。</h1>
+    <p class="sub" style="margin-top:20px">按摩店流量与收入提升方案 —— 一个网站、一个预约机器人、一台评价引擎。<br>不用换收银系统、不用雇人，老板只需配合半天。</p>
+  </div>
+  <div><div class="meta"><span>为门店老板准备 · 12 页</span><span>盈扬工作室 YNG LAB</span><span>Perth</span></div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>01 / 12</span></div>
+</section>
+
+<!-- 02 漏钱的三个洞 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">02</span><span>现状</span></div>
+  <h2 class="t">你的店，每个月在三个地方漏钱</h2>
+  <div class="body">
+    <div class="cols c3">
+      <div class="card"><div class="kpi">搜不到</div><div class="kcap" style="margin-top:10px">客人搜「massage near me」，地图前三名拿走绝大多数点击——不在前三，等于不存在。靠路过和老客介绍，天花板一眼看到头。</div></div>
+      <div class="card"><div class="kpi">接不住</div><div class="kcap" style="margin-top:10px">打烊后、忙着做钟时的电话和留言没人接。晚上 9 点想约明天的客人，转头就订了别家。</div></div>
+      <div class="card"><div class="kpi">爽约多</div><div class="kcap" style="margin-top:10px">行业爽约率普遍 10–20%。一个 no-show = 房间和技师空转一小时，全是净损失。</div></div>
+    </div>
+    <p class="big-serif">这三个洞不用增加一个员工就能堵上——<em>系统干活，老板收钱</em>。</p>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>02 / 12</span></div>
+</section>
+
+<!-- 03 方案总览 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">03</span><span>方案总览</span></div>
+  <h2 class="t">一站 + 一 Bot + 一引擎，三件套堵三个洞</h2>
+  <div class="body">
+    <div class="cols c3">
+      <div class="card hl"><span class="tag gd">堵「搜不到」</span><h3 style="margin-top:10px">门店官网 + 地图优化</h3><p>按「服务 × 区域」铺页面（remedial massage / 深层 / 孕妇按摩 × 周边区），配合 Google 地图资料完整化——把店推进搜索结果和地图前排。</p></div>
+      <div class="card hl"><span class="tag gd">堵「接不住」</span><h3 style="margin-top:10px">24 小时预约 Bot</h3><p>客人随时选服务、选时段、付订金锁位，全程 1 分钟。凌晨的预约照收不误，一条询问都不漏。</p></div>
+      <div class="card hl"><span class="tag gd">堵「爽约多」</span><h3 style="margin-top:10px">订金 + 提醒 + 评价引擎</h3><p>小额订金锁位（到店全额抵扣）、前 24 小时自动提醒、做完自动邀请好评——爽约降下去，评价涨上来。</p></div>
+    </div>
+    <ul class="list">
+      <li><b>老板要做的事</b>：<span>提供服务价目和营业时间，配合拍几张照片——半天搞定，其余全部我们来。</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>03 / 12</span></div>
+</section>
+
+<!-- 04 流量：地图逻辑 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">04</span><span>流量从哪来</span></div>
+  <h2 class="t">新客的大头在 Google 地图——评价就是排名</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>客人的真实动作</b>：<span>搜「massage near me」或「remedial massage + 区名」→ 看地图前三家 → 看评分和评价数 → 打电话或点预约。</span></li>
+        <li><b>排名怎么来</b>：<span>评价数量、评分、新鲜度是本地排名的核心因素——评价引擎每天自动积累，排名是攒出来的。</span></li>
+        <li><b>评价引擎</b>：<span>客人做完 2 小时后自动收到回访；满意 → 一键跳 Google 五星；不满意 → 转店主私聊处理。<b style="color:var(--gold)">差评拦在店内，好评晒在网上。</b></span></li>
+        <li><b>私保关键词</b>：<span>有 remedial 资质的店，「health fund / HICAPS 可报销」是澳洲客人搜索量最大的入口之一——放在首页最显眼处。</span></li>
+      </ul>
+      <div class="card"><h3>3–6 个月示例目标</h3>
+        <div style="display:flex;gap:26px;margin-top:10px">
+          <div><div class="kpi">×3–5</div><div class="kcap">地图 + 搜索曝光</div></div>
+          <div><div class="kpi">×2–3</div><div class="kcap">预约询盘</div></div>
+        </div>
+        <p style="margin-top:12px">口径说明：基于地图排名与评价机制的<b>示例目标</b>（非承诺）；上线后按实际曝光、点击、预约数据按月对账，给你看真数。</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>04 / 12</span></div>
+</section>
+
+<!-- 05 订金流程 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">05</span><span>订金机制</span></div>
+  <h2 class="t">四步预约流程：爽约的钱，从此有人兜底</h2>
+  <div class="body" style="gap:16px">
+    <div class="flow">
+      <div class="step"><h4>① 选时段</h4><p>Bot 显示实时空位，客人自助选服务与时间</p></div><div class="arr">→</div>
+      <div class="step"><h4>② 付订金锁位</h4><p>A$20–30，30 秒付款<br><b>到店全额抵扣，不多花一分钱</b></p></div><div class="arr">→</div>
+      <div class="step"><h4>③ 自动提醒</h4><p>前 24 小时提醒，可免费改期一次；24 小时内取消订金不退</p></div><div class="arr">→</div>
+      <div class="step"><h4>④ 到店核销</h4><p>订金自动从账单扣除；做完 2 小时后自动邀请评价</p></div>
+    </div>
+    <div class="cols c2">
+      <div class="card hl"><h3>为什么客人愿意付</h3><p>话术不叫「订金」，叫「<b>锁位费，到店全额抵扣</b>」——客人零损失感。熟客免收，新客与周末高峰时段必收：订金是筛选器，不是门槛。</p></div>
+      <div class="card"><h3>效果基准</h3><p>预收订金 + 自动提醒是全球预约行业的标准打法，通常把爽约率从 10–20% 压到 <b style="color:var(--teal)">5% 以下</b>（行业基准口径；你店里的真实数字上线 30 天即可对账）。</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>05 / 12</span></div>
+</section>
+
+<!-- 06 收入账本（重点页） -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">06</span><span>算账 · 重点页</span></div>
+  <h2 class="t">一家典型店的月度账本：能多收多少</h2>
+  <div class="body" style="gap:14px">
+    <table class="tbl">
+      <tr><th>收入来源</th><th>怎么来的</th><th>每月增量（示例测算）</th></tr>
+      <tr><td>爽约挽回</td><td>爽约率 15% → 5% 以下；按日均 12 单、客单 A$90 算，每天救回 1–2 单</td><td class="y">+A$2,700–5,400</td></tr>
+      <tr><td>地图新客</td><td>曝光 ×3–5、询盘 ×2–3 → 每天多 2–4 个新客成交 1–2 单</td><td class="y">+A$2,700–5,400</td></tr>
+      <tr><td>复购召回</td><td>「上次做完 4 周了」自动召回 + 生日券，复购率 +20–30%</td><td class="y">+A$1,500–3,000</td></tr>
+      <tr><td>疗程包预付</td><td>5 次 9 折预付，每月卖出 5–10 张（现金流一次性入账）</td><td class="y">+A$2,000–4,000 预收</td></tr>
+      <tr><td><b>合计</b></td><td>月流水 A$25k–35k 的店</td><td class="y"><b>+A$7,000–14,000 / 月（约 +25–40%）</b></td></tr>
+    </table>
+    <p class="src">口径：以上为基于行业基准的<b>示例测算</b>（非承诺），假设已列明；上线后每月给你一张「实际对账单」——曝光、询盘、预约、爽约、增量收入，只看真数。</p>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>06 / 12</span></div>
+</section>
+
+<!-- 07 复购 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">07</span><span>复购</span></div>
+  <h2 class="t">按摩是复购生意：系统替你记得每一位客人</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>到期召回</b>：<span>「您上次深层按摩已经 4 周了，本周三下午有空位」——按客人节奏自动发，不骚扰、不群发。</span></li>
+        <li><b>生日与节日</b>：<span>生日月自动送 8 折券；母亲节/圣诞礼卡一键转赠，客人替你拉新客。</span></li>
+        <li><b>疗程包</b>：<span>5 次/10 次预付套餐，电子卡自动计次——预收现金流 + 锁定未来 2–3 个月的复购。</span></li>
+        <li><b>沉睡唤醒</b>：<span>90 天没来的客人自动收到一张「回家券」——找回一个老客的成本是拉新的五分之一。</span></li>
+      </ul>
+      <div class="card hl"><h3>老板视角</h3><p>这些事人工做要一个前台盯全天，还会漏；系统做是 7×24 自动执行、一个不漏。<br><br><b>客人名单沉淀在你自己的客户库里</b>——不在平台手里，不怕平台涨价、封号、改规则。这是这套系统和入驻团购平台的本质区别。</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>07 / 12</span></div>
+</section>
+
+<!-- 08 华人流量 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">08</span><span>华人客源</span></div>
+  <h2 class="t">Perth 华人客源：小红书 + 微信群的加成打法</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>小红书</b>：<span>Perth 生活类内容竞争极小，每周一篇「按摩测评/放松攻略」带门店二维码——华人新客的最短路径。</span></li>
+        <li><b>微信群「今日空位」</b>：<span>下午的空档时段实时发限时价——空转的房间小时当天清掉。</span></li>
+        <li><b>中文预约全程无障碍</b>：<span>Bot 中英双语，长辈客人也会用。</span></li>
+      </ul>
+      <div class="card"><h3>为什么我们做得了这件事</h3><p>盈扬是 Perth 本地华人团队：中文内容、英文 SEO、本地合规三件事一手包——不用你再分别找三家服务商。</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>08 / 12</span></div>
+</section>
+
+<!-- 09 分工 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">09</span><span>分工</span></div>
+  <h2 class="t">你半天，我们全包</h2>
+  <div class="body">
+    <table class="tbl">
+      <tr><th>你（老板）只做</th><th>我们做</th></tr>
+      <tr><td>提供价目表、营业时间、技师排班规则</td><td>官网建站 + 服务×区域页面 + Google 地图资料优化</td></tr>
+      <tr><td>配合拍 10 张门店照片</td><td>预约 Bot 上线：实时空位、订金支付、自动提醒</td></tr>
+      <tr><td>定订金政策（我们给模板）</td><td>评价引擎、复购召回、疗程包电子卡配置</td></tr>
+      <tr><td>每月看一张对账单</td><td>内容更新、系统维护、每月数据报告</td></tr>
+    </table>
+    <ul class="list">
+      <li><b>不换系统</b>：<span>现有收银、排班习惯全部保留——这套系统只在「客人进门之前」干活。</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>09 / 12</span></div>
+</section>
+
+<!-- 10 价格与回本 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">10</span><span>价格</span></div>
+  <h2 class="t">价格与回本：一个月多留住两个客人就回本</h2>
+  <div class="body">
+    <div class="cols c32">
+      <table class="tbl">
+        <tr><th>项目</th><th>内容</th><th>价格</th></tr>
+        <tr><td>建站启动（一次性）</td><td>官网 + 服务×区域页 + 地图优化 + Bot 部署</td><td class="y">A$1,500–3,000</td></tr>
+        <tr><td>月度服务</td><td>预约 Bot + 订金收款 + 评价引擎 + 复购召回 + 月度报告</td><td class="y"><b>A$149 / 月</b></td></tr>
+        <tr><td>可选加购</td><td>疗程包/储值电子卡 · 小红书代运营</td><td>A$50–150 / 月</td></tr>
+      </table>
+      <div class="card hl"><h3>回本算术</h3><p style="font-size:14px">月费 A$149 ≈ <b>1.7 单</b>客单 A$90 的生意。<br><br>只要系统每月帮你多留住 2 个客人——不管是救回的爽约、地图来的新客还是召回的老客——<b style="color:var(--gold)">当月回本，其余全是净赚</b>。<br><br>对照第 6 页账本：示例增量是月费的 <b>47–94 倍</b>。</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>10 / 12</span></div>
+</section>
+
+<!-- 11 三步开始 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">11</span><span>怎么开始</span></div>
+  <h2 class="t">三步开始，两周上线</h2>
+  <div class="body" style="gap:16px">
+    <div class="flow">
+      <div class="step"><h4>第 1 步 · 免费体检（30 分钟）</h4><p>我们当面给你看：你的店现在在 Google 上排第几、竞对什么样、漏掉多少搜索量</p></div><div class="arr">→</div>
+      <div class="step"><h4>第 2 步 · 上线（2 周内）</h4><p>建站 + Bot + 地图优化全部就位；你只出半天配合</p></div><div class="arr">→</div>
+      <div class="step"><h4>第 3 步 · 每月对账</h4><p>曝光、预约、爽约、增量收入一张表——数字不到位，当面复盘</p></div>
+    </div>
+    <p class="big-serif">先做<em>免费体检</em>——不满意一分钱不用花，你至少能带走一份自己店的搜索诊断。</p>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>11 / 12</span></div>
+</section>
+
+<!-- 12 封底 -->
+<section class="slide cover">
+  <div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <svg width="46" height="46" viewBox="0 0 46 46"><circle cx="23" cy="23" r="21" fill="none" stroke="#E3A83E" stroke-width="1.6" opacity=".85"/><rect x="12" y="26" width="5" height="8" rx="1" fill="#43BFA0"/><rect x="20.5" y="20" width="5" height="14" rx="1" fill="#E3A83E" opacity=".72"/><rect x="29" y="14" width="5" height="20" rx="1" fill="#E3A83E"/><path d="M28.5 13.5 L31.5 8.5 L34.5 13.5" fill="none" stroke="#E3A83E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span style="display:flex;flex-direction:column;gap:4px"><b style="font-family:var(--mono);font-size:17px;letter-spacing:.3em;color:var(--gold)">YNG LAB</b><small style="font-size:11px;letter-spacing:.4em;color:var(--muted)">盈扬工作室 · PERTH</small></span>
+    </div>
+    <div class="rule"></div>
+  </div>
+  <div>
+    <h1>约一次 30 分钟免费体检，<br>先看自己店漏了多少。</h1>
+    <p class="sub" style="margin-top:20px">车行、宠物、名表行都在用的同一套获客系统——按摩店版。<br>系统干活，老板收钱。</p>
+  </div>
+  <div><div class="meta"><span>AY</span><span>0405 098 765</span><span>📮 teluoke@hotmail.com</span></div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>12 / 12</span></div>
+</section>
+
+</div></div>
+<script>
+(function(){
+var slides=[].slice.call(document.querySelectorAll('.slide')),n=slides.length,i=0;
+var deck=document.getElementById('deck'),prog=document.getElementById('prog'),ctr=document.getElementById('ctr'),stage=document.getElementById('stage'),vv=window.visualViewport;
+var mq=matchMedia('(max-width:700px) and (orientation:portrait)');
+function mob(){return mq.matches}
+function vw(){return vv?vv.width:innerWidth}function vh(){return vv?vv.height:innerHeight}
+function fit(){if(mob()){deck.style.transform='';return}
+stage.style.height=vh()+'px';stage.style.width=vw()+'px';
+deck.style.transform='scale('+Math.min(vw()/1300,vh()/740)+')';}
+function show(k){i=Math.max(0,Math.min(n-1,k));slides.forEach(function(s,j){s.classList.toggle('active',j===i)});
+prog.style.width=((i+1)/n*100)+'%';ctr.textContent=(i+1)+' / '+n;location.hash='#/'+(i+1);}
+addEventListener('keydown',function(e){if(e.key==='ArrowRight'||e.key===' ')show(i+1);else if(e.key==='ArrowLeft')show(i-1);
+else if(e.key==='Home')show(0);else if(e.key==='End')show(n-1);});
+addEventListener('click',function(e){if(mob())return;show(e.clientX>innerWidth/2?i+1:i-1);});
+var tx=null;addEventListener('touchstart',function(e){if(e.touches.length===1)tx=e.touches[0].clientX},{passive:true});
+addEventListener('touchend',function(e){if(tx===null||mob())return;var dx=e.changedTouches[0].clientX-tx;
+if(Math.abs(dx)>40)show(dx<0?i+1:i-1);tx=null},{passive:true});
+addEventListener('resize',fit);if(vv){vv.addEventListener('resize',fit)}
+var m=location.hash.match(/#\/(\d+)/);fit();show(m?+m[1]-1:0);
+})();
+</script>
+</body>
+</html>

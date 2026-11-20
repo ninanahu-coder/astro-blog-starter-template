@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>盈扬 AI · 30 秒看到你店的样子</title>
+<style>
+:root{--bg:#060A14;--ink:#0A101E;--panel:#111A2E;--panel2:#0D1526;--line:rgba(233,236,245,.13);
+--text:#E9ECF5;--muted:#96A0BA;--dim:#6B7590;--gold:#E3A83E;--gold-soft:rgba(227,168,62,.14);
+--teal:#43BFA0;--red:#E06070;
+--sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",-apple-system,sans-serif;
+--mono:ui-monospace,"SF Mono",Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:
+  radial-gradient(900px 600px at 80% -5%,rgba(227,168,62,.08),transparent 60%),
+  radial-gradient(700px 500px at -10% 110%,rgba(67,191,160,.06),transparent 60%),var(--bg);
+  color:var(--text);font-family:var(--sans);min-height:100vh;line-height:1.6;
+  -webkit-text-size-adjust:100%}
+.wrap{max-width:640px;margin:0 auto;padding:28px 20px 60px}
+/* 品牌 */
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.brand b{font-family:var(--mono);font-size:15px;letter-spacing:.28em;color:var(--gold)}
+.brand small{font-size:10.5px;letter-spacing:.34em;color:var(--muted)}
+/* 标题 */
+h1{font-size:30px;line-height:1.25;font-weight:800;letter-spacing:.5px;margin-bottom:8px}
+h1 .g{background:linear-gradient(92deg,#E3A83E 20%,#43BFA0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--muted);font-size:15px;margin-bottom:26px}
+/* 表单 */
+.form{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:22px 20px;margin-bottom:22px}
+.form label{display:block;font-size:13px;color:var(--muted);margin:0 0 8px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:9px;margin-bottom:18px}
+.chip{background:var(--panel2);border:1.5px solid var(--line);border-radius:999px;padding:9px 16px;
+  font-size:14px;color:var(--text);cursor:pointer;transition:.15s;user-select:none}
+.chip.on{border-color:var(--gold);background:var(--gold-soft);color:var(--gold);font-weight:700}
+input.t{width:100%;background:var(--panel2);border:1.5px solid var(--line);border-radius:10px;
+  padding:14px 16px;font-size:16px;color:var(--text);font-family:var(--sans);margin-bottom:16px}
+input.t:focus{outline:none;border-color:var(--gold)}
+input.t::placeholder{color:var(--dim)}
+.btn{width:100%;background:linear-gradient(92deg,#E3A83E,#D9952B);color:#0A101E;border:none;
+  border-radius:12px;padding:17px;font-size:18px;font-weight:900;cursor:pointer;letter-spacing:.5px;
+  box-shadow:0 8px 24px rgba(227,168,62,.25);transition:.15s}
+.btn:active{transform:translateY(1px)}
+.btn:disabled{opacity:.5;cursor:default}
+/* 生成中 */
+.thinking{display:none;text-align:center;padding:30px 0}
+.thinking.show{display:block}
+.thinking .dots{font-family:var(--mono);color:var(--gold);font-size:15px;letter-spacing:.1em}
+.thinking .line{color:var(--muted);font-size:13.5px;margin-top:10px;min-height:20px}
+.spin{width:46px;height:46px;margin:0 auto 16px;border:3px solid rgba(227,168,62,.2);
+  border-top-color:var(--gold);border-radius:50%;animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+/* 结果 */
+.out{display:none}.out.show{display:block}
+.rescard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:0;
+  margin-bottom:18px;overflow:hidden;opacity:0;transform:translateY(12px);animation:rise .5s forwards}
+@keyframes rise{to{opacity:1;transform:none}}
+.rescard .cap{font-family:var(--mono);font-size:11px;letter-spacing:.16em;color:var(--gold);
+  padding:14px 20px 0;text-transform:uppercase}
+.rescard .in{padding:14px 20px 20px}
+/* 网站预览卡 */
+.preview{border-radius:14px;overflow:hidden;border:1px solid rgba(227,168,62,.3)}
+.preview .hero{padding:30px 22px;background:linear-gradient(160deg,#13203B,#0A101E)}
+.preview .badge{font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--teal);margin-bottom:12px}
+.preview .shop{font-size:27px;font-weight:900;line-height:1.2;margin-bottom:8px}
+.preview .slogan{font-size:16px;color:var(--gold);font-weight:600;min-height:24px}
+.preview .feats{display:flex;flex-direction:column;gap:9px;padding:18px 22px;background:var(--panel2)}
+.preview .feat{font-size:13.5px;color:var(--text);padding-left:22px;position:relative}
+.preview .feat::before{content:"✓";position:absolute;left:0;color:var(--teal);font-weight:900}
+.preview .cta{margin:0 22px 22px;background:var(--gold);color:#0A101E;text-align:center;
+  padding:13px;border-radius:9px;font-weight:800;font-size:15px}
+/* 搜索诊断 */
+.kw{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.kw span{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 12px;
+  font-size:13px;color:var(--text);font-family:var(--mono)}
+.kw span b{color:var(--gold)}
+/* 收益 */
+.nums{display:flex;gap:14px;margin-top:4px}
+.num{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:16px 12px;text-align:center}
+.num .v{font-family:var(--mono);font-size:30px;color:var(--gold);font-weight:700;line-height:1}
+.num .l{font-size:12px;color:var(--muted);margin-top:6px}
+.type{border-right:2px solid var(--gold);animation:blink .7s step-end infinite}
+@keyframes blink{50%{border-color:transparent}}
+.dis{font-size:11px;color:var(--dim);line-height:1.5;margin-top:2px}
+/* 底部CTA */
+.foot{background:linear-gradient(160deg,rgba(227,168,62,.16),var(--panel));border:1px solid rgba(227,168,62,.4);
+  border-radius:14px;padding:22px 20px;text-align:center;margin-top:22px}
+.foot .big{font-size:19px;font-weight:800;margin-bottom:6px}
+.foot .sm{font-size:14px;color:var(--muted);margin-bottom:16px}
+.foot .contact{font-family:var(--mono);font-size:15px;color:var(--gold);font-weight:700}
+.foot .contact .ph{font-size:22px;display:block;margin:6px 0 2px}
+.again{display:block;width:100%;background:none;border:1px solid var(--line);color:var(--muted);
+  border-radius:10px;padding:13px;font-size:14px;margin-top:14px;cursor:pointer}
+.disclaimer{font-size:11px;color:var(--dim);text-align:center;margin-top:22px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <svg width="34" height="34" viewBox="0 0 46 46"><circle cx="23" cy="23" r="21" fill="none" stroke="#E3A83E" stroke-width="2"/><rect x="12" y="26" width="5" height="8" rx="1" fill="#43BFA0"/><rect x="20.5" y="20" width="5" height="14" rx="1" fill="#E3A83E" opacity=".72"/><rect x="29" y="14" width="5" height="20" rx="1" fill="#E3A83E"/></svg>
+    <span style="display:flex;flex-direction:column;gap:3px"><b>YNG LAB</b><small>盈扬工作室 · PERTH</small></span>
+  </div>
+
+  <div id="intro">
+    <h1>30 秒，让 AI 当场<br><span class="g">为你的店生成一个网站</span></h1>
+    <p class="lead">不用讲、不用等——填三个空，看看你的店在网上该有的样子，还有客人会怎么搜到你、能多做多少生意。</p>
+
+    <div class="form">
+      <label>① 你是做什么的？</label>
+      <div class="chips" id="chips">
+        <div class="chip" data-k="massage">按摩 / 养生</div>
+        <div class="chip" data-k="builder">建材 / 五金</div>
+        <div class="chip" data-k="car">车行 / 二手车</div>
+        <div class="chip" data-k="pet">宠物店</div>
+        <div class="chip" data-k="watch">名表 / 珠宝</div>
+        <div class="chip" data-k="food">餐饮 / 外卖</div>
+        <div class="chip" data-k="beauty">美容 / 美甲</div>
+        <div class="chip" data-k="other">其他</div>
+      </div>
+      <label>② 你的店叫什么名字？</label>
+      <input class="t" id="shop" placeholder="例如：阳光养生馆" maxlength="20">
+      <label>③ 在哪个区？</label>
+      <input class="t" id="area" placeholder="例如：Cannington" maxlength="20">
+      <button class="btn" id="go">⚡ 让 AI 当场生成</button>
+    </div>
+  </div>
+
+  <div class="thinking" id="thinking">
+    <div class="spin"></div>
+    <div class="dots" id="dots">AI 正在生成中</div>
+    <div class="line" id="tline"></div>
+  </div>
+
+  <div class="out" id="out"></div>
+
+  <p class="disclaimer">本页为盈扬工作室的 AI 生成演示，展示我们能为你的店做出的样子。<br>预览文案与数字为 AI 生成的<b>示例</b>，正式版按你的真实经营数据定制。</p>
+</div>
+
+<script>
+var CFG = {
+  massage:{icon:"💆",noun:"按摩店",cust:"找按摩的客人",
+    slogans:["专业理疗，一次就想再来","放松身心，就在家门口","老师傅手法，预约不用等"],
+    feats:["24 小时手机预约，半夜也能订","理疗 · 推拿 · 精油全项目在线选","老顾客生日自动送优惠"],
+    cta:"立即在线预约",
+    kw:function(a){return[a+" 按摩",a+" massage",a+" 推拿 理疗","remedial massage "+a]},
+    nums:[["×3","进店客人"],["×5↑","手机预约"]],
+    numnote:"目标口径：曝光与预约的示例目标（非承诺），按你店真实数据校准"},
+  builder:{icon:"🧱",noun:"建材店",cust:"找材料的工程队",
+    slogans:["工地要什么，我们有什么","手机下单，准时送到工地","批量供货，价格实在"],
+    feats:["师傅手机发清单，30 秒下单","库存实时查，送货排期清楚","常购清单一键补货"],
+    cta:"手机下单 / 询价",
+    kw:function(a){return[a+" plasterboard",a+" building supplies","石膏板 "+a,a+" 建材 批发"]},
+    nums:[["+20%","老客复购"],["×2–3","在线询盘"]],
+    numnote:"目标口径：复购与询盘的示例目标（非承诺），按你店真实数据校准"},
+  car:{icon:"🚗",noun:"车行",cust:"找车的买家",
+    slogans:["每一台车，都自己找买家","24 小时报价，一条询价都不漏","本地车行，看车方便"],
+    feats:["每台车一个专属页面吃搜索","24 小时智能报价与留资","看车预约在线约"],
+    cta:"查看在售 / 预约看车",
+    kw:function(a){return[a+" used cars",a+" 二手车","car yard "+a,a+" 二手车 报价"]},
+    nums:[["×5–10","线上曝光"],["×2","销售额目标"]],
+    numnote:"目标口径：曝光与销售的示例目标（非承诺），按你店真实数据校准"},
+  pet:{icon:"🐾",noun:"宠物店",cust:"养宠物的主人",
+    slogans:["毛孩子的一切，这里都有","美容洗澡在线约，不用排队","会员积分，越养越省"],
+    feats:["美容 · 寄养 · 用品在线预约","到期自动提醒该洗澡了","会员优惠自动发"],
+    cta:"预约 / 逛商品",
+    kw:function(a){return[a+" pet grooming",a+" 宠物美容","pet shop "+a,a+" 宠物店"]},
+    nums:[["+22%","预约量"],["×2–3","线上曝光"]],
+    numnote:"目标口径：示例目标（非承诺），按你店真实数据校准"},
+  watch:{icon:"⌚",noun:"名表行",cust:"买表的行家",
+    slogans:["每一块表，都值得被看见","行情参考价公开，买得放心","私密咨询，专属服务"],
+    feats:["每款表一页，行情参考价透明","询价机器人即时响应","高端客户专属通道"],
+    cta:"查看藏品 / 询价",
+    kw:function(a){return[a+" Rolex 二手",a+" luxury watch","二手 Submariner "+a,a+" 名表 回收"]},
+    nums:[["×5+","线上曝光"],["翻倍","询价转化"]],
+    numnote:"目标口径：示例目标（非承诺），按你店真实数据校准"},
+  food:{icon:"🍜",noun:"餐厅",cust:"想吃饭的客人",
+    slogans:["搜美食，先看到你","扫码点餐，订位不用等","熟客回头，优惠自动送"],
+    feats:["在线订位 + 扫码点餐","招牌菜单图文并茂吃搜索","会员储值与优惠自动发"],
+    cta:"订位 / 看菜单",
+    kw:function(a){return[a+" restaurant",a+" 美食","best food "+a,a+" 中餐 外卖"]},
+    nums:[["×3","线上曝光"],["+25%","翻台/订位"]],
+    numnote:"目标口径：示例目标（非承诺），按你店真实数据校准"},
+  beauty:{icon:"💅",noun:"美容店",cust:"爱美的客人",
+    slogans:["美一次，就想常来","手机约技师，选时段不用等","老顾客专属，越做越省"],
+    feats:["美容 · 美甲 · 美睫在线约","指定技师、指定时段自助选","生日与节日优惠自动送"],
+    cta:"立即预约",
+    kw:function(a){return[a+" nails",a+" 美甲 美容","beauty salon "+a,a+" 美睫"]},
+    nums:[["×3","进店客人"],["×5↑","手机预约"]],
+    numnote:"目标口径：示例目标（非承诺），按你店真实数据校准"},
+  other:{icon:"🏬",noun:"店",cust:"你的客人",
+    slogans:["让客人先在网上找到你","24 小时接住每一个咨询","老客户自动回头"],
+    feats:["专属官网 + 手机在线咨询","24 小时接单，一个不漏","老客户到期自动提醒"],
+    cta:"在线咨询 / 预约",
+    kw:function(a){return[a+" 你的行业",a+" 服务","your service "+a,a+" 附近"]},
+    nums:[["×3","线上曝光"],["×2","咨询量"]],
+    numnote:"目标口径：示例目标（非承诺），按你店真实数据校准"}
+};
+var pick=null;
+document.getElementById('chips').addEventListener('click',function(e){
+  var c=e.target.closest('.chip'); if(!c)return;
+  [].forEach.call(this.children,function(x){x.classList.remove('on')});
+  c.classList.add('on'); pick=c.dataset.k;
+});
+function rnd(a){return a[Math.floor(Math.random()*a.length)]}
+function type(el,txt,cb){el.textContent='';el.classList.add('type');var i=0;
+  (function step(){ if(i<=txt.length){el.textContent=txt.slice(0,i++);setTimeout(step,26);}
+    else{el.classList.remove('type');cb&&cb();} })();}
+document.getElementById('go').addEventListener('click',function(){
+  var shop=document.getElementById('shop').value.trim()||'你的店';
+  var area=document.getElementById('area').value.trim()||'你所在的区';
+  if(!pick){alert('先选一下你是做什么的 👆');return;}
+  var c=CFG[pick];
+  document.getElementById('intro').style.display='none';
+  var th=document.getElementById('thinking');th.classList.add('show');
+  var steps=['读取「'+shop+'」的行业特征…','为'+c.cust+'设计首页…','匹配'+area+'的本地搜索词…','测算能带来的增长…','排版中…'];
+  var si=0,tl=document.getElementById('tline'),dots=document.getElementById('dots'),dc=0;
+  var di=setInterval(function(){dc=(dc+1)%4;dots.textContent='AI 正在生成中'+'.'.repeat(dc);},350);
+  var st=setInterval(function(){ if(si<steps.length){tl.textContent=steps[si++];}
+    else{clearInterval(st);clearInterval(di);th.classList.remove('show');render(c,shop,area);} },760);
+});
+function render(c,shop,area){
+  var slogan=rnd(c.slogans);
+  var out=document.getElementById('out');out.classList.add('show');
+  out.innerHTML=
+  '<div class="rescard" style="animation-delay:.0s"><div class="cap">① AI 生成 · 你的官网首页</div><div class="in">'+
+    '<div class="preview"><div class="hero"><div class="badge">'+c.icon+' '+area.toUpperCase()+' · 官方网站</div>'+
+    '<div class="shop">'+esc(shop)+'</div><div class="slogan" id="sl"></div></div>'+
+    '<div class="feats">'+c.feats.map(function(f){return '<div class="feat">'+esc(f)+'</div>'}).join('')+'</div>'+
+    '<div class="cta">'+esc(c.cta)+' →</div></div></div></div>'+
+  '<div class="rescard" style="animation-delay:.15s"><div class="cap">② 客人会这样搜到你</div><div class="in">'+
+    '<div style="font-size:13.5px;color:var(--muted);margin-bottom:4px">我们为「'+esc(shop)+'」自动生成这些搜索页，'+c.cust+'一搜就出现：</div>'+
+    '<div class="kw">'+c.kw(area).map(function(k){return '<span>🔍 '+esc(k)+'</span>'}).join('')+'</div></div></div>'+
+  '<div class="rescard" style="animation-delay:.3s"><div class="cap">③ 能多做多少生意（示例目标）</div><div class="in">'+
+    '<div class="nums">'+c.nums.map(function(n){return '<div class="num"><div class="v">'+n[0]+'</div><div class="l">'+n[1]+'</div></div>'}).join('')+'</div>'+
+    '<div class="dis" style="margin-top:12px">'+c.numnote+'；上线后每月给你一张实际对账单，只看真数。</div></div></div>'+
+  '<div class="foot"><div class="big">这只是 30 秒的样子 👆</div>'+
+    '<div class="sm">完整版免费用 1 个月 · 有效果才付费</div>'+
+    '<div class="contact">现在联系，先免费聊<span class="ph">📞 0405 098 765</span>📮 teluoke@hotmail.com</div>'+
+    '<button class="again" onclick="location.reload()">↻ 换个店名再生成一次</button></div>';
+  type(document.getElementById('sl'),slogan);
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+</script>
+</body>
+</html>

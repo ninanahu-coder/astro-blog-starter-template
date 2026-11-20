@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>获客工具包 · 上门就能用 | 盈扬 YNG LAB</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#060A14;--ink:#0A101E;--panel:#111A2E;--panel2:#0D1526;--line:rgba(233,236,245,.13);
+--text:#E9ECF5;--muted:#96A0BA;--dim:#6B7590;--gold:#E3A83E;--gold-soft:rgba(227,168,62,.14);
+--teal:#43BFA0;--red:#E06070;
+--sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",-apple-system,sans-serif;
+--mono:ui-monospace,"SF Mono",Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(900px 600px at 80% -5%,rgba(227,168,62,.08),transparent 60%),
+ radial-gradient(700px 500px at -10% 110%,rgba(67,191,160,.06),transparent 60%),var(--bg);
+ color:var(--text);font-family:var(--sans);line-height:1.6;min-height:100vh;-webkit-text-size-adjust:100%}
+.wrap{max-width:660px;margin:0 auto;padding:28px 18px 60px}
+a{color:var(--gold)}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.brand b{font-family:var(--mono);font-size:15px;letter-spacing:.28em;color:var(--gold)}
+.brand small{font-size:10.5px;letter-spacing:.32em;color:var(--muted)}
+h1{font-size:30px;line-height:1.24;font-weight:800;letter-spacing:.4px;margin-bottom:9px}
+h1 .g{background:linear-gradient(92deg,#E3A83E 22%,#43BFA0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--muted);font-size:15px;margin-bottom:22px}
+
+/* 流程条 */
+.flow{display:flex;align-items:stretch;gap:0;margin-bottom:24px;
+ background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:14px 10px}
+.flow .s{flex:1;text-align:center;padding:0 4px}
+.flow .s .t{font-family:var(--mono);font-size:9.5px;color:var(--dim);letter-spacing:.1em;margin-bottom:3px}
+.flow .s .n{font-size:12.5px;font-weight:700;line-height:1.35}
+.flow .a{display:flex;align-items:center;color:var(--gold);font-size:13px;flex:none}
+
+/* 四件套 */
+.grid{display:flex;flex-direction:column;gap:12px;margin-bottom:26px}
+.kit{display:block;text-decoration:none;color:inherit;background:var(--panel);
+ border:1px solid var(--line);border-radius:14px;padding:17px 17px;transition:.15s}
+.kit:active{transform:translateY(1px)}
+.kit.hero{background:linear-gradient(180deg,var(--gold-soft),var(--panel));border-color:rgba(227,168,62,.45)}
+.kit .h{display:flex;align-items:center;gap:11px;margin-bottom:6px}
+.kit .ic{font-size:22px;flex:none;line-height:1}
+.kit h2{font-size:18px;font-weight:800;letter-spacing:.2px}
+.kit .when{margin-left:auto;font-family:var(--mono);font-size:10px;color:#0A101E;background:var(--gold);
+ border-radius:4px;padding:3px 7px;font-weight:700;flex:none;letter-spacing:.05em}
+.kit .when.t{background:var(--teal)}
+.kit .when.d{background:var(--dim)}
+.kit p{font-size:13.5px;color:var(--muted);line-height:1.6}
+.kit .go{font-size:13px;color:var(--gold);font-weight:700;margin-top:9px;display:inline-block}
+
+/* 一句话 */
+.one{background:linear-gradient(180deg,rgba(67,191,160,.13),var(--panel));
+ border:1px solid rgba(67,191,160,.4);border-radius:13px;padding:16px 17px;margin-bottom:26px}
+.one .lb{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;color:var(--teal);margin-bottom:6px}
+.one p{font-size:16.5px;font-weight:700;line-height:1.5}
+.one p em{font-style:normal;color:var(--teal)}
+.one .sm{font-size:12.5px;color:var(--muted);font-weight:400;margin-top:7px;line-height:1.6}
+
+/* 章节 */
+h3.sec{font-size:12px;font-family:var(--mono);letter-spacing:.2em;color:var(--dim);text-transform:uppercase;
+ margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+
+/* 上门前清单 */
+.pre{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:16px 17px;margin-bottom:26px}
+ul.ck{list-style:none;display:flex;flex-direction:column;gap:10px}
+ul.ck li{position:relative;padding-left:27px;font-size:14.5px;line-height:1.5}
+ul.ck li::before{content:"";position:absolute;left:0;top:.24em;width:16px;height:16px;
+ border:1.5px solid var(--dim);border-radius:4px}
+ul.ck li span{color:var(--muted);font-size:12.5px;display:block;margin-top:2px;line-height:1.55}
+
+/* 现有材料 */
+.mats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:26px}
+.mat{display:block;text-decoration:none;background:var(--panel2);border:1px solid var(--line);
+ border-radius:11px;padding:13px 13px;color:var(--text)}
+.mat b{display:block;font-size:14px;font-weight:700;margin-bottom:3px}
+.mat small{font-size:11.5px;color:var(--muted);line-height:1.45;display:block}
+.foot{margin-top:30px;padding-top:16px;border-top:1px solid var(--line);
+ font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.1em;
+ display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand"><b>YNG LAB</b><small>盈扬工作室 · PERTH</small></div>
+
+  <h1>获客工具包<br><span class="g">上门就能用</span></h1>
+  <p class="lead">企划书是给投资人看的,这一包是给你自己用的——把材料变成第一个签单客户。</p>
+
+  <div class="flow">
+    <div class="s"><div class="t">上门前</div><div class="n">3 分钟<br>准备</div></div>
+    <div class="a">›</div>
+    <div class="s"><div class="t">进店</div><div class="n">8 分钟<br>照着念</div></div>
+    <div class="a">›</div>
+    <div class="s"><div class="t">出门</div><div class="n">加微信<br>拍照片</div></div>
+    <div class="a">›</div>
+    <div class="s"><div class="t">7 天内</div><div class="n">四条<br>跟进</div></div>
+    <div class="a">›</div>
+    <div class="s"><div class="t">签</div><div class="n">当场<br>填单</div></div>
+  </div>
+
+  <div class="grid">
+    <a class="kit hero" href="talk/">
+      <div class="h"><span class="ic">🗣</span><h2>谈单话术</h2><span class="when">进店时</span></div>
+      <p>从推门第一句到拿到下次见面时间,逐句台词 + 8 条异议应对。中英对照,顺序照做就行。</p>
+      <span class="go">打开话术 →</span>
+    </a>
+
+    <a class="kit" href="qr/">
+      <div class="h"><span class="ic">▩</span><h2>二维码物料</h2><span class="when t">当场扫</span></div>
+      <p>体验器和各套方案的二维码,按当前域名实时生成。可下载 PNG、打印 A4 海报或 12 连贴纸。</p>
+      <span class="go">生成二维码 →</span>
+    </a>
+
+    <a class="kit" href="followup/">
+      <div class="h"><span class="ic">✉</span><h2>跟进四条</h2><span class="when">2h / 1d / 3d / 7d</span></div>
+      <p>填一次店名和他抱怨的原话,四条消息自动套好,一键复制。中文微信版 + 英文邮件版。</p>
+      <span class="go">生成跟进消息 →</span>
+    </a>
+
+    <a class="kit" href="quote/">
+      <div class="h"><span class="ic">✍</span><h2>报价与合作确认单</h2><span class="when d">他点头后</span></div>
+      <p>选行业自动带出交付范围和价格,改成谈定的数字,手机上打印或存 PDF 签字。含首月免费条款。</p>
+      <span class="go">开一张单 →</span>
+    </a>
+  </div>
+
+  <div class="one">
+    <div class="lb">整包只记这一句</div>
+    <p>上门的目标不是签单,是<em>拿到一个具体时间</em>。</p>
+    <p class="sm">他说「周三下午」= 成功。他说「我再联系你」= 没成,当场换成加微信。<br>
+    第一个付费客户比再做十份材料都值——投资人尽调时能打电话核实的,只有真客户。</p>
+  </div>
+
+  <h3 class="sec">上门前 · 3 分钟</h3>
+  <div class="pre">
+    <ul class="ck">
+      <li>搜一次他的行业词,记住他排第几<span>「Cannington massage」——这个数字就是你的开场白。</span></li>
+      <li>手机开好三个标签页<span>体验器 · 对应方案 · 报价单。别现场翻找。</span></li>
+      <li>二维码存进相册,或带一张打印的<span>店里网络差的时候,扫码比让他自己输网址快十倍。</span></li>
+      <li>电量 &gt; 50%,亮度拉满<span>店里灯光暗,他看不清屏幕就没戏。</span></li>
+      <li>不要带纸质企划书<span>老板不看厚材料,他看手机。</span></li>
+    </ul>
+  </div>
+
+  <h3 class="sec">现有材料 · 快速跳转</h3>
+  <div class="mats">
+    <a class="mat" href="../experience/"><b>AI 体验器</b><small>30 秒生成客户的店 · 谈单主武器</small></a>
+    <a class="mat" href="../plan-massage/"><b>按摩店方案</b><small>12 页 · 第 6 页是账本</small></a>
+    <a class="mat" href="../plan-austern/"><b>建材 B2B 方案</b><small>12 页 · 第 9 页是账本</small></a>
+    <a class="mat" href="../demo-caryard/"><b>车行 demo</b><small>真实交付案例 · 证明交付力</small></a>
+    <a class="mat" href="../pitch-deck-50/"><b>企划书 50 页</b><small>投资人精要版 · 中文</small></a>
+    <a class="mat" href="../pitch-deck-50-en/"><b>Deck (EN)</b><small>English edition</small></a>
+  </div>
+
+  <div class="foot">
+    <span>YNG LAB · 盈扬工作室 · PERTH</span>
+    <span>AY · 0405 098 765</span>
+  </div>
+</div>
+</body>
+</html>

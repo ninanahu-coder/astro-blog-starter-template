@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>谈单话术 · 逐句台词 | 盈扬 YNG LAB</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#060A14;--ink:#0A101E;--panel:#111A2E;--panel2:#0D1526;--line:rgba(233,236,245,.13);
+--text:#E9ECF5;--muted:#96A0BA;--dim:#6B7590;--gold:#E3A83E;--gold-soft:rgba(227,168,62,.14);
+--teal:#43BFA0;--red:#E06070;
+--sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",-apple-system,sans-serif;
+--mono:ui-monospace,"SF Mono",Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(900px 600px at 80% -5%,rgba(227,168,62,.07),transparent 60%),
+ radial-gradient(700px 500px at -10% 110%,rgba(67,191,160,.05),transparent 60%),var(--bg);
+ color:var(--text);font-family:var(--sans);line-height:1.65;-webkit-text-size-adjust:100%;
+ padding-bottom:env(safe-area-inset-bottom)}
+.wrap{max-width:660px;margin:0 auto;padding:24px 18px 90px}
+a{color:var(--gold)}
+.brand{display:flex;align-items:center;gap:11px;margin-bottom:16px}
+.brand b{font-family:var(--mono);font-size:14px;letter-spacing:.26em;color:var(--gold)}
+.brand small{font-size:10px;letter-spacing:.3em;color:var(--muted)}
+.back{margin-left:auto;font-size:12.5px;color:var(--muted);text-decoration:none}
+h1{font-size:27px;line-height:1.25;font-weight:800;letter-spacing:.4px;margin-bottom:8px}
+h1 .g{background:linear-gradient(92deg,#E3A83E 25%,#43BFA0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--muted);font-size:14.5px;margin-bottom:20px}
+
+/* 今日目标 */
+.goal{background:linear-gradient(180deg,var(--gold-soft),var(--panel));border:1px solid rgba(227,168,62,.42);
+ border-radius:13px;padding:16px 17px;margin-bottom:22px}
+.goal .lb{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;color:var(--gold);margin-bottom:6px}
+.goal p{font-size:16.5px;font-weight:700;line-height:1.5}
+.goal p em{font-style:normal;color:var(--gold)}
+.goal .sm{font-size:13px;color:var(--muted);font-weight:400;margin-top:7px}
+
+/* 章节 */
+.sec{margin:26px 0 0}
+.sec>h2{font-size:12px;font-family:var(--mono);letter-spacing:.2em;color:var(--dim);
+ text-transform:uppercase;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+
+/* 步骤卡 */
+.step{background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:17px 17px 18px;margin-bottom:13px}
+.step-h{display:flex;align-items:baseline;gap:10px;margin-bottom:4px}
+.step-n{font-family:var(--mono);font-size:12px;color:var(--gold);border:1px solid rgba(227,168,62,.4);
+ border-radius:5px;padding:2px 7px;flex:none}
+.step-h h3{font-size:17.5px;font-weight:700;line-height:1.35}
+.step-t{font-family:var(--mono);font-size:11px;color:var(--dim);margin-left:auto;flex:none;white-space:nowrap}
+.step>p.d{font-size:13.5px;color:var(--muted);margin-bottom:12px}
+
+/* 台词 */
+.line{border-left:3px solid var(--gold);background:var(--panel2);border-radius:0 9px 9px 0;
+ padding:13px 15px;margin:11px 0}
+.line .tag{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--gold);display:block;margin-bottom:7px}
+.line q{font-size:16px;line-height:1.62;quotes:"「" "」";display:block}
+.line .en{display:block;margin-top:9px;padding-top:9px;border-top:1px dashed var(--line);
+ font-size:13.5px;color:var(--muted);font-style:italic;line-height:1.55}
+.line.teal{border-left-color:var(--teal)}
+.line.teal .tag{color:var(--teal)}
+
+/* 动作 / 提示 */
+.do{display:flex;gap:9px;font-size:14px;line-height:1.55;margin:9px 0;color:var(--text)}
+.do i{font-style:normal;color:var(--teal);flex:none;font-weight:700}
+.why{background:rgba(67,191,160,.07);border:1px solid rgba(67,191,160,.22);border-radius:9px;
+ padding:11px 13px;font-size:13px;color:var(--muted);line-height:1.6;margin-top:11px}
+.why b{color:var(--teal);font-weight:700}
+.warn{background:rgba(224,96,112,.07);border:1px solid rgba(224,96,112,.25);border-radius:9px;
+ padding:11px 13px;font-size:13px;color:var(--muted);line-height:1.6;margin-top:11px}
+.warn b{color:var(--red);font-weight:700}
+
+/* 清单 */
+ul.ck{list-style:none;display:flex;flex-direction:column;gap:9px}
+ul.ck li{position:relative;padding-left:27px;font-size:14.5px;line-height:1.55}
+ul.ck li::before{content:"";position:absolute;left:0;top:.28em;width:16px;height:16px;
+ border:1.5px solid var(--dim);border-radius:4px}
+ul.ck li span{color:var(--muted);font-size:13px;display:block;margin-top:2px}
+
+/* 异议手风琴 */
+.obj{background:var(--panel);border:1px solid var(--line);border-radius:11px;margin-bottom:9px;overflow:hidden}
+.obj summary{padding:14px 16px;cursor:pointer;font-size:15px;font-weight:600;list-style:none;
+ display:flex;align-items:center;gap:10px}
+.obj summary::-webkit-details-marker{display:none}
+.obj summary::after{content:"+";margin-left:auto;color:var(--gold);font-family:var(--mono);font-size:18px;flex:none}
+.obj[open] summary::after{content:"–"}
+.obj summary .q{color:var(--red);font-family:var(--mono);font-size:11px;flex:none;letter-spacing:.1em}
+.obj .in{padding:0 16px 15px}
+
+/* 不要说 */
+.nope{display:grid;gap:10px}
+.nope .row{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:13px 15px}
+.nope .bad{font-size:14px;color:var(--red);text-decoration:line-through;text-decoration-color:rgba(224,96,112,.5)}
+.nope .good{font-size:15px;color:var(--text);margin-top:6px;font-weight:600}
+.nope .good::before{content:"→ ";color:var(--teal)}
+
+/* 底部 */
+.foot{margin-top:34px;padding-top:16px;border-top:1px solid var(--line);
+ font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.1em;
+ display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.jump{position:fixed;left:0;right:0;bottom:0;background:rgba(6,10,20,.94);
+ backdrop-filter:blur(12px);border-top:1px solid var(--line);z-index:20;
+ padding:9px 12px calc(9px + env(safe-area-inset-bottom));display:flex;gap:7px;justify-content:center}
+.jump a{flex:1;max-width:132px;text-align:center;text-decoration:none;font-size:12.5px;font-weight:700;
+ color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:9px 4px}
+.jump a.hl{background:linear-gradient(92deg,#E3A83E,#D9952B);color:#0A101E;border-color:transparent}
+@media print{.jump{display:none}body{background:#fff;color:#000}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <b>YNG LAB</b><small>盈扬工作室 · PERTH</small>
+    <a class="back" href="../">← 工具包</a>
+  </div>
+
+  <h1>进店 8 分钟,<span class="g">逐句台词</span></h1>
+  <p class="lead">从推门到拿到下次见面时间。照着念就行——顺序比措辞重要。</p>
+
+  <div class="goal">
+    <div class="lb">今天的唯一目标</div>
+    <p>不是签单,是拿到<em>一个具体时间</em>。</p>
+    <p class="sm">他说「周三下午」就是成功。他说「我再联系你」就是没成——见异议 ⑧。</p>
+  </div>
+
+  <!-- 上门前 -->
+  <div class="sec">
+    <h2>上门前 · 3 分钟</h2>
+    <div class="step">
+      <div class="step-h"><span class="step-n">00</span><h3>准备清单</h3><span class="step-t">3 min</span></div>
+      <ul class="ck">
+        <li>搜一次他的行业词,记住他排第几
+          <span>例:Google 搜「Cannington massage」——记下他是第几个,或者根本没出现。这是你的开场白。</span></li>
+        <li>手机开好三个标签页
+          <span>① <a href="../../experience/">体验器</a> ② 对应方案(<a href="../../plan-massage/">按摩</a> / <a href="../../plan-austern/">建材</a>) ③ <a href="../quote/">报价单</a></span></li>
+        <li>二维码准备好
+          <span>贴纸或手机里存一张图 —— <a href="../qr/">去生成</a></span></li>
+        <li>电量 &gt; 50%,屏幕亮度调到最高
+          <span>店里光线通常很暗,客人看不清就没戏。</span></li>
+      </ul>
+      <div class="warn"><b>不要</b>带纸质企划书上门。老板不看厚材料,他看手机。</div>
+    </div>
+  </div>
+
+  <!-- 第 1 步 -->
+  <div class="sec">
+    <h2>进店 · 8 分钟</h2>
+
+    <div class="step">
+      <div class="step-h"><span class="step-n">01</span><h3>开场:给事实,不给自我介绍</h3><span class="step-t">30 秒</span></div>
+      <p class="d">第一句话决定他给不给你后面的 7 分钟。别说你是谁,先说一件他不知道的、关于他自己生意的事。</p>
+      <div class="line">
+        <span class="tag">推门第一句</span>
+        <q>老板你好,我是本地做门店获客的。我刚在 Google 上搜「<b>[区名] massage</b>」,你的店排在第 <b>[X]</b> 位——前三名基本拿走大部分点击。我不推销,给你看个东西,30 秒,看完不感兴趣我立刻走。</q>
+        <span class="en">Hi — I'm local, I do online customer acquisition for shops around here. I just searched "[suburb] massage" on Google and your shop came up [X]th. The top three take most of the clicks. I'm not selling anything — let me show you one thing, 30 seconds. If it's not interesting, I'll walk out.</span>
+      </div>
+      <div class="why"><b>为什么管用</b>:你先付出了信息(他排第几),他才觉得欠你 30 秒。而且这是关于他的,不是关于你的。「我不推销,30 秒」是给他一个安全的出口——有出口的人反而不会走。</div>
+    </div>
+
+    <div class="step">
+      <div class="step-h"><span class="step-n">02</span><h3>把手机递过去,让他自己扫</h3><span class="step-t">60 秒</span></div>
+      <div class="line">
+        <span class="tag">递手机时说</span>
+        <q>扫这个码,填你店名、你在哪个区。30 秒,AI 当场给你生成一个你店该有的样子。</q>
+        <span class="en">Scan this. Type your shop name and your suburb. Thirty seconds — the AI will build what your shop should look like online, right now.</span>
+      </div>
+      <div class="do"><i>▸</i><span><b>一定让他自己填店名。</b>他打出自己店名的那一刻,这件事就从「你的推销」变成「他的东西」了。</span></div>
+      <div class="do"><i>▸</i><span><b>他填的时候你闭嘴。</b>不要解说、不要补充。等他看到结果。</span></div>
+      <div class="line teal">
+        <span class="tag">他看完之后,你的第一句</span>
+        <q>这跟你现在在网上的样子,差多少?</q>
+        <span class="en">How far is that from what you've got online right now?</span>
+      </div>
+      <div class="why"><b>为什么问这句</b>:让他自己说出差距。你说的他会防备,他自己说的他会信。他一开口讲他现在的问题,这单就活了。</div>
+    </div>
+
+    <div class="step">
+      <div class="step-h"><span class="step-n">03</span><h3>翻到账本那一页</h3><span class="step-t">2–3 分钟</span></div>
+      <p class="d">这是整场谈话的重心。直接翻到算账页:<a href="../../plan-massage/#/6">按摩方案第 6 页</a> / <a href="../../plan-austern/#/9">建材方案第 9 页</a>。中间的页全部跳过。</p>
+      <div class="line">
+        <span class="tag">翻开时说</span>
+        <q>这一页是算账的。我不跟你讲 AI,我们只看一件事——你一个月能多收多少。</q>
+        <span class="en">This page is just arithmetic. I'm not going to talk to you about AI. One question only: how much more you take home each month.</span>
+      </div>
+      <div class="do"><i>▸</i><span>逐行念,每行停一下:<b>爽约挽回 → 地图新客 → 复购召回 → 疗程包预付</b>。</span></div>
+      <div class="line">
+        <span class="tag">念完四行,接这句(重要)</span>
+        <q>合计一个月 A$7,000–14,000。<b>但这是按行业基准算的示例,不是承诺</b>——上线之后每个月我给你一张真实对账单:曝光、询盘、预约、爽约、增量收入。数字不到位,我们当面复盘。</q>
+        <span class="en">That's A$7,000 to 14,000 a month. <b>But that's a worked example off industry benchmarks — it's not a promise.</b> Once you're live I hand you a real reconciliation sheet every month. If the numbers don't show up, we sit down and go through it.</span>
+      </div>
+      <div class="why"><b>为什么要自己拆自己台</b>:老板一辈子听够了吹牛。你主动说「这不是承诺」,他会开始相信你说的其余部分。<b>这是全场最值钱的一句话。</b></div>
+    </div>
+
+    <div class="step">
+      <div class="step-h"><span class="step-n">04</span><h3>报价:先说回本,再说数字</h3><span class="step-t">1 分钟</span></div>
+      <p class="d">顺序绝对不能反。先抛价格,他脑子里只剩价格。</p>
+      <div class="line">
+        <span class="tag">先说这句</span>
+        <q>月费 A$149。你客单价 90 块左右对吧?那就是一个半客人。系统一个月只要帮你多留住两个客人——救回一个爽约、地图上来一个新客——当月就回本,剩下全是净赚。</q>
+        <span class="en">It's A$149 a month. Your average ticket is around ninety, right? So that's one and a half customers. If the system keeps you two extra customers a month — one no-show saved, one new face off the map — you're square that month. Everything past that is yours.</span>
+      </div>
+      <div class="do"><i>▸</i><span><b>停两秒。</b>让他消化「一个半客人」这个换算,再往下说。</span></div>
+      <div class="line">
+        <span class="tag">停顿之后</span>
+        <q>启动是一次性 A$1,500–3,000,官网、地图优化、预约 bot 全部部署到位。你只出半天配合:价目表、营业时间、十张照片。</q>
+        <span class="en">Setup is a one-off, A$1,500 to 3,000 — website, map optimisation, booking bot, all deployed. Your side is half a day: price list, opening hours, ten photos.</span>
+      </div>
+      <div class="warn"><b>建材 B2B 换这组数</b>:启动 A$3,000–6,000,月费 A$299–499。回本话术改成:<q style="display:inline">一个活跃工程队客户一年采购两万到二十万,月费只要换来一个,当月就回本。</q></div>
+    </div>
+
+    <div class="step">
+      <div class="step-h"><span class="step-n">05</span><h3>收尾:不要签单,要一次体检</h3><span class="step-t">40 秒</span></div>
+      <div class="line">
+        <span class="tag">收尾台词</span>
+        <q>今天不用做决定。我们先做一次免费体检——30 分钟,我把你店现在的搜索排名、竞对情况、漏掉多少搜索量,做成一份报告给你。不满意一分钱不花,报告你留着。<b>你这周三下午方便,还是周四上午?</b></q>
+        <span class="en">You don't have to decide anything today. Let's start with a free check-up — thirty minutes. I'll put together where you actually rank, what your competitors look like, and how much search traffic you're missing. You keep the report either way, costs you nothing. <b>Is Wednesday afternoon better, or Thursday morning?</b></span>
+      </div>
+      <div class="why"><b>二选一,不要开放式提问。</b>「你什么时候方便」的答案永远是「我再看看」。「周三还是周四」的答案是一个时间。</div>
+      <div class="line teal">
+        <span class="tag">如果他当场就想开始</span>
+        <q>那我们首月免费。你先用一个月,有效果再开始付月费;启动费签的时候付一半,上线验收付另一半。</q>
+        <span class="en">Then your first month is free. Run it for a month, start paying only if it works. Half the setup fee on signing, half when it goes live and you've checked it.</span>
+      </div>
+      <div class="do"><i>▸</i><span>他点头 → 当场打开 <a href="../quote/">报价与合作确认单</a>,填好,手机上就能签。</span></div>
+    </div>
+
+    <div class="step">
+      <div class="step-h"><span class="step-n">06</span><h3>出门前必做三件事</h3><span class="step-t">1 分钟</span></div>
+      <ul class="ck">
+        <li>当场加微信
+          <span>不要说「回头加你」。掏手机,现在加。</span></li>
+        <li>拍一张他店门口的照片
+          <span>跟进时发给他看「我把你的店放进去了」——比任何话术都好使。</span></li>
+        <li>记下三件事:店名 · 他抱怨的那句原话 · 约定时间
+          <span>他抱怨的原话,原封不动写进 24 小时后的跟进消息里。</span></li>
+      </ul>
+      <div class="do"><i>▸</i><span>回到车上马上发第一条跟进 → <a href="../followup/">跟进三连模板</a></span></div>
+    </div>
+  </div>
+
+  <!-- 异议 -->
+  <div class="sec">
+    <h2>异议应对 · 8 条</h2>
+
+    <details class="obj">
+      <summary><span class="q">01</span>「我有 Facebook / 我侄子给我做了个网站」</summary>
+      <div class="in">
+        <div class="line"><q>那挺好,网站是门面。我做的是门面之外的两件事:让人搜得到你,和把没接住的电话变成预约。<b>你打烊之后打进来的电话,现在谁接?</b></q>
+        <span class="en">That's good — a website is your shopfront. What I do is the two things around it: getting you found, and turning the calls you miss into bookings. Who answers the phone after you close?</span></div>
+        <div class="why">别贬低他已有的东西。把自己放在他的东西<b>旁边</b>,不是对面。最后那个问句他答不上来。</div>
+      </div>
+    </details>
+
+    <details class="obj">
+      <summary><span class="q">02</span>「太贵了」</summary>
+      <div class="in">
+        <div class="line"><q>跟什么比贵?A$149 一个月,一天不到 5 块。你一个客人 90 块。所以这不是花不花钱的问题,是它值不值一个半客人。我们先把免费体检做了,你看完自己店的真实数字再决定。</q>
+        <span class="en">Compared to what? A$149 a month is under five dollars a day. One customer is ninety. So the question isn't the money — it's whether it's worth one and a half customers. Let's do the free check-up first and you decide off your own numbers.</span></div>
+        <div class="why">「太贵了」十次有九次是「我还没看到价值」。别降价,回到账本页。</div>
+      </div>
+    </details>
+
+    <details class="obj">
+      <summary><span class="q">03</span>「我要考虑一下 / 要跟合伙人商量」</summary>
+      <div class="in">
+        <div class="line"><q>应该的。那我先把体检做了,你拿着报告去商量——空口商量没东西可看,拿着你自己店的数字商量才有意义。周三还是周四?</q>
+        <span class="en">Of course. Let me do the check-up first so you've got something to take to that conversation — hard to discuss it with nothing on the table. Wednesday or Thursday?</span></div>
+        <div class="why">不要对抗这个异议,顺着它,把它变成你下一次上门的理由。</div>
+      </div>
+    </details>
+
+    <details class="obj">
+      <summary><span class="q">04</span>「我生意够忙了,不缺客人」</summary>
+      <div class="in">
+        <div class="line"><q>那更好,那我们不谈拉新客。就谈两件事:<b>爽约的钱</b>,和把散客变成疗程包客户。你现在一个月大概几个爽约?</q>
+        <span class="en">Even better — then let's not talk about new customers at all. Just two things: the money you lose to no-shows, and turning walk-ins into package customers. Roughly how many no-shows a month do you get?</span></div>
+        <div class="why">忙的店是最好的客户——他们有真实流量,系统一上就见效。把话题从「拉新」切到「止漏」。</div>
+      </div>
+    </details>
+
+    <details class="obj">
+      <summary><span class="q">05</span>「AI 靠谱吗?会不会乱讲话?」</summary>
+      <div class="in">
+        <div class="line"><q>你刚才手上那个就是,你自己扫的。另外我们每个 bot 都写死了规则:不报实时行情、不承诺疗效、拿不准就转给你本人。它宁可说「我帮你问老板」,也不会瞎编。</q>
+        <span class="en">The thing you just held in your hand — that was it, and you ran it yourself. Every bot we ship has hard rules: no live market claims, no health promises, and anything it's unsure about goes straight to you. It'd rather say "let me check with the owner" than make something up.</span></div>
+      </div>
+    </details>
+
+    <details class="obj">
+      <summary><span class="q">06</span>「你们给几家店做过?」</summary>
+      <div class="in">
+        <div class="line"><q>这套系统跑起来的有车行、宠物、名表行(打开 <a href="../../demo-caryard/">车行 demo</a>)。<b>按摩店你是第一家</b>——所以我给你的条件是最好的:首月免费,做成了你就是我的案例店,我会一直帮你调到出数字为止。</q>
+        <span class="en">We've got it running for a car yard, pet retail and a watch dealer. <b>You'd be the first massage shop</b> — which is exactly why you get the best terms: first month free, and if it works you become the case study, so I'll keep tuning it until the numbers show up.</span></div>
+        <div class="warn"><b>绝对不要撒谎说做过很多家。</b>一句「你是第一家,所以条件最好」比编十个案例更有说服力,而且经得起他去查。</div>
+      </div>
+    </details>
+
+    <details class="obj">
+      <summary><span class="q">07</span>「我用的是 XX 收银 / 排班系统,换不了」</summary>
+      <div class="in">
+        <div class="line"><q>不用换,一样都不用动。这套只在「<b>客人进门之前</b>」干活——收银、排班、你的习惯全部保留。它只负责把人带到门口,进门之后还是你原来那一套。</q>
+        <span class="en">You don't change a thing. This only works <b>before the customer walks in</b> — your till, your roster, your habits all stay exactly as they are. It gets people to your door; past the door it's your system as usual.</span></div>
+      </div>
+    </details>
+
+    <details class="obj">
+      <summary><span class="q">08</span>「你留个电话,我再联系你」<span style="color:var(--red);font-weight:400"> = 婉拒</span></summary>
+      <div class="in">
+        <div class="line"><q>行。那这样——我这周把体检报告做出来发你微信,你不用回,看一眼就行。加个微信?</q>
+        <span class="en">Sure. Tell you what — I'll put the check-up together this week and send it over. You don't need to reply, just have a look. Can I add you?</span></div>
+        <div class="why">「我再联系你」= 主动权在他手上,这单基本死了。这句话的作用是把它换成<b>一个你能主动执行的动作</b>。哪怕只拿到微信,也没白来。</div>
+      </div>
+    </details>
+  </div>
+
+  <!-- 不要说 -->
+  <div class="sec">
+    <h2>三句永远别说</h2>
+    <div class="nope">
+      <div class="row">
+        <div class="bad">「我们是做 AI 的,我们的 AI 能……」</div>
+        <div class="good">「我是本地做门店获客的。」</div>
+      </div>
+      <div class="row">
+        <div class="bad">「我们公司技术很强,我们团队……」</div>
+        <div class="good">「你现在在 Google 上排第 7。」</div>
+      </div>
+      <div class="row">
+        <div class="bad">「你有没有兴趣?要不要考虑一下?」</div>
+        <div class="good">「周三下午,还是周四上午?」</div>
+      </div>
+    </div>
+    <div class="why" style="margin-top:14px">共同点:<b>把话题从「我们」搬到「你」,把开放式问题换成二选一。</b></div>
+  </div>
+
+  <div class="foot">
+    <span>YNG LAB · 盈扬工作室</span>
+    <span>AY · 0405 098 765</span>
+  </div>
+</div>
+
+<nav class="jump">
+  <a href="../qr/">二维码</a>
+  <a class="hl" href="../../experience/">体验器</a>
+  <a href="../followup/">跟进</a>
+  <a href="../quote/">报价单</a>
+</nav>
+</body>
+</html>

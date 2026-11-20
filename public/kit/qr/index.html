@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>二维码物料 · 扫码即体验 | 盈扬 YNG LAB</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<style>
+:root{--bg:#060A14;--ink:#0A101E;--panel:#111A2E;--panel2:#0D1526;--line:rgba(233,236,245,.13);
+--text:#E9ECF5;--muted:#96A0BA;--dim:#6B7590;--gold:#E3A83E;--gold-soft:rgba(227,168,62,.14);
+--teal:#43BFA0;--red:#E06070;
+--sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",-apple-system,sans-serif;
+--mono:ui-monospace,"SF Mono",Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:radial-gradient(900px 600px at 80% -5%,rgba(227,168,62,.07),transparent 60%),
+ radial-gradient(700px 500px at -10% 110%,rgba(67,191,160,.05),transparent 60%),var(--bg);
+ color:var(--text);font-family:var(--sans);line-height:1.6;-webkit-text-size-adjust:100%}
+.wrap{max-width:660px;margin:0 auto;padding:24px 18px 60px}
+a{color:var(--gold)}
+.brand{display:flex;align-items:center;gap:11px;margin-bottom:16px}
+.brand b{font-family:var(--mono);font-size:14px;letter-spacing:.26em;color:var(--gold)}
+.brand small{font-size:10px;letter-spacing:.3em;color:var(--muted)}
+.back{margin-left:auto;font-size:12.5px;color:var(--muted);text-decoration:none}
+h1{font-size:27px;line-height:1.25;font-weight:800;margin-bottom:8px}
+h1 .g{background:linear-gradient(92deg,#E3A83E 25%,#43BFA0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lead{color:var(--muted);font-size:14.5px;margin-bottom:22px}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 17px;margin-bottom:15px}
+.card>label{display:block;font-size:13px;color:var(--muted);font-weight:700;margin-bottom:10px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:var(--panel2);border:1.5px solid var(--line);border-radius:999px;padding:8px 15px;
+ font-size:13.5px;color:var(--text);cursor:pointer;user-select:none;transition:.15s}
+.chip.on{border-color:var(--gold);background:var(--gold-soft);color:var(--gold);font-weight:700}
+input.t{width:100%;background:var(--panel2);border:1.5px solid var(--line);border-radius:10px;
+ padding:12px 14px;font-size:15px;color:var(--text);font-family:var(--mono)}
+input.t:focus{outline:none;border-color:var(--gold)}
+input.t::placeholder{color:var(--dim)}
+.hint{font-size:12px;color:var(--dim);margin-top:8px;line-height:1.55}
+
+/* 预览 */
+.preview{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px 17px;
+ margin-bottom:15px;text-align:center}
+#qrbox{background:#fff;border-radius:12px;padding:14px;display:inline-block;line-height:0;
+ box-shadow:0 10px 30px rgba(0,0,0,.35)}
+#qrbox canvas{width:236px;height:236px;display:block;image-rendering:pixelated}
+.urlline{font-family:var(--mono);font-size:11.5px;color:var(--muted);word-break:break-all;
+ margin-top:14px;line-height:1.55}
+.meta{font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:.14em;margin-top:7px}
+.err{color:var(--red);font-size:13px;margin-top:12px;display:none}
+
+/* 按钮 */
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:15px}
+.btn{border:none;border-radius:11px;padding:14px 8px;font-size:14.5px;font-weight:800;cursor:pointer;
+ font-family:var(--sans);background:var(--panel);color:var(--text);border:1px solid var(--line)}
+.btn.pri{background:linear-gradient(92deg,#E3A83E,#D9952B);color:#0A101E;border-color:transparent;
+ grid-column:1/-1;font-size:16px;padding:16px}
+.btn:active{transform:translateY(1px)}
+.why{background:rgba(67,191,160,.07);border:1px solid rgba(67,191,160,.22);border-radius:11px;
+ padding:13px 15px;font-size:13px;color:var(--muted);line-height:1.65}
+.why b{color:var(--teal)}
+.foot{margin-top:30px;padding-top:15px;border-top:1px solid var(--line);
+ font-family:var(--mono);font-size:11px;color:var(--dim);display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+
+/* ============ 打印物料(屏幕隐藏) ============ */
+.sheet{display:none}
+@media print{
+  @page{size:A4;margin:10mm}
+  html,body{background:#fff!important;color:#000!important}
+  .wrap{display:none!important}
+  .sheet{display:none}
+  /* 显示规则必须带上各自的布局 display 值:
+     .sticker 的 display 只在这里给,否则它会盖掉上面的 .sheet{display:none},
+     导致打印海报时贴纸页也跟着印出来。 */
+  body.p-poster .sheet.poster{display:block}
+  body.p-sticker .sheet.sticker{display:grid}
+
+  /* 海报 */
+  .poster{text-align:center;padding:6mm 4mm;font-family:"PingFang SC","Noto Sans SC",sans-serif}
+  .poster .eyebrow{font-family:ui-monospace,monospace;font-size:11pt;letter-spacing:.3em;color:#8a6a20}
+  .poster h2{font-size:31pt;line-height:1.24;font-weight:800;margin:5mm 0 3mm;color:#000}
+  .poster h2 .hl{color:#B8860B;border-bottom:3px solid #E3A83E}
+  .poster .sub{font-size:13pt;color:#333;line-height:1.6;margin-bottom:6mm}
+  .poster img{width:88mm;height:88mm;display:block;margin:0 auto;border:1.2mm solid #000;padding:3mm;background:#fff}
+  .poster .scan{font-size:16pt;font-weight:800;margin-top:5mm}
+  .poster .free{font-size:12pt;color:#444;margin-top:2mm}
+  .poster .pts{display:flex;justify-content:center;gap:9mm;margin:7mm 0 6mm;font-size:11.5pt;color:#222}
+  .poster .pts b{display:block;font-size:17pt;color:#B8860B}
+  .poster .sig{border-top:.4mm solid #999;padding-top:3mm;font-size:11pt;color:#333;
+   display:flex;justify-content:space-between;align-items:baseline}
+  .poster .sig b{font-family:ui-monospace,monospace;letter-spacing:.22em;color:#B8860B;font-size:12pt}
+  .poster .disc{font-size:8.5pt;color:#777;margin-top:3mm;line-height:1.5}
+
+  /* 贴纸 12 连 */
+  .sticker{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(4,1fr);
+   gap:3mm;height:277mm;font-family:"PingFang SC","Noto Sans SC",sans-serif}
+  .sticker .st{border:.3mm dashed #aaa;border-radius:2mm;padding:3mm 2mm;text-align:center;
+   display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .sticker .st img{width:36mm;height:36mm;display:block}
+  .sticker .st .t{font-size:9.5pt;font-weight:800;margin-top:2mm;line-height:1.35;color:#000}
+  .sticker .st .s{font-size:7.5pt;color:#555;margin-top:1mm}
+  .sticker .st .p{font-family:ui-monospace,monospace;font-size:7.5pt;color:#B8860B;margin-top:1.5mm;letter-spacing:.08em}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brand">
+    <b>YNG LAB</b><small>盈扬工作室 · PERTH</small>
+    <a class="back" href="../">← 工具包</a>
+  </div>
+
+  <h1>二维码<span class="g">物料</span></h1>
+  <p class="lead">二维码按<b>当前网址</b>实时生成——以后换域名,重开这一页重印即可,不用回来改代码。</p>
+
+  <div class="card">
+    <label>① 扫码后打开哪一页?</label>
+    <div class="chips" id="targets"></div>
+    <input class="t" id="custom" placeholder="自定义链接,例:https://…" style="margin-top:12px;display:none">
+  </div>
+
+  <div class="card">
+    <label>② 站点域名(默认用你现在打开的这个)</label>
+    <input class="t" id="host">
+    <div class="hint">以后接了自有域名,在这里改成新域名再打印。修改只影响本页生成的码,不改站点设置。</div>
+  </div>
+
+  <div class="preview">
+    <div id="qrbox"><canvas id="qr"></canvas></div>
+    <div class="urlline" id="url"></div>
+    <div class="meta" id="meta"></div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <button class="btn pri" id="dl">⬇︎ 保存二维码图片（PNG）</button>
+  <div class="btns">
+    <button class="btn" id="pp">🖨 打印 A4 海报</button>
+    <button class="btn" id="ps">🖨 打印贴纸 12 连</button>
+  </div>
+
+  <div class="why">
+    <b>怎么用</b><br>
+    · <b>海报</b>贴店门口 / 收银台旁边,或者你上门时带一张放桌上。<br>
+    · <b>贴纸</b>剪开贴在纸质方案背面、名片背面、给老板留的报告封面上。<br>
+    · <b>手机里</b>存一张 PNG,谈单时直接亮屏给老板扫——见 <a href="../talk/#">话术第 02 步</a>。<br>
+    · 手机上「保存图片」没反应的话,长按上面的二维码图片选「存储到相册」。
+  </div>
+
+  <div class="foot">
+    <span>YNG LAB · 盈扬工作室</span>
+    <span>AY · 0405 098 765</span>
+  </div>
+</div>
+
+<!-- 打印物料 -->
+<div class="sheet poster">
+  <div class="eyebrow">YNG LAB · 盈扬工作室 · PERTH</div>
+  <h2>30 秒,让 AI 当场<br>给你的店<span class="hl">做个网站</span></h2>
+  <div class="sub">不用讲、不用等、不用留电话。<br>填三个空,看看你的店在网上该有的样子。</div>
+  <img id="pimg" alt="扫码体验">
+  <div class="scan">📱 拿手机扫一扫</div>
+  <div class="free">完全免费 · 不收集你的资料 · 看完就走也没关系</div>
+  <div class="pts">
+    <div><b>×3–5</b>搜索曝光</div>
+    <div><b>×2–3</b>预约询盘</div>
+    <div><b>24h</b>不漏一通电话</div>
+  </div>
+  <div class="sig">
+    <span><b>YNG LAB</b> 盈扬工作室 · 本地华人团队</span>
+    <span>AY · 0405 098 765 · teluoke@hotmail.com</span>
+  </div>
+  <div class="disc">曝光与询盘为基于搜索及地图机制的示例目标(非承诺);上线后按实际数据按月对账。</div>
+</div>
+
+<div class="sheet sticker" id="stickers"></div>
+
+<script src="../qrcode.js"></script>
+<script>
+(function(){
+  // URL 里可能带中文(自定义链接),强制 UTF-8 字节编码
+  if (qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs['UTF-8']) {
+    qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+  }
+
+  var TARGETS = [
+    {k:'exp',   n:'AI 体验器',    p:'/experience/',       t:'30 秒生成你店的网站', s:'扫码免费试,不留电话'},
+    {k:'mas',   n:'按摩店方案',   p:'/plan-massage/',     t:'按摩店流量提升方案',   s:'12 页 · 含月度账本'},
+    {k:'aus',   n:'建材方案',     p:'/plan-austern/',     t:'建材 B2B 强化方案',    s:'12 页 · 含下单 Bot'},
+    {k:'car',   n:'车行 demo',    p:'/demo-caryard/',     t:'真实交付案例:车行网站', s:'1 小时流水线产出'},
+    {k:'deck',  n:'企划书 50 页', p:'/pitch-deck-50/',    t:'盈扬工作室 · 企划书',  s:'投资人精要版'},
+    {k:'kit',   n:'工具包首页',   p:'/kit/',              t:'盈扬 · 获客工具包',    s:'内部使用'},
+    {k:'own',   n:'自定义…',      p:null,                 t:'扫码了解',             s:'YNG LAB 盈扬工作室'}
+  ];
+
+  var cur = TARGETS[0];
+  var $ = function(id){return document.getElementById(id)};
+  var elT=$('targets'), elC=$('custom'), elH=$('host'), elU=$('url'), elM=$('meta'), elE=$('err');
+  var cv=$('qr'), ctx=cv.getContext('2d');
+  var dataURL='';
+
+  elH.value = location.origin;
+
+  TARGETS.forEach(function(t,i){
+    var b=document.createElement('div');
+    b.className='chip'+(i===0?' on':''); b.textContent=t.n;
+    b.onclick=function(){
+      cur=t;
+      [].forEach.call(elT.children,function(c){c.classList.remove('on')});
+      b.classList.add('on');
+      elC.style.display = t.p===null ? 'block' : 'none';
+      render();
+    };
+    elT.appendChild(b);
+  });
+
+  function targetURL(){
+    if (cur.p===null) return elC.value.trim();
+    var h = elH.value.trim().replace(/\/+$/,'');
+    return h + cur.p;
+  }
+
+  // 用整数模块尺寸绘制 + 4 模块静区（保证可扫）
+  function draw(text){
+    var qr = qrcode(0,'M');           // 纠错 M：约 15% 容错，印刷/屏幕都稳
+    qr.addData(text);
+    qr.make();
+    var n = qr.getModuleCount(), quiet = 4, scale = Math.max(4, Math.floor(760/(n+quiet*2)));
+    var size = (n+quiet*2)*scale;
+    cv.width = size; cv.height = size;
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,size,size);
+    ctx.fillStyle='#000';
+    for (var r=0;r<n;r++) for (var c=0;c<n;c++){
+      if (qr.isDark(r,c)) ctx.fillRect((c+quiet)*scale,(r+quiet)*scale,scale,scale);
+    }
+    return {modules:n, version:(n-17)/4, px:size};
+  }
+
+  function render(){
+    var u = targetURL();
+    elE.style.display='none';
+    if (!u || !/^https?:\/\/.+/i.test(u)){
+      elU.textContent = u || '—';
+      elM.textContent = '';
+      elE.textContent = '请填一个完整链接(要以 http:// 或 https:// 开头)';
+      elE.style.display='block';
+      ctx.clearRect(0,0,cv.width,cv.height);
+      return;
+    }
+    try{
+      var info = draw(u);
+      dataURL = cv.toDataURL('image/png');
+      elU.textContent = u;
+      elM.textContent = 'QR 版本 '+info.version+' · '+info.modules+'×'+info.modules+' 模块 · 纠错 M · '+info.px+'px';
+      $('pimg').src = dataURL;
+      buildStickers();
+    }catch(e){
+      elE.textContent = '链接太长,生成失败——换个短一点的网址试试。';
+      elE.style.display='block';
+    }
+  }
+
+  function buildStickers(){
+    var box=$('stickers'); box.innerHTML='';
+    for (var i=0;i<12;i++){
+      var d=document.createElement('div'); d.className='st';
+      d.innerHTML = '<img src="'+dataURL+'" alt=""><div class="t"></div><div class="s"></div>'
+                  + '<div class="p">AY · 0405 098 765</div>';
+      d.querySelector('.t').textContent = cur.t;
+      d.querySelector('.s').textContent = cur.s;
+      box.appendChild(d);
+    }
+  }
+
+  elC.addEventListener('input', render);
+  elH.addEventListener('input', render);
+
+  $('dl').onclick=function(){
+    if(!dataURL) return;
+    var a=document.createElement('a');
+    a.download = 'yng-qr-'+cur.k+'.png';
+    a.href = dataURL;
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+  function printAs(cls){
+    document.body.classList.add(cls);
+    var off=function(){document.body.classList.remove(cls);window.removeEventListener('afterprint',off)};
+    window.addEventListener('afterprint',off);
+    setTimeout(function(){window.print()},60);
+  }
+  $('pp').onclick=function(){printAs('p-poster')};
+  $('ps').onclick=function(){printAs('p-sticker')};
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Austern Building Supplies · 线上获客与复购强化方案 · 盈扬 YNG LAB</title>
+<style>
+:root{--bg:#060A14;--ink:#0A101E;--panel:#111A2E;--panel2:#0D1526;--line:rgba(233,236,245,.13);
+--text:#E9ECF5;--muted:#96A0BA;--dim:#6B7590;--gold:#E3A83E;--gold-soft:rgba(227,168,62,.14);
+--teal:#43BFA0;--red:#E06070;
+--serif:"Songti SC","Noto Serif SC","STSong",Georgia,serif;
+--sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",-apple-system,sans-serif;
+--mono:ui-monospace,"SF Mono",Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow:hidden;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+#stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
+#deck{width:1280px;height:720px;position:relative;transform-origin:center center;flex:none}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;padding:64px 84px 58px;
+background:radial-gradient(900px 500px at 85% -10%,rgba(227,168,62,.06),transparent 60%),
+radial-gradient(700px 500px at -10% 110%,rgba(67,191,160,.05),transparent 60%),var(--ink);border:1px solid var(--line)}
+.slide.active{display:flex}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.22em;color:var(--gold);text-transform:uppercase;display:flex;gap:14px;margin-bottom:18px}
+.eyebrow .no{color:var(--dim)}
+.foot{position:absolute;left:84px;right:84px;bottom:22px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.12em}
+h1{font-family:var(--serif);font-weight:600;font-size:50px;line-height:1.2;text-wrap:balance}
+h2.t{font-family:var(--serif);font-weight:600;font-size:36px;line-height:1.2;margin-bottom:10px}
+.sub{color:var(--muted);font-size:16.5px;line-height:1.65;max-width:46em}
+.body{flex:1;display:flex;flex-direction:column;justify-content:center;gap:20px;min-height:0}
+.cols{display:grid;gap:18px}.c2{grid-template-columns:1fr 1fr}.c3{grid-template-columns:1fr 1fr 1fr}.c32{grid-template-columns:3fr 2fr}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:20px 22px}
+.card h3{font-size:16px;margin-bottom:8px;font-weight:600}
+.card p,.card li{font-size:13.5px;color:var(--muted);line-height:1.6}
+.card.hl{border-color:rgba(227,168,62,.45);background:linear-gradient(180deg,var(--gold-soft),var(--panel))}
+.kpi{font-family:var(--mono);font-size:40px;color:var(--gold);line-height:1.1}
+.kpi small{font-size:15px;color:var(--muted);font-family:var(--sans)}
+.kcap{font-size:13px;color:var(--muted);margin-top:6px;line-height:1.5}
+ul.list{list-style:none;display:flex;flex-direction:column;gap:11px}
+ul.list li{padding-left:20px;position:relative;font-size:15px;line-height:1.55}
+ul.list li::before{content:"";position:absolute;left:0;top:.62em;width:8px;height:2px;background:var(--gold)}
+ul.list li span{color:var(--muted)}
+.tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.14em;color:var(--teal);border:1px solid rgba(67,191,160,.4);border-radius:3px;padding:3px 8px;margin-right:6px}
+.tag.gd{color:var(--gold);border-color:rgba(227,168,62,.4)}
+.src{font-size:11.5px;color:var(--dim);margin-top:12px;line-height:1.5}
+table.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+table.tbl th{font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;color:var(--gold);text-align:left;padding:10px 12px;border-bottom:1px solid rgba(227,168,62,.35);font-weight:500}
+table.tbl td{padding:10px 12px;border-bottom:1px solid var(--line);color:var(--muted);line-height:1.5}
+table.tbl td:first-child{color:var(--text);font-weight:500}
+table.tbl .y{color:var(--teal)}table.tbl .n{color:var(--red)}
+.flow{display:flex;align-items:stretch;gap:0}
+.flow .step{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px 14px;text-align:center}
+.flow .step h4{font-size:14px;margin-bottom:6px}
+.flow .step p{font-size:12px;color:var(--muted);line-height:1.5}
+.flow .arr{display:flex;align-items:center;padding:0 8px;color:var(--gold);font-family:var(--mono);font-size:18px}
+.big-serif{font-family:var(--serif);font-size:27px;line-height:1.55;max-width:28em}
+.big-serif em{color:var(--gold);font-style:normal}
+.cover{justify-content:space-between}
+.cover .meta{display:flex;gap:30px;font-family:var(--mono);font-size:12px;color:var(--muted)}
+.rule{height:1px;background:linear-gradient(90deg,var(--gold),transparent);margin:24px 0}
+.grad{background:linear-gradient(92deg,#E3A83E 20%,#43BFA0);-webkit-background-clip:text;background-clip:text;color:transparent}
+#prog{position:fixed;top:0;left:0;height:3px;background:var(--gold);z-index:9;transition:width .25s}
+#ctr{position:fixed;right:16px;bottom:12px;font-family:var(--mono);font-size:12px;color:var(--dim);z-index:9}
+@media screen and (max-width:700px) and (orientation:portrait){
+body{overflow:auto}#stage{position:static;display:block}#deck{width:auto;height:auto;transform:none!important}
+.slide{position:relative;inset:auto;display:flex!important;height:auto;padding:26px 18px 20px;border:none;border-bottom:1px solid var(--line)}
+h1{font-size:29px}h2.t{font-size:21px}.cols,.c2,.c3,.c32{grid-template-columns:1fr}
+.flow{flex-direction:column}.flow .arr{transform:rotate(90deg);justify-content:center}
+table.tbl{display:block;overflow-x:auto}.foot{position:static;margin-top:14px}#ctr,#prog{display:none}}
+@page{size:1280px 720px;margin:0}
+@media print{body{overflow:visible}#stage{position:static;display:block}#deck{transform:none!important;width:auto;height:auto}
+.slide{position:relative;display:flex!important;width:1280px;height:720px;page-break-after:always;border:none}#prog,#ctr{display:none}}
+</style>
+</head>
+<body>
+<div id="prog"></div><div id="ctr"></div>
+<div id="stage"><div id="deck">
+
+<!-- 01 封面 -->
+<section class="slide cover">
+  <div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <svg width="46" height="46" viewBox="0 0 46 46"><circle cx="23" cy="23" r="21" fill="none" stroke="#E3A83E" stroke-width="1.6" opacity=".85"/><rect x="12" y="26" width="5" height="8" rx="1" fill="#43BFA0"/><rect x="20.5" y="20" width="5" height="14" rx="1" fill="#E3A83E" opacity=".72"/><rect x="29" y="14" width="5" height="20" rx="1" fill="#E3A83E"/><path d="M28.5 13.5 L31.5 8.5 L34.5 13.5" fill="none" stroke="#E3A83E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span style="display:flex;flex-direction:column;gap:4px"><b style="font-family:var(--mono);font-size:17px;letter-spacing:.3em;color:var(--gold)">YNG LAB</b><small style="font-size:11px;letter-spacing:.4em;color:var(--muted)">盈扬工作室 · PERTH</small></span>
+    </div>
+    <div class="rule"></div>
+  </div>
+  <div>
+    <h1>让搜建材的工程队，<br><span class="grad">先找到 Austern；</span><br>让下过单的老客，一直回来。</h1>
+    <p class="sub" style="margin-top:20px">Austern Building Supplies · 线上获客与复购强化方案<br>一个能被搜到的官网、一个 tradie 手机下单机器人、一台自动补货与对账系统。</p>
+  </div>
+  <div><div class="meta"><span>建材 B2B 专版 · 12 页</span><span>Bassendean, WA</span><span>盈扬工作室 YNG LAB</span></div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>01 / 12</span></div>
+</section>
+
+<!-- 02 现状 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">02</span><span>现状诊断</span></div>
+  <h2 class="t">口碑很硬，但线上只是一张「电子名片」</h2>
+  <div class="body">
+    <div class="cols c3">
+      <div class="card"><span class="tag n" style="color:var(--red);border-color:rgba(224,96,112,.4)">搜索隐形</span><h3 style="margin-top:10px">工程队搜产品，搜不到你</h3><p>tradie 在 Google 搜「plasterboard Perth」「cornice adhesive supplier WA」——产品页是笼统的一整页，长尾搜索里几乎不出现。18 年口碑，线上却排在竞对后面。</p></div>
+      <div class="card"><span class="tag n" style="color:var(--red);border-color:rgba(224,96,112,.4)">询盘靠打电话</span><h3 style="margin-top:10px">没有在线报价与下单</h3><p>网站只有电话和邮箱。工地上的师傅想问价、想补货，得停下手打电话——摩擦一大,单子就流向能手机下单的对手。</p></div>
+      <div class="card"><span class="tag n" style="color:var(--red);border-color:rgba(224,96,112,.4)">客户数据在脑子里</span><h3 style="margin-top:10px">复购全靠人记</h3><p>谁多久补一次货、账期到没到——全在老销售的记忆里。人一忙就漏，老客户被对手的一条提醒挖走。</p></div>
+    </div>
+    <p class="big-serif">建材生意不缺口碑，缺的是<em>把口碑接到手机屏幕上</em>的那一层。</p>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>02 / 12</span></div>
+</section>
+
+<!-- 03 B2B真相 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">03</span><span>行业真相</span></div>
+  <h2 class="t">建材 B2B 的钱，八成来自「回头客复购」</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>客户是工程队，不是散客</b>：<span>builders、tradies、装修承包商——一个活跃客户一年采购几万到几十万澳元,而且按工程周期<b style="color:var(--gold)">反复采购</b>。</span></li>
+        <li><b>拉新贵，留存值钱</b>：<span>B2B 建材开发一个新客成本高、周期长；真正的利润在「让老客户下单更省事、补货更及时、不被对手挖走」。</span></li>
+        <li><b>决策看两点</b>：<span>① 有没有货、② 下单省不省事。价格差不多时，<b>谁让师傅在工地上 30 秒下完单，谁赢</b>。</span></li>
+      </ul>
+      <div class="card hl"><h3>所以强化的重点顺序</h3><p style="font-size:14px;line-height:1.9">1️⃣ <b style="color:var(--gold)">让老客复购更省事</b>（下单 bot + 补货提醒）—— 收益最快<br>2️⃣ <b style="color:var(--gold)">让新客搜得到</b>（产品 SEO + 地图）—— 持续引流<br>3️⃣ <b style="color:var(--gold)">让现金流更健康</b>（账期对账自动化）—— 少坏账<br><br>先修复购，再拉新客——顺序反了，是往漏水的桶里加水。</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>03 / 12</span></div>
+</section>
+
+<!-- 04 方案总览 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">04</span><span>方案总览</span></div>
+  <h2 class="t">三层强化：官网 + 下单 Bot + 数据大脑</h2>
+  <div class="body">
+    <div class="cols c3">
+      <div class="card hl"><span class="tag gd">第一层 · 门面</span><h3 style="margin-top:10px">可被搜到的官网</h3><p>产品按品牌/品类拆成独立 SEO 页 + 在线批量询价表单 + Google 地图优化——把 18 年口碑接到搜索结果里。</p></div>
+      <div class="card hl"><span class="tag gd">第二层 · 入口</span><h3 style="margin-top:10px">tradie 下单 Bot</h3><p>师傅手机发一句材料清单 → 自动报价、查库存、排送货。24 小时收单，工地上 30 秒完成。</p></div>
+      <div class="card hl"><span class="tag gd">第三层 · 大脑</span><h3 style="margin-top:10px">复购与对账系统</h3><p>采购数据入自建库：智能补货提醒、账期对账、常购清单——把一次性买卖变成稳定复购。</p></div>
+    </div>
+    <ul class="list">
+      <li><b>不换你现有系统</b>：<span>会计、进销存、供货关系全部保留——这套只在「客户下单之前和之后」帮你多接单、多复购、少漏账。</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>04 / 12</span></div>
+</section>
+
+<!-- 05 下单Bot(杀手锏) -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">05</span><span>核心 · 杀手锏</span></div>
+  <h2 class="t">tradie 下单 Bot：工地上 30 秒，单子就进来了</h2>
+  <div class="body">
+    <div class="cols c2">
+      <div class="card"><h3>师傅的真实操作</h3><p style="font-family:var(--mono);font-size:12.5px;line-height:2;color:var(--text)">
+<span style="color:var(--dim)">师傅 ›</span> 10 张 10mm 石膏板，2 桶批墙腻子，<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;周四早上送 Cannington 工地<br>
+<span style="color:var(--gold)">Austern ›</span> ✓ 已生成报价单 A$___<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;✓ 库存充足，周四 8:00 送达<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;确认下单？【是】【改数量】</p></div>
+      <ul class="list">
+        <li><b>不用打电话</b>：<span>工地噪音大、手上有活——打字或发语音下单，比打电话省事十倍。</span></li>
+        <li><b>不漏单</b>：<span>晚上、周末、送钟时收到的需求，bot 全接住，第二天你统一处理。</span></li>
+        <li><b>常购清单一键复购</b>：<span>「和上次一样」——老客户点一下就补货。</span></li>
+        <li><b>报价留痕</b>：<span>每笔询价自动进客户库，谁问了没下单，跟进不遗漏。</span></li>
+      </ul>
+    </div>
+    <p class="src">下单与报价以你的实际库存和价目为准；bot 负责承接与留资，最终确认仍由你把关。</p>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>05 / 12</span></div>
+</section>
+
+<!-- 06 智能补货 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">06</span><span>数据飞轮</span></div>
+  <h2 class="t">智能补货：在对手之前，先提醒你的老客</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>采购节奏入库</b>：<span>「张工的队通常 4 周补一次板材」——系统记住每个客户的采购周期。</span></li>
+        <li><b>到期自动提醒</b>：<span>快到补货点，自动推一条：「上次的规格还要吗？本周有货」——你先开口，客户就不会去比价对手。</span></li>
+        <li><b>大项目预判</b>：<span>客户接了大工程，用量突增——系统提示你主动备货、给量价，锁定整个项目的供货。</span></li>
+        <li><b>沉睡唤醒</b>：<span>3 个月没下单的老客自动预警，销售定向回访——找回一个老客的成本是拉新的五分之一。</span></li>
+      </ul>
+      <div class="card hl"><h3>为什么这是护城河</h3><p>竞对能抄你的价格、抄你的网站，<b>抄不走你客户的采购数据</b>。<br><br>用得越久，系统越懂你每个客户——这份「懂」沉淀在你自己的客户库里，是别人挖不动的资产，也是把散单变成稳定复购流水的关键。</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>06 / 12</span></div>
+</section>
+
+<!-- 07 SEO获客 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">07</span><span>新客来源</span></div>
+  <h2 class="t">让搜产品的工程队，第一眼看到 Austern</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>产品 × 区域落地页</b>：<span>每个品牌/品类一页(Wallboard、Intex、石膏板、腻子、工具…)× Perth 各区——tradie 搜什么产品,就在什么词上出现。</span></li>
+        <li><b>Google 地图 + 商家资料</b>：<span>Bassendean 建材搜索前排 + 完整营业信息 + 评价引擎——本地采购的第一入口。</span></li>
+        <li><b>选材指南内容</b>：<span>「石膏板规格对照」「不同腻子怎么选」——既帮客户又吃搜索流量。</span></li>
+        <li><b>询盘直达</b>：<span>每个页面都能一键进下单 bot，流量不浪费。</span></li>
+      </ul>
+      <div class="card"><h3>3–6 个月示例目标</h3>
+        <div style="display:flex;gap:26px;margin-top:10px">
+          <div><div class="kpi">×3–5</div><div class="kcap">产品搜索曝光</div></div>
+          <div><div class="kpi">×2–3</div><div class="kcap">在线询盘</div></div>
+        </div>
+        <p style="margin-top:12px">口径：基于搜索与地图机制的<b>示例目标</b>（非承诺）；上线后按实际曝光、点击、询盘数据按月对账。</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>07 / 12</span></div>
+</section>
+
+<!-- 08 账期对账 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">08</span><span>现金流</span></div>
+  <h2 class="t">账期与对账自动化：少一笔坏账，多一分安心</h2>
+  <div class="body">
+    <div class="cols c2">
+      <ul class="list">
+        <li><b>自动对账单</b>：<span>每月给账期客户自动生成对账单，清楚列明每笔、余额、到期日。</span></li>
+        <li><b>到期温和提醒</b>：<span>账期临近自动发提醒——不用销售一个个打电话催，也不伤客情。</span></li>
+        <li><b>信用视图</b>：<span>哪个客户经常拖、哪个准时——一眼看清，给量价和账期时心里有数。</span></li>
+      </ul>
+      <div class="card"><h3>老板最在意的一件事</h3><p>建材 B2B 普遍 30 天账期，坏账和拖欠是利润的隐形杀手。<br><br>系统把「对账 + 催收 + 信用管理」自动化——<b style="color:var(--gold)">该收的钱按时收回来</b>，比多卖几单更实在。</p></div>
+    </div>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>08 / 12</span></div>
+</section>
+
+<!-- 09 账本(重点页) -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">09</span><span>算账 · 重点页</span></div>
+  <h2 class="t">强化后的一本账：营收从哪几处涨</h2>
+  <div class="body" style="gap:14px">
+    <table class="tbl">
+      <tr><th>增长来源</th><th>机制</th><th>示例测算口径</th></tr>
+      <tr><td>新客获取</td><td>产品 SEO + 地图，搜「plasterboard Perth」等能找到你</td><td class="y">新客数 +15–30%</td></tr>
+      <tr><td>复购提频</td><td>补货提醒让老客按周期回购，不流向对手</td><td class="y">老客采购频次 +20–35%</td></tr>
+      <tr><td>下单转化</td><td>手机 30 秒下单，接住晚间/周末/工地上的单</td><td class="y">询盘→成交 +10–20%</td></tr>
+      <tr><td>客户留存</td><td>沉睡唤醒 + 数据绑定，减少老客流失</td><td class="y">流失率下降</td></tr>
+      <tr><td>坏账减少</td><td>自动对账催收，账期回款更及时</td><td class="y">现金流改善</td></tr>
+      <tr><td><b>综合效果</b></td><td>以上叠加（乘法效应，非简单相加）</td><td class="y"><b>营收 +15–30%（示例目标）</b></td></tr>
+    </table>
+    <p class="src">口径：以上为基于建材 B2B 行业机制的<b>示例测算</b>（非承诺），假设已列明；上线后每月提供「实际对账单」——曝光、询盘、成交、复购、回款，只看你后台真数。营收基数越大，同样百分比的绝对增量越可观。</p>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>09 / 12</span></div>
+</section>
+
+<!-- 10 分工 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">10</span><span>分工</span></div>
+  <h2 class="t">你出信息，我们出系统</h2>
+  <div class="body">
+    <table class="tbl">
+      <tr><th>你（Austern）提供</th><th>我们交付</th></tr>
+      <tr><td>产品清单、品牌、规格与价目口径</td><td>官网 + 产品×区域 SEO 页 + Google 地图优化</td></tr>
+      <tr><td>库存与送货规则</td><td>tradie 下单 Bot：报价、查库存、排送货、留资</td></tr>
+      <tr><td>客户名单与账期信息（保密）</td><td>自建客户库 + 智能补货提醒 + 对账自动化</td></tr>
+      <tr><td>每月看一张对账单</td><td>内容更新、系统维护、月度数据报告</td></tr>
+    </table>
+    <ul class="list">
+      <li><b>数据归你</b>：<span>客户、采购、账期数据存在你自己的加密客户库，不进第三方平台——不怕平台涨价、封号、把你的客户卖给别人。</span></li>
+      <li><b>Perth 本地团队</b>：<span>中英双语、能上门、能面谈——不是海外外包，出问题找得到人。</span></li>
+    </ul>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>10 / 12</span></div>
+</section>
+
+<!-- 11 价格 -->
+<section class="slide">
+  <div class="eyebrow"><span class="no">11</span><span>价格与回本</span></div>
+  <h2 class="t">价格：一个月多留住一个工程队客户就回本</h2>
+  <div class="body">
+    <div class="cols c32">
+      <table class="tbl">
+        <tr><th>项目</th><th>内容</th><th>价格</th></tr>
+        <tr><td>启动（一次性）</td><td>官网 + 产品 SEO 页 + 地图优化 + 下单 Bot 部署</td><td class="y">A$3,000–6,000</td></tr>
+        <tr><td>月度服务</td><td>Bot + 客户库 + 补货提醒 + 对账 + 月报</td><td class="y"><b>A$299–499 / 月</b></td></tr>
+        <tr><td>可选加购</td><td>私有化部署 / AI 报价算料 / 内容站群扩展</td><td>面议</td></tr>
+      </table>
+      <div class="card hl"><h3>回本算术</h3><p style="font-size:13.5px">建材 B2B 一个活跃工程队客户，年采购常在 <b>A$2 万–20 万</b>。<br><br>月费 A$299–499，只要系统每月帮你多留住或多接一个像样的工程队客户，<b style="color:var(--gold)">当月即回本，其余全是净赚</b>。<br><br>对照第 9 页账本：营收 +15–30% 的绝对增量，是月费的几十倍。</p></div>
+    </div>
+    <p class="src">B2B 建材价格高于 C 端零售模板，因交付含库存/账期/报价逻辑集成；最终以你的产品与流程复杂度报价。</p>
+  </div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>11 / 12</span></div>
+</section>
+
+<!-- 12 CTA -->
+<section class="slide cover">
+  <div>
+    <div style="display:flex;align-items:center;gap:16px">
+      <svg width="46" height="46" viewBox="0 0 46 46"><circle cx="23" cy="23" r="21" fill="none" stroke="#E3A83E" stroke-width="1.6" opacity=".85"/><rect x="12" y="26" width="5" height="8" rx="1" fill="#43BFA0"/><rect x="20.5" y="20" width="5" height="14" rx="1" fill="#E3A83E" opacity=".72"/><rect x="29" y="14" width="5" height="20" rx="1" fill="#E3A83E"/><path d="M28.5 13.5 L31.5 8.5 L34.5 13.5" fill="none" stroke="#E3A83E" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span style="display:flex;flex-direction:column;gap:4px"><b style="font-family:var(--mono);font-size:17px;letter-spacing:.3em;color:var(--gold)">YNG LAB</b><small style="font-size:11px;letter-spacing:.4em;color:var(--muted)">盈扬工作室 · PERTH</small></span>
+    </div>
+    <div class="rule"></div>
+  </div>
+  <div>
+    <h1>先做一份免费诊断：<br><span class="grad">你在 Google 上搜 plasterboard Perth，排第几？</span></h1>
+    <p class="sub" style="margin-top:20px">30 分钟，我们当面给你看：你的店现在的搜索排名、竞对情况、漏掉多少产品搜索量。<br>不满意，一分钱不花——你至少带走一份自己店的线上诊断报告。<br><br>车行、宠物、名表行都在用的同一套获客系统——建材 B2B 专版。</p>
+  </div>
+  <div><div class="meta"><span>AY</span><span>0405 098 765</span><span>📮 teluoke@hotmail.com</span></div></div>
+  <div class="foot"><span>YNG LAB · 盈扬</span><span>12 / 12</span></div>
+</section>
+
+</div></div>
+<script>
+(function(){
+var slides=[].slice.call(document.querySelectorAll('.slide')),n=slides.length,i=0;
+var deck=document.getElementById('deck'),prog=document.getElementById('prog'),ctr=document.getElementById('ctr'),stage=document.getElementById('stage'),vv=window.visualViewport;
+var mq=matchMedia('(max-width:700px) and (orientation:portrait)');
+function mob(){return mq.matches}
+function vw(){return vv?vv.width:innerWidth}function vh(){return vv?vv.height:innerHeight}
+function fit(){if(mob()){deck.style.transform='';return}
+stage.style.height=vh()+'px';stage.style.width=vw()+'px';
+deck.style.transform='scale('+Math.min(vw()/1300,vh()/740)+')';}
+function show(k){i=Math.max(0,Math.min(n-1,k));slides.forEach(function(s,j){s.classList.toggle('active',j===i)});
+prog.style.width=((i+1)/n*100)+'%';ctr.textContent=(i+1)+' / '+n;location.hash='#/'+(i+1);}
+addEventListener('keydown',function(e){if(e.key==='ArrowRight'||e.key===' ')show(i+1);else if(e.key==='ArrowLeft')show(i-1);
+else if(e.key==='Home')show(0);else if(e.key==='End')show(n-1);});
+addEventListener('click',function(e){if(mob())return;show(e.clientX>innerWidth/2?i+1:i-1);});
+var tx=null;addEventListener('touchstart',function(e){if(e.touches.length===1)tx=e.touches[0].clientX},{passive:true});
+addEventListener('touchend',function(e){if(tx===null||mob())return;var dx=e.changedTouches[0].clientX-tx;
+if(Math.abs(dx)>40)show(dx<0?i+1:i-1);tx=null},{passive:true});
+addEventListener('resize',fit);if(vv){vv.addEventListener('resize',fit)}
+var m=location.hash.match(/#\/(\d+)/);fit();show(m?+m[1]-1:0);
+})();
+</script>
+</body>
+</html>
