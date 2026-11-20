@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic golden-hour landscape, Perth city skyline across the Swan River seen from a hillside park, eucalyptus branches framing the top left",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "a gentle evening breeze through eucalyptus leaves, distant birdsong and faint far-off city hum",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "Warm sunset light glows on the river. Eucalyptus leaves in the foreground sway gently in a light breeze, ripples shimmer across the river surface, and soft clouds drift slowly to the right above the skyline. Nothing else moves; the city buildings stay still.",
+   "sfx": "soft rustle of leaves"
+  }
+ ]
+}
