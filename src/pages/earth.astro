@@ -469,6 +469,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.npc-talk { margin-top: 12px; padding: 12px; border-radius: 18px; background: var(--card2); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
 			.npc-head { display: flex; align-items: center; gap: 10px; }
 			.npc-head .portrait { width: 56px; height: 56px; flex: none; }
+			.npc-head img.portrait { border-radius: 14px; object-fit: cover; background: var(--tint-blue); }
 			.npc-name { display: flex; flex-direction: column; padding: 6px 12px; border-radius: 12px; background: var(--text); color: var(--bg); min-width: 0; }
 			.npc-name b { font-size: 15px; } .npc-name small { font-size: 11px; color: inherit; }
 			.npc-rel { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 12px; color: var(--tint-green-ink); font-weight: 700; min-width: 96px; }
@@ -1720,6 +1721,11 @@ const cardLines = guilloche(400, 260, 14, 9);
 			function hero(key: string, fallback: string) {
 				return heroHtml(esc, media.loc[key], cgi[key], fallback);
 			}
+			/** NPC 头像：有 CGI 用图，没有就用按 id 画的 SVG 立绘 */
+			function portrait(id: string) {
+				const img = cgi['npc:' + id];
+				return img ? `<img class="portrait" src="${esc(img)}" alt="" loading="lazy" width="56" height="56" />` : portraitSvg(id);
+			}
 
 			const minutesLabel = (m: number) => (m >= 60 ? (m / 60).toFixed(m % 60 ? 1 : 0) + ' 小时' : m + ' 分钟');
 			const NEED_LOW: Record<string, string> = { health: '身体不太舒服', hunger: '肚子有点饿了', energy: '有点累了', hygiene: '该洗个澡了', fun: '有点无聊', social: '想找人说说话' };
@@ -1941,7 +1947,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					return getRelation(s, npcId).known.includes(itemId) ? `（${GIFT_LABEL[giftReaction(n, itemId)]}）` : '';
 				};
 				const peopleHtml = people.length || absent.length ? `<div class="card"><h3>这里的人</h3>${people.map(({ npc, rel, tier, blocked, nextStory, favor, fading, confidant }) => `
-					<div class="npc-talk"><div class="npc-head">${portraitSvg(npc.id)}<div class="npc-name"><b>${esc(npc.name)}</b><small>${esc(npc.role)}</small></div>
+					<div class="npc-talk"><div class="npc-head">${portrait(npc.id)}<div class="npc-name"><b>${esc(npc.name)}</b><small>${esc(npc.role)}</small></div>
 					<div class="npc-rel"><small>${confidant ? '🫶 知己' : tier} · ${Math.round(rel.score)}/100</small><div class="bar" role="progressbar" aria-label="和${esc(npc.name)}的关系" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(rel.score)}"><i style="width:${Math.round(Math.max(0, Math.min(100, rel.score)))}%"></i></div></div></div>
 					<p class="bubble">${esc(npc.bio)}</p>${greetHtml(esc, npc.id, npc.name, media.voice[npc.id])}
 					${favor ? `<p class="bubble">🙋 ${esc(favor.ask)}</p>` : ''}
