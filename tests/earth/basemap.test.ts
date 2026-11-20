@@ -235,3 +235,10 @@ test('页面：深色模式下真实地图也压暗；断网失败的底图联�
 	assert.match(astro, /exitPoint\(\[mine\.lon, mine\.lat\], \[far\.lon, far\.lat\], bounds\)/);
 	assert.match(astro, /pins: \[\.\.\.area\.locations\.map\([\s\S]{0,400}\.\.\.exitPins\]/);
 });
+
+test('页面模板（v42）：真实地图的标记带上跨区域出口，手绘地图读屏说明也用 mapLabel', () => {
+	const astro = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(astro, /const exitPins: Pin\[\] = exitsOf\(area\)\.map\(/, '每条跨区路线一个出口标记');
+	assert.match(astro, /pins: \[\.\.\.area\.locations\.map\([^\n]*\.\.\.exitPins\]/, '出口标记和地点一起交给底图');
+	assert.match(astro, /map\.setAttribute\('aria-label', mapLabel\(area\.name, false\)\)/, '手绘地图读屏说明跟区域');
+});

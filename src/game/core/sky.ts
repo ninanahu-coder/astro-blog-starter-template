@@ -33,12 +33,12 @@ export function realDateLabel(doy: number): string {
 // ---------- 第 36 轮：气温 ----------
 // 西澳的气候大致：越往北越热、冬夏差越小；南端奥尔巴尼受南冰洋影响夏天也凉；内陆夏天更热、早晚温差更大。
 // 海边地点 1 月、7 月平均最高气温取几个纬度上的大致值（布鲁姆、卡那封、珀斯、奥尔巴尼一带），中间线性插值；内陆夏 +4、冬 −1。
-// 一年里按余弦过渡：1 月中最热、7 月中最冷。天气再修正：炎热 +6、多云 −1、小雨 −3、风暴 −5；每天另有 ±2 度起伏（按地点和日子定，所有人一样）。
+// 一年里按余弦过渡：1 月中最热、7 月中最冷。天气再修正：炎热 +6、寒冷 −4、多云 −1、小雨 −3、风暴 −5；每天另有 ±2 度起伏（按地点和日子定，所有人一样）。
 export interface Temps { max: number; min: number }
 export const isCoastal = (l: Pick<SkyLoc, 'kind' | 'tags'>) => l.tags.includes('beach') || l.kind === 'port' || l.kind === 'island' || l.kind === 'coast';
 /** [南纬度数, 1 月平均最高, 7 月平均最高]（海边） */
 const CLIMATE: [number, number, number][] = [[18, 33, 29], [25, 32, 24], [32, 31, 19], [35, 25, 16]];
-const WX_TEMP: Record<string, number> = { hot: 6, cloudy: -1, rain: -3, storm: -5 };
+const WX_TEMP: Record<string, number> = { hot: 6, cold: -4, cloudy: -1, rain: -3, storm: -5 };
 function climateAt(lat: number): [number, number] {
 	const a = Math.min(CLIMATE[CLIMATE.length - 1][0], Math.max(CLIMATE[0][0], -lat));
 	let i = 0;
@@ -200,13 +200,15 @@ export function fireSeason(l: SkyLoc, clock: number): boolean {
 	const table = l.lat < -26 ? FIRE_SOUTH : l.lat > -23 ? FIRE_NORTH : FIRE_MID;
 	return table[monthOf(realDayOfYear(clock))] > 0;
 }
+/** 够得上灾难性的日子里真算灾难性的比例。第 30 批天气按 BOM 气候平均后内陆夏天炎热天变多，从 0.25 降到 0.15，让灾难性仍然少见（待平衡） */
+export const FIRE_CATASTROPHIC_SHARE = 0.15;
 /** 今天的火险等级 */
 export function fireDanger(l: SkyLoc, clock: number, weatherId: string): FireLevel {
 	const table = l.lat < -26 ? FIRE_SOUTH : l.lat > -23 ? FIRE_NORTH : FIRE_MID;
 	const base = table[monthOf(realDayOfYear(clock))];
 	if (!base) return FIRE_LEVELS[0];
 	let score = base + (weatherId === 'hot' ? 1 : 0) - (weatherId === 'rain' || weatherId === 'storm' ? 2 : 0) + (weatherId === 'hot' && !isCoastal(l) ? 1 : 0);
-	if (score >= 4) score = unit(`fire|${l.id}|${dayOf(clock)}`) < 0.25 ? 4 : 3;
+	if (score >= 4) score = unit(`fire|${l.id}|${dayOf(clock)}`) < FIRE_CATASTROPHIC_SHARE ? 4 : 3;
 	return FIRE_LEVELS[Math.max(0, Math.min(4, score))];
 }
 

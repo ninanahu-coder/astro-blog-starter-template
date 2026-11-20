@@ -27,6 +27,28 @@ export function readSyncHash(hash: unknown): string | null {
 
 export const codeOf = (c: Cred) => `${c.id}.${c.key}`;
 
+/** 本机存的凭证（不可信）：必须是 { id, key } 且格式和同步码一致，不然当没有 */
+export function parseCred(raw: unknown): Cred | null {
+	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+	const { id, key } = raw as Record<string, unknown>;
+	if (typeof id !== 'string' || typeof key !== 'string') return null;
+	const m = CODE.exec(`${id}.${key}`);
+	return m && m[1] === id && m[2] === key ? { id, key } : null;
+}
+
+/** 换码进行中（第 50 批）：新码先记在本机再发请求，回复丢了也能补完。只认和当前角色同一个 id、key 不同的 */
+export function parsePendingKey(raw: unknown, current: Cred | null): Cred | null {
+	const c = parseCred(raw);
+	return c && current && c.id === current.id && c.key !== current.key ? c : null;
+}
+
+/** 导出文件名：地球人生存档-年月日.json（按服务器时间） */
+export function exportName(at: unknown): string {
+	const d = new Date(typeof at === 'number' && Number.isFinite(at) ? at : 0);
+	const p = (n: number) => String(n).padStart(2, '0');
+	return `earth-save-${d.getUTCFullYear()}${p(d.getUTCMonth() + 1)}${p(d.getUTCDate())}.json`;
+}
+
 /** 二维码里的链接：本页地址 + #sync=同步码 */
 export const syncLink = (origin: string, c: Cred) => `${origin.replace(/\/+$/, '')}/earth/#sync=${encodeURIComponent(codeOf(c))}`;
 
