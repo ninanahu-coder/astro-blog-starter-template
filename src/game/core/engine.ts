@@ -9,6 +9,8 @@ import { PHOTO_CHAIN_BONUS, PHOTO_MINUTES, PHOTO_QUESTS, type PhotoQuest } from 
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
+import { SHOP_RULES } from '../data/shops.ts';
+import { buyPrice, markdownNow, sellItemBlocked, sellPrice } from './shop.ts';
 import { NPCS } from '../data/npcs.ts';
 import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../data/careers.ts';
 import { HOMES } from '../data/housing.ts';
@@ -601,19 +603,37 @@ function soldAt(item: ItemDef, loc: GameLocation): boolean {
 export interface ShopEntry {
 	item: ItemDef;
 	price: number;
+	/** 正在贴打折贴（price 已经打过折） */
+	markdown?: boolean;
 	blocked?: string;
 }
 
-/** 当前地点可买的物品（价格已含特质折扣） */
+/** 当前地点可买的物品（价格已含特质折扣和打折贴，见 core/shop.ts 的 buyPrice） */
 export function shopAt(state: PlayerState, region: Region): ShopEntry[] {
 	const loc = getLocation(region, state.loc);
 	if (!loc) return [];
 	return ITEMS.filter((i) => soldAt(i, loc)).map((item) => {
-		const price = Math.round(item.price * costMult(state));
+		const price = buyPrice(state, item);
 		const have = state.inventory[item.id] ?? 0;
 		const blocked = have >= item.max ? '已带满' : state.cash < price ? `需要 $${price}` : undefined;
-		return { item, price, blocked };
+		return markdownNow(state, item) ? { item, price, markdown: true, blocked } : { item, price, blocked };
 	});
+}
+
+/** 把一件装备 / 收藏卖给二手店（城市、城镇），按标价的固定比例回收，见 core/shop.ts */
+export function sellItem(prev: PlayerState, region: Region, itemId: string): ActionResult {
+	const item = getItem(itemId);
+	const why = sellItemBlocked(prev, getLocation(region, prev.loc), item);
+	if (why) return fail(prev, why);
+	const got = sellPrice(item!)!;
+	const state = clone(prev);
+	const left = (state.inventory[itemId] ?? 0) - 1;
+	if (left > 0) state.inventory[itemId] = left;
+	else Reflect.deleteProperty(state.inventory, itemId);
+	state.cash += got;
+	log(state, `${item!.icon} 把${item!.name}卖给了二手店，收回 $${got}。`);
+	if (advance(state, SHOP_RULES.sellMinutes, region)) return collapsedResult(state);
+	return { ok: true, state, msg: `把${item!.name}卖给了二手店，收回 $${got}。` };
 }
 
 export function buyItem(prev: PlayerState, region: Region, itemId: string): ActionResult {
