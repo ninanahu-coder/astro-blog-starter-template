@@ -5,6 +5,7 @@ import { AREAS } from '../../../src/game/data/areas-base.ts';
 import { SA_EVENTS } from '../../../src/game/data/events-sa.ts';
 import { VENUE_EVENTS } from '../../../src/game/data/venue-events.ts';
 import { NPCS } from '../../../src/game/data/npcs.ts';
+import { TRAIL_EVENTS } from '../../../src/game/data/trail-events.ts';
 
 export const STYLE = 'cinematic CGI game key art, stylized realism, warm golden light, wide landscape shot, main subject centred in the middle band of the frame, highly detailed, no text, no lettering on signs, no logos, no watermark, no identifiable people';
 export const NEGATIVE = 'text, watermark, logo, signature, lowres, blurry, deformed, extra limbs, real person likeness';
@@ -136,6 +137,10 @@ const EVENT_SCENE = {
 	// 南澳
 	'central-market': 'a bustling covered food market with cheese, bread and fruit stalls, shoppers seen from behind',
 	'glenelg-tram': 'a modern tram arriving at its seaside terminus beside a beach and a long jetty',
+	// 第 32 批出行事件：暂借相近的已有图（清单指向 glenelg-tram / hedland-ore-train / busselton-jetty-walk），按提示词重新生成后替换
+	'transit-hometown': 'inside a quiet suburban commuter train carriage, two university students with backpacks chatting across the aisle, river glinting through the window',
+	'rail-wheatbelt': 'view from a regional passenger train window over endless golden wheat fields and a pale salt lake under a wide sky',
+	'walk-blister': 'a lone walker in sneakers sitting on a roadside kerb taping a blistered heel, a long empty suburban footpath behind',
 	'hahndorf-bakery': 'a nineteenth-century German stone village street with a bakery displaying pretzels and sausages',
 	'barossa-vintage': 'the open door of an old stone wine cellar with oak barrels, gnarled old vines outside',
 	'mclaren-coast': 'vineyards rolling downhill to coastal cliffs and a sandy beach',
@@ -147,12 +152,24 @@ const EVENT_SCENE = {
 	'wilpena-wallaby': 'a yellow-footed rock wallaby with a ringed yellow and black tail crouching in a rock crevice',
 	'blue-lake': 'a vivid cobalt blue lake inside a volcanic crater ringed by cliffs',
 	'ceduna-oysters': 'freshly shucked oysters on ice at a small jetty-side shack, oyster leases on a calm bay',
+	// 主要路线（实地路线）的事件（v22）：珀斯、弗里曼特尔、阿德莱德的路线共用，只写普通城市街景
+	'trail-quay-start': 'a phone with a walking map held up at the start of a city riverside promenade, morning light',
+	'trail-library-seat': 'an empty seat by a big window in a quiet modern public library reading room',
+	'trail-asian-grocer': 'shelves of colourful Asian sauces, noodles and snacks in a small city grocery store',
+	'trail-notice-board': 'a cork notice board crowded with handwritten flyers and tear-off phone number strips',
+	'trail-prison-gate': 'tall pale limestone walls and a heavy old gatehouse of a nineteenth-century prison on a hill',
+	'trail-city-view': 'a hilltop lookout over a modern city skyline beside a wide blue river, gum trees in the foreground',
+	'trail-along-busker': 'a street guitarist seen from the side on a sunny pedestrian mall, open guitar case with coins',
+	'trail-along-crossing': 'a pedestrian crossing at a city intersection, people seen from behind waiting for the green signal',
+	'trail-along-sea-breeze': 'gum tree leaves and shop awnings blowing in a cool afternoon breeze on a quiet street',
+	'trail-along-stairs': 'a long steep flight of outdoor stairs climbing a bushland hillside, a jogger seen from behind',
 };
 
 // 南澳事件写 South Australia，其余西澳。店铺通用事件两州都会触发：只写普通郊区，并点名不要地标（只写 Australia 时画出了悉尼歌剧院、海港大桥和乌鲁鲁）
 const SA_IDS = new Set(SA_EVENTS.map((e) => e.id));
 const VENUE_IDS = new Set(VENUE_EVENTS.map((e) => e.id));
-const eventPlace = (id) => (SA_IDS.has(id) ? 'South Australia' : VENUE_IDS.has(id) ? 'an ordinary Australian suburb, no famous landmarks, bridges, opera house or monoliths in view' : 'Western Australia');
+const TRAIL_IDS = new Set(TRAIL_EVENTS.map((e) => e.id));
+const eventPlace = (id) => (SA_IDS.has(id) ? 'South Australia' : VENUE_IDS.has(id) ? 'an ordinary Australian suburb, no famous landmarks, bridges, opera house or monoliths in view' : TRAIL_IDS.has(id) ? 'an ordinary Australian city centre, no famous landmarks, bridges, opera house or monoliths in view' : 'Western Australia');
 
 // NPC 头像：半身像，背景是他们的常驻地点。都是虚构角色：写「原创、不像任何真人或名人」，不写族裔，只写年龄、职业和穿着。
 // 画面方形，页面上只显示 56px，压成 256 宽

@@ -43,3 +43,12 @@ test('CGI：NPC 头像是方形小图（页面只显示 56px），不超过 40KB
 		assert.ok(statSync(file).size < 40_000, `${j.key} 太大`);
 	}
 });
+
+test('NPC 卡（页面模板）：「这里的人」用头像图，没有图才退回 SVG 立绘（合并社交分支时这张卡有冲突）', async () => {
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(src, /<div class="npc-head">\$\{portrait\(npc\.id\)\}/, 'NPC 卡用 portrait()');
+	const fn = src.slice(src.indexOf('function portrait(id: string)'), src.indexOf('function portrait(id: string)') + 300);
+	assert.match(fn, /const img = cgi\['npc:' \+ id\];/, '头像从 CGI 清单取');
+	assert.match(fn, /: portraitSvg\(id\);/, '没有图时退回 SVG');
+});

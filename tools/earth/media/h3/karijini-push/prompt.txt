@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic landscape, a red banded-rock gorge with a tall waterfall pouring into an emerald pool, warm late-afternoon light, with the rock walls, the waterfall and the composition shown in <Picture 1> preserved. From the first frame the waterfall pours steadily into the emerald pool and white spray drifts upward at its base. The camera pushes in with small amplitude at slow speed toward the waterfall and comes to rest on a slightly tighter wide shot of the falls and the pool in the final second. Gentle ripples spread across the pool, spinifex grass on the rocks sways slightly, and the rock walls stay still.
+
+overall_soundscape: The steady roar of a waterfall echoing in a rock gorge; splashing water and soft trickling near the pool edge.
+
+non_diegetic_music: N/A

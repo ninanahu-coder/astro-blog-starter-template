@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic a desert landscape at sunset, hundreds of tall limestone pillars rising from golden wind-rippled sand under a glowing sky, with the the limestone pillars, the sand ripples and the composition shown in <Picture 1> preserved. From the first frame long shadows stretch from the pillars across the sand and fine sand drifts low along the ground. The camera pushes in with small amplitude at slow speed toward the tallest pillars and comes to rest on a slightly tighter wide shot of the tall pillars in the final second. Clouds drift slowly across the glowing sky and the low shrubs in the foreground sway lightly in the wind, and the limestone pillars stay still.
+
+overall_soundscape: A dry desert wind and faint sand hiss; soft whisper of drifting sand.
+
+non_diegetic_music: N/A
