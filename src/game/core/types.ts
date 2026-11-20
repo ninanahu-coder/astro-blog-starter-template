@@ -26,6 +26,8 @@ export interface Effect {
 	items?: Record<string, number>;
 	/** 获得一个带时限的心情状态（见 data/moodlets.ts） */
 	moodlet?: string;
+	/** 这段时间在睡觉：饱食、娱乐、社交掉得慢，精力不降，恢复的精力乘恢复系数（见 core/vitals.ts） */
+	asleep?: boolean;
 }
 
 export interface MoodletDef {
@@ -35,6 +37,7 @@ export interface MoodletDef {
 	value: number; // 心情加减
 	hours: number; // 持续的游戏小时
 	gain?: number; // 生效期间所有能力成长的倍率（如「专注」1.25）
+	regen?: number; // 生效期间健康自然恢复的倍率（如「吃了维生素」2）
 }
 
 export interface Moodlet {
@@ -129,7 +132,7 @@ export interface Where {
 export interface CareerLevel {
 	title: string;
 	pay: number; // 每班工资
-	req?: { skills?: Partial<Skills>; respect?: number };
+	req?: { skills?: Partial<Skills>; respect?: number; certs?: string[] }; // certs：要持有的证书或学历 id（CertDef.id 或 ProgramDef.award）
 }
 
 export interface CareerDef {
@@ -190,6 +193,25 @@ export interface OwnedProperty {
 	lived?: boolean; // 自己搬进去住过：「搬了新家」每套房只给一次
 }
 
+/** 金融资产（第 25 批）：储蓄、指数基金、金条、虚拟币。价格按玩家私有的行情种子逐日生成，见 core/market.ts */
+export interface AssetDef {
+	id: string;
+	name: string;
+	icon: string;
+	kind: 'cash' | 'stock' | 'metal' | 'crypto';
+	start: number; // 第 0 天的单价
+	drift: number; // 年化期望收益（对数漂移），待平衡
+	vol: number; // 年化波动率，待平衡
+	fee: number; // 买入和卖出各收的手续费比例（含买卖价差）
+	desc: string;
+}
+
+/** 持有的一种资产：份数和累计成本（卖出时按比例扣减成本，界面算盈亏用） */
+export interface Holding {
+	units: number;
+	cost: number;
+}
+
 export interface FurnitureDef {
 	id: string;
 	slot: string;
@@ -245,6 +267,23 @@ export interface CertDef {
 	price: number;
 	minutes: number;
 	payBonus: number; // 持证时这份职业每班工资上涨的比例
+	where: Where;
+	hours: Hours;
+	desc: string;
+}
+
+/** 学历课程：要分多次上完的长课（语言班、TAFE、大学），上完拿到一个学历 id，记进 PlayerState.certs */
+export interface ProgramDef {
+	id: string;
+	name: string;
+	kind: 'language' | 'tafe' | 'uni';
+	sessions: number; // 一共要上几次课
+	minutes: number; // 每次课多久
+	fee: number; // 每次课的学费
+	needs?: string[]; // 报名前要持有的证书或学历 id
+	skills: Partial<Skills>; // 每次课的能力成长（传给 growSkill 的原始增量）
+	award: string; // 上完拿到的学历 id
+	respect: number; // 毕业时的声望
 	where: Where;
 	hours: Hours;
 	desc: string;
@@ -519,6 +558,9 @@ export interface PlayerState {
 	job: Job | null;
 	home: Home | null;
 	properties: OwnedProperty[];
+	holdings: Record<string, Holding>; // 资产 id -> 持仓（第 25 批）
+	quotes?: Record<string, number[]>; // 只在发给客户端的副本里有（publicState 填）：每种资产最近几天的价格，客户端没有行情种子，靠它显示行情
+	marketSeed: number; // 行情种子：创建时由服务端随机种子派生，不发给客户端（publicState 清零），否则能推算未来价格
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
 	moodlets: Moodlet[]; // 带时限的心情状态
 	wishes: string[]; // 今天还没完成的心愿 id
@@ -527,7 +569,9 @@ export interface PlayerState {
 	collected: string[]; // 已完成的收费体验 id
 	areas: string[]; // 已获得称号的体验片区 id：集齐时记下，之后加了新体验也不收回、不重复发奖
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
-	certs: string[]; // 已考到的职业证书 id（跟人走，换工作不丢）
+	certs: string[]; // 已考到的职业证书 id 和学历 id（跟人走，换工作不丢）
+	study: Record<string, { n: number; day: number }>; // 学历课程 id -> 已上几次、最近一次上课的游戏日
+	workLog: { f: number; min: number }; // 签证工时：第几个两周（游戏日 / 14）、这两周已上班的分钟（职业班次 + 零工）
 	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每 COOP_COOLDOWN_DAYS 天一次）
 	trades: { day: number; out: number; in: number }; // 玩家之间交易：这个现实日已送出 / 收下的次数
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领

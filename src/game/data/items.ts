@@ -9,6 +9,7 @@ export const ITEMS: ItemDef[] = [
 	{ id: 'water', name: '饮用水', icon: '💧', price: 3, max: 10, shop: { kinds: [...TOWNS] }, use: { needs: { hunger: 4, energy: 6 } }, cat: 'consumable', stores: ['convenience', 'supermarket'], desc: '内陆必备。' },
 	{ id: 'snack', name: '能量棒', icon: '🍫', price: 6, max: 10, shop: { kinds: [...TOWNS] }, use: { needs: { hunger: 25 } }, cat: 'consumable', stores: ['convenience', 'supermarket'], desc: '路上垫一口。' },
 	{ id: 'coffee', name: '外带咖啡', icon: '☕', price: 5, max: 3, shop: { kinds: ['city', 'port', 'town', 'coast'] }, use: { needs: { energy: 20 } }, cat: 'consumable', stores: ['cafe', 'convenience'], desc: '续命。' },
+	{ id: 'vitamins', name: '复合维生素', icon: '💊', price: 18, max: 3, shop: { kinds: ['city', 'town', 'mining'], tags: ['hospital'] }, use: { moodlet: 'vitamins' }, cat: 'consumable', stores: ['pharmacy', 'supermarket'], desc: '吃一片，之后 3 天吃饱睡足时健康恢复翻倍（数值待平衡）。' },
 	{ id: 'firstaid', name: '急救包', icon: '🩹', price: 35, max: 3, shop: { kinds: ['city', 'town', 'mining'], tags: ['hospital'] }, use: { health: 25 }, cat: 'consumable', stores: ['pharmacy', 'hardware'], desc: '处理擦伤和小伤。' },
 	{ id: 'flynet', name: '防蝇网帽', icon: '🪰', price: 12, max: 1, shop: { kinds: ['town', 'mining', 'outback'] }, passive: { survival: 3 }, cat: 'gear', stores: ['outdoor'], desc: '内陆生存检定 +3。' },
 	{ id: 'swag', name: '澳式睡袋', icon: '🛌', price: 120, max: 1, shop: { kinds: ['city', 'town', 'mining'] }, passive: { survival: 8 }, cat: 'gear', stores: ['outdoor'], desc: '露营专用，生存检定 +8。' },
