@@ -11,7 +11,8 @@
 		},
 		"perth": {
 			"src": "/earth/media/loc/perth.mp4",
-			"poster": "/earth/cgi/perth.webp"
+			"poster": "/earth/cgi/perth.webp",
+			"once": true
 		}
 	},
 	"voice": {

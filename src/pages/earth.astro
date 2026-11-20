@@ -2428,16 +2428,36 @@ const cardLines = guilloche(400, 260, 14, 9);
 				setHtml($('tabs'), `<div class="tabs-in">${TABS.map(([id, label, icon]) => `<button data-tab="${id}" class="${on(id) ? 'on' : ''}" ${on(id) ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}${id === 'social' && hereCount ? `<span class="badge" aria-label="这里有 ${hereCount} 位玩家在线">${hereCount}</span>` : ''}</button>`).join('')}</div>`);
 			}
 
-			// 地点短片：进入视口、页面可见、没开「减少动画」时才开始下载和播放（preload=none），离开视口就暂停
+			// 地点短片：进入视口、页面可见、没开「减少动画」时才开始下载和播放（preload=none），离开视口就暂停。
+			// 重绘面板时沿用正在播的同一段短片（不从头开始）；once 的短片（到达时的推镜）每次到达只播一次，播完停在末帧
 			let clipObs: IntersectionObserver | null = null;
-			function wireClips() {
+			const onceDone = new Set<string>();
+			let clipLoc = '';
+			const onceOver = (v: HTMLVideoElement) => !!v.dataset.once && (v.ended || onceDone.has(v.getAttribute('src') ?? ''));
+			function wireClips(prev: HTMLVideoElement | null) {
 				if (typeof IntersectionObserver !== 'function' || typeof document.querySelectorAll !== 'function') return;
-				const vids = document.querySelectorAll<HTMLVideoElement>('#panel video.loc-clip');
+				const loc = state?.loc ?? '';
+				if (loc !== clipLoc) { onceDone.clear(); clipLoc = loc; }
+				let vids = [...document.querySelectorAll<HTMLVideoElement>('#panel video.loc-clip')];
+				const same = prev && vids.find((v) => v.getAttribute('src') === prev.getAttribute('src'));
+				if (prev && same) { same.replaceWith(prev); vids = vids.map((v) => (v === same ? prev : v)); }
 				if (!vids.length || document.documentElement?.classList?.contains('calm')) return;
+				for (const v of vids) {
+					if (!v.dataset.once || v.dataset.wired) continue;
+					v.dataset.wired = '1';
+					const src = v.getAttribute('src') ?? '';
+					v.addEventListener('ended', () => onceDone.add(src));
+					// 这次到达已经播过（面板重绘出了新元素）：直接停在末帧，不再播
+					if (onceDone.has(src)) {
+						v.addEventListener('loadedmetadata', () => { v.currentTime = Math.max(0, v.duration - 0.05); }, { once: true });
+						v.preload = 'auto';
+						v.load();
+					}
+				}
 				clipObs ??= new IntersectionObserver((list) => {
 					for (const en of list) {
 						const v = en.target as HTMLVideoElement;
-						if (en.isIntersecting && !document.hidden) v.play().catch(() => {});
+						if (en.isIntersecting && !document.hidden && !onceOver(v)) v.play().catch(() => {});
 						else v.pause();
 					}
 				}, { threshold: 0.4 });
@@ -2452,8 +2472,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderMap();
 				renderHud();
 				const html = { place: panelPlace, near: () => goSeg() + panelNear(), go: () => goSeg() + panelGo(), grow: () => panelMe('grow'), me: () => panelMe(), social: panelSocial }[tab]!();
+				const prevClip = typeof document.querySelector === 'function' ? document.querySelector<HTMLVideoElement>('#panel video.loc-clip') : null;
 				setHtml($('panel'), html);
-				wireClips();
+				wireClips(prevClip);
 				const chat = document.getElementById('chat');
 				if (chat) chat.scrollTop = chat.scrollHeight;
 			}

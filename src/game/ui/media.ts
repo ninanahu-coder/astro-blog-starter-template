@@ -2,7 +2,8 @@
 // 清单 public/earth/media/manifest.json 在页面起来后异步拉取，不进首屏；没有的项一律退回静态图 / 纯文字。
 // 清单内容当不可信数据：路径只认 /earth/media/ 下的固定格式，文字只当纯文本，拼 HTML 时一律过 esc。
 
-export interface LocClip { src: string; poster?: string }
+/** once：只播一次、停在末帧（推镜这类首尾不同的片子，见 aigc-media.md §6.3）；不写就是静音循环 */
+export interface LocClip { src: string; poster?: string; once?: boolean }
 export interface VoiceLine { src: string; text: string }
 export interface MediaManifest { loc: Record<string, LocClip>; voice: Record<string, VoiceLine> }
 
@@ -25,7 +26,7 @@ export function parseMedia(raw: unknown): MediaManifest {
 		for (const [k, v] of Object.entries(r.loc as Record<string, unknown>)) {
 			const c = v as Partial<LocClip> | null;
 			if (!KEY.test(k) || !c || typeof c.src !== 'string' || !CLIP.test(c.src)) continue;
-			out.loc[k] = { src: c.src, ...(typeof c.poster === 'string' && POSTER.test(c.poster) ? { poster: c.poster } : {}) };
+			out.loc[k] = { src: c.src, ...(typeof c.poster === 'string' && POSTER.test(c.poster) ? { poster: c.poster } : {}), ...(c.once === true ? { once: true } : {}) };
 		}
 	}
 	if (r.voice && typeof r.voice === 'object') {
@@ -40,11 +41,11 @@ export function parseMedia(raw: unknown): MediaManifest {
 
 type Esc = (s: unknown) => string;
 
-/** 地点主视觉：有短片放静音循环短片（preload=none，进入视口且没开「减少动画」才播），否则静态图，再否则 fallback */
+/** 地点主视觉：有短片放静音短片（preload=none，进入视口且没开「减少动画」才播；once 的只播一次停在末帧，其余循环），否则静态图，再否则 fallback */
 export function heroHtml(esc: Esc, clip: LocClip | undefined, img: string | undefined, fallback: string): string {
 	const poster = clip?.poster ?? img;
 	if (clip) {
-		return `<div class="hero has-media"><video class="loc-clip" src="${esc(clip.src)}"${poster ? ` poster="${esc(poster)}"` : ''} muted loop playsinline preload="none" disablepictureinpicture aria-hidden="true" tabindex="-1"></video><span class="ai-tag">AI 生成示意</span></div>`;
+		return `<div class="hero has-media"><video class="loc-clip" src="${esc(clip.src)}"${poster ? ` poster="${esc(poster)}"` : ''} muted${clip.once ? ' data-once="1"' : ' loop'} playsinline preload="none" disablepictureinpicture aria-hidden="true" tabindex="-1"></video><span class="ai-tag">AI 生成示意</span></div>`;
 	}
 	if (img) return `<div class="hero has-media"><img src="${esc(img)}" alt="" loading="lazy" /><span class="ai-tag">AI 生成示意</span></div>`;
 	return `<div class="hero">${fallback}</div>`;

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """把远程 H3 出的地点短片压成网页用的小文件，并写进 public/earth/media/manifest.json。
 用法：python3 tools/earth/media/encode-clips.py perth karijini busselton
-输入 tools/earth/media/h3/<地点>/clips/seg1.mp4（h3v2 poll 下载的原片，不进仓库）；
+     python3 tools/earth/media/encode-clips.py --once perth@perth-push   （只播一次的推镜版：不做循环淡化，清单写 once: true）
+输入 tools/earth/media/h3/<地点或 @ 后的目录>/clips/seg1.mp4（h3v2 poll 下载的原片，不进仓库）；
 输出 public/earth/media/loc/<地点>.mp4：H.264 640×360、24fps、去掉音轨（页面上静音循环播放）、首尾 0.5 秒交叉淡化成无缝循环、faststart，单个 ≤ 1MB。
 另抽 6 张等距帧拼成 tools/earth/media/h3/<地点>/contact.jpg 供逐帧目检（不进仓库）。"""
 import json, subprocess, sys
@@ -15,11 +16,14 @@ MAX = 1_000_000
 
 def run(cmd): subprocess.run(cmd, check=True, capture_output=True)
 
-def main(locs):
+def main(args):
+    once = '--once' in args
+    locs = [x for x in args if x != '--once']
     OUT.mkdir(parents=True, exist_ok=True)
     m = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {'note': 'AI 生成示意内容（视频：远程 ComfyUI MiniMax H3；语音：MiniMax TTS），不是实拍、不是真人录音。', 'loc': {}, 'voice': {}}
-    for loc in locs:
-        src = H3 / loc / 'clips/seg1.mp4'
+    for arg in locs:
+        loc, _, d = arg.partition('@'); d = d or loc
+        src = H3 / d / 'clips/seg1.mp4'
         if not src.exists(): sys.exit(f'{loc}: 缺原片 {src}')
         dst = OUT / f'{loc}.mp4'
         L = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', str(src)], capture_output=True, text=True).stdout)
@@ -30,6 +34,7 @@ def main(locs):
         F = 1 / 24; H = X + F
         loop = (f'[0:v]scale=640:360:flags=lanczos,fps=24,format=yuv420p,split[a][b];[a]trim=start={H:.4f},setpts=PTS-STARTPTS[body];'
                 f'[b]trim=end={H:.4f},setpts=PTS-STARTPTS[head];[body][head]xfade=transition=fade:duration={X}:offset={L - H - X:.4f},format=yuv420p[v]')
+        if once: loop = '[0:v]scale=640:360:flags=lanczos,fps=24,format=yuv420p[v]'   # 播一次停在末帧：整段原样压
         for crf in (22, 25, 28, 31, 34, 37):
             run(['ffmpeg', '-y', '-v', 'error', '-i', str(src), '-an', '-filter_complex', loop, '-map', '[v]',
                  '-c:v', 'libx264', '-preset', 'slow', '-crf', str(crf), '-profile:v', 'main', '-movflags', '+faststart', str(dst)])
@@ -37,9 +42,9 @@ def main(locs):
         size = dst.stat().st_size
         if size > MAX: sys.exit(f'{loc}: 压到 crf 37 仍有 {size} 字节')
         dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', str(dst)], capture_output=True, text=True).stdout)
-        run(['ffmpeg', '-y', '-v', 'error', '-i', str(src), '-vf', f'fps=6/{dur:.3f},scale=480:-2,tile=2x3', '-frames:v', '1', str(H3 / loc / 'contact.jpg')])
-        m['loc'][loc] = {'src': f'/earth/media/loc/{loc}.mp4', 'poster': f'/earth/cgi/{loc}.webp'}
-        print(f'✓ {loc} {size / 1000:.0f}KB crf{crf} {dur:.2f}s')
+        run(['ffmpeg', '-y', '-v', 'error', '-i', str(src), '-vf', f'fps=6/{dur:.3f},scale=480:-2,tile=2x3', '-frames:v', '1', str(H3 / d / 'contact.jpg')])
+        m['loc'][loc] = {'src': f'/earth/media/loc/{loc}.mp4', 'poster': f'/earth/cgi/{loc}.webp', **({'once': True} if once else {})}
+        print(f'✓ {loc}{" (once)" if once else ""} {size / 1000:.0f}KB crf{crf} {dur:.2f}s')
     m['loc'] = dict(sorted(m['loc'].items())); m['voice'] = dict(sorted(m.get('voice', {}).items()))
     MANIFEST.write_text(json.dumps(m, ensure_ascii=False, indent='\t') + '\n')
 

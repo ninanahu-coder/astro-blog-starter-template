@@ -18,6 +18,7 @@ test('媒体清单：过滤后一项不少（清单里没有格式不对的项�
 	assert.deepEqual(Object.keys(media.loc).sort(), Object.keys(raw.loc).sort());
 	assert.deepEqual(Object.keys(media.voice).sort(), Object.keys(raw.voice).sort());
 	assert.match(raw.note, /AI 生成/);
+	for (const [k, c] of Object.entries(raw.loc as Record<string, { once?: unknown }>)) assert.equal(media.loc[k].once, c.once === true ? true : undefined, `${k} 的 once 没保留`);
 });
 
 test('地点短片：键是真实地点，文件在、不超过约 1MB，封面图在', () => {
@@ -52,10 +53,11 @@ test('台词表：17 位常驻 NPC 各一条，1–2 句，都有音色', () => 
 
 test('parseMedia：外部地址、路径穿越、脚本地址、空文字都丢掉', () => {
 	const m = parseMedia({
-		loc: { a: { src: 'https://evil.example/x.webm' }, b: { src: '/earth/media/loc/../x.webm' }, c: { src: 'javascript:alert(1)' }, 'D!': { src: '/earth/media/loc/d.webm' }, ok: { src: '/earth/media/loc/ok.webm', poster: 'https://x/y.webp' } },
+		loc: { o: { src: '/earth/media/loc/o.mp4', once: 'yes' }, a: { src: 'https://evil.example/x.webm' }, b: { src: '/earth/media/loc/../x.webm' }, c: { src: 'javascript:alert(1)' }, 'D!': { src: '/earth/media/loc/d.webm' }, ok: { src: '/earth/media/loc/ok.webm', poster: 'https://x/y.webp' } },
 		voice: { a: { src: '/earth/media/voice/a.mp3', text: '  ' }, b: { src: '/earth/media/voice/b.wav', text: '你好' }, c: { src: '/earth/media/voice/c.mp3', text: 3 } },
 	});
-	assert.deepEqual(m, { loc: { ok: { src: '/earth/media/loc/ok.webm' } }, voice: {} });
+	assert.deepEqual(m, { loc: { o: { src: '/earth/media/loc/o.mp4' }, ok: { src: '/earth/media/loc/ok.webm' } }, voice: {} });
+	assert.equal(parseMedia({ loc: { o: { src: '/earth/media/loc/o.mp4', once: true } } }).loc.o.once, true);
 	assert.deepEqual(parseMedia(null), { loc: {}, voice: {} });
 	assert.deepEqual(parseMedia('x'), { loc: {}, voice: {} });
 });
@@ -71,6 +73,11 @@ test('heroHtml：有短片放静音循环、不预载、不自动播放；没有
 	assert.match(img, /AI 生成示意/);
 	assert.equal(heroHtml(esc, undefined, undefined, '🏙'), '<div class="hero">🏙</div>');
 	assert.doesNotMatch(heroHtml(esc, { src: '"><script>' }, undefined, ''), /<script>/);
+	// 只播一次的推镜版：不循环、不自动播放、不预载，带 data-once 给页面识别
+	const once = heroHtml(esc, { src: '/earth/media/loc/perth.mp4', once: true }, '/earth/cgi/perth.webp', '🏙');
+	assert.match(once, /<video [^>]*muted data-once="1" playsinline preload="none"/);
+	assert.doesNotMatch(once, /\bloop\b|autoplay/);
+	assert.match(once, /AI 生成示意/);
 });
 
 test('greetHtml：文字转义、按钮点了才播、标明 AI 语音；没有语音就什么都不加', () => {
@@ -88,4 +95,7 @@ test('页面：媒体清单异步拉取，地点主视觉和 NPC 卡片走 media
 	assert.match(page, /heroHtml\(esc, media\.loc\[key\]/);
 	assert.match(page, /greetHtml\(esc, npc\.id, npc\.name, media\.voice\[npc\.id\]\)/);
 	assert.doesNotMatch(page, /import [^;]*media\/manifest\.json/);
+	// 重绘沿用正在播的短片；once 的播完（或这次到达已播过）不再 play
+	assert.match(page, /wireClips\(prevClip\)/);
+	assert.match(page, /!onceOver\(v\)\) v\.play\(\)/);
 });
