@@ -221,3 +221,11 @@ test('小雨天土路慢 30%', () => {
 	const m = (day: number) => travelOptions(make({ loc: 'exmouth', vehicle: '4wd', cash: 5000, clock: at(9, day) }), WA).find((o) => o.to === 'karijini')!.minutes;
 	assert.ok(Math.abs(m(rain) - m(sunny) * 1.3) <= 1, `${m(sunny)} → ${m(rain)}`);
 });
+
+test('页面：显示车辆残值的地方都带上里程（不带就是新车价，和净资产对不上）', async () => {
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	const calls = [...src.matchAll(/resaleValue\(([^()]*)\)/g)].map((m) => m[1]);
+	assert.ok(calls.length >= 1, '页面里找不到 resaleValue 调用');
+	assert.deepEqual(calls.filter((a) => !a.includes(',')), [], '这些调用没传里程');
+});
