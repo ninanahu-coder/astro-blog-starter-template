@@ -1313,7 +1313,11 @@ test('界面：没有存档时显示创建页，选完四步能创建角色并�
 		assert.match(el('c-origins').innerHTML, /ac-opt on" data-origin="fifo"[\s\S]*?\$2500/);
 		const ava = pickIn('c-avatars', 'avatar')[2];
 		await tap({ avatar: ava });
-		assert.equal(el('c-photo').textContent, ava);
+		// 照片栏：证件照按「出身-形象下标」取，emoji 垫在下面做加载失败的后备
+		assert.match(el('c-photo').innerHTML, new RegExp(`<span class="ac-photo-emoji">${ava}</span><img class="ac-photo-img" src="/earth/char/fifo-2\\.webp" alt=""`));
+		await tap({ origin: 'surfer' });
+		assert.match(el('c-photo').innerHTML, /src="\/earth\/char\/surfer-2\.webp"/, '换出身，证件照跟着换');
+		await tap({ origin: 'fifo' });
 		await tap({ trait: pickIn('c-traits', 'trait')[0] });
 		const second = pickIn('c-traits', 'trait').find((t) => !el('c-traits').innerHTML.includes(`trait on" data-trait="${t}"`));
 		await tap({ trait: second! });

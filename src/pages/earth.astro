@@ -226,7 +226,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			#create input { width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 6px; border: 1.5px solid var(--ink-p); background: #fff; color: var(--pen); font-size: 18px; font-weight: 700; caret-color: var(--pen); }
 			#create input::placeholder { color: #5a687d; font-weight: 400; font-size: 15px; }
 			.ac-photo { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: start; }
-			.ac-photo-box { width: 96px; height: 120px; border: 1.5px solid var(--ink-p); background: #fff; display: flex; align-items: center; justify-content: center; font-size: 60px; line-height: 1; }
+			.ac-photo-box { position: relative; overflow: hidden; width: 96px; height: 120px; border: 1.5px solid var(--ink-p); background: #fff; display: flex; align-items: center; justify-content: center; font-size: 60px; line-height: 1; }
+			.ac-photo-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; background: #fff; }
 			.ac-avatars { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
 			.ac-ava { min-height: 44px; padding: 0; border-radius: 8px; border: 1px solid var(--rule-2); background: var(--stock-2); font-size: 24px; cursor: pointer; }
 			.ac-ava.on { border: 2px solid var(--pen); background: var(--pen-bg); }
@@ -678,6 +679,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { setHtml } from '../game/ui/dom.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
+			import { photoHtml } from '../game/ui/char.ts';
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
 			import { codeOf, exportName, hashAction, makeQr, parseCred, parsePendingKey, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, webglSupported, type Basemap } from '../game/ui/basemap.ts';
@@ -2833,7 +2835,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			let pickTraits: string[] = [];
 			function renderCreate() {
 				$('c-avatars').innerHTML = AVATARS.map((a) => `<button class="ac-ava${a === pickAvatar ? ' on' : ''}" data-avatar="${a}" aria-pressed="${a === pickAvatar}" aria-label="照片 ${a}">${a}</button>`).join('');
-				$('c-photo').textContent = pickAvatar;
+				$('c-photo').innerHTML = photoHtml(pickOrigin, pickAvatar);
 				$('c-origins').innerHTML = ORIGINS.map((o) => `<button class="ac-opt${o.id === pickOrigin ? ' on' : ''}" data-origin="${o.id}" aria-pressed="${o.id === pickOrigin}"><span class="ac-box" aria-hidden="true"></span><span><b>${o.icon} ${esc(o.name)}</b><small>${esc(o.desc)}</small></span><span class="ac-fx">$${o.cash}${o.vehicle !== 'none' ? '<small><br>有车</small>' : ''}</span></button>`).join('');
 				// 起步能力：出身没写的项从 5 开始（和 createPlayer 一致）；指针 0–100 映射到 -60°…60°
 				const og = ORIGINS.find((o) => o.id === pickOrigin) ?? ORIGINS[0];
