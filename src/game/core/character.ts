@@ -30,6 +30,7 @@ import { FISH } from '../data/fish.ts';
 import { PHOTO_QUESTS } from '../data/photo-quests.ts';
 import { STORY } from '../data/story.ts';
 import { NPC_DUOS } from '../data/npc-duos.ts';
+import { CONFIDANT } from '../data/relations.ts';
 import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
@@ -565,7 +566,7 @@ function cleanRelations(raw: unknown): Record<string, Relation> {
 		const r = (raw as Record<string, any>)[npc.id];
 		if (!r || typeof r !== 'object') continue;
 		const last: Relation['last'] = {};
-		for (const k of ['chat', 'gift', 'help', 'perk'] as const) {
+		for (const k of ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond'] as const) {
 			const d = r.last?.[k];
 			if (typeof d === 'number' && Number.isFinite(d) && d >= 0) last[k] = Math.floor(d);
 		}
@@ -576,6 +577,14 @@ function cleanRelations(raw: unknown): Record<string, Relation> {
 			: gates.filter((g) => g <= score || (r.bonded === true && g <= 60));
 		const known = Array.isArray(r.known) ? [...new Set(r.known.filter((i: unknown) => typeof i === 'string' && items.has(i)))] as string[] : [];
 		out[npc.id] = { score, last, seen, known };
+		// 知己（第 29 批）：日子是非负整数才保留；同时最多 CONFIDANT.max 位，超出的按 NPC 表顺序丢掉
+		const day = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.min(1e7, Math.floor(v)) : undefined);
+		const bond = day(r.bond);
+		if (bond !== undefined && Object.values(out).filter((x) => x.bond !== undefined).length < CONFIDANT.max) {
+			out[npc.id].bond = bond;
+			const told = day(r.told);
+			if (told !== undefined) out[npc.id].told = told;
+		}
 	}
 	return out;
 }

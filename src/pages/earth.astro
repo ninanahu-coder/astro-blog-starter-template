@@ -685,6 +685,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
 			import { codeOf, exportName, hashAction, makeQr, parseCred, parsePendingKey, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, webglSupported, type Basemap } from '../game/ui/basemap.ts';
+			import { favorToday, isFading } from '../game/core/relations.ts';
 			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, animalHint, seasonAnimals, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, bondFor, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { credentialName, VISA } from '../game/data/education.ts';
@@ -1864,11 +1865,13 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const n = NPCS.find((x) => x.id === npcId)!;
 					return getRelation(s, npcId).known.includes(itemId) ? `（${GIFT_LABEL[giftReaction(n, itemId)]}）` : '';
 				};
-				const peopleHtml = people.length || absent.length ? `<div class="card"><h3>这里的人</h3>${people.map(({ npc, rel, tier, blocked, nextStory }) => `
+				const peopleHtml = people.length || absent.length ? `<div class="card"><h3>这里的人</h3>${people.map(({ npc, rel, tier, blocked, nextStory, favor, fading, confidant }) => `
 					<div class="npc-talk"><div class="npc-head">${portraitSvg(npc.id)}<div class="npc-name"><b>${esc(npc.name)}</b><small>${esc(npc.role)}</small></div>
-					<div class="npc-rel"><small>${tier} · ${Math.round(rel.score)}/100</small><div class="bar" role="progressbar" aria-label="和${esc(npc.name)}的关系" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(rel.score)}"><i style="width:${Math.round(Math.max(0, Math.min(100, rel.score)))}%"></i></div></div></div>
+					<div class="npc-rel"><small>${confidant ? '🫶 知己' : tier} · ${Math.round(rel.score)}/100</small><div class="bar" role="progressbar" aria-label="和${esc(npc.name)}的关系" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(rel.score)}"><i style="width:${Math.round(Math.max(0, Math.min(100, rel.score)))}%"></i></div></div></div>
 					<p class="bubble">${esc(npc.bio)}</p>${greetHtml(esc, npc.id, npc.name, media.voice[npc.id])}
-					<div class="inline talk-choices">${(['chat', 'help'] as const).map((a) => `<button data-npc="${npc.id}" data-npc-act="${a}" ${blocked[a] ? `disabled title="${esc(blocked[a])}"` : ''}>${{ chat: '聊天', help: '帮忙' }[a]}</button>`).join('')}${npc.perk ? `<button data-npc="${npc.id}" data-npc-act="perk" ${blocked.perk ? `disabled title="${esc(blocked.perk)}"` : ''}>✨ ${esc(npc.perk.name)}</button>` : ''}</div>
+					${favor ? `<p class="bubble">🙋 ${esc(favor.ask)}</p>` : ''}
+					${fading ? `<p class="muted" style="margin-top:4px">好久没来往了，关系在慢慢变淡。</p>` : ''}
+					<div class="inline talk-choices">${(['chat', 'help'] as const).map((a) => `<button data-npc="${npc.id}" data-npc-act="${a}" ${blocked[a] ? `disabled title="${esc(blocked[a])}"` : ''}>${{ chat: '聊天', help: '帮忙' }[a]}</button>`).join('')}${npc.perk ? `<button data-npc="${npc.id}" data-npc-act="perk" ${blocked.perk ? `disabled title="${esc(blocked.perk)}"` : ''}>✨ ${esc(npc.perk.name)}</button>` : ''}${favor ? `<button data-npc="${npc.id}" data-npc-act="favor" ${blocked.favor ? `disabled title="${esc(blocked.favor)}"` : ''}>🙋 帮忙带 ${getItem(favor.item)?.icon ?? ''} ${esc(getItem(favor.item)?.name ?? '')} ×${favor.qty}</button>` : ''}${'bond' in blocked ? `<button data-npc="${npc.id}" data-npc-act="bond" ${blocked.bond ? `disabled title="${esc(blocked.bond)}"` : ''}>🫶 结为知己</button>` : ''}${confidant ? `<button data-npc="${npc.id}" data-npc-act="unbond">解除知己</button>` : ''}</div>
 					${bagIds.length ? `<div class="inline" style="margin-top:6px"><span class="muted">送礼：</span>${bagIds.map((id) => `<button data-npc="${npc.id}" data-npc-act="gift" data-npc-item="${id}" ${blocked.gift ? `disabled title="${esc(blocked.gift)}"` : ''}>${getItem(id)!.icon} ${esc(getItem(id)!.name)}${giftLabel(npc.id, id)}</button>`).join('')}</div>` : ''}
 					${Object.values(blocked).some(Boolean) ? `<p style="margin-top:4px">${esc([...new Set(Object.values(blocked).filter(Boolean))].join('；'))}</p>` : ''}
 					${nextStory !== undefined ? `<p style="margin-top:4px" class="muted">关系到 ${nextStory}（${relationTier(nextStory)}）会有新故事。</p>` : ''}</div>`).join('')}
@@ -2100,7 +2103,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const plan = npcStatus(npc, s.clock).plan;
 					const where = `今天在${getLocation(region, plan.loc)?.name ?? ''} ${hoursLabel(plan.hours)}`;
 					const known = r.known.map((i) => `${getItem(i)?.icon ?? ''}${GIFT_LABEL[giftReaction(npc, i)]}`).join(' ');
-					return `<div class="skill"><span></span><div>${esc(npc.name)} <span class="muted">${esc(npc.role)} · ${esc(where)} · 故事 ${r.seen.length}/${npc.stories.length}${known ? ` · ${esc(known)}` : ''}</span><div class="bar"><i style="width:${Math.max(0, r.score)}%"></i></div></div><b title="${relationTier(r.score)}">${relationTier(r.score)}</b></div>`;
+					return `<div class="skill"><span></span><div>${esc(npc.name)} <span class="muted">${esc(npc.role)} · ${esc(where)} · 故事 ${r.seen.length}/${npc.stories.length}${known ? ` · ${esc(known)}` : ''}</span><div class="bar"><i style="width:${Math.max(0, r.score)}%"></i></div></div><b title="${relationTier(r.score)}">${r.bond !== undefined ? '🫶 知己' : relationTier(r.score)}</b></div>`;
 				}).join('');
 				const bag = Object.entries(s.inventory).map(([id, n]) => {
 					const it = getItem(id);
@@ -2343,7 +2346,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const { plan, state: st } = npcStatus(npc, s.clock);
 					const where = getLocation(region, plan.loc)?.name ?? '';
 					const here = presentIds.has(npc.id);
-					const sub = `${relationTier(r.score)} ${Math.round(r.score)} · ${here ? '就在这里' : `${esc(where)} ${hoursLabel(plan.hours)}${st === 'after' ? '（今天已经走了）' : ''}`}${plan.note ? ` · ${esc(plan.note)}` : ''}`;
+					const ask = favorToday(s, npc.id, dayOf(s.clock));
+					const sub = `${ask ? `🙋 想托你带${esc(getItem(ask.item)?.name ?? '')} · ` : ''}${isFading(r, dayOf(s.clock)) ? '好久没见 · ' : ''}${r.bond !== undefined ? '🫶 知己' : relationTier(r.score)} ${Math.round(r.score)} · ${here ? '就在这里' : `${esc(where)} ${hoursLabel(plan.hours)}${st === 'after' ? '（今天已经走了）' : ''}`}${plan.note ? ` · ${esc(plan.note)}` : ''}`;
 					return here
 						? `<button class="row" data-tab="place"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta"><b>去打招呼</b></span></button>`
 						: plan.loc === s.loc
@@ -2669,6 +2673,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const text = QUICK_CHAT[+d.quick];
 					if (text && ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'chat', text }));
 				}
+				else if (d.npc && d.npcAct && d.npcAct === 'unbond' && !confirm('确定不再算知己？关系分数不变，但会重新开始变淡，7 天内不能再结。')) return;
 				else if (d.npc && d.npcAct) act(d.npcItem ? { t: 'npc', npc: d.npc, act: 'gift', item: d.npcItem } : { t: 'npc', npc: d.npc, act: d.npcAct as NpcAction }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.veh) {
 					if (d.veh === 'sell' && !confirm('确定把车卖掉？')) return;

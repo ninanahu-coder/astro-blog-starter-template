@@ -114,13 +114,16 @@ export interface NpcDef {
 	perk?: NpcPerk;
 }
 
-export type NpcAction = 'chat' | 'gift' | 'help' | 'perk';
+/** favor：帮个小忙；bond / unbond：结为知己、解除知己（第 29 批） */
+export type NpcAction = 'chat' | 'gift' | 'help' | 'perk' | 'favor' | 'bond' | 'unbond';
 
 export interface Relation {
 	score: number; // −100..100
 	last: Partial<Record<NpcAction, number>>; // 每种互动最近一次的游戏日
 	seen: number[]; // 已触发过的剧情门槛
 	known: string[]; // 已经知道 TA 反应的物品 id（送过一次就知道）
+	bond?: number; // 结为知己的游戏日（第 29 批）；没结或已解除时没有这个键
+	told?: number; // 最近一次听 TA 讲近况的游戏日（第 29 批，只有知己会讲）
 }
 
 // ---------- 职业与住房 ----------
