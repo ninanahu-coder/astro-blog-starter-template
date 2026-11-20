@@ -7,7 +7,7 @@ import { ITEMS } from '../data/items.ts';
 import { MAX_TRAITS } from '../data/traits.ts';
 import { NPCS } from '../data/npcs.ts';
 import { CAREERS } from '../data/careers.ts';
-import { HOMES } from '../data/housing.ts';
+import { BOND_WEEKS, HOMES } from '../data/housing.ts';
 import { CAR_KM_MAX, VEHICLES } from '../data/vehicles.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
@@ -527,7 +527,10 @@ function cleanEstate(r: any, knownLocs?: Set<string>): { properties: OwnedProper
 	if (home && typeof r.home.owned === 'string') {
 		const def = PROPERTIES.find((p) => p.id === r.home.owned);
 		const mine = properties.find((p) => p.id === r.home.owned);
-		if (def && mine && !mine.rented && def.loc === home.loc && def.homeType === home.type) home.owned = def.id;
+		if (def && mine && !mine.rented && def.loc === home.loc && def.homeType === home.type) {
+			home.owned = def.id;
+			Reflect.deleteProperty(home, 'bond'); // 自有房没有押金
+		}
 		else home = null;
 	}
 	return { properties, home };
@@ -535,12 +538,15 @@ function cleanEstate(r: any, knownLocs?: Set<string>): { properties: OwnedProper
 
 function cleanHome(raw: any, knownLocs?: Set<string>): Home | null {
 	if (!raw || typeof raw !== 'object') return null;
-	if (!HOMES.some((h) => h.id === raw.type) || typeof raw.loc !== 'string' || (knownLocs && !knownLocs.has(raw.loc))) return null;
+	const def = HOMES.find((h) => h.id === raw.type);
+	if (!def || typeof raw.loc !== 'string' || (knownLocs && !knownLocs.has(raw.loc))) return null;
 	const furniture: Record<string, string> = {};
 	if (raw.furniture && typeof raw.furniture === 'object') {
 		for (const f of FURNITURE) if (raw.furniture[f.slot] === f.id) furniture[f.slot] = f.id;
 	}
-	return { type: raw.type, loc: raw.loc, furniture };
+	// 押金（第 26 批）：不超过这种房型该交的押金；旧存档没有，按 0 算（当初没交过，也不退）
+	const bond = Math.floor(num(raw.bond, 0, Math.round(def.rentWeek * (def.bondWeeks ?? BOND_WEEKS)), 0));
+	return { type: def.id, loc: raw.loc, furniture, ...(bond ? { bond } : {}) };
 }
 
 /**

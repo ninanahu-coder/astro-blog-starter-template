@@ -13,11 +13,12 @@ import { SHOP_RULES } from '../data/shops.ts';
 import { buyPrice, markdownNow, sellItemBlocked, sellPrice } from './shop.ts';
 import { NPCS } from '../data/npcs.ts';
 import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../data/careers.ts';
-import { HOMES } from '../data/housing.ts';
+import { BOND_WEEKS, HOMES } from '../data/housing.ts';
+import { areaOf } from '../data/areas-base.ts';
 import { PROPERTIES } from '../data/properties.ts';
-import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, saleProceeds, weeklyInterest, weeklyPrincipal } from './finance.ts';
+import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, saleProceeds, vehicleDuty, weeklyInterest, weeklyPrincipal } from './finance.ts';
 import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } from '../data/furniture.ts';
-import { BREAKDOWN, CAR_KM_MAX, DEALER_HOURS, DEALER_TAG, GARAGE, SERVICE_KM, VEHICLES } from '../data/vehicles.ts';
+import { BREAKDOWN, CAR_KM_MAX, DEALER_HOURS, DEALER_TAG, DEPRECIATION, GARAGE, SERVICE_KM, VEHICLES } from '../data/vehicles.ts';
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
 import { credentialName, VISA_GIGS } from '../data/education.ts';
@@ -222,6 +223,8 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 	const straight = haversineKm(from.lat, from.lon, to.lat, to.lon);
 	let km = straight, minutes = 0, cost = 0, label = '', available = true;
 	let reason: string | undefined;
+	// 第 26 批（待平衡）：出发地当天的天气影响陆路耗时，风暴天土路封闭、渡轮停航
+	const wx = weatherOn(from.id, dayOf(state.clock));
 	if (r.mode === 'air') {
 		minutes = 60 + (km / 750) * 60;
 		cost = 120 + km * 0.25;
@@ -230,6 +233,7 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 		minutes = 45;
 		cost = 40;
 		label = '⛴️ 渡轮';
+		if (wx.closesSea) { available = false; reason = `今天${wx.name}，渡轮停航`; }
 	} else {
 		km = straight * 1.25; // 公路绕行系数
 		const v = getVehicle(state.vehicle);
@@ -237,15 +241,16 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 			label = `${v?.icon ?? '🚙'} 越野土路`;
 			const speed = v?.trackSpeed ?? 0;
 			if (!speed) { available = false; reason = '需要能走土路的车（四驱或露营车）'; }
-			minutes = (km / ((speed || 55) + state.skills.driving * 0.15)) * 60;
+			else if (wx.road?.trackClosed) { available = false; reason = `今天${wx.name}，土路封闭`; }
+			minutes = (km / ((speed || 55) + state.skills.driving * 0.15)) * 60 * (wx.road?.trackMult ?? 1);
 			cost = km * (v?.costPerKm ?? 0.22);
 		} else if (!v) {
 			label = '🚌 长途巴士';
-			minutes = (km / 70) * 60 + 20;
+			minutes = (km / 70) * 60 * (wx.road?.mult ?? 1) + 20;
 			cost = 8 + km * 0.12;
 		} else {
 			label = `${v.icon} 自驾`;
-			minutes = (km / (v.speed + state.skills.driving * 0.25)) * 60;
+			minutes = (km / (v.speed + state.skills.driving * 0.25)) * 60 * (wx.road?.mult ?? 1);
 			cost = km * v.costPerKm;
 		}
 	}
@@ -1028,13 +1033,23 @@ export function furnitureValue(state: PlayerState): number {
 	return Object.values(state.home.furniture).reduce((sum, id) => sum + Math.round((getFurniture(id)?.price ?? 0) * FURNITURE_RESALE), 0);
 }
 
-/** 离开住处：家具半价折现 */
-function vacate(state: PlayerState): number {
+/** 租房押金：周租 × 押金周数（房型的 bondWeeks，默认 BOND_WEEKS） */
+export function bondFor(home: HomeDef): number {
+	return Math.round(home.rentWeek * (home.bondWeeks ?? BOND_WEEKS));
+}
+
+/** 离开住处：家具半价折现，押金退回（arrears：先从押金里扣的欠租）。返回家具折现，退回的押金写进 refund */
+function vacate(state: PlayerState, arrears = 0, refund?: { bond: number }): number {
 	const got = furnitureValue(state);
-	state.cash += got;
+	const bond = Math.max(0, (state.home?.bond ?? 0) - arrears);
+	state.cash += got + bond;
+	if (refund) refund.bond = bond;
 	state.home = null;
 	return got;
 }
+
+/** 日志里的押金一句 */
+const bondNote = (n: number) => (n ? `，押金退回 $${n}` : '');
 
 /**
  * 每周结算：时间每跨过一个结算日执行一次。
@@ -1046,8 +1061,9 @@ function weeklyTick(state: PlayerState, region: Region) {
 		if (state.home && !state.home.owned && !homeUsable(state)) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
-			const got = vacate(state);
-			log(state, `周结算：没有能睡人的车，退掉了${place}的${def.name}${got ? `，家具折现 $${got}` : ''}。`);
+			const back = { bond: 0 };
+			const got = vacate(state, 0, back);
+			log(state, `周结算：没有能睡人的车，退掉了${place}的${def.name}${got ? `，家具折现 $${got}` : ''}${bondNote(back.bond)}。`);
 		}
 		if (state.home && !state.home.owned) {
 			const def = getHome(state.home.type)!;
@@ -1056,9 +1072,12 @@ function weeklyTick(state: PlayerState, region: Region) {
 				state.cash -= def.rentWeek;
 				log(state, `周结算：支付${place}${def.name}房租 $${def.rentWeek}。`);
 			} else {
-				const got = vacate(state);
+				// 押金先抵这周房租，剩下的退回
+				const kept = Math.min(state.home.bond ?? 0, def.rentWeek);
+				const back = { bond: 0 };
+				const got = vacate(state, kept, back);
 				addMoodlet(state, 'evicted');
-				log(state, `付不起${place}${def.name}的房租，房东收回了房子${got ? `，家具折现 $${got}` : ''}。`);
+				log(state, `付不起${place}${def.name}的房租，房东收回了房子${kept ? `，押金扣了 $${kept} 抵房租` : ''}${got ? `，家具折现 $${got}` : ''}${bondNote(back.bond)}。`);
 			}
 		}
 		settleProperties(state, region);
@@ -1094,6 +1113,11 @@ export function firstRent(state: PlayerState, home: HomeDef): number {
 	return Math.round((home.rentWeek * days) / 7);
 }
 
+/** 租下要先付的钱 = 首期租金 + 押金 − 旧住处退回的押金（换房时旧押金在付款前退回） */
+export function moveInCost(state: PlayerState, home: HomeDef): number {
+	return firstRent(state, home) + bondFor(home) - (state.home && !state.home.owned ? (state.home.bond ?? 0) : 0);
+}
+
 export interface HomeOffer {
 	home: HomeDef;
 	blocked?: string;
@@ -1106,7 +1130,7 @@ export function homesAt(state: PlayerState, region: Region): HomeOffer[] {
 		home,
 		blocked: state.home?.type === home.id && state.home.loc === loc.id && !state.home.owned ? '你正住在这里'
 			: home.vehicleSleep && !canSleepIn(state.vehicle) ? '要有能睡人的车（比如露营车）才能住营地'
-			: state.cash < firstRent(state, home) ? `首期租金 $${firstRent(state, home)}` : undefined,
+			: state.cash < moveInCost(state, home) ? `首期租金 $${firstRent(state, home)}${bondFor(home) ? ` + 押金 $${bondFor(home)}` : ''}` : undefined,
 	}));
 }
 
@@ -1118,12 +1142,14 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string): Act
 	if (offer.blocked) return fail(prev, offer.blocked);
 	const state = clone(prev);
 	const due = firstRent(state, offer.home);
-	const sold = vacate(state);
-	state.cash -= due;
-	state.home = { type: homeId, loc: state.loc, furniture: {} };
+	const bond = bondFor(offer.home);
+	const back = { bond: 0 };
+	const sold = vacate(state, 0, back);
+	state.cash -= due + bond;
+	state.home = { type: homeId, loc: state.loc, furniture: {}, ...(bond ? { bond } : {}) };
 	addMoodlet(state, 'new-home');
 	if (advance(state, 60, region)) return collapsedResult(state);
-	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}，之后每周 $${offer.home.rentWeek}${sold ? `；旧家具折现 $${sold}` : ''}。`;
+	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}${bond ? `、押金 $${bond}（搬走时退）` : ''}，之后每周 $${offer.home.rentWeek}${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；旧住处押金退回 $${back.bond}` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1133,8 +1159,9 @@ export function leaveHome(prev: PlayerState): ActionResult {
 	if (!prev.home) return fail(prev, '你没有住处。');
 	const state = clone(prev);
 	const own = !!state.home!.owned;
-	const got = vacate(state);
-	const msg = `${own ? '搬出了自己的房子' : '退掉了租的房子'}${got ? `，家具折现 $${got}` : ''}。`;
+	const back = { bond: 0 };
+	const got = vacate(state, 0, back);
+	const msg = `${own ? '搬出了自己的房子' : '退掉了租的房子'}${got ? `，家具折现 $${got}` : ''}${bondNote(back.bond)}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1162,14 +1189,22 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 
 // ---------- 交通工具 ----------
 export const getVehicle = (id: string): VehicleDef | undefined => VEHICLES.find((v) => v.id === id);
-export const resaleValue = (id: string) => {
+/** 回收价：第 26 批起随里程下降（DEPRECIATION），最低剩原价的 floor。km 不传按新车算 */
+export const resaleValue = (id: string, km = 0) => {
 	const v = getVehicle(id);
-	return v ? Math.round(v.price * v.resale) : 0;
+	if (!v) return 0;
+	const share = Math.max(Math.min(v.resale, DEPRECIATION.floor), v.resale - Math.max(0, km) * DEPRECIATION.perKm);
+	return Math.round(v.price * share);
 };
+
+/** 在这个地点买这辆车要交的过户印花税（按地点所在区域的真实公式，见 finance.ts） */
+export const dutyAt = (locId: string, v: VehicleDef) => vehicleDuty(v.price, areaOf(locId)?.id ?? 'wa');
 
 export interface DealerOffer {
 	vehicle: VehicleDef;
-	/** 扣除旧车折抵后要付的钱 */
+	/** 过户印花税（已算进 net） */
+	duty: number;
+	/** 车价 + 印花税 − 旧车折抵，要付的钱 */
 	net: number;
 	blocked?: string;
 }
@@ -1179,11 +1214,12 @@ export function dealerAt(state: PlayerState, region: Region): DealerOffer[] {
 	const loc = getLocation(region, state.loc);
 	if (!loc || !loc.tags.includes(DEALER_TAG)) return [];
 	const open = isOpen(DEALER_HOURS, state.clock);
-	const tradeIn = resaleValue(state.vehicle);
+	const tradeIn = resaleValue(state.vehicle, state.car.km);
 	return VEHICLES.map((vehicle) => {
-		const net = vehicle.price - tradeIn;
+		const duty = dutyAt(loc.id, vehicle);
+		const net = vehicle.price + duty - tradeIn;
 		const blocked = !open ? `车行营业时间 ${hoursLabel(DEALER_HOURS)}` : state.vehicle === vehicle.id ? '你已经有这辆车' : campBlocks(state, vehicle.id) ?? (state.cash < net ? `还差 $${net - state.cash}` : undefined);
-		return { vehicle, net, blocked };
+		return { vehicle, duty, net, blocked };
 	});
 }
 
@@ -1194,11 +1230,13 @@ export function buyVehicle(prev: PlayerState, region: Region, id: string): Actio
 	if (offer.blocked) return fail(prev, offer.blocked);
 	const state = clone(prev);
 	const old = getVehicle(state.vehicle);
+	const tradeIn = resaleValue(state.vehicle, state.car.km);
 	state.cash -= offer.net;
 	state.vehicle = id;
 	state.car = { km: 0, since: 0 };
 	if (advance(state, 60, region)) return collapsedResult(state);
-	const msg = old ? `用${old.name}折抵 $${resaleValue(old.id)}，换了一辆${offer.vehicle.name}。` : `买了一辆${offer.vehicle.name}。`;
+	const duty = offer.duty ? `（含过户印花税 $${offer.duty}）` : '';
+	const msg = old ? `用${old.name}折抵 $${tradeIn}，换了一辆${offer.vehicle.name}${duty}。` : `买了一辆${offer.vehicle.name}${duty}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1219,7 +1257,7 @@ export function sellVehicle(prev: PlayerState, region: Region): ActionResult {
 	const camp = campBlocks(prev, 'none');
 	if (camp) return fail(prev, camp);
 	const state = clone(prev);
-	const got = resaleValue(v.id);
+	const got = resaleValue(v.id, prev.car.km);
 	state.cash += got;
 	state.vehicle = 'none';
 	state.car = { km: 0, since: 0 };
@@ -1522,13 +1560,13 @@ export function relaxAtHome(prev: PlayerState, region: Region): ActionResult {
 export const getProperty = (id: string): PropertyDef | undefined => PROPERTIES.find((p) => p.id === id);
 export const ownedProperty = (state: PlayerState, id: string): OwnedProperty | undefined => state.properties.find((p) => p.id === id);
 
-/** 净资产 = 现金 + 车辆残值 + 住处家具折现 + 各房产（按正常卖出到手价，已扣贷款）+ 金融资产（按今天价格卖出的到手价） */
+/** 净资产 = 现金 + 车辆残值（按里程折旧）+ 住处家具折现 + 租房押金 + 各房产（按正常卖出到手价，已扣贷款）+ 金融资产（按今天价格卖出的到手价） */
 export function netWorth(state: PlayerState): number {
 	const estate = state.properties.reduce((sum, p) => {
 		const def = getProperty(p.id);
 		return sum + (def ? propertyEquity(def, p.loan) : 0);
 	}, 0);
-	return state.cash + resaleValue(state.vehicle) + furnitureValue(state) + estate + holdingsValue(state);
+	return state.cash + resaleValue(state.vehicle, state.car.km) + furnitureValue(state) + (state.home?.bond ?? 0) + estate + holdingsValue(state);
 }
 
 /** 每周结算里的房产部分。顺序：租金收入 → 维修 → 物业费与还款 → 断供处理 */
@@ -1648,7 +1686,8 @@ export function moveIntoProperty(prev: PlayerState, id: string): ActionResult {
 	if (!def || !ownedProperty(prev, id)) return fail(prev, '你没有这套房。');
 	if (prev.home?.owned === id) return fail(prev, '你已经住在这里。');
 	const state = clone(prev);
-	const sold = vacate(state);
+	const back = { bond: 0 };
+	const sold = vacate(state, 0, back);
 	const mine = ownedProperty(state, id)!;
 	mine.rented = false;
 	Reflect.deleteProperty(mine, 'fresh');
@@ -1656,7 +1695,7 @@ export function moveIntoProperty(prev: PlayerState, id: string): ActionResult {
 	// 「搬了新家」每套房只给一次：搬出再搬回不花钱也不花时间，不能拿来反复刷
 	if (!mine.lived) addMoodlet(state, 'new-home');
 	mine.lived = true;
-	const msg = `搬进了自己的${def.name}，以后不用交房租了${sold ? `；旧家具折现 $${sold}` : ''}。`;
+	const msg = `搬进了自己的${def.name}，以后不用交房租了${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；租房押金退回 $${back.bond}` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
