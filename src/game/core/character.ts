@@ -29,6 +29,9 @@ import { ANIMALS, DEX_GROUPS } from '../data/wildlife.ts';
 import { FISH } from '../data/fish.ts';
 import { PHOTO_QUESTS } from '../data/photo-quests.ts';
 import { STORY } from '../data/story.ts';
+import { ACHIEVEMENTS } from '../data/achievements.ts';
+import { SIDE_QUESTS } from '../data/quests.ts';
+import { earnedTitles } from './titles.ts';
 import { TRAILS } from '../data/trails.ts';
 import { NPC_DUOS } from '../data/npc-duos.ts';
 import { CONFIDANT } from '../data/relations.ts';
@@ -174,6 +177,9 @@ export function createCharacter(opts: {
 		live: [],
 		blocked: {},
 		weekly: { week: 0, n: 0, claimed: false },
+		achClaimed: [],
+		side: { done: [], cur: {} },
+		title: '',
 		pet: null,
 		pending: null,
 		trails: {},
@@ -398,6 +404,9 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			n: Math.floor(num(r.weekly?.n, 0, 1e6, 0)),
 			claimed: r.weekly?.claimed === true,
 		},
+		achClaimed: [...new Set(strList(r.achClaimed, 200))].filter((id) => ACHIEVEMENTS.some((d) => d.id === id)),
+		side: cleanSide(r.side),
+		title: '', // 下面按清洗后的来源核对
 		live: Array.isArray(r.live) ? [...new Set((r.live as unknown[]).filter((x): x is string => typeof x === 'string' && LIVE_ID_RE.test(x)))].slice(-LIVE_MAX) : [],
 		blocked: cleanBlocked(r.blocked, cleanName),
 		met: (() => {
@@ -436,6 +445,8 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		// 版本号超出范围说明存档坏了：归零而不是钳到上限。钳到上限的话，下一次动作加一又超出，再读又被钳回去，客户端每次都版本冲突
 		rev: typeof r.rev === 'number' && Number.isFinite(r.rev) && r.rev >= 0 && r.rev < CAPS.rev ? Math.floor(r.rev) : 0,
 	};
+	// 称号必须是这份存档确实拿到的
+	if (typeof r.title === 'string' && earnedTitles(out).some((t) => t.id === r.title)) out.title = r.title;
 	// 按职业打的上班卡必须对得上一份现有的工作，否则作废：不然重新应聘同一职业就能接着用旧卡
 	if (out.clockIn?.career && out.job?.career !== out.clockIn.career) out.clockIn = null;
 	// 每日摘要：记号不能晚于现在这一天，坏了或旧存档没有就从现在算起；yday 必须在记号那天之前结束，否则丢掉
@@ -480,6 +491,24 @@ const finiteIn = (v: unknown, lo: number, hi: number) => typeof v === 'number' &
 const FUTURE_SLACK_MS = 60_000;
 
 /** 每日奖励：领取日在未来的话按「今天已领、连续天数归零」处理，不然要等到那一天才能再领 */
+/** 支线进度（第 28 批，规范见 save-sync.md §5）：只留还存在的支线，进度钳到目标次数；任何输入都不抛 */
+function cleanSide(raw: any): PlayerState['side'] {
+	const done = [...new Set(strList(raw?.done, 200))].filter((id) => SIDE_QUESTS.some((q) => q.id === id));
+	const cur: Record<string, Record<string, number>> = {};
+	const rc = raw?.cur && typeof raw.cur === 'object' && !Array.isArray(raw.cur) ? raw.cur : {};
+	for (const q of SIDE_QUESTS) {
+		// 只留还存在、没做完的支线；进度只留现有的目标，钳到目标次数
+		if (done.includes(q.id) || !Object.hasOwn(rc, q.id) || !rc[q.id] || typeof rc[q.id] !== 'object') continue;
+		const p: Record<string, number> = {};
+		for (const step of q.steps) {
+			const n = Object.hasOwn(rc[q.id], step.id) ? rc[q.id][step.id] : undefined;
+			if (typeof n === 'number' && Number.isFinite(n) && n >= 1) p[step.id] = Math.min(step.n ?? 1, Math.floor(n));
+		}
+		cur[q.id] = p;
+	}
+	return { done, cur };
+}
+
 function cleanDaily(r: any, now?: number): PlayerState['daily'] {
 	const daily = { day: Math.floor(num(r.daily?.day, 0, 1e7, 0)), streak: Math.floor(num(r.daily?.streak, 0, 1e6, 0)) };
 	if (now === undefined) return daily;

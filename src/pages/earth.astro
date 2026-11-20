@@ -524,6 +524,16 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.ach.done .ach-ico { filter: none; }
 			.ach b { display: block; font-size: 13px; }
 			.ach small { display: block; color: var(--dim); font-size: 11px; }
+			.ach > span:nth-child(2) { flex: 1; min-width: 0; }
+			.ach .claim { flex: none; align-self: center; font-size: 12px; padding: 4px 10px; }
+			.quest-list { display: grid; gap: 8px; margin-top: 8px; }
+			.quest { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border-radius: 12px; background: var(--card2); border: 1px solid var(--line); }
+			.quest.locked { opacity: 0.7; }
+			.quest .q-ico { font-size: 20px; flex: none; }
+			.quest .q-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+			.quest .q-body small { color: var(--dim); font-size: 12px; }
+			.quest .q-kind { font-size: 11px; color: var(--dim); }
+			.quest .q-n { flex: none; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; align-self: center; }
 			.next.clock .clock-time { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 			.next.clock .clock-time b { font-size: 34px; font-weight: 900; letter-spacing: -1px; }
 			.next.clock .clock-time span { color: #d3dae1; font-size: 14px; }
@@ -674,6 +684,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { PHOTO_MINUTES, PHOTO_QUESTS } from '../game/data/photo-quests.ts';
 			import { STORY } from '../game/data/story.ts';
 			import { storyProgress } from '../game/core/story.ts';
+			import { questBoard } from '../game/core/quests.ts';
+			import { allTitles, earnedTitles, wornTitle } from '../game/core/titles.ts';
 			import { guideView, type GuideView } from '../game/core/guide.ts';
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { fmtHalf } from '../game/ui/numfmt.ts';
@@ -715,7 +727,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { EVENTS } from '../game/data/events.ts';
 			import { dateLabel, period, PERIOD_IDS, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
 			import { getWish } from '../game/core/wishes.ts';
-			import { achievements, newAchievements } from '../game/core/achievements.ts';
+			import { achievements, achReward, newAchievements } from '../game/core/achievements.ts';
 			import { climateOf, forecast, weatherAt, weatherOn } from '../game/core/weather.ts';
 			import { portraitSvg, ringDash, sceneSvg } from '../game/ui/scene.ts';
 			import { EMPTY_MEDIA, greetHtml, heroHtml, parseMedia, type MediaManifest } from '../game/ui/media.ts';
@@ -1482,7 +1494,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						lastDelta = stateDelta(before, state);
 						const got = newAchievements(before, state, region);
 						lastAch = got.map((d) => `${d.icon} ${d.name}`);
-						if (got.length && prefs.achToast) setTimeout(() => toast(`🏅 达成成就：${got.map((d) => d.name).join('、')}`), 1200);
+						if (got.length && prefs.achToast) setTimeout(() => toast(`🏅 达成成就：${got.map((d) => d.name).join('、')}（去成长页领奖）`), 1200);
 						sfx(got.length ? 'ach' : 'ok');
 					}
 					else { lastDelta = []; lastAch = []; }
@@ -1565,7 +1577,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const thought = worst.v < 60 && NEED_LOW[worstKey] ? `<span class="thought">${esc(NEED_LOW[worstKey])}</span>` : '';
 					// 主界面定稿（第 15 批）：左上是人物名牌（头像外圈是升级进度环，点了去成长页），右上是现金和天气，时间写在地点名牌里
 					const lvPct = lv.next !== null ? Math.min(100, Math.round((s.respect / lv.next) * 100)) : 100;
-					const lvPlate = `<button class="lv-plate" data-tab="grow" aria-label="Lv${lv.lv} ${esc(lv.title)}，升级进度 ${lvPct}%，去成长页"><span class="lv-ring"><svg viewBox="0 0 46 46" aria-hidden="true" focusable="false"><circle cx="23" cy="23" r="20" class="track"/><circle cx="23" cy="23" r="20" class="arc" stroke-dasharray="${ringDash(lvPct, 20)}" transform="rotate(-90 23 23)"/></svg><span class="lv-ava" aria-hidden="true">${s.avatar}</span><b class="lv-num" aria-hidden="true">${lv.lv}</b></span><span class="lv-txt"><b>${esc(s.name)}</b><small>${esc(lv.title)}${lv.next !== null ? ` · 离下一级 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ''}</small></span></button>`;
+					const lvPlate = `<button class="lv-plate" data-tab="grow" aria-label="Lv${lv.lv} ${esc(lv.title)}，升级进度 ${lvPct}%，去成长页"><span class="lv-ring"><svg viewBox="0 0 46 46" aria-hidden="true" focusable="false"><circle cx="23" cy="23" r="20" class="track"/><circle cx="23" cy="23" r="20" class="arc" stroke-dasharray="${ringDash(lvPct, 20)}" transform="rotate(-90 23 23)"/></svg><span class="lv-ava" aria-hidden="true">${s.avatar}</span><b class="lv-num" aria-hidden="true">${lv.lv}</b></span><span class="lv-txt"><b>${esc(s.name)}</b><small>${wornTitle(s) ? `「${esc(wornTitle(s))}」` : esc(lv.title)}${lv.next !== null ? ` · 离下一级 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ''}</small></span></button>`;
 					top = `<div class="scene">${sceneSvg({ phase: skyPhase(loc, s.clock), weather: w.id, kind: loc.kind, tags: loc.tags })}
 						<div class="scene-top">${lvPlate}<div class="scene-right">${cash}
 						<span class="wx-pill${w.closesSea ? ' storm' : ''}">${w.icon} ${esc(w.name)} ${temps(loc, s.clock, w.id).max}°${w.closesSea ? ' · 海上关闭' : ''}</span></div></div>
@@ -2179,7 +2191,21 @@ const cardLines = guilloche(400, 260, 14, 9);
 				}).join('');
 				const ach = achievements(s, region);
 				const achDone = ach.filter((a) => a.done).length;
-				const achHtml = `<div class="card"><h3>成就 ${achDone}/${ach.length}</h3><div class="ach-grid">${ach.map((a) => `<div class="ach${a.done ? ' done' : ''}"><span class="ach-ico" aria-hidden="true">${a.def.icon}</span><span><b>${esc(a.def.name)}</b><small>${esc(a.def.desc)}${a.done ? '' : ` · ${a.cur.toLocaleString()}/${a.goal.toLocaleString()}`}</small></span><span class="sr">${a.done ? '（已达成）' : '（未达成）'}</span></div>`).join('')}</div></div>`;
+				// 成就奖励（第 28 批）：达成后点「领取」，服务端核对后发；领过的显示「已领」
+				const achPrize = (a: (typeof ach)[number]) => {
+					const r = achReward(a.def);
+					return [r.cash ? `$${r.cash}` : '', r.respect ? `声望 +${r.respect}` : '', r.title ? `称号「${a.def.name}」` : ''].filter(Boolean).join('、');
+				};
+				const achHtml = `<div class="card"><h3>成就 ${achDone}/${ach.length}</h3><p>达成后点「领取」拿奖励，每个只能领一次。</p><div class="ach-grid">${ach.map((a) => `<div class="ach${a.done ? ' done' : ''}"><span class="ach-ico" aria-hidden="true">${a.def.icon}</span><span><b>${esc(a.def.name)}</b><small>${esc(a.def.desc)}${a.done ? '' : ` · ${a.cur.toLocaleString()}/${a.goal.toLocaleString()}`}</small><small>${a.claimed ? '已领' : `奖励：${esc(achPrize(a))}`}</small></span>${a.done && !a.claimed ? `<button class="claim" data-claim="${esc(a.def.id)}">领取</button>` : ''}<span class="sr">${a.done ? '（已达成）' : '（未达成）'}</span></div>`).join('')}</div></div>`;
+				// 称号：拿到的可以戴一个，显示在名牌上；没拿到的告诉怎么拿
+				const earned = earnedTitles(s);
+				const earnedIds = new Set(earned.map((t) => t.id));
+				const titleHtml = `<div class="card"><h3>称号 ${earned.length}/${allTitles().length}</h3><p>从片区收藏、成就和支线拿到，戴上一个会显示在名牌上，不影响数值。</p><div class="ach-grid">${allTitles().map((t) => earnedIds.has(t.id)
+					? `<div class="ach done"><span class="ach-ico" aria-hidden="true">🏷️</span><span><b>${esc(t.name)}</b><small>${esc(t.from)}</small></span><button class="claim" data-wear="${esc(s.title === t.id ? '' : t.id)}">${s.title === t.id ? '摘下' : '戴上'}</button></div>`
+					: `<div class="ach"><span class="ach-ico" aria-hidden="true">🏷️</span><span><b>${esc(t.name)}</b><small>${esc(t.from)}</small></span><span class="sr">（还没拿到）</span></div>`).join('')}</div></div>`;
+				// 任务总览（第 28 批）：主线、支线、今天、收集、成就放在一张卡里，各自显示下一步和进度
+				const KIND_LABEL: Record<string, string> = { main: '主线', side: '支线', daily: '每日', collect: '收集', ach: '成就' };
+				const questHtml = `<div class="card"><h3>任务</h3><p>主线和支线做完自动发奖；成就要自己点领取。全服周目标在社交页。</p><div class="quest-list">${questBoard(s, region, (id) => NPCS.find((n) => n.id === id)?.name ?? id).map((q) => `<div class="quest${q.locked ? ' locked' : ''}"><span class="q-ico" aria-hidden="true">${q.locked ? '🔒' : esc(q.icon)}</span><span class="q-body"><span class="q-kind">${esc(KIND_LABEL[q.kind])}${q.locked ? ' · 未解锁' : ''}</span><b>${esc(q.title)}</b><small>${esc(q.sub)}</small>${q.reward ? `<small>奖励：${esc(q.reward)}</small>` : ''}</span><span class="q-n">${q.claimable ? '<b>可领</b>' : `${q.got}/${q.need}`}</span></div>`).join('')}</div></div>`;
 				// 足迹：全部地点，去过的标出次数；点一下看去那里的走法（当前所在地回今天页）
 				const placesVisited = region.locations.filter((l) => s.visited[l.id]).length;
 				// 足迹按区域分组（第 42 轮）：每个区域一个小标题和去过几个
@@ -2215,6 +2241,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 					photo: photoHtml,
 					trail: trailHtml,
 					ach: achHtml,
+					titles: titleHtml,
+					quests: questHtml,
 					me: `<div class="card"><h3>档案</h3><p>${origin.icon} ${origin.name} · 座驾：${veh}</p>
 					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
 						<p>Lv${lv.lv} ${lv.title} · 声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
@@ -2258,7 +2286,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					// 人生等级：声望到下一级的进度；满级不画进度条
 					const pct = lv.next !== null ? Math.min(100, Math.round(s.respect / lv.next * 100)) : 100;
 					const lvHtml = `<div class="card grow-head"><span class="lv-badge" aria-hidden="true">${lv.lv}</span><span class="name"><b>Lv${lv.lv} ${esc(lv.title)}</b><span>声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next} · 离下一级还差 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ' · 已到最高级'}</span>${lv.next !== null ? `<span class="bar" role="img" aria-label="升级进度 ${pct}%"><i style="width:${pct}%"></i></span>` : ''}</span></div>`;
-					return lvHtml + ['daily', 'ach', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
+					return lvHtml + ['quests', 'daily', 'ach', 'titles', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
 				}
 				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'invest', 'life', 'bag'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
@@ -2726,7 +2754,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				} catch {}
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2767,6 +2795,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.course) act({ t: 'course', id: d.course }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.claim) act({ t: 'claim', id: d.claim }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.wear !== undefined) act({ t: 'title', id: d.wear }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if ('photo' in d) act({ t: 'photo' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.pet) {
 					let a: GameAction;

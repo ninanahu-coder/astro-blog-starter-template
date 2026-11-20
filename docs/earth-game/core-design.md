@@ -39,6 +39,9 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
 | 摄影任务 | `photoQuest` | 0..任务数 | 摄影任务链做到第几个；等于任务总数表示全部拍完 |
 | NPC 联动 | `duos` | id 列表 | 已触发的 NPC 联动剧情 |
 | 主线剧情 | `story` | `{ ch, done }` | 第几章（等于章数表示全部写完）；本章各目标的进度，进下一章时清空 |
+| 支线 | `side` | `{ done, cur }` | 已完成的支线 id；进行中支线各目标的进度（第 28 批，见 [quests-design.md](quests-design.md)） |
+| 成就领奖 | `achClaimed` | id 列表 | 已领过奖励的成就 id，只增不减（第 28 批） |
+| 称号 | `title` | `''` 或称号 id | 佩戴的称号（`area.*` / `ach.*` / `side.*`），必须是已拿到的，只是外观（第 28 批） |
 | 每日摘要 | `dayMark` / `yday` | `{ day, at, cash, respect, places }` / `{ day, days, from, to, cash, respect, places }` 或 `null` | 今天开始时的记号（`at` 是记下的那一分钟）；动作跨过午夜时（`core/recap.ts` 的 `rollDay`，在 `applyAction` / `applyCoop` 钳制数值之后）把上一段日子的变化记进 `yday`，界面只在之后那一天显示「昨天回顾」。跨午夜的那个动作数值和日志都算在 `yday` 里：回顾日志取 `from` 之后到 `to` 为止，不按午夜切 |
 | 鱼获 | `fish` | 每种 ≥1 | 钓到过的鱼：鱼种 id → 条数 |
 | 图鉴 | `dex` `dexSets` | — | 见过的野生动物 id；已发过奖的图鉴分组（集齐时记下，以后加新动物不收回、不重复发） |
@@ -315,5 +318,6 @@ pages/earth.astro   只渲染和接收输入；server/world.ts 校验请求、�
   - `exposed: 'sea'`：要下海或出海，风暴天做不了。可以写在普通互动、事件选项、NPC 专属互动上；事件里有这种选项时必须还有别的选项（测试会检查）。
   - 天气 id 必须是 `data/weather.ts` 里有的（测试会检查）。
 - 昼夜：事件可写 `periods: ['dawn' | 'day' | 'dusk' | 'night']`，按抵达时刻所在时段过滤（`core/time.ts` 的 `period()`：清晨 5–8，白天 8–17，傍晚 17–20，夜晚 20–5）；互动仍用 `hours`。真实世界有固定时间的事（弗里曼特尔午后海风、猴子米亚早上喂海豚）再加 `hours: [开, 关)` 整点，比时段更精确，用 `isOpen()` 判断。
-- **新成就**：在 `data/achievements.ts` 加一条，选一个已有的指标（`metric`）和目标值；成就由存档现算，不发奖励。
+- **新成就**：在 `data/achievements.ts` 加一条，选一个已有的指标（`metric`）和目标值；成就由存档现算。第 28 批起达成后可领一次奖励：不写 `reward` 按默认（声望 +1），`reward.title: true` 另给同名称号。
+- **新支线**：在 `data/quests.ts` 加一条：`unlock` 写解锁条件（状态条件，全部成立时自动接下），`steps` 写法同主线，可加 `at` 限定游戏地点（带 `at` 的不接受真实地点）；真实地点做法用 `venue` 列出，但必须同时有游戏里的做法。奖励待平衡。见 [quests-design.md](quests-design.md)。
 - 改完运行 `npm test`，数据自洽性测试会检查 id 重复、互斥是否双向、物品是否可用等。

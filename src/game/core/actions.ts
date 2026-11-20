@@ -5,6 +5,8 @@ import {
 } from './engine.ts';
 import { refreshWishes, settleWishes } from './wishes.ts';
 import { settleStory } from './story.ts';
+import { claimAchievement, settleSide, wearTitle } from './quests.ts';
+import { TITLE_RE } from './titles.ts';
 import { rollDay } from './recap.ts';
 import { capState, nextRev } from './character.ts';
 import { pruneMoodlets } from './engine.ts';
@@ -51,6 +53,8 @@ export type GameAction =
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
+	| { t: 'claim'; id: string } // 领成就奖励（第 28 批）
+	| { t: 'title'; id: string } // 佩戴称号，'' 为摘下
 	| { t: 'live'; id: string }
 	| { t: 'asset'; op: 'buy' | 'sell'; id: string; amount: number }
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number }
@@ -117,6 +121,10 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'study':
 		case 'experience':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
+		case 'claim':
+			return str(a.id) ? { t: 'claim', id: a.id } : null;
+		case 'title':
+			return a.id === '' || (typeof a.id === 'string' && TITLE_RE.test(a.id)) ? { t: 'title', id: a.id as string } : null;
 		case 'live':
 			return typeof a.id === 'string' && LIVE_ID_RE.test(a.id) ? { t: 'live', id: a.id } : null;
 		case 'pet':
@@ -184,6 +192,8 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'asset': r = a.op === 'buy' ? buyAsset(state, region, a.id, a.amount) : sellAsset(state, region, a.id, a.amount); break;
 		case 'live': r = claimLive(state, region, a.id, now); break;
 		case 'trail': r = trailStep(state, region, a, now); break;
+		case 'claim': r = claimAchievement(state, region, a.id); break;
+		case 'title': r = wearTitle(state, a.id); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
@@ -196,6 +206,9 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 			if (done.length) msg += ` ✨ 心愿达成：${done.join('、')}`;
 			const chapters = settleStory(state, r.state, a);
 			if (chapters.length) msg += ` 📖 ${chapters.join('、')}`;
+			// 支线放在主线之后：这次动作写完了一章，以这一章为解锁条件的支线马上接下（但这次动作不算进去）
+			const sides = settleSide(state, r.state, a);
+			if (sides.length) msg += ` 🧩 ${sides.join('、')}`;
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
 	}
