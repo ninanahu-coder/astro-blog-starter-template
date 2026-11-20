@@ -31,6 +31,27 @@ test('地点短片：键是真实地点，文件在、不超过约 1MB，封面�
 	}
 });
 
+test('地点短片验收记录：清单每一段都有测量且过线（tools/earth/media/clips-qa.json，§6.4）', () => {
+	const qa = JSON.parse(readFileSync(new URL('../../tools/earth/media/clips-qa.json', import.meta.url), 'utf8')).clips as Record<string, Record<string, number | string | boolean>>;
+	assert.deepEqual(Object.keys(qa).sort(), Object.keys(media.loc).sort(), '验收记录和清单的地点不一致');
+	for (const [k, c] of Object.entries(media.loc)) {
+		const r = qa[k];
+		assert.equal(r.pass, true, `${k} 没过验收`);
+		assert.equal(r.bytes, statSync(file(c.src)).size, `${k} 成片换过但没重新测量`);
+		assert.equal(r.mode, c.once ? 'once' : 'loop', `${k} once / 循环和验收记录不一致`);
+		assert.ok((r.kf_diff as number) < 10, `${k} 首帧和关键帧差太多（可能串帧）`);
+		if (c.once) {
+			// 推镜：至少推近 4%，一路向前、不回弹
+			assert.ok((r.scale_end as number) >= 1.04, `${k} 推镜不够：×${r.scale_end}`);
+			assert.ok((r.rebound as number) <= 0.01 && r.monotonic === true, `${k} 推镜有回弹`);
+		} else {
+			// 循环：画面里有东西在动，成片首尾接得上（缝不超过片内最大相邻差的 3 倍）
+			assert.ok((r.motion_median as number) >= 0.08, `${k} 几乎不动`);
+			assert.ok((r.web_loop_seam as number) <= 3 * (r.web_max_adjacent as number), `${k} 循环缝太明显`);
+		}
+	}
+});
+
 test('NPC 语音：键是常驻 NPC，文件在、不超过 100KB，文字和台词表一致', () => {
 	const byNpc = new Map(voices.lines.map((l) => [l.npc, l]));
 	for (const [k, v] of Object.entries(media.voice)) {

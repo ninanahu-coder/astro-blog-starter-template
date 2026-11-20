@@ -138,10 +138,87 @@
 - 首屏脚本 396414 → 397114 字节（+700，播放逻辑），gzip 123267，上限 560KB。
 - **没在真机上看过**：iOS Safari 播完停在末帧、跳到末帧这两点都只看了代码，没实际验证。
 
+### 6.4 第 2 批：8 个地点到达短片（2026-11-20）
+
+**怎么挑的**：19 个还没有短片的地点，按「视觉冲击 × 玩家多常到（`wa-base.ts` 路线数、是否珀斯直达）× 首帧图能不能动起来（有没有水、云、光，原图里有没有人、字、动物）」打分。首帧图逐张看过原图（`~/earth-game/tools/earth/comfyui/.raw/<地点>.png`，弗里曼特尔、杰拉尔顿、卡尔古利放大到 1:1 查字和人）。
+
+| 地点 | 路线数 | 运动来源 | 首帧图问题 | 结论 |
+| --- | --- | --- | --- | --- |
+| 埃克斯茅斯 exmouth | 5，珀斯直达，有机场 | 礁湖浪花、云 | 无 | **选** |
+| 弗里曼特尔 fremantle | 3，珀斯直达，渡轮去罗特尼斯岛 | 港内水面、渔船、云 | 无人；渔船上看不到船名 | **选**（交通枢纽） |
+| 杰拉尔顿 geraldton | 3，珀斯直达，有机场 | 大浪拍岸、云、草 | 无（灯塔、远处城镇） | **选** |
+| 玛格丽特河 margaret-river | 4 | 冲浪线、葡萄叶、云 | 无 | **选** |
+| 尖峰石阵 pinnacles | 2，珀斯直达 | 云、光影；石柱不动，主要靠推镜 | 无 | **选** |
+| 卡尔巴里 kalbarri | 2 | 河面反光、云 | 无 | **选** |
+| 库努纳拉 kununurra | 3，珀斯直达，有机场 | 湖面、云 | 无 | **选** |
+| 彭伯顿 pemberton | 2 | 林间光束、雾、小溪 | 无 | **选** |
+| 班伯里 bunbury | 6（最多） | 海豚 | 画面主体是 4 只海豚 | 不选：H3 动物易变形，单独试 |
+| 曼哲拉 mandurah | 2 | 海豚、水面 | 主体有海豚 | 不选：同上 |
+| 猴子米亚 monkey-mia | 3 | 海豚 | 主体是海豚特写 | 不选：同上 |
+| 罗特尼斯岛 rottnest | 1 | 海湾 | 短尾矮袋鼠近景占画面中心 | 不选：动物特写易变形 |
+| 埃斯佩兰斯 esperance | 3 | 海浪 | 5 只袋鼠 | 不选：动物多 |
+| 奥尔巴尼 albany | 4 | 鲸跃出水 | 主体是半空中的鲸 | 不选：大动作动物，几乎必变形；改成事件短片提议（见下） |
+| 布鲁姆 broome | 4，珀斯直达 | 海浪、骆驼队 | 骆驼背上有人 | 不选：有人 |
+| 珊瑚湾 coral-bay | 2 | 水下 | 画面里有浮潜的人 | 不选：有人 |
+| 卡尔古利 kalgoorlie | 4，珀斯直达 | 几乎没有（街景、矿坑） | 建筑檐口有类似字母的装饰 | 不选：没东西可动，且有乱码字风险 |
+| 黑德兰港 port-hedland | 4，珀斯直达 | 矿石船、列车 | 工业设施，船身可能出字或标志 | 不选：品牌/文字风险 |
+| 波浪岩 wave-rock | 3，珀斯直达 | 只有云和光 | 无 | 不选：登记为原住民遗产地（见下方资料第 14 条），等更明确的描绘限制 |
+
+**现实依据**（主控会话逐条对照网页原文核对过的部分，OpenClaw 原始结果有编造的物种、季节和人名，未采用。W = en.wikipedia.org/wiki/，D = exploreparks.dbca.wa.gov.au）：
+
+1. rottnest（W/Rottnest_Island、W/Quokka、W/Wadjemup_Lighthouse）：短尾矮袋鼠（quokka）；The Basin 海湾；白色的 Wadjemup 灯塔（现塔 1896 年建，38.7 m）。
+2. broome（W/Broome,_Western_Australia）：日落时游客在 Cable Beach 骑骆驼；Roebuck Bay 的「月光阶梯」；Gantheaume Point 的恐龙脚印只在极低潮时露出。不写骆驼公司名。
+3. pinnacles（D/site/pinnacles-desert-lookout-and-drive）：黄沙上成千根石灰岩柱，最高 3.5 m，有的尖、有的像墓碑。不加袋鼠，不写野花种名。
+4. exmouth（W/Exmouth,_Western_Australia、W/Cape_Range_National_Park）：Turquoise Bay 浮潜点；Cape Range 的峡谷、Yardie Creek；公园里有岩袋鼠、红袋鼠、鸸鹋。镇上的大鲸鲨、大虾是雕塑，不出现。
+5. esperance（W/Cape_Le_Grand_National_Park、W/Esperance,_Western_Australia）：花岗岩海岸加白沙滩，Lucky Bay 在 Cape Le Grand 国家公园里；公园有西部灰袋鼠。Pink Lake 很少是粉色，不画粉色的湖。
+6. monkey-mia（W/Monkey_Mia）：野生宽吻海豚，只有 5 只成年海豚被喂，不超过每日食量的 10%。Shell Beach 是鲨鱼湾另一处，不画进同一镜头。
+7. albany（W/Albany,_Western_Australia、W/Torndirrup_National_Park）：崎岖海岸上的 The Gap 和 Natural Bridge；白沙滩；风力发电场；旧捕鲸站。
+8. kalbarri（D/park/kalbarri-national-park）：Nature's Window 和 The Loop；Kalbarri Skywalk 俯瞰 Murchison Gorge；Island Rock 孤立海蚀柱；Red Bluff 日落时颜色对比强；春天野花；海是印度洋。
+9. karijini（D/park/karijini-national-park、W/Karijini_National_Park）：Dales Gorge、Fortescue Falls、Circular Pool；Hamersley Gorge 的色彩、纹理和倒影；带状铁建造。会动的只有水和倒影。
+10. margaret-river（D/get-inspired/park-feature-leeuwin-naturaliste-national-park）：大涌浪；Boranup Forest 浅色树皮、60 m 以上的卡里树；崎岖海岸和洞穴。不画鱼群。
+11. coral-bay（W/Coral_Bay,_Western_Australia、W/Ningaloo_Coast）：绿海龟、玳瑁、座头鲸、儒艮、鲸鲨、蝠鲼；珊瑚 2011、2025 年两次白化，不画得过分艳丽。
+12. kalgoorlie（W/Super_Pit_gold_mine、W/Kalgoorlie）：Super Pit 俯视长圆形，约 3.5 km 长、1.6 km 宽、超过 675 m 深；Hannan Street 上的法院和邮局。
+13. fremantle（W/Fremantle）：Fremantle Prison；港里的货轮；海事博物馆；Arthur Head 石灰岩坡上的 Round House；夏天中午到下午 3 点的海风 Fremantle Doctor。不出现船名和公司标志。
+14. wave-rock（W/Wave_Rock）：浪形花岗岩壁约 15 m 高、110 m 长；岩顶上方有沿等高线的矮墙；红橙色带黑色条纹。岩石不动，只能动云和光。登记为原住民遗产地，不加人物和仪式。
+15. kununurra（W/Kununurra,_Western_Australia）：Lake Kununurra 是 Ord River 被坝拦出的一段；Lake Argyle 在上游 55 km，是另一个湖。
+16. port-hedland（W/Port_Hedland,_Western_Australia）：港口伸出手掌形的潮汐水道；铁矿石、盐；红树林。
+17. geraldton（W/Geraldton）：HMAS Sydney II 纪念碑；Point Moore 灯塔；9 月到 4 月稳定海风，风帆和风筝冲浪。纪念碑画面要克制。
+18. mandurah（W/Mandurah）：西澳已知最大的宽吻海豚群（约 120 只）；运河住宅区；河口；划船、捉蟹。
+19. bunbury（W/Bunbury,_Western_Australia）：Koombana Bay、海豚探索中心、Back Beach、Leschenault Inlet。不画海豹。
+20. pemberton（W/Pemberton,_Western_Australia）：卡里树森林；两棵 60 m 以上、钉了铁梯的可攀爬大树；旧铁路上的 Pemberton Tramway；Beedelup Falls 和吊桥。
+
+通用限制：不画人物、仪式、岩画；不画有名字的雕塑和纪念物特写；动物只用上面列出的。文档里不写具体族名（原始结果里的名称没逐条核对）。
+
+**提示词怎么写的**：只描述首帧图里看得见的东西（水、浪、云、光、树、岩石、建筑的形状和颜色），**不写地名、不写上面清单之外的事实、不加地标和动物**；8 条都没有引用清单里的具体数字或专名，清单用来排除（例如杰拉尔顿不碰纪念碑、弗里曼特尔不写船名、尖峰石阵不加袋鼠）。关键帧从原图中心裁 16:9 再缩到 1280×720（同第 1 批）。推镜写法同 §6.3（`tools/earth/media/h3/<地点>-push/prompt.txt`），h3prompt 门禁 8 条全部 0 错误 0 警告。推镜两次（种子 7701、8802）都推不到 4% 的，改成首尾同帧的循环版（`tools/earth/media/h3/<地点>/segments.json`，种子 7700+1；杰拉尔顿初稿有一条 W_FL2VA_BG_MOTION_NO_DIRECTION，给浪补了方向后干净）。
+
+**验收方法**：`tools/earth/media/qa-clip.py`（320×180 灰度）量首帧 vs 关键帧（串帧检查）、运动量、推近比例曲线（最大、末帧、回弹、是否单调）；循环片量成片的循环缝和片内最大相邻差。每 6 帧抽一张（每段 22 张）拼图目检，推得多的 5 段另把「首帧按推近比例放大」和「实际末帧」并排比，看有没有变形。全部数字落在 `tools/earth/media/clips-qa.json`，测试逐项核对（推镜 ≥ ×1.04、无回弹；循环片有运动、循环缝 ≤ 片内最大相邻差 3 倍；体积和清单里的文件一致）。远程队列开始时是空的，11 段推镜 + 3 段循环约 70 分钟取完，没有报错、没有显存不足。
+
+| 地点 | 片长 | 大小 | 方式 | 运动量（中位） | 推近 / 循环缝 | 目检 | 通过 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| exmouth | 5.17 s | 722KB | once | 1.76 | ×1.14，单调，无回弹 | 礁湖、海岬、灯塔一致；无字无人 | ✓ |
+| pinnacles | 5.17 s | 556KB | once | 1.52 | ×1.105，单调，无回弹 | 推进时石柱有视差移动，主柱形状一致；沙面有细沙流动；无新增物体 | ✓ |
+| margaret-river | 5.17 s | 756KB | once | 1.38 | ×1.055，单调，无回弹 | 葡萄架、森林、海滩一致 | ✓ |
+| fremantle | 5.17 s | 721KB | once | 1.22 | ×1.045，单调，无回弹 | 仓库、码头、渔船、灯塔一致；无船名、无人 | ✓ |
+| kalbarri | 5.17 s | 834KB | once | 1.07 | ×1.045，单调，无回弹 | 机位前移带视差：岩拱轮廓一致，拱内河道和远处崖壁随视角重新排布，太阳从左缘落下去；没长出新东西 | ✓（变化最大的一段，建议真机再看） |
+| geraldton | 4.67 s | 494KB | 循环 | 0.75 | 推镜两次 ×1.01 未过；成片缝 2.62 / 片内最大 1.43 | 浪拍岸、云、草在动；灯塔不动；缝前后 6 帧连贯 | ✓ |
+| kununurra | 4.67 s | 342KB | 循环 | 0.11 | 推镜两次 ×1.025 未过；缝 1.99 / 0.69 | 湖面、云微动，波巴布树不动；动得很少 | ✓（冲击力弱） |
+| pemberton | 4.67 s | 353KB | 循环 | 0.11 | 推镜两次 ×1.02 / ×1.01 未过；缝 2.05 / 0.75 | 光束、雾、蕨叶微动；动得很少 | ✓（冲击力弱） |
+
+- 本轮新增 8 个文件共 **4,777,089 字节**（约 4.8MB）；`public/earth/media/loc/` 现在 11 个短片共 6,458,146 字节。全部按需加载，不进首屏。
+- 推镜成功率：本轮 8 个里 5 个（加上第 1 批共 11 个里 7 个）。推不动的都是「主体居中、正对镜头」或森林/湖面这类没有明确纵深的构图。
+- 没过而没接进清单的：无（推不动的 3 个都退回循环版并通过）。原片和每次尝试都在 `tools/earth/media/h3/<地点>{,-push}/clips/`（不进仓库），失败的种子 7701 版存为 `seg1-s7701.mp4`。
+- **都没在真机上看过**。kalbarri 的视差变化、kununurra / pemberton 动得少，这三段最值得真机确认。
+
+**不是地点到达、但加短片最有冲击的 3 个时刻（只提议，没接入）：**
+
+1. **奥尔巴尼看鲸事件**（`event:albany-whales`）：鲸跃出水是全游戏最有「哇」感的画面，静态图只停在半空。改动：清单加 `ev` 段（事件 id → 短片，`parseMedia` 同样白名单路径），`earth.astro` 事件弹窗 `.ev-hero` 那行（现在只放 `<img>`）有短片时换成 `heroHtml` 同款 `<video>`，once 播一次。风险：H3 大动作动物易变形，要多试种子、密抽帧严查。
+2. **风暴天**（天气 `storm`，`weather.ts` 里会关掉下海、浮潜、冲浪、出海）：玩家常常不明白为什么活动被关了，到达海边地点时如果是风暴天，主视觉换成一段巨浪、乌云的循环片，比一行文字提示直观。改动：清单加 `weather.storm`（按地点类型 coast 通用 1–2 段），`hero()` 判断 `weatherAt(s).closesSea` 时优先用它；减少动画时照旧静态。
+3. **布鲁姆「月光阶梯」**（`event:staircase-moon`）：资料第 2 条有出处，满月从泥滩升起、反光一级级铺开，画面里只有月亮和潮水，没有人和动物，H3 最擅长这种光和水的慢变化，做循环片稳。改动：同第 1 条的 `ev` 段；事件本身已有，只加媒体。
+
 ## 7. 下一步
 
 1. **请人试听 17 条语音**，换掉不搭的音色；再听一遍艾拉、萨姆、米娅改过的 3 句。
 2. **真机看短片**：iOS Safari、安卓 Chrome 各看一次「这里」页，确认进入视口才播、循环无跳、「减少动画」时只显示静态图。
 3. **扩到 35 个地点前先定一件事**：运动幅度要不要更大。现在的写法（首尾同帧、固定机位）稳但动得少；纯 i2v 推镜版已对比（§6.3）：珀斯推了 8%，卡里基尼没推。珀斯已改成到达时推镜播一次；扩到其他地点时，每段出片后要先量推近比例，推起来的用 `--once`，没推起来的用循环版。动物多的地点（埃斯佩兰斯的袋鼠、罗特尼斯岛的短尾矮袋鼠）单独试，H3 动物易变形。
-4. 35 个地点全做的估算：每段远程约 5 分钟（队列空时），单个约 410KB，合计约 14MB 静态资源（只在玩家到达那个地点时按需下载）。
+4. 第 2 批后共 11 个地点有短片（§6.4）。剩下的多是动物、人或工业主体（见 §6.4 不选的理由），要么单独试动物，要么等改图。按本轮实际，once 片 560–830KB、循环片 340–500KB，单段远程约 5 分钟。
 5. 事件弹窗短片、背景音这轮没做。

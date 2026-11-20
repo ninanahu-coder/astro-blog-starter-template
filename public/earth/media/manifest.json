@@ -6,13 +6,50 @@
 			"poster": "/earth/cgi/busselton.webp",
 			"once": true
 		},
+		"exmouth": {
+			"src": "/earth/media/loc/exmouth.mp4",
+			"poster": "/earth/cgi/exmouth.webp",
+			"once": true
+		},
+		"fremantle": {
+			"src": "/earth/media/loc/fremantle.mp4",
+			"poster": "/earth/cgi/fremantle.webp",
+			"once": true
+		},
+		"geraldton": {
+			"src": "/earth/media/loc/geraldton.mp4",
+			"poster": "/earth/cgi/geraldton.webp"
+		},
+		"kalbarri": {
+			"src": "/earth/media/loc/kalbarri.mp4",
+			"poster": "/earth/cgi/kalbarri.webp",
+			"once": true
+		},
 		"karijini": {
 			"src": "/earth/media/loc/karijini.mp4",
 			"poster": "/earth/cgi/karijini.webp"
 		},
+		"kununurra": {
+			"src": "/earth/media/loc/kununurra.mp4",
+			"poster": "/earth/cgi/kununurra.webp"
+		},
+		"margaret-river": {
+			"src": "/earth/media/loc/margaret-river.mp4",
+			"poster": "/earth/cgi/margaret-river.webp",
+			"once": true
+		},
+		"pemberton": {
+			"src": "/earth/media/loc/pemberton.mp4",
+			"poster": "/earth/cgi/pemberton.webp"
+		},
 		"perth": {
 			"src": "/earth/media/loc/perth.mp4",
 			"poster": "/earth/cgi/perth.webp",
+			"once": true
+		},
+		"pinnacles": {
+			"src": "/earth/media/loc/pinnacles.mp4",
+			"poster": "/earth/cgi/pinnacles.webp",
 			"once": true
 		}
 	},
