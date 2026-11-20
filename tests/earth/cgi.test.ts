@@ -123,5 +123,5 @@ test('界面配图（页面模板）：各行小图、横幅、空状态插图�
 	has(/\$\{estate \|\| emptyArt\('empty:estate'\) \+ '<p>还没有房产/, '没有房产的插图');
 	has(/return banner\('banner:grow'\) \+ lvHtml \+ \['quests', /, '成长页横幅和任务卡');
 	has(/return `\$\{banner\('banner:social'\)\}\$\{reportPick && !reportPick\.note \? reportCard\(\) : ''\}/, '社交页横幅和举报卡');
-	has(/near: \(\) => goSeg\(\) \+ banner\('banner:near'\) \+ panelNear\(\)/, '附近页横幅');
+	has(/near: \(\) => goSeg\(\) \+ tipSlip\('near'\) \+ banner\('banner:near'\) \+ panelNear\(\)/, '附近页横幅（新手便签在横幅上面）');
 });

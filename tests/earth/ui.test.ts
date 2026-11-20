@@ -275,7 +275,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			// 成长页：等级卡在最上面，然后是每日奖励和各种收集
 			if (t === 'grow') {
 				assert.match(el('hud').innerHTML, /<h1>成长<\/h1>/);
-				assert.ok(panel().startsWith('<div class="card grow-head">'), '成长页最上面是等级卡');
+				// 新角色第一次进成长页：最上面是引导便签（v36），便签下面是等级卡
+				assert.match(panel(), /^<section class="slip" aria-labelledby="slip-grow">/);
+				assert.ok(panel().replace(/^<section class="slip"[\s\S]*?<\/section>/, '').startsWith('<div class="card grow-head">'), '成长页最上面是等级卡');
 				// 前面的事件结果有随机，声望可能是 0 或 0.5：按页面上的数核对「还差」和进度条
 				const lvm = panel().match(/<b>Lv1 新来的<\/b><span>声望 ([\d.]+) \/ 10 · 离下一级还差 ([\d.]+)<\/span><span class="bar" role="img" aria-label="升级进度 (\d+)%"><i style="width:(\d+)%">/);
 				assert.ok(lvm, '等级卡格式不对');
@@ -796,6 +798,14 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 }
 
 /** 直接在服务端建一个角色，返回凭证和存档（给「扫码打开」这类测试当本机已有的角色） */
+/** 当成新手引导上线前的老角色（存档里没有 onboard 字段）：所有卡片直接显示，不出引导便签 */
+function asVeteran(data: Map<string, unknown>, c: { cred: { id: string }; state: any }) {
+	const rec = data.get('save:' + c.cred.id) as any;
+	const { onboard: _a, ...cloud } = rec.state;
+	data.set('save:' + c.cred.id, { ...rec, state: cloud });
+	const { onboard: _b, ...local } = c.state;
+	return { ...c, state: local };
+}
 async function makeChar(world: EarthWorld, id: string, name: string) {
 	const cred = { id, key: id[0].repeat(24) };
 	const res = await world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: JSON.stringify({ action: 'create', ...cred, profile: { name, avatar: '🧑', origin: 'backpacker', traits: [] } }) }));
@@ -952,8 +962,8 @@ test('界面：留言超过每地点上限时页面留下最新的（服务器�
 });
 
 test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，只做显示）', async () => {
-	const { world } = makeWorld();
-	const a = await makeChar(world, 'sky-card-a', '天象甲');
+	const { data, world } = makeWorld();
+	const a = asVeteran(data, await makeChar(world, 'sky-card-a', '天象甲'));
 	let panel = '', hud = '';
 	await openWithHash('', a, world, true, {
 		after: async ({ click, el }) => {
@@ -1354,6 +1364,87 @@ test('界面：没有存档时显示创建页，选完四步能创建角色并�
 	}
 });
 
+test('界面：新手引导（v36）——新角色先藏钓鱼等卡片并写明何时出现；出行页第一次有便签，关掉后马上消失并记进云端存档；全部显示', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'onboard-ui-a', '引导');
+	let place = '', go = '', goAfter = '', placeAll = '';
+	await openWithHash('', { cred: a.cred, state: a.state }, world, true, {
+		after: async ({ click, el }) => {
+			await pause(60);
+			place = el('panel').innerHTML;
+			await click({ tab: 'go' });
+			go = el('panel').innerHTML;
+			await click({ obTip: 'go' });
+			goAfter = el('panel').innerHTML;
+			await pause(80);
+			await click({ tab: 'place' });
+			await click({ obAll: '' });
+			await pause(80);
+			await click({ tab: 'place' });
+			placeAll = el('panel').innerHTML;
+		},
+	});
+	assert.match(place, /<div class="later"><p><b>之后会出现<\/b>钓鱼、摄影任务和星空（到第 2 天或去过第二个地方）/);
+	assert.doesNotMatch(place, /<h3>🎣 钓鱼/);
+	assert.match(go, /<section class="slip" aria-labelledby="slip-go">/);
+	assert.match(go, /data-ob-tip="go" aria-label="关掉提示「出行：路费和时间出发前就写着」，以后不再出现">知道了/);
+	assert.deepEqual(a11yIssues(go), []);
+	assert.doesNotMatch(goAfter, /class="slip"/, '点了马上消失，不等服务器');
+	const saved = (data.get('save:' + a.cred.id) as any).state.onboard;
+	assert.ok(saved.tips.includes('go'), '记进云端存档');
+	assert.deepEqual(saved.feats.length, 4, '全部显示');
+	assert.doesNotMatch(placeAll, /class="later"/);
+});
+
+test('界面：回流卡片（v36）——离开 6 天后打开，今天页最上面是再入境卡片；点「知道了」后消失并记进存档', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'onboard-ui-b', '回来');
+	const rec = data.get('save:' + a.cred.id) as any;
+	const today = Math.floor((Date.now() + 8 * 3_600_000) / 86_400_000);
+	data.set('save:' + a.cred.id, { ...rec, state: { ...rec.state, daily: { day: today - 6, streak: 5 } } });
+	let first = '', loaded = '', after = '';
+	await openWithHash('', { cred: a.cred, state: a.state }, world, true, {
+		after: async ({ click, el }) => {
+			await pause(80);
+			await click({ tab: 'place' });
+			first = el('panel').innerHTML;
+			await pause(150);
+			loaded = el('panel').innerHTML;
+			await click({ obBack: '' });
+			after = el('panel').innerHTML;
+			await pause(80);
+		},
+	});
+	assert.match(first, /<section class="back-card" aria-labelledby="back-title">/);
+	assert.match(first, /欢迎回来，离开了 6 天/);
+	assert.match(first, /主线停在<\/b>第一章/);
+	// 更新日志按需加载（第 41 批）：下完后今天页自动重画，回流卡片列出离开期间的更新
+	assert.match(loaded, /<b>离开期间更新了 [1-3] 次<\/b>/);
+	assert.ok(first.indexOf('back-card') < first.indexOf('class="rings"'), '在需求卡前面');
+	assert.deepEqual(a11yIssues(first), []);
+	assert.doesNotMatch(after, /back-card/);
+	assert.equal((data.get('save:' + a.cred.id) as any).state.onboard.back.seen, true);
+});
+
+test('界面：断网时关提示（v36）——便签照样马上消失，云端存档不变，留着联网后再交', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'onboard-ui-c', '断网');
+	let after = '';
+	await openWithHash('', { cred: a.cred, state: a.state }, world, true, {
+		reply: async (body) => { if (body?.act?.t === 'onboard') throw new TypeError('offline'); return undefined; },
+		after: async ({ click, el }) => {
+			await pause(60);
+			await click({ tab: 'grow' });
+			assert.match(el('panel').innerHTML, /aria-labelledby="slip-grow"/);
+			await click({ obTip: 'grow' });
+			await pause(40);
+			after = el('panel').innerHTML;
+		},
+	});
+	assert.doesNotMatch(after, /slip-grow/);
+	assert.deepEqual((data.get('save:' + a.cred.id) as any).state.onboard.tips, []);
+});
+
 test('界面：界面配图（第 21 批）——清单里有的键用小图、横幅和空状态插图，地址经过转义；清单里没有的照旧用原来的样式', async () => {
 	const { data, world } = makeWorld();
 	const a = await makeChar(world, 'cgi-ui-a', '看配图');
@@ -1379,7 +1470,8 @@ test('界面：界面配图（第 21 批）——清单里有的键用小图、�
 	assert.match(place, /<img class="thumb" src="\/earth\/cgi\/exp\.webp\?&quot;&gt;&lt;b&gt;x" alt="" loading="lazy" width="48" height="48" \/><span class="body">✨ 天鹅河日落游船/, '体验行左边是小图，地址转义');
 	assert.doesNotMatch(place, /exp\.webp\?"><b>/, '地址里的引号和尖括号不能原样进 HTML');
 	assert.equal((place.match(/class="thumb"/g) ?? []).length, 1, '清单里没有的（工作、住处……）不出小图');
-	assert.ok(grow.startsWith('<div class="banner"><img src="/earth/cgi/banner-grow.webp"'), '成长页顶上是横幅');
+	// 新角色第一次进成长页有新手便签（v36），便签下面就是横幅
+	assert.ok(grow.replace(/^<section class="slip"[\s\S]*?<\/section>\s*/, '').startsWith('<div class="banner"><img src="/earth/cgi/banner-grow.webp"'), '成长页顶上是横幅');
 	assert.match(assets, /<div class="empty-art"><img src="\/earth\/cgi\/empty-bag\.webp" alt="" loading="lazy" \/><\/div><p>空的。/, '背包空的时候有插图');
 	assert.doesNotMatch(assets, /empty-art"><img src="[^"]*estate/, '清单里没有的空状态不占位');
 	assert.deepEqual(a11yIssues(place), []);

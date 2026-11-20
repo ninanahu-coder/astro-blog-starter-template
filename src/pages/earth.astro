@@ -163,10 +163,13 @@ const cardLines = guilloche(400, 260, 14, 9);
 			/* ---------- 开场：护照封皮 + 登机牌 + 入境卡（方向见 .impeccable/surfaces） ---------- */
 			@font-face { font-family: 'Terra Serif'; src: url('/earth/fonts/terra-serif.woff2') format('woff2'); font-weight: 200 900; font-display: swap; }
 			body:has(#create:not(.hidden)) { background: #0d1a35; }
-			#create {
+			/* 入境卡令牌：开场和进游戏后的引导便签、回流卡片共用（v36 起），卡纸在浅色深色主题下都是纸色 */
+			#create, .slip, .back-card {
 				--pp-navy: #15284d; --pp-deep: #0d1a35; --pp-gold: #dcbc6c; --pp-gold-2: #c4a865; --pp-mist: #bdc8dc;
 				--stock: #f3f7f5; --stock-2: #e6eeeb; --ink-p: #18263f; --ink-p2: #4a586c; --rule: #9db8b0; --rule-2: #cbddd7;
 				--pen: #1d3fbf; --pen-bg: #e2e8fb; --stamp: #b3155c; --serif: 'Terra Serif', 'Songti SC', 'STSong', serif;
+			}
+			#create {
 				background: var(--pp-deep); color: var(--ink-p); display: flex; flex-direction: column; min-height: 100dvh; padding-bottom: calc(40px + env(safe-area-inset-bottom));
 			}
 			#create ::selection { background: var(--pen-bg); color: var(--ink-p); }
@@ -532,6 +535,41 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.recap-log .muted { font-variant-numeric: tabular-nums; margin-right: 4px; }
 			.pref-row { margin-top: 10px; }
 			.pref-row > span { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; }
+			/* 新手引导（v36）：便签 = 登机牌撕线存根 + 卡纸正文；回流卡片 = 再盖一次入境章 */
+			.slip { position: relative; display: grid; grid-template-columns: 48px 1fr; background: var(--stock); color: var(--ink-p); border-radius: 14px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); }
+			.slip-stub { display: flex; justify-content: center; padding-top: 16px; background: var(--pp-navy); border-radius: 14px 0 0 14px; }
+			.slip-stub svg { width: 24px; height: 24px; fill: none; stroke: var(--pp-gold); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+			.slip-body { position: relative; padding: 14px 16px 12px; border-left: 1.5px dashed var(--rule); }
+			.slip-body::before, .slip-body::after { content: ''; position: absolute; left: -8px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg); }
+			.slip-body::before { top: -7px; }
+			.slip-body::after { bottom: -7px; }
+			.slip h3 { margin: 0 0 4px; font-size: 17px; font-weight: 800; line-height: 1.35; color: var(--ink-p); text-wrap: balance; }
+			.slip p { margin: 0; font-size: 14px; line-height: 1.6; color: var(--ink-p2); max-width: 40em; }
+			.slip-acts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+			.slip button, .back-card button { min-height: 44px; padding: 0 16px; border-radius: 12px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+			.slip-x { background: transparent; color: var(--pen); border: 1.5px solid var(--rule); }
+			.slip-go { background: var(--pen); color: #fff; border: 0; }
+			.slip button:focus-visible, .back-card button:focus-visible { outline: 2px solid var(--pen); outline-offset: 2px; }
+			.slip ::selection, .back-card ::selection { background: var(--pen-bg); color: var(--ink-p); }
+			.back-card { position: relative; overflow: hidden; background: var(--stock); color: var(--ink-p); border-radius: 14px; padding: 18px 18px 16px; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.16); }
+			.back-card h3 { margin: 0 96px 6px 0; font-size: 20px; font-weight: 800; line-height: 1.3; text-wrap: balance; }
+			.back-card > p { margin: 0 96px 0 0; font-size: 14px; line-height: 1.6; color: var(--ink-p2); }
+			.back-card ul { list-style: none; margin: 14px 0 0; padding: 0; }
+			.back-card li { padding: 10px 0; border-top: 1.5px dashed var(--rule-2); font-size: 14px; line-height: 1.55; color: var(--ink-p2); }
+			.back-card li b { display: block; color: var(--ink-p); font-size: 14px; }
+			.back-ok { width: 100%; margin-top: 12px; min-height: 52px !important; background: var(--pp-navy); color: #fff; border: 0; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.18); }
+			.back-stamp { position: absolute; right: 8px; top: 8px; width: 92px; height: 92px; opacity: 0.88; transform: rotate(-12deg); animation: back-stamp 460ms cubic-bezier(0.16, 1, 0.3, 1) 120ms both; }
+			.back-stamp circle { fill: none; stroke: var(--stamp); stroke-width: 3.2; }
+			.back-stamp circle.thin { stroke-width: 1.2; }
+			.back-stamp text { fill: var(--stamp); text-anchor: middle; font-family: var(--serif); font-weight: 900; font-size: 11px; letter-spacing: 0.08em; }
+			.back-stamp text.big { font-size: 24px; letter-spacing: 0.2em; }
+			.back-stamp text.small { font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
+			@keyframes back-stamp { from { opacity: 0; transform: rotate(-12deg) scale(1.7); } to { opacity: 0.88; transform: rotate(-12deg) scale(1); } }
+			@media (prefers-reduced-motion: reduce) { .back-stamp { animation: none; } }
+			.later { border-top: 1.5px dashed var(--line); padding-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+			.later p { margin: 0; flex: 1 1 16em; font-size: 13px; line-height: 1.6; color: var(--dim); }
+			.later b { color: var(--text2); margin-right: 6px; }
+			.later button { min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--accent); font-weight: 600; }
 			.guide-next { margin-top: 10px; font-size: 12px; color: var(--dim); }
 			.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 			.ach-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
@@ -705,6 +743,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { questBoard } from '../game/core/quests.ts';
 			import { allTitles, earnedTitles, wornTitle } from '../game/core/titles.ts';
 			import { guideView, type GuideView } from '../game/core/guide.ts';
+			import { featureShown, lockedFeatures, newFeature, returnView, tipFor, type OnboardOp } from '../game/core/onboard.ts';
+			import type { OnboardPage } from '../game/data/onboard.ts';
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { fmtHalf } from '../game/ui/numfmt.ts';
 			import { defaultAmount, investCard } from '../game/ui/invest.ts';
@@ -1853,13 +1893,97 @@ const cardLines = guilloche(400, 260, 14, 9);
 			}
 
 			// 新手指南（第 26 轮）：前三天分步解开，做到了自动打勾；点「知道了」或在设置里关掉后不再显示（只记在本机）
+			// ---------- 新手引导（v36）：上下文提示、新出现的功能、回流卡片 ----------
+			// 进度在存档的 onboard 字段里（跟着存档同步）；点关掉时先在本机藏起来，再把动作发给服务器记下
+			const obHidden = new Set<string>();
+			let obPending: OnboardOp[] = [];
+			let obSending = false;
+			let obRetryAt = 0;
+			function obSend(o: OnboardOp, hide?: string) {
+				if (hide) obHidden.add(hide);
+				obPending = [...obPending, o];
+				void flushOnboard();
+			}
+			/** 依次补交引导动作：不弹提示、不记「刚才的变化」；离线时留着，下次画界面时再试 */
+			async function flushOnboard() {
+				if (obSending || !obPending.length || !state || !cred || busy || syncing || flushing || Date.now() < obRetryAt) return;
+				obSending = true;
+				busy = true;
+				let tries = 0;
+				let got = false;
+				try {
+					while (obPending.length && state && cred && tries < 4) {
+						tries++;
+						const { status, data } = await api({ action: 'act', id: cred.id, key: cred.key, rev: state.rev, act: { t: 'onboard', ...obPending[0] }, op: newOp() });
+						if (data?.state && adopt(data.state)) got = true;
+						if (status === 409) continue; // 另一台设备刚改过：拿到最新版本后重发
+						obPending = obPending.slice(1);
+					}
+				} catch {
+					// 离线：留在本机，30 秒后下次画界面时再交
+					obRetryAt = Date.now() + 30_000;
+				} finally {
+					obSending = false;
+					busy = false;
+				}
+				if (got) renderPanel();
+			}
+			/** 便签左侧的图形：和底部标签同一套线条图标 */
+			const SLIP_ICON: Record<string, string> = {
+				...Object.fromEntries(TABS.map(([id, , icon]) => [id, icon])),
+				near: '<path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0 1 13 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
+				sync: '<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2.5 2.5M14 9l2 2"/>',
+				feat: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8.5 11V7.5a3.5 3.5 0 0 1 6.8-1.2"/>',
+			};
+			function slip(id: string, icon: string, title: string, text: string, close: string, extra = '') {
+				return `<section class="slip" aria-labelledby="slip-${id}"><span class="slip-stub" aria-hidden="true"><svg viewBox="0 0 24 24">${SLIP_ICON[icon] ?? ''}</svg></span>
+					<div class="slip-body"><h3 id="slip-${id}">${esc(title)}</h3><p>${esc(text)}</p>
+					<div class="slip-acts">${extra}${close}</div></div></section>`;
+			}
+			/** 第一次进入某页的提示：关掉后不再出现（记进存档，换设备也一样） */
+			function tipSlip(page: OnboardPage) {
+				const t = state && tipFor(state, page);
+				if (!t || obHidden.has(t.id)) return '';
+				const go = t.go ? `<button class="slip-go" data-tab="${t.go.page === 'sync' ? 'me' : t.go.page}"${t.go.page === 'sync' ? ' data-metab-go="sync"' : ''}>${esc(t.go.label)}</button>` : '';
+				return slip(t.id, page, t.title, t.text, `<button class="slip-x" data-ob-tip="${t.id}" aria-label="关掉提示「${esc(t.title)}」，以后不再出现">知道了</button>`, go);
+			}
+			/** 今天页：刚出现的功能，一次一条 */
+			function featSlip(s: PlayerState) {
+				const f = newFeature(s);
+				if (!f || obHidden.has('feat:' + f.id)) return '';
+				return slip('feat-' + f.id, 'feat', `新出现：${f.name}`, `在${f.where}。`, `<button class="slip-x" data-ob-tip="feat:${f.id}" aria-label="关掉「新出现：${esc(f.name)}」">知道了</button>`);
+			}
+			/** 今天页最下面：还没出现的卡片和怎么让它出现；老手可以一次全部显示 */
+			function laterNote(s: PlayerState) {
+				const l = lockedFeatures(s);
+				if (!l.length || obHidden.has('all')) return '';
+				return `<div class="later"><p><b>之后会出现</b>${l.map((f) => `${esc(f.name)}（${esc(f.hint)}）`).join('；')}。</p><button data-ob-all>现在全部显示</button></div>`;
+			}
+			/** 离开几天后回来：再次入境章、离开了几天、主线停在哪、离开期间的更新 */
+			function returnCard(s: PlayerState) {
+				const r = returnView(s, s.daily.day, news?.CHANGELOG ?? []);
+				if (!r || obHidden.has('back')) return '';
+				// 更新日志按需加载（第 41 批）：回流卡片要列离开期间的更新时才去下，下完重画今天页
+				if (!news) void loadNews();
+				const lines = [
+					r.story ? `<li><b>主线停在</b>${esc(r.story.title)}：${esc(r.story.step)}</li>` : '',
+					r.low ? '<li><b>先补一补</b>有需求低于 30，「下一步」会告诉你去哪补</li>' : '',
+					r.news.length ? `<li><b>离开期间更新了 ${r.news.length} 次</b>${r.news.map((n) => esc(n.title)).join('、')}（「我 · 更新」里看详情）</li>` : '',
+				].join('');
+				return `<section class="back-card" aria-labelledby="back-title">
+					<svg class="back-stamp" viewBox="0 0 120 120" aria-hidden="true" focusable="false"><circle cx="60" cy="60" r="55"/><circle cx="60" cy="60" r="47" class="thin"/><text x="60" y="54" class="big">入境</text><text x="60" y="72">RE-ENTRY</text><text x="60" y="88" class="small">${r.gap} DAY${r.gap === 1 ? '' : 'S'}</text></svg>
+					<h3 id="back-title">欢迎回来，离开了 ${r.gap} 天</h3>
+					<p>游戏里的时间没有走，需求和钱都停在你离开时的样子。</p>
+					${lines ? `<ul>${lines}</ul>` : ''}
+					<button class="back-ok" data-ob-back>知道了，接着玩</button></section>`;
+			}
 			function guideCard(s: PlayerState) {
 				if (!prefs.guide) return '';
 				const g = guideView(s);
 				if (!g) return '';
 				const item = (st: GuideView['steps'][number]) => {
 					const now = st.id === g.current;
-					const go = now && st.tab && st.tab !== tab ? `<button class="guide-go" data-tab="${st.tab}">去看看</button>` : '';
+					const go = now && st.tab && st.tab !== tab ? `<button class="guide-go" data-tab="${st.tab}"${st.tab === 'me' ? ' data-metab-go="sync"' : ''}>去看看</button>` : '';
 					return `<li class="${st.done ? 'done' : now ? 'now' : ''}"${now ? ' aria-current="step"' : ''}><span class="tick" aria-hidden="true">${st.done ? '✓' : ''}</span><span>${esc(st.title)}${now ? '<em class="now-tag">现在</em>' : ''}<small>${esc(st.hint)}</small>${go}</span><span class="sr">${st.done ? '（已完成）' : now ? '（下一步）' : ''}</span></li>`;
 				};
 				return `<div class="card guide"><div class="guide-head"><h3>新手指南 · 第 ${g.day} 天 <span class="muted">${g.done}/${g.total}</span></h3><button data-guide-close>知道了</button></div>
@@ -2086,8 +2210,11 @@ const cardLines = guilloche(400, 260, 14, 9);
 					${festSoon.map((c) => cgi['fest:' + c.festival.id]
 						? `<div class="row" style="margin-top:8px">${thumb('fest:' + c.festival.id)}<span class="body">${esc(c.festival.name)}<small>${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(getLocation(region, c.festival.loc)!.name)}</small></span></div>`
 						: `<p style="margin-top:4px">${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(c.festival.name)} · ${esc(getLocation(region, c.festival.loc)!.name)}</p>`).join('')}</div>`;
+				// 渐进出现（v36）：新角色头一两天先不摆钓鱼、课程、车行、房产这些卡，条件到了自动出现
+				const on = (id: string) => featureShown(s, id);
 				// 主界面定稿（第 15 批）：需求环 → 下一步 → 心愿 → 四个快捷动作，其余卡片照旧往下排
 				return `
+					${returnCard(s)}
 					${needsCard(s)}
 					${nextCard(s, !!homeHere, !!workHere && !shiftWhy)}
 					${wishHtml}
@@ -2096,6 +2223,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					${queueCard()}
 					${recapCard(s)}
 					${guideCard(s)}
+					${featSlip(s)}
 					<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
 						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
 						<p style="margin-top:6px">今天${weatherAt(s).icon} ${esc(weatherAt(s).name)}：${esc(weatherAt(s).desc)} 明后天${forecast(s.loc, dayOf(s.clock) + 1, 2).map((w) => `${w.icon} ${esc(w.name)}`).join('，')}。</p>
@@ -2104,7 +2232,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${storyCard}${liveCard(s)}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${petHtml}${courseHtml}${certHtml}${studyHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+					${storyCard}${liveCard(s)}${festHtml}${on('hobby') ? skyCard(s) : ''}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${on('hobby') ? photoQuestHtml + fishHtml : ''}${petHtml}${on('study') ? courseHtml + certHtml + studyHtml : ''}${shopHtml}${on('garage') ? dealerHtml + garageHtml : ''}${on('estate') ? propHtml : ''}${poiHtml}${factHtml}${notesCard(s)}${laterNote(s)}`;
 			}
 
 			/** 地点卡里的一行气候说明：气候区 + 参照的气象站（第 30 批） */
@@ -2598,7 +2726,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			function loadNews() {
 				if (news || Date.now() - newsFailedAt < 30000) return newsLoad;
 				newsLoad ??= Promise.all([import('../game/ui/news.ts'), import('../game/data/changelog.ts')])
-					.then(([n, c]) => { news = { ...n, CHANGELOG: c.CHANGELOG, CHANGELOG_LATEST: c.CHANGELOG_LATEST }; if (state && tab === 'me') renderPanel(); })
+					.then(([n, c]) => { news = { ...n, CHANGELOG: c.CHANGELOG, CHANGELOG_LATEST: c.CHANGELOG_LATEST }; if (state && (tab === 'me' || (tab === 'place' && returnView(state, state.daily.day) && !obHidden.has('back')))) renderPanel(); })
 					.catch(() => { newsLoad = null; newsFailedAt = Date.now(); if (state && tab === 'me') renderPanel(); });
 				return newsLoad;
 			}
@@ -2621,7 +2749,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const sound = `<div class="row" style="margin-top:8px"><span class="body">音效<small>做事、事件、成就时的轻提示音，默认关闭</small></span><button data-pref="sound" aria-pressed="${prefs.sound}">${prefs.sound ? '已开启' : '已关闭'}</button></div>`;
 				const real = `<div class="row" style="margin-top:8px"><span class="body">真实地图<small>出行页用 OpenStreetMap 真实地图，图块向 OpenFreeMap 请求；关掉或离线时用手绘地图${basemapFailed ? '。这次没加载出来，正在用手绘地图' : ''}</small></span><button data-pref="basemap" aria-pressed="${prefs.basemap}">${prefs.basemap ? '已开启' : '已关闭'}</button></div>`;
 				return `<div class="card"><h3>显示</h3><p class="muted">只在这台设备上生效。</p>${seg('font', '字号', FONT_OPTIONS)}${seg('motion', '动画', MOTION_OPTIONS)}${sound}${real}</div>
-					<div class="card"><h3>提示</h3>${tips}</div>
+					<div class="card"><h3>提示</h3>${tips}
+						<div class="row" style="margin-top:8px"><span class="body">引导提示和渐进出现<small>第一次进入各页的提示、新卡片出现的提醒；关掉后所有卡片直接显示。跟着存档走，换设备也一样</small></span><button data-ob-guide aria-pressed="${!state!.onboard.off}">${state!.onboard.off ? '已关闭' : '已开启'}</button></div></div>
 					${blockedCard(state!)}
 					<div class="card"><h3>玩法说明</h3><dl class="help">${HELP.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
 					${credBad ? `<div class="card"><h3>同步码已失效</h3><p>服务器不认这台设备上的同步码了：可能在另一台设备上更换过，或者账号已删除。输入新的同步码就能接着玩，排队的动作会在那之后补交。</p>
@@ -2690,7 +2819,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 				$('map-wrap').classList.toggle('hidden', tab !== 'go');
 				renderMap();
 				renderHud();
-				const html = { place: panelPlace, near: () => goSeg() + banner('banner:near') + panelNear(), go: () => goSeg() + panelGo(), grow: () => panelMe('grow'), me: () => panelMe(), social: panelSocial }[tab]!();
+				const page = (tab === 'me' && meTab === 'sync' ? 'sync' : tab) as OnboardPage;
+				const html = { place: panelPlace, near: () => goSeg() + tipSlip('near') + banner('banner:near') + panelNear(), go: () => goSeg() + tipSlip('go') + panelGo(), grow: () => tipSlip('grow') + panelMe('grow'), me: () => tipSlip(page) + panelMe(), social: () => tipSlip('social') + panelSocial() }[tab]!();
 				const prevClip = typeof document.querySelector === 'function' ? document.querySelector<HTMLVideoElement>('#panel video.loc-clip') : null;
 				setHtml($('panel'), html);
 				wireClips(prevClip);
@@ -2774,6 +2904,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				for (const p of PERIOD_IDS) document.documentElement?.classList?.toggle('p-' + p, p === pid);
 				renderPanel(); // 里面会画顶栏和（出行页的）地图
 				renderEvent();
+				if (obPending.length) void flushOnboard();
 				maybeFireWarn();
 				if (dailyNote) {
 					const note = dailyNote;
@@ -2804,7 +2935,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				} catch {}
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2812,12 +2943,17 @@ const cardLines = guilloche(400, 260, 14, 9);
 					if (tab === 'near') retryVenues();
 					if (tab === 'place') maybeFireWarn();
 					if (t.classList.contains('moodchip')) meTab = 'overview';
+					if (d.metabGo) meTab = d.metabGo;
 					renderPanel();
 					window.scrollTo({ top: 0 });
 					// 键盘和读屏用户：焦点移到新页面的内容上
 					($('panel') as HTMLElement).focus?.({ preventScroll: true });
 				}
 				else if (d.metab) { meTab = d.metab; renderPanel(); }
+				else if (d.obTip) { obSend({ op: 'tip', id: d.obTip }, d.obTip); renderPanel(); ($('panel') as HTMLElement).focus?.({ preventScroll: true }); }
+				else if ('obBack' in d) { obSend({ op: 'back' }, 'back'); renderPanel(); ($('panel') as HTMLElement).focus?.({ preventScroll: true }); }
+				else if ('obAll' in d) { obSend({ op: 'all' }, 'all'); toast('钓鱼、课程、车行、房产等卡片都显示出来了'); renderPanel(); }
+				else if ('obGuide' in d) { const off = !state.onboard.off; if (!off) obHidden.clear(); obSend({ op: off ? 'off' : 'on' }); toast(off ? '引导提示已关闭，所有卡片都会显示' : '引导提示已重新打开，各页的提示会再出现一次'); }
 				else if ('guideClose' in d) { setPrefs({ guide: false }); toast('新手指南已关闭，可以在「我 · 设置」里重新打开'); renderPanel(); }
 				else if ('venuesRetry' in d) { retryVenues(); renderPanel(); }
 				else if ('queueClear' in d) { queue = []; saveQueue(); toast('排队的动作已全部取消'); render(); }
@@ -2949,11 +3085,11 @@ const cardLines = guilloche(400, 260, 14, 9);
 						// 二维码库点了才下载；里面是带同步码的本页链接，扫码后直接打开
 						const c = cred!;
 						makeQr(syncLink(`${location.protocol}//${location.host}`, c))
-							.then((q) => { if (cred?.id !== c.id) return; qrHtml = qrSvg(q, '同步码二维码：用另一台手机的相机扫码接着玩'); if (tab === 'me') renderPanel(); })
+							.then((q) => { if (cred?.id !== c.id) return; qrHtml = qrSvg(q, '同步码二维码：用另一台手机的相机扫码接着玩'); obSend({ op: 'tip', id: 'sync-kept' }); if (tab === 'me') renderPanel(); })
 							.catch(() => toast('二维码生成失败，可以复制同步码'));
 					}
 				}
-				else if ('copy' in d) navigator.clipboard?.writeText(codeOf(cred!)).then(() => toast('已复制'), () => toast('复制失败，请长按手动复制'));
+				else if ('copy' in d) navigator.clipboard?.writeText(codeOf(cred!)).then(() => { toast('已复制'); obSend({ op: 'tip', id: 'sync-kept' }); }, () => toast('复制失败，请长按手动复制'));
 				else if ('pull' in d) pullCloud();
 				else if ('board' in d) loadBoard(true);
 				else if (d.giftpick !== undefined) { giftTo = d.giftpick ? { hash: d.giftpick, name: d.giftName ?? '' } : null; sellPick = false; renderPanel(); }

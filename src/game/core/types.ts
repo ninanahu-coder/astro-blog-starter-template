@@ -611,6 +611,8 @@ export interface PlayerState {
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	workDay: number; // 最近一次算过班次的游戏日，−1 表示还没上过；跟人走，不随换工作重置
 	journal: JournalEntry[];
+	/** 新手引导（v36）：已解开的功能、已关掉的提示和里程碑、最近一次回流（现实日、离开天数、看过没有）、是否关掉全部引导。见 core/onboard.ts */
+	onboard: { feats: string[]; tips: string[]; back: { day: number; gap: number; seen: boolean } | null; off: boolean };
 	seed: number;
 	rev: number; // 存档版本号，云同步用
 }

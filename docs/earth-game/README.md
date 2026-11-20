@@ -248,3 +248,8 @@ AIGC 短片和 NPC 语音（第 1 轮试点，远程 H3 + MiniMax TTS）另见 [
 - 第 20 批（2026-11-20）把开场换成「护照封皮 + 登机牌 + 入境卡」。方向和取舍记在 `.impeccable/surfaces/src-pages-earth-astro.md`，产品事实在根目录 `PRODUCT.md`。
 - 标题字体 `public/earth/fonts/terra-serif.woff2` 是 Noto Serif SC（SIL Open Font License 1.1）的子集，只含开场用到的约 60 个字形，13KB，取自 Google Fonts 并自托管。开场要加新的衬线字时，需要重新取子集。
 - 入境卡只是游戏里的风格化卡片，不用任何政府徽章或真实证件样式。
+
+## 9. 新手引导（v36）
+
+- 进入游戏后的引导：渐进出现的卡片、第一次进页的便签、回流卡片、新手指南第 3 天的「记下同步码」。设计、现状与提议见 [onboarding-design.md](onboarding-design.md)。
+- 进度存在存档的 `onboard` 字段，由服务端动作 `{ t: 'onboard' }` 写入；没有这个字段的老存档当作全部解开。
