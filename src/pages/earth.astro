@@ -703,7 +703,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { dateLabel, period, PERIOD_IDS, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
 			import { getWish } from '../game/core/wishes.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
-			import { weatherAt, weatherOn } from '../game/core/weather.ts';
+			import { climateOf, forecast, weatherAt, weatherOn } from '../game/core/weather.ts';
 			import { portraitSvg, ringDash, sceneSvg } from '../game/ui/scene.ts';
 			import { addFireSeen, FIRE_SEEN_KEY, fireAgency, fireKey, fireToastText, parseFireSeen } from '../game/ui/alerts.ts';
 			import { fireDanger, fireSeason, hasTide, hhmm, phaseNote, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps, tideNow, uvDay, uvLevel } from '../game/core/sky.ts';
@@ -1943,12 +1943,19 @@ const cardLines = guilloche(400, 260, 14, 9);
 					${guideCard(s)}
 					<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
 						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
-						<p style="margin-top:6px">今天${weatherAt(s).icon} ${esc(weatherAt(s).name)}：${esc(weatherAt(s).desc)} 明天${weatherOn(s.loc, dayOf(s.clock) + 1).icon} ${esc(weatherOn(s.loc, dayOf(s.clock) + 1).name)}。</p>
+						<p style="margin-top:6px">今天${weatherAt(s).icon} ${esc(weatherAt(s).name)}：${esc(weatherAt(s).desc)} 明后天${forecast(s.loc, dayOf(s.clock) + 1, 2).map((w) => `${w.icon} ${esc(w.name)}`).join('，')}。</p>
+						${climateLine(s.loc)}
 						${lastOutcome ? `<p style="margin-top:8px;color:var(--text)">💡 ${esc(lastOutcome)}</p>` : ''}
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
 					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${studyHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+			}
+
+			/** 地点卡里的一行气候说明：气候区 + 参照的气象站（第 30 批） */
+			function climateLine(locId: string) {
+				const c = climateOf(locId);
+				return `<p class="muted" style="margin-top:4px">气候：${esc(c.zoneName)}。${esc(c.zoneDesc)}（概率参照澳洲气象局${esc(c.station)}站的多年平均）</p>`;
 			}
 
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
