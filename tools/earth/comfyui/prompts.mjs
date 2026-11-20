@@ -4,6 +4,7 @@ import { EVENTS } from '../../../src/game/data/events.ts';
 import { AREAS } from '../../../src/game/data/areas-base.ts';
 import { SA_EVENTS } from '../../../src/game/data/events-sa.ts';
 import { VENUE_EVENTS } from '../../../src/game/data/venue-events.ts';
+import { TRAIL_EVENTS } from '../../../src/game/data/trail-events.ts';
 
 export const STYLE = 'cinematic CGI game key art, stylized realism, warm golden light, wide landscape shot, main subject centred in the middle band of the frame, highly detailed, no text, no lettering on signs, no logos, no watermark, no identifiable people';
 export const NEGATIVE = 'text, watermark, logo, signature, lowres, blurry, deformed, extra limbs, real person likeness';
@@ -150,12 +151,24 @@ const EVENT_SCENE = {
 	'wilpena-wallaby': 'a yellow-footed rock wallaby with a ringed yellow and black tail crouching in a rock crevice',
 	'blue-lake': 'a vivid cobalt blue lake inside a volcanic crater ringed by cliffs',
 	'ceduna-oysters': 'freshly shucked oysters on ice at a small jetty-side shack, oyster leases on a calm bay',
+	// 主要路线（实地路线）的事件（v22）：珀斯、弗里曼特尔、阿德莱德的路线共用，只写普通城市街景
+	'trail-quay-start': 'a phone with a walking map held up at the start of a city riverside promenade, morning light',
+	'trail-library-seat': 'an empty seat by a big window in a quiet modern public library reading room',
+	'trail-asian-grocer': 'shelves of colourful Asian sauces, noodles and snacks in a small city grocery store',
+	'trail-notice-board': 'a cork notice board crowded with handwritten flyers and tear-off phone number strips',
+	'trail-prison-gate': 'tall pale limestone walls and a heavy old gatehouse of a nineteenth-century prison on a hill',
+	'trail-city-view': 'a hilltop lookout over a modern city skyline beside a wide blue river, gum trees in the foreground',
+	'trail-along-busker': 'a street guitarist seen from the side on a sunny pedestrian mall, open guitar case with coins',
+	'trail-along-crossing': 'a pedestrian crossing at a city intersection, people seen from behind waiting for the green signal',
+	'trail-along-sea-breeze': 'gum tree leaves and shop awnings blowing in a cool afternoon breeze on a quiet street',
+	'trail-along-stairs': 'a long steep flight of outdoor stairs climbing a bushland hillside, a jogger seen from behind',
 };
 
 // 南澳事件写 South Australia，其余西澳。店铺通用事件两州都会触发：只写普通郊区，并点名不要地标（只写 Australia 时画出了悉尼歌剧院、海港大桥和乌鲁鲁）
 const SA_IDS = new Set(SA_EVENTS.map((e) => e.id));
 const VENUE_IDS = new Set(VENUE_EVENTS.map((e) => e.id));
-const eventPlace = (id) => (SA_IDS.has(id) ? 'South Australia' : VENUE_IDS.has(id) ? 'an ordinary Australian suburb, no famous landmarks, bridges, opera house or monoliths in view' : 'Western Australia');
+const TRAIL_IDS = new Set(TRAIL_EVENTS.map((e) => e.id));
+const eventPlace = (id) => (SA_IDS.has(id) ? 'South Australia' : VENUE_IDS.has(id) ? 'an ordinary Australian suburb, no famous landmarks, bridges, opera house or monoliths in view' : TRAIL_IDS.has(id) ? 'an ordinary Australian city centre, no famous landmarks, bridges, opera house or monoliths in view' : 'Western Australia');
 
 export function buildJobs() {
 	const jobs = [];
