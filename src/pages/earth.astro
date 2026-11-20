@@ -374,6 +374,15 @@ const cardLines = guilloche(400, 260, 14, 9);
 			#modal .ev-hero .ai-tag { position: absolute; top: 14px; left: 14px; bottom: auto; }
 			.greet { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: 14px; }
 			.greet button { min-height: 36px; padding: 4px 12px; }
+			/* 界面配图（docs/earth-game/cg-screens.md）：行内缩略图、页头横幅、空状态插图 */
+			.thumb { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; flex: none; background: var(--soft); }
+			.banner, .empty-art { height: 96px; border-radius: 16px; overflow: hidden; margin-bottom: 12px; background: var(--soft); }
+			.empty-art { height: 88px; margin: 8px 0 0; }
+			.banner img, .empty-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+			.ach .ach-img { width: 40px; height: 40px; border-radius: 10px; object-fit: cover; flex: none; }
+			.album-strip { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+			.album-strip img { width: 40px; height: 40px; border-radius: 10px; object-fit: cover; }
+			.album-strip img.off { filter: grayscale(1); opacity: 0.45; }
 			.row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; min-height: 56px; }
 			button.row { background: var(--card); border: 0; border-radius: 16px; padding: 10px 14px; box-shadow: 0 1px 2px var(--shadow); }
 			.card button.row { background: var(--card2); box-shadow: none; border: 1px solid var(--line); }
@@ -1726,6 +1735,21 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const img = cgi['npc:' + id];
 				return img ? `<img class="portrait" src="${esc(img)}" alt="" loading="lazy" width="56" height="56" />` : portraitSvg(id);
 			}
+			/** 行内缩略图（48px）：有 CGI 用图，没有就用原来的样式（fallback，通常是 emoji 方块；空串表示什么都不放） */
+			function thumb(key: string, fallback = '') {
+				return cgi[key] ? `<img class="thumb" src="${esc(cgi[key])}" alt="" loading="lazy" width="48" height="48" />` : fallback;
+			}
+			/** 卡片封面：有图才出，没图不占位 */
+			function cover(key: string) {
+				return cgi[key] ? hero(key, '') : '';
+			}
+			/** 页头横幅和空状态小插图：有图才出 */
+			function banner(key: string) {
+				return cgi[key] ? `<div class="banner"><img src="${esc(cgi[key])}" alt="" loading="lazy" /></div>` : '';
+			}
+			function emptyArt(key: string) {
+				return cgi[key] ? `<div class="empty-art"><img src="${esc(cgi[key])}" alt="" loading="lazy" /></div>` : '';
+			}
 
 			const minutesLabel = (m: number) => (m >= 60 ? (m / 60).toFixed(m % 60 ? 1 : 0) + ' 小时' : m + ' 分钟');
 			const NEED_LOW: Record<string, string> = { health: '身体不太舒服', hunger: '肚子有点饿了', energy: '有点累了', hygiene: '该洗个澡了', fun: '有点无聊', social: '想找人说说话' };
@@ -1965,27 +1989,27 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const visaLeft = workMinutesLeft(s);
 				const visaHtml = visaLeft === null ? '' : `<p class="muted" style="margin-top:4px">🎓 学生签证学期内：这两周还能打工 ${Math.round(visaLeft / 6) / 10} / ${VISA.capHours} 小时</p>`;
 				const workHtml = workHere || offers.length ? `<div class="card"><h3>工作</h3>${visaHtml}
-					${workHere ? `<div class="row" style="margin-top:8px"><span class="body">${esc(career!.name)} · ${esc(career!.levels[job!.level].title)}<small>每班 $${careerPay(s, job!.career, job!.level)}${certBonus(s, job!.career) ? `（含证书 +${Math.round(certBonus(s, job!.career) * 100)}%）` : ''} · ${Math.round(career!.minutes / 60)} 小时 · ${hoursLabel(career!.start)} 开工</small></span><button class="primary" data-job="work" ${shiftWhy ? 'disabled' : ''}>上班</button></div>${shiftWhy ? `<p style="margin-top:4px">${esc(shiftWhy)}</p>` : ''}` : ''}
-					${offers.map(({ career: c, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(c.name)} · 招${esc(c.levels[0].title)}<small>${esc(blocked ?? `每班 $${careerPay(s, c.id, 0)}，最高可升到${c.levels[c.levels.length - 1].title}`)}</small></span><button data-job="apply" data-career="${c.id}" ${blocked ? 'disabled' : ''}>${job ? '跳槽' : '应聘'}</button></div>`).join('')}</div>` : '';
+					${workHere ? `<div class="row" style="margin-top:8px">${thumb('career:' + career!.id)}<span class="body">${esc(career!.name)} · ${esc(career!.levels[job!.level].title)}<small>每班 $${careerPay(s, job!.career, job!.level)}${certBonus(s, job!.career) ? `（含证书 +${Math.round(certBonus(s, job!.career) * 100)}%）` : ''} · ${Math.round(career!.minutes / 60)} 小时 · ${hoursLabel(career!.start)} 开工</small></span><button class="primary" data-job="work" ${shiftWhy ? 'disabled' : ''}>上班</button></div>${shiftWhy ? `<p style="margin-top:4px">${esc(shiftWhy)}</p>` : ''}` : ''}
+					${offers.map(({ career: c, blocked }) => `<div class="row" style="margin-top:8px">${thumb('career:' + c.id)}<span class="body">${esc(c.name)} · 招${esc(c.levels[0].title)}<small>${esc(blocked ?? `每班 $${careerPay(s, c.id, 0)}，最高可升到${c.levels[c.levels.length - 1].title}`)}</small></span><button data-job="apply" data-career="${c.id}" ${blocked ? 'disabled' : ''}>${job ? '跳槽' : '应聘'}</button></div>`).join('')}</div>` : '';
 				const homeHere = s.home && s.home.loc === loc.id ? getHome(s.home.type) : undefined;
 				const rentals = homesAt(s, region);
 				const cookWhy = homeActionBlocked(s, 'cook');
 				const relaxWhy = homeActionBlocked(s, 'relax');
 				const homeHtml = homeHere || rentals.length ? `<div class="card"><h3>住处</h3>
-					${homeHere ? `<div class="row" style="margin-top:8px"><span class="body">你的${esc(homeHere.name)}<small>${s.home!.owned ? '自有房产，不交房租' : `每周 $${homeHere.rentWeek}${s.home!.bond ? `，押金 $${s.home!.bond}` : ''}`} · ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算 · 心情 +${homeComfort(s)}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>
+					${homeHere ? `<div class="row" style="margin-top:8px">${thumb('home:' + homeHere.id)}<span class="body">你的${esc(homeHere.name)}<small>${s.home!.owned ? '自有房产，不交房租' : `每周 $${homeHere.rentWeek}${s.home!.bond ? `，押金 $${s.home!.bond}` : ''}`} · ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算 · 心情 +${homeComfort(s)}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>
 					<div class="inline" style="margin-top:8px"><button data-home="cook" ${cookWhy ? 'disabled' : ''}>做饭 $${HOME_COOK.cost}</button><button data-home="relax" ${relaxWhy ? 'disabled' : ''}>放松</button></div>
 					${cookWhy || relaxWhy ? `<p style="margin-top:4px">${esc([...new Set([cookWhy, relaxWhy].filter(Boolean))].join('；'))}</p>` : ''}
 					<details style="margin-top:8px"><summary class="muted">添置家具（已有 ${Object.keys(s.home!.furniture).length}/${Object.keys(FURNITURE_SLOTS).length} 类，折现值 $${furnitureValue(s)}）</summary>
 					${furnitureAt(s).map(({ item, owned, net, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${owned ? '✅ ' : ''}${esc(FURNITURE_SLOTS[item.slot])} · ${esc(item.name)}<small>${esc(item.desc)}${!owned && net !== item.price ? ` 换购价 $${net}` : ''}</small></span>${owned ? `<button data-furn="sell" data-slot="${item.slot}">卖</button>` : `<button data-furn="buy" data-furn-id="${item.id}" ${blocked ? 'disabled' : ''}>$${item.price}</button>`}</div>`).join('')}
 					<p style="margin-top:8px" class="muted">成套摆放有额外心情：${furnitureSets(s).map(({ set, have, done }) => `${done ? '✅ ' : ''}${esc(set.name)}（${set.items.map((id) => esc(getFurniture(id)?.name ?? id)).join(' + ')}，${have}/${set.items.length}，心情 +${set.comfort}）`).join('；')}</p></details>` : ''}
-					${rentals.filter((o) => !(homeHere && o.home.id === s.home!.type)).map(({ home, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(home.name)} · $${home.rentWeek}/周<small>${esc(blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}${bondFor(home) ? ` + 押金 $${bondFor(home)}（搬走时退）` : ''}`)}</small></span><button data-home="rent" data-home-id="${home.id}" ${blocked ? 'disabled' : ''}>${s.home ? '搬来' : '租下'}</button></div>`).join('')}</div>` : '';
+					${rentals.filter((o) => !(homeHere && o.home.id === s.home!.type)).map(({ home, blocked }) => `<div class="row" style="margin-top:8px">${thumb('home:' + home.id)}<span class="body">${esc(home.name)} · $${home.rentWeek}/周<small>${esc(blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}${bondFor(home) ? ` + 押金 $${bondFor(home)}（搬走时退）` : ''}`)}</small></span><button data-home="rent" data-home-id="${home.id}" ${blocked ? 'disabled' : ''}>${s.home ? '搬来' : '租下'}</button></div>`).join('')}</div>` : '';
 				const myVeh = getVehicle(s.vehicle);
 				const exps = experiencesAt(s, region);
 				const expHtml = exps.length ? `<div class="card"><h3>体验</h3>${exps.map(({ exp, first, blocked }) => `
-					<div class="row" style="margin-top:8px"><span class="body">${first ? '✨ ' : '✅ '}${esc(exp.name)} · $${exp.price}<small>${esc(blocked ?? (first ? `${exp.desc} 首次：声望 +${exp.respect}，进收藏册` : '已收藏，再来一次只加心情'))}</small></span><button data-exp="${exp.id}" ${blocked ? 'disabled' : ''}>去</button></div>`).join('')}</div>` : '';
+					<div class="row" style="margin-top:8px">${thumb('exp:' + exp.id)}<span class="body">${first ? '✨ ' : '✅ '}${esc(exp.name)} · $${exp.price}<small>${esc(blocked ?? (first ? `${exp.desc} 首次：声望 +${exp.respect}，进收藏册` : '已收藏，再来一次只加心情'))}</small></span><button data-exp="${exp.id}" ${blocked ? 'disabled' : ''}>去</button></div>`).join('')}</div>` : '';
 				const certs = certsAt(s, region);
 				const certHtml = certs.length ? `<div class="card"><h3>职业证书</h3><p>考到证后，对应职业每个班的工资上涨；证书跟人走，换工作不丢。</p>${certs.map(({ cert, blocked }) => `
-					<div class="row" style="margin-top:8px"><span class="body">${s.certs.includes(cert.id) ? '✅ ' : ''}${esc(cert.name)} · $${cert.price}<small>${esc(blocked ?? `${getCareer(cert.career)?.name ?? ''}工资 +${Math.round(cert.payBonus * 100)}% · ${Math.round(cert.minutes / 60 * 10) / 10} 小时 · ${cert.desc}`)}</small></span><button data-cert="${cert.id}" ${blocked ? 'disabled' : ''}>报名</button></div>`).join('')}</div>` : '';
+					<div class="row" style="margin-top:8px">${thumb('cert:' + cert.id)}<span class="body">${s.certs.includes(cert.id) ? '✅ ' : ''}${esc(cert.name)} · $${cert.price}<small>${esc(blocked ?? `${getCareer(cert.career)?.name ?? ''}工资 +${Math.round(cert.payBonus * 100)}% · ${Math.round(cert.minutes / 60 * 10) / 10} 小时 · ${cert.desc}`)}</small></span><button data-cert="${cert.id}" ${blocked ? 'disabled' : ''}>报名</button></div>`).join('')}</div>` : '';
 				const programs = programsAt(s, region);
 				const KIND_LABEL = { language: '语言班', tafe: 'TAFE', uni: '大学' } as const;
 				const studyHtml = programs.length ? `<div class="card"><h3>🎓 学历课程</h3><p>分多次上完，每天每门一次；毕业拿学历和声望。</p>${programs.map(({ program: p, done, blocked }) => `
@@ -1997,7 +2021,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const sp = storyProgress(s);
 				const storyCard = sp ? `<details class="card" open><summary><h3 style="display:inline">📖 ${esc(sp.chapter.title)}</h3> <span class="muted">${sp.index + 1}/${STORY.length}</span></summary><p>${esc(sp.chapter.intro)}</p><ul class="story-steps">${sp.steps.map((x) => `<li>${x.got >= x.need ? '✅' : '⬜'} ${esc(x.step.text)}${x.need > 1 ? ` <span class="muted">${x.got}/${x.need}</span>` : ''}</li>`).join('')}</ul></details>` : '';
 				const pq = photoQuestNow(s, region);
-				const photoQuestHtml = pq ? `<div class="card"><h3>📷 摄影任务 ${pq.index + 1}/${PHOTO_QUESTS.length}：${esc(pq.quest.title)}</h3><p>${esc(pq.quest.hint)}</p>
+				const photoQuestHtml = pq ? `<div class="card">${cover('photo:' + pq.quest.id)}<h3>📷 摄影任务 ${pq.index + 1}/${PHOTO_QUESTS.length}：${esc(pq.quest.title)}</h3><p>${esc(pq.quest.hint)}</p>
 					<div class="row" style="margin-top:8px"><span class="body">拍下来<small>${esc(pq.blocked ?? `${PHOTO_MINUTES} 分钟 · $${pq.quest.cash}、声望 +${pq.quest.respect}`)}</small></span><button data-photo ${pq.blocked ? 'disabled' : ''}>拍照</button></div></div>` : '';
 				const spot = fishingAt(s, region);
 				const fishHtml = spot ? `<div class="card"><h3>🎣 钓鱼</h3><p>${spot.fish.length ? `现在能钓到：${spot.fish.map((f) => `${s.fish[f.id] ? f.icon + esc(f.name) : '？？？'}`).join('、')}。` : '这个时候这里钓不到鱼，换个时段或季节再来。'}钓到的当场卖给鱼铺。</p>
@@ -2019,19 +2043,19 @@ const cardLines = guilloche(400, 260, 14, 9);
 					<details style="margin-top:8px"><summary class="muted">宠物须知</summary>${PET_RULES.map((r) => `<p style="margin-top:6px">${esc(r.text)} <a class="muted" href="${esc(r.source)}" target="_blank" rel="noopener">来源</a></p>`).join('')}</details></details>` : '';
 				const courses = coursesAt(s, region);
 				const courseHtml = courses.length ? `<div class="card"><h3>课程</h3>${courses.map(({ course, price, blocked }) => `
-					<div class="row" style="margin-top:8px"><span class="body">${esc(course.name)} · $${price}<small>${esc(blocked ?? `${SKILL_META[course.skill].name}（现在 ${Math.floor(s.skills[course.skill])}）· ${Math.round(course.minutes / 60 * 10) / 10} 小时 · ${course.desc}`)}</small></span><button data-course="${course.id}" ${blocked ? 'disabled' : ''}>上课</button></div>`).join('')}</div>` : '';
+					<div class="row" style="margin-top:8px">${thumb('course:' + course.id)}<span class="body">${esc(course.name)} · $${price}<small>${esc(blocked ?? `${SKILL_META[course.skill].name}（现在 ${Math.floor(s.skills[course.skill])}）· ${Math.round(course.minutes / 60 * 10) / 10} 小时 · ${course.desc}`)}</small></span><button data-course="${course.id}" ${blocked ? 'disabled' : ''}>上课</button></div>`).join('')}</div>` : '';
 				const dealer = dealerAt(s, region);
 				const props = propertiesAt(s, region);
 				const propHtml = props.length ? `<div class="card"><h3>房产</h3>${props.map(({ property: pr, owned, down, blockedCash, blockedLoan }) => `
-					<div style="margin-top:10px"><div class="row"><span class="body">${owned ? '🔑 ' : ''}${esc(pr.name)} · $${pr.price.toLocaleString()}<small>${esc(pr.desc)} 物业费 $${pr.weekly}/周，出租 $${pr.rentIncome}/周。</small></span></div>
+					<div style="margin-top:10px"><div class="row">${thumb('prop:' + pr.id)}<span class="body">${owned ? '🔑 ' : ''}${esc(pr.name)} · $${pr.price.toLocaleString()}<small>${esc(pr.desc)} 物业费 $${pr.weekly}/周，出租 $${pr.rentIncome}/周。</small></span></div>
 					${owned ? '<p style="margin-top:4px">已是你的房产，在「角色」页管理。</p>' : `<div class="inline" style="margin-top:6px"><button data-prop="buy" data-prop-id="${pr.id}" ${blockedCash ? 'disabled' : ''}>全款买</button><button data-prop="buyloan" data-prop-id="${pr.id}" ${blockedLoan ? 'disabled' : ''}>贷款买（首付 $${down.toLocaleString()}）</button></div>
 					<p style="margin-top:4px">${esc(blockedLoan ?? `贷款 $${(pr.price - down).toLocaleString()}，每周还约 $${loanPayment(pr, pr.price - down)}，约 ${weeksToPayOff(pr, pr.price - down)} 周还清。`)}</p>`}</div>`).join('')}</div>` : '';
 				const dealerHtml = dealer.length ? `<div class="card"><h3>车行</h3>${myVeh ? `<p>你的${esc(myVeh.name)}可折抵 $${resaleValue(myVeh.id, s.car.km)}</p>` : ''}${dealer.map(({ vehicle, duty, net, blocked }) => `
-					<div class="row" style="margin-top:8px"><span class="ico">${vehicle.icon}</span><span class="body">${esc(vehicle.name)} · $${vehicle.price.toLocaleString()}<small>${esc(blocked ?? `${vehicle.desc}${duty ? ` 过户印花税 $${duty.toLocaleString()}。` : ''}${myVeh ? ` 折抵后付 $${net.toLocaleString()}` : ''}`)}</small></span><button data-veh="buy" data-veh-id="${vehicle.id}" ${blocked ? 'disabled' : ''}>${myVeh ? '换' : '买'}</button></div>`).join('')}
+					<div class="row" style="margin-top:8px">${thumb('veh:' + vehicle.id, `<span class="ico">${vehicle.icon}</span>`)}<span class="body">${esc(vehicle.name)} · $${vehicle.price.toLocaleString()}<small>${esc(blocked ?? `${vehicle.desc}${duty ? ` 过户印花税 $${duty.toLocaleString()}。` : ''}${myVeh ? ` 折抵后付 $${net.toLocaleString()}` : ''}`)}</small></span><button data-veh="buy" data-veh-id="${vehicle.id}" ${blocked ? 'disabled' : ''}>${myVeh ? '换' : '买'}</button></div>`).join('')}
 					${myVeh ? (() => { const why = sellBlocked(s); return `<div class="inline" style="margin-top:8px"><button data-veh="sell" ${why ? 'disabled' : ''}>卖掉${esc(myVeh.name)}（$${resaleValue(myVeh.id, s.car.km)}）</button></div>${why && !why.includes('营业') ? `<p style="margin-top:4px">${esc(why)}</p>` : ''}`; })() : ''}</div>` : '';
 				const garage = garageAt(s, region);
-				const garageHtml = garage ? `<div class="card"><h3>修车厂</h3><div class="row" style="margin-top:8px"><span class="body">给${esc(myVeh!.name)}做保养 · $${garage.price}<small>${esc(garage.blocked ?? `离上次保养 ${s.car.since.toLocaleString()} 公里；超过 ${SERVICE_KM.toLocaleString()} 公里后路上可能抛锚`)}</small></span><button data-veh="service" ${garage.blocked ? 'disabled' : ''}>保养</button></div></div>` : '';
-				const vanHtml = myVeh?.sleep ? `<button class="row" data-veh="sleep"><span class="ico">${myVeh.icon}</span><span class="body">在${esc(myVeh.name)}里睡一觉<small>免费，开到哪睡到哪</small></span></button>` : '';
+				const garageHtml = garage ? `<div class="card"><h3>修车厂</h3><div class="row" style="margin-top:8px">${thumb('veh:' + myVeh!.id)}<span class="body">给${esc(myVeh!.name)}做保养 · $${garage.price}<small>${esc(garage.blocked ?? `离上次保养 ${s.car.since.toLocaleString()} 公里；超过 ${SERVICE_KM.toLocaleString()} 公里后路上可能抛锚`)}</small></span><button data-veh="service" ${garage.blocked ? 'disabled' : ''}>保养</button></div></div>` : '';
+				const vanHtml = myVeh?.sleep ? `<button class="row" data-veh="sleep">${thumb('veh:' + myVeh.id, `<span class="ico">${myVeh.icon}</span>`)}<span class="body">在${esc(myVeh.name)}里睡一觉<small>免费，开到哪睡到哪</small></span></button>` : '';
 				const shop = shopAt(s, region);
 				const shopHtml = shop.length ? `<div class="card"><h3>商店</h3><div class="list" style="margin-top:8px">${shop.map(({ item, price, markdown, blocked }) => `
 					<button class="row" data-buy="${item.id}" ${blocked ? 'disabled' : ''}><span class="ico">${item.icon}</span>
@@ -2041,8 +2065,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const seaWish = (id: string) => { const w = getWish(id); return !!w && w.done.t === 'activity' && w.done.ids.some((a) => ACTIVITIES.find((x) => x.id === a)?.exposed === 'sea'); };
 				const wishHtml = s.wishes.length ? `<div class="card"><h3>今天的心愿 · 还剩 ${s.wishes.length} 个</h3><div class="wishes">${s.wishes.map((id) => `<div class="wish"><span class="dot" aria-hidden="true"></span><span>${esc(getWish(id)?.text ?? '')}${seaClosed && seaWish(id) ? '（这里今天有风暴，换个海边）' : ''}</span></div>`).join('')}</div><p style="margin-top:6px" class="muted">做到了加心情和声望，过了今天会换一批。</p></div>` : '';
 				const { here: festHere, soon: festSoon } = festivalsSoon(s.clock, loc.id);
-				const festHtml = `<div class="card"><h3>${festHere ? `🎉 ${esc(festHere.festival.name)}进行中` : '节日'}</h3>${festHere ? `<p>${esc(festHere.festival.desc)} 节日专属体验在下面的「体验」里。</p>` : ''}
-					${festSoon.map((c) => `<p style="margin-top:4px">${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(c.festival.name)} · ${esc(getLocation(region, c.festival.loc)!.name)}</p>`).join('')}</div>`;
+				const festHtml = `<div class="card">${festHere ? cover('fest:' + festHere.festival.id) : ''}<h3>${festHere ? `🎉 ${esc(festHere.festival.name)}进行中` : '节日'}</h3>${festHere ? `<p>${esc(festHere.festival.desc)} 节日专属体验在下面的「体验」里。</p>` : ''}
+					${festSoon.map((c) => cgi['fest:' + c.festival.id]
+						? `<div class="row" style="margin-top:8px">${thumb('fest:' + c.festival.id)}<span class="body">${esc(c.festival.name)}<small>${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(getLocation(region, c.festival.loc)!.name)}</small></span></div>`
+						: `<p style="margin-top:4px">${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(c.festival.name)} · ${esc(getLocation(region, c.festival.loc)!.name)}</p>`).join('')}</div>`;
 				// 主界面定稿（第 15 批）：需求环 → 下一步 → 心愿 → 四个快捷动作，其余卡片照旧往下排
 				return `
 					${needsCard(s)}
@@ -2149,7 +2175,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const album = Object.entries(AREAS).map(([id, a]) => {
 					const all = EXPERIENCES.filter((e) => e.area === id);
 					const got = all.filter((e) => s.collected.includes(e.id));
-					return `<div class="row" style="margin-top:6px"><span class="body">${esc(a.name)} ${got.length}/${all.length}<small>${all.map((e) => (s.collected.includes(e.id) ? '✅' : '⬜') + esc(e.name)).join(' · ')}</small></span></div>`;
+					const strip = all.filter((e) => cgi['exp:' + e.id]).map((e) => `<img src="${esc(cgi['exp:' + e.id])}" alt="" loading="lazy" width="40" height="40" class="${s.collected.includes(e.id) ? '' : 'off'}" />`).join('');
+					return `<div class="row" style="margin-top:6px"><span class="body">${esc(a.name)} ${got.length}/${all.length}${strip ? `<span class="album-strip" aria-hidden="true">${strip}</span>` : ''}<small>${all.map((e) => (s.collected.includes(e.id) ? '✅' : '⬜') + esc(e.name)).join(' · ')}</small></span></div>`;
 				}).join('');
 				const lv = level(s.respect);
 				const m = mood(s);
@@ -2165,7 +2192,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					if (!pr) return '';
 					const living = s.home?.owned === op.id;
 					const status = living ? '自住' : op.rented ? (op.fresh ? `刚挂牌，下个结算日后起收租 $${pr.rentIncome}/周` : `出租中 +$${pr.rentIncome}/周`) : '空置';
-					return `<div style="margin-top:10px"><div class="row"><span class="body">${esc(pr.name)} · ${esc(getLocation(region, pr.loc)!.name)}<small>${status} · 物业费 $${pr.weekly}/周${op.loan ? ` · 贷款 $${op.loan.toLocaleString()}，每周还 $${loanPayment(pr, op.loan)}` : ' · 无贷款'}${op.missed ? ` · ⚠️ 已欠款 ${op.missed} 次（超过 ${FINANCE.graceWeeks} 次强制卖房）` : ''}</small></span><span class="meta">卖出到手<br/>$${saleProceeds(pr, op.loan).toLocaleString()}</span></div>
+					return `<div style="margin-top:10px"><div class="row">${thumb('prop:' + pr.id)}<span class="body">${esc(pr.name)} · ${esc(getLocation(region, pr.loc)!.name)}<small>${status} · 物业费 $${pr.weekly}/周${op.loan ? ` · 贷款 $${op.loan.toLocaleString()}，每周还 $${loanPayment(pr, op.loan)}` : ' · 无贷款'}${op.missed ? ` · ⚠️ 已欠款 ${op.missed} 次（超过 ${FINANCE.graceWeeks} 次强制卖房）` : ''}</small></span><span class="meta">卖出到手<br/>$${saleProceeds(pr, op.loan).toLocaleString()}</span></div>
 					<div class="inline" style="margin-top:6px;flex-wrap:wrap">${living ? '' : `<button data-prop="movein" data-prop-id="${op.id}">搬进去</button>`}<button data-prop="rentout" data-prop-id="${op.id}">${op.rented ? '停止出租' : '出租'}</button>${op.loan ? `<button data-prop="repay" data-prop-id="${op.id}">提前还贷</button>` : ''}<button data-prop="sell" data-prop-id="${op.id}">卖掉</button></div></div>`;
 				}).join('');
 				const life = `
@@ -2230,7 +2257,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc([({ sea: '海洋', land: '陆地', bird: '飞鸟' } as Record<string, string>)[a.group], animalHint(a)].filter(Boolean).join(' · '))}</small></span><span class="sr">（还没见过）</span></div>`).join('')}</div>
 					<details style="margin-top:8px"><summary><b>看动物的规矩</b></summary>${WILDLIFE_RULES.map((r) => `<p style="margin-top:6px">${esc(r.text)} <a class="muted" href="${esc(r.source)}" target="_blank" rel="noopener">来源</a></p>`).join('')}</details></div>`;
 				const fishHtml2 = `<div class="card"><h3>鱼获 ${Object.keys(s.fish).length}/${FISH.length}</h3><div class="ach-grid">${FISH.map((f) => s.fish[f.id]
-					? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${f.icon}</span><span><b>${esc(f.name)} ×${s.fish[f.id]}</b><small>${esc(f.desc)}</small></span></div>`
+					? `<div class="ach done">${cgi['fish:' + f.id] ? `<img class="ach-img" src="${esc(cgi['fish:' + f.id])}" alt="" loading="lazy" width="40" height="40" />` : `<span class="ach-ico" aria-hidden="true">${f.icon}</span>`}<span><b>${esc(f.name)} ×${s.fish[f.id]}</b><small>${esc(f.desc)}</small></span></div>`
 					: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>还没钓到</small></span></div>`).join('')}</div></div>`;
 				// 见闻录：一次性的专属事件，见过的显示标题，没见过的只提示在哪
 				const onceEvents = EVENTS.filter((e) => e.once && !e.venueTypes);
@@ -2271,12 +2298,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 						return `<div class="card"><h3>每日奖励 · 连续 ${s.daily.streak} 天</h3><div class="streak" role="img" aria-label="这一轮 7 天里已到第 ${pos} 天">${dots}</div>
 							<p style="margin-top:8px">明天接着来能领 $${tomorrow.cash}${tomorrow.full ? `（满 ${DAILY.cap} 天大礼，含额外 $${DAILY.bonus}）` : ''}。断一天从头算（$${DAILY.base} 起）。</p></div>`;
 					})(),
-					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id, s.car.km).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}${holdingsValue(s) ? ` · 理财 $${holdingsValue(s).toLocaleString()}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>`,
+					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id, s.car.km).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}${holdingsValue(s) ? ` · 理财 $${holdingsValue(s).toLocaleString()}` : ''}</p>${estate || emptyArt('empty:estate') + '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>`,
 					invest: investCard(s),
 					album: `<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>`,
 					life: `<div class="card"><h3>工作与住处</h3>${life}</div>`,
-					rels: `<div class="card"><h3>人际关系</h3>${rels || '<p>还没认识什么人。去各地看看谁在那里。</p>'}</div>${duoHtml}`,
-					bag: `<div class="card"><h3>背包</h3>${bag || '<p>空的。在地点页的商店里买东西。</p>'}</div>`,
+					rels: `<div class="card"><h3>人际关系</h3>${rels || emptyArt('empty:rels') + '<p>还没认识什么人。去各地看看谁在那里。</p>'}</div>${duoHtml}`,
+					bag: `<div class="card"><h3>背包</h3>${bag || emptyArt('empty:bag') + '<p>空的。在地点页的商店里买东西。</p>'}</div>`,
 					skills: `<div class="card"><h3>能力</h3><p>用得越多涨得越快。</p>${skills}</div>`,
 					derived: `<div class="card"><h3>派生属性</h3>${(() => {
 						const d = derivedStats(s);
@@ -2292,7 +2319,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					// 人生等级：声望到下一级的进度；满级不画进度条
 					const pct = lv.next !== null ? Math.min(100, Math.round(s.respect / lv.next * 100)) : 100;
 					const lvHtml = `<div class="card grow-head"><span class="lv-badge" aria-hidden="true">${lv.lv}</span><span class="name"><b>Lv${lv.lv} ${esc(lv.title)}</b><span>声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next} · 离下一级还差 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ' · 已到最高级'}</span>${lv.next !== null ? `<span class="bar" role="img" aria-label="升级进度 ${pct}%"><i style="width:${pct}%"></i></span>` : ''}</span></div>`;
-					return lvHtml + ['quests', 'daily', 'ach', 'titles', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
+					return banner('banner:grow') + lvHtml + ['quests', 'daily', 'ach', 'titles', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
 				}
 				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'invest', 'life', 'bag'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
@@ -2451,7 +2478,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 							? `<div class="row"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta">${st === 'after' ? '今天已经走了' : '还没到时间'}</span></div>`
 							: `<button class="row" data-loc="${plan.loc}"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta"><b>怎么去</b></span></button>`;
 				}).join('')}</div></div>` : '';
-				return `${reportPick && !reportPick.note ? reportCard() : ''}${knownHtml}<div class="card"><h3>${esc(getLocation(region, s.loc)!.name)}的人</h3><p>${online ? `全区在线 ${peers.size} 人` : '未连接，稍后自动重连…'}</p><div class="list" style="margin-top:8px">${people}</div>${more}</div>
+				return `${banner('banner:social')}${reportPick && !reportPick.note ? reportCard() : ''}${knownHtml}<div class="card"><h3>${esc(getLocation(region, s.loc)!.name)}的人</h3><p>${online ? `全区在线 ${peers.size} 人` : '未连接，稍后自动重连…'}</p><div class="list" style="margin-top:8px">${people}</div>${more}</div>
 					${weekCard(s)}
 					${tradeCard(s)}
 					${coopCard(s)}
@@ -2646,7 +2673,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				$('map-wrap').classList.toggle('hidden', tab !== 'go');
 				renderMap();
 				renderHud();
-				const html = { place: panelPlace, near: () => goSeg() + panelNear(), go: () => goSeg() + panelGo(), grow: () => panelMe('grow'), me: () => panelMe(), social: panelSocial }[tab]!();
+				const html = { place: panelPlace, near: () => goSeg() + banner('banner:near') + panelNear(), go: () => goSeg() + panelGo(), grow: () => panelMe('grow'), me: () => panelMe(), social: panelSocial }[tab]!();
 				const prevClip = typeof document.querySelector === 'function' ? document.querySelector<HTMLVideoElement>('#panel video.loc-clip') : null;
 				setHtml($('panel'), html);
 				wireClips(prevClip);

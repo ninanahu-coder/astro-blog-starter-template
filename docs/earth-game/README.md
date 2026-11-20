@@ -177,7 +177,7 @@ npm run earth:pois                # 校验并合并进 wa.pois.json
 
 ## 7. CGI 素材（GPT image 2 / 远程 ComfyUI）
 
-当前的 136 张图（35 个地点主视觉 + 84 张事件插图 + 17 张 NPC 头像，每个事件和 NPC 各一张）由 GPT image 2 生成（2026-11-19）：
+当前的 238 张图由 GPT image 2 生成：35 个地点主视觉 + 84 张事件插图 + 17 张 NPC 头像（2026-11-19），以及 102 张界面配图（2026-11-20，体验、摄影任务、节日、车辆、房产、住处、职业、课程、证书、鱼获、页头横幅、空状态；设计清单见 [`cg-screens.md`](cg-screens.md)）：
 
 ```bash
 npm run earth:cgi:gpti -- --dry-run                  # 只看提示词
@@ -188,6 +188,7 @@ npm run earth:cgi:gpti -- --only=perth,event:whale-shark --force
 - 1536×1024 原图放 `tools/earth/comfyui/.raw/`（不进仓库），网页用的压成 960 宽 WebP（每张约 100KB）。
 - 地点图按 `prompts.mjs` 的 `LOC_SCENE` 一句标志性风景来画；游戏标签（机场、医院、健身房……）不进提示词，试画时它们被照字面画进去，画面又挤又乱。
 - 画面是 AI 生成的示意图，不是实拍；不画可辨认的人：事件里有人的画面一律写背影、剪影或只露手，警察不画徽章和字。
+- 界面配图分两种尺寸：行内缩略图和图鉴格子用方形任务（`size: 1024x1024`，`width: 256`，原图按实际宽高居中裁正方形，每张约 10–20KB），封面、横幅和空状态用宽图（960 或 640 宽）。键名带类别前缀（`exp:` `photo:` `fest:` `veh:` `prop:` `home:` `career:` `course:` `cert:` `fish:` `banner:` `empty:`），页面用 `thumb()` `cover()` `banner()` `emptyArt()` 读图，没图时退回原来的 emoji 方块或不占位。新增这些数据时在 `prompts.mjs` 对应的 `*_SCENE` 表补一句画面，否则 `cgi.test.ts` 会报「没有图」。
 - NPC 头像按 `NPC_LOOK` 写年龄、职业、穿着和常驻地点背景，不写族裔（由纪按角色设定写日裔澳洲人）；提示词固定带「虚构原创角色、不像任何真人或名人」。方形 1024 原图，压成 256 宽，页面里 56px 显示；没有图时退回按 id 画的 SVG 立绘。
 - 新增事件或 NPC 要在 `EVENT_SCENE` / `NPC_LOOK` 补一句画面描述再跑脚本，否则 `cgi.test.ts` 会报「没有插图」或「没有头像」。南澳事件的地名自动写成 South Australia；店铺通用事件两州都会触发，写「普通澳洲郊区、不要地标」，只写 Australia 时画出了悉尼歌剧院和乌鲁鲁。
 

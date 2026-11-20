@@ -726,6 +726,8 @@ type HashOpts = {
 	hidden?: boolean;
 	/** 在线频道当作已连上：每个新建的连接记进这个数组（连接地址 url、收消息 say、是否被关 closed） */
 	liveWs?: LiveWs[];
+	/** CGI 清单（/earth/cgi/manifest.json 的 images）；不给时清单请求 404，页面全部走没图的样式 */
+	cgi?: Record<string, string>;
 	/** prompt() 的回答（默认 null，等于点了取消）；问过的话记进 seen.prompts */
 	prompt?: string | null;
 	/** 页面启动完、清理之前再做点什么（点按钮、触发联网事件） */
@@ -758,6 +760,7 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	g.confirm = (m: string) => { seen.asked.push(m); return confirmAnswer; };
 	g.prompt = (m: string) => { seen.prompts.push(m); return opts.prompt ?? null; };
 	g.fetch = async (u: string, o?: RequestInit) => {
+		if (String(u) === '/earth/cgi/manifest.json' && opts.cgi) return new Response(JSON.stringify({ images: opts.cgi }), { status: 200 });
 		if (String(u) !== '/api/earth/save') return new Response('{}', { status: 404 });
 		const res = () => world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: o?.body as string }));
 		return (await opts.reply?.(JSON.parse(o?.body as string), res)) ?? res();
@@ -1349,6 +1352,38 @@ test('界面：没有存档时显示创建页，选完四步能创建角色并�
 			if (v === undefined) delete g[k]; else g[k] = v;
 		}
 	}
+});
+
+test('界面：界面配图（第 21 批）——清单里有的键用小图、横幅和空状态插图，地址经过转义；清单里没有的照旧用原来的样式', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'cgi-ui-a', '看配图');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.loc = 'perth';
+	rec.state.cash = 5000;
+	rec.state.inventory = {};
+	rec.state.properties = [];
+	data.set('save:' + a.cred.id, rec);
+	let place = '', grow = '', assets = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		cgi: { 'exp:swan-cruise': '/earth/cgi/exp.webp?"><b>x', 'banner:grow': '/earth/cgi/banner-grow.webp', 'empty:bag': '/earth/cgi/empty-bag.webp' },
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			place = el('panel').innerHTML;
+			await click({ tab: 'grow' });
+			grow = el('panel').innerHTML;
+			await click({ tab: 'me' });
+			await click({ metab: 'assets' });
+			assets = el('panel').innerHTML;
+		},
+	});
+	assert.match(place, /<img class="thumb" src="\/earth\/cgi\/exp\.webp\?&quot;&gt;&lt;b&gt;x" alt="" loading="lazy" width="48" height="48" \/><span class="body">✨ 天鹅河日落游船/, '体验行左边是小图，地址转义');
+	assert.doesNotMatch(place, /exp\.webp\?"><b>/, '地址里的引号和尖括号不能原样进 HTML');
+	assert.equal((place.match(/class="thumb"/g) ?? []).length, 1, '清单里没有的（工作、住处……）不出小图');
+	assert.ok(grow.startsWith('<div class="banner"><img src="/earth/cgi/banner-grow.webp"'), '成长页顶上是横幅');
+	assert.match(assets, /<div class="empty-art"><img src="\/earth\/cgi\/empty-bag\.webp" alt="" loading="lazy" \/><\/div><p>空的。/, '背包空的时候有插图');
+	assert.doesNotMatch(assets, /empty-art"><img src="[^"]*estate/, '清单里没有的空状态不占位');
+	assert.deepEqual(a11yIssues(place), []);
+	assert.deepEqual(a11yIssues(assets), []);
 });
 
 test('界面：「我 · 资产」的理财卡（第 25 批）——行情来自服务端、能买入、净值算上持仓、行情种子不进本机存档', async () => {
