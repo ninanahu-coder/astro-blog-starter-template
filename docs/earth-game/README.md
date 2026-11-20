@@ -36,6 +36,7 @@ src/game/data/* ──▶ prompts.mjs ──▶ 远程 ComfyUI ──▶ cgi/*.p
 src/game/
   core/types.ts       全部数据结构（PlayerState / Region / GameEvent / Activity / Effect）
   core/character.ts   出身、初始属性、存档校验 sanitizeState()
+  core/save.ts        存档格式版本、迁移、来回部署时保留别的分支加的字段（规范见 save-sync.md §5）
   core/engine.ts      规则引擎：travel / performActivity / resolveEvent / gpsCheckIn（纯函数、确定性）
   core/geo.ts         距离、地图投影、真实坐标 → 游戏地点
   core/formulas.ts    派生属性（体质、吸引力、状态系数……）与真实地点动作的公式
@@ -64,7 +65,7 @@ tools/earth/comfyui/  提示词生成、工作流模板、远程出图脚本
 tests/earth/          引擎与数据自洽性测试
 ```
 
-人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。天气和季节（各地气候、BOM 气象站数据、天气怎么抽、对玩法的影响和提议）见 [weather-seasons.md](weather-seasons.md)。
+按功能整理的总览（每个功能给玩家什么、规则要点、现状和待定）见 [features.md](features.md)。人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)，房产与车辆的细化设计和真实价格参照见 [home-and-vehicle.md](home-and-vehicle.md)。收入侧（工资、零工、收租）、货币投放与回收、职业成长曲线、现实物价参照，以及金融资产（储蓄、指数基金、金条、虚拟币）见 [economy-design.md](economy-design.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。天气和季节（各地气候、BOM 气象站数据、天气怎么抽、对玩法的影响和提议）见 [weather-seasons.md](weather-seasons.md)。
 
 设计原则：
 
@@ -82,7 +83,7 @@ tests/earth/          引擎与数据自洽性测试
 | 能力（0–100，越用越高；目前不会退步） | 体能、力量、驾驶、游泳、魅力、生存、街头 | 影响事件检定、行车速度、可做的互动 |
 | 状态 | 现金、健康、声望、麻烦值、座驾 | 麻烦值 ≥ 60 会被盘查；健康归零会在最近的医院醒来，付医药费 $100 + 现金的 10%（最多 $500） |
 
-四种出身（背包客 / 矿区轮班工 / 留学生 / 冲浪手）决定起始现金、座驾和能力侧重。
+四种出身（背包客 / 矿区轮班工 / 留学生 / 冲浪手）决定起始现金、座驾和能力侧重。各出身的定位、设定理由、新出身候选和特质搭配见 [initial-stats.md](initial-stats.md)（数值待平衡）。
 
 ### 到达事件
 
@@ -98,7 +99,7 @@ tests/earth/          引擎与数据自洽性测试
 
 - **天气**（`core/weather.ts`）：每个地点每个游戏日一种，由「地点 + 日期」哈希确定，所有玩家看到的一样，可以预报（地点卡显示明天的天气）。冬季风暴最多。风暴天下海、浮潜、冲浪、出海都做不了——普通互动、事件选项、NPC 专属互动里标了 `exposed: 'sea'` 的都受影响；海滩上会多出「看风暴」。下雨天城镇、港口、海岸、公园和海岛有专门的小事件；不下雨的夜里内陆和公园可以「看星星」。
 - **昼夜**：按游戏时刻分清晨（5–8）、白天、傍晚（17–20）、夜晚四个时段。顶栏底色、地图夜色和星星跟着当地真实的日出日落走（第 37 轮，见「天象」），不跟这四个时段；两者不一致时顶栏时段名后面补一句实际天色，例如冬天 18:30「傍晚（天已经黑了）」。有的事件只在某个时段抵达时出现（清晨港口的渔船、傍晚海滩的日落、天黑后公路上的袋鼠、珀斯的河边夜景）；海滩清晨可以「看日出」。
-- **天气相册**（存档字段 `photos`）：抵达一个地点时按当天天气收一张照片（地点 × 天气，共 90 张），只是收藏，不发奖励。
+- **天气相册**（存档字段 `photos`）：抵达一个地点时按当天天气收一张照片（地点 × 天气，35 个地点共 175 张），只是收藏，不发奖励。
 - **成就**（`core/achievements.ts`）：由存档现算的里程碑（19 个），不进存档、不发奖励。
 
 ## 4. 手机界面
@@ -205,6 +206,8 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 
 审查规则写在仓库根的 [`AGENTS.md`](../../AGENTS.md)。在 Codex 里为本仓库开启 GitHub 代码审查后，PR 上评论 `@codex review` 即可触发。
 
+威胁模型、安全问题清单（含严重性、复现条件、修复状态）和限流参数见 [`security-review.md`](security-review.md)（v40）。限流工具在 `src/game/server/ratelimit.ts`，静态页安全响应头在 `public/_headers`。
+
 ## 9. 路线图
 
 50 轮制作计划（[plan-50.md](plan-50.md)，2026-11-16 到 11-18）已全部做完，总结见 [summary-50.md](summary-50.md)。
@@ -218,7 +221,7 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 
 下一步的待办（按建议顺序，详见 [summary-50.md](summary-50.md)）：
 
-1. **待平衡的数值**交给 Codex 平衡分析：南澳事件、NPC、地下屋、南澳房产；第 46 轮报告里的共同事件叠做、酒保和农场工收入差（[balance.md](balance.md)）。
+1. **待平衡的数值**交给 Codex 平衡分析：南澳事件、NPC、地下屋、南澳房产；第 46 轮报告里的共同事件叠做、酒保和农场工收入差（[balance.md](balance.md)）；第 23 批的健康自然恢复、麻烦值冷却和需求 / 能力 / 奖罚提议（[activity-attributes.md](activity-attributes.md)）。
 2. **南澳真实地点和打卡点**由 OpenClaw 采集（OSM）。
 3. **全服周目标**的数值和领奖资格要用户定。
 4. **印度洋—太平洋号火车**：要新的出行方式和价格。
@@ -233,3 +236,9 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 - 南澳的事件、NPC、房产、地下屋数值照西澳同类写，**待平衡**；南澳还没有真实地点和打卡点。
 - 南澳夏令时用固定日期近似，起止日和现实每年差几天。
 - 野生动物和鱼的分布按常识写，还没让 OpenClaw 逐条核实。
+
+## 8. 开场界面（入境卡）
+
+- 第 20 批（2026-11-20）把开场换成「护照封皮 + 登机牌 + 入境卡」。方向和取舍记在 `.impeccable/surfaces/src-pages-earth-astro.md`，产品事实在根目录 `PRODUCT.md`。
+- 标题字体 `public/earth/fonts/terra-serif.woff2` 是 Noto Serif SC（SIL Open Font License 1.1）的子集，只含开场用到的约 60 个字形，13KB，取自 Google Fonts 并自托管。开场要加新的衬线字时，需要重新取子集。
+- 入境卡只是游戏里的风格化卡片，不用任何政府徽章或真实证件样式。
