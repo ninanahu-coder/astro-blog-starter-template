@@ -7,10 +7,12 @@ import { ITEMS } from '../data/items.ts';
 import { MAX_TRAITS } from '../data/traits.ts';
 import { NPCS } from '../data/npcs.ts';
 import { CAREERS } from '../data/careers.ts';
-import { HOMES } from '../data/housing.ts';
+import { BOND_WEEKS, HOMES } from '../data/housing.ts';
 import { CAR_KM_MAX, VEHICLES } from '../data/vehicles.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
+import { ASSETS, QUOTE_DAYS } from '../data/assets.ts';
+import { deriveMarketSeed } from './market.ts';
 import { WISHES } from '../data/wishes.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { VENUE_OPS } from '../data/venues.ts';
@@ -20,6 +22,7 @@ import { realDayOf } from './daily.ts';
 import { AREAS as REGION_AREAS, areaOf, WORLD_BASE } from '../data/areas-base.ts';
 import { COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
+import { AWARDS, PROGRAMS } from '../data/education.ts';
 import { ANIMALS, DEX_GROUPS } from '../data/wildlife.ts';
 import { FISH } from '../data/fish.ts';
 import { PHOTO_QUESTS } from '../data/photo-quests.ts';
@@ -143,6 +146,8 @@ export function createCharacter(opts: {
 		job: null,
 		home: null,
 		properties: [],
+		holdings: {},
+		marketSeed: deriveMarketSeed(opts.seed >>> 0),
 		nextWeek: 7,
 		moodlets: [],
 		wishes: [],
@@ -152,6 +157,8 @@ export function createCharacter(opts: {
 		areas: [],
 		courseDays: {},
 		certs: [],
+		study: {},
+		workLog: { f: 0, min: 0 },
 		coopDays: {},
 		trades: { day: 0, out: 0, in: 0 },
 		met: {},
@@ -269,6 +276,29 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		// 旧存档没有这个字段：用当前工作的 lastDay 补上
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
 		...cleanEstate(r, knownLocs),
+		holdings: (() => {
+			const out: Record<string, { units: number; cost: number }> = {};
+			for (const def of ASSETS) {
+				const h = r.holdings?.[def.id];
+				const units = num(h?.units, 0, 1e15, 0); // 份数上限放宽：虚拟币长期可能跌到几分钱，同样的钱能买很多份
+				if (units > 0) out[def.id] = { units, cost: num(h?.cost, 0, 1e9, 0) };
+			}
+			return out;
+		})(),
+		// 客户端收到的行情（publicState 填，服务端的存档里没有）：只留已知资产、1–QUOTE_DAYS 个正数的；有一项不对就整个不要
+		...(() => {
+			const q = r.quotes;
+			if (!q || typeof q !== 'object') return {};
+			const out: Record<string, number[]> = {};
+			for (const def of ASSETS) {
+				const arr = q[def.id];
+				if (!Array.isArray(arr) || arr.length < 1 || arr.length > QUOTE_DAYS || !arr.every((p) => typeof p === 'number' && Number.isFinite(p) && p > 0 && p < 1e12)) return {};
+				out[def.id] = [...arr];
+			}
+			return { quotes: out };
+		})(),
+		// 旧存档没有行情种子：用服务端的随机种子派生（同样不发给客户端）
+		marketSeed: typeof r.marketSeed === 'number' && Number.isInteger(r.marketSeed) && r.marketSeed >= 0 && r.marketSeed < 2 ** 32 ? r.marketSeed : deriveMarketSeed(num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0),
 		nextWeek: (() => {
 			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周
 			const today = Math.floor(num(r.clock, 0, 1e9, START_CLOCK) / 1440);
@@ -306,7 +336,16 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			}
 			return out;
 		})(),
-		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id)),
+		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id) || AWARDS.includes(id)),
+		study: (() => {
+			const out: Record<string, { n: number; day: number }> = {};
+			for (const p of PROGRAMS) {
+				const st = r.study?.[p.id];
+				if (st && typeof st === 'object') out[p.id] = { n: Math.floor(num(st.n, 0, p.sessions, 0)), day: Math.floor(num(st.day, -1, 1e7, -1)) };
+			}
+			return out;
+		})(),
+		workLog: { f: Math.floor(num(r.workLog?.f, 0, 1e6, 0)), min: Math.floor(num(r.workLog?.min, 0, 1e6, 0)) },
 		photoQuest: Math.floor(num(r.photoQuest, 0, PHOTO_QUESTS.length, 0)),
 		story: (() => {
 			const ch = Math.floor(num(r.story?.ch, 0, STORY.length, 0));
@@ -488,7 +527,10 @@ function cleanEstate(r: any, knownLocs?: Set<string>): { properties: OwnedProper
 	if (home && typeof r.home.owned === 'string') {
 		const def = PROPERTIES.find((p) => p.id === r.home.owned);
 		const mine = properties.find((p) => p.id === r.home.owned);
-		if (def && mine && !mine.rented && def.loc === home.loc && def.homeType === home.type) home.owned = def.id;
+		if (def && mine && !mine.rented && def.loc === home.loc && def.homeType === home.type) {
+			home.owned = def.id;
+			Reflect.deleteProperty(home, 'bond'); // 自有房没有押金
+		}
 		else home = null;
 	}
 	return { properties, home };
@@ -496,12 +538,15 @@ function cleanEstate(r: any, knownLocs?: Set<string>): { properties: OwnedProper
 
 function cleanHome(raw: any, knownLocs?: Set<string>): Home | null {
 	if (!raw || typeof raw !== 'object') return null;
-	if (!HOMES.some((h) => h.id === raw.type) || typeof raw.loc !== 'string' || (knownLocs && !knownLocs.has(raw.loc))) return null;
+	const def = HOMES.find((h) => h.id === raw.type);
+	if (!def || typeof raw.loc !== 'string' || (knownLocs && !knownLocs.has(raw.loc))) return null;
 	const furniture: Record<string, string> = {};
 	if (raw.furniture && typeof raw.furniture === 'object') {
 		for (const f of FURNITURE) if (raw.furniture[f.slot] === f.id) furniture[f.slot] = f.id;
 	}
-	return { type: raw.type, loc: raw.loc, furniture };
+	// 押金（第 26 批）：不超过这种房型该交的押金；旧存档没有，按 0 算（当初没交过，也不退）
+	const bond = Math.floor(num(raw.bond, 0, Math.round(def.rentWeek * (def.bondWeeks ?? BOND_WEEKS)), 0));
+	return { type: def.id, loc: raw.loc, furniture, ...(bond ? { bond } : {}) };
 }
 
 /**

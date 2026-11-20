@@ -17,9 +17,11 @@ export const ACTIVITIES: Activity[] = [
 	{ id: 'hike', name: '徒步探索', icon: '🥾', kinds: ['park', 'outback', 'coast', 'island'], minutes: 180, fx: { needs: { fun: 30, energy: -25, hygiene: -12 }, skills: { stamina: 2.5, survival: 2 }, respect: 1 }, desc: '用脚丈量这片土地。' },
 	{ id: 'pub', name: '去酒吧坐坐', icon: '🍺', tags: ['pub'], minutes: 120, fx: { moodlet: 'good-time', cash: -30, needs: { social: 50, fun: 25, energy: -8 }, skills: { charisma: 2 } }, requires: { cash: 30 }, hours: [11, 24], desc: '和本地人聊聊。' },
 	{ id: 'busk', name: '街头表演', icon: '🎸', kinds: ['city', 'port'], minutes: 120, fx: { cash: 35, needs: { social: 20, energy: -12 }, skills: { charisma: 2.5 } }, hours: [9, 21], desc: '赚点零钱，练练胆子。' },
-	{ id: 'work-cafe', name: '咖啡店打工', icon: '☕', kinds: ['city', 'port', 'town', 'coast'], minutes: 240, fx: { cash: 110, needs: { energy: -22, fun: -12, social: 10 }, skills: { charisma: 1 } }, hours: [6, 18], desc: '时薪稳定的零工。' },
-	{ id: 'work-mine', name: '矿场轮班', icon: '⛏️', kinds: ['mining'], minutes: 600, fx: { cash: 520, needs: { energy: -55, fun: -25, hygiene: -35 }, skills: { strength: 2, stamina: 1.5 } }, requires: { skill: { strength: 20 } }, desc: '又脏又累，但真赚钱。' },
-	{ id: 'work-farm', name: '农场采摘', icon: '🍇', tags: ['wine'], minutes: 360, fx: { cash: 150, needs: { energy: -35, hygiene: -20 }, skills: { stamina: 2, strength: 1 } }, hours: [6, 16], desc: '背包客的经典零工。' },
+	// 第 25 批（经济设计）：三种零工按「对口职业入门时薪 × 1.25 临时工加给」定价（core/economy.ts 的 casualPay，测试会核对），待平衡。
+	// 原值：咖啡店 $110 / 4 小时、矿场 $520 / 10 小时（比矿工职业入门 $300 还高）、农场 $150 / 6 小时
+	{ id: 'work-cafe', name: '咖啡店打工', icon: '☕', kinds: ['city', 'port', 'town', 'coast'], minutes: 240, fx: { cash: 100, needs: { energy: -22, fun: -12, social: 10 }, skills: { charisma: 1 } }, hours: [6, 18], desc: '时薪稳定的零工。' },
+	{ id: 'work-mine', name: '矿场轮班', icon: '⛏️', kinds: ['mining'], minutes: 600, fx: { cash: 375, needs: { energy: -55, fun: -25, hygiene: -35 }, skills: { strength: 2, stamina: 1.5 } }, requires: { skill: { strength: 20 } }, desc: '又脏又累，但真赚钱。' },
+	{ id: 'work-farm', name: '农场采摘', icon: '🍇', tags: ['wine'], minutes: 360, fx: { cash: 188, needs: { energy: -35, hygiene: -20 }, skills: { stamina: 2, strength: 1 } }, hours: [6, 16], desc: '背包客的经典零工。' },
 	{ id: 'wine', name: '酒庄品酒', icon: '🍷', tags: ['wine'], minutes: 90, fx: { moodlet: 'good-time', cash: -40, needs: { fun: 35, social: 20 } }, requires: { cash: 40 }, hours: [10, 17], desc: '慢下来。' },
 	{ id: 'market', name: '逛市集', icon: '🧺', tags: ['market'], minutes: 60, fx: { cash: -15, needs: { fun: 20, social: 15, hunger: 15 }, skills: { street: 1 } }, requires: { cash: 15 }, hours: [8, 14], desc: '砍价是一门手艺。' },
 	{ id: 'clinic', name: '看医生', icon: '🏥', tags: ['hospital'], minutes: 60, fx: { cash: -80, health: 60 }, requires: { cash: 80 }, hours: [8, 20], desc: '恢复健康。' },
