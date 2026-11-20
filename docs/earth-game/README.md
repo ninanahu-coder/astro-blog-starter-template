@@ -36,6 +36,7 @@ src/game/data/* ──▶ prompts.mjs ──▶ 远程 ComfyUI ──▶ cgi/*.p
 src/game/
   core/types.ts       全部数据结构（PlayerState / Region / GameEvent / Activity / Effect）
   core/character.ts   出身、初始属性、存档校验 sanitizeState()
+  core/save.ts        存档格式版本、迁移、来回部署时保留别的分支加的字段（规范见 save-sync.md §5）
   core/engine.ts      规则引擎：travel / performActivity / resolveEvent / gpsCheckIn（纯函数、确定性）
   core/geo.ts         距离、地图投影、真实坐标 → 游戏地点
   core/formulas.ts    派生属性（体质、吸引力、状态系数……）与真实地点动作的公式
@@ -64,7 +65,7 @@ tools/earth/comfyui/  提示词生成、工作流模板、远程出图脚本
 tests/earth/          引擎与数据自洽性测试
 ```
 
-按功能整理的总览（每个功能给玩家什么、规则要点、现状和待定）见 [features.md](features.md)。人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。玩家互动（屏蔽、举报、隐私规则）和跟真实日历同步的节日、公众假期（第 24 批）见 [live-social.md](live-social.md)。
+按功能整理的总览（每个功能给玩家什么、规则要点、现状和待定）见 [features.md](features.md)。人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)，房产与车辆的细化设计和真实价格参照见 [home-and-vehicle.md](home-and-vehicle.md)。收入侧（工资、零工、收租）、货币投放与回收、职业成长曲线、现实物价参照，以及金融资产（储蓄、指数基金、金条、虚拟币）见 [economy-design.md](economy-design.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。天气和季节（各地气候、BOM 气象站数据、天气怎么抽、对玩法的影响和提议）见 [weather-seasons.md](weather-seasons.md)。宠物系统和野生动物（v31）见 [pets-wildlife.md](pets-wildlife.md)。社交与 NPC 关系系统（关系变淡、NPC 托你帮小忙、玩家之间的好友和防骚扰提议）见 [social-system.md](social-system.md)。玩家互动（屏蔽、举报、隐私规则）和跟真实日历同步的节日、公众假期（第 24 批）见 [live-social.md](live-social.md)。
 
 设计原则：
 
@@ -93,6 +94,8 @@ tests/earth/          引擎与数据自洽性测试
 ### 出行
 
 公路（无车坐巴士、有车自驾并涨驾驶）、越野土路（需四驱）、渡轮、航班。时间流逝会带动需求衰减，所以长途前要吃饱睡好。
+
+第 32 批加了市内公交（Transperth、Adelaide Metro）、区域火车（Transwa）、步行，渡轮改按真实票价；设计、票价出处和提议见 [transport-design.md](transport-design.md)。
 
 ### 天气、相册与成就
 
@@ -201,9 +204,13 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 - 脚本逐张落盘并更新 `manifest.json`，中断可续跑；已存在的图默认跳过。
 - ComfyUI 本身没有鉴权，**不要把 8188 端口直接暴露到公网**：走 VPN / SSH 隧道，或放在带令牌的反向代理后面（`COMFYUI_TOKEN`）。
 
+AIGC 短片和 NPC 语音（第 1 轮试点，远程 H3 + MiniMax TTS）另见 [aigc-media.md](aigc-media.md)：独立清单 `public/earth/media/manifest.json`，不和 CGI 清单混。
+
 ## 8. 审查（Codex）
 
 审查规则写在仓库根的 [`AGENTS.md`](../../AGENTS.md)。在 Codex 里为本仓库开启 GitHub 代码审查后，PR 上评论 `@codex review` 即可触发。
+
+威胁模型、安全问题清单（含严重性、复现条件、修复状态）和限流参数见 [`security-review.md`](security-review.md)（v40）。限流工具在 `src/game/server/ratelimit.ts`，静态页安全响应头在 `public/_headers`。
 
 ## 9. 路线图
 
@@ -218,10 +225,10 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 
 下一步的待办（按建议顺序，详见 [summary-50.md](summary-50.md)）：
 
-1. **待平衡的数值**交给 Codex 平衡分析：南澳事件、NPC、地下屋、南澳房产；第 46 轮报告里的共同事件叠做、酒保和农场工收入差（[balance.md](balance.md)）。
+1. **待平衡的数值**交给 Codex 平衡分析：南澳事件、NPC、地下屋、南澳房产；第 46 轮报告里的共同事件叠做、酒保和农场工收入差（[balance.md](balance.md)）；第 23 批的健康自然恢复、麻烦值冷却和需求 / 能力 / 奖罚提议（[activity-attributes.md](activity-attributes.md)）。
 2. **南澳真实地点和打卡点**由 OpenClaw 采集（OSM）。
 3. **全服周目标**的数值和领奖资格要用户定。
-4. **印度洋—太平洋号火车**：要新的出行方式和价格。
+4. **印度洋—太平洋号火车**：真实班次和票价已查（[transport-design.md](transport-design.md) §3），还要先做「车上包吃包住」的机制。
 5. **真机检查**：手机上实际玩一遍，看场景画面、字号、地图。
 
 ## 10. 已知限制（第一阶段）

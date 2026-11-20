@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Photorealistic sunset seascape, a very long white timber jetty stretching across calm turquoise water toward the horizon. The camera holds a locked-off static wide shot. Small calm waves roll softly toward the sandy shore in the foreground, sunlight glitters on the water surface, and pink clouds drift slowly across the sky. Coastal shrubs at the bottom left sway lightly. The jetty and its small shed stay still. A continuous smooth motion from the first frame to the last frame; the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.
+
+overall_soundscape: small waves lapping on sand and a light sea breeze; soft wash of water over the shore
+
+non_diegetic_music: N/A

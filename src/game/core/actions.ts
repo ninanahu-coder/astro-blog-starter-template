@@ -1,7 +1,7 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
+	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, sellItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { refreshWishes, settleWishes } from './wishes.ts';
 import { settleStory } from './story.ts';
@@ -13,9 +13,16 @@ import { resolveCoop, type CoopMember, type CoopResult } from './coop.ts';
 import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { venueAction } from './venues.ts';
+import { studyProgram } from './education.ts';
+import { buyAsset, sellAsset } from './invest.ts';
+import { marketView } from './market.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 import { claimLive, LIVE_ID_RE } from './live.ts';
 import { blockPlayer, unblockPlayer } from './safety.ts';
+import { settleDecay } from './relations.ts';
+import { dayOf } from './time.ts';
+import { adoptPet, boardPet, dogJoinsRun, petAction, petTravelBlocked, PET_OPS, type PetOp } from './pets.ts';
+import { PET, PET_KINDS } from '../data/pets.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -24,6 +31,7 @@ export type GameAction =
 	| { t: 'gps'; lat: number; lon: number; acc?: number } // acc：定位精度（米）；旧客户端不带，服务端会拒绝并提示刷新
 	| { t: 'buy'; item: string }
 	| { t: 'use'; item: string }
+	| { t: 'sell'; item: string }
 	| { t: 'npc'; npc: string; act: NpcAction; item?: string }
 	| { t: 'job'; op: 'apply'; career: string }
 	| { t: 'job'; op: 'work' | 'quit' }
@@ -38,14 +46,19 @@ export type GameAction =
 	| { t: 'vehicle'; op: 'sell' | 'sleep' | 'service' }
 	| { t: 'course'; id: string }
 	| { t: 'cert'; id: string }
+	| { t: 'study'; id: string }
 	| { t: 'fish' }
 	| { t: 'photo' }
 	| { t: 'experience'; id: string }
 	| { t: 'live'; id: string }
-	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
+	| { t: 'asset'; op: 'buy' | 'sell'; id: string; amount: number }
+	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number }
+	| { t: 'pet'; op: 'adopt'; kind: string; from: 'shelter' | 'breeder'; name?: string }
+	| { t: 'pet'; op: 'board'; days: number }
+	| { t: 'pet'; op: PetOp };
 
-const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
-const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk'];
+const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air', 'transit', 'rail', 'walk'];
+const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond'];
 const ID = /^[a-z0-9-]{1,40}$/;
 
 const str = (v: unknown): v is string => typeof v === 'string' && ID.test(v);
@@ -68,6 +81,7 @@ export function parseAction(raw: unknown): GameAction | null {
 			return finite(a.acc) && a.acc >= 0 && a.acc <= 1e6 ? { t: 'gps', lat: a.lat, lon: a.lon, acc: a.acc } : null;
 		case 'buy':
 		case 'use':
+		case 'sell':
 			return str(a.item) ? { t: a.t, item: a.item } : null;
 		case 'npc':
 			if (!str(a.npc) || !NPC_ACTS.includes(a.act as NpcAction)) return null;
@@ -94,15 +108,27 @@ export function parseAction(raw: unknown): GameAction | null {
 			return { t: a.t };
 		case 'course':
 		case 'cert':
+		case 'study':
 		case 'experience':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
 		case 'live':
 			return typeof a.id === 'string' && LIVE_ID_RE.test(a.id) ? { t: 'live', id: a.id } : null;
+		case 'pet':
+			if (a.op === 'adopt') {
+				if (!PET_KINDS.some((k) => k.id === a.kind) || (a.from !== 'shelter' && a.from !== 'breeder')) return null;
+				if (a.name === undefined) return { t: 'pet', op: 'adopt', kind: a.kind as string, from: a.from };
+				// 名字是玩家输入：只查类型和长度，过滤和截断由引擎（cleanName）做
+				return typeof a.name === 'string' && a.name.length <= 40 ? { t: 'pet', op: 'adopt', kind: a.kind as string, from: a.from, name: a.name } : null;
+			}
+			if (a.op === 'board') return Number.isInteger(a.days) && (a.days as number) >= 1 && (a.days as number) <= PET.boardMaxDays ? { t: 'pet', op: 'board', days: a.days as number } : null;
+			return PET_OPS.includes(a.op as PetOp) ? { t: 'pet', op: a.op as PetOp } : null;
 		case 'property':
 			if (!str(a.id)) return null;
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
 			if (a.op === 'repay') return finite(a.amount) && a.amount > 0 && a.amount <= 1e9 ? { t: 'property', op: 'repay', id: a.id, amount: Math.floor(a.amount) } : null;
 			return a.op === 'sell' || a.op === 'movein' || a.op === 'rentout' ? { t: 'property', op: a.op, id: a.id } : null;
+		case 'asset':
+			return str(a.id) && (a.op === 'buy' || a.op === 'sell') && finite(a.amount) && a.amount > 0 && a.amount <= 1e9 ? { t: 'asset', op: a.op, id: a.id, amount: a.amount } : null;
 		default:
 			return null;
 	}
@@ -112,12 +138,17 @@ export function parseAction(raw: unknown): GameAction | null {
 export function applyAction(state: PlayerState, region: Region, a: GameAction, now = 0): ActionResult {
 	let r: ActionResult;
 	switch (a.t) {
-		case 'travel': r = travel(state, region, a.to, a.mode); break;
+		case 'travel': {
+			const pet = petTravelBlocked(state, a.to, a.mode);
+			r = pet ? { ok: false, state, msg: pet + '。' } : travel(state, region, a.to, a.mode);
+			break;
+		}
 		case 'activity': r = performActivity(state, region, a.id); break;
 		case 'event': r = resolveEvent(state, region, a.choice); break;
 		case 'gps': r = gpsCheckIn(state, region, a.lat, a.lon, a.acc, now); break;
 		case 'buy': r = buyItem(state, region, a.item); break;
 		case 'use': r = useItem(state, region, a.item); break;
+		case 'sell': r = sellItem(state, region, a.item); break;
 		case 'npc': r = interactNpc(state, region, a.npc, a.act, a.item); break;
 		case 'job': r = a.op === 'apply' ? applyJob(state, region, a.career) : a.op === 'work' ? workShift(state, region) : quitJob(state); break;
 		case 'home': r = a.op === 'rent' ? rentHome(state, region, a.home) : a.op === 'sleep' ? sleepHome(state, region) : a.op === 'cook' ? cookAtHome(state, region) : a.op === 'relax' ? relaxAtHome(state, region) : leaveHome(state); break;
@@ -132,10 +163,19 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 			break;
 		case 'course': r = takeCourse(state, region, a.id); break;
 		case 'cert': r = takeCert(state, region, a.id); break;
+		case 'study': r = studyProgram(state, region, a.id); break;
 		case 'fish': r = goFishing(state, region); break;
 		case 'photo': r = takeQuestPhoto(state, region); break;
 		case 'experience': r = doExperience(state, region, a.id); break;
-		case 'venue': r = venueAction(state, region, a, now); break;
+		case 'venue':
+			r = venueAction(state, region, a, now);
+			// GPS 联动：在真实地点跑步时狗跟着去，算遛过（r.state 是引擎新建的对象，可以原地改）
+			if (r.ok && !r.collapsed && a.op === 'run') r = { ...r, msg: r.msg + dogJoinsRun(r.state, region) };
+			break;
+		case 'pet':
+			r = a.op === 'adopt' ? adoptPet(state, region, a.kind, a.from, a.name) : a.op === 'board' ? boardPet(state, region, a.days) : petAction(state, region, a.op);
+			break;
+		case 'asset': r = a.op === 'buy' ? buyAsset(state, region, a.id, a.amount) : sellAsset(state, region, a.id, a.amount); break;
 		case 'live': r = claimLive(state, region, a.id, now); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
@@ -152,7 +192,8 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
 	}
-	const out = capState({ ...r.state, rev: nextRev(state.rev) });
+	// 跨过午夜：好久没来往的关系变淡（第 29 批）。按动作开始前后的游戏日结算，失败的动作不推进时间
+	const out = capState({ ...settleDecay(r.state, dayOf(state.clock), dayOf(r.state.clock)), rev: nextRev(state.rev) });
 	if (r.ok) rollDay(out); // 跨过午夜：把上一天的变化记成「昨天回顾」（晕倒住院也算）；在钳制数值之后记，记号不越过存档上限
 	return { ...r, msg, state: out };
 }
@@ -167,7 +208,7 @@ export function applyCoop(def: CoopDef, region: Region, members: CoopMember[]): 
 		// 共同事件不算任何心愿，但跨过午夜时要换成新一天的心愿（同一天时 refreshWishes 什么也不做）
 		refreshWishes(x.state);
 		pruneMoodlets(x.state);
-		const out = capState({ ...x.state, rev: nextRev(members[i].state.rev) });
+		const out = capState({ ...settleDecay(x.state, dayOf(members[i].state.clock), dayOf(x.state.clock)), rev: nextRev(members[i].state.rev) });
 		rollDay(out);
 		return { ...x, state: out };
 	});
@@ -210,5 +251,6 @@ export function applyBlock(state: PlayerState, op: 'block' | 'unblock', p: { has
 
 /** 发给客户端的存档：隐去随机数种子，客户端无法预知检定结果 */
 export function publicState(state: PlayerState): PlayerState {
-	return { ...state, seed: 0 };
+	// 两个种子都不能给客户端：知道种子就能推算以后的随机结果和行情。行情改由服务端算好放进 quotes（只到今天）
+	return { ...state, seed: 0, marketSeed: 0, quotes: marketView(state) };
 }
