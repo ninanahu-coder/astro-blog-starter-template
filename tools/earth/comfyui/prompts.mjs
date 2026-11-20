@@ -14,6 +14,8 @@ import { CAREERS } from '../../../src/game/data/careers.ts';
 import { COURSES } from '../../../src/game/data/courses.ts';
 import { CERTS } from '../../../src/game/data/certs.ts';
 import { FISH } from '../../../src/game/data/fish.ts';
+import { NPCS } from '../../../src/game/data/npcs.ts';
+import { TRAIL_EVENTS } from '../../../src/game/data/trail-events.ts';
 
 export const STYLE = 'cinematic CGI game key art, stylized realism, warm golden light, wide landscape shot, main subject centred in the middle band of the frame, highly detailed, no text, no lettering on signs, no logos, no watermark, no identifiable people';
 export const NEGATIVE = 'text, watermark, logo, signature, lowres, blurry, deformed, extra limbs, real person likeness';
@@ -145,6 +147,10 @@ const EVENT_SCENE = {
 	// 南澳
 	'central-market': 'a bustling covered food market with cheese, bread and fruit stalls, shoppers seen from behind',
 	'glenelg-tram': 'a modern tram arriving at its seaside terminus beside a beach and a long jetty',
+	// 第 32 批出行事件：暂借相近的已有图（清单指向 glenelg-tram / hedland-ore-train / busselton-jetty-walk），按提示词重新生成后替换
+	'transit-hometown': 'inside a quiet suburban commuter train carriage, two university students with backpacks chatting across the aisle, river glinting through the window',
+	'rail-wheatbelt': 'view from a regional passenger train window over endless golden wheat fields and a pale salt lake under a wide sky',
+	'walk-blister': 'a lone walker in sneakers sitting on a roadside kerb taping a blistered heel, a long empty suburban footpath behind',
 	'hahndorf-bakery': 'a nineteenth-century German stone village street with a bakery displaying pretzels and sausages',
 	'barossa-vintage': 'the open door of an old stone wine cellar with oak barrels, gnarled old vines outside',
 	'mclaren-coast': 'vineyards rolling downhill to coastal cliffs and a sandy beach',
@@ -156,12 +162,47 @@ const EVENT_SCENE = {
 	'wilpena-wallaby': 'a yellow-footed rock wallaby with a ringed yellow and black tail crouching in a rock crevice',
 	'blue-lake': 'a vivid cobalt blue lake inside a volcanic crater ringed by cliffs',
 	'ceduna-oysters': 'freshly shucked oysters on ice at a small jetty-side shack, oyster leases on a calm bay',
+	// 主要路线（实地路线）的事件（v22）：珀斯、弗里曼特尔、阿德莱德的路线共用，只写普通城市街景
+	'trail-quay-start': 'a phone with a walking map held up at the start of a city riverside promenade, morning light',
+	'trail-library-seat': 'an empty seat by a big window in a quiet modern public library reading room',
+	'trail-asian-grocer': 'shelves of colourful Asian sauces, noodles and snacks in a small city grocery store',
+	'trail-notice-board': 'a cork notice board crowded with handwritten flyers and tear-off phone number strips',
+	'trail-prison-gate': 'tall pale limestone walls and a heavy old gatehouse of a nineteenth-century prison on a hill',
+	'trail-city-view': 'a hilltop lookout over a modern city skyline beside a wide blue river, gum trees in the foreground',
+	'trail-along-busker': 'a street guitarist seen from the side on a sunny pedestrian mall, open guitar case with coins',
+	'trail-along-crossing': 'a pedestrian crossing at a city intersection, people seen from behind waiting for the green signal',
+	'trail-along-sea-breeze': 'gum tree leaves and shop awnings blowing in a cool afternoon breeze on a quiet street',
+	'trail-along-stairs': 'a long steep flight of outdoor stairs climbing a bushland hillside, a jogger seen from behind',
 };
 
 // 南澳事件写 South Australia，其余西澳。店铺通用事件两州都会触发：只写普通郊区，并点名不要地标（只写 Australia 时画出了悉尼歌剧院、海港大桥和乌鲁鲁）
 const SA_IDS = new Set(SA_EVENTS.map((e) => e.id));
 const VENUE_IDS = new Set(VENUE_EVENTS.map((e) => e.id));
-const eventPlace = (id) => (SA_IDS.has(id) ? 'South Australia' : VENUE_IDS.has(id) ? 'an ordinary Australian suburb, no famous landmarks, bridges, opera house or monoliths in view' : 'Western Australia');
+const TRAIL_IDS = new Set(TRAIL_EVENTS.map((e) => e.id));
+const eventPlace = (id) => (SA_IDS.has(id) ? 'South Australia' : VENUE_IDS.has(id) ? 'an ordinary Australian suburb, no famous landmarks, bridges, opera house or monoliths in view' : TRAIL_IDS.has(id) ? 'an ordinary Australian city centre, no famous landmarks, bridges, opera house or monoliths in view' : 'Western Australia');
+
+// NPC 头像：半身像，背景是他们的常驻地点。都是虚构角色：写「原创、不像任何真人或名人」，不写族裔，只写年龄、职业和穿着。
+// 画面方形，页面上只显示 56px，压成 256 宽
+export const PORTRAIT_STYLE = 'head and shoulders portrait of a fictional original character, not resembling any real person or celebrity, friendly expression looking at the viewer, face centred, stylized realism CGI game character portrait, soft warm light, softly blurred background, no text, no logos, no watermark';
+const NPC_LOOK = {
+	mia: 'a woman around thirty, barista apron over a black t-shirt, hair tied up, busy city cafe with an espresso machine behind her',
+	jack: 'a weathered old fisherman around seventy, white stubble, wool beanie and faded work shirt, fishing harbour with old boats behind him',
+	linda: 'a woman in her forties, park ranger in a khaki uniform shirt and wide-brimmed hat, island scrub and turquoise bay behind her',
+	leo: 'a sun-tanned man around thirty with salty wavy hair, rash vest, surf beach with breaking waves behind him',
+	nan: 'a warm woman in her sixties, cardigan, holding a teapot, cosy seaside guesthouse porch behind her',
+	bill: 'a burly miner in his fifties, orange hi-vis work shirt with red dust on it, old outback hotel bar behind him',
+	sam: 'a man in his thirties, dive guide in a zipped-up black wetsuit with a dive mask pushed up on his forehead, turquoise reef water behind him',
+	dave: 'a road train truck driver in his fifties, cap and flannel shirt, long truck cab lit up at night behind him',
+	yuki: 'a Japanese-Australian woman in her forties, elegant linen shirt, small pearl earrings, tropical pearl shop behind her',
+	tom: 'a rock lobster boat captain in his fifties, oilskin jacket, sun-creased face, fishing port at dawn behind him',
+	harry: 'a retired lighthouse keeper around seventy, grey beard, navy knitted jumper, harbour museum with a ship model behind him',
+	ruby: 'a woman around thirty, gorge guide in a sun shirt and cap, red banded rock gorge behind her',
+	rosa: 'a cheerful grandmother in her late sixties, volunteer polo shirt and sun visor, calm bay shallows behind her',
+	mack: 'a mango farmer in his fifties, broad-brimmed hat and work shirt, rows of mango trees and an irrigation channel behind him',
+	greta: 'a winemaker woman around forty, rolled-up sleeves, holding a glass of red wine, old stone winery and vineyard behind her',
+	kev: 'an opal miner in his fifties, dusty singlet and miner helmet with a lamp, pale underground dugout walls behind him',
+	ayla: 'a woman around thirty, wildlife ranger in a green uniform shirt, wild coastal headland with sea lions on the beach behind her',
+};
 
 // ── 界面配图（设计清单见 docs/earth-game/cg-screens.md）──
 // 小图（行内缩略图、图鉴格子）：方形构图、一个主体、背景简单，页面上只显示 48–56px，压成 256 宽
@@ -262,6 +303,9 @@ const CAREER_SCENE = {
 	trucker: 'a long road train truck pulling three trailers along an empty outback highway',
 	bartender: 'a bartender\'s hands pulling a beer from a tap at a timber pub counter',
 	farmhand: 'a farmhand seen from behind driving a tractor through golden wheat paddocks',
+	builder: 'a tradie in a hard hat and hi-vis vest seen from behind carrying timber frames across a suburban house building site',
+	carer: 'a carer\'s hands holding an elderly resident\'s hand beside a cup of tea in a bright aged care lounge',
+	'it-support': 'a help desk worker seen from behind fixing a laptop at a tidy office desk with two monitors and cables',
 };
 
 // 课程（course:<id>），方形
@@ -284,6 +328,8 @@ const CERT_SCENE = {
 	'mine-induction': 'safety boots, a hard hat, ear muffs and a hi-vis vest laid out neatly on a bench, red dust',
 	'hr-licence': 'side view of a heavy prime mover truck with a long trailer on an open highway',
 	'tractor-ticket': 'a tractor and a forklift in a farm shed yard beside hay bales',
+	'white-card': 'a blank plastic safety induction card lying on a hard hat next to steel-capped boots at a building site, no readable text',
+	'first-aid': 'hands practising CPR compressions on a training manikin on a classroom floor, a first aid kit beside it',
 };
 
 // 鱼获图鉴（fish:<id>），方形；钓到前页面仍显示问号
@@ -367,5 +413,10 @@ export function buildJobs() {
 		jobs.push({ key: `event:${e.id}`, file: `event-${e.id}.png`, prompt: `${scene}, ${eventPlace(e.id)}, ${STYLE}` });
 	}
 	jobs.push(...screenJobs());
+	for (const n of NPCS) {
+		const look = NPC_LOOK[n.id];
+		if (!look) continue;
+		jobs.push({ key: `npc:${n.id}`, file: `npc-${n.id}.png`, prompt: `${look}, ${PORTRAIT_STYLE}`, size: '1024x1024', width: 256 });
+	}
 	return jobs;
 }

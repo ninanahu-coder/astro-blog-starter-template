@@ -6,40 +6,28 @@ import { ITEMS } from '../../src/game/data/items.ts';
 import { createCharacter } from '../../src/game/core/character.ts';
 import { activitiesAt } from '../../src/game/core/engine.ts';
 import { dateOf, SEASONS, YEAR_DAYS } from '../../src/game/core/time.ts';
-import { weatherAt, weatherOn } from '../../src/game/core/weather.ts';
-import { WEATHERS, WEATHER_WEIGHTS } from '../../src/game/data/weather.ts';
+import { weatherAt, weatherOn, weightsOn } from '../../src/game/core/weather.ts';
+import { WEATHERS } from '../../src/game/data/weather.ts';
 import { WA } from '../../src/game/data/wa.ts';
 
-test('天气数据：每季权重合计 100，只引用存在的天气', () => {
-	for (const s of SEASONS) {
-		const t = WEATHER_WEIGHTS[s.id];
-		assert.equal(t.reduce((a, [, w]) => a + w, 0), 100, s.id);
-		for (const [id, w] of t) {
-			assert.ok(WEATHERS.some((x) => x.id === id), id);
-			assert.ok(w > 0, id);
-		}
-	}
+/** gps 动作要服务端时间（没有就当离线拒绝） */
+const GPS_NOW = 1_800_000_000_000;
+
+test('天气数据：id 唯一，只有风暴关海；每个地点、每个月的概率表只引用存在的天气', () => {
+	assert.equal(new Set(WEATHERS.map((w) => w.id)).size, WEATHERS.length);
+	assert.deepEqual(WEATHERS.filter((w) => w.closesSea).map((w) => w.id), ['storm']);
+	for (const loc of WA.locations) for (let d = 0; d < YEAR_DAYS; d += 7) for (const [id] of weightsOn(loc.id, d)) assert.ok(WEATHERS.some((x) => x.id === id), id);
 });
 
-test('天气：同一地点同一天结果固定；长期分布接近各季权重', () => {
-	assert.equal(weatherOn('perth', 40).id, weatherOn('perth', 40).id);
-	const counts: Record<string, Record<string, number>> = {};
-	let days = 0;
-	for (const loc of WA.locations) {
-		for (let d = 0; d < YEAR_DAYS * 6; d++) {
-			const season = dateOf(d * 1440).season;
-			const w = weatherOn(loc.id, d).id;
-			(counts[season] ??= {})[w] = (counts[season][w] ?? 0) + 1;
-			days++;
-		}
-	}
-	assert.ok(days > 10_000);
+test('天气：同一地点同一天结果固定，和先算哪天无关', () => {
+	const first = weatherOn('perth', 40).id;
+	for (let d = 0; d < 200; d++) weatherOn('perth', d);
+	assert.equal(weatherOn('perth', 40).id, first);
+	// 每个季节都能见到不止一种天气
 	for (const s of SEASONS) {
-		const total = Object.values(counts[s.id]).reduce((a, b) => a + b, 0);
-		for (const [id, w] of WEATHER_WEIGHTS[s.id]) {
-			const share = (counts[s.id][id] ?? 0) / total * 100;
-			assert.ok(Math.abs(share - w) < 3, `${s.id} ${id}: ${share.toFixed(1)}% vs ${w}%`);
-		}
+		const seen = new Set<string>();
+		for (let d = 0; d < YEAR_DAYS * 3; d++) if (dateOf(d * 1440).season === s.id) seen.add(weatherOn('perth', d).id);
+		assert.ok(seen.size >= 3, `${s.id}: ${[...seen]}`);
 	}
 });
 
@@ -74,7 +62,7 @@ test('天气相册：抵达时按当天天气收一张，同一张不重复；�
 	const s = createCharacter({ id: 'photo-album', name: '相册', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed: 5 });
 	assert.deepEqual(s.photos, []);
 	const fre = WA.locations.find((l) => l.id === 'fremantle')!;
-	const a = applyAction(s, WA, { t: 'gps', lat: fre.lat, lon: fre.lon });
+	const a = applyAction(s, WA, { t: 'gps', lat: fre.lat, lon: fre.lon, acc: 10 }, GPS_NOW);
 	assert.ok(a.ok, a.msg);
 	const shot = `fremantle|${weatherOn('fremantle', Math.floor(a.state.clock / 1440)).id}`;
 	assert.deepEqual(a.state.photos, [shot]);
@@ -83,10 +71,10 @@ test('天气相册：抵达时按当天天气收一张，同一张不重复；�
 	let st = a.state;
 	while (st.pending) st = applyAction(st, WA, { t: 'event', choice: 0 }).state;
 	const per = WA.locations.find((l) => l.id === 'perth')!;
-	st = applyAction(st, WA, { t: 'gps', lat: per.lat, lon: per.lon }).state;
+	st = applyAction(st, WA, { t: 'gps', lat: per.lat, lon: per.lon, acc: 10 }, GPS_NOW + 3_600_000).state; // 隔一小时，不算瞬移
 	while (st.pending) st = applyAction(st, WA, { t: 'event', choice: 0 }).state;
 	if (Math.floor(st.clock / 1440) === Math.floor(a.state.clock / 1440)) {
-		const b = applyAction(st, WA, { t: 'gps', lat: fre.lat, lon: fre.lon });
+		const b = applyAction(st, WA, { t: 'gps', lat: fre.lat, lon: fre.lon, acc: 10 }, GPS_NOW + 7_200_000);
 		assert.equal(b.state.photos.filter((p) => p === shot).length, 1);
 	}
 	// 清洗：未知地点、未知天气、重复、非字符串都丢掉；旧存档没有这个字段时为空
@@ -120,8 +108,8 @@ test('心愿「想拍一张没拍过的照片」：抵达时收到新照片才�
 	assert.ok(w, '有这条心愿');
 	const s = createCharacter({ id: 'photo-wisher', name: '拍照', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'perth', seed: 2 });
 	const fre = WA.locations.find((l) => l.id === 'fremantle')!;
-	const a = { t: 'gps', lat: fre.lat, lon: fre.lon } as const;
-	const r = applyAction(s, WA, a);
+	const a = { t: 'gps', lat: fre.lat, lon: fre.lon, acc: 10 } as const;
+	const r = applyAction(s, WA, a, GPS_NOW);
 	assert.ok(r.ok);
 	assert.equal(wishMatches(w, a, s, r.state), true, '收到新照片算完成');
 	assert.equal(wishMatches(w, a, r.state, r.state), false, '没收到新照片不算');
@@ -187,7 +175,7 @@ test('天气事件：只在抵达地点当天下雨时出现', async () => {
 		const wet = weatherOn('fremantle', d).id === 'rain';
 		for (let seed = 0; seed < 6; seed++) {
 			const s = { ...base, seed: seed * 7919 + d, clock: d * 1440 + 9 * 60, visited: { ...base.visited, fremantle: 1 } };
-			const r = applyAction(s, WA, { t: 'gps', lat: fre.lat, lon: fre.lon });
+			const r = applyAction(s, WA, { t: 'gps', lat: fre.lat, lon: fre.lon, acc: 10 }, GPS_NOW);
 			const id = r.state.pending?.eventId;
 			if (id && rainOnly.some((e) => e.id === id)) { if (wet) wetHits++; else dryHits++; }
 		}
