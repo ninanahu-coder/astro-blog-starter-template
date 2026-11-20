@@ -5,11 +5,12 @@
 //   npm run earth:sim                 默认 60 天 × 每种策略 40 个种子
 //   npm run earth:sim -- --days=120 --runs=100
 //   npm run earth:sim -- --out=docs/earth-game/balance-report.md
+//   npm run earth:sim -- --origins     出身对照：每个出身跑同样三种策略（零工 / 咖啡店 / 不干活），都不带特质
 import { writeFileSync } from 'node:fs';
 import { applyAction, applyCoop, type GameAction } from '../../../src/game/core/actions.ts';
 import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
-import { createCharacter } from '../../../src/game/core/character.ts';
+import { createCharacter, ORIGINS } from '../../../src/game/core/character.ts';
 import {
 	activitiesAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
@@ -23,12 +24,15 @@ const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWit
 const DAYS = Number(arg('days', '60'));
 const RUNS = Number(arg('runs', '40'));
 const OUT = arg('out', '');
+const BY_ORIGIN = process.argv.includes('--origins');
 
 // ---------- 机器人 ----------
 interface Bot {
 	s: PlayerState;
 	rng: () => number;
 	plan: Plan;
+	/** 理财机器人最近一次买入的游戏日 */
+	investDay?: number;
 	stats: {
 		collapses: number;
 		evictions: number;
@@ -98,6 +102,11 @@ interface Plan {
 	 * mateNeeds：搭档的各项需求（100 = 全满）；mateChance：每次想做时有搭档在场的概率
 	 */
 	coop?: { mateNeeds: number; mateChance: number };
+	/**
+	 * 第 25 批（经济设计）：理财。现金超过 keep 时把多出来的买成 asset（每个游戏日最多一次），不买房；
+	 * 现金低于 $300 时卖出 $500 应急。
+	 */
+	invest?: { asset: string; keep: number };
 }
 
 const PLANS: Plan[] = [
@@ -116,8 +125,24 @@ const PLANS: Plan[] = [
 	// 共同事件三种搭档假设（第 10 批审查问题 1）：理想（需求全满、随叫随到）是上限，不是保守估计；另外两种看搭档状态和在场率的影响
 	{ id: 'barista-coop', name: '咖啡店 + 共同事件：理想搭档（需求全满、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 100, mateChance: 1 } },
 	{ id: 'barista-coop-tired', name: '咖啡店 + 共同事件：疲惫搭档（需求 40、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 1 } },
+	{ id: 'barista-savings', name: '咖啡店 + 理财：高息储蓄（不买房）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', invest: { asset: 'savings', keep: 3000 } },
+	{ id: 'barista-index', name: '咖啡店 + 理财：澳股指数基金（不买房）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', invest: { asset: 'asx-index', keep: 3000 } },
+	{ id: 'barista-coin', name: '咖啡店 + 理财：鸸鹋币（不买房）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', invest: { asset: 'emu-coin', keep: 3000 } },
 	{ id: 'barista-coop-sparse', name: '咖啡店 + 共同事件：疲惫搭档，一半时候没人（需求 40、在场 50%）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 0.5 } },
 ];
+
+// 出身对照（初始属性设计，见 docs/earth-game/initial-stats.md）：同一策略、不带特质，只换出身，看起始现金、车和能力的差别。只出报告，不改数值
+/** 对照组：不工作、不消费、不玩。出身对照里的 idle-<出身> 同样处理 */
+const isIdle = (plan: Plan) => plan.id === 'idle' || plan.id.startsWith('idle-');
+
+const ORIGIN_PLANS: Plan[] = ORIGINS.flatMap((o) => [
+	{
+		id: `gig-${o.id}`, name: `${o.name}：保守零工（珀斯，无房）`, origin: o.id, traits: [], spend: false,
+		gig: { cashTarget: 700, cashReserve: 200, minEnergy: 55, minHunger: 50, preferred: ['work-cafe', 'work-farm', 'busk', 'work-mine'] },
+	},
+	{ id: `barista-${o.id}`, name: `${o.name}：咖啡店（珀斯，合租）`, origin: o.id, traits: [], job: { loc: 'perth', career: 'barista' }, home: 'room' },
+	{ id: `idle-${o.id}`, name: `${o.name}：不干活（对照组）`, origin: o.id, traits: [] },
+]);
 
 function mulberry(seed: number) {
 	let a = seed >>> 0;
@@ -145,7 +170,7 @@ function blankDiagnostics(): BackpackerDiagnostics {
 
 function actionKey(a: GameAction): string {
 	return a.t === 'activity' ? a.id
-		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' ? `${a.t}-${a.op}`
+		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' || a.t === 'asset' ? `${a.t}-${a.op}`
 			: a.t === 'npc' ? 'npc'
 				: a.t === 'buy' ? `buy-${a.item}`
 					: a.t;
@@ -397,7 +422,7 @@ function step(b: Bot) {
 	}
 
 	// 3. 花钱（阶段 A）：升职卡在能力上就上课；钱多就体验、买车
-	if (plan.spend !== false && plan.id !== 'idle') {
+	if (plan.spend !== false && !isIdle(plan)) {
 		if (s.job && s.cash > 600) {
 			const next = getCareer(s.job.career)!.levels[s.job.level + 1];
 			const lacking = SKILL_KEYS.filter((k) => (next?.req?.skills?.[k] ?? 0) > s.skills[k]);
@@ -412,9 +437,18 @@ function step(b: Bot) {
 			const exp = experiencesAt(s, WA).find((o) => o.first && !o.blocked);
 			if (exp && tryAct(b, { t: 'experience', id: exp.exp.id })) return;
 		}
+		// 理财（第 25 批）：现金多出 keep 的部分每天最多买一次；缺钱时卖出应急。理财机器人不买房
+		if (plan.invest) {
+			const day = dayOf(s.clock);
+			if (s.cash < 300 && (s.holdings[plan.invest.asset]?.units ?? 0) > 0 && tryAct(b, { t: 'asset', op: 'sell', id: plan.invest.asset, amount: 500 })) return;
+			if (s.cash > plan.invest.keep + 500 && b.investDay !== day && tryAct(b, { t: 'asset', op: 'buy', id: plan.invest.asset, amount: s.cash - plan.invest.keep })) {
+				b.investDay = day;
+				return;
+			}
+		}
 		// 买房：首付之外还留 $3,000 周转；买了就搬进去
 		const house = propertiesAt(s, WA).find((o) => !o.owned && s.cash >= o.down + 3000);
-		if (house && s.properties.length === 0 && tryAct(b, { t: 'property', op: 'buy', id: house.property.id, loan: s.cash < house.property.price + 3000 })) {
+		if (house && !plan.invest && s.properties.length === 0 && tryAct(b, { t: 'property', op: 'buy', id: house.property.id, loan: s.cash < house.property.price + 3000 })) {
 			tryAct(b, { t: 'property', op: 'movein', id: house.property.id });
 			b.stats.homeDay = dayOf(b.s.clock) + 1;
 			return;
@@ -429,7 +463,7 @@ function step(b: Bot) {
 	if (plan.coop && s.needs.energy >= 35 && s.needs.hunger >= 35 && tryCoop(b)) return;
 
 	// 4. 没有正式工作的人靠零工
-	if (!s.job && plan.id !== 'idle' && s.cash < 400) {
+	if (!s.job && !isIdle(plan) && s.cash < 400) {
 		if (tryGigs(b, GIG_IDS)) return;
 	}
 
@@ -459,7 +493,7 @@ function step(b: Bot) {
 		}
 	}
 	if (s.job && s.loc === s.job.loc && act(b, 'rest')) return; // 有工作就在附近等开工
-	for (const f of ['hike', 'swim', 'busk']) if (plan.id !== 'idle' && act(b, f)) return;
+	for (const f of ['hike', 'swim', 'busk']) if (!isIdle(plan) && act(b, f)) return;
 	act(b, 'rest'); // 兜底：一定能做，保证时间往前走
 }
 
@@ -512,7 +546,7 @@ const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
 const coopRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
-for (const plan of PLANS) {
+for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, i + 1));
 	const at = (d: number) => bots.map((b) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)]);
 	const endD = Math.min(DAYS, 60);
@@ -538,7 +572,7 @@ for (const plan of PLANS) {
 		const kindText = Object.entries(kinds).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('，') || '—';
 		coopRows.push(`| ${plan.name} | ${n.toFixed(1)} | ${(ok * 100).toFixed(0)}% | ${money(flow.coop ?? 0)} | ${kindText} |`);
 	}
-	if (plan.id === 'drifter' || plan.id === 'drifter-safe') {
+	if (plan.id === 'drifter' || plan.gig) {
 		const perDay = RUNS * DAYS;
 		const started = bots.reduce((n, b) => n + b.stats.diag.gigStarted, 0);
 		const completed = bots.reduce((n, b) => n + b.stats.diag.gigCompleted, 0);

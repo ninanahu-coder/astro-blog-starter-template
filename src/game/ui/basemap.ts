@@ -83,14 +83,50 @@ export interface MarkerLike { setLngLat(ll: [number, number]): MarkerLike; addTo
 interface PinEl { className: string; innerHTML: string; dataset: Record<string, string>; setAttribute(k: string, v: string): void }
 export interface DocLike { createElement(t: string): unknown }
 
-/** 真正的地图库：动态加载（单独打包，打开出行页时才下载），后台线程用构建出来的文件 */
+/** 能往 <head> 里加标签的文档（测试里用假的） */
+export interface HeadDoc { head: { appendChild(n: unknown): unknown }; createElement(t: string): unknown }
+interface LinkLike { rel: string; href: string; crossOrigin: string | null; onload: (() => void) | null; onerror: (() => void) | null }
+const added = new WeakMap<HeadDoc, Set<string>>();
+
+/**
+ * 往 <head> 加一个 <link>，同一个文档里同一个 rel+href 只加一次（第 41 批，性能）。
+ * stylesheet 等它加载完再返回；加载失败或 3 秒还没好也照常返回：没有样式只是地图控件难看，不该让底图整体失败。
+ */
+export function addHeadLink(doc: HeadDoc, rel: string, href: string, opts: { crossOrigin?: boolean; timeoutMs?: number } = {}): Promise<void> {
+	const seen = added.get(doc) ?? new Set<string>();
+	added.set(doc, seen);
+	const key = rel + ' ' + href;
+	if (seen.has(key)) return Promise.resolve();
+	seen.add(key);
+	const l = doc.createElement('link') as LinkLike;
+	l.rel = rel;
+	l.href = href;
+	if (opts.crossOrigin) l.crossOrigin = 'anonymous';
+	const done = rel !== 'stylesheet' ? Promise.resolve() : new Promise<void>((ok) => {
+		l.onload = l.onerror = () => ok();
+		setTimeout(ok, opts.timeoutMs ?? 3000);
+	});
+	doc.head.appendChild(l);
+	return done;
+}
+
+/** 图块服务的源站：开始下载地图库时就先连上（DNS + TLS），地图库下完马上能拉样式和图块 */
+export const BASEMAP_ORIGIN = new URL(BASEMAP_STYLE).origin;
+
+/**
+ * 真正的地图库：动态加载（单独打包，打开出行页时才下载），后台线程用构建出来的文件。
+ * 样式表按 URL 引用、用的时候才插进 <head>（第 41 批）：直接 import CSS 会被 Astro 提到页面 <head> 里，
+ * 每次打开页面都要先下载 70KB 地图样式才开始渲染，哪怕玩家根本没开真实地图。
+ */
 export async function loadMapLibre(): Promise<MapLib> {
-	const [ml, worker] = await Promise.all([
+	void addHeadLink(document, 'preconnect', BASEMAP_ORIGIN, { crossOrigin: true });
+	const [ml, worker, css] = await Promise.all([
 		import('maplibre-gl'),
 		import('maplibre-gl/dist/maplibre-gl-worker.mjs?url'),
-		import('maplibre-gl/dist/maplibre-gl.css'),
+		import('maplibre-gl/dist/maplibre-gl.css?url'),
 	]);
 	ml.setWorkerUrl(worker.default);
+	await addHeadLink(document, 'stylesheet', css.default);
 	return ml as unknown as MapLib;
 }
 

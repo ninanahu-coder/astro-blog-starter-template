@@ -95,9 +95,11 @@ export function parseQueue(raw: string | null, id: string, now: number): { items
 export const queueJson = (id: string, items: Queued[]) => JSON.stringify({ id, items });
 
 /** 补交结束后的一句话：交了几个；哪个没通过、为什么；后面取消了几个 */
-export function flushSummary(r: { done: number; failed?: { label: string; msg: string }; cancelled: number; expired: number }): string {
+export function flushSummary(r: { done: number; failed?: { label: string; msg: string }; cancelled: number; expired: number; retried?: number }): string {
 	const parts: string[] = [];
 	if (r.done) parts.push(`补交了 ${r.done} 个排队的动作`);
+	// 补交途中另一台设备也动过存档：按最新进度重交了（第 50 批），告诉玩家结果可能和离线时预想的不一样
+	if (r.retried) parts.push(`期间另一台设备也有操作，${r.retried} 个已按最新进度重交`);
 	if (r.failed) parts.push(`「${r.failed.label}」没成功：${r.failed.msg || '服务器没通过'}`);
 	if (r.cancelled) parts.push(`后面 ${r.cancelled} 个已取消`);
 	if (r.expired) parts.push(`${r.expired} 个排队超过一天，已取消`);
