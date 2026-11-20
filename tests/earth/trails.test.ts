@@ -277,3 +277,11 @@ test('服务端：路线动作用服务端时间结算并落盘；坏坐标 400�
 	assert.deepEqual(Object.keys(saved.trails[CITY.id]).sort(), ['at', 'leg', 't']);
 	assert.equal(saved.pending?.eventId, CITY.stops[0].event);
 });
+
+test('附近页（页面模板）：路线卡挂在定位卡后面，路线按钮的点击接上了（合并 main 时这两处都有冲突）', async () => {
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(src, /<\/div>` \+ trailCards\(s\);/, '附近页路线卡');
+	const click = src.match(/closest<HTMLElement>\('\[data-tab\][^']*'\)/)?.[0] ?? '';
+	for (const a of ['trail', 'live', 'pet', 'venue']) assert.ok(click.includes(`[data-${a}]`), `点击委托缺 data-${a}`);
+});

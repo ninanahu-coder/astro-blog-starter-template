@@ -11,7 +11,8 @@ export type Skills = Record<SkillKey, number>; // 0–100，用得越多涨得�
 
 /** 车型 id（见 data/vehicles.ts），'none' 表示没有车 */
 export type Vehicle = string;
-export type TravelMode = 'road' | 'track' | 'ferry' | 'air';
+/** road 自驾或长途巴士、track 越野土路、ferry 渡轮、air 航班；第 32 批加 transit 市内公交/火车/电车、rail 区域火车、walk 步行 */
+export type TravelMode = 'road' | 'track' | 'ferry' | 'air' | 'transit' | 'rail' | 'walk';
 
 export interface Effect {
 	cash?: number;
@@ -26,6 +27,8 @@ export interface Effect {
 	items?: Record<string, number>;
 	/** 获得一个带时限的心情状态（见 data/moodlets.ts） */
 	moodlet?: string;
+	/** 这段时间在睡觉：饱食、娱乐、社交掉得慢，精力不降，恢复的精力乘恢复系数（见 core/vitals.ts） */
+	asleep?: boolean;
 }
 
 export interface MoodletDef {
@@ -35,6 +38,7 @@ export interface MoodletDef {
 	value: number; // 心情加减
 	hours: number; // 持续的游戏小时
 	gain?: number; // 生效期间所有能力成长的倍率（如「专注」1.25）
+	regen?: number; // 生效期间健康自然恢复的倍率（如「吃了维生素」2）
 }
 
 export interface Moodlet {
@@ -110,13 +114,16 @@ export interface NpcDef {
 	perk?: NpcPerk;
 }
 
-export type NpcAction = 'chat' | 'gift' | 'help' | 'perk';
+/** favor：帮个小忙；bond / unbond：结为知己、解除知己（第 29 批） */
+export type NpcAction = 'chat' | 'gift' | 'help' | 'perk' | 'favor' | 'bond' | 'unbond';
 
 export interface Relation {
 	score: number; // −100..100
 	last: Partial<Record<NpcAction, number>>; // 每种互动最近一次的游戏日
 	seen: number[]; // 已触发过的剧情门槛
 	known: string[]; // 已经知道 TA 反应的物品 id（送过一次就知道）
+	bond?: number; // 结为知己的游戏日（第 29 批）；没结或已解除时没有这个键
+	told?: number; // 最近一次听 TA 讲近况的游戏日（第 29 批，只有知己会讲）
 }
 
 // ---------- 职业与住房 ----------
@@ -129,7 +136,7 @@ export interface Where {
 export interface CareerLevel {
 	title: string;
 	pay: number; // 每班工资
-	req?: { skills?: Partial<Skills>; respect?: number };
+	req?: { skills?: Partial<Skills>; respect?: number; certs?: string[] }; // certs：要持有的证书或学历 id（CertDef.id 或 ProgramDef.award）
 }
 
 export interface CareerDef {
@@ -161,6 +168,7 @@ export interface HomeDef {
 	where: Where;
 	desc: string;
 	vehicleSleep?: boolean; // 人睡在自己车里（房车营地）：要有能睡人的车才能租、才能回去睡
+	bondWeeks?: number; // 押金是几周房租；不写用 data/housing.ts 的 BOND_WEEKS
 }
 
 export interface Home {
@@ -168,6 +176,7 @@ export interface Home {
 	loc: string;
 	furniture: Record<string, string>; // 槽位 -> 家具 id
 	owned?: string; // 自有房产 id；有值表示住在自己的房子里，不交房租
+	bond?: number; // 租房押金（第 26 批），搬走时退；自有房没有
 }
 
 export interface PropertyDef {
@@ -188,6 +197,25 @@ export interface OwnedProperty {
 	missed: number; // 连续欠款周数
 	fresh?: boolean; // 这个结算期内才挂牌出租：到下个结算日不计租
 	lived?: boolean; // 自己搬进去住过：「搬了新家」每套房只给一次
+}
+
+/** 金融资产（第 25 批）：储蓄、指数基金、金条、虚拟币。价格按玩家私有的行情种子逐日生成，见 core/market.ts */
+export interface AssetDef {
+	id: string;
+	name: string;
+	icon: string;
+	kind: 'cash' | 'stock' | 'metal' | 'crypto';
+	start: number; // 第 0 天的单价
+	drift: number; // 年化期望收益（对数漂移），待平衡
+	vol: number; // 年化波动率，待平衡
+	fee: number; // 买入和卖出各收的手续费比例（含买卖价差）
+	desc: string;
+}
+
+/** 持有的一种资产：份数和累计成本（卖出时按比例扣减成本，界面算盈亏用） */
+export interface Holding {
+	units: number;
+	cost: number;
 }
 
 export interface FurnitureDef {
@@ -250,6 +278,23 @@ export interface CertDef {
 	desc: string;
 }
 
+/** 学历课程：要分多次上完的长课（语言班、TAFE、大学），上完拿到一个学历 id，记进 PlayerState.certs */
+export interface ProgramDef {
+	id: string;
+	name: string;
+	kind: 'language' | 'tafe' | 'uni';
+	sessions: number; // 一共要上几次课
+	minutes: number; // 每次课多久
+	fee: number; // 每次课的学费
+	needs?: string[]; // 报名前要持有的证书或学历 id
+	skills: Partial<Skills>; // 每次课的能力成长（传给 growSkill 的原始增量）
+	award: string; // 上完拿到的学历 id
+	respect: number; // 毕业时的声望
+	where: Where;
+	hours: Hours;
+	desc: string;
+}
+
 export interface ExperienceDef {
 	id: string;
 	name: string;
@@ -275,6 +320,29 @@ export interface ItemDef {
 	use?: Effect; // 可消耗：使用后数量 −1
 	passive?: Partial<Skills>; // 随身装备：持有即获得检定加值
 	weather?: string[]; // 写了的话，随身装备只在这些天气生效（天气 id，见 data/weather.ts）
+	/** 分类（第 34 批）；不写时按 use → 消耗品、passive → 装备推断，见 core/shop.ts 的 itemCat() */
+	cat?: ItemCat;
+	/** 现实里哪类店卖它（第 34 批，见 data/shops.ts 的 STORE_TYPES）；只用于标注和真实店铺对应，不决定游戏里在哪能买（那是 shop） */
+	stores?: StoreType[];
+	/** 易腐（第 34 批）：超市晚上贴打折贴，见 data/shops.ts 的 SHOP_RULES.markdown */
+	perish?: boolean;
+	desc: string;
+}
+
+/** 物品分类：消耗品、装备、礼物、收藏。家具不是背包物品，单独在 data/furniture.ts */
+export type ItemCat = 'consumable' | 'gear' | 'gift' | 'collectible';
+
+/** 现实里的店铺类别（第 34 批） */
+export type StoreType = 'convenience' | 'supermarket' | 'asian-grocer' | 'pharmacy' | 'hardware' | 'outdoor' | 'surf' | 'tackle' | 'florist' | 'cafe';
+
+export interface StoreTypeDef {
+	id: StoreType;
+	name: string;
+	icon: string;
+	/** OpenStreetMap 标签（采集用；写「待核」的要 OpenClaw 先查 OSM wiki 再采） */
+	osm: string;
+	/** 已经采集进 wa/sa.venues.json 的真实地点类型 id；还没采集的不写 */
+	venue?: string;
 	desc: string;
 }
 
@@ -461,6 +529,20 @@ export interface JournalEntry {
 	text: string;
 }
 
+// ---------- 宠物（v31，见 data/pets.ts、core/pets.ts） ----------
+export interface Pet {
+	kind: string; // PetKindDef.id
+	name: string;
+	from: 'shelter' | 'breeder';
+	since: number; // 领回家的游戏日
+	bond: number; // 好感度 0–100（只会涨涨跌跌，宠物不会因为没照顾而离开、受伤或死亡）
+	fedDay: number; // 最近一次喂的游戏日
+	playDay: number; // 最近一次陪玩的游戏日，−1 为还没有
+	walkDay: number; // 最近一次遛的游戏日（只有狗），−1 为还没有
+	vetDay: number; // 最近一次体检的游戏日（领养时算一次）
+	board: { loc: string; until: number } | null; // 寄养在哪、付到第几个游戏日
+}
+
 export interface PlayerState {
 	v: 1;
 	id: string;
@@ -496,6 +578,9 @@ export interface PlayerState {
 	job: Job | null;
 	home: Home | null;
 	properties: OwnedProperty[];
+	holdings: Record<string, Holding>; // 资产 id -> 持仓（第 25 批）
+	quotes?: Record<string, number[]>; // 只在发给客户端的副本里有（publicState 填）：每种资产最近几天的价格，客户端没有行情种子，靠它显示行情
+	marketSeed: number; // 行情种子：创建时由服务端随机种子派生，不发给客户端（publicState 清零），否则能推算未来价格
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
 	moodlets: Moodlet[]; // 带时限的心情状态
 	wishes: string[]; // 今天还没完成的心愿 id
@@ -504,11 +589,16 @@ export interface PlayerState {
 	collected: string[]; // 已完成的收费体验 id
 	areas: string[]; // 已获得称号的体验片区 id：集齐时记下，之后加了新体验也不收回、不重复发奖
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
-	certs: string[]; // 已考到的职业证书 id（跟人走，换工作不丢）
+	certs: string[]; // 已考到的职业证书 id 和学历 id（跟人走，换工作不丢）
+	study: Record<string, { n: number; day: number }>; // 学历课程 id -> 已上几次、最近一次上课的游戏日
+	workLog: { f: number; min: number }; // 签证工时：第几个两周（游戏日 / 14）、这两周已上班的分钟（职业班次 + 零工）
 	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每 COOP_COOLDOWN_DAYS 天一次）
 	trades: { day: number; out: number; in: number }; // 玩家之间交易：这个现实日已送出 / 收下的次数
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领
+	live: string[]; // 领过到场纪念的现实活动 id（第 24 批，见 core/live.ts）
+	blocked: Record<string, { name: string; avatar: string; day: number }>; // 屏蔽的玩家：id 哈希前缀 -> 名字、头像、屏蔽时的现实日（第 24 批，见 core/safety.ts）
 	met: Record<string, { name: string; avatar: string; n: number; last: number }>; // 常遇见的人：玩家 id 哈希前缀 -> 名字、头像、一起做事的次数、最近一次的现实日
+	pet: Pet | null; // 宠物（第一版最多一只）
 	pending: { eventId: string } | null;
 	trails: Record<string, { at: number; leg: boolean; t: number }>; // 主要路线（实地路线）进度：路线 id -> 到了几站、这一段沿途事件出没出、到上一站的服务端时间（毫秒，0 为还没出发）。不存坐标
 	fix: { lat: number; lon: number; at: number } | null; // 最近一次真实定位（坐标保留 3 位小数，约 100 米；at 为服务端时间）

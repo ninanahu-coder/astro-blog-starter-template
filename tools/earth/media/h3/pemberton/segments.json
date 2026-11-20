@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic tall old-growth eucalyptus forest in the early morning, pale towering trunks, a lush fern understorey and a small creek, golden sunbeams slanting through mist",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "A quiet forest morning with birdsong and a trickling creek",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "Golden sunbeams slant through slowly drifting mist, the small creek trickles over stones, the fern fronds sway gently and leaves high in the canopy flutter in a light breeze. The tree trunks stay still.",
+   "sfx": "soft rustle of fern fronds"
+  }
+ ]
+}
