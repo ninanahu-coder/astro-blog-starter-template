@@ -1,6 +1,6 @@
 // 新手引导进度（v36）：纯函数。进度存在存档的 onboard 字段里，跟着存档走、换设备也一样。
 // 判定条件和文案在 data/onboard.ts；这里只算「现在该显示什么」和「动作之后记下什么」。
-import { CHANGELOG, type ChangelogEntry } from '../data/changelog.ts';
+import type { ChangelogEntry } from '../data/changelog.ts';
 import { FEATURES, MARKS, RETURN_DAYS, RETURN_SHOW_DAYS, TIPS, type FeatureDef, type OnboardPage, type TipDef } from '../data/onboard.ts';
 import { STORY } from '../data/story.ts';
 import type { ActionResult, PlayerState } from './types.ts';
@@ -109,8 +109,9 @@ export interface ReturnView {
 /**
  * 回流卡片：回来的那天和第二天显示（today 是现实日，取存档里的 daily.day 即可），点「知道了」后不再显示。
  * 玩家关了全部引导也照样显示：这不是教学，是「离开期间发生了什么」。
+ * changelog 由调用方传入：更新日志按需加载、不进首屏（第 41 批），没加载到时传空数组，卡片照常显示、只是不列更新。
  */
-export function returnView(s: PlayerState, today: number): ReturnView | null {
+export function returnView(s: PlayerState, today: number, changelog: readonly ChangelogEntry[] = []): ReturnView | null {
 	const b = s.onboard.back;
 	if (!b || b.seen || today - b.day >= RETURN_SHOW_DAYS || today < b.day) return null;
 	const left = realDate(b.day - b.gap);
@@ -119,7 +120,7 @@ export function returnView(s: PlayerState, today: number): ReturnView | null {
 	return {
 		gap: b.gap,
 		story: ch && step ? { title: ch.title, step: step.text } : null,
-		news: CHANGELOG.filter((e) => e.date > left).slice(0, 3),
+		news: changelog.filter((e) => e.date > left).slice(0, 3),
 		low: Object.values(s.needs).some((v) => v < 30),
 	};
 }

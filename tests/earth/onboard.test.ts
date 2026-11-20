@@ -170,7 +170,7 @@ test('回流：离开 3 天以上才记，在发每日奖励之前；没领过�
 test('回流卡片：回来当天和第二天显示，点过或过了两天就不显示；列出主线这一步和离开期间的更新', () => {
 	const today = 20_400;
 	const s = make({ onboard: ob({ back: { day: today, gap: 10, seen: false } }), needs: { ...make().needs, hunger: 10 } });
-	const v = returnView(s, today)!;
+	const v = returnView(s, today, CHANGELOG)!;
 	assert.equal(v.gap, 10);
 	assert.equal(v.story?.title, STORY[0].title);
 	assert.equal(v.story?.step, STORY[0].steps[0].text);
@@ -181,8 +181,10 @@ test('回流卡片：回来当天和第二天显示，点过或过了两天就�
 	const e = CHANGELOG[0];
 	const leftDay = Math.round(Date.parse(e.date + 'T00:00:00Z') / 86_400_000);
 	assert.equal(realDate(leftDay), e.date);
-	const edge = returnView(make({ onboard: ob({ back: { day: leftDay + 5, gap: 5, seen: false } }) }), leftDay + 5)!;
+	const edge = returnView(make({ onboard: ob({ back: { day: leftDay + 5, gap: 5, seen: false } }) }), leftDay + 5, CHANGELOG)!;
 	assert.ok(!edge.news.some((n) => n.date === e.date), '离开当天的不算');
+	// 更新日志按需加载（第 41 批）：页面还没下到日志时不传，卡片照常出、只是不列更新
+	assert.deepEqual(returnView(s, today)!.news, []);
 	assert.ok(returnView(s, today + RETURN_SHOW_DAYS - 1));
 	assert.equal(returnView(s, today + RETURN_SHOW_DAYS), null);
 	assert.equal(returnView(s, today - 1), null);
@@ -242,4 +244,14 @@ test('服务端：离开 5 天后第一次读取记下回流，点过后保存�
 	const vet = await call({ action: 'get', ...cred });
 	assert.deepEqual(vet.data.state.onboard, veteranOnboard());
 	t.diagnostic('ok');
+});
+
+test('页面模板（v36，合并 main 时这些行两边都改过）：渐进出现包住各组卡片、设置里有引导开关和屏蔽名单、更新日志下完重画今天页', async () => {
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(src, /\$\{festHtml\}\$\{on\('hobby'\) \? skyCard\(s\) : ''\}/, '星空跟钓鱼、摄影同一组');
+	assert.match(src, /\$\{on\('study'\) \? courseHtml \+ certHtml \+ studyHtml : ''\}/, '学历课程跟课程、证书同一组');
+	assert.match(src, /<button data-ob-guide aria-pressed="\$\{!state!\.onboard\.off\}">/, '设置里的引导开关');
+	assert.match(src, /<div class="card"><h3>提示<\/h3>\$\{tips\}[\s\S]{0,600}?<\/div><\/div>\n\t*\$\{blockedCard\(state!\)\}/, '提示卡后面是屏蔽名单');
+	assert.match(src, /tab === 'place' && returnView\(state, state\.daily\.day\) && !obHidden\.has\('back'\)\)\)\) renderPanel\(\)/, '更新日志下完，今天页有回流卡片就重画');
 });

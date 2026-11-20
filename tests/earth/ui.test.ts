@@ -37,6 +37,7 @@ function makeWorld() {
 			else for (const [kk, vv] of Object.entries(k)) data.set(kk, structuredClone(vv));
 		},
 		list: async ({ prefix = '' }: { prefix?: string } = {}) => new Map([...data].filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k, structuredClone(v)])),
+		delete: async (k: string | string[]) => { for (const kk of Array.isArray(k) ? k : [k]) data.delete(kk); },
 	};
 	return { data, world: new EarthWorld({ storage } as never, {}) };
 }
@@ -120,6 +121,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	rec.state.home = { type: 'room', loc: rec.state.loc, furniture: {} };
 	rec.state.cash = 120;
 	rec.state.nextWeek = Math.floor(rec.state.clock / 1440) + 1;
+	// 宠物（v31）：名字是玩家输入，存档里故意带 HTML，页面必须转义。寄养着：后面要坐船上罗特内斯特岛，带着宠物上不了岛
+	rec.state.pet = { kind: 'budgie', name: '<i>啾</i>', from: 'shelter', since: 0, bond: 40, fedDay: 0, playDay: -1, walkDay: -1, vetDay: 0, board: { loc: rec.state.loc, until: Math.floor(rec.state.clock / 1440) + 14 } };
 	data.set('save:' + cred.id, rec);
 
 	const els = new Map<string, El>();
@@ -207,6 +210,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.ok(rootClasses.contains('p-day') && !rootClasses.contains('p-night'), '开局 8 点是白天');
 		// 名字里的 HTML 被转义（服务端可能已清洗掉尖括号；无论如何不能原样出现）
 		for (const h of [panel(), el('hud').innerHTML]) assert.ok(!h.includes('<b>阿测</b>'), '名字没有转义');
+		assert.match(panel(), /🦜 /, '今天页有宠物卡片');
+		assert.match(panel(), /寄养到第 \d+ 天/);
+		assert.ok(!panel().includes('<i>啾</i>'), '宠物名字没有转义');
 		assert.match(panel(), /1 天后周结算，钱不够/, '周结算预警');
 		// 新手指南（第 26 轮）：开局只解开第 1 天，标出「现在」这一步；在今天页时第一步不需要「去看看」跳转
 		assert.match(panel(), /新手指南 · 第 1 天/);
@@ -373,8 +379,11 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(panel(), /class="tile on" data-dmode="[a-z]+" data-dest="fremantle" aria-pressed="true"/);
 		assert.match(panel(), /路费后剩 \$\d+，1 天后周结算要付 \$160，会不够/);
 		assert.match(panel(), /data-go="fremantle" data-mode="[a-z]+">出发去弗里曼特尔/);
+		// 第 32 批：珀斯—弗里曼特尔多了 Transperth 火车，默认选最便宜的火车，长途巴士是另一个能点的方块（换走法在最后用卡尔古利测）
+		assert.match(panel(), /class="tile on" data-dmode="transit" data-dest="fremantle"/);
 		const alt = panel().match(/class="tile" data-dmode="([a-z]+)" data-dest="fremantle" aria-pressed="false" >/)?.[1];
-		assert.equal(alt, undefined, '这时钱只够走陆路（换走法在最后用卡尔古利测）');
+		assert.equal(alt, 'road');
+		assert.match(panel(), /Transperth 真实票价|今天周日，刷卡免费/, '公交方块写明票价出处');
 		await click({ loc: 'fremantle' });
 		await click({ tab: 'me' });
 		await click({ metab: 'overview' });
@@ -719,6 +728,10 @@ type HashOpts = {
 	hidden?: boolean;
 	/** 在线频道当作已连上：每个新建的连接记进这个数组（连接地址 url、收消息 say、是否被关 closed） */
 	liveWs?: LiveWs[];
+	/** CGI 清单（/earth/cgi/manifest.json 的 images）；不给时清单请求 404，页面全部走没图的样式 */
+	cgi?: Record<string, string>;
+	/** prompt() 的回答（默认 null，等于点了取消）；问过的话记进 seen.prompts */
+	prompt?: string | null;
 	/** 页面启动完、清理之前再做点什么（点按钮、触发联网事件） */
 	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; el: (id: string) => El; show: () => void }) => Promise<void>;
 };
@@ -738,8 +751,8 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	const docLs: Record<string, (e: unknown) => void> = {};
 	const winLs: Record<string, (e: unknown) => void> = {};
 	const g = globalThis as any;
-	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
-	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[] };
+	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, prompt: g.prompt, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
+	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[], prompts: [] as string[] };
 	const root = new ClassList();
 	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, documentElement: { classList: root }, hidden: !!opts.hidden };
 	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => { winLs[t] = f; } };
@@ -747,7 +760,9 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	g.location = { protocol: 'http:', host: 'game.test', pathname: '/earth/', search: '', hash, reload() { seen.reloads++; } };
 	g.history = { replaceState: (_s: unknown, _t: string, u: string) => { seen.replaced.push(u); g.location.hash = ''; } };
 	g.confirm = (m: string) => { seen.asked.push(m); return confirmAnswer; };
+	g.prompt = (m: string) => { seen.prompts.push(m); return opts.prompt ?? null; };
 	g.fetch = async (u: string, o?: RequestInit) => {
+		if (String(u) === '/earth/cgi/manifest.json' && opts.cgi) return new Response(JSON.stringify({ images: opts.cgi }), { status: 200 });
 		if (String(u) !== '/api/earth/save') return new Response('{}', { status: 404 });
 		const res = () => world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: o?.body as string }));
 		return (await opts.reply?.(JSON.parse(o?.body as string), res)) ?? res();
@@ -968,7 +983,7 @@ test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，�
 	// 虚拟人生风格：今天页顶栏是当地小场景，地点名牌、需求环、NPC 立绘
 	assert.match(hud, /<div class="scene"><svg class="scene-art"/);
 	// 地点名牌：大字地名，下面一行是时间（第 15 批从顶上的时间胶囊挪进来）
-	assert.match(hud, /<div class="plate"><h1>[^<]+<\/h1><small title="[^"]+">[^<]*\d+:\d\d[^<]*<\/small><\/div>/);
+	assert.match(hud, /<div class="plate"><h1>[^<]+<\/h1><span class="en" lang="en">[^<]+<\/span><small title="[^"]+">[^<]*\d+:\d\d[^<]*<\/small><\/div>/);
 	assert.doesNotMatch(hud, /pill-on/, '顶上不再有单独的时间胶囊');
 	assert.match(panel, /<div class="rings">/);
 	assert.equal((panel.match(/class="ring /g) ?? []).length, 6, '六个需求环');
@@ -1319,7 +1334,11 @@ test('界面：没有存档时显示创建页，选完四步能创建角色并�
 		assert.match(el('c-origins').innerHTML, /ac-opt on" data-origin="fifo"[\s\S]*?\$2500/);
 		const ava = pickIn('c-avatars', 'avatar')[2];
 		await tap({ avatar: ava });
-		assert.equal(el('c-photo').textContent, ava);
+		// 照片栏：证件照按「出身-形象下标」取，emoji 垫在下面做加载失败的后备
+		assert.match(el('c-photo').innerHTML, new RegExp(`<span class="ac-photo-emoji">${ava}</span><img class="ac-photo-img" src="/earth/char/fifo-2\\.webp" alt=""`));
+		await tap({ origin: 'surfer' });
+		assert.match(el('c-photo').innerHTML, /src="\/earth\/char\/surfer-2\.webp"/, '换出身，证件照跟着换');
+		await tap({ origin: 'fifo' });
 		await tap({ trait: pickIn('c-traits', 'trait')[0] });
 		const second = pickIn('c-traits', 'trait').find((t) => !el('c-traits').innerHTML.includes(`trait on" data-trait="${t}"`));
 		await tap({ trait: second! });
@@ -1383,12 +1402,14 @@ test('界面：回流卡片（v36）——离开 6 天后打开，今天页最�
 	const rec = data.get('save:' + a.cred.id) as any;
 	const today = Math.floor((Date.now() + 8 * 3_600_000) / 86_400_000);
 	data.set('save:' + a.cred.id, { ...rec, state: { ...rec.state, daily: { day: today - 6, streak: 5 } } });
-	let first = '', after = '';
+	let first = '', loaded = '', after = '';
 	await openWithHash('', { cred: a.cred, state: a.state }, world, true, {
 		after: async ({ click, el }) => {
 			await pause(80);
 			await click({ tab: 'place' });
 			first = el('panel').innerHTML;
+			await pause(150);
+			loaded = el('panel').innerHTML;
 			await click({ obBack: '' });
 			after = el('panel').innerHTML;
 			await pause(80);
@@ -1397,6 +1418,8 @@ test('界面：回流卡片（v36）——离开 6 天后打开，今天页最�
 	assert.match(first, /<section class="back-card" aria-labelledby="back-title">/);
 	assert.match(first, /欢迎回来，离开了 6 天/);
 	assert.match(first, /主线停在<\/b>第一章/);
+	// 更新日志按需加载（第 41 批）：下完后今天页自动重画，回流卡片列出离开期间的更新
+	assert.match(loaded, /<b>离开期间更新了 [1-3] 次<\/b>/);
 	assert.ok(first.indexOf('back-card') < first.indexOf('class="rings"'), '在需求卡前面');
 	assert.deepEqual(a11yIssues(first), []);
 	assert.doesNotMatch(after, /back-card/);
@@ -1420,4 +1443,271 @@ test('界面：断网时关提示（v36）——便签照样马上消失，云�
 	});
 	assert.doesNotMatch(after, /slip-grow/);
 	assert.deepEqual((data.get('save:' + a.cred.id) as any).state.onboard.tips, []);
+});
+
+test('界面：界面配图（第 21 批）——清单里有的键用小图、横幅和空状态插图，地址经过转义；清单里没有的照旧用原来的样式', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'cgi-ui-a', '看配图');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.loc = 'perth';
+	rec.state.cash = 5000;
+	rec.state.inventory = {};
+	rec.state.properties = [];
+	data.set('save:' + a.cred.id, rec);
+	let place = '', grow = '', assets = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		cgi: { 'exp:swan-cruise': '/earth/cgi/exp.webp?"><b>x', 'banner:grow': '/earth/cgi/banner-grow.webp', 'empty:bag': '/earth/cgi/empty-bag.webp' },
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			place = el('panel').innerHTML;
+			await click({ tab: 'grow' });
+			grow = el('panel').innerHTML;
+			await click({ tab: 'me' });
+			await click({ metab: 'assets' });
+			assets = el('panel').innerHTML;
+		},
+	});
+	assert.match(place, /<img class="thumb" src="\/earth\/cgi\/exp\.webp\?&quot;&gt;&lt;b&gt;x" alt="" loading="lazy" width="48" height="48" \/><span class="body">✨ 天鹅河日落游船/, '体验行左边是小图，地址转义');
+	assert.doesNotMatch(place, /exp\.webp\?"><b>/, '地址里的引号和尖括号不能原样进 HTML');
+	assert.equal((place.match(/class="thumb"/g) ?? []).length, 1, '清单里没有的（工作、住处……）不出小图');
+	// 新角色第一次进成长页有新手便签（v36），便签下面就是横幅
+	assert.ok(grow.replace(/^<section class="slip"[\s\S]*?<\/section>\s*/, '').startsWith('<div class="banner"><img src="/earth/cgi/banner-grow.webp"'), '成长页顶上是横幅');
+	assert.match(assets, /<div class="empty-art"><img src="\/earth\/cgi\/empty-bag\.webp" alt="" loading="lazy" \/><\/div><p>空的。/, '背包空的时候有插图');
+	assert.doesNotMatch(assets, /empty-art"><img src="[^"]*estate/, '清单里没有的空状态不占位');
+	assert.deepEqual(a11yIssues(place), []);
+	assert.deepEqual(a11yIssues(assets), []);
+});
+
+test('界面：「我 · 资产」的理财卡（第 25 批）——行情来自服务端、能买入、净值算上持仓、行情种子不进本机存档', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'invest-ui-a', '理财');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.cash = 2000;
+	let before = '', after = '';
+	const r = await openWithHash('', { cred: a.cred, state: a.state }, world, true, {
+		prompt: '500',
+		after: async ({ click, el }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'assets' });
+			before = el('panel').innerHTML;
+			await click({ asset: 'buy', assetId: 'asx-index' });
+			after = el('panel').innerHTML;
+		},
+	});
+	assert.match(before, /<div class="card invest"><h3>理财<\/h3>/, '没有持仓时标题不带金额');
+	for (const id of ['savings', 'asx-index', 'gold', 'emu-coin']) assert.match(before, new RegExp(`data-asset="buy" data-asset-id="${id}"`), id);
+	assert.match(before, /data-asset="sell" data-asset-id="gold" disabled/, '没有持仓不能卖');
+	assert.match(before, /不能兑换真钱/);
+	assert.deepEqual(a11yIssues(before), []);
+	assert.equal(r.seen.prompts.length, 1, '问了一次金额');
+	const saved = (data.get('save:' + a.cred.id) as any).state;
+	assert.equal(saved.cash, 1500, '服务端扣了 $500');
+	assert.ok(saved.holdings['asx-index'].units > 0, '服务端记下持仓');
+	assert.match(after, /<h3>理财 · 持仓 \$4\d\d<\/h3>/, '买入后卡片显示持仓（扣手续费后不到 $500）');
+	assert.match(after, /data-asset="sell" data-asset-id="asx-index">卖出/, '有持仓可以卖');
+	assert.match(after, / · 理财 \$4\d\d<\/p>/, '资产卡算上理财');
+	const local = JSON.parse(r.store.get('earth.save.v1')!);
+	assert.equal(local.marketSeed, 0, '本机存档没有行情种子');
+	assert.equal(local.seed, 0);
+	assert.equal(local.quotes['asx-index'].length >= 1, true, '本机存档带着服务端算好的行情');
+});
+
+test('界面：理财下单时点取消不发动作；买鸸鹋币要先确认（第 25 批）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'invest-ui-b', '取消');
+	(data.get('save:' + a.cred.id) as any).state.cash = 2000;
+	const r = await openWithHash('', { cred: a.cred, state: a.state }, world, false, {
+		prompt: '300',
+		after: async ({ click }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'assets' });
+			await click({ asset: 'buy', assetId: 'emu-coin' });
+		},
+	});
+	assert.equal(r.seen.asked.filter((m) => m.includes('鸸鹋币')).length, 1, '买虚拟币前确认');
+	assert.equal((data.get('save:' + a.cred.id) as any).state.cash, 2000, '确认时选了取消，没成交');
+});
+
+// ---------- 存档与多端同步（第 50 批，见 docs/earth-game/save-sync.md） ----------
+const srv = async (world: EarthWorld, body: unknown) => (await world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: JSON.stringify(body) }))).json() as Promise<any>;
+const waitFor = async (ok: () => boolean, n = 100) => { for (let i = 0; i < n && !ok(); i++) await pause(10); };
+
+test('界面：凭证在、本机缓存坏了（比如新版本页面写的缓存），不显示创建页，自动从云端恢复；离线时等联网再恢复（审查问题 3）', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'cache-bad-a', '缓存坏');
+	const ok = await openWithHash('', { cred: a.cred, state: { v: 'x' } }, world);
+	assert.equal(ok.el('game').classList.contains('hidden'), false, '恢复后进入游戏');
+	assert.deepEqual(JSON.parse(ok.store.get('earth.cred.v1')!), a.cred, '凭证还在');
+	assert.equal(JSON.parse(ok.store.get('earth.save.v1')!).id, a.cred.id);
+	assert.match(ok.el('toast').textContent, /已从云端恢复/);
+	// 缓存是别的角色的：同样以凭证为准
+	const other = await openWithHash('', { cred: a.cred, state: { ...a.state, id: 'someone-else' } }, world);
+	assert.equal(JSON.parse(other.store.get('earth.save.v1')!).id, a.cred.id);
+	// 离线：先显示创建页但不丢凭证；新建前会问；联网后自动恢复
+	let offline = true;
+	const off = await openWithHash('', { cred: a.cred, state: null }, world, false, {
+		reply: async () => { if (offline) throw new TypeError('offline'); return undefined; },
+		after: async ({ win, el }) => {
+			assert.equal(el('game').classList.contains('hidden'), true);
+			assert.match(el('toast').textContent, /联网后会自动从云端恢复/);
+			el('c-start').ls.click({});
+			await pause(20);
+			offline = false;
+			win.online?.({});
+			await waitFor(() => !el('game').classList.contains('hidden'));
+			assert.equal(el('game').classList.contains('hidden'), false, '联网后恢复');
+			await pause(200); // 恢复后页面接着拉留言等，等它们落地再收尾
+		},
+	});
+	assert.match(off.seen.asked[0] ?? '', /还保存着一个角色的同步码/, '新建前先问');
+	assert.deepEqual(JSON.parse(off.store.get('earth.cred.v1')!), a.cred, '不同意就不覆盖凭证');
+});
+
+test('界面：删除本机存档时排队的动作一起清掉，之后用同一个码恢复不会悄悄补交（审查问题 4）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'reset-queue-a', '清队列');
+	const queued = { 'earth.queue.v1': JSON.stringify({ id: a.cred.id, items: [{ act: { t: 'activity', id: 'rest' }, at: Date.now(), label: '休息', op: 'resetq000000001' }] }) };
+	const r = await openWithHash('', a, world, true, {
+		extra: queued,
+		reply: async (body) => { if (body.action === 'act') throw new TypeError('offline'); return undefined; },
+		after: async ({ click }) => { await click({ reset: '' }); },
+	});
+	assert.equal(r.seen.reloads, 1);
+	for (const k of ['earth.queue.v1', 'earth.cred.v1', 'earth.save.v1', 'earth.cred.next.v1']) assert.equal(r.store.get(k), undefined, `${k} 已清`);
+	assert.equal((data.get('save:' + a.cred.id) as any).state.rev, a.state.rev);
+});
+
+test('界面：补交途中另一台设备动过存档，冲突的那个按最新进度重交，后面的照常补交，不会全部取消（审查问题 6）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'flush-conflict-a', '冲突甲');
+	const item = (op: string) => ({ act: { t: 'activity', id: 'rest' }, at: Date.now(), label: '休息', op });
+	const queued = { 'earth.queue.v1': JSON.stringify({ id: a.cred.id, items: [item('flushc000000001'), item('flushc000000002')] }) };
+	let other = 0;
+	const rev = () => (data.get('save:' + a.cred.id) as any).state.rev;
+	const r = await openWithHash('', a, world, true, {
+		extra: queued,
+		reply: async (body) => {
+			// 页面交第一个排队动作之前，另一台设备抢先做了一件事
+			if (body.action === 'act' && other === 0) { other++; const g = await srv(world, { action: 'act', ...a.cred, rev: rev(), act: { t: 'activity', id: 'rest' } }); assert.ok(g.ok, g.msg); }
+			return undefined;
+		},
+		after: async ({ el }) => { await waitFor(() => /补交了/.test(el('toast').textContent)); },
+	});
+	assert.equal(rev(), a.state.rev + 3, '另一台设备 1 个 + 补交 2 个');
+	assert.match(r.el('toast').textContent, /补交了 2 个排队的动作/);
+	assert.match(r.el('toast').textContent, /另一台设备也有操作/);
+	assert.equal(JSON.parse(r.store.get('earth.queue.v1')!).items.length, 0);
+});
+
+test('界面：更换同步码——本机改用新码、旧码立即失效、二维码收起；回复丢了联网后自动补完（审查问题 7）', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'ui-rekey-a', '换码甲');
+	const r = await openWithHash('', a, world, true, { after: async ({ click }) => { await click({ tab: 'me' }); await click({ metab: 'sync' }); await click({ rekey: '' }); } });
+	const now = JSON.parse(r.store.get('earth.cred.v1')!);
+	assert.equal(now.id, a.cred.id);
+	assert.notEqual(now.key, a.cred.key);
+	assert.equal((await srv(world, { action: 'get', ...a.cred })).badKey, true, '旧码失效');
+	assert.ok((await srv(world, { action: 'get', ...now })).ok);
+	assert.ok(r.el('panel').innerHTML.includes(now.key), '面板显示新码');
+	assert.ok(!r.el('panel').innerHTML.includes(a.cred.key));
+	assert.equal(r.store.get('earth.cred.next.v1'), undefined);
+	// 回复丢了：本机记着新码，联网后补完
+	const b = await makeChar(world, 'ui-rekey-b', '换码乙');
+	let dropped = 0;
+	const lost = await openWithHash('', b, world, true, {
+		reply: async (body, res) => { if (body.action === 'rekey' && !dropped) { dropped++; await res(); throw new TypeError('connection reset'); } return undefined; },
+		after: async ({ click, win, el }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'sync' });
+			await click({ rekey: '' });
+			assert.match(el('toast').textContent, /联网后会自动把更换做完/);
+			win.online?.({});
+			await pause(60);
+		},
+	});
+	const next = JSON.parse(lost.store.get('earth.cred.v1')!);
+	assert.notEqual(next.key, b.cred.key, '补完后用上新码');
+	assert.ok((await srv(world, { action: 'get', ...next })).ok);
+	assert.equal(lost.store.get('earth.cred.next.v1'), undefined);
+});
+
+test('界面：同步码在另一台设备换过——这台不再发动作、排队留着；输入新码后接着玩并补交（审查问题 7）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'ui-badkey-a', '失效甲');
+	const newKey = 'q'.repeat(24);
+	assert.ok((await srv(world, { action: 'rekey', ...a.cred, newKey })).ok);
+	const queued = { 'earth.queue.v1': JSON.stringify({ id: a.cred.id, items: [{ act: { t: 'activity', id: 'rest' }, at: Date.now(), label: '休息', op: 'badkey000000001' }] }) };
+	const rev = () => (data.get('save:' + a.cred.id) as any).state.rev;
+	const sent: string[] = [];
+	const r = await openWithHash('', a, world, true, {
+		extra: queued,
+		reply: async (body) => { sent.push(body.action); return undefined; },
+		after: async ({ click, el }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'sync' });
+			assert.match(el('panel').innerHTML, /同步码已失效/);
+			assert.match(el('panel').innerHTML, /id="s-code"/);
+			assert.equal(rev(), a.state.rev, '排队的没交出去');
+			await click({ tab: 'place' });
+			const act = el('panel').innerHTML.match(/data-act="([^"]+)"/)?.[1];
+			if (act) { const before = sent.length; await click({ act }); assert.equal(sent.slice(before).filter((x) => x === 'act').length, 0, '失效时不发动作'); }
+			await click({ tab: 'me' });
+			await click({ metab: 'sync' });
+			el('s-code').value = `${a.cred.id}.${newKey}`;
+			await click({ recode: '' });
+			await waitFor(() => rev() === a.state.rev + 1);
+		},
+	});
+	assert.deepEqual(JSON.parse(r.store.get('earth.cred.v1')!), { id: a.cred.id, key: newKey });
+	assert.equal(rev(), a.state.rev + 1, '输入新码后排队的补交了');
+	assert.doesNotMatch(r.el('panel').innerHTML, /同步码已失效/);
+});
+
+test('界面：删除账号——问两次，服务器删掉后清空本机、重新载入；导出不带同步码（审查问题 8）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'ui-delete-a', '删号甲');
+	const bodies: any[] = [];
+	const r = await openWithHash('', a, world, true, {
+		reply: async (body, res) => {
+			bodies.push(body);
+			if (body.action !== 'export') return undefined;
+			const j = (await (await res()).json()) as any;
+			assert.ok(j.ok);
+			assert.ok(!JSON.stringify(j).includes(a.cred.key));
+			return new Response(JSON.stringify(j));
+		},
+		after: async ({ click }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'sync' });
+			await click({ export: '' });
+			await click({ delacct: '' });
+		},
+	});
+	assert.ok(bodies.some((b) => b.action === 'export'), '导出请求发了');
+	assert.equal(r.seen.asked.length, 2, '确认两次');
+	assert.equal(r.seen.reloads, 1);
+	assert.ok(!data.has('save:' + a.cred.id), '服务器上删了');
+	assert.equal(r.store.get('earth.cred.v1'), undefined);
+	assert.equal(r.store.get('earth.save.v1'), undefined);
+	// 不同意就什么都不删
+	const b = await makeChar(world, 'ui-delete-b', '删号乙');
+	const no = await openWithHash('', b, world, false, { after: async ({ click }) => { await click({ tab: 'me' }); await click({ metab: 'sync' }); await click({ delacct: '' }); } });
+	assert.ok(data.has('save:' + b.cred.id));
+	assert.equal(no.seen.reloads, 0);
+});
+
+test('界面：留言列表拉取失败（限流、同步码失效、断网）时不会立刻再拉，变成请求死循环（第 50 批审查问题 10）', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'notes-loop-a', '留言环');
+	let notes = 0;
+	await openWithHash('', a, world, true, {
+		reply: async (body) => {
+			if (body.action !== 'notes') return undefined;
+			notes++;
+			await pause(1);
+			return new Response(JSON.stringify({ ok: false, msg: '操作太频繁' }), { status: 429 });
+		},
+		after: async ({ click }) => { await click({ tab: 'place' }); await pause(300); },
+	});
+	assert.ok(notes >= 1 && notes <= 3, `留言列表请求了 ${notes} 次`);
 });

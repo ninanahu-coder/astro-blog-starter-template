@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { energyCap } from '../../src/game/core/vitals.ts';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
@@ -39,10 +40,10 @@ test('车行：买、换、卖；营业时间；钱不够', () => {
 	const r1 = buyVehicle(s, WA, 'car');
 	assert.ok(r1.ok);
 	assert.equal(r1.state.vehicle, 'car');
-	assert.equal(r1.state.cash, 15500);
+	assert.equal(r1.state.cash, 20000 - 4500 - 124, '车价 + 西澳过户印花税 4500 × 2.75% ≈ $124（第 26 批）');
 	const r2 = buyVehicle({ ...r1.state, clock: at(10, 1) }, WA, '4wd');
 	assert.ok(r2.ok, '以旧换新');
-	assert.equal(r2.state.cash, 15500 - (12000 - resaleValue('car')));
+	assert.equal(r2.state.cash, 15376 - (12000 + 330 - resaleValue('car')), '新车价 + 印花税 12000 × 2.75% − 旧车折抵（没开过，不折旧）');
 	const r3 = sellVehicle({ ...r2.state, clock: at(10, 2) }, WA);
 	assert.ok(r3.ok);
 	assert.equal(r3.state.vehicle, 'none');
@@ -156,7 +157,7 @@ test('租房首期按到结算日的天数折算', () => {
 	assert.equal(firstRent(make({ clock: at(9) }), room), 160, '第 1 天租：整周');
 	assert.equal(firstRent(make({ clock: at(9, 5) }), room), Math.round((160 * 2) / 7), '第 6 天租：只付 2 天');
 	const r = rentHome(make({ cash: 1000, clock: at(9, 5) }), WA, 'room');
-	assert.equal(r.state.cash, 1000 - 46);
+	assert.equal(r.state.cash, 1000 - 46 - 320, '首期只付 2 天，押金照收 2 周（第 26 批）');
 });
 
 test('家具：要在住处买、同槽位替换半价折旧、可卖', () => {
@@ -191,7 +192,7 @@ test('家具效果：睡得更好、在家做饭和放松、心情', () => {
 	assert.equal(mood(s) - mood({ ...s, home: { ...s.home!, furniture: {} } }), 5);
 	const hurt = { ...s, health: 40 };
 	const plain = { ...hurt, home: { ...s.home!, furniture: {} } };
-	assert.equal(sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health, 10, '好床垫 +10 健康');
+	assert.equal(Math.round(sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health), 10, '好床垫 +10 健康'); // 第 23 批起睡觉时健康会自然回一点小数，取整比较
 });
 
 test('搬走或被收房：家具半价折现', () => {
@@ -199,11 +200,12 @@ test('搬走或被收房：家具半价折现', () => {
 	s = buyFurniture(s, WA, 'mattress').state;
 	s = buyFurniture(s, WA, 'plants').state;
 	assert.equal(furnitureValue(s), 275);
+	assert.equal(s.home!.bond, 320, '合租房间押金 = 2 周房租（第 26 批）');
 	const left = leaveHome(s);
-	assert.equal(left.state.cash, s.cash + 275);
+	assert.equal(left.state.cash, s.cash + 275 + 320, '家具折现 + 押金全退');
 	const evicted = applyAction({ ...s, cash: 10, clock: at(20, 6) }, WA, { t: 'activity', id: 'sleep-camp' }).state;
 	assert.equal(evicted.home, null);
-	assert.equal(evicted.cash, 10 + 275);
+	assert.equal(evicted.cash, 10 + 275 + 160, '押金先扣一周房租 $160，剩下 $160 退回');
 });
 
 test('每周结算：房租 + 车辆保险；没钱续保记麻烦值', () => {
@@ -303,7 +305,7 @@ test('跨周结算在动作途中收走住处、房产时，任何动作都不�
 		assert.ok(r.ok, r.msg);
 		assert.equal(r.state.home, null, name);
 		assert.match(r.msg, /住处已经没了/);
-		assert.equal(r.state.needs.energy, 100);
+		assert.equal(r.state.needs.energy, energyCap(r.state), '睡醒精力回到精力上限（第 23 批起上限随体质，不再固定 100）');
 	}
 	assert.ok(applyAction(scenarios['租客付不起房租'], WA, { t: 'home', op: 'sleep' }).state.moodlets.some((m) => m.id === 'great-sleep'));
 });
