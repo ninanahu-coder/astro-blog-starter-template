@@ -132,7 +132,7 @@ export interface Where {
 export interface CareerLevel {
 	title: string;
 	pay: number; // 每班工资
-	req?: { skills?: Partial<Skills>; respect?: number };
+	req?: { skills?: Partial<Skills>; respect?: number; certs?: string[] }; // certs：要持有的证书或学历 id（CertDef.id 或 ProgramDef.award）
 }
 
 export interface CareerDef {
@@ -267,6 +267,23 @@ export interface CertDef {
 	price: number;
 	minutes: number;
 	payBonus: number; // 持证时这份职业每班工资上涨的比例
+	where: Where;
+	hours: Hours;
+	desc: string;
+}
+
+/** 学历课程：要分多次上完的长课（语言班、TAFE、大学），上完拿到一个学历 id，记进 PlayerState.certs */
+export interface ProgramDef {
+	id: string;
+	name: string;
+	kind: 'language' | 'tafe' | 'uni';
+	sessions: number; // 一共要上几次课
+	minutes: number; // 每次课多久
+	fee: number; // 每次课的学费
+	needs?: string[]; // 报名前要持有的证书或学历 id
+	skills: Partial<Skills>; // 每次课的能力成长（传给 growSkill 的原始增量）
+	award: string; // 上完拿到的学历 id
+	respect: number; // 毕业时的声望
 	where: Where;
 	hours: Hours;
 	desc: string;
@@ -529,7 +546,9 @@ export interface PlayerState {
 	collected: string[]; // 已完成的收费体验 id
 	areas: string[]; // 已获得称号的体验片区 id：集齐时记下，之后加了新体验也不收回、不重复发奖
 	courseDays: Record<string, number>; // 课程 id -> 最近一次上课的游戏日
-	certs: string[]; // 已考到的职业证书 id（跟人走，换工作不丢）
+	certs: string[]; // 已考到的职业证书 id 和学历 id（跟人走，换工作不丢）
+	study: Record<string, { n: number; day: number }>; // 学历课程 id -> 已上几次、最近一次上课的游戏日
+	workLog: { f: number; min: number }; // 签证工时：第几个两周（游戏日 / 14）、这两周已上班的分钟（职业班次 + 零工）
 	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每 COOP_COOLDOWN_DAYS 天一次）
 	trades: { day: number; out: number; in: number }; // 玩家之间交易：这个现实日已送出 / 收下的次数
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领

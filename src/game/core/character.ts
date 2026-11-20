@@ -22,6 +22,7 @@ import { realDayOf } from './daily.ts';
 import { AREAS as REGION_AREAS, areaOf, WORLD_BASE } from '../data/areas-base.ts';
 import { COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
+import { AWARDS, PROGRAMS } from '../data/education.ts';
 import { ANIMALS, DEX_GROUPS } from '../data/wildlife.ts';
 import { FISH } from '../data/fish.ts';
 import { PHOTO_QUESTS } from '../data/photo-quests.ts';
@@ -156,6 +157,8 @@ export function createCharacter(opts: {
 		areas: [],
 		courseDays: {},
 		certs: [],
+		study: {},
+		workLog: { f: 0, min: 0 },
 		coopDays: {},
 		trades: { day: 0, out: 0, in: 0 },
 		met: {},
@@ -333,7 +336,16 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			}
 			return out;
 		})(),
-		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id)),
+		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id) || AWARDS.includes(id)),
+		study: (() => {
+			const out: Record<string, { n: number; day: number }> = {};
+			for (const p of PROGRAMS) {
+				const st = r.study?.[p.id];
+				if (st && typeof st === 'object') out[p.id] = { n: Math.floor(num(st.n, 0, p.sessions, 0)), day: Math.floor(num(st.day, -1, 1e7, -1)) };
+			}
+			return out;
+		})(),
+		workLog: { f: Math.floor(num(r.workLog?.f, 0, 1e6, 0)), min: Math.floor(num(r.workLog?.min, 0, 1e6, 0)) },
 		photoQuest: Math.floor(num(r.photoQuest, 0, PHOTO_QUESTS.length, 0)),
 		story: (() => {
 			const ch = Math.floor(num(r.story?.ch, 0, STORY.length, 0));

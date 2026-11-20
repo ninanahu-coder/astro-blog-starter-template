@@ -24,6 +24,7 @@ import { STORY } from '../../src/game/data/story.ts';
 import { NPC_DUOS } from '../../src/game/data/npc-duos.ts';
 import { PHOTO_QUESTS } from '../../src/game/data/photo-quests.ts';
 import { CERTS } from '../../src/game/data/certs.ts';
+import { PROGRAMS } from '../../src/game/data/education.ts';
 import { isOpen } from '../../src/game/core/time.ts';
 import { VENUE_OPS, VENUE_TYPES } from '../../src/game/data/venues.ts';
 import { WA } from '../../src/game/data/wa.ts';
@@ -169,6 +170,13 @@ function checkInvariants(s: PlayerState, where: string) {
 	assert.ok(s.dayMark.at <= s.clock && Math.floor((s.dayMark.at + 1) / 1440) >= s.dayMark.day, `${where}: dayMark.at 越界`);
 	if (s.yday) assert.ok(Number.isInteger(s.yday.days) && s.yday.days >= 1 && s.yday.day + s.yday.days <= s.dayMark.day && s.yday.from < s.yday.to && s.yday.to <= s.dayMark.at, `${where}: yday 越界`);
 	assert.equal(new Set(s.duos).size, s.duos.length, 'duos 不重复');
+	assert.equal(new Set(s.certs).size, s.certs.length, `${where}: 证书或学历重复`);
+	for (const [id, st] of Object.entries(s.study)) {
+		const p = PROGRAMS.find((x) => x.id === id);
+		assert.ok(p && Number.isInteger(st.n) && st.n >= 0 && st.n <= p.sessions, `${where}: study.${id}=${JSON.stringify(st)}`);
+		assert.equal(st.n >= p.sessions, s.certs.includes(p.award), `${where}: ${id} 上满次数和学历对不上`);
+	}
+	assert.ok(Number.isInteger(s.workLog.min) && s.workLog.min >= 0, `${where}: workLog=${JSON.stringify(s.workLog)}`);
 	for (const id of s.duos) assert.ok(NPC_DUOS.some((d) => d.id === id), `duos 里有不认识的 ${id}`);
 	for (const [id, n] of Object.entries(s.story.done)) {
 		const st = STORY[s.story.ch]?.steps.find((x) => x.id === id);
