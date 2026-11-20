@@ -101,6 +101,7 @@ export const VOLUNTEER_GIGS: VolunteerGig[] = [
 /** 规则数值（全部待平衡） */
 export const VOL_RULES = {
 	dailyMax: 2, // 每个游戏日最多做几次志愿（每种一天一次）
+	realDayMax: 6, // 每个现实日（珀斯时间）最多做几次志愿，挡「一直睡觉刷新游戏日」（待平衡）
 	minEnergy: 20, // 精力低于这个不让去
 	npcGain: 3, // 一起做志愿的 NPC 关系 +3
 	refShifts: 6, // 同一种志愿做满几次可以拿到推荐信

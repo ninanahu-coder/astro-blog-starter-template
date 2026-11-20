@@ -467,6 +467,7 @@ export interface VolunteerState {
 	today: string[];
 	n: Record<string, number>;
 	refs: string[];
+	real: { day: number; n: number }; // 现实日（珀斯时间，realDayOf）和这个现实日做了几次
 }
 
 export interface PlayerState {

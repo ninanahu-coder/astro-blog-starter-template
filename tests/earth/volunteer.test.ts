@@ -10,17 +10,22 @@ import { NPCS } from '../../src/game/data/npcs.ts';
 import { FESTIVALS } from '../../src/game/data/festivals.ts';
 import { VOL_RULES, VOL_TIERS, VOLUNTEER_GIGS, VOLUNTEER_ORGS } from '../../src/game/data/volunteer.ts';
 import { WA, WORLD } from '../../src/game/data/wa.ts';
+import { realDayOf } from '../../src/game/core/daily.ts';
 import { inSpan } from '../../src/game/core/time.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
+/** 现实时间（服务端传入）；REAL_DAY 是它的现实日 */
+const NOW = 1_800_000_000_000;
+const REAL_DAY = realDayOf(NOW);
+const DAY_MS = 86_400_000;
 const make = (over: Partial<PlayerState> = {}): PlayerState => ({
 	...createCharacter({ id: 'vol-player', name: '测', avatar: '🧑', origin: 'student', region: 'wa', spawn: 'perth', seed: 7 }),
 	clock: at(10, 2),
 	...over,
 });
 /** n 次志愿记录（不同 id 混着算总次数） */
-const withShifts = (n: Record<string, number>, refs: string[] = []) => ({ day: -1, today: [], n, refs });
+const withShifts = (n: Record<string, number>, refs: string[] = []) => ({ day: -1, today: [], n, refs, real: { day: -1, n: 0 } });
 
 test('数据：id 唯一；每项志愿至少一个地点能做；组织存在、区域对得上、有 https 来源；不发钱、声望单独写', () => {
 	const ids = VOLUNTEER_GIGS.map((g) => g.id);
@@ -48,45 +53,45 @@ test('数据：id 唯一；每项志愿至少一个地点能做；组织存在�
 test('做一次：花时间、加声望和次数，记今天；声望来自数据表', () => {
 	const s = make();
 	const gig = VOLUNTEER_GIGS.find((g) => g.id === 'food-bank')!;
-	const r = applyAction(s, WA, { t: 'volunteer', id: 'food-bank' });
+	const r = applyAction(s, WA, { t: 'volunteer', id: 'food-bank' }, NOW);
 	assert.ok(r.ok, r.msg);
 	assert.equal(r.state.respect, s.respect + gig.respect);
 	assert.equal(r.state.clock, s.clock + gig.minutes);
-	assert.deepEqual(r.state.volunteer, { day: 2, today: ['food-bank'], n: { 'food-bank': 1 }, refs: [] });
+	assert.deepEqual(r.state.volunteer, { day: 2, today: ['food-bank'], n: { 'food-bank': 1 }, refs: [], real: { day: REAL_DAY, n: 1 } });
 	assert.ok(r.state.skills.strength > s.skills.strength);
 	assert.deepEqual(s.volunteer, emptyVolunteer(), '不改入参');
 });
 
 test('防刷：同一项一天一次；每天最多 dailyMax 次；跨日恢复', () => {
 	let s = make({ loc: 'fremantle', clock: at(9, 3) }); // 弗里曼特尔：海滩 + 集市
-	const r1 = doVolunteer(s, WA, 'beach-cleanup');
+	const r1 = doVolunteer(s, WA, 'beach-cleanup', NOW);
 	assert.ok(r1.ok, r1.msg);
-	const again = doVolunteer({ ...r1.state, clock: at(9, 3) + 130 }, WA, 'beach-cleanup');
+	const again = doVolunteer({ ...r1.state, clock: at(9, 3) + 130 }, WA, 'beach-cleanup', NOW);
 	assert.equal(again.ok, false);
 	assert.match(again.msg, /今天已经做过/);
-	const r2 = doVolunteer(r1.state, WA, 'sausage-sizzle');
+	const r2 = doVolunteer(r1.state, WA, 'sausage-sizzle', NOW);
 	assert.ok(r2.ok, r2.msg);
 	assert.equal(VOL_RULES.dailyMax, 2);
 	// 珀斯同一天：第三次被每日上限挡住
 	s = { ...r2.state, loc: 'perth', needs: { ...r2.state.needs, energy: 90 }, clock: at(13, 3) };
-	const r3 = doVolunteer(s, WA, 'food-bank');
+	const r3 = doVolunteer(s, WA, 'food-bank', NOW);
 	assert.equal(r3.ok, false);
 	assert.match(r3.msg, /每天最多做 2 次/);
-	assert.ok(volunteerAt(s, WA).every((o) => o.blocked));
-	const next = doVolunteer({ ...s, clock: at(10, 4) }, WA, 'food-bank');
+	assert.ok(volunteerAt(s, WA, NOW).every((o) => o.blocked));
+	const next = doVolunteer({ ...s, clock: at(10, 4) }, WA, 'food-bank', NOW);
 	assert.ok(next.ok, '第二天又能做');
 	assert.deepEqual(next.state.volunteer.today, ['food-bank']);
 });
 
 test('时段、精力、待处理事件、地点不对都不行', () => {
-	assert.match(doVolunteer(make({ clock: at(20, 2) }), WA, 'food-bank').msg, /9:00–15:00/);
+	assert.match(doVolunteer(make({ clock: at(20, 2) }), WA, 'food-bank', NOW).msg, /9:00–15:00/);
 	const tired = make();
 	tired.needs.energy = VOL_RULES.minEnergy - 1;
-	assert.match(doVolunteer(tired, WA, 'food-bank').msg, /太累/);
-	assert.equal(doVolunteer(make({ pending: { eventId: 'x' } }), WA, 'food-bank').ok, false);
-	assert.equal(doVolunteer(make({ loc: 'karijini' }), WA, 'food-bank').ok, false, '峡谷没有食物银行');
-	assert.equal(doVolunteer(make(), WA, 'nope').ok, false);
-	assert.ok(!volunteerAt(make({ loc: 'karijini' }), WA).some((o) => o.gig.id === 'food-bank'));
+	assert.match(doVolunteer(tired, WA, 'food-bank', NOW).msg, /太累/);
+	assert.equal(doVolunteer(make({ pending: { eventId: 'x' } }), WA, 'food-bank', NOW).ok, false);
+	assert.equal(doVolunteer(make({ loc: 'karijini' }), WA, 'food-bank', NOW).ok, false, '峡谷没有食物银行');
+	assert.equal(doVolunteer(make(), WA, 'nope', NOW).ok, false);
+	assert.ok(!volunteerAt(make({ loc: 'karijini' }), WA, NOW).some((o) => o.gig.id === 'food-bank'));
 });
 
 test('社区信誉：按总次数分档；动物救助、陪伴老人要第二档', () => {
@@ -95,24 +100,24 @@ test('社区信誉：按总次数分档；动物救助、陪伴老人要第二�
 	assert.equal(volTier({ volunteer: withShifts({ 'food-bank': 3, 'beach-cleanup': 2 }) }).lv, 1);
 	assert.deepEqual(volTier({ volunteer: withShifts({ 'food-bank': 40 }) }), { lv: 3, name: '社区之星', shifts: 40, next: null });
 	const s = make({ volunteer: withShifts({ 'food-bank': 4 }) });
-	const blocked = volunteerAt(s, WA).find((o) => o.gig.id === 'wildlife-rescue')!;
+	const blocked = volunteerAt(s, WA, NOW).find((o) => o.gig.id === 'wildlife-rescue')!;
 	assert.match(blocked.blocked!, /社区信誉要到第 2 档（再做 1 次/);
-	assert.equal(doVolunteer(s, WA, 'elder-visit').ok, false);
-	const ok = doVolunteer(make({ volunteer: withShifts({ 'food-bank': 5 }) }), WA, 'wildlife-rescue');
+	assert.equal(doVolunteer(s, WA, 'elder-visit', NOW).ok, false);
+	const ok = doVolunteer(make({ volunteer: withShifts({ 'food-bank': 5 }) }), WA, 'wildlife-rescue', NOW);
 	assert.ok(ok.ok, ok.msg);
 });
 
 test('推荐信：同一项做满 refShifts 次给一封，不重发；在职位声望门槛上抵 refRespect，封数封顶', () => {
 	const s = make({ volunteer: withShifts({ 'food-bank': VOL_RULES.refShifts - 1 }) });
-	const r = doVolunteer(s, WA, 'food-bank');
+	const r = doVolunteer(s, WA, 'food-bank', NOW);
 	assert.ok(r.ok);
 	assert.deepEqual(r.state.volunteer.refs, ['food-bank']);
 	assert.match(r.msg, /推荐信/);
 	assert.match(r.msg, /西澳食物银行/);
-	const r2 = doVolunteer({ ...r.state, clock: at(10, 5) }, WA, 'food-bank');
+	const r2 = doVolunteer({ ...r.state, clock: at(10, 5) }, WA, 'food-bank', NOW);
 	assert.deepEqual(r2.state.volunteer.refs, ['food-bank'], '不重发');
 	assert.doesNotMatch(r2.msg, /推荐信/);
-	const before = doVolunteer(make({ volunteer: withShifts({ 'food-bank': VOL_RULES.refShifts - 2 }) }), WA, 'food-bank');
+	const before = doVolunteer(make({ volunteer: withShifts({ 'food-bank': VOL_RULES.refShifts - 2 }) }), WA, 'food-bank', NOW);
 	assert.deepEqual(before.state.volunteer.refs, [], '没做满不给');
 
 	assert.equal(refRespect({ volunteer: withShifts({}, []) }), 0);
@@ -137,7 +142,7 @@ test('一起做志愿的 NPC 在场：关系 +npcGain；不在场不加', () => 
 	for (let d = 0; d < 28 && clock < 0; d++) for (let h = 8; h < 16; h++) if (npcPresent(rosa, 'bunbury', at(h, d))) { clock = at(h, d); break; }
 	assert.ok(clock >= 0, '找得到罗莎在班伯里的时候');
 	const s = make({ loc: 'bunbury', clock, volunteer: withShifts({ 'food-bank': 5 }) });
-	const r = doVolunteer(s, WA, 'wildlife-rescue');
+	const r = doVolunteer(s, WA, 'wildlife-rescue', NOW);
 	assert.ok(r.ok, r.msg);
 	assert.equal(r.state.relations.rosa.score, VOL_RULES.npcGain);
 	assert.match(r.msg, /罗莎也在/);
@@ -145,7 +150,7 @@ test('一起做志愿的 NPC 在场：关系 +npcGain；不在场不加', () => 
 	let away = -1;
 	for (let d = 0; d < 28 && away < 0; d++) for (let h = 8; h < 16; h++) if (!npcPresent(rosa, 'bunbury', at(h, d))) { away = at(h, d); break; }
 	if (away >= 0) {
-		const r2 = doVolunteer({ ...s, clock: away }, WA, 'wildlife-rescue');
+		const r2 = doVolunteer({ ...s, clock: away }, WA, 'wildlife-rescue', NOW);
 		assert.ok(r2.ok, r2.msg);
 		assert.equal(r2.state.relations.rosa, undefined);
 	}
@@ -157,20 +162,20 @@ test('节日志愿者：只在这里办节日的那几天出现', () => {
 	while (!inSpan(at(12, day), f.season, f.day, f.days).active) day++;
 	const on = make({ loc: f.loc, clock: at(12, day) });
 	assert.ok(festivalsNow(on.clock).some((x) => x.id === f.id));
-	assert.ok(volunteerAt(on, WA).some((o) => o.gig.id === 'festival-helper' && !o.blocked));
-	assert.ok(doVolunteer(on, WA, 'festival-helper').ok);
+	assert.ok(volunteerAt(on, WA, NOW).some((o) => o.gig.id === 'festival-helper' && !o.blocked));
+	assert.ok(doVolunteer(on, WA, 'festival-helper', NOW).ok);
 	const off = make({ loc: f.loc, clock: at(12, day + 10) });
-	assert.ok(!volunteerAt(off, WA).some((o) => o.gig.id === 'festival-helper'));
-	assert.equal(doVolunteer(off, WA, 'festival-helper').ok, false);
+	assert.ok(!volunteerAt(off, WA, NOW).some((o) => o.gig.id === 'festival-helper'));
+	assert.equal(doVolunteer(off, WA, 'festival-helper', NOW).ok, false);
 });
 
 test('组织按区域：珀斯列西澳的，阿德莱德列南澳的；香肠摊不写真实组织', () => {
-	const perth = volunteerAt(make(), WORLD).find((o) => o.gig.id === 'food-bank')!;
+	const perth = volunteerAt(make(), WORLD, NOW).find((o) => o.gig.id === 'food-bank')!;
 	assert.equal(perth.org?.id, 'foodbank-wa');
-	const adl = volunteerAt(make({ loc: 'adelaide' }), WORLD).find((o) => o.gig.id === 'food-bank')!;
+	const adl = volunteerAt(make({ loc: 'adelaide' }), WORLD, NOW).find((o) => o.gig.id === 'food-bank')!;
 	assert.equal(adl.org?.id, 'foodbank-sa');
-	assert.equal(volunteerAt(make({ loc: 'adelaide' }), WORLD).find((o) => o.gig.id === 'cn-assoc')!.org, undefined, '南澳没有核实到办活动的华人社团');
-	const sizzle = volunteerAt(make({ loc: 'fremantle' }), WORLD).find((o) => o.gig.id === 'sausage-sizzle')!;
+	assert.equal(volunteerAt(make({ loc: 'adelaide' }), WORLD, NOW).find((o) => o.gig.id === 'cn-assoc')!.org, undefined, '南澳没有核实到办活动的华人社团');
+	const sizzle = volunteerAt(make({ loc: 'fremantle' }), WORLD, NOW).find((o) => o.gig.id === 'sausage-sizzle')!;
 	assert.equal(sizzle.org, undefined);
 });
 
@@ -179,7 +184,7 @@ test('途中晕倒：次数照记（防止靠晕倒刷），不发声望', () =>
 	s.health = 0.1;
 	for (const k of Object.keys(s.needs) as (keyof PlayerState['needs'])[]) s.needs[k] = 0;
 	s.needs.energy = VOL_RULES.minEnergy;
-	const r = doVolunteer(s, WA, 'food-bank');
+	const r = doVolunteer(s, WA, 'food-bank', NOW);
 	assert.ok(r.collapsed, r.msg);
 	assert.equal(r.state.respect, s.respect);
 	assert.equal(r.state.volunteer.n['food-bank'], 1);
@@ -200,10 +205,56 @@ test('存档清洗：旧存档补空记录；坏值不抛；只留已知 id；�
 		assert.deepEqual(cleanVolunteer(bad, base.clock), emptyVolunteer(), JSON.stringify(bad));
 	const dirty = { day: 2, today: ['food-bank', 'food-bank', 'nope', 'beach-cleanup', 'cn-assoc'], n: { 'food-bank': 3.7, nope: 9, 'beach-cleanup': -1, 'cn-assoc': 1e12 }, refs: ['food-bank', 'nope', 'food-bank'] };
 	const c = cleanVolunteer(dirty, base.clock);
-	assert.deepEqual(c, { day: 2, today: ['food-bank', 'beach-cleanup'], n: { 'food-bank': 3, 'cn-assoc': 1e6 }, refs: ['food-bank'] });
+	assert.deepEqual(c, { day: 2, today: ['food-bank', 'beach-cleanup'], n: { 'food-bank': 3, 'cn-assoc': 1e6 }, refs: ['food-bank'], real: { day: -1, n: 0 } });
 	assert.deepEqual(cleanVolunteer(c, base.clock), c, '幂等');
 	assert.deepEqual(cleanVolunteer({ day: 99, today: ['food-bank'], n: {} }, base.clock), emptyVolunteer(), '比存档时钟还晚的日子作废');
 	const s1 = sanitizeState({ ...base, volunteer: dirty })!;
 	assert.deepEqual(sanitizeState(s1), s1);
 	assert.equal(volShifts(s1.volunteer), 1e6 + 3);
+});
+
+test('现实日上限：睡觉刷新游戏日也绕不过；跨现实日恢复；服务端传的 now 生效', () => {
+	const full = { ...withShifts({ 'food-bank': 9 }), real: { day: REAL_DAY, n: VOL_RULES.realDayMax } };
+	const s = make({ volunteer: full });
+	const r = doVolunteer(s, WA, 'food-bank', NOW);
+	assert.equal(r.ok, false);
+	assert.match(r.msg, new RegExp(`现实里.*${VOL_RULES.realDayMax} 次`));
+	assert.ok(volunteerAt(s, WA, NOW).every((o) => o.blocked), '列表也显示挡住');
+	assert.equal(applyAction(s, WA, { t: 'volunteer', id: 'food-bank' }, NOW).ok, false, '走 applyAction 也挡');
+	const tomorrow = doVolunteer(s, WA, 'food-bank', NOW + DAY_MS);
+	assert.ok(tomorrow.ok, tomorrow.msg);
+	assert.deepEqual(tomorrow.state.volunteer.real, { day: REAL_DAY + 1, n: 1 }, '新现实日从 1 开始');
+	// 少一次时还能做，做完正好到顶
+	const almost = make({ volunteer: { ...full, real: { day: REAL_DAY, n: VOL_RULES.realDayMax - 1 } } });
+	const last = doVolunteer(almost, WA, 'food-bank', NOW);
+	assert.ok(last.ok, last.msg);
+	assert.equal(last.state.volunteer.real.n, VOL_RULES.realDayMax);
+	assert.equal(doVolunteer({ ...last.state, clock: at(10, 9) }, WA, 'beach-cleanup', NOW).ok, false, '换游戏日、换项目也不行');
+	assert.ok(VOL_RULES.realDayMax >= VOL_RULES.dailyMax, '一个现实日至少能做满一个游戏日');
+});
+
+test('现实日上限：连续睡觉刷游戏日，一个现实日内最多 realDayMax 次', () => {
+	let s = make();
+	let done = 0;
+	for (let d = 2; d < 40; d++) {
+		for (const id of ['food-bank', 'beach-cleanup']) {
+			s = { ...s, loc: id === 'food-bank' ? 'perth' : 'cottesloe', clock: at(10, d), needs: { ...s.needs, energy: 100, hunger: 100 } };
+			const r = doVolunteer(s, WA, id, NOW + 3_600_000);
+			if (r.ok) { s = r.state; done++; }
+		}
+	}
+	assert.equal(done, VOL_RULES.realDayMax);
+});
+
+test('存档清洗：现实日记录', () => {
+	const c = (real: unknown, today?: number) => cleanVolunteer({ real }, 0, today).real;
+	assert.deepEqual(c(undefined), { day: -1, n: 0 });
+	assert.deepEqual(c({ day: 'x', n: 3 }), { day: -1, n: 0 });
+	assert.deepEqual(c({ day: REAL_DAY, n: 99 }), { day: REAL_DAY, n: VOL_RULES.realDayMax }, '次数封顶');
+	assert.deepEqual(c({ day: REAL_DAY, n: -4 }), { day: REAL_DAY, n: 0 });
+	assert.deepEqual(c({ day: REAL_DAY + 5, n: 4 }, REAL_DAY), { day: REAL_DAY, n: 4 }, '未来的现实日当作今天，次数照留');
+	assert.deepEqual(c({ day: REAL_DAY + 5, n: 4 }), { day: REAL_DAY + 5, n: 4 }, '不知道现实时间时不动');
+	const st = sanitizeState({ ...make(), volunteer: { ...emptyVolunteer(), real: { day: REAL_DAY + 9, n: VOL_RULES.realDayMax } } }, undefined, { now: NOW })!;
+	assert.deepEqual(st.volunteer.real, { day: REAL_DAY, n: VOL_RULES.realDayMax }, '改存档把日子写到未来也绕不过今天的上限');
+	assert.deepEqual(sanitizeState(st, undefined, { now: NOW }), st, '幂等');
 });

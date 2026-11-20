@@ -1889,7 +1889,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const exps = experiencesAt(s, region);
 				const expHtml = exps.length ? `<div class="card"><h3>体验</h3>${exps.map(({ exp, first, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="body">${first ? '✨ ' : '✅ '}${esc(exp.name)} · $${exp.price}<small>${esc(blocked ?? (first ? `${exp.desc} 首次：声望 +${exp.respect}，进收藏册` : '已收藏，再来一次只加心情'))}</small></span><button data-exp="${exp.id}" ${blocked ? 'disabled' : ''}>去</button></div>`).join('')}</div>` : '';
-				const vols = volunteerAt(s, region);
+				const vols = volunteerAt(s, region, Date.now());
 				const volHtml = vols.length ? volCard(s, vols) : '';
 				const certs = certsAt(s, region);
 				const certHtml = certs.length ? `<div class="card"><h3>职业证书</h3><p>考到证后，对应职业每个班的工资上涨；证书跟人走，换工作不丢。</p>${certs.map(({ cert, blocked }) => `

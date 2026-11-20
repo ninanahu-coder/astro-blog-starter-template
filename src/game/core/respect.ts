@@ -5,7 +5,7 @@ import type { PlayerState, VolunteerState } from './types.ts';
 
 const GIG_IDS = new Set<string>(VOLUNTEER_GIGS.map((g) => g.id));
 
-export const emptyVolunteer = (): VolunteerState => ({ day: -1, today: [], n: {}, refs: [] });
+export const emptyVolunteer = (): VolunteerState => ({ day: -1, today: [], n: {}, refs: [], real: { day: -1, n: 0 } });
 
 /** 志愿总次数 */
 export function volShifts(v: Pick<VolunteerState, 'n'>): number {
@@ -29,8 +29,9 @@ export const refRespect = (state: Pick<PlayerState, 'volunteer'>): number =>
 /**
  * 清洗存档里的志愿记录（save-sync.md §5.1）：旧存档没有 → 空记录；任何坏值不抛异常；只留已知志愿 id；幂等。
  * clock 是已清洗的游戏时钟：day 不能晚于今天；today 只在 day 是今天时有意义，最多 dailyMax 个。
+ * realToday 是服务端的现实日（不知道时不传）：记录的现实日在未来 → 当作今天、次数照留，不然要等到那天才能再做。
  */
-export function cleanVolunteer(raw: unknown, clock: number): VolunteerState {
+export function cleanVolunteer(raw: unknown, clock: number, realToday?: number): VolunteerState {
 	const r = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
 	const today = Math.floor(clock / 1440);
 	const d = typeof r.day === 'number' && Number.isFinite(r.day) ? Math.floor(r.day) : -1;
@@ -42,5 +43,9 @@ export function cleanVolunteer(raw: unknown, clock: number): VolunteerState {
 		const c = Object.hasOwn(rn, id) ? rn[id] : undefined;
 		if (typeof c === 'number' && Number.isFinite(c) && c >= 1) n[id] = Math.min(1e6, Math.floor(c));
 	}
-	return { day, today: day === -1 ? [] : ids(r.today, VOL_RULES.dailyMax), n, refs: ids(r.refs, GIG_IDS.size) };
+	const rr = r.real && typeof r.real === 'object' && !Array.isArray(r.real) ? (r.real as Record<string, unknown>) : {};
+	const rd = typeof rr.day === 'number' && Number.isFinite(rr.day) && rr.day >= 0 ? Math.min(1e7, Math.floor(rr.day)) : -1;
+	const realN = typeof rr.n === 'number' && Number.isFinite(rr.n) ? Math.max(0, Math.min(VOL_RULES.realDayMax, Math.floor(rr.n))) : 0;
+	const real = rd === -1 ? { day: -1, n: 0 } : { day: realToday !== undefined && rd > realToday ? realToday : rd, n: realN };
+	return { day, today: day === -1 ? [] : ids(r.today, VOL_RULES.dailyMax), n, refs: ids(r.refs, GIG_IDS.size), real };
 }

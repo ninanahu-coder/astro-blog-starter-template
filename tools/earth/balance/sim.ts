@@ -4,6 +4,7 @@
 //
 //   npm run earth:sim                 默认 60 天 × 每种策略 40 个种子
 //   npm run earth:sim -- --days=120 --runs=100
+//   npm run earth:sim -- --game-days-per-real-day=5   一个现实日玩 5 个游戏日（看现实日上限的影响）
 //   npm run earth:sim -- --out=docs/earth-game/balance-report.md
 //   npm run earth:sim -- --origins     出身对照：每个出身跑同样三种策略（零工 / 咖啡店 / 不干活），都不带特质
 import { writeFileSync } from 'node:fs';
@@ -28,6 +29,11 @@ const DAYS = Number(arg('days', '60'));
 const RUNS = Number(arg('runs', '40'));
 const OUT = arg('out', '');
 const BY_ORIGIN = process.argv.includes('--origins');
+/** 一个现实日里玩几个游戏日（只影响按现实日算的规则，目前是志愿的现实日上限）。默认 1：每个游戏日都是新的现实日 */
+const GAME_PER_REAL = Math.max(1, Number(arg('game-days-per-real-day', '1')));
+/** 模拟用的现实时间：从固定的珀斯 0 点起，每 GAME_PER_REAL 个游戏日过一个现实日 */
+const REAL0 = Date.UTC(2026, 0, 1) - 8 * 3_600_000;
+const simNow = (clock: number) => REAL0 + Math.floor(dayOf(clock) / GAME_PER_REAL) * 86_400_000;
 
 // ---------- 机器人 ----------
 interface Bot {
@@ -192,7 +198,7 @@ function recordCollapse(b: Bot, before: PlayerState, after: PlayerState, a: Game
 /** 尝试一个动作；成功则更新状态并统计 */
 function tryAct(b: Bot, a: GameAction): boolean {
 	const before = b.s;
-	const r = applyAction(b.s, WA, a);
+	const r = applyAction(b.s, WA, a, simNow(b.s.clock));
 	if (!r.ok) {
 		b.s = r.state;
 		return false;
@@ -452,7 +458,7 @@ function step(b: Bot) {
 
 	// 3.6 志愿者批：精力、饱食够才去，免得做完志愿饿晕
 	if (plan.volunteer && s.needs.energy >= 45 && s.needs.hunger >= 40) {
-		const v = volunteerAt(s, WA).find((o) => !o.blocked);
+		const v = volunteerAt(s, WA, simNow(s.clock)).find((o) => !o.blocked);
 		if (v && tryAct(b, { t: 'volunteer', id: v.gig.id })) return;
 	}
 
@@ -557,7 +563,7 @@ for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	{
 		const resp = bots.map((b) => b.s.respect);
 		const shifts = bots.map((b) => volShifts(b.s.volunteer));
-		volRows.push(`| ${plan.name} | ${pct(resp, 0.5).toFixed(1)}（${pct(resp, 0.1).toFixed(1)}–${pct(resp, 0.9).toFixed(1)}） | ${level(pct(resp, 0.5)).title} | ${avg(shifts).toFixed(1)} | ${avg(bots.map((b) => b.s.volunteer.refs.length)).toFixed(1)} | ${volTier({ volunteer: { day: -1, today: [], n: { 'food-bank': pct(shifts, 0.5) }, refs: [] } }).name} |`);
+		volRows.push(`| ${plan.name} | ${pct(resp, 0.5).toFixed(1)}（${pct(resp, 0.1).toFixed(1)}–${pct(resp, 0.9).toFixed(1)}） | ${level(pct(resp, 0.5)).title} | ${avg(shifts).toFixed(1)} | ${avg(bots.map((b) => b.s.volunteer.refs.length)).toFixed(1)} | ${volTier({ volunteer: { day: -1, today: [], n: { 'food-bank': pct(shifts, 0.5) }, refs: [], real: { day: -1, n: 0 } } }).name} |`);
 	}
 	skillRows.push([plan.name, (['stamina', 'strength', 'driving', 'swimming', 'charisma', 'survival', 'street'] as const).map((k) => Math.round(pct(bots.map((b) => b.s.skills[k]), 0.5)))]);
 	const flow: Record<string, number> = {};

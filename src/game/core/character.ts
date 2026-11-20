@@ -270,7 +270,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		job: cleanJob(r.job, knownLocs),
 		// 旧存档没有这个字段：用当前工作的 lastDay 补上
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
-		volunteer: cleanVolunteer(r.volunteer, num(r.clock, 0, CAPS.clock, START_CLOCK)),
+		volunteer: cleanVolunteer(r.volunteer, num(r.clock, 0, CAPS.clock, START_CLOCK), opts.now === undefined ? undefined : realDayOf(opts.now)),
 		...cleanEstate(r, knownLocs),
 		nextWeek: (() => {
 			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周
