@@ -18,7 +18,7 @@ test('特质与物品数据自洽', () => {
 		assert.ok(TRAITS.find((x) => x.id === c)!.conflicts?.includes(t.id), `${t.id}↔${c} 互斥是双向的`);
 	}
 	assert.equal(new Set(ITEMS.map((i) => i.id)).size, ITEMS.length);
-	for (const i of ITEMS) assert.ok(i.use || i.passive, `${i.id} 要么能用要么是装备`);
+	for (const i of ITEMS) assert.ok(i.use || i.passive || i.cat === 'gift', `${i.id} 要么能用、要么是装备、要么是礼物`);
 });
 
 test('特质选择校验', () => {

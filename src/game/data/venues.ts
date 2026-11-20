@@ -52,3 +52,15 @@ export const FIX_RULES = {
 	eventChance: 0.4, // 在真实地点做完一件事后遇到事件的概率
 	eventGapMin: 60, // 两次真实地点事件之间至少隔这么多真实分钟
 };
+
+/**
+ * 城市抵达（gps 动作）的定位约束。和真实地点共用一份最近定位（state.fix），但速度上限按跨城算：
+ * 坐飞机几小时到布鲁姆、库努纳拉是合法的，所以不能用真实地点的 200 km/h。
+ * 数值待平衡。
+ */
+export const GPS_FIX_RULES = {
+	maxAccuracyM: FIX_RULES.maxAccuracyM, // 和真实地点一致；POI 打卡半径只有 400 米，精度太差会误打卡（待平衡）
+	maxSpeedKmh: 1000, // 民航巡航约 850–900 km/h，再留余量；超过就是瞬移（待平衡）
+	speedFreeKm: FIX_RULES.speedFreeKm, // 同城内的 GPS 漂移不查速度（待平衡）
+};
+

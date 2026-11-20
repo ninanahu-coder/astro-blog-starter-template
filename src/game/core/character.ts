@@ -1,5 +1,6 @@
 // 角色创建与存档校验。初始属性参考开放世界动作游戏的“能力条”思路：
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
+import { migrateSave } from './save.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type { Home, Job, OwnedProperty, Needs, Pet, PlayerState, Relation, Skills, Vehicle } from './types.ts';
 import { getPetKind, PET } from '../data/pets.ts';
@@ -8,10 +9,12 @@ import { ITEMS } from '../data/items.ts';
 import { MAX_TRAITS } from '../data/traits.ts';
 import { NPCS } from '../data/npcs.ts';
 import { CAREERS } from '../data/careers.ts';
-import { HOMES } from '../data/housing.ts';
+import { BOND_WEEKS, HOMES } from '../data/housing.ts';
 import { CAR_KM_MAX, VEHICLES } from '../data/vehicles.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
+import { ASSETS, QUOTE_DAYS } from '../data/assets.ts';
+import { deriveMarketSeed } from './market.ts';
 import { WISHES } from '../data/wishes.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { VENUE_OPS } from '../data/venues.ts';
@@ -21,6 +24,7 @@ import { realDayOf } from './daily.ts';
 import { AREAS as REGION_AREAS, areaOf, WORLD_BASE } from '../data/areas-base.ts';
 import { COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
+import { AWARDS, PROGRAMS } from '../data/education.ts';
 import { ANIMALS, DEX_GROUPS } from '../data/wildlife.ts';
 import { FISH } from '../data/fish.ts';
 import { PHOTO_QUESTS } from '../data/photo-quests.ts';
@@ -60,15 +64,34 @@ export interface Origin {
 	desc: string;
 	cash: number;
 	vehicle: Vehicle;
+	/** 只写高于起步值的能力；没写的从 BASE_SKILL 开始，完整 7 项用 originSkills() 取 */
 	skills: Partial<Skills>;
+	/** 一句话定位（入境卡上的标签），见 docs/earth-game/initial-stats.md */
+	role: string;
+	/** 这个出身开局就对口的职业（CAREERS 的 id），界面用来提示「适合做什么」 */
+	careers: string[];
+	/** 推荐的特质组合（合法的 MAX_TRAITS 个），只是提示，不限制选择 */
+	suggestTraits: string[];
 }
 
+/** 出身没写的能力从这个值开始 */
+export const BASE_SKILL = 5;
+/** 五项需求的起步值 */
+export const START_NEED = 80;
+
+// 数值（cash、skills）沿用现状，未经 Codex 平衡分析前不改；新出身和调整建议见 docs/earth-game/initial-stats.md（待平衡）
 export const ORIGINS: Origin[] = [
-	{ id: 'backpacker', name: '背包客', icon: '🎒', desc: '钱不多，但能走能扛，适应力强。', cash: 600, vehicle: 'none', skills: { stamina: 30, survival: 25, charisma: 15 } },
-	{ id: 'fifo', name: '矿区轮班工', icon: '⛏️', desc: '飞进飞出的矿工，力气大、存款厚。', cash: 2500, vehicle: 'none', skills: { strength: 35, stamina: 20, driving: 15 } },
-	{ id: 'student', name: '留学生', icon: '🎓', desc: '人缘好脑子快，开着一辆二手小车。', cash: 1200, vehicle: 'car', skills: { charisma: 30, street: 15, driving: 10 } },
-	{ id: 'surfer', name: '冲浪手', icon: '🏄', desc: '为浪而生，海里比岸上自在。', cash: 800, vehicle: 'none', skills: { swimming: 40, stamina: 25, charisma: 10 } },
+	{ id: 'backpacker', name: '背包客', icon: '🎒', desc: '钱不多，但能走能扛，适应力强。', cash: 600, vehicle: 'none', skills: { stamina: 30, survival: 25, charisma: 15 }, role: '穷游 · 野外', careers: ['farmhand', 'guide'], suggestTraits: ['loner', 'frugal'] },
+	{ id: 'fifo', name: '矿区轮班工', icon: '⛏️', desc: '飞进飞出的矿工，力气大、存款厚。', cash: 2500, vehicle: 'none', skills: { strength: 35, stamina: 20, driving: 15 }, role: '体力 · 高薪', careers: ['miner', 'farmhand'], suggestTraits: ['athletic', 'tough'] },
+	{ id: 'student', name: '留学生', icon: '🎓', desc: '人缘好脑子快，开着一辆二手小车。', cash: 1200, vehicle: 'car', skills: { charisma: 30, street: 15, driving: 10 }, role: '城市 · 社交', careers: ['barista', 'bartender'], suggestTraits: ['charming', 'neat'] },
+	{ id: 'surfer', name: '冲浪手', icon: '🏄', desc: '为浪而生，海里比岸上自在。', cash: 800, vehicle: 'none', skills: { swimming: 40, stamina: 25, charisma: 10 }, role: '海岸 · 水上', careers: ['lifeguard', 'guide'], suggestTraits: ['waterborn', 'athletic'] },
 ];
+
+/** 按 id 找出身，找不到回落到第一个（与 createCharacter 一致） */
+export const getOrigin = (id: string): Origin => ORIGINS.find((o) => o.id === id) ?? ORIGINS[0];
+
+/** 出身的完整 7 项起步能力（没写的取 BASE_SKILL）。创建角色和入境卡预览共用 */
+export const originSkills = (o: Origin): Skills => Object.fromEntries(SKILL_KEYS.map((k) => [k, o.skills[k] ?? BASE_SKILL])) as Skills;
 
 export const AVATARS = ['🧑', '👩', '👨', '🧔', '👱', '🧑‍🦱', '👩‍🦰', '🧕', '🤠', '😎'];
 
@@ -87,9 +110,9 @@ export function createCharacter(opts: {
 	seed: number; // 随机种子由服务端生成后传入，引擎内不自己生成随机数
 	traits?: string[];
 }): PlayerState {
-	const origin = ORIGINS.find((o) => o.id === opts.origin) ?? ORIGINS[0];
-	const skills = Object.fromEntries(SKILL_KEYS.map((k) => [k, origin.skills[k] ?? 5])) as Skills;
-	const needs = Object.fromEntries(NEED_KEYS.map((k) => [k, 80])) as Needs;
+	const origin = getOrigin(opts.origin);
+	const skills = originSkills(origin);
+	const needs = Object.fromEntries(NEED_KEYS.map((k) => [k, START_NEED])) as Needs;
 	return {
 		v: 1,
 		id: opts.id,
@@ -125,6 +148,8 @@ export function createCharacter(opts: {
 		job: null,
 		home: null,
 		properties: [],
+		holdings: {},
+		marketSeed: deriveMarketSeed(opts.seed >>> 0),
 		nextWeek: 7,
 		moodlets: [],
 		wishes: [],
@@ -134,6 +159,8 @@ export function createCharacter(opts: {
 		areas: [],
 		courseDays: {},
 		certs: [],
+		study: {},
+		workLog: { f: 0, min: 0 },
 		coopDays: {},
 		trades: { day: 0, out: 0, in: 0 },
 		met: {},
@@ -193,9 +220,9 @@ export interface SanitizeOpts {
 }
 
 export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: SanitizeOpts = {}): PlayerState | null {
-	if (!raw || typeof raw !== 'object') return null;
-	const r0 = raw as Record<string, any>;
-	if (r0.v !== 1 || typeof r0.id !== 'string' || typeof r0.loc !== 'string') return null;
+	// 先认格式版本：旧版本按迁移表升上来，比这版代码新的尽量读（规范见 save.ts、docs/earth-game/save-sync.md §5）
+	const r0 = migrateSave(raw) as Record<string, any> | null;
+	if (!r0 || typeof r0.id !== 'string' || typeof r0.loc !== 'string') return null;
 	if (!/^[a-zA-Z0-9_-]{6,40}$/.test(r0.id)) return null;
 	let r = r0;
 	if (knownLocs && !knownLocs.has(r.loc)) {
@@ -252,6 +279,29 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		// 旧存档没有这个字段：用当前工作的 lastDay 补上
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
 		...cleanEstate(r, knownLocs),
+		holdings: (() => {
+			const out: Record<string, { units: number; cost: number }> = {};
+			for (const def of ASSETS) {
+				const h = r.holdings?.[def.id];
+				const units = num(h?.units, 0, 1e15, 0); // 份数上限放宽：虚拟币长期可能跌到几分钱，同样的钱能买很多份
+				if (units > 0) out[def.id] = { units, cost: num(h?.cost, 0, 1e9, 0) };
+			}
+			return out;
+		})(),
+		// 客户端收到的行情（publicState 填，服务端的存档里没有）：只留已知资产、1–QUOTE_DAYS 个正数的；有一项不对就整个不要
+		...(() => {
+			const q = r.quotes;
+			if (!q || typeof q !== 'object') return {};
+			const out: Record<string, number[]> = {};
+			for (const def of ASSETS) {
+				const arr = q[def.id];
+				if (!Array.isArray(arr) || arr.length < 1 || arr.length > QUOTE_DAYS || !arr.every((p) => typeof p === 'number' && Number.isFinite(p) && p > 0 && p < 1e12)) return {};
+				out[def.id] = [...arr];
+			}
+			return { quotes: out };
+		})(),
+		// 旧存档没有行情种子：用服务端的随机种子派生（同样不发给客户端）
+		marketSeed: typeof r.marketSeed === 'number' && Number.isInteger(r.marketSeed) && r.marketSeed >= 0 && r.marketSeed < 2 ** 32 ? r.marketSeed : deriveMarketSeed(num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0),
 		nextWeek: (() => {
 			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周
 			const today = Math.floor(num(r.clock, 0, 1e9, START_CLOCK) / 1440);
@@ -289,7 +339,16 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			}
 			return out;
 		})(),
-		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id)),
+		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id) || AWARDS.includes(id)),
+		study: (() => {
+			const out: Record<string, { n: number; day: number }> = {};
+			for (const p of PROGRAMS) {
+				const st = r.study?.[p.id];
+				if (st && typeof st === 'object') out[p.id] = { n: Math.floor(num(st.n, 0, p.sessions, 0)), day: Math.floor(num(st.day, -1, 1e7, -1)) };
+			}
+			return out;
+		})(),
+		workLog: { f: Math.floor(num(r.workLog?.f, 0, 1e6, 0)), min: Math.floor(num(r.workLog?.min, 0, 1e6, 0)) },
 		photoQuest: Math.floor(num(r.photoQuest, 0, PHOTO_QUESTS.length, 0)),
 		story: (() => {
 			const ch = Math.floor(num(r.story?.ch, 0, STORY.length, 0));
@@ -472,7 +531,10 @@ function cleanEstate(r: any, knownLocs?: Set<string>): { properties: OwnedProper
 	if (home && typeof r.home.owned === 'string') {
 		const def = PROPERTIES.find((p) => p.id === r.home.owned);
 		const mine = properties.find((p) => p.id === r.home.owned);
-		if (def && mine && !mine.rented && def.loc === home.loc && def.homeType === home.type) home.owned = def.id;
+		if (def && mine && !mine.rented && def.loc === home.loc && def.homeType === home.type) {
+			home.owned = def.id;
+			Reflect.deleteProperty(home, 'bond'); // 自有房没有押金
+		}
 		else home = null;
 	}
 	return { properties, home };
@@ -480,12 +542,15 @@ function cleanEstate(r: any, knownLocs?: Set<string>): { properties: OwnedProper
 
 function cleanHome(raw: any, knownLocs?: Set<string>): Home | null {
 	if (!raw || typeof raw !== 'object') return null;
-	if (!HOMES.some((h) => h.id === raw.type) || typeof raw.loc !== 'string' || (knownLocs && !knownLocs.has(raw.loc))) return null;
+	const def = HOMES.find((h) => h.id === raw.type);
+	if (!def || typeof raw.loc !== 'string' || (knownLocs && !knownLocs.has(raw.loc))) return null;
 	const furniture: Record<string, string> = {};
 	if (raw.furniture && typeof raw.furniture === 'object') {
 		for (const f of FURNITURE) if (raw.furniture[f.slot] === f.id) furniture[f.slot] = f.id;
 	}
-	return { type: raw.type, loc: raw.loc, furniture };
+	// 押金（第 26 批）：不超过这种房型该交的押金；旧存档没有，按 0 算（当初没交过，也不退）
+	const bond = Math.floor(num(raw.bond, 0, Math.round(def.rentWeek * (def.bondWeeks ?? BOND_WEEKS)), 0));
+	return { type: def.id, loc: raw.loc, furniture, ...(bond ? { bond } : {}) };
 }
 
 /**

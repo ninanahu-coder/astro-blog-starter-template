@@ -3,6 +3,15 @@
 // 手机优先的单页应用；规则在 src/game/core/engine.ts（纯函数），本页只负责渲染、输入、同步。
 const title = '地球人生';
 const description = '在真实地图上生活的在线人生模拟：出行、打工、探索，到达地点触发事件，多端云同步。';
+// 开场「护照封皮 + 入境卡」上的防伪细纹：几组相位错开的正弦线，构建时算好写进标记
+const wave = (w: number, y0: number, amp: number, k: number, ph: number) => {
+	const pts: string[] = [];
+	for (let x = 0; x <= w; x += 8) pts.push(`${x},${(y0 + amp * Math.sin(x * k + ph) + amp * 0.35 * Math.sin(x * k * 2.7 + ph * 1.9)).toFixed(1)}`);
+	return 'M' + pts.join(' L');
+};
+const guilloche = (w: number, h: number, n: number, amp: number) => Array.from({ length: n }, (_, i) => wave(w, ((i + 0.5) * h) / n, amp, 0.021 + (i % 3) * 0.004, i * 0.55)).join(' ');
+const coverLines = guilloche(400, 420, 26, 14);
+const cardLines = guilloche(400, 260, 14, 9);
 ---
 
 <!doctype html>
@@ -10,8 +19,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 	<head>
 		<meta charset="utf-8" />
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-		<meta name="theme-color" content="#f5f2ec" media="(prefers-color-scheme: light)" />
-		<meta name="theme-color" content="#12171d" media="(prefers-color-scheme: dark)" />
+		<meta name="theme-color" content="#e9efec" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#0b1630" media="(prefers-color-scheme: dark)" />
 		<link rel="icon" type="image/svg+xml" href="/earth/icon.svg" />
 		<link rel="manifest" href="/earth/manifest.webmanifest" />
 		<link rel="apple-touch-icon" href="/earth/icon-180.png" />
@@ -24,27 +33,72 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 	</head>
 	<body>
 		<div id="app">
-			<section id="create" class="hidden">
-				<div class="cover">
-					<img src="/earth/icon.svg" alt="" width="64" height="64" />
-					<h1>地球人生</h1>
-					<p class="sub">在真实的西澳和南澳过另一种人生</p>
-					<ul class="points">
+			<section id="create" class="hidden" aria-labelledby="c-title">
+				<header class="pp">
+					<svg class="pp-lines" viewBox="0 0 400 420" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><path d={coverLines} /></svg>
+					<svg class="pp-emblem" viewBox="0 0 64 64" aria-hidden="true" focusable="false"><circle cx="32" cy="32" r="22" /><ellipse cx="32" cy="32" rx="9" ry="22" /><path d="M11 25h42M11 39h42" /><circle cx="32" cy="32" r="28.5" class="thin" /></svg>
+					<h1 id="c-title"><span class="pp-zh">地球人生</span><span class="pp-en" lang="en">TERRA LIFE</span></h1>
+					<p class="pp-sub">在真实的西澳和南澳过另一种人生</p>
+					<ul class="pp-terms">
 						<li><b>真实地图</b>西澳、南澳 35 个地点，出行、打工、租房买房</li>
 						<li><b>人到现场</b>本人走进真实的餐馆、健身房、公园，游戏里也能做事</li>
 						<li><b>多端同步</b>手机电脑用同一个存档，和同地点的玩家聊天</li>
 					</ul>
+				</header>
+				<div class="bp" role="group" aria-label="登机牌">
+					<div class="bp-route">
+						<div><span class="bp-k">出发<i lang="en">FROM</i></span><b>你的手机</b></div>
+						<svg class="bp-plane" viewBox="0 0 32 32" aria-hidden="true" focusable="false"><path d="M3 17.5 13 16l6.5-10h3L19 16l8.5-.5c1.5 0 2.5.7 2.5 1.5s-1 1.5-2.5 1.5L19 18l3.5 10h-3L13 18l-10-.5z" /></svg>
+						<div class="to"><span class="bp-k">到达<i lang="en">TO</i></span><b>西澳 · 南澳</b></div>
+					</div>
+					<dl class="bp-meta">
+						<div><dt>地点</dt><dd>35</dd></div>
+						<div><dt>区域</dt><dd>2</dd></div>
+						<div><dt>存档</dt><dd>云同步</dd></div>
+					</dl>
+					<a class="bp-go" id="c-go" href="#c-card">填写入境卡</a>
+					<details class="bp-stub">
+						<summary>已有存档？出示同步码</summary>
+						<label class="bp-code"><span>同步码</span><input id="c-code" placeholder="粘贴同步码或扫码得到的链接" autocomplete="off" /></label>
+						<button id="c-import">从云端恢复</button>
+					</details>
 				</div>
-				<label class="field"><span class="step">1</span>名字<input id="c-name" maxlength="12" placeholder="给自己起个名字" autocomplete="off" /></label>
-				<div class="field"><span class="step">2</span>形象<div id="c-avatars" class="chips"></div></div>
-				<div class="field"><span class="step">3</span>出身<div id="c-origins"></div></div>
-				<div class="field"><span class="step">4</span>性格特质（选 2 个）<div id="c-traits" class="chips"></div></div>
-				<button id="c-start" class="primary">开始生活</button>
-				<details class="import">
-					<summary>已有存档？用同步码恢复</summary>
-					<input id="c-code" placeholder="粘贴同步码或扫码得到的链接" aria-label="同步码" autocomplete="off" />
-					<button id="c-import">从云端恢复</button>
-				</details>
+				<div class="ac" id="c-card" tabindex="-1" role="group" aria-labelledby="c-card-title">
+					<svg class="ac-lines" viewBox="0 0 400 260" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path d={cardLines} /></svg>
+					<div class="ac-head">
+						<h2 id="c-card-title">入境卡<span lang="en">ARRIVAL CARD</span></h2>
+						<p>填好四栏，盖章入境。名字会显示给同地点的玩家。</p>
+					</div>
+					<div class="ac-field">
+						<label class="ac-label" for="c-name">姓名<span lang="en">NAME</span></label>
+						<input id="c-name" maxlength="12" placeholder="给自己起个名字" autocomplete="off" />
+					</div>
+					<div class="ac-field">
+						<div class="ac-label" id="c-photo-l">照片<span lang="en">PHOTO</span></div>
+						<div class="ac-photo">
+							<div class="ac-photo-box" id="c-photo" aria-hidden="true"></div>
+							<div id="c-avatars" class="ac-avatars" role="group" aria-labelledby="c-photo-l"></div>
+						</div>
+					</div>
+					<div class="ac-field">
+						<div class="ac-label" id="c-origin-l">身份<span lang="en">ARRIVING AS</span></div>
+						<div id="c-origins" class="ac-origins" role="group" aria-labelledby="c-origin-l"></div>
+						<ul id="c-gauges" class="ac-gauges" aria-label="起步能力（满分 100）"></ul>
+					</div>
+					<div class="ac-field">
+						<div class="ac-label" id="c-trait-l">性格<span lang="en">CHARACTER</span><em id="c-trait-n"></em></div>
+						<div id="c-traits" class="ac-traits" role="group" aria-labelledby="c-trait-l"></div>
+					</div>
+					<div class="ac-field ac-sign">
+						<button id="c-start" class="ac-submit">盖章入境 · 开始生活</button>
+						<svg class="ac-stamp" id="c-stamp" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+							<circle cx="60" cy="60" r="55" /><circle cx="60" cy="60" r="47" class="thin" />
+							<text x="60" y="52" class="big">入境</text>
+							<text x="60" y="70" id="c-stamp-city"></text>
+							<text x="60" y="86" id="c-stamp-date" class="small"></text>
+						</svg>
+					</div>
+				</div>
 			</section>
 
 			<section id="game" class="hidden">
@@ -58,29 +112,35 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 		<div id="toast" class="hidden" role="status" aria-live="polite"></div>
 
 		<style is:global>
+			/* 入境卡世界（v27）：浅色是摊开的卡纸，深色是合上的护照。设定见 docs/earth-game/main-ui-design.md */
 			:root {
-				--bg: #f5f2ec; --card: #ffffff; --card2: #fbfaf7; --line: #e4ded4; --text: #17212b; --dim: #5b6672;
-				--accent: #1d5fd1; --accent-ink: #ffffff; --warm: #c2541b; --warm-ink: #ffffff; --warm-bg: #fff6ef; --ink: #17212b; --ink-dim: #c9d2db;
-				--ocean: #dce8f2; --land: #efe3cc; --ok: #2e8b57; --mid: #b7791f; --bad: #c23b3b; --soft: #ece7de;
+				--bg: #e9efec; --card: #f7faf8; --card2: #eef3f1; --line: #c8d9d3; --text: #18263f; --dim: #4a586c;
+				--accent: #1d3fbf; --accent-ink: #ffffff; --warm: #b3155c; --warm-ink: #ffffff; --warm-bg: #f8e8ef; --ink: #0d1a35; --ink-dim: #bdc8dc;
+				--ocean: #d3e2e8; --land: #f1efe3; --ok: #1e7a58; --mid: #a36a0e; --bad: #b42b3a; --soft: #dce6e2;
 				--nav-h: 64px;
-				--text2: #3a4550; --shadow: rgba(23, 33, 43, 0.06); --halo: rgba(255, 255, 255, 0.85); --land-line: #d9c7a6; --seg-bg: #e9e3d8; --tick-line: #c9c1b4;
-				--tint-blue: #eef3fb; --tint-blue-ink: #1d4fa8; --tint-green: #e6f2ea; --tint-green-ink: #1f6b40; --tint-amber: #fbf0dc; --tint-amber-ink: #7a4f0f;
-				--sky-dawn: #f8ede2; --sky-dusk: #f7e6dc; --sky-night: #e9edf5;
+				--text2: #2d3b53; --shadow: rgba(13, 26, 53, 0.08); --halo: rgba(247, 250, 248, 0.9); --land-line: #cdc6a6; --seg-bg: #dbe5e1; --tick-line: #a7bcb5;
+				--tint-blue: #e2e8fb; --tint-blue-ink: #1d3fbf; --tint-green: #dbeee5; --tint-green-ink: #175a40; --tint-amber: #f4e8cf; --tint-amber-ink: #66440b;
+				--sky-dawn: #1f3563; --sky-dusk: #2a2852; --sky-night: #0d1a35;
 				--ocean-night: #1e3350; --land-night: #354058; --land-night-line: #4b5875; --map-night-text: #eef2f7; --map-night-halo: rgba(10, 16, 28, 0.8);
-				--tint-red: #fbe4e4; --tint-red-ink: #9b2c2c; --tint-cost: #fdede3; --tint-cost-ink: #a2400f; --warm-line: #f2cdb4; --low-ink: #a62f2f; --mid-ink: #8a5a12;
+				--tint-red: #f6e0e3; --tint-red-ink: #8c2130; --tint-cost: #f8e4ee; --tint-cost-ink: #8f1249; --warm-line: #e6b3c8; --low-ink: #a3243a; --mid-ink: #7a4f0c;
+				--pass: #15284d; --pass-ink: #eef2f8; --mist: #bdc8dc; --gold: #dcbc6c; --gold-2: #c4a865; --rule: #9db8b0;
+				--primary: #15284d; --primary-ink: #ffffff; --stamp-ink: #b3155c; --stamp-paper: rgba(243, 247, 245, 0.94);
+				--serif: 'Terra Serif', 'Songti SC', 'STSong', serif;
 				color-scheme: light;
 			}
-			/* 深色：跟随系统设置。主色换成浅蓝，按钮上的字换成深色，保证对比度 */
+			/* 深色：跟随系统设置。合上的护照：封皮深蓝做底，笔蓝和章色提亮，主按钮换成烫金 */
 			@media (prefers-color-scheme: dark) {
 				:root {
-					--bg: #12171d; --card: #1b232c; --card2: #212b35; --line: #2f3a46; --text: #e8edf2; --dim: #9aa6b2;
-					--accent: #7fb0ff; --accent-ink: #0d1b33; --warm: #f08a4b; --warm-ink: #0d1b33; --warm-bg: #2a2018; --ink: #24313d; --ink-dim: #c9d2db;
-					--ocean: #13283a; --land: #2b2a24; --ok: #4ecb8f; --mid: #e0a23a; --bad: #ef6464; --soft: #2a333d;
-					--text2: #c3ccd5; --shadow: rgba(0, 0, 0, 0.3); --halo: rgba(0, 0, 0, 0.75); --land-line: #4a4436; --seg-bg: #232c36; --tick-line: #4a5562;
-					--tint-blue: #1c2a40; --tint-blue-ink: #a9c7ff; --tint-green: #17301f; --tint-green-ink: #8fe0b0; --tint-amber: #3a2c12; --tint-amber-ink: #f0c674;
-					--sky-dawn: #1f1b19; --sky-dusk: #221a1b; --sky-night: #0d1220;
+					--bg: #0b1630; --card: #13234a; --card2: #182b57; --line: #2b4170; --text: #e9eef7; --dim: #a9b6cd;
+					--accent: #9db1ff; --accent-ink: #0b1630; --warm: #ef6aa3; --warm-ink: #1b0612; --warm-bg: #2e1530; --ink: #070f22; --ink-dim: #bdc8dc;
+					--ocean: #10284a; --land: #24304a; --ok: #4fc99a; --mid: #e3ad4f; --bad: #f0727e; --soft: #22365f;
+					--text2: #cad4e5; --shadow: rgba(0, 0, 0, 0.35); --halo: rgba(11, 22, 48, 0.8); --land-line: #3a4a6a; --seg-bg: #0f1d3f; --tick-line: #4a5d86;
+					--tint-blue: #1d2c5e; --tint-blue-ink: #b9c7ff; --tint-green: #143a32; --tint-green-ink: #8fe0bd; --tint-amber: #3a2d12; --tint-amber-ink: #f0c674;
+					--sky-dawn: #1a2d58; --sky-dusk: #241f48; --sky-night: #070f22;
 					--ocean-night: #0a1522; --land-night: #1c2029; --land-night-line: #2c3240; --map-night-text: #e8edf2; --map-night-halo: rgba(0, 0, 0, 0.8);
-					--tint-red: #3a1c1c; --tint-red-ink: #ffaaaa; --tint-cost: #3a2216; --tint-cost-ink: #ffb385; --warm-line: #5a3a24; --low-ink: #ff9a9a; --mid-ink: #f0c674;
+					--tint-red: #3d1726; --tint-red-ink: #ffb0bf; --tint-cost: #3b1530; --tint-cost-ink: #ff9cc8; --warm-line: #6a2a4a; --low-ink: #ff9aaa; --mid-ink: #f0c674;
+					--pass: #1a3063; --pass-ink: #eef2f8; --rule: #3e5a86;
+					--primary: #dcbc6c; --primary-ink: #0b1630; --stamp-ink: #a3124f;
 					color-scheme: dark;
 				}
 			}
@@ -100,29 +160,114 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			button:focus-visible, a:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 			input { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 11px 14px; width: 100%; min-width: 0; min-height: 44px; }
 
-			#create { padding: 28px 20px calc(28px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 16px; }
-			#create h1 { margin: 10px 0 0; font-size: 30px; font-weight: 900; }
-			.cover { background: var(--card); border-radius: 24px; padding: 22px 20px; box-shadow: 0 1px 2px var(--shadow); }
-			.cover img { display: block; border-radius: 16px; }
-			.cover .points { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-			.cover .points li { font-size: 14px; color: var(--dim); padding-left: 14px; border-left: 3px solid var(--accent); }
-			.cover .points b { display: block; color: var(--text); font-size: 15px; }
-			.field .step { display: inline-flex; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-size: 12px; font-weight: 700; align-items: center; justify-content: center; margin-right: 6px; }
-			#c-start { min-height: 52px; font-size: 17px; }
-			.sub { margin: 0; color: var(--dim); }
-			.field { display: flex; flex-direction: column; gap: 8px; color: var(--dim); font-size: 13px; font-weight: 600; }
-			.chips { display: flex; flex-wrap: wrap; gap: 8px; }
-			.chip { font-size: 22px; padding: 6px 10px; background: var(--card); }
-			.chip.on, .origin.on, .trait.on { border-color: var(--accent); background: var(--tint-blue); box-shadow: inset 0 0 0 1px var(--accent); }
-			.origin { display: block; width: 100%; text-align: left; margin-bottom: 8px; background: var(--card); padding: 12px 14px; }
-			.origin small { display: block; color: var(--dim); font-weight: 400; }
-			.import { color: var(--dim); font-size: 13px; }
-			#c-traits { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-			.trait { font-size: 14px; padding: 10px 12px; text-align: left; background: var(--card); }
-			.trait small { display: block; color: var(--dim); font-size: 12px; }
+			/* ---------- 开场：护照封皮 + 登机牌 + 入境卡（方向见 .impeccable/surfaces） ---------- */
+			@font-face { font-family: 'Terra Serif'; src: url('/earth/fonts/terra-serif.woff2') format('woff2'); font-weight: 200 900; font-display: swap; }
+			body:has(#create:not(.hidden)) { background: #0d1a35; }
+			#create {
+				--pp-navy: #15284d; --pp-deep: #0d1a35; --pp-gold: #dcbc6c; --pp-gold-2: #c4a865; --pp-mist: #bdc8dc;
+				--stock: #f3f7f5; --stock-2: #e6eeeb; --ink-p: #18263f; --ink-p2: #4a586c; --rule: #9db8b0; --rule-2: #cbddd7;
+				--pen: #1d3fbf; --pen-bg: #e2e8fb; --stamp: #b3155c; --serif: 'Terra Serif', 'Songti SC', 'STSong', serif;
+				background: var(--pp-deep); color: var(--ink-p); display: flex; flex-direction: column; min-height: 100dvh; padding-bottom: calc(40px + env(safe-area-inset-bottom));
+			}
+			#create ::selection { background: var(--pen-bg); color: var(--ink-p); }
+			#create button, #create .bp-go, #create input { font: inherit; }
+			#create button:focus-visible, #create a:focus-visible, #create input:focus-visible, #create summary:focus-visible { outline: 2px solid var(--pen); outline-offset: 2px; }
+			#create .pp :focus-visible, #create .bp-go:focus-visible { outline-color: var(--pp-gold); }
+			.pp { position: relative; overflow: hidden; background: var(--pp-navy); color: var(--pp-mist); text-align: center; padding: calc(44px + env(safe-area-inset-top)) 28px 92px; }
+			.pp-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
+			.pp-lines path { fill: none; stroke: var(--pp-gold); stroke-width: 0.6; opacity: 0.16; }
+			.pp > :not(.pp-lines) { position: relative; }
+			.pp-emblem { width: 60px; height: 60px; display: block; margin: 0 auto 18px; fill: none; stroke: var(--pp-gold); stroke-width: 2.4; }
+			.pp-emblem .thin { stroke-width: 0.9; }
+			#create h1 { margin: 0; color: var(--pp-gold); font-family: var(--serif); font-weight: 900; line-height: 1.1; }
+			.pp-zh { display: block; font-size: 44px; letter-spacing: 0.14em; text-indent: 0.14em; }
+			.pp-en { display: block; margin-top: 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.46em; text-indent: 0.46em; color: var(--pp-gold-2); }
+			.pp-sub { margin: 18px 0 0; font-size: 15px; color: #e3e8f2; }
+			.pp-terms { list-style: none; margin: 26px auto 0; padding: 14px 0 0; max-width: 360px; text-align: left; display: flex; flex-direction: column; gap: 12px; border-top: 1px solid rgba(220, 188, 108, 0.35); font-size: 13px; line-height: 1.55; }
+			.pp-terms b { display: block; color: var(--pp-gold); font-size: 15px; }
+			/* 登机牌：压在封皮下沿 */
+			.bp { position: relative; margin: -60px 16px 0; background: var(--stock); border-radius: 18px; padding: 18px 18px 6px; box-shadow: 0 18px 40px rgba(3, 9, 22, 0.45), 0 2px 6px rgba(3, 9, 22, 0.3); }
+			.bp-route { display: grid; grid-template-columns: 1fr 34px 1fr; align-items: end; gap: 8px; }
+			.bp-route b { display: block; font-size: 19px; font-weight: 800; color: var(--ink-p); margin-top: 2px; }
+			.bp-route .to { text-align: right; }
+			.bp-k { font-size: 12px; font-weight: 600; color: var(--ink-p2); }
+			.bp-k i, .ac-label span, .ac-head h2 span { font-style: normal; font-family: var(--serif); font-weight: 700; font-size: 10px; letter-spacing: 0.14em; margin-left: 6px; color: var(--ink-p2); }
+			.bp-plane { width: 30px; height: 30px; fill: var(--ink-p); margin-bottom: 2px; }
+			.bp-meta { display: grid; grid-template-columns: repeat(3, 1fr); margin: 14px 0 16px; padding: 10px 0 0; border-top: 1px solid var(--rule-2); }
+			.bp-meta div { margin: 0; }
+			.bp-meta dt { font-size: 12px; color: var(--ink-p2); }
+			.bp-meta dd { margin: 0; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+			.bp-go { display: flex; align-items: center; justify-content: center; min-height: 54px; border-radius: 14px; background: var(--pp-navy); color: #fff; font-size: 17px; font-weight: 800; letter-spacing: 0.04em; text-decoration: none; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 160ms; }
+			.bp-go:active { transform: translateY(1px); box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18); }
+			/* 打孔：虚线 + 两侧半圆缺口（露出底色） */
+			.bp-stub, .ac-field { position: relative; }
+			.bp-stub { margin: 18px -18px 0; padding: 12px 18px 12px; border-top: 1.5px dashed var(--rule); }
+			.bp-stub::before, .bp-stub::after, .ac-field::before, .ac-field::after { content: ''; position: absolute; top: -10px; width: 20px; height: 20px; border-radius: 50%; background: var(--pp-deep); }
+			.bp-stub::before, .ac-field::before { left: -10px; } .bp-stub::after, .ac-field::after { right: -10px; }
+			.bp-stub summary { min-height: 44px; display: flex; align-items: center; justify-content: center; color: var(--ink-p2); font-size: 14px; font-weight: 600; cursor: pointer; list-style: none; }
+			.bp-stub summary::-webkit-details-marker { display: none; }
+			.bp-stub summary::after { content: ''; width: 7px; height: 7px; margin-left: 8px; border: solid var(--ink-p2); border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); transition: transform 200ms; }
+			.bp-stub[open] summary::after { transform: translateY(1px) rotate(-135deg); }
+			.bp-code { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: var(--ink-p2); margin: 4px 0 10px; }
+			/* 入境卡 */
+			.ac { position: relative; margin: 28px 16px 0; background: var(--stock); border-radius: 18px; padding: 0 18px; box-shadow: 0 18px 40px rgba(3, 9, 22, 0.45); overflow: visible; scroll-margin-top: 16px; }
+			.ac:focus { outline: none; }
+			.ac-lines { position: absolute; left: 0; right: 0; top: 0; width: 100%; height: 150px; border-radius: 18px 18px 0 0; }
+			.ac-lines path { fill: none; stroke: #6aa99a; stroke-width: 0.7; opacity: 0.22; }
+			.ac > :not(.ac-lines) { position: relative; }
+			.ac-head { padding: 22px 0 16px; }
+			.ac-head h2 { margin: 0; font-family: var(--serif); font-size: 26px; font-weight: 900; letter-spacing: 0.1em; color: var(--ink-p); }
+			.ac-head h2 span { font-size: 11px; vertical-align: 4px; }
+			.ac-head p { margin: 6px 0 0; font-size: 13px; color: var(--ink-p2); }
+			.ac-field { padding: 18px 0 20px; border-top: 1.5px dashed var(--rule); }
+			.ac-label { display: flex; align-items: baseline; margin-bottom: 10px; font-size: 14px; font-weight: 800; color: var(--ink-p); }
+			.ac-label em { margin-left: auto; font-style: normal; font-size: 12px; font-weight: 600; color: var(--ink-p2); font-variant-numeric: tabular-nums; }
+			.ac-label em.done { color: var(--pen); }
+			#create input { width: 100%; min-height: 48px; padding: 10px 12px; border-radius: 6px; border: 1.5px solid var(--ink-p); background: #fff; color: var(--pen); font-size: 18px; font-weight: 700; caret-color: var(--pen); }
+			#create input::placeholder { color: #5a687d; font-weight: 400; font-size: 15px; }
+			.ac-photo { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: start; }
+			.ac-photo-box { position: relative; overflow: hidden; width: 96px; height: 120px; border: 1.5px solid var(--ink-p); background: #fff; display: flex; align-items: center; justify-content: center; font-size: 60px; line-height: 1; }
+			.ac-photo-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; background: #fff; }
+			.ac-avatars { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 6px; }
+			.ac-ava { min-height: 44px; padding: 0; border-radius: 8px; border: 1px solid var(--rule-2); background: var(--stock-2); font-size: 24px; cursor: pointer; }
+			.ac-ava.on { border: 2px solid var(--pen); background: var(--pen-bg); }
+			.ac-origins, .ac-traits { display: grid; gap: 6px; }
+			.ac-traits { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+			.ac-opt { display: grid; grid-template-columns: 20px 1fr auto; gap: 10px; align-items: start; width: 100%; min-height: 44px; padding: 10px 10px; text-align: left; border-radius: 8px; border: 1px solid transparent; background: transparent; color: var(--ink-p); cursor: pointer; transition: background 160ms, border-color 160ms; }
+			.ac-traits .ac-opt { grid-template-columns: 20px 1fr; padding: 9px 8px; }
+			.ac-opt b { display: block; font-size: 15px; }
+			.ac-opt small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.45; color: var(--ink-p2); }
+			.ac-box { width: 20px; height: 20px; margin-top: 1px; border: 1.5px solid var(--ink-p); border-radius: 3px; background: #fff; position: relative; }
+			.ac-opt.on { background: var(--pen-bg); border-color: rgba(29, 63, 191, 0.35); }
+			.ac-opt.on .ac-box { border-color: var(--pen); }
+			.ac-opt.on .ac-box::after { content: ''; position: absolute; left: 6px; top: 1px; width: 5px; height: 11px; border: solid var(--pen); border-width: 0 2.5px 2.5px 0; transform: rotate(40deg); }
+			.ac-opt:disabled { opacity: 0.45; cursor: not-allowed; }
+			.ac-fx { text-align: right; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; white-space: nowrap; }
+			.ac-fx small { font-weight: 600; }
+			.ac-opt.on .ac-fx { color: var(--pen); }
+			@media (hover: hover) { .ac-opt:not(:disabled):not(.on):hover { background: #fff; border-color: var(--rule-2); } .ac-ava:not(.on):hover { background: #fff; } }
+			/* 起步能力：一排一模一样的小表，随身份一起偏转 */
+			.ac-gauges { list-style: none; margin: 14px 0 0; padding: 12px 0 0; border-top: 1px solid var(--rule-2); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; text-align: center; }
+			.ac-gauges svg { width: 100%; max-width: 46px; height: auto; display: block; margin: 0 auto; overflow: visible; }
+			.ac-gauges .arc { fill: none; stroke: var(--ink-p2); stroke-width: 1.4; }
+			.ac-gauges .tick { stroke: var(--ink-p2); stroke-width: 1; }
+			.ac-gauges .needle { stroke: var(--pen); stroke-width: 2; stroke-linecap: round; transform-origin: 22px 24px; transition: transform 520ms cubic-bezier(0.16, 1, 0.3, 1); }
+			.ac-gauges .hub { fill: var(--ink-p); }
+			.ac-gauges b { display: block; font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-p); }
+			.ac-gauges span { display: block; font-size: 11px; color: var(--ink-p2); }
+			/* 签名栏：提交 + 入境章 */
+			.ac-sign { padding-bottom: 22px; }
+			.ac-submit { width: 100%; min-height: 56px; border-radius: 14px; border: 0; background: var(--stamp); color: #fff; font-size: 17px; font-weight: 800; letter-spacing: 0.04em; cursor: pointer; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); }
+			.ac-submit:disabled { background: var(--stock-2); color: var(--ink-p2); box-shadow: none; border: 1.5px dashed var(--rule); opacity: 1; }
+			.ac-stamp { position: absolute; right: 6px; top: -46px; width: 118px; height: 118px; pointer-events: none; opacity: 0; transform: rotate(-14deg) scale(1.7); transition: opacity 200ms ease-out, transform 460ms cubic-bezier(0.16, 1, 0.3, 1); }
+			.ac-stamp circle { fill: none; stroke: var(--stamp); stroke-width: 3.2; }
+			.ac-stamp circle.thin { stroke-width: 1.2; }
+			.ac-stamp text { fill: var(--stamp); text-anchor: middle; font-family: var(--serif); font-weight: 900; font-size: 12px; letter-spacing: 0.08em; }
+			.ac-stamp text.big { font-size: 26px; letter-spacing: 0.2em; }
+			.ac-stamp text.small { font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums; }
+			.ac.stamped .ac-stamp { opacity: 0.9; transform: rotate(-14deg) scale(1); }
 			.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 			.tag { font-size: 13px; padding: 4px 10px; border-radius: 10px; background: var(--soft); color: var(--text); }
-			.import input { margin: 8px 0; }
 
 			#game { flex: 1; display: flex; flex-direction: column; min-height: 100dvh; }
 			#hud { padding: calc(10px + env(safe-area-inset-top)) 16px 10px; background: var(--bg); position: sticky; top: 0; z-index: 5; border-bottom: 1px solid transparent; }
@@ -177,12 +322,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			#map-wrap.real #basemap { visibility: visible; }
 			#map-wrap.real #map { visibility: hidden; }
 			.p-night #basemap .maplibregl-canvas { filter: invert(0.92) hue-rotate(180deg) brightness(0.85); }
-			#basemap .pin { display: flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; min-height: 0; font: inherit; font-size: 12px; color: #17212b; cursor: pointer; }
-			#basemap .pin-dot { width: 10px; height: 10px; border-radius: 50%; background: #1d5fd1; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); flex: none; }
-			#basemap .pin.new .pin-dot { background: #fff; border-color: #1d5fd1; }
-			#basemap .pin.here .pin-dot { width: 14px; height: 14px; background: #c2541b; }
-			#basemap .pin.sel .pin-dot { box-shadow: 0 0 0 3px #1d5fd1; }
-			#basemap .pin-label { padding: 1px 5px; border-radius: 6px; background: rgba(255,255,255,0.85); white-space: nowrap; }
+			#basemap .pin { display: flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; min-height: 0; font: inherit; font-size: 12px; color: #18263f; cursor: pointer; }
+			#basemap .pin-dot { width: 10px; height: 10px; border-radius: 50%; background: #1d3fbf; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); flex: none; }
+			#basemap .pin.new .pin-dot { background: #fff; border-color: #b3155c; }
+			#basemap .pin.here .pin-dot { width: 14px; height: 14px; background: #15284d; }
+			#basemap .pin.sel .pin-dot { box-shadow: 0 0 0 3px #1d3fbf; }
+			#basemap .pin-label { padding: 1px 5px; border-radius: 4px; background: rgba(247,250,248,0.9); white-space: nowrap; }
 			#basemap .pin.here .pin-label { font-weight: 700; }
 			#map { display: block; width: 100%; height: 36vh; min-height: 220px; touch-action: manipulation; }
 			#map .land { fill: var(--land); stroke: var(--land-line); stroke-width: 1; }
@@ -222,8 +367,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.card { background: var(--card); border-radius: 20px; padding: 16px; box-shadow: 0 1px 2px var(--shadow); }
 			.card h3 { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
 			.card p { margin: 0; color: var(--dim); font-size: 13px; }
-			.hero { height: 140px; border-radius: 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; font-size: 48px; background: #123a5e; overflow: hidden; }
-			.hero img { width: 100%; height: 100%; object-fit: cover; }
+			.hero { height: 140px; border-radius: 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; font-size: 48px; background: var(--pass); overflow: hidden; }
+			.hero img, .hero video { width: 100%; height: 100%; object-fit: cover; }
+			.hero.has-media { position: relative; }
+			.ai-tag { position: absolute; left: 8px; bottom: 8px; padding: 2px 7px; border-radius: 6px; background: rgba(8, 14, 24, 0.62); color: #fff; font-size: 11px; line-height: 1.5; pointer-events: none; }
+			#modal .ev-hero .ai-tag { position: absolute; top: 14px; left: 14px; bottom: auto; }
+			.greet { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: 14px; }
+			.greet button { min-height: 36px; padding: 4px 12px; }
 			.row { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; min-height: 56px; }
 			button.row { background: var(--card); border: 0; border-radius: 16px; padding: 10px 14px; box-shadow: 0 1px 2px var(--shadow); }
 			.card button.row { background: var(--card2); box-shadow: none; border: 1px solid var(--line); }
@@ -255,6 +405,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.mood-row:last-child { border-bottom: 0; }
 			.mood-row .up { color: var(--ok); }
 			.mood-row .down { color: var(--bad); }
+			.invest .up, .spark.up { color: var(--ok); }
+			.invest .down, .spark.down { color: var(--bad); }
+			.spark { display: block; color: var(--dim); }
 
 			/* 今天页：角色卡与「下一步」 */
 			.me-card { display: flex; flex-direction: column; gap: 14px; }
@@ -413,15 +566,88 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			button.wide { display: block; width: 100%; margin-top: 10px; min-height: 52px; font-size: 16px; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
 
+			/* ---------- 主界面：入境之后（v27）。卡纸 + 护照封皮 + 圆珠笔蓝 + 唯一的洋红章；设定见 docs/earth-game/main-ui-design.md ---------- */
+			::selection { background: var(--tint-blue); color: var(--text); }
+			html { scrollbar-color: var(--tick-line) transparent; }
+			input { caret-color: var(--accent); }
+			button.primary { background: var(--primary); border-color: var(--primary); color: var(--primary-ink); }
+			a { color: var(--accent); text-underline-offset: 3px; }
+			.card { border-radius: 16px; border: 1px solid var(--line); box-shadow: 0 1px 2px var(--shadow); }
+			.card h3 { font-size: 16px; }
+			button.row { border: 1px solid var(--line); border-radius: 12px; box-shadow: none; }
+			.row .ico { border-radius: 10px; background: var(--card2); border: 1px solid var(--line); }
+			.row.new { border-color: var(--warm-line); }
+			.row.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+			.section-title { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+			.section-title::after { content: ''; flex: 1; border-top: 1.5px dashed var(--rule); }
+			.pill { border-radius: 6px; }
+			.code { background: var(--card2); border: 1.5px dashed var(--rule); border-radius: 8px; color: var(--accent); }
+			.seg { border: 1px solid var(--line); border-radius: 12px; }
+			.seg button { border-radius: 8px; }
+			.seg button.on { color: var(--accent); }
+			.npc-name { background: var(--pass); color: var(--pass-ink); }
+			.wish .dot, .guide .tick { border-radius: 4px; border: 1.5px solid var(--text2); }
+			.guide li.now .tick { border-color: var(--accent); }
+			.guide li.done .tick { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+			.chip.cash { background: var(--card); color: var(--accent); font-weight: 800; border: 1px solid var(--line); }
+			/* 需求环：轨道画成表盘刻度，和入境卡上的起步能力小表同一套笔法 */
+			.ring .track { fill: var(--card); stroke: var(--tick-line); stroke-width: 3; stroke-dasharray: 1.4 3.0; }
+			/* 顶栏（今天页以外）：一条护照封皮，页名烫金；随时段换蓝的深浅（.p-* 规则用 --sky-*） */
+			#hud { background: var(--pass); color: var(--pass-ink); }
+			html #hud.scened { color: var(--text); }
+			#hud:not(.scened) h1 { color: var(--gold); letter-spacing: 0.06em; }
+			#hud:not(.scened) .hud-sub, #hud:not(.scened) .sync-dot, #hud:not(.scened) .mini-needs .need { color: var(--mist); }
+			#hud:not(.scened) .chip:not(.cash):not(.fire-chip) { background: rgba(255, 255, 255, 0.12); color: var(--pass-ink); }
+			#hud:not(.scened) .bar { background: rgba(255, 255, 255, 0.16); }
+			#hud:not(.scened) :focus-visible { outline-color: var(--gold); }
+			#hud .offline { border: 1px solid var(--mid); }
+			/* 今天页顶栏：地点名牌是一小块护照封皮，中文地名烫金，英文地名是衬线大写小标签 */
+			#hud .plate { background: var(--pass); color: var(--gold); border-radius: 10px; padding: 9px 14px 8px; box-shadow: 0 8px 18px -10px rgba(3, 9, 22, 0.6); }
+			#hud .plate h1 { color: var(--gold); letter-spacing: 0.04em; }
+			#hud .plate .en { margin-top: 2px; font-family: var(--serif); font-size: 10px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: var(--gold-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+			#hud .plate small { margin-top: 3px; color: var(--mist); }
+			#hud .lv-plate, #hud .scene .wx-pill { border: 1px solid var(--line); }
+			#hud .scene .wx-pill:not(.storm) { background: var(--card); color: var(--text); }
+			/* 「下一步」：一张登机牌。海军蓝底、烫金 NEXT、打孔票根线，按钮是全页唯一的洋红 */
+			.next { position: relative; background: var(--pass); color: var(--pass-ink); border-radius: 16px; padding: 18px 18px 16px; box-shadow: 0 14px 28px -16px rgba(3, 9, 22, 0.7); }
+			.next .lbl { color: var(--gold); letter-spacing: 0.08em; }
+			.next .lbl i { margin-left: 8px; font-family: var(--serif); font-style: normal; font-size: 10px; font-weight: 700; letter-spacing: 0.24em; color: var(--gold-2); }
+			.next h2 { color: var(--pass-ink); letter-spacing: 0.02em; }
+			.next p { color: var(--mist); }
+			.next > button { position: relative; margin-top: 14px; border-radius: 12px; background: var(--warm); color: var(--warm-ink); box-shadow: 0 6px 14px -6px rgba(3, 9, 22, 0.6); transition: transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+			.next > button:active { transform: translateY(1px); }
+			.next > button::before { content: ''; position: absolute; left: -18px; right: -18px; top: -15px; border-top: 1.5px dashed rgba(220, 188, 108, 0.45); }
+			.next > button::after { content: ''; position: absolute; left: -28px; right: -28px; top: -24px; height: 20px; background: radial-gradient(circle at 0 50%, var(--bg) 9.5px, transparent 10px), radial-gradient(circle at 100% 50%, var(--bg) 9.5px, transparent 10px); pointer-events: none; }
+			.next > button:focus-visible { outline-color: var(--gold); }
+			.next.clock { background: var(--ink); }
+			/* 出行：地图收成卡片的圆角和细线 */
+			#map-wrap { border-radius: 14px; border: 1px solid var(--line); }
+			.tile { border-radius: 10px; }
+			.tile.on { border-width: 1.5px; box-shadow: inset 0 0 0 1px var(--accent); }
+			/* 底部标签：登机牌存根，上沿一道打孔线；当前标签是圆珠笔蓝，字下一笔 */
+			#tabs { border-top: 0; box-shadow: 0 -8px 18px -14px var(--shadow); }
+			#tabs::before { content: ''; position: absolute; left: 0; right: 0; top: 0; border-top: 1.5px dashed var(--rule); }
+			#tabs button.on::after { content: ''; position: absolute; left: calc(50% - 9px); bottom: 7px; width: 18px; height: 2px; border-radius: 1px; background: currentColor; }
+			#tabs button { padding-bottom: 10px; }
+			/* 弹窗：插图和正文之间一道打孔线；选项是卡纸上的勾选栏 */
+			#modal .sheet { border-radius: 20px 20px 0 0; }
+			#modal .ev-hero { border-radius: 20px 20px 0 0; }
+			#modal .ev-body { border-top: 1.5px dashed var(--rule); }
+			#modal .choice { border-radius: 12px; border-width: 1.5px; background: var(--card); }
+			#modal .choice.first { box-shadow: inset 0 0 0 1px var(--accent); }
+
 			#modal { position: fixed; inset: 0; background: rgba(15, 25, 38, 0.55); display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
 			#modal .sheet { background: var(--bg); border-radius: 24px 24px 0 0; width: 100%; max-width: 560px; max-height: 92dvh; overflow-y: auto; }
-			#modal .ev-hero { background: #123a5e; color: #fff; padding: 22px 20px 20px; display: flex; flex-direction: column; gap: 4px; min-height: 150px; justify-content: flex-end; position: relative; }
+			#modal .ev-hero { background: var(--pass); color: #fff; padding: 22px 20px 20px; display: flex; flex-direction: column; gap: 4px; min-height: 150px; justify-content: flex-end; position: relative; }
 			#modal .ev-hero img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.55; }
 			#modal .ev-hero .scene-art { position: absolute; inset: 0; width: 100%; height: 100%; }
 			#modal .ev-hero .ev-shade { position: absolute; inset: 0; background: rgba(8, 14, 24, 0.62); }
 			#modal .ev-hero { min-height: 170px; border-radius: 24px 24px 0 0; overflow: hidden; }
 			#modal .ev-hero > * { position: relative; }
-			#modal .ev-hero .kicker { font-size: 12px; font-weight: 700; letter-spacing: 1px; color: #ffe0c8; }
+			#modal .ev-hero .ev-stamp { position: absolute; top: 14px; right: 14px; max-width: 64%; padding: 5px 10px; border: 2px solid var(--stamp-ink); outline: 1px solid var(--stamp-ink); outline-offset: 2px; border-radius: 6px; background: var(--stamp-paper); color: var(--stamp-ink); font-size: 12px; font-weight: 800; letter-spacing: 0.06em; line-height: 1.35; transform: rotate(-5deg); font-variant-numeric: tabular-nums; }
+			#modal .ev-hero .ev-stamp.fresh { animation: stamp-in 460ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+			@keyframes stamp-in { from { transform: rotate(-12deg) scale(1.55); opacity: 0.25; } to { transform: rotate(-5deg) scale(1); opacity: 1; } }
+			@media (prefers-reduced-motion: reduce) { #modal .ev-hero .ev-stamp.fresh { animation: none; } }
 			#modal h2 { margin: 0; font-size: 30px; font-weight: 900; }
 			#modal .ev-body { padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
 			#modal .ev-body > p { margin: 0; font-size: 17px; line-height: 1.6; }
@@ -433,7 +659,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			.pill.cost { background: var(--tint-cost); color: var(--tint-cost-ink); }
 			.pill.up { background: var(--tint-green); color: var(--tint-green-ink); }
 			.pill.bad { background: var(--tint-red); color: var(--tint-red-ink); }
-			#toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: rgba(23, 33, 43, 0.92); color: #fff; padding: 10px 16px; border-radius: 20px; font-size: 14px; z-index: 30; max-width: 88vw; text-align: center; }
+			#toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--pass); color: var(--pass-ink); padding: 10px 16px; border-radius: 12px; box-shadow: 0 8px 20px -8px rgba(3, 9, 22, 0.5); font-size: 14px; z-index: 30; max-width: 88vw; text-align: center; }
 		</style>
 
 		<script>
@@ -449,22 +675,27 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { storyProgress } from '../game/core/story.ts';
 			import { guideView, type GuideView } from '../game/core/guide.ts';
 			import { recapFor, recapLog } from '../game/core/recap.ts';
-			import { CHANGELOG, CHANGELOG_LATEST } from '../game/data/changelog.ts';
-			import { NEWS_SEEN_KEY, parseNewsSeen, unseenNews } from '../game/ui/news.ts';
 			import { fmtHalf } from '../game/ui/numfmt.ts';
+			import { defaultAmount, investCard } from '../game/ui/invest.ts';
+			import { holdingsValue } from '../game/core/market.ts';
+			import { setHtml } from '../game/ui/dom.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
+			import { photoHtml } from '../game/ui/char.ts';
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
-			import { codeOf, hashAction, makeQr, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
+			import { codeOf, exportName, hashAction, makeQr, parseCred, parsePendingKey, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, webglSupported, type Basemap } from '../game/ui/basemap.ts';
-			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, animalHint, seasonAnimals, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
+			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, animalHint, seasonAnimals, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, bondFor, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
-			import { CERTS } from '../game/data/certs.ts';
+			import { credentialName, VISA } from '../game/data/education.ts';
+			import { programsAt } from '../game/core/education.ts';
+			import { workMinutesLeft } from '../game/core/visa.ts';
 			import { SERVICE_KM } from '../game/data/vehicles.ts';
 			import { AREAS, EXPERIENCES } from '../game/data/experiences.ts';
 			import { FURNITURE_SLOTS, HOME_COOK } from '../game/data/furniture.ts';
 			import { FINANCE, loanPayment, saleProceeds, weeksToPayOff } from '../game/core/finance.ts';
 			import { dayOf, hoursLabel } from '../game/core/time.ts';
+			import { ITEM_CATS, itemCat, sellItemBlocked, sellPrice, storesOf } from '../game/core/shop.ts';
 			import { checkScore, furnitureSets, moodBreakdown, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
@@ -481,12 +712,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			import { dateLabel, period, PERIOD_IDS, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
 			import { getWish } from '../game/core/wishes.ts';
 			import { achievements, newAchievements } from '../game/core/achievements.ts';
-			import { weatherAt, weatherOn } from '../game/core/weather.ts';
+			import { climateOf, forecast, weatherAt, weatherOn } from '../game/core/weather.ts';
 			import { portraitSvg, ringDash, sceneSvg } from '../game/ui/scene.ts';
+			import { EMPTY_MEDIA, greetHtml, heroHtml, parseMedia, type MediaManifest } from '../game/ui/media.ts';
 			import { addFireSeen, FIRE_SEEN_KEY, fireAgency, fireKey, fireToastText, parseFireSeen } from '../game/ui/alerts.ts';
 			import { fireDanger, fireSeason, hasTide, hhmm, phaseNote, realDateLabel, realDayOfYear, skyPhase, sunTimes, temps, tideNow, uvDay, uvLevel } from '../game/core/sky.ts';
 			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
+			import { energyCap, stress } from '../game/core/vitals.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
 			import { FIX_RULES } from '../game/data/venues.ts';
 			import type { VenueOp } from '../game/core/types.ts';
@@ -529,6 +762,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			const LOC_IDS = new Set(region.locations.map((l) => l.id));
 			const SAVE_KEY = 'earth.save.v1';
 			const CRED_KEY = 'earth.cred.v1';
+			/** 换码进行中的新同步码（第 50 批）：先记下再发请求，回复丢了下次联网补完 */
+			const NEXT_KEY = 'earth.cred.next.v1';
 			const KIND_ICON: Record<string, string> = { city: '🏙️', port: '⚓', island: '🏝️', coast: '🌊', outback: '🏜️', mining: '⛏️', park: '🏞️', town: '🏘️' };
 			// 底部 5 个标签；日志和同步收进「我」。「附近」并进「出行」的分页（页内还是 near），收集和成就单独成「成长」页（第 13 批）
 			const TABS: [string, string, string][] = [
@@ -543,7 +778,6 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			const ME_TABS: [string, string][] = [['overview', '概况'], ['assets', '资产'], ['people', '关系'], ['log', '日志'], ['news', '更新'], ['sync', '设置']];
 			let meTab = 'overview';
 
-			type Cred = { id: string; key: string };
 			type Peer = { id: string; name: string; avatar: string; loc: string };
 			type Chat = { name: string; avatar: string; text: string };
 
@@ -576,6 +810,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return out;
 			}
 			let cgi: Record<string, string> = {};
+			/** AIGC 短片和语音清单（docs/earth-game/aigc-media.md），页面起来后异步拉取；拉不到就一直是空的，全部退回静态图和文字 */
+			let media: MediaManifest = EMPTY_MEDIA;
+			let voicePlayer: HTMLAudioElement | null = null;
 			let ws: WebSocket | null = null;
 			/** 在线频道连的是哪个区域 */
 			let wsArea = '';
@@ -594,6 +831,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			const store = {
 				get(k: string) { try { return localStorage.getItem(k); } catch { return null; } },
 				set(k: string, v: string) { try { localStorage.setItem(k, v); } catch {} },
+				del(k: string) { try { localStorage.removeItem(k); } catch {} },
 			};
 			// 本机显示设置（第 28 轮）：动画、字号、提示开关
 			let prefs: Prefs = parsePrefs(store.get(PREFS_KEY), { big: store.get(LEGACY_BIG_KEY) });
@@ -653,7 +891,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let boardLoading = false;
 			let boardError = '';
 			async function loadBoard(force = false) {
-				if (!cred || boardLoading || (!force && Date.now() - boardAt < 60_000)) return;
+				if (!cred || credBad || boardLoading || (!force && Date.now() - boardAt < 60_000)) return;
 				boardLoading = true;
 				try {
 					const { data } = await api({ action: 'board', id: cred.id, key: cred.key });
@@ -694,7 +932,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				coopHintTimer = setTimeout(() => { coopHintTimer = 0; loadCoop(true); }, Math.max(300, 3000 - (Date.now() - coopAt)));
 			}
 			async function loadCoop(force = false) {
-				if (!cred || !state || coopLoading || (!force && Date.now() - coopAt < 15_000)) return;
+				if (!cred || !state || credBad || coopLoading || (!force && Date.now() - coopAt < 15_000)) return;
 				coopLoading = true;
 				try {
 					const { data } = await api({ action: 'coop', op: 'list', id: cred.id, key: cred.key });
@@ -751,7 +989,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (gone) pullCloud(); // 可能是过期撤下，也可能被拿走了：以服务端存档为准
 			}
 			async function loadTrade(force = false) {
-				if (!cred || !state || tradeLoading || (!force && Date.now() - tradeAt < 15_000)) return;
+				if (!cred || !state || credBad || tradeLoading || (!force && Date.now() - tradeAt < 15_000)) return;
 				tradeLoading = true;
 				try {
 					const { data } = await api({ action: 'trade', op: 'list', id: cred.id, key: cred.key });
@@ -801,7 +1039,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let weekAt = 0;
 			let weekLoading = false;
 			async function loadWeek(force = false) {
-				if (!cred || !state || weekLoading || (!force && Date.now() - weekAt < 60_000)) return;
+				if (!cred || !state || credBad || weekLoading || (!force && Date.now() - weekAt < 60_000)) return;
 				weekLoading = true;
 				try {
 					const { data } = await api({ action: 'weekly', op: 'status', id: cred.id, key: cred.key });
@@ -843,13 +1081,18 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let notesAt = 0;
 			let notesLoading = false;
 			async function loadNotes(force = false) {
-				if (!cred || !state || notesLoading || (!force && notesLoc === state.loc && Date.now() - notesAt < 30_000)) return;
+				if (!cred || !state || credBad || notesLoading || (!force && notesLoc === state.loc && Date.now() - notesAt < 30_000)) return;
 				notesLoading = true;
 				const loc = state.loc;
 				try {
 					const { data } = await api({ action: 'notes', op: 'list', id: cred.id, key: cred.key });
-					if (Array.isArray(data?.notes)) { notesList = data.notes.slice(0, NOTES_PER_LOC); notesLoc = loc; }
-				} catch {}
+					if (Array.isArray(data?.notes)) notesList = data.notes.slice(0, NOTES_PER_LOC);
+					else if (notesLoc !== loc) notesList = [];
+				} catch {
+					if (notesLoc !== loc) notesList = [];
+				}
+				// 失败（断网、限流、同步码失效）也记下这次试过的地点：不然下面重画时又立刻再拉，变成请求死循环（第 50 批审查问题 10）
+				notesLoc = loc;
 				notesAt = Date.now();
 				notesLoading = false;
 				if (tab === 'place') renderPanel();
@@ -902,11 +1145,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			/** 每发一次同步请求加一：只有最后发出的那次能采用结果 */
 			let pullSeq = 0;
 			async function pullCloud() {
-				if (!cred || syncing) return;
+				if (!cred || syncing || credBad) return;
+				// 上次换码的回复没收到：先把换码补完，不然拿旧码去读会被拒
+				const pend = parsePendingKey(readJson(NEXT_KEY), cred);
+				if (pend && !(await finishRekey(pend, true))) return;
 				const gen = actGen;
 				const seq = ++pullSeq;
 				try {
-					const { data } = await api({ action: 'get', id: cred.id, key: cred.key });
+					const { status, data } = await api({ action: 'get', id: cred.id, key: cred.key });
+					if (status === 403) { await onBadKey(); return; }
 					// 同步请求在路上时玩家做了动作：这份存档可能比动作的结果旧，采用了会把进度倒回去、下一个动作版本冲突被丢掉
 					// 后面又发了同步：先发的可能后到，带回的是更旧的存档，只认最后一次
 					if (seq !== pullSeq || gen !== actGen || busy) return;
@@ -923,6 +1170,102 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 				if (tab === 'me') renderPanel();
 				else renderHud();
+			}
+
+			// ---------- 同步码管理（第 50 批）：换码、失效、导出、删除账号 ----------
+			/** 同步码被服务器拒绝（在别的设备换过、或账号已删除）：不再发动作，等玩家输入新码 */
+			let credBad = false;
+			function readJson(k: string): unknown { try { return JSON.parse(store.get(k) || 'null'); } catch { return null; } }
+			/** 把换码做完：成功后本机改用新码，旧码、旧二维码作废。quiet：后台补完时不弹失败提示 */
+			async function finishRekey(next: Cred, quiet = false): Promise<boolean> {
+				if (!cred || next.id !== cred.id) { store.del(NEXT_KEY); return false; }
+				try {
+					const { status, data } = await api({ action: 'rekey', id: cred.id, key: cred.key, newKey: next.key });
+					if (data?.ok) {
+						cred = next;
+						store.set(CRED_KEY, JSON.stringify(next));
+						store.del(NEXT_KEY);
+						credBad = false;
+						qrHtml = '';
+						if (data.state) adopt(data.state);
+						toast('同步码已更换：旧的同步码和二维码已失效，其他设备要输入新码');
+						render();
+						return true;
+					}
+					// 旧码、新码服务器都不认：别的设备又换过了。这次的新码作废
+					if (status === 403) { store.del(NEXT_KEY); credBad = true; syncStatus = '同步码已失效：在「我 · 设置」输入新的同步码'; render(); return false; }
+					if (!quiet) toast(data?.msg || '更换失败');
+				} catch {
+					if (!quiet) toast('网络断开了：联网后会自动把更换做完');
+				}
+				return false;
+			}
+			async function rekey() {
+				if (!cred || !state || busy || flushing || syncing || credBad) return;
+				if (!confirm('更换同步码后，旧的同步码和二维码立即失效；你的其他设备要输入新码才能继续玩。确定更换？')) return;
+				const next = { id: cred.id, key: randId(24) };
+				store.set(NEXT_KEY, JSON.stringify(next));
+				await finishRekey(next);
+			}
+			async function onBadKey() {
+				const pend = parsePendingKey(readJson(NEXT_KEY), cred);
+				if (pend && (await finishRekey(pend, true))) return;
+				credBad = true;
+				syncStatus = '同步码已失效：在「我 · 设置」输入新的同步码';
+				toast('这台设备的同步码已失效（可能在另一台设备更换过）：到「我 · 设置」输入新的同步码');
+				render();
+			}
+			/** 同步码失效后输入新码：必须是同一个角色，服务器认了才换 */
+			async function recode() {
+				const c = parseSyncCode(($('s-code') as HTMLInputElement).value);
+				if (!c) return toast('同步码格式不对');
+				if (!cred || c.id !== cred.id) return toast('这是另一个角色的同步码：先「删除本机存档」，再用它恢复');
+				try {
+					const { data } = await api({ action: 'get', id: c.id, key: c.key });
+					if (!data?.ok) return toast(data?.msg || '同步码不对');
+					const clean = cloudSave(data.state, c.id);
+					if (!clean) return toast('云端存档已损坏');
+					cred = c;
+					store.set(CRED_KEY, JSON.stringify(c));
+					store.del(NEXT_KEY);
+					credBad = false;
+					adopt(clean, '同步码已更新');
+					render();
+					void flushQueue();
+				} catch { toast('网络错误，请稍后再试'); }
+			}
+			/** 导出服务器上我的全部数据（JSON 文件，不含同步码） */
+			async function exportSave() {
+				if (!cred || credBad) return;
+				try {
+					const { data } = await api({ action: 'export', id: cred.id, key: cred.key });
+					if (!data?.ok || !data.export) return toast(data?.msg || '导出失败');
+					const d = document as unknown as { createElement?: (t: string) => any; body: { appendChild?: (e: unknown) => void } };
+					const U = (globalThis as { URL?: { createObjectURL?: (b: Blob) => string; revokeObjectURL?: (u: string) => void } }).URL;
+					if (typeof d.createElement !== 'function' || typeof U?.createObjectURL !== 'function') return toast('这个浏览器不支持下载文件');
+					const url = U.createObjectURL(new Blob([JSON.stringify(data.export, null, 2)], { type: 'application/json' }));
+					const a = d.createElement('a');
+					a.href = url;
+					a.download = exportName(data.export.exportedAt);
+					d.body.appendChild?.(a);
+					a.click();
+					a.remove?.();
+					setTimeout(() => U.revokeObjectURL?.(url), 1000);
+					toast('已导出存档（文件里没有同步码）');
+				} catch { toast('导出需要联网'); }
+			}
+			/** 本机保存的这个角色的一切：存档缓存、凭证、排队、换码中的新码 */
+			function wipeLocal() { for (const k of [SAVE_KEY, CRED_KEY, QUEUE_KEY, NEXT_KEY]) store.del(k); }
+			async function deleteAccount() {
+				if (!cred || !state || busy || flushing || syncing || credBad) return;
+				if (!confirm(`删除账号「${state.name}」？云端存档、排行榜记录和你贴的留言会全部删除，所有设备都找不回来。建议先「导出存档」。`)) return;
+				if (!confirm('再确认一次：删除后不能恢复。')) return;
+				try {
+					const { data } = await api({ action: 'delete', id: cred.id, key: cred.key, confirm: 'delete' });
+					if (!data?.ok) return toast(data?.msg || '删除失败');
+					wipeLocal();
+					location.reload();
+				} catch { toast('删除账号需要联网'); }
 			}
 
 			// ---------- 在线状态 ----------
@@ -1026,13 +1369,17 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				flushing = true;
 				const pruned = parseQueue(queueJson(cred.id, queue), cred.id, Date.now());
 				queue = pruned.items;
-				let done = 0, cancelled = 0;
+				let done = 0, cancelled = 0, retried = 0;
 				let failed: { label: string; msg: string } | undefined;
+				let retriedOp = '';
 				try {
 					while (queue.length) {
 						const it = queue[0];
 						const r = await actOnce(it.act, it.op, true);
 						if (r.kind === 'offline' || r.kind === 'skip') break; // 又断网了：留着下次再交
+						// 版本冲突：补交途中另一台设备动过存档。冲突的回复已经带回最新存档，用同一个动作编号按新版本重交一次
+						// （服务器按编号去重，不会做两遍）；同一个动作再冲突才算没通过
+						if (r.kind === 'conflict' && retriedOp !== it.op) { retriedOp = it.op; retried++; continue; }
 						queue = queue.slice(1);
 						if (r.kind === 'ok') { done++; continue; }
 						failed = { label: it.label, msg: r.msg };
@@ -1043,7 +1390,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					flushing = false;
 					saveQueue();
 				}
-				const msg = flushSummary({ done, failed, cancelled, expired: pruned.expired });
+				const msg = flushSummary({ done, failed, cancelled, expired: pruned.expired, retried });
 				if (msg) toast(msg);
 				render();
 			}
@@ -1056,6 +1403,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 
 			async function act(a: GameAction): Promise<{ ok: boolean; msg: string } | null> {
 				if (!state || !cred || busy || flushing || syncing) return null;
+				if (credBad) { toast('这台设备的同步码已失效：到「我 · 设置」输入新的同步码'); return null; }
 				// 这个动作的编号：断网后排队、补交都沿用它，服务器已经结算过的不会再做一次
 				const op = newOp();
 				// 还有排队的：先补交，保证顺序；补交不了（还离线）就接着排
@@ -1069,10 +1417,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (r.kind === 'offline') return queueUp(a, op);
 				return null;
 			}
-			type Sent = { kind: 'ok'; msg: string } | { kind: 'fail'; msg: string } | { kind: 'offline' } | { kind: 'skip' };
+			type Sent = { kind: 'ok'; msg: string } | { kind: 'fail'; msg: string } | { kind: 'conflict'; msg: string } | { kind: 'offline' } | { kind: 'skip' };
 			/** 发一个动作给服务器结算。quiet：补交时不逐个弹失败提示（最后汇总） */
 			async function actOnce(a: GameAction, op: string, quiet = false): Promise<Sent> {
-				if (!state || !cred || busy || syncing) return { kind: 'skip' };
+				if (!state || !cred || busy || syncing || credBad) return { kind: 'skip' };
 				busy = true;
 				actGen++;
 				document.body.classList.add('busy');
@@ -1080,7 +1428,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const before = state;
 				try {
 					const { status, data } = await api({ action: 'act', id: cred.id, key: cred.key, rev: before.rev, act: a, op });
-					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, quiet ? undefined : data.msg); render(); return { kind: 'fail', msg: data.msg || '存档版本变了' }; }
+					// 同步码在别的设备换过了：这台设备的动作一个都交不上，排队的留着，等输入新码后再补交
+					if (status === 403) { await onBadKey(); return { kind: 'skip' }; }
+					if (status === 409 && data.state) { lastDelta = []; adopt(data.state, quiet ? undefined : data.msg); render(); return { kind: 'conflict', msg: data.msg || '存档版本变了' }; }
 					if (data.state) adopt(data.state);
 					// 只有返回的正好是动作前那一版的下一版，变化才是这个动作带来的
 					if (data.ok && state && state.rev === nextRev(before.rev)) {
@@ -1174,7 +1524,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					top = `<div class="scene">${sceneSvg({ phase: skyPhase(loc, s.clock), weather: w.id, kind: loc.kind, tags: loc.tags })}
 						<div class="scene-top">${lvPlate}<div class="scene-right">${cash}
 						<span class="wx-pill${w.closesSea ? ' storm' : ''}">${w.icon} ${esc(w.name)} ${temps(loc, s.clock, w.id).max}°${w.closesSea ? ' · 海上关闭' : ''}</span></div></div>
-						<div class="plate"><h1>${esc(loc.name)}</h1><small title="${formatClock(s.clock)}">${time}</small></div>${thought}</div>
+						<div class="plate"><h1>${esc(loc.name)}</h1><span class="en" lang="en">${esc(loc.en)}</span><small title="${formatClock(s.clock)}">${time}</small></div>${thought}</div>
 						<div class="hud-chips"><span class="chip">${esc(role)}</span>${starHtml}${fireChip(s)}${uvChip(s)}${moodBtn}${sync}</div>`;
 				} else {
 					// 其他页：副标题 + 页名；右边现金和心情，下面一条迷你需求条
@@ -1194,7 +1544,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 				const offline = syncStatus.startsWith('离线') ? `现在离线：可以查看；做事、出行等可以先排队，联网后自动补交${queue.length ? `（已排 ${queue.length} 个）` : ''}` : queue.length ? `有 ${queue.length} 个排队的动作等着补交` : '';
 				$('hud').classList.toggle('scened', tab === 'place');
-				$('hud').innerHTML = `${top}${offline ? `<div class="offline" role="status">${offline}</div>` : ''}`;
+				setHtml($('hud'), `${top}${offline ? `<div class="offline" role="status">${offline}</div>` : ''}`);
 			}
 
 			/** 玩家所在的区域（地图按它画）；还没有角色时用第一个区域 */
@@ -1256,7 +1606,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				map.setAttribute('aria-label', `${area.name}地图：点地点看去那里的走法；下面的列表是同样的内容`);
 				map.setAttribute('viewBox', `0 0 ${proj.width} ${proj.height}`);
 				const stars = skyPhase(getLocation(region, s.loc)!, s.clock) === 'night' ? starField(proj.width, proj.height) : '';
-				map.innerHTML = `${stars}<polygon class="land" points="${outline}"/>${routes}${exits}${dots}`;
+				setHtml(map, `${stars}<polygon class="land" points="${outline}"/>${routes}${exits}${dots}`);
 				renderBasemap(s, counts);
 			}
 
@@ -1311,7 +1661,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 
 			function hero(key: string, fallback: string) {
-				return `<div class="hero">${cgi[key] ? `<img src="${esc(cgi[key])}" alt="" loading="lazy" />` : fallback}</div>`;
+				return heroHtml(esc, media.loc[key], cgi[key], fallback);
 			}
 
 			const minutesLabel = (m: number) => (m >= 60 ? (m / 60).toFixed(m % 60 ? 1 : 0) + ' 小时' : m + ' 分钟');
@@ -1395,7 +1745,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				else if (canWork) { title = '该上班了'; text = '状态不错，正好在工作的地方'; btn = '上班'; attr = 'data-job="work"'; }
 				else if (wishAct) { title = '完成一个心愿'; text = `「${esc(wishAct.w!.text)}」在这里就能做到`; suggestAct(wishAct.act!); }
 				else { title = '状态不错'; text = s.wishes.length ? `今天还有 ${s.wishes.length} 个心愿没完成` : '出去走走，看看会遇到什么'; btn = '去出行'; attr = 'data-tab="go"'; }
-				return `<div class="next"><span class="lbl">下一步</span><h2>${title}</h2><p>${text}</p><button ${attr}>${btn}</button></div>`;
+				return `<div class="next"><span class="lbl">下一步<i lang="en" aria-hidden="true">NEXT</i></span><h2>${title}</h2><p>${text}</p><button ${attr}>${btn}</button></div>`;
 			}
 
 			// 新手指南（第 26 轮）：前三天分步解开，做到了自动打勾；点「知道了」或在设置里关掉后不再显示（只记在本机）
@@ -1517,7 +1867,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const peopleHtml = people.length || absent.length ? `<div class="card"><h3>这里的人</h3>${people.map(({ npc, rel, tier, blocked, nextStory }) => `
 					<div class="npc-talk"><div class="npc-head">${portraitSvg(npc.id)}<div class="npc-name"><b>${esc(npc.name)}</b><small>${esc(npc.role)}</small></div>
 					<div class="npc-rel"><small>${tier} · ${Math.round(rel.score)}/100</small><div class="bar" role="progressbar" aria-label="和${esc(npc.name)}的关系" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(rel.score)}"><i style="width:${Math.round(Math.max(0, Math.min(100, rel.score)))}%"></i></div></div></div>
-					<p class="bubble">${esc(npc.bio)}</p>
+					<p class="bubble">${esc(npc.bio)}</p>${greetHtml(esc, npc.id, npc.name, media.voice[npc.id])}
 					<div class="inline talk-choices">${(['chat', 'help'] as const).map((a) => `<button data-npc="${npc.id}" data-npc-act="${a}" ${blocked[a] ? `disabled title="${esc(blocked[a])}"` : ''}>${{ chat: '聊天', help: '帮忙' }[a]}</button>`).join('')}${npc.perk ? `<button data-npc="${npc.id}" data-npc-act="perk" ${blocked.perk ? `disabled title="${esc(blocked.perk)}"` : ''}>✨ ${esc(npc.perk.name)}</button>` : ''}</div>
 					${bagIds.length ? `<div class="inline" style="margin-top:6px"><span class="muted">送礼：</span>${bagIds.map((id) => `<button data-npc="${npc.id}" data-npc-act="gift" data-npc-item="${id}" ${blocked.gift ? `disabled title="${esc(blocked.gift)}"` : ''}>${getItem(id)!.icon} ${esc(getItem(id)!.name)}${giftLabel(npc.id, id)}</button>`).join('')}</div>` : ''}
 					${Object.values(blocked).some(Boolean) ? `<p style="margin-top:4px">${esc([...new Set(Object.values(blocked).filter(Boolean))].join('；'))}</p>` : ''}
@@ -1528,7 +1878,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const workHere = job && job.loc === loc.id && career;
 				const offers = careersAt(s, region).filter((o) => !(workHere && o.career.id === job!.career));
 				const shiftWhy = shiftBlocked(s);
-				const workHtml = workHere || offers.length ? `<div class="card"><h3>工作</h3>
+				const visaLeft = workMinutesLeft(s);
+				const visaHtml = visaLeft === null ? '' : `<p class="muted" style="margin-top:4px">🎓 学生签证学期内：这两周还能打工 ${Math.round(visaLeft / 6) / 10} / ${VISA.capHours} 小时</p>`;
+				const workHtml = workHere || offers.length ? `<div class="card"><h3>工作</h3>${visaHtml}
 					${workHere ? `<div class="row" style="margin-top:8px"><span class="body">${esc(career!.name)} · ${esc(career!.levels[job!.level].title)}<small>每班 $${careerPay(s, job!.career, job!.level)}${certBonus(s, job!.career) ? `（含证书 +${Math.round(certBonus(s, job!.career) * 100)}%）` : ''} · ${Math.round(career!.minutes / 60)} 小时 · ${hoursLabel(career!.start)} 开工</small></span><button class="primary" data-job="work" ${shiftWhy ? 'disabled' : ''}>上班</button></div>${shiftWhy ? `<p style="margin-top:4px">${esc(shiftWhy)}</p>` : ''}` : ''}
 					${offers.map(({ career: c, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(c.name)} · 招${esc(c.levels[0].title)}<small>${esc(blocked ?? `每班 $${careerPay(s, c.id, 0)}，最高可升到${c.levels[c.levels.length - 1].title}`)}</small></span><button data-job="apply" data-career="${c.id}" ${blocked ? 'disabled' : ''}>${job ? '跳槽' : '应聘'}</button></div>`).join('')}</div>` : '';
 				const homeHere = s.home && s.home.loc === loc.id ? getHome(s.home.type) : undefined;
@@ -1536,13 +1888,13 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const cookWhy = homeActionBlocked(s, 'cook');
 				const relaxWhy = homeActionBlocked(s, 'relax');
 				const homeHtml = homeHere || rentals.length ? `<div class="card"><h3>住处</h3>
-					${homeHere ? `<div class="row" style="margin-top:8px"><span class="body">你的${esc(homeHere.name)}<small>${s.home!.owned ? '自有房产，不交房租' : `每周 $${homeHere.rentWeek}`} · ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算 · 心情 +${homeComfort(s)}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>
+					${homeHere ? `<div class="row" style="margin-top:8px"><span class="body">你的${esc(homeHere.name)}<small>${s.home!.owned ? '自有房产，不交房租' : `每周 $${homeHere.rentWeek}${s.home!.bond ? `，押金 $${s.home!.bond}` : ''}`} · ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算 · 心情 +${homeComfort(s)}</small></span><button class="primary" data-home="sleep">回家睡觉</button></div>
 					<div class="inline" style="margin-top:8px"><button data-home="cook" ${cookWhy ? 'disabled' : ''}>做饭 $${HOME_COOK.cost}</button><button data-home="relax" ${relaxWhy ? 'disabled' : ''}>放松</button></div>
 					${cookWhy || relaxWhy ? `<p style="margin-top:4px">${esc([...new Set([cookWhy, relaxWhy].filter(Boolean))].join('；'))}</p>` : ''}
 					<details style="margin-top:8px"><summary class="muted">添置家具（已有 ${Object.keys(s.home!.furniture).length}/${Object.keys(FURNITURE_SLOTS).length} 类，折现值 $${furnitureValue(s)}）</summary>
 					${furnitureAt(s).map(({ item, owned, net, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${owned ? '✅ ' : ''}${esc(FURNITURE_SLOTS[item.slot])} · ${esc(item.name)}<small>${esc(item.desc)}${!owned && net !== item.price ? ` 换购价 $${net}` : ''}</small></span>${owned ? `<button data-furn="sell" data-slot="${item.slot}">卖</button>` : `<button data-furn="buy" data-furn-id="${item.id}" ${blocked ? 'disabled' : ''}>$${item.price}</button>`}</div>`).join('')}
 					<p style="margin-top:8px" class="muted">成套摆放有额外心情：${furnitureSets(s).map(({ set, have, done }) => `${done ? '✅ ' : ''}${esc(set.name)}（${set.items.map((id) => esc(getFurniture(id)?.name ?? id)).join(' + ')}，${have}/${set.items.length}，心情 +${set.comfort}）`).join('；')}</p></details>` : ''}
-					${rentals.filter((o) => !(homeHere && o.home.id === s.home!.type)).map(({ home, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(home.name)} · $${home.rentWeek}/周<small>${esc(blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}`)}</small></span><button data-home="rent" data-home-id="${home.id}" ${blocked ? 'disabled' : ''}>${s.home ? '搬来' : '租下'}</button></div>`).join('')}</div>` : '';
+					${rentals.filter((o) => !(homeHere && o.home.id === s.home!.type)).map(({ home, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${esc(home.name)} · $${home.rentWeek}/周<small>${esc(blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}${bondFor(home) ? ` + 押金 $${bondFor(home)}（搬走时退）` : ''}`)}</small></span><button data-home="rent" data-home-id="${home.id}" ${blocked ? 'disabled' : ''}>${s.home ? '搬来' : '租下'}</button></div>`).join('')}</div>` : '';
 				const myVeh = getVehicle(s.vehicle);
 				const exps = experiencesAt(s, region);
 				const expHtml = exps.length ? `<div class="card"><h3>体验</h3>${exps.map(({ exp, first, blocked }) => `
@@ -1550,6 +1902,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const certs = certsAt(s, region);
 				const certHtml = certs.length ? `<div class="card"><h3>职业证书</h3><p>考到证后，对应职业每个班的工资上涨；证书跟人走，换工作不丢。</p>${certs.map(({ cert, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="body">${s.certs.includes(cert.id) ? '✅ ' : ''}${esc(cert.name)} · $${cert.price}<small>${esc(blocked ?? `${getCareer(cert.career)?.name ?? ''}工资 +${Math.round(cert.payBonus * 100)}% · ${Math.round(cert.minutes / 60 * 10) / 10} 小时 · ${cert.desc}`)}</small></span><button data-cert="${cert.id}" ${blocked ? 'disabled' : ''}>报名</button></div>`).join('')}</div>` : '';
+				const programs = programsAt(s, region);
+				const KIND_LABEL = { language: '语言班', tafe: 'TAFE', uni: '大学' } as const;
+				const studyHtml = programs.length ? `<div class="card"><h3>🎓 学历课程</h3><p>分多次上完，每天每门一次；毕业拿学历和声望。</p>${programs.map(({ program: p, done, blocked }) => `
+					<div class="row" style="margin-top:8px"><span class="body">${s.certs.includes(p.award) ? '✅ ' : ''}${esc(p.name)} · $${p.fee}/次<small>${esc(KIND_LABEL[p.kind])} · 进度 ${done}/${p.sessions} · ${esc(blocked ?? `每次 ${Math.round(p.minutes / 60 * 10) / 10} 小时 · 毕业声望 +${p.respect} · ${p.desc}`)}</small></span><button data-study="${esc(p.id)}" ${blocked ? 'disabled' : ''}>${done ? '上课' : '报名'}</button></div>`).join('')}</div>` : '';
 				const facts = placeFacts(s, loc.id);
 				const factHtml = facts.length ? `<details class="card"><summary><b>📖 ${esc(loc.name)}小知识 ${facts.filter((f) => f.unlocked).length}/${facts.length}</b></summary>${facts.map(({ fact, unlocked }, i) => unlocked
 					? `<p style="margin-top:8px">${esc(fact.text)} <a class="muted" href="${esc(fact.source)}" target="_blank" rel="noopener">来源</a></p>`
@@ -1586,16 +1942,16 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<div style="margin-top:10px"><div class="row"><span class="body">${owned ? '🔑 ' : ''}${esc(pr.name)} · $${pr.price.toLocaleString()}<small>${esc(pr.desc)} 物业费 $${pr.weekly}/周，出租 $${pr.rentIncome}/周。</small></span></div>
 					${owned ? '<p style="margin-top:4px">已是你的房产，在「角色」页管理。</p>' : `<div class="inline" style="margin-top:6px"><button data-prop="buy" data-prop-id="${pr.id}" ${blockedCash ? 'disabled' : ''}>全款买</button><button data-prop="buyloan" data-prop-id="${pr.id}" ${blockedLoan ? 'disabled' : ''}>贷款买（首付 $${down.toLocaleString()}）</button></div>
 					<p style="margin-top:4px">${esc(blockedLoan ?? `贷款 $${(pr.price - down).toLocaleString()}，每周还约 $${loanPayment(pr, pr.price - down)}，约 ${weeksToPayOff(pr, pr.price - down)} 周还清。`)}</p>`}</div>`).join('')}</div>` : '';
-				const dealerHtml = dealer.length ? `<div class="card"><h3>车行</h3>${myVeh ? `<p>你的${esc(myVeh.name)}可折抵 $${resaleValue(myVeh.id)}</p>` : ''}${dealer.map(({ vehicle, net, blocked }) => `
-					<div class="row" style="margin-top:8px"><span class="ico">${vehicle.icon}</span><span class="body">${esc(vehicle.name)} · $${vehicle.price.toLocaleString()}<small>${esc(blocked ?? `${vehicle.desc}${myVeh ? ` 折抵后付 $${net.toLocaleString()}` : ''}`)}</small></span><button data-veh="buy" data-veh-id="${vehicle.id}" ${blocked ? 'disabled' : ''}>${myVeh ? '换' : '买'}</button></div>`).join('')}
-					${myVeh ? (() => { const why = sellBlocked(s); return `<div class="inline" style="margin-top:8px"><button data-veh="sell" ${why ? 'disabled' : ''}>卖掉${esc(myVeh.name)}（$${resaleValue(myVeh.id)}）</button></div>${why && !why.includes('营业') ? `<p style="margin-top:4px">${esc(why)}</p>` : ''}`; })() : ''}</div>` : '';
+				const dealerHtml = dealer.length ? `<div class="card"><h3>车行</h3>${myVeh ? `<p>你的${esc(myVeh.name)}可折抵 $${resaleValue(myVeh.id, s.car.km)}</p>` : ''}${dealer.map(({ vehicle, duty, net, blocked }) => `
+					<div class="row" style="margin-top:8px"><span class="ico">${vehicle.icon}</span><span class="body">${esc(vehicle.name)} · $${vehicle.price.toLocaleString()}<small>${esc(blocked ?? `${vehicle.desc}${duty ? ` 过户印花税 $${duty.toLocaleString()}。` : ''}${myVeh ? ` 折抵后付 $${net.toLocaleString()}` : ''}`)}</small></span><button data-veh="buy" data-veh-id="${vehicle.id}" ${blocked ? 'disabled' : ''}>${myVeh ? '换' : '买'}</button></div>`).join('')}
+					${myVeh ? (() => { const why = sellBlocked(s); return `<div class="inline" style="margin-top:8px"><button data-veh="sell" ${why ? 'disabled' : ''}>卖掉${esc(myVeh.name)}（$${resaleValue(myVeh.id, s.car.km)}）</button></div>${why && !why.includes('营业') ? `<p style="margin-top:4px">${esc(why)}</p>` : ''}`; })() : ''}</div>` : '';
 				const garage = garageAt(s, region);
 				const garageHtml = garage ? `<div class="card"><h3>修车厂</h3><div class="row" style="margin-top:8px"><span class="body">给${esc(myVeh!.name)}做保养 · $${garage.price}<small>${esc(garage.blocked ?? `离上次保养 ${s.car.since.toLocaleString()} 公里；超过 ${SERVICE_KM.toLocaleString()} 公里后路上可能抛锚`)}</small></span><button data-veh="service" ${garage.blocked ? 'disabled' : ''}>保养</button></div></div>` : '';
 				const vanHtml = myVeh?.sleep ? `<button class="row" data-veh="sleep"><span class="ico">${myVeh.icon}</span><span class="body">在${esc(myVeh.name)}里睡一觉<small>免费，开到哪睡到哪</small></span></button>` : '';
 				const shop = shopAt(s, region);
-				const shopHtml = shop.length ? `<div class="card"><h3>商店</h3><div class="list" style="margin-top:8px">${shop.map(({ item, price, blocked }) => `
+				const shopHtml = shop.length ? `<div class="card"><h3>商店</h3><div class="list" style="margin-top:8px">${shop.map(({ item, price, markdown, blocked }) => `
 					<button class="row" data-buy="${item.id}" ${blocked ? 'disabled' : ''}><span class="ico">${item.icon}</span>
-					<span class="body">${esc(item.name)}${s.inventory[item.id] ? ` ×${s.inventory[item.id]}` : ''}<small>${esc(blocked ?? item.desc)}</small></span><span class="meta">$${price}</span></button>`).join('')}</div></div>` : '';
+					<span class="body">${esc(item.name)}${s.inventory[item.id] ? ` ×${s.inventory[item.id]}` : ''}<small>${esc(ITEM_CATS[itemCat(item)])}${storesOf(item).length ? ` · ${esc(storesOf(item).map((x) => x.name).join('、'))}有卖` : ''} · ${esc(blocked ?? item.desc)}</small></span><span class="meta">${markdown ? `🏷️ <s>$${Math.round(item.price)}</s> ` : ''}$${price}</span></button>`).join('')}</div></div>` : '';
 				// 风暴天这里的海上活动做不了：和海上活动有关的心愿给个提示（去别处海边还能完成）
 				const seaClosed = weatherAt(s).closesSea;
 				const seaWish = (id: string) => { const w = getWish(id); return !!w && w.done.t === 'activity' && w.done.ids.some((a) => ACTIVITIES.find((x) => x.id === a)?.exposed === 'sea'); };
@@ -1615,12 +1971,19 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					${guideCard(s)}
 					<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
 						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
-						<p style="margin-top:6px">今天${weatherAt(s).icon} ${esc(weatherAt(s).name)}：${esc(weatherAt(s).desc)} 明天${weatherOn(s.loc, dayOf(s.clock) + 1).icon} ${esc(weatherOn(s.loc, dayOf(s.clock) + 1).name)}。</p>
+						<p style="margin-top:6px">今天${weatherAt(s).icon} ${esc(weatherAt(s).name)}：${esc(weatherAt(s).desc)} 明后天${forecast(s.loc, dayOf(s.clock) + 1, 2).map((w) => `${w.icon} ${esc(w.name)}`).join('，')}。</p>
+						${climateLine(s.loc)}
 						${lastOutcome ? `<p style="margin-top:8px;color:var(--text)">💡 ${esc(lastOutcome)}</p>` : ''}
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${petHtml}${courseHtml}${certHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${petHtml}${courseHtml}${certHtml}${studyHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+			}
+
+			/** 地点卡里的一行气候说明：气候区 + 参照的气象站（第 30 批） */
+			function climateLine(locId: string) {
+				const c = climateOf(locId);
+				return `<p class="muted" style="margin-top:4px">气候：${esc(c.zoneName)}。${esc(c.zoneDesc)}（概率参照澳洲气象局${esc(c.station)}站的多年平均）</p>`;
 			}
 
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
@@ -1630,7 +1993,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const chosen = (destMode?.dest === destId && open.find((o) => o.mode === destMode!.mode)) || cheapest;
 				const tiles = ways.map((o) => {
 					const on = o === chosen;
-					return `<button class="tile${on ? ' on' : ''}" data-dmode="${o.mode}" data-dest="${destId}" aria-pressed="${on}" ${o.available ? '' : 'disabled'}><b>${o.label}</b><small>$${o.cost} · ${minutesLabel(o.minutes)}</small>${o.reason ? `<small>${esc(o.reason)}</small>` : ''}</button>`;
+					return `<button class="tile${on ? ' on' : ''}" data-dmode="${o.mode}" data-dest="${destId}" aria-pressed="${on}" ${o.available ? '' : 'disabled'}><b>${esc(o.label)}</b><small>$${o.cost} · ${minutesLabel(o.minutes)}</small>${o.reason ? `<small>${esc(o.reason)}</small>` : o.note ? `<small>${esc(o.note)}</small>` : ''}</button>`;
 				}).join('');
 				if (!chosen) return `<div class="tiles">${tiles}</div>`;
 				const left = s.cash - chosen.cost;
@@ -1677,10 +2040,10 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const cross = toArea && toArea.id !== curArea().id ? `去${esc(toArea.name)} · ` : '';
 					return `<button class="row${selected === o.to ? ' sel' : ''}${fresh && o.available ? ' new' : ''}" data-go="${o.to}" data-mode="${o.mode}" ${o.available ? '' : 'disabled'}>
 						<span class="ico">${KIND_ICON[to.kind]}</span>
-						<span class="body">${esc(to.name)} <span title="今天的天气">${weatherOn(o.to, dayOf(s.clock)).icon}</span><small>${cross}${fresh ? '没去过 · ' : ''}${o.label} · ${o.km} km${o.reason ? ' · ' + esc(o.reason) : ''}${tight ? ` · <span class="warn-text">去了周结算会不够（要付 $${wcGo.total}）</span>` : ''}</small></span>
+						<span class="body">${esc(to.name)} <span title="今天的天气">${weatherOn(o.to, dayOf(s.clock)).icon}</span><small>${cross}${fresh ? '没去过 · ' : ''}${esc(o.label)} · ${o.km} km${o.reason ? ' · ' + esc(o.reason) : o.note ? ' · ' + esc(o.note) : ''}${tight ? ` · <span class="warn-text">去了周结算会不够（要付 $${wcGo.total}）</span>` : ''}</small></span>
 						<span class="meta"><b>$${o.cost}</b>${h ? h + ' 小时 ' : ''}${m} 分</span></button>`;
 				}).join('');
-				return `${note}<p class="section-title">从${esc(getLocation(region, s.loc)!.name)}出发</p><div class="list">${rows}</div><p class="muted">点地图上的地点可以高亮对应路线。虚线是航班，长虚线是越野土路（需四驱），橙色点是没去过的地方。</p>`;
+				return `${note}<p class="section-title">从${esc(getLocation(region, s.loc)!.name)}出发</p><div class="list">${rows}</div><p class="muted">点地图上的地点可以高亮对应路线。虚线是航班，长虚线是越野土路（需四驱），橙色点是没去过的地方。公交、火车和步行不画在地图上，列在下面；票价照真实票价表，四舍五入到整元。</p>`;
 			}
 
 			/** 出行页顶上的分页：路线（地图）和附近（真实地点）；附近原来是单独的底部标签 */
@@ -1697,7 +2060,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const trainers = (k: (typeof SKILL_KEYS)[number]) => ACTIVITIES.filter((a) => (a.fx.skills?.[k] ?? 0) > 0).sort((a, b) => (b.fx.skills![k] ?? 0) - (a.fx.skills![k] ?? 0)).slice(0, 3).map((a) => a.name).join('、');
 				const skills = SKILL_KEYS.map((k) => `<div class="skill"><span>${SKILL_META[k].icon}</span><div>${SKILL_META[k].name} <span class="muted">${SKILL_META[k].hint}</span>${trainers(k) ? `<small class="train">怎么练：${esc(trainers(k))}</small>` : ''}<div class="bar"><i style="width:${s.skills[k]}%"></i></div></div><b title="含特质、装备、心情的检定分">${checkScore(s, k).total}</b></div>`).join('');
 				const vdef = getVehicle(s.vehicle);
-				const veh = vdef ? `${vdef.icon} ${vdef.name}（值 $${resaleValue(vdef.id).toLocaleString()}）· 开了 ${s.car.km.toLocaleString()} 公里，离上次保养 ${s.car.since.toLocaleString()} 公里${breakdownChance(s) > 0 ? `，该保养了（每趟抛锚几率 ${Math.round(breakdownChance(s) * 100)}%）` : ''}` : '无（坐巴士）';
+				const veh = vdef ? `${vdef.icon} ${vdef.name}（值 $${resaleValue(vdef.id, s.car.km).toLocaleString()}）· 开了 ${s.car.km.toLocaleString()} 公里，离上次保养 ${s.car.since.toLocaleString()} 公里${breakdownChance(s) > 0 ? `，该保养了（每趟抛锚几率 ${Math.round(breakdownChance(s) * 100)}%）` : ''}` : '无（坐巴士）';
 				const titles = areaTitles(s);
 				const album = Object.entries(AREAS).map(([id, a]) => {
 					const all = EXPERIENCES.filter((e) => e.area === id);
@@ -1722,7 +2085,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					<div class="inline" style="margin-top:6px;flex-wrap:wrap">${living ? '' : `<button data-prop="movein" data-prop-id="${op.id}">搬进去</button>`}<button data-prop="rentout" data-prop-id="${op.id}">${op.rented ? '停止出租' : '出租'}</button>${op.loan ? `<button data-prop="repay" data-prop-id="${op.id}">提前还贷</button>` : ''}<button data-prop="sell" data-prop-id="${op.id}">卖掉</button></div></div>`;
 				}).join('');
 				const life = `
-					<p>${jc ? `${esc(jc.name)}（${esc(getLocation(region, s.job!.loc)!.name)}）· ${esc(jc.levels[s.job!.level].title)} · 每班 $${careerPay(s, s.job!.career, s.job!.level)}` : '无业。'}${s.certs.length ? ` 证书：${s.certs.map((id) => esc(CERTS.find((c) => c.id === id)?.name ?? id)).join('、')}。` : ''}${jc ? '' : '到城镇、海滩、矿区等地方找工作。'}</p>
+					<p>${jc ? `${esc(jc.name)}（${esc(getLocation(region, s.job!.loc)!.name)}）· ${esc(jc.levels[s.job!.level].title)} · 每班 $${careerPay(s, s.job!.career, s.job!.level)}` : '无业。'}${s.certs.length ? ` 证书和学历：${s.certs.map((id) => esc(credentialName(id))).join('、')}。` : ''}${jc ? '' : '到城镇、海滩、矿区等地方找工作。'}</p>
 					${promo ? `<p>升职到${esc(promo.next.title)}：已上 ${promo.shifts}/${PROMOTE_SHIFTS} 班，表现好 ${promo.good}/${PROMOTE_GOOD} 班${promo.blocked ? `，还需${esc(promo.blocked)}` : ''}</p>` : jc ? '<p>已是最高职位。</p>' : ''}
 					<p>${hd ? `住在${esc(getLocation(region, s.home!.loc)!.name)}的${esc(hd.name)}，家具：${Object.values(s.home!.furniture).map((id) => esc(getFurniture(id)?.name ?? '')).join('、') || '无'}` : '没有住处。在城镇可以租房，回家睡觉免费且恢复更多。'}</p>
 					<p>每周固定开销 $${wc.total}${wc.total ? `（房租 $${wc.rent} + 车辆 $${wc.vehicle} + 房产 $${wc.property}）· ${Math.max(0, s.nextWeek - dayOf(s.clock))} 天后结算` : ''}</p>
@@ -1742,7 +2105,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const bag = Object.entries(s.inventory).map(([id, n]) => {
 					const it = getItem(id);
 					if (!it) return '';
-					return `<div class="row" style="margin-top:8px"><span class="ico">${it.icon}</span><span class="body">${esc(it.name)} ×${n}<small>${esc(it.desc)}</small></span>${it.use ? `<button data-use="${it.id}">使用</button>` : '<span class="meta">装备中</span>'}</div>`;
+					const back = sellPrice(it);
+					const sellWhy = sellItemBlocked(s, getLocation(region, s.loc), it);
+					const sellBtn = back ? `<button data-sell="${it.id}" ${sellWhy ? `disabled title="${esc(sellWhy)}"` : ''}>卖 $${back}</button>` : '';
+					const main = it.use ? `<button data-use="${it.id}">使用</button>` : itemCat(it) === 'gift' ? '<span class="meta">留着送人</span>' : '<span class="meta">装备中</span>';
+					return `<div class="row" style="margin-top:8px"><span class="ico">${it.icon}</span><span class="body">${esc(it.name)} ×${n}<small>${esc(ITEM_CATS[itemCat(it)])} · ${esc(it.desc)}</small></span>${main}${sellBtn}</div>`;
 				}).join('');
 				const ach = achievements(s, region);
 				const achDone = ach.filter((a) => a.done).length;
@@ -1804,7 +2171,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						return `<div class="card"><h3>每日奖励 · 连续 ${s.daily.streak} 天</h3><div class="streak" role="img" aria-label="这一轮 7 天里已到第 ${pos} 天">${dots}</div>
 							<p style="margin-top:8px">明天接着来能领 $${tomorrow.cash}${tomorrow.full ? `（满 ${DAILY.cap} 天大礼，含额外 $${DAILY.bonus}）` : ''}。断一天从头算（$${DAILY.base} 起）。</p></div>`;
 					})(),
-					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>`,
+					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id, s.car.km).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}${holdingsValue(s) ? ` · 理财 $${holdingsValue(s).toLocaleString()}` : ''}</p>${estate || '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>`,
+					invest: investCard(s),
 					album: `<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>`,
 					life: `<div class="card"><h3>工作与住处</h3>${life}</div>`,
 					rels: `<div class="card"><h3>人际关系</h3>${rels || '<p>还没认识什么人。去各地看看谁在那里。</p>'}</div>${duoHtml}`,
@@ -1814,7 +2182,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						const d = derivedStats(s);
 						return `<p>体质 ${d.fitness}（体能 50% + 力量 30% + 游泳 20%）</p>
 							<p>吸引力 ${d.appeal}（魅力 + 体质 15% + 心情修正${s.needs.hygiene < 30 ? ' − 邋遢 10' : ''}）</p>
-							<p>体力消耗 ×${d.exertion} · 恢复 ×${d.recovery}</p>
+							<p>体力消耗 ×${d.exertion} · 恢复 ×${d.recovery}（上班、活动消耗的精力乘消耗，睡觉回的精力乘恢复）</p>
+							<p>精力上限 ${Math.round(energyCap(s))}（80 + 体质 × 0.2，练体能、力量、游泳会永久提高）</p>
+							<p>压力 ${Math.round(stress(s) * 100)}%（娱乐或社交低于 40 开始有，压力大饿得快）</p>
 							<p>状态系数 ×${d.efficiency.total}（心情 ×${d.efficiency.mood} · 健康 ×${d.efficiency.health} · 疲劳 ×${d.efficiency.fatigue}），训练收益和工作表现都乘它</p>`;
 					})()}</div>`,
 				};
@@ -1824,11 +2194,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					const lvHtml = `<div class="card grow-head"><span class="lv-badge" aria-hidden="true">${lv.lv}</span><span class="name"><b>Lv${lv.lv} ${esc(lv.title)}</b><span>声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next} · 离下一级还差 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ' · 已到最高级'}</span>${lv.next !== null ? `<span class="bar" role="img" aria-label="升级进度 ${pct}%"><i style="width:${pct}%"></i></span>` : ''}</span></div>`;
 					return lvHtml + ['daily', 'ach', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
 				}
-				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'life', 'bag'], people: ['rels'] };
+				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'skills', 'derived'], assets: ['assets', 'invest', 'life', 'bag'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
 				// 「更新」页（第 48 轮）：打开时记下已读；没看过的批次在标签上标「新」
-				if (meTab === 'news') store.set(NEWS_SEEN_KEY, String(CHANGELOG_LATEST));
-				const fresh = unseenNews(parseNewsSeen(store.get(NEWS_SEEN_KEY)));
+				void loadNews();
+				if (news && meTab === 'news') store.set(news.NEWS_SEEN_KEY, String(news.CHANGELOG_LATEST));
+				const fresh = news ? news.unseenNews(news.parseNewsSeen(store.get(news.NEWS_SEEN_KEY))) : 0;
 				const seg = `<div class="seg" role="tablist">${ME_TABS.map(([id, label]) => `<button role="tab" data-metab="${id}" class="${meTab === id ? 'on' : ''}" aria-selected="${meTab === id}">${label}${id === 'news' && fresh ? '<span class="new-tag">新</span>' : ''}</button>`).join('')}</div>`;
 				const bodyHtml = meTab === 'log' ? panelLog() : meTab === 'sync' ? panelSync() : meTab === 'news' ? panelNews() : (sections[meTab] ?? sections.overview).map((k) => card[k as keyof typeof card]).join('');
 				return head + seg + bodyHtml;
@@ -1945,7 +2316,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const body = board
 					? `${board.top.map(row).join('') || '<p class="muted">还没有人上榜。</p>'}${board.me && !board.top.some((r) => r.me) ? `<p class="muted" style="margin:6px 0">……</p>${row(board.me)}` : ''}`
 					: `<p class="muted">${boardLoading ? '正在加载…' : esc(boardError || '正在加载…')}</p>`;
-				return `<div class="card"><h3>🏆 净资产排行</h3><p>全服按净资产排名（现金 + 车 + 家具 + 房产 − 贷款），结果由服务端计算。${board ? `共 ${board.total} 人上榜。` : ''}</p>
+				return `<div class="card"><h3>🏆 净资产排行</h3><p>全服按净资产排名（现金 + 车 + 家具 + 房产 − 贷款 + 理财），结果由服务端计算。${board ? `共 ${board.total} 人上榜。` : ''}</p>
 					<div class="list" style="margin-top:8px">${body}</div>
 					<div class="inline" style="margin-top:8px"><button data-board ${boardLoading ? 'disabled' : ''}>刷新</button></div></div>`;
 			}
@@ -2054,12 +2425,26 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				['真实地点', '本人走进真实的餐馆、健身房、公园、超市，在「出行 · 附近」打开定位就能在游戏里吃饭、训练、打卡上班。'],
 				['工作与住处', '在城镇应聘、每天上一个班；租房后回家睡觉恢复更多。每 7 天一次周结算，付房租、房贷和车辆保险。'],
 				['天气', '每个地方每天的天气不一样，所有玩家看到的一样。风暴天海上活动取消，但可以去海边看风暴；抵达时会按天气收一张照片。'],
-				['多设备', '同步码等同于密码：在另一台设备选「用同步码恢复」，或用相机扫「我 · 同步」里的二维码，就能接着玩。存档一直在服务器上，换设备只是把同步码带过去；改本机数据没有用。'],
+				['多设备', '同步码等同于密码：在另一台设备选「用同步码恢复」，或用相机扫「我 · 同步」里的二维码，就能接着玩。存档一直在服务器上，换设备只是把同步码带过去；改本机数据没有用。怀疑同步码被别人看到了，可以在「多设备同步」里更换。'],
 			];
 			// 大字模式：整页放大约 12%，只记在本机
+			// 更新日志和「新」标记按需加载（第 41 批，性能）：日志每批都在变长，不进首屏脚本，第一次打开「我」页时再下。
+			// 下载失败（断网）时页面照常画，「新」标记先不显示；30 秒后再画「我」页时重试，不会连着重试刷屏
+			type NewsMod = typeof import('../game/ui/news.ts') & Pick<typeof import('../game/data/changelog.ts'), 'CHANGELOG' | 'CHANGELOG_LATEST'>;
+			let news: NewsMod | null = null;
+			let newsLoad: Promise<void> | null = null;
+			let newsFailedAt = -Infinity;
+			function loadNews() {
+				if (news || Date.now() - newsFailedAt < 30000) return newsLoad;
+				newsLoad ??= Promise.all([import('../game/ui/news.ts'), import('../game/data/changelog.ts')])
+					.then(([n, c]) => { news = { ...n, CHANGELOG: c.CHANGELOG, CHANGELOG_LATEST: c.CHANGELOG_LATEST }; if (state && tab === 'me') renderPanel(); })
+					.catch(() => { newsLoad = null; newsFailedAt = Date.now(); if (state && tab === 'me') renderPanel(); });
+				return newsLoad;
+			}
 			/** 「我 · 更新」：游戏内更新日志，新的在前 */
 			function panelNews() {
-				return CHANGELOG.map((e) => `<div class="card news"><h3>${esc(e.title)} <span class="muted">${esc(e.date)}</span></h3><ul>${e.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('');
+				if (!news) return `<div class="card news"><p class="muted">${newsLoad ? '更新日志加载中…' : '更新日志没加载出来，联网后再打开这一页。'}</p></div>`;
+				return news.CHANGELOG.map((e) => `<div class="card news"><h3>${esc(e.title)} <span class="muted">${esc(e.date)}</span></h3><ul>${e.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>`).join('');
 			}
 
 			function panelSync() {
@@ -2071,12 +2456,18 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				return `<div class="card"><h3>显示</h3><p class="muted">只在这台设备上生效。</p>${seg('font', '字号', FONT_OPTIONS)}${seg('motion', '动画', MOTION_OPTIONS)}${sound}${real}</div>
 					<div class="card"><h3>提示</h3>${tips}</div>
 					<div class="card"><h3>玩法说明</h3><dl class="help">${HELP.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
+					${credBad ? `<div class="card"><h3>同步码已失效</h3><p>服务器不认这台设备上的同步码了：可能在另一台设备上更换过，或者账号已删除。输入新的同步码就能接着玩，排队的动作会在那之后补交。</p>
+						<input id="s-code" placeholder="粘贴新的同步码" aria-label="新的同步码" autocomplete="off" style="margin-top:8px" />
+						<div class="inline"><button data-recode>用新同步码继续</button></div></div>` : ''}
 					<div class="card"><h3>多设备同步</h3><p>${esc(syncStatus)}</p>
 						<p style="margin-top:8px">在另一台手机或电脑打开本页，选择“用同步码恢复”，粘贴下面这串码即可接着玩。</p>
 						<div class="code">${esc(cred!.id)}.${esc(cred!.key)}</div>
 						<div class="inline"><button data-copy>复制同步码</button><button data-qr aria-expanded="${!!qrHtml}">${qrHtml ? '收起二维码' : '显示二维码'}</button><button data-pull>立即同步</button></div>
 						${qrHtml ? `<div class="qr-box">${qrHtml}<p class="muted">用另一台手机的相机扫一扫，打开链接就能接着玩。二维码和同步码一样等同于密码，别拍给别人。</p></div>` : ''}
-						<p style="margin-top:8px">同步码等同于密码，不要发给别人。</p></div>
+						<p style="margin-top:8px">同步码等同于密码，不要发给别人。怀疑被别人看到了，就更换：旧码和旧二维码立即失效。</p>
+						<div class="inline"><button data-rekey>更换同步码</button></div></div>
+					<div class="card"><h3>我的数据</h3><p>服务器上存着：角色存档、排行榜上的名字和净资产、你贴的留言。导出的文件里没有同步码，不能用来恢复角色。</p>
+						<div class="inline"><button data-export>导出存档</button><button data-delacct>删除账号</button></div></div>
 					<div class="card"><h3>重新开始</h3><p>清除本机存档并创建新角色（云端旧档仍可用同步码找回）。</p><button data-reset style="margin-top:8px">删除本机存档</button></div>`;
 			}
 
@@ -2085,7 +2476,44 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const hereCount = state ? [...peers.values()].filter((p) => p.loc === state!.loc && p.id !== myPeerId).length : 0;
 				// 附近是出行的分页：在附近时出行标签也亮
 				const on = (id: string) => id === tab || (id === 'go' && tab === 'near');
-				$('tabs').innerHTML = `<div class="tabs-in">${TABS.map(([id, label, icon]) => `<button data-tab="${id}" class="${on(id) ? 'on' : ''}" ${on(id) ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}${id === 'social' && hereCount ? `<span class="badge" aria-label="这里有 ${hereCount} 位玩家在线">${hereCount}</span>` : ''}</button>`).join('')}</div>`;
+				setHtml($('tabs'), `<div class="tabs-in">${TABS.map(([id, label, icon]) => `<button data-tab="${id}" class="${on(id) ? 'on' : ''}" ${on(id) ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${icon}</svg>${label}${id === 'social' && hereCount ? `<span class="badge" aria-label="这里有 ${hereCount} 位玩家在线">${hereCount}</span>` : ''}</button>`).join('')}</div>`);
+			}
+
+			// 地点短片：进入视口、页面可见、没开「减少动画」时才开始下载和播放（preload=none），离开视口就暂停。
+			// 重绘面板时沿用正在播的同一段短片（不从头开始）；once 的短片（到达时的推镜）每次到达只播一次，播完停在末帧
+			let clipObs: IntersectionObserver | null = null;
+			const onceDone = new Set<string>();
+			let clipLoc = '';
+			const onceOver = (v: HTMLVideoElement) => !!v.dataset.once && (v.ended || onceDone.has(v.getAttribute('src') ?? ''));
+			function wireClips(prev: HTMLVideoElement | null) {
+				if (typeof IntersectionObserver !== 'function' || typeof document.querySelectorAll !== 'function') return;
+				const loc = state?.loc ?? '';
+				if (loc !== clipLoc) { onceDone.clear(); clipLoc = loc; }
+				let vids = [...document.querySelectorAll<HTMLVideoElement>('#panel video.loc-clip')];
+				const same = prev && vids.find((v) => v.getAttribute('src') === prev.getAttribute('src'));
+				if (prev && same) { same.replaceWith(prev); vids = vids.map((v) => (v === same ? prev : v)); }
+				if (!vids.length || document.documentElement?.classList?.contains('calm')) return;
+				for (const v of vids) {
+					if (!v.dataset.once || v.dataset.wired) continue;
+					v.dataset.wired = '1';
+					const src = v.getAttribute('src') ?? '';
+					v.addEventListener('ended', () => onceDone.add(src));
+					// 这次到达已经播过（面板重绘出了新元素）：直接停在末帧，不再播
+					if (onceDone.has(src)) {
+						v.addEventListener('loadedmetadata', () => { v.currentTime = Math.max(0, v.duration - 0.05); }, { once: true });
+						v.preload = 'auto';
+						v.load();
+					}
+				}
+				clipObs ??= new IntersectionObserver((list) => {
+					for (const en of list) {
+						const v = en.target as HTMLVideoElement;
+						if (en.isIntersecting && !document.hidden && !onceOver(v)) v.play().catch(() => {});
+						else v.pause();
+					}
+				}, { threshold: 0.4 });
+				clipObs.disconnect();
+				vids.forEach((v) => clipObs!.observe(v));
 			}
 
 			function renderPanel() {
@@ -2095,7 +2523,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				renderMap();
 				renderHud();
 				const html = { place: panelPlace, near: () => goSeg() + panelNear(), go: () => goSeg() + panelGo(), grow: () => panelMe('grow'), me: () => panelMe(), social: panelSocial }[tab]!();
-				$('panel').innerHTML = html;
+				const prevClip = typeof document.querySelector === 'function' ? document.querySelector<HTMLVideoElement>('#panel video.loc-clip') : null;
+				setHtml($('panel'), html);
+				wireClips(prevClip);
 				const chat = document.getElementById('chat');
 				if (chat) chat.scrollTop = chat.scrollHeight;
 			}
@@ -2111,12 +2541,12 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				if (!ev && eventResult) {
 					// 没有下一个待处理事件时，显示刚才那个事件的结果
 					const r = eventResult;
-					modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
-						<div class="ev-hero"><span class="kicker">结果</span><h2 id="ev-title">${r.icon} ${esc(r.title)}</h2></div>
+					setHtml(modal, `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
+						<div class="ev-hero"><span class="ev-stamp${modalShown !== r ? ' fresh' : ''}">结果</span><h2 id="ev-title">${r.icon} ${esc(r.title)}</h2></div>
 						<div class="ev-body"><p>${esc(r.text)}</p>
 						${r.delta.length ? `<div class="pills">${r.delta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 						${r.ach.length ? `<p class="ach-line">🏅 达成成就：${r.ach.map(esc).join('、')}</p>` : ''}
-						<button class="primary" data-result-close>继续</button></div></div>`;
+						<button class="primary" data-result-close>继续</button></div></div>`);
 					modal.classList.remove('hidden');
 					game.inert = true;
 					// 选完选项后原来聚焦的按钮被结果页替换掉了：焦点移到「继续」
@@ -2138,8 +2568,9 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				// 成功率：检定分 + 随机 0–60 ≥ 难度（和引擎同一个公式，只用于显示）
 				const odds = (skill: Parameters<typeof checkScore>[1], dc: number) => Math.round(Math.max(0, Math.min(1, (checkScore(s, skill).total + 60 - dc) / 60)) * 100);
 				const img = cgi['event:' + ev.id];
-				modal.innerHTML = `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
-					<div class="ev-hero">${img ? `<img src="${esc(img)}" alt="" loading="lazy" />` : loc ? `${sceneSvg({ phase: skyPhase(loc, s.clock), weather: weatherAt(s).id, kind: loc.kind, tags: loc.tags, noFigure: true })}<i class="ev-shade"></i>` : ''}<span class="kicker">${loc ? `到达 ${esc(loc.name)} · ${formatClock(s.clock).split(' ')[1]}` : '事件'}${weatherAt(s).closesSea ? ' · 风暴天' : ''}</span><h2 id="ev-title">${ev.icon} ${esc(ev.title)}</h2></div>
+				const key = `${ev.id}@${s.clock}`;
+				setHtml(modal, `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
+					<div class="ev-hero">${img ? `<img src="${esc(img)}" alt="" loading="lazy" /><span class="ai-tag">AI 生成示意</span>` : loc ? `${sceneSvg({ phase: skyPhase(loc, s.clock), weather: weatherAt(s).id, kind: loc.kind, tags: loc.tags, noFigure: true })}<i class="ev-shade"></i>` : ''}<span class="ev-stamp${modalShown !== key ? ' fresh' : ''}">${loc ? `到达 ${esc(loc.name)} · ${formatClock(s.clock).split(' ')[1]}` : '事件'}${weatherAt(s).closesSea ? ' · 风暴天' : ''}</span><h2 id="ev-title">${ev.icon} ${esc(ev.title)}</h2></div>
 					<div class="ev-body"><p>${esc(ev.text)}</p>
 					<div class="list">${(() => { let lit = false; return ev.choices.map((c, i) => {
 						const poor = !!c.cost && c.cost > s.cash;
@@ -2153,16 +2584,20 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 						const first = !poor && !stormBlocked && !lit;
 						if (first) lit = true;
 						return `<button class="row choice${first ? ' first' : ''}" data-choice="${i}"${poor || stormBlocked ? ' disabled' : ''}><span class="label">${esc(choiceLabel(c))}</span>${pills ? `<span class="pills">${pills}</span>` : ''}</button>`;
-					}).join(''); })()}</div></div></div>`;
+					}).join(''); })()}</div></div></div>`);
 				modal.classList.remove('hidden');
 				// 弹窗打开期间背后的页面不可点、不可聚焦；换成一个新事件时（刚打开或接着下一个）把焦点移到第一个能选的选项
 				game.inert = true;
-				const key = `${ev.id}@${s.clock}`;
 				if (modalShown !== key) { modal.querySelector<HTMLElement>('button:not([disabled])')?.focus(); sfx('event'); }
 				modalShown = key;
 			}
 
 			function render() {
+				// 开场是护照封皮的深蓝：手机状态栏跟着换色，进游戏后还原成浅色/深色主题色
+				for (const m of document.querySelectorAll?.<HTMLMetaElement>('meta[name="theme-color"]') ?? []) {
+					m.dataset.base ??= m.content;
+					m.content = state ? m.dataset.base! : '#15284d';
+				}
 				if (!state) { $('game').classList.add('hidden'); $('create').classList.remove('hidden'); return; }
 				$('create').classList.add('hidden');
 				$('game').classList.remove('hidden');
@@ -2186,8 +2621,22 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				eventResult = null;
 				renderEvent();
 			});
+			// NPC 打招呼语音：只在玩家点「听」时播放；再点一次同一条就停
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-buy],[data-use],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-fish],[data-pet],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note]');
+				const b = (e.target as Element).closest<HTMLElement>('[data-voice]');
+				const line = b ? media.voice[b.dataset.voice ?? ''] : undefined;
+				if (!line) return;
+				try {
+					const same = voicePlayer && !voicePlayer.paused && voicePlayer.dataset.npc === b!.dataset.voice;
+					voicePlayer?.pause();
+					if (same) return;
+					voicePlayer = new Audio(line.src);
+					voicePlayer.dataset.npc = b!.dataset.voice;
+					voicePlayer.play().catch(() => {});
+				} catch {}
+			});
+			document.addEventListener('click', (e) => {
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2246,6 +2695,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 				else if ('fish' in d) act({ t: 'fish' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.cert) act({ t: 'cert', id: d.cert }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.study) act({ t: 'study', id: d.study }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.exp) act({ t: 'experience', id: d.exp }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.job) {
 					if (d.job === 'quit' && !confirm('确定辞职？当前等级的进度会清零。')) return;
@@ -2271,6 +2721,15 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					}
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
+				else if (d.asset) {
+					const id = d.assetId!;
+					const op = d.asset === 'sell' ? 'sell' : 'buy';
+					const q = prompt(op === 'buy' ? '买入多少钱？（按今天的价格成交，扣手续费）' : '卖出多少钱的份额？（超过持仓就全部卖出）', String(defaultAmount(state, id, op)));
+					const amount = Number(q);
+					if (q === null || !(amount > 0)) return;
+					if (op === 'buy' && id === 'emu-coin' && !confirm('鸸鹋币一天涨跌一两成都正常，也可能跌掉大半。确定买入？')) return;
+					act({ t: 'asset', op, id, amount }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
 				else if (d.furn) {
 					const a: GameAction = d.furn === 'buy' ? { t: 'furniture', op: 'buy', id: d.furnId! } : { t: 'furniture', op: 'sell', slot: d.slot! };
 					act(a).then((r) => { if (r) { toast(r.msg); render(); } });
@@ -2283,6 +2742,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 				else if (d.buy) act({ t: 'buy', item: d.buy }).then((r) => { if (r) { toast(r.msg); render(); } });
 				else if (d.use) act({ t: 'use', item: d.use }).then((r) => { if (r) { toast(r.msg); render(); } });
+				else if (d.sell) act({ t: 'sell', item: d.sell }).then((r) => { if (r) { toast(r.msg); render(); } });
 				else if (d.act) act({ t: 'activity', id: d.act }).then((r) => { if (r) { lastOutcome = null; toast(r.msg); render(); } });
 				else if (d.go) {
 					act({ t: 'travel', to: d.go, mode: d.mode as TravelMode }).then((r) => { if (r) { selected = null; lastOutcome = null; tab = 'place'; if (!state!.pending) toast(r.msg); render(); window.scrollTo({ top: 0 }); } });
@@ -2342,9 +2802,14 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 				else if ('reset' in d) {
 					if (!confirm('确定删除本机存档？请先记下同步码。')) return;
-					try { localStorage.removeItem(SAVE_KEY); localStorage.removeItem(CRED_KEY); } catch {}
+					// 排队的动作也一起清掉：不然之后用同一个同步码恢复，一天内离线点过的动作会被悄悄补交
+					wipeLocal();
 					location.reload();
 				}
+				else if ('rekey' in d) void rekey();
+				else if ('export' in d) void exportSave();
+				else if ('delacct' in d) void deleteAccount();
+				else if ('recode' in d) void recode();
 			});
 			document.addEventListener('submit', (e) => {
 				if ((e.target as Element).id === 'note-form') {
@@ -2382,7 +2847,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				const f = await locate();
 				if (!f || !state) return;
 				if (state.loc !== v.loc) {
-					const g = await act({ t: 'gps', lat: f.lat, lon: f.lon });
+					const g = await act({ t: 'gps', lat: f.lat, lon: f.lon, acc: f.acc });
 					if (!g || state.pending) { render(); return; }
 				}
 				const r = await act({ t: 'venue', venue: venueId, op, lat: f.lat, lon: f.lon, acc: f.acc });
@@ -2396,7 +2861,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				navigator.geolocation.getCurrentPosition(
 					(pos) => {
 						if (!state) return;
-						act({ t: 'gps', lat: pos.coords.latitude, lon: pos.coords.longitude }).then((r) => { if (r) { if (!state!.pending) toast(r.msg); render(); } });
+						act({ t: 'gps', lat: pos.coords.latitude, lon: pos.coords.longitude, acc: pos.coords.accuracy }).then((r) => { if (r) { if (!state!.pending) toast(r.msg); render(); } });
 					},
 					() => toast('无法获取定位，请检查定位权限'),
 					{ enableHighAccuracy: true, timeout: 10000 },
@@ -2408,15 +2873,52 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			let pickOrigin = ORIGINS[0].id;
 			let pickTraits: string[] = [];
 			function renderCreate() {
-				$('c-avatars').innerHTML = AVATARS.map((a) => `<button class="chip${a === pickAvatar ? ' on' : ''}" data-avatar="${a}" aria-pressed="${a === pickAvatar}" aria-label="形象 ${a}">${a}</button>`).join('');
-				$('c-origins').innerHTML = ORIGINS.map((o) => `<button class="origin${o.id === pickOrigin ? ' on' : ''}" data-origin="${o.id}" aria-pressed="${o.id === pickOrigin}">${o.icon} ${o.name} · 起始 $${o.cash}${o.vehicle !== 'none' ? ' · 有车' : ''}<small>${o.desc}</small></button>`).join('');
+				$('c-avatars').innerHTML = AVATARS.map((a) => `<button class="ac-ava${a === pickAvatar ? ' on' : ''}" data-avatar="${a}" aria-pressed="${a === pickAvatar}" aria-label="照片 ${a}">${a}</button>`).join('');
+				$('c-photo').innerHTML = photoHtml(pickOrigin, pickAvatar);
+				$('c-origins').innerHTML = ORIGINS.map((o) => `<button class="ac-opt${o.id === pickOrigin ? ' on' : ''}" data-origin="${o.id}" aria-pressed="${o.id === pickOrigin}"><span class="ac-box" aria-hidden="true"></span><span><b>${o.icon} ${esc(o.name)}</b><small>${esc(o.desc)}</small></span><span class="ac-fx">$${o.cash}${o.vehicle !== 'none' ? '<small><br>有车</small>' : ''}</span></button>`).join('');
+				// 起步能力：出身没写的项从 5 开始（和 createPlayer 一致）；指针 0–100 映射到 -60°…60°
+				const og = ORIGINS.find((o) => o.id === pickOrigin) ?? ORIGINS[0];
+				const box = $('c-gauges');
+				const vals = Object.keys(SKILL_META).map((k) => [k, (og.skills as Record<string, number | undefined>)[k] ?? 5] as const);
+				if (!box.children?.length) {
+					box.innerHTML = vals.map(([k]) => `<li data-gauge="${k}"><svg viewBox="0 0 44 28" aria-hidden="true" focusable="false"><path class="arc" d="M5 24a17 17 0 0 1 34 0" />${[-60, -30, 0, 30, 60].map((d) => `<line class="tick" x1="22" y1="5.5" x2="22" y2="8.5" transform="rotate(${d} 22 24)" />`).join('')}<line class="needle" x1="22" y1="24" x2="22" y2="9" /><circle class="hub" cx="22" cy="24" r="2" /></svg><b></b><span>${esc(SKILL_META[k].name)}</span></li>`).join('');
+				}
+				for (const [k, v] of vals) {
+					const li = box.querySelector?.<HTMLElement>(`[data-gauge="${k}"]`);
+					if (typeof li?.querySelector !== 'function') continue;
+					(li.querySelector('.needle') as SVGElement | null)?.style.setProperty('transform', `rotate(${-60 + Math.min(100, v) * 1.2}deg)`);
+					const b = li.querySelector('b');
+					if (b) b.textContent = String(v);
+				}
 				$('c-traits').innerHTML = TRAITS.map((t) => {
 					const on = pickTraits.includes(t.id);
 					const ok = on || validTraits([...pickTraits, t.id], MAX_TRAITS);
-					return `<button class="trait${on ? ' on' : ''}" data-trait="${t.id}" aria-pressed="${on}" ${ok ? '' : 'disabled'}>${esc(t.name)}<small>${esc(t.desc)}</small></button>`;
+					return `<button class="ac-opt trait${on ? ' on' : ''}" data-trait="${t.id}" aria-pressed="${on}" ${ok ? '' : 'disabled'}><span class="ac-box" aria-hidden="true"></span><span><b>${esc(t.name)}</b><small>${esc(t.desc)}</small></span></button>`;
 				}).join('');
-				($('c-start') as HTMLButtonElement).disabled = pickTraits.length !== MAX_TRAITS;
-				$('c-start').textContent = pickTraits.length === MAX_TRAITS ? '开始生活' : `再选 ${MAX_TRAITS - pickTraits.length} 个性格特质`;
+				const left = MAX_TRAITS - pickTraits.length;
+				$('c-trait-n').textContent = left ? `勾选 ${MAX_TRAITS} 项 · 已勾 ${pickTraits.length}` : `已勾 ${MAX_TRAITS} 项`;
+				$('c-trait-n').classList.toggle('done', !left);
+				($('c-start') as HTMLButtonElement).disabled = left !== 0;
+				$('c-start').textContent = left ? `再勾选 ${left} 个性格特质` : '盖章入境 · 开始生活';
+				const spawn = getLocation(region, region.spawn);
+				// 章上的城市写英文大写：标题字体子集只含 A–Z 和开场用到的汉字
+				$('c-stamp-city').textContent = spawn ? spawn.en.toUpperCase() : '';
+				const d = new Date();
+				$('c-stamp-date').textContent = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
+			}
+			// 登机牌「填写入境卡」：滚到入境卡，焦点放在卡上（不直接弹键盘）
+			$('c-go').addEventListener('click', (e) => {
+				e.preventDefault();
+				const card = $('c-card') as HTMLElement;
+				const calm = !!document.documentElement?.classList?.contains('calm');
+				card.scrollIntoView?.({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
+				card.focus?.({ preventScroll: true });
+			});
+			/** 盖章：没有减少动态效果时让入境章落下再进游戏；测试环境、减少动效时立刻继续 */
+			function stampDown(): Promise<void> {
+				$('c-card').classList.add('stamped');
+				const calm = !!document.documentElement?.classList?.contains('calm') || typeof matchMedia !== 'function' || matchMedia('(prefers-reduced-motion: reduce)').matches;
+				return calm ? Promise.resolve() : new Promise((r) => setTimeout(r, 700));
 			}
 			$('create').addEventListener('click', (e) => {
 				const t = (e.target as Element).closest<HTMLElement>('[data-avatar],[data-origin],[data-trait]');
@@ -2430,6 +2932,8 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			function begin() { loadQueue(); render(); connect(); }
 			$('c-start').addEventListener('click', async () => {
 				const btn = $('c-start') as HTMLButtonElement;
+				// 本机还存着一个角色的同步码（缓存坏了还没从云端恢复）：新建会替换它，先问一句
+				if (parseCred(readJson(CRED_KEY)) && !confirm('这台设备上还保存着一个角色的同步码（本机缓存坏了，还没能从云端恢复）。新建角色会替换它，旧角色只能靠你记下的同步码找回。继续新建？')) return;
 				const c = { id: 'p' + randId(15), key: randId(24) };
 				const profile = { name: ($('c-name') as HTMLInputElement).value, avatar: pickAvatar, origin: pickOrigin, traits: pickTraits };
 				btn.disabled = true;
@@ -2438,7 +2942,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					if (!data.ok) return toast(data.msg || '创建失败');
 					cred = c;
 					store.set(CRED_KEY, JSON.stringify(cred));
-					if (adopt(data.state)) begin();
+					if (adopt(data.state)) { await stampDown(); begin(); }
 				} catch {
 					toast('需要联网才能创建角色');
 				} finally {
@@ -2446,7 +2950,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				}
 			});
 			/** 用同步码从云端恢复（还没有角色的设备）：服务器认这个码才写进本机 */
-			async function restoreFrom(c: Cred) {
+			async function restoreFrom(c: Cred, why = '已恢复云端存档') {
 				try {
 					const { data } = await api({ action: 'get', id: c.id, key: c.key });
 					if (!data.ok) return toast(data.msg || '恢复失败');
@@ -2455,10 +2959,11 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 					if (!clean) return toast('云端存档已损坏');
 					cred = c;
 					store.set(CRED_KEY, JSON.stringify(cred));
-					adopt(clean, '已恢复云端存档');
+					recoverCred = null;
+					adopt(clean, why);
 					render();
 					begin();
-				} catch { toast('网络错误，请稍后再试'); }
+				} catch { toast(recoverCred ? '本机存档读不出来：联网后会自动从云端恢复' : '网络错误，请稍后再试'); }
 			}
 			/** 服务器发来的存档：清洗后必须还是这个角色的，否则当作损坏 */
 			function cloudSave(raw: unknown, id: string): PlayerState | null {
@@ -2501,13 +3006,18 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 			}
 
 			// ---------- 启动 ----------
-			try { cred = JSON.parse(store.get(CRED_KEY) || 'null'); } catch {}
+			cred = parseCred(readJson(CRED_KEY));
 			// 本地缓存里的所在地如果已经不存在，先挪到出生点而不是判损坏：不然凭证会被清掉，连云端完好的存档都拉不回来
-			try { state = sanitizeState(JSON.parse(store.get(SAVE_KEY) || 'null'), LOC_IDS, { fallbackLoc: region.spawn }); } catch {}
-			if (!cred || !state || state.id !== cred.id) { state = null; cred = null; }
+			try { state = sanitizeState(readJson(SAVE_KEY), LOC_IDS, { fallbackLoc: region.spawn }); } catch { state = null; }
+			// 凭证在、本机缓存坏了（或没了、或是别的角色的）：存档一直在服务器上，用凭证从云端恢复，而不是当成新设备显示创建页
+			// （第 50 批）。以前这里连凭证一起丢掉，玩家一新建角色就把凭证覆盖了，旧角色只能靠记下的同步码找回
+			let recoverCred: Cred | null = cred && (!state || state.id !== cred.id) ? cred : null;
+			if (recoverCred) { state = null; cred = null; }
+			else if (!cred) state = null;
 			applyPrefs();
 			renderCreate();
 			render();
+			fetch('/earth/media/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: unknown) => { media = parseMedia(m); if (state) renderPanel(); }).catch(() => {});
 			fetch('/earth/cgi/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: any) => { cgi = m.images || {}; if (state) { renderPanel(); renderEvent(); } }).catch(() => {});
 			// 有扫码链接时先处理完它（期间 syncing：原角色不连线、不同步、不补交、不能操作），再决定要不要为原角色启动
 			syncing = !!readSyncHash(location.hash);
@@ -2517,6 +3027,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				// 换了角色、等重新载入时（凭证已是新角色、存档还是原角色）保持 syncing：原角色什么都不再做
 				finally { syncing = !!state && !!cred && state.id !== cred.id; }
 				if (!decided && state) { loadQueue(); connect(); pullCloud(); }
+				else if (!decided && !state && recoverCred) await restoreFrom(recoverCred, '本机存档读不出来，已从云端恢复');
 			})();
 			document.addEventListener('visibilitychange', () => { if (!document.hidden && state) { connect(); pullCloud(); } });
 			// 手机断网时立刻显示离线，恢复后自动重连并同步
@@ -2524,6 +3035,7 @@ const description = '在真实地图上生活的在线人生模拟：出行、�
 				window.addEventListener('offline', () => { syncStatus = '离线：可以查看，联网后才能行动'; if (state) { renderHud(); if (tab === 'go') renderMap(); } });
 				window.addEventListener('online', () => {
 					retryVenues();
+					if (!state && recoverCred && !syncing) void restoreFrom(recoverCred, '本机存档读不出来，已从云端恢复');
 					if (state) { connect(); pullCloud(); if (tab === 'near') renderPanel(); }
 				});
 			}
