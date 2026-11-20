@@ -407,6 +407,31 @@ export const EVENTS: GameEvent[] = [
 			{ label: '打个招呼就回房', ok: { text: '有人说明早一起去看日出，你答应了。', fx: { minutes: 5, needs: { social: 6 } } } },
 		],
 	},
+	// 第 32 批：坐公共交通、区域火车、步行抵达时才会抽到（数值待平衡）
+	{
+		id: 'transit-hometown', title: '车厢里的乡音', icon: '🚆', arrivedBy: ['transit'], weight: 3,
+		text: '对面两个学生在用中文吐槽作业截止日，其中一个背包上挂着你家乡的钥匙扣。',
+		choices: [
+			{ label: '用家乡话搭一句', check: { skill: 'charisma', dc: 20 }, ok: { text: '真是同乡。到站前你们互加了好友，约了周末一起去买菜。', fx: { needs: { social: 20, fun: 6 }, skills: { charisma: 1 } } }, fail: { text: '你一开口，他们愣了一下，礼貌地笑了笑就下车了。', fx: { needs: { social: 5 } } } },
+			{ label: '戴上耳机看窗外', ok: { text: '窗外的河面一闪一闪，你小睡了一会儿。', fx: { needs: { energy: 4 } } } },
+		],
+	},
+	{
+		id: 'rail-wheatbelt', title: '窗外的麦田带', icon: '🌾', arrivedBy: ['rail'], weight: 3,
+		text: '火车开出城区，窗外换成一望无际的麦田和盐湖，信号一格一格掉没了。',
+		choices: [
+			{ label: '去餐车买杯热饮（$5）', cost: 5, ok: { text: '捧着热饮看了一路的风景，难得什么也不用想。', fx: { needs: { fun: 12, hunger: 6 } } } },
+			{ label: '靠着窗睡一觉', ok: { text: '醒来已经快到站了，脖子有点酸。', fx: { needs: { energy: 10 } } } },
+		],
+	},
+	{
+		id: 'walk-blister', title: '脚底磨出了泡', icon: '🦶', arrivedBy: ['walk'], weight: 3,
+		text: '走到最后一段，鞋里有个地方一直在磨，每一步都在提醒你。',
+		choices: [
+			{ label: '找个药店买创可贴（$8）', cost: 8, ok: { text: '贴好以后舒服多了，顺手买了瓶水。', fx: { minutes: 15, needs: { energy: 3 } } } },
+			{ label: '咬咬牙走完', check: { skill: 'stamina', dc: 30 }, ok: { text: '到了才发现已经磨破了，不过体力确实练出来了。', fx: { health: -1, skills: { stamina: 1 } } }, fail: { text: '一瘸一拐走到了，今天不想再动了。', fx: { health: -3, needs: { energy: -8 } } } },
+		],
+	},
 	...VENUE_EVENTS,
 	...SA_EVENTS,
 ];

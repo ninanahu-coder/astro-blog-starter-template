@@ -1976,7 +1976,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const chosen = (destMode?.dest === destId && open.find((o) => o.mode === destMode!.mode)) || cheapest;
 				const tiles = ways.map((o) => {
 					const on = o === chosen;
-					return `<button class="tile${on ? ' on' : ''}" data-dmode="${o.mode}" data-dest="${destId}" aria-pressed="${on}" ${o.available ? '' : 'disabled'}><b>${o.label}</b><small>$${o.cost} · ${minutesLabel(o.minutes)}</small>${o.reason ? `<small>${esc(o.reason)}</small>` : ''}</button>`;
+					return `<button class="tile${on ? ' on' : ''}" data-dmode="${o.mode}" data-dest="${destId}" aria-pressed="${on}" ${o.available ? '' : 'disabled'}><b>${esc(o.label)}</b><small>$${o.cost} · ${minutesLabel(o.minutes)}</small>${o.reason ? `<small>${esc(o.reason)}</small>` : o.note ? `<small>${esc(o.note)}</small>` : ''}</button>`;
 				}).join('');
 				if (!chosen) return `<div class="tiles">${tiles}</div>`;
 				const left = s.cash - chosen.cost;
@@ -2019,10 +2019,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const cross = toArea && toArea.id !== curArea().id ? `去${esc(toArea.name)} · ` : '';
 					return `<button class="row${selected === o.to ? ' sel' : ''}${fresh && o.available ? ' new' : ''}" data-go="${o.to}" data-mode="${o.mode}" ${o.available ? '' : 'disabled'}>
 						<span class="ico">${KIND_ICON[to.kind]}</span>
-						<span class="body">${esc(to.name)} <span title="今天的天气">${weatherOn(o.to, dayOf(s.clock)).icon}</span><small>${cross}${fresh ? '没去过 · ' : ''}${o.label} · ${o.km} km${o.reason ? ' · ' + esc(o.reason) : ''}${tight ? ` · <span class="warn-text">去了周结算会不够（要付 $${wcGo.total}）</span>` : ''}</small></span>
+						<span class="body">${esc(to.name)} <span title="今天的天气">${weatherOn(o.to, dayOf(s.clock)).icon}</span><small>${cross}${fresh ? '没去过 · ' : ''}${esc(o.label)} · ${o.km} km${o.reason ? ' · ' + esc(o.reason) : o.note ? ' · ' + esc(o.note) : ''}${tight ? ` · <span class="warn-text">去了周结算会不够（要付 $${wcGo.total}）</span>` : ''}</small></span>
 						<span class="meta"><b>$${o.cost}</b>${h ? h + ' 小时 ' : ''}${m} 分</span></button>`;
 				}).join('');
-				return `${note}<p class="section-title">从${esc(getLocation(region, s.loc)!.name)}出发</p><div class="list">${rows}</div><p class="muted">点地图上的地点可以高亮对应路线。虚线是航班，长虚线是越野土路（需四驱），橙色点是没去过的地方。</p>`;
+				return `${note}<p class="section-title">从${esc(getLocation(region, s.loc)!.name)}出发</p><div class="list">${rows}</div><p class="muted">点地图上的地点可以高亮对应路线。虚线是航班，长虚线是越野土路（需四驱），橙色点是没去过的地方。公交、火车和步行不画在地图上，列在下面；票价照真实票价表，四舍五入到整元。</p>`;
 			}
 
 			/** 出行页顶上的分页：路线（地图）和附近（真实地点）；附近原来是单独的底部标签 */

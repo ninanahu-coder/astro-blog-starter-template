@@ -47,7 +47,7 @@ export type GameAction =
 	| { t: 'asset'; op: 'buy' | 'sell'; id: string; amount: number }
 	| { t: 'venue'; venue: string; op: VenueOp; lat: number; lon: number; acc: number };
 
-const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air'];
+const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air', 'transit', 'rail', 'walk'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk'];
 const ID = /^[a-z0-9-]{1,40}$/;
 
