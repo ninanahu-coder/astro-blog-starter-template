@@ -27,3 +27,13 @@ test('人物证件照：每个出身 × 每个形象都有一张，文件存在�
 		assert.ok(statSync(file).size <= 30_000, `${url} 超过 30KB`);
 	}
 });
+
+test('入境卡证件照：每个出身 × 每个形象算出的地址都在 manifest 里；不认识的退回 emoji', async () => {
+	const { bustUrl, photoHtml } = await import('../../src/game/ui/char.ts');
+	const urls = new Set(Object.values(manifest.busts));
+	for (const o of ORIGINS) for (const a of AVATARS) assert.ok(urls.has(bustUrl(o.id, a)), `${o.id} ${a}`);
+	assert.equal(bustUrl('nobody', AVATARS[0]), null);
+	assert.equal(bustUrl(ORIGINS[0].id, '🦄'), null);
+	assert.equal(photoHtml('nobody', '🦄'), '<span class="ac-photo-emoji">🦄</span>');
+	assert.match(photoHtml('student', AVATARS[1]), /^<span class="ac-photo-emoji">[^<]+<\/span><img class="ac-photo-img" src="\/earth\/char\/student-1\.webp" alt=""/);
+});

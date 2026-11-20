@@ -13,7 +13,7 @@
 | `tools/earth/blender/sheet.py` | 拼总览图，目检用 |
 | `public/earth/char/` | 40 张证件照（4 出身 × 10 形象），共约 340KB，平均 8.5KB；`manifest.json` |
 
-**还没接进游戏界面**：入境卡和主界面仍显示 emoji，存档里 `avatar` 也仍是 emoji。
+**已接进入境卡**：照片栏按「出身-形象下标」显示证件照（`src/game/ui/char.ts`），emoji 垫在下面，图片加载失败时露出来。主界面和存档没变，存档里 `avatar` 仍是 emoji。
 
 ## 2. 怎么跑
 
@@ -64,5 +64,5 @@ python3 tools/earth/blender/export.py tools/earth/blender/out
 
 ## 6. 下一步（待定）
 
-1. 把证件照接进入境卡：选形象时显示对应出身的证件照，emoji 留作加载失败时的后备。
+1. 主界面顶栏、「我」页也换成证件照。
 2. 给 NPC 做全身像，替换现在的 AI 生成头像（需要先定风格是否统一）。
