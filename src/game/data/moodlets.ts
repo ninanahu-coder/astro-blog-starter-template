@@ -23,6 +23,9 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'promoted', name: '升职了', icon: '📈', value: 12, hours: 72 },
 	{ id: 'vitamins', name: '吃了维生素', icon: '💊', value: 2, hours: 72, regen: 2 }, // 第 23 批，待平衡
 	{ id: 'new-home', name: '乔迁之喜', icon: '🏡', value: 10, hours: 72 },
+	{ id: 'pet-cuddle', name: '陪宠物玩了一会儿', icon: '🐾', value: 5, hours: 8 }, // v31 宠物，数值待平衡
+	{ id: 'dog-walk', name: '遛完狗神清气爽', icon: '🦮', value: 5, hours: 8 }, // v31 宠物，数值待平衡
+	{ id: 'new-pet', name: '家里多了一位成员', icon: '🏠', value: 10, hours: 72 }, // v31 宠物，数值待平衡
 	// 负面
 	{ id: 'rough-night', name: '没睡好', icon: '🥱', value: -2, hours: 8 }, // 第七轮起露营改给 camp-calm；保留定义，旧存档里的状态照常显示到过期
 	{ id: 'camp-calm', name: '星空下醒来', icon: '🌌', value: 10, hours: 24 }, // 露营专属（第七轮平衡：替代「没睡好」，托住穷角色的心情）

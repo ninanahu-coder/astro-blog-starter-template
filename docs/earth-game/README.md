@@ -65,7 +65,7 @@ tools/earth/comfyui/  提示词生成、工作流模板、远程出图脚本
 tests/earth/          引擎与数据自洽性测试
 ```
 
-按功能整理的总览（每个功能给玩家什么、规则要点、现状和待定）见 [features.md](features.md)。人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)，房产与车辆的细化设计和真实价格参照见 [home-and-vehicle.md](home-and-vehicle.md)。收入侧（工资、零工、收租）、货币投放与回收、职业成长曲线、现实物价参照，以及金融资产（储蓄、指数基金、金条、虚拟币）见 [economy-design.md](economy-design.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。天气和季节（各地气候、BOM 气象站数据、天气怎么抽、对玩法的影响和提议）见 [weather-seasons.md](weather-seasons.md)。
+按功能整理的总览（每个功能给玩家什么、规则要点、现状和待定）见 [features.md](features.md)。人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)，房产与车辆的细化设计和真实价格参照见 [home-and-vehicle.md](home-and-vehicle.md)。收入侧（工资、零工、收租）、货币投放与回收、职业成长曲线、现实物价参照，以及金融资产（储蓄、指数基金、金条、虚拟币）见 [economy-design.md](economy-design.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。天气和季节（各地气候、BOM 气象站数据、天气怎么抽、对玩法的影响和提议）见 [weather-seasons.md](weather-seasons.md)。宠物系统和野生动物（v31）见 [pets-wildlife.md](pets-wildlife.md)。
 
 设计原则：
 

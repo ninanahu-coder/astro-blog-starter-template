@@ -666,7 +666,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { AVATARS, NEED_META, ORIGINS, SKILL_META, formatClock, nextRev, sanitizeState } from '../game/core/character.ts';
 			import type { GameAction } from '../game/core/actions.ts';
 			import { npcStatus } from '../game/core/engine.ts';
-			import { ANIMALS } from '../game/data/wildlife.ts';
+			import { ANIMALS, WILDLIFE_RULES } from '../game/data/wildlife.ts';
+			import { petOffers, petStatus, petTravelBlocked } from '../game/core/pets.ts';
+			import { PET, PET_RULES } from '../game/data/pets.ts';
 			import { FISH, FISHING } from '../game/data/fish.ts';
 			import { PHOTO_MINUTES, PHOTO_QUESTS } from '../game/data/photo-quests.ts';
 			import { STORY } from '../game/data/story.ts';
@@ -683,7 +685,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
 			import { codeOf, exportName, hashAction, makeQr, parseCred, parsePendingKey, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, webglSupported, type Basemap } from '../game/ui/basemap.ts';
-			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, bondFor, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
+			import { activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, animalHint, seasonAnimals, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, bondFor, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { credentialName, VISA } from '../game/data/education.ts';
 			import { programsAt } from '../game/core/education.ts';
@@ -1916,6 +1918,21 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const spot = fishingAt(s, region);
 				const fishHtml = spot ? `<div class="card"><h3>🎣 钓鱼</h3><p>${spot.fish.length ? `现在能钓到：${spot.fish.map((f) => `${s.fish[f.id] ? f.icon + esc(f.name) : '？？？'}`).join('、')}。` : '这个时候这里钓不到鱼，换个时段或季节再来。'}钓到的当场卖给鱼铺。</p>
 					<div class="row" style="margin-top:8px"><span class="body">钓一会儿<small>${esc(spot.blocked ?? `${FISHING.minutes} 分钟 · 生存能力越高越不容易空手`)}</small></span><button data-fish ${spot.blocked ? 'disabled' : ''}>去钓</button></div></div>` : '';
+				// 宠物（v31）：有宠物显示状态和照顾按钮；在城市里没宠物时显示能领养的
+				const ps = petStatus(s, region);
+				const PET_OP_LABEL: Record<string, string> = { feed: '喂食', play: '陪它玩', walk: '遛狗', vet: '体检', pickup: '接回来', rehome: '送回救助站' };
+				const petNotes = (x: NonNullable<typeof ps>) => [
+					x.pet.board ? `在${getLocation(region, x.pet.board.loc)?.name ?? '寄养所'}寄养${x.boardOver ? `，已超期 ${x.boardOver} 天` : `到第 ${x.pet.board.until + 1} 天`}` : '',
+					x.hungry ? '今天还没喂' : '',
+					x.lonely ? `${x.lonely} 天没人陪，有点想你` : '',
+					x.vetDue ? '该做年度体检了' : '',
+				].filter(Boolean).join(' · ');
+				const petOffersHere = ps ? [] : petOffers(s, region);
+				const petHtml = ps ? `<div class="card"><h3>${ps.def.icon} ${esc(ps.pet.name)} <span class="muted">${esc(ps.def.name)} · 好感 ${Math.round(ps.pet.bond)}</span></h3><p>${esc(petNotes(ps) || '吃饱了，心情不错。')}</p>
+					<div class="inline" style="margin-top:8px">${ps.ops.filter((o) => o.op !== 'rehome').map((o) => `<button data-pet="${o.op}" ${o.blocked ? 'disabled' : ''} title="${esc(o.blocked ?? '')}">${PET_OP_LABEL[o.op]}</button>`).join('')}${ps.pet.board ? '' : `<button data-pet="board" ${ps.board ? 'disabled' : ''} title="${esc(ps.board ?? '')}">寄养 $${ps.def.board}/天</button>`}<button data-pet="rehome">送回救助站</button></div></div>`
+					: petOffersHere.length ? `<details class="card"><summary><b>🐾 领养或买一只宠物</b></summary><p class="muted" style="margin-top:8px">救助站领养费含绝育、芯片和疫苗；猫狗另付登记费。要有能养它的住处。</p>
+					<div class="list" style="margin-top:8px">${petOffersHere.map((o) => `<button class="row" data-pet="adopt" data-pet-kind="${o.kind.id}" data-pet-from="${o.from}" ${o.blocked ? 'disabled' : ''}><span class="ico">${o.kind.icon}</span><span class="body">${o.from === 'shelter' ? '领养' : '买'}一只${esc(o.kind.name)}<small>${esc(o.blocked ?? o.kind.desc)}</small></span><span class="meta">$${o.price}</span></button>`).join('')}</div>
+					<details style="margin-top:8px"><summary class="muted">宠物须知</summary>${PET_RULES.map((r) => `<p style="margin-top:6px">${esc(r.text)} <a class="muted" href="${esc(r.source)}" target="_blank" rel="noopener">来源</a></p>`).join('')}</details></details>` : '';
 				const courses = coursesAt(s, region);
 				const courseHtml = courses.length ? `<div class="card"><h3>课程</h3>${courses.map(({ course, price, blocked }) => `
 					<div class="row" style="margin-top:8px"><span class="body">${esc(course.name)} · $${price}<small>${esc(blocked ?? `${SKILL_META[course.skill].name}（现在 ${Math.floor(s.skills[course.skill])}）· ${Math.round(course.minutes / 60 * 10) / 10} 小时 · ${course.desc}`)}</small></span><button data-course="${course.id}" ${blocked ? 'disabled' : ''}>上课</button></div>`).join('')}</div>` : '';
@@ -1960,7 +1977,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
 					</div>
 					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${courseHtml}${certHtml}${studyHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
+					${storyCard}${festHtml}${skyCard(s)}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${photoQuestHtml}${fishHtml}${petHtml}${courseHtml}${certHtml}${studyHtml}${shopHtml}${dealerHtml}${garageHtml}${propHtml}${poiHtml}${factHtml}${notesCard(s)}`;
 			}
 
 			/** 地点卡里的一行气候说明：气候区 + 参照的气象站（第 30 批） */
@@ -1991,7 +2008,11 @@ const cardLines = guilloche(400, 260, 14, 9);
 
 			function panelGo() {
 				const s = state!;
-				const opts = travelOptions(s, region);
+				// 带着宠物坐不了飞机、上不了保护区的岛：界面上和服务端一样标成不可用（v31）
+				const opts = travelOptions(s, region).map((o) => {
+					const why = o.available ? petTravelBlocked(s, o.to, o.mode) : undefined;
+					return why ? { ...o, available: false, reason: why } : o;
+				});
 				// 点了地图上的某个地点：先给一张目的地卡片（介绍、今天的天气、谁在那里、签名事件、从这里怎么去）
 				const dest = selected && selected !== s.loc ? getLocation(region, selected) : undefined;
 				let note = '';
@@ -2105,9 +2126,11 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const dex = new Set(s.dex);
 				const dexHtml = `<div class="card"><h3>野生动物图鉴 ${s.dex.length}/${ANIMALS.length}</h3><p>到了各地有机会看见动物，有的只在某个季节或清晨傍晚出现。一组集齐加声望。</p>
 					<p>${dexProgress(s).map((g) => `${esc(g.name)} ${g.got}/${g.total}${g.done ? ' ✅' : ''}`).join(' · ')}</p>
+					${(() => { const now = seasonAnimals(s.clock); return now.length ? `<p>本季限定：${now.map((a) => dex.has(a.id) ? `${a.icon}${esc(a.name)}` : '？？？').join('、')}</p>` : ''; })()}
 					<div class="ach-grid">${ANIMALS.map((a) => dex.has(a.id)
-						? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${a.icon}</span><span><b>${esc(a.name)}</b><small>${esc(a.desc)}</small></span></div>`
-						: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc(({ sea: '海洋', land: '陆地', bird: '飞鸟' } as Record<string, string>)[a.group])}</small></span><span class="sr">（还没见过）</span></div>`).join('')}</div></div>`;
+						? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${a.icon}</span><span><b>${esc(a.name)}</b><small>${esc(a.desc)}${animalHint(a) ? ` · ${esc(animalHint(a))}` : ''}</small></span></div>`
+						: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc([({ sea: '海洋', land: '陆地', bird: '飞鸟' } as Record<string, string>)[a.group], animalHint(a)].filter(Boolean).join(' · '))}</small></span><span class="sr">（还没见过）</span></div>`).join('')}</div>
+					<details style="margin-top:8px"><summary><b>看动物的规矩</b></summary>${WILDLIFE_RULES.map((r) => `<p style="margin-top:6px">${esc(r.text)} <a class="muted" href="${esc(r.source)}" target="_blank" rel="noopener">来源</a></p>`).join('')}</details></div>`;
 				const fishHtml2 = `<div class="card"><h3>鱼获 ${Object.keys(s.fish).length}/${FISH.length}</h3><div class="ach-grid">${FISH.map((f) => s.fish[f.id]
 					? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${f.icon}</span><span><b>${esc(f.name)} ×${s.fish[f.id]}</b><small>${esc(f.desc)}</small></span></div>`
 					: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>还没钓到</small></span></div>`).join('')}</div></div>`;
@@ -2613,7 +2636,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				} catch {}
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet]');
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
@@ -2654,6 +2677,22 @@ const cardLines = guilloche(400, 260, 14, 9);
 				}
 				else if (d.course) act({ t: 'course', id: d.course }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if ('photo' in d) act({ t: 'photo' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.pet) {
+					let a: GameAction;
+					if (d.pet === 'adopt') {
+						const name = prompt('给它起个名字（可以不填）', '');
+						if (name === null) return;
+						a = { t: 'pet', op: 'adopt', kind: d.petKind!, from: d.petFrom === 'breeder' ? 'breeder' : 'shelter', ...(name.trim() ? { name: name.trim().slice(0, PET.nameMax) } : {}) };
+					} else if (d.pet === 'board') {
+						const days = Number(prompt(`寄养几天？（1–${PET.boardMaxDays}）`, '3'));
+						if (!Number.isInteger(days) || days < 1 || days > PET.boardMaxDays) return;
+						a = { t: 'pet', op: 'board', days };
+					} else {
+						if (d.pet === 'rehome' && !confirm('确定把它送回救助站？工作人员会给它找新家。')) return;
+						a = { t: 'pet', op: d.pet as 'feed' | 'play' | 'walk' | 'vet' | 'pickup' | 'rehome' };
+					}
+					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
 				else if ('fish' in d) act({ t: 'fish' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.cert) act({ t: 'cert', id: d.cert }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.study) act({ t: 'study', id: d.study }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });

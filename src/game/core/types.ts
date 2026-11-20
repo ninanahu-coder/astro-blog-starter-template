@@ -526,6 +526,20 @@ export interface JournalEntry {
 	text: string;
 }
 
+// ---------- 宠物（v31，见 data/pets.ts、core/pets.ts） ----------
+export interface Pet {
+	kind: string; // PetKindDef.id
+	name: string;
+	from: 'shelter' | 'breeder';
+	since: number; // 领回家的游戏日
+	bond: number; // 好感度 0–100（只会涨涨跌跌，宠物不会因为没照顾而离开、受伤或死亡）
+	fedDay: number; // 最近一次喂的游戏日
+	playDay: number; // 最近一次陪玩的游戏日，−1 为还没有
+	walkDay: number; // 最近一次遛的游戏日（只有狗），−1 为还没有
+	vetDay: number; // 最近一次体检的游戏日（领养时算一次）
+	board: { loc: string; until: number } | null; // 寄养在哪、付到第几个游戏日
+}
+
 export interface PlayerState {
 	v: 1;
 	id: string;
@@ -579,6 +593,7 @@ export interface PlayerState {
 	trades: { day: number; out: number; in: number }; // 玩家之间交易：这个现实日已送出 / 收下的次数
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领
 	met: Record<string, { name: string; avatar: string; n: number; last: number }>; // 常遇见的人：玩家 id 哈希前缀 -> 名字、头像、一起做事的次数、最近一次的现实日
+	pet: Pet | null; // 宠物（第一版最多一只）
 	pending: { eventId: string } | null;
 	fix: { lat: number; lon: number; at: number } | null; // 最近一次真实定位（坐标保留 3 位小数，约 100 米；at 为服务端时间）
 	venueCd: Partial<Record<VenueOp, number>>; // 每种真实地点动作最近一次的服务端时间（毫秒）

@@ -121,6 +121,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	rec.state.home = { type: 'room', loc: rec.state.loc, furniture: {} };
 	rec.state.cash = 120;
 	rec.state.nextWeek = Math.floor(rec.state.clock / 1440) + 1;
+	// 宠物（v31）：名字是玩家输入，存档里故意带 HTML，页面必须转义。寄养着：后面要坐船上罗特内斯特岛，带着宠物上不了岛
+	rec.state.pet = { kind: 'budgie', name: '<i>啾</i>', from: 'shelter', since: 0, bond: 40, fedDay: 0, playDay: -1, walkDay: -1, vetDay: 0, board: { loc: rec.state.loc, until: Math.floor(rec.state.clock / 1440) + 14 } };
 	data.set('save:' + cred.id, rec);
 
 	const els = new Map<string, El>();
@@ -208,6 +210,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.ok(rootClasses.contains('p-day') && !rootClasses.contains('p-night'), '开局 8 点是白天');
 		// 名字里的 HTML 被转义（服务端可能已清洗掉尖括号；无论如何不能原样出现）
 		for (const h of [panel(), el('hud').innerHTML]) assert.ok(!h.includes('<b>阿测</b>'), '名字没有转义');
+		assert.match(panel(), /🦜 /, '今天页有宠物卡片');
+		assert.match(panel(), /寄养到第 \d+ 天/);
+		assert.ok(!panel().includes('<i>啾</i>'), '宠物名字没有转义');
 		assert.match(panel(), /1 天后周结算，钱不够/, '周结算预警');
 		// 新手指南（第 26 轮）：开局只解开第 1 天，标出「现在」这一步；在今天页时第一步不需要「去看看」跳转
 		assert.match(panel(), /新手指南 · 第 1 天/);
