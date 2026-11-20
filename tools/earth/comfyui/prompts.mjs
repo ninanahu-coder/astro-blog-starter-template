@@ -135,6 +135,10 @@ const EVENT_SCENE = {
 	// 南澳
 	'central-market': 'a bustling covered food market with cheese, bread and fruit stalls, shoppers seen from behind',
 	'glenelg-tram': 'a modern tram arriving at its seaside terminus beside a beach and a long jetty',
+	// 第 32 批出行事件：暂借相近的已有图（清单指向 glenelg-tram / hedland-ore-train / busselton-jetty-walk），按提示词重新生成后替换
+	'transit-hometown': 'inside a quiet suburban commuter train carriage, two university students with backpacks chatting across the aisle, river glinting through the window',
+	'rail-wheatbelt': 'view from a regional passenger train window over endless golden wheat fields and a pale salt lake under a wide sky',
+	'walk-blister': 'a lone walker in sneakers sitting on a roadside kerb taping a blistered heel, a long empty suburban footpath behind',
 	'hahndorf-bakery': 'a nineteenth-century German stone village street with a bakery displaying pretzels and sausages',
 	'barossa-vintage': 'the open door of an old stone wine cellar with oak barrels, gnarled old vines outside',
 	'mclaren-coast': 'vineyards rolling downhill to coastal cliffs and a sandy beach',

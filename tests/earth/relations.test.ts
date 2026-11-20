@@ -293,3 +293,14 @@ test('知己的服务端校验与存档清洗', () => {
 	assert.equal(clean.relations[NPCS[5].id].bond, undefined, '坏日子丢掉');
 	assert.equal(clean.relations[NPCS[5].id].told, undefined, '不是知己不留近况日期');
 });
+
+test('NPC 卡（页面模板）：托你帮忙的请求、关系变淡提示、知己标记和打招呼语音都在（合并 AIGC 时两边都改过这张卡）', async () => {
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	const card = src.slice(src.indexOf('<div class="npc-rel">'), src.indexOf('<div class="npc-rel">') + 3000);
+	assert.match(card, /\$\{favor \? `<p class="bubble">🙋 \$\{esc\(favor\.ask\)\}<\/p>`/, '托你帮忙的请求');
+	assert.match(card, /\$\{fading \? /, '关系变淡提示');
+	assert.match(card, /confidant \? '🫶 知己'/, '知己标记');
+	assert.match(card, /greetHtml\(esc, npc\.id, npc\.name, media\.voice\[npc\.id\]\)/, '打招呼语音');
+	for (const act of ['favor', 'bond', 'unbond']) assert.match(card, new RegExp(`data-npc-act="${act}"`), act);
+});

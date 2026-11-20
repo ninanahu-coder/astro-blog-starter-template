@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic dramatic seaside landscape at sunset, a red-and-white striped lighthouse on a grassy headland beside a curving path, a turquoise ocean with breaking waves and towering clouds",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "Strong surf crashing on rocks and a steady sea wind",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "Waves roll in from the right and break in white spray against the rocks throughout the shot, the towering clouds drift slowly to the right, and the coastal grasses in the foreground bend in the wind. The lighthouse and the distant buildings stay still.",
+   "sfx": "spray hissing on the rocks"
+  }
+ ]
+}
