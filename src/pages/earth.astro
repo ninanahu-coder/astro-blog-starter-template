@@ -750,8 +750,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { defaultAmount, investCard } from '../game/ui/invest.ts';
 			import { holdingsValue } from '../game/core/market.ts';
 			import { setHtml } from '../game/ui/dom.ts';
-			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
-			import { playCue, type AudioLike, type Cue } from '../game/ui/sound.ts';
+			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, VOLUME_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
+			import { ambienceFor, createMixer, cueAfter, musicFor, playCue, type AudioLike, type Cue, type Mixer } from '../game/ui/sound.ts';
+			import type { Beds, BedCtx } from '../game/ui/ambient.ts';
 			import { photoHtml } from '../game/ui/char.ts';
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
 			import { codeOf, exportName, hashAction, makeQr, parseCred, parsePendingKey, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
@@ -919,24 +920,54 @@ const cardLines = guilloche(400, 260, 14, 9);
 				cl.toggle('calm', calmMotion(prefs, sys));
 				for (const [f] of FONT_OPTIONS) cl.toggle(`fs-${f}`, prefs.font === f);
 			}
-			// 音效（第 29 轮）：设置里打开才响；AudioContext 等第一次要出声时再建（那时一定是玩家点过按钮之后）
+			// 声音（第 29 轮音效，v37 分轨，见 docs/earth-game/audio-design.md）。AudioContext 只在玩家点了东西之后才建：
+			// 手机浏览器不允许没有用户操作就出声。环境音、音乐的合成器动态加载，不进首屏
 			let audio: AudioLike | null = null;
+			let mixer: Mixer | null = null;
+			let beds: Beds | null = null;
+			let bedsLoading = false;
+			const chans = () => ({ sfx: prefs.sound, ambience: prefs.ambience, music: prefs.music, volume: prefs.volume });
+			/** 建好（或拿到）音频；只能在点击等用户操作里第一次调用 */
+			function ensureAudio() {
+				if (!audio) {
+					const w = window as unknown as { AudioContext?: new () => AudioLike; webkitAudioContext?: new () => AudioLike };
+					const Ctx = w.AudioContext ?? w.webkitAudioContext;
+					if (!Ctx) return null;
+					audio = new Ctx();
+					mixer = createMixer(audio, chans());
+				}
+				if (audio.state === 'suspended' && !document.hidden) void audio.resume?.();
+				return audio;
+			}
 			function sfx(cue: Cue) {
 				if (!prefs.sound) return;
 				try {
-					if (!audio) {
-						const w = window as unknown as { AudioContext?: new () => AudioLike; webkitAudioContext?: new () => AudioLike };
-						const Ctx = w.AudioContext ?? w.webkitAudioContext;
-						if (!Ctx) return;
-						audio = new Ctx();
+					const a = ensureAudio();
+					if (a) playCue(a, cue, mixer!.sfx);
+				} catch {}
+			}
+			/** 按当前地点、天气、天色、节日换环境音和音乐；没解锁（还没点过东西）时什么都不做 */
+			function syncScene() {
+				try {
+					mixer?.set(chans());
+					if (!audio || !state || !(prefs.ambience || prefs.music || beds)) return;
+					if (!beds) {
+						if (bedsLoading) return;
+						bedsLoading = true;
+						import('../game/ui/ambient.ts').then((m) => { beds = m.createBeds(audio as BedCtx, mixer!.ambience, mixer!.music); bedsLoading = false; syncScene(); }, () => { bedsLoading = false; });
+						return;
 					}
-					playCue(audio, cue);
+					const loc = getLocation(region, state.loc)!;
+					const scene = { kind: loc.kind, tags: loc.tags, weather: weatherAt(state).id, phase: skyPhase(loc, state.clock), festival: !!festivalsSoon(state.clock, loc.id).here };
+					beds.setAmbience(prefs.ambience ? ambienceFor(scene) : null);
+					beds.setMusic(prefs.music ? musicFor(scene) : null);
 				} catch {}
 			}
 			function setPrefs(next: Partial<Prefs>) {
 				prefs = { ...prefs, ...next };
 				store.set(PREFS_KEY, JSON.stringify(prefs));
 				applyPrefs();
+				try { mixer?.set(chans()); } catch {}
 			}
 			const randId = (n: number) => {
 				const a = new Uint8Array(n);
@@ -1553,7 +1584,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 						const got = newAchievements(before, state, region);
 						lastAch = got.map((d) => `${d.icon} ${d.name}`);
 						if (got.length && prefs.achToast) setTimeout(() => toast(`🏅 达成成就：${got.map((d) => d.name).join('、')}（去成长页领奖）`), 1200);
-						sfx(got.length ? 'ach' : 'ok');
+						const cue = cueAfter({ ok: true, ach: got.length > 0, levelUp: level(state.respect).lv > level(before.respect).lv, travel: a.t === 'travel', pending: !!state.pending, weather: weatherAt(state).id });
+						if (cue) sfx(cue);
 					}
 					else { lastDelta = []; lastAch = []; }
 					if (!data.ok) { sfx('fail'); if (!quiet) toast(data.msg || '操作失败'); render(); return { kind: 'fail', msg: data.msg || '操作失败' }; }
@@ -2743,10 +2775,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 				return `<div class="card"><h3>已屏蔽的人</h3><p class="muted">看不到他们的聊天、表情、留言和挂单，他们也送不了你东西。对方不会收到通知。</p>${rows ? `<div class="list" style="margin-top:8px">${rows}</div>` : '<p class="muted">还没有屏蔽任何人。</p>'}</div>`;
 			}
 			function panelSync() {
-				const seg = (key: 'font' | 'motion', label: string, opts: [string, string][]) =>
+				const seg = (key: 'font' | 'motion' | 'volume', label: string, opts: [string, string][]) =>
 					`<div class="pref-row" role="group" aria-label="${label}"><span>${label}</span><div class="seg">${opts.map(([v, name]) => `<button data-pref="${key}" data-val="${v}" class="${prefs[key] === v ? 'on' : ''}" aria-pressed="${prefs[key] === v}">${name}</button>`).join('')}</div></div>`;
 				const tips = TIP_OPTIONS.map(([k, name, hint]) => `<div class="row" style="margin-top:8px"><span class="body">${name}<small>${hint}</small></span><button data-pref="${k}" aria-pressed="${prefs[k]}">${prefs[k] ? '已开启' : '已关闭'}</button></div>`).join('');
-				const sound = `<div class="row" style="margin-top:8px"><span class="body">音效<small>做事、事件、成就时的轻提示音，默认关闭</small></span><button data-pref="sound" aria-pressed="${prefs.sound}">${prefs.sound ? '已开启' : '已关闭'}</button></div>`;
+				const onOff = (k: 'sound' | 'ambience' | 'music', name: string, hint: string) => `<div class="row" style="margin-top:8px"><span class="body">${name}<small>${hint}</small></span><button data-pref="${k}" aria-pressed="${prefs[k]}">${prefs[k] ? '已开启' : '已关闭'}</button></div>`;
+				// 声音（v37）：三条分轨各自开关，加一个总音量；默认都关。声音只是点缀，所有信息都有文字和画面
+				const sound = `${onOff('sound', '音效', '做事、到达、事件、升级、成就时的轻提示音，默认关闭')}${onOff('ambience', '环境音', '海浪、城市、风声、雨声，跟着地点和天气换，默认关闭')}${onOff('music', '背景音乐', '按地点、早晚、节日换的轻音乐，默认关闭')}${seg('volume', '音量', VOLUME_OPTIONS)}<p class="muted" style="margin-top:4px">声音都是现场合成的，不下载音频文件；手机上要先点一下页面才会出声。重要的事都有文字提示，不开声音不会错过。</p>`;
 				const real = `<div class="row" style="margin-top:8px"><span class="body">真实地图<small>出行页用 OpenStreetMap 真实地图，图块向 OpenFreeMap 请求；关掉或离线时用手绘地图${basemapFailed ? '。这次没加载出来，正在用手绘地图' : ''}</small></span><button data-pref="basemap" aria-pressed="${prefs.basemap}">${prefs.basemap ? '已开启' : '已关闭'}</button></div>`;
 				return `<div class="card"><h3>显示</h3><p class="muted">只在这台设备上生效。</p>${seg('font', '字号', FONT_OPTIONS)}${seg('motion', '动画', MOTION_OPTIONS)}${sound}${real}</div>
 					<div class="card"><h3>提示</h3>${tips}
@@ -2904,6 +2938,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				for (const p of PERIOD_IDS) document.documentElement?.classList?.toggle('p-' + p, p === pid);
 				renderPanel(); // 里面会画顶栏和（出行页的）地图
 				renderEvent();
+				syncScene();
 				if (obPending.length) void flushOnboard();
 				maybeFireWarn();
 				if (dailyNote) {
@@ -2936,9 +2971,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 			});
 			document.addEventListener('click', (e) => {
 				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide]');
+				// 打开了环境音或音乐、但还没出过声：第一次点页面任何地方时解锁音频（浏览器的自动播放限制）
+				if (!audio && (prefs.ambience || prefs.music)) { try { ensureAudio(); } catch {} syncScene(); }
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
 				if (d.tab) {
+					if (d.tab !== tab) sfx('tap');
 					tab = d.tab;
 					if (tab === 'near') retryVenues();
 					if (tab === 'place') maybeFireWarn();
@@ -2965,6 +3003,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 					else if (k === 'motion' && MOTION_OPTIONS.some(([v]) => v === d.val)) setPrefs({ motion: d.val as Prefs['motion'] });
 					else if (TIP_OPTIONS.some(([t]) => t === k)) setPrefs({ [k]: !prefs[k as 'guide' | 'recap' | 'achToast'] });
 					else if (k === 'sound') { setPrefs({ sound: !prefs.sound }); sfx('ok'); }
+					else if (k === 'ambience' || k === 'music') { setPrefs({ [k]: !prefs[k] }); try { ensureAudio(); } catch {} syncScene(); }
+					else if (k === 'volume' && VOLUME_OPTIONS.some(([v]) => v === d.val)) { setPrefs({ volume: d.val as Prefs['volume'] }); syncScene(); sfx('ok'); }
 					// 重新打开时再试一次（上次失败的标记清掉）；关掉就把地图拆了，不再向图块服务发请求
 					else if (k === 'basemap') { setPrefs({ basemap: !prefs.basemap }); basemapFailed = false; if (!prefs.basemap) dropBasemap(); }
 					renderPanel();
@@ -3246,6 +3286,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			/** 盖章：没有减少动态效果时让入境章落下再进游戏；测试环境、减少动效时立刻继续 */
 			function stampDown(): Promise<void> {
 				$('c-card').classList.add('stamped');
+				sfx('stamp'); // 入境章落下的一声（v37 音效，音效关着时不响）
 				const calm = !!document.documentElement?.classList?.contains('calm') || typeof matchMedia !== 'function' || matchMedia('(prefers-reduced-motion: reduce)').matches;
 				return calm ? Promise.resolve() : new Promise((r) => setTimeout(r, 700));
 			}
@@ -3358,7 +3399,11 @@ const cardLines = guilloche(400, 260, 14, 9);
 				if (!decided && state) { loadQueue(); connect(); pullCloud(); }
 				else if (!decided && !state && recoverCred) await restoreFrom(recoverCred, '本机存档读不出来，已从云端恢复');
 			})();
-			document.addEventListener('visibilitychange', () => { if (!document.hidden && state) { connect(); pullCloud(); } });
+			document.addEventListener('visibilitychange', () => {
+				// 切到后台时暂停声音（省电，也不打扰）；回来接着放
+				try { if (document.hidden) void audio?.suspend?.(); else if (audio && (prefs.sound || prefs.ambience || prefs.music)) void audio.resume?.(); } catch {}
+				if (!document.hidden && state) { connect(); pullCloud(); }
+			});
 			// 手机断网时立刻显示离线，恢复后自动重连并同步
 			if (typeof window.addEventListener === 'function') {
 				window.addEventListener('offline', () => { syncStatus = '离线：可以查看，联网后才能行动'; if (state) { renderHud(); if (tab === 'go') renderMap(); } });
