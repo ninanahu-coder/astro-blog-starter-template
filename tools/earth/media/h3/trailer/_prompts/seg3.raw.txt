@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Polished stylised 3D render of a warm wooden desk seen from above in soft afternoon window light, navy, cream and gold palette, shallow depth of field, clean mobile game concept interface. The camera pushes in at medium speed toward the photo print in the centre of the map until the desert landscape inside the print fills the whole frame, arriving at the viewpoint of Picture 2. The white border of the photo print, the map and the desk slide out past the edges of the frame as the view moves into the print. The limestone pillars inside the print gain depth and the clouds above them begin to drift slowly to the right. The golden sand and the long shadows stay still. A continuous smooth motion from the first frame to the last frame; the desk, the light, the dark navy passport and the pen keep the same look in every shot, printed words stay sharp and legible, and the scene settles into the pose and framing shown in Picture 2 at the end of the shot.
+
+overall_soundscape: a quiet room with soft paper rustle; a rising dry desert wind
+
+non_diegetic_music: N/A

@@ -1,0 +1,20 @@
+{
+ "seg1": {
+  "prompt_id": "4fb3e8d7-d624-483a-8a66-7d246d8c8bdf",
+  "sec": 5.167,
+  "prompt_enhance": "safe",
+  "time": "2026-11-21 15:53:42"
+ },
+ "seg2": {
+  "prompt_id": "ec312107-6e02-4cc9-aea4-107d74174271",
+  "sec": 5.167,
+  "prompt_enhance": "safe",
+  "time": "2026-11-21 15:53:44"
+ },
+ "seg3": {
+  "prompt_id": "c4b3fddc-b0a1-40c8-8dfd-70a0215ca149",
+  "sec": 5.167,
+  "prompt_enhance": "safe",
+  "time": "2026-11-21 15:53:47"
+ }
+}
