@@ -216,6 +216,7 @@ AIGC 短片和 NPC 语音（第 1 轮试点，远程 H3 + MiniMax TTS）另见 [
 
 玩家之间的交易所、拍卖、面交（托管、并发、防重放、防刷和 RMT 红线）见 [`player-trade.md`](player-trade.md)（v69）。
 留学生的签证路线（学生签、485、雇主担保、技术移民打分、偏远地区，以官方为准、游戏简化）见 [`visa.md`](visa.md)（v70）。
+全服共享的宏观指标（利率、油价、矿业景气、房价、租金、汇率）和游戏内新闻见 [`world-events.md`](world-events.md)（v71），模拟见 [`world-events-sim.md`](world-events-sim.md)。
 
 ## 9. 路线图
 

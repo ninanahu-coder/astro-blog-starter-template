@@ -299,6 +299,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			assert.match(panel(), new RegExp(`data-metab="${mt}" class="on"`), mt);
 			assert.deepEqual(a11yIssues(panel()), [], `我 · ${mt}`);
 			if (mt === 'log') assert.match(panel(), /class="log-day">第 1 天 · 春季第 1 天/, '日志按天分组');
+			// 世界事件（第 43 批）：资产页有世界经济卡，开局第 1 天利率 4.00%、还没有新闻
+			if (mt === 'assets') assert.match(panel(), /<h3>世界经济<\/h3>.*现金利率<\/span><b>4\.00%<\/b>.*最近四周没有大新闻.*不是真实行情/s, '资产页的世界经济卡');
 			if (mt === 'sync') {
 				// 设置（第 28 轮）：字号三档、动画三档、三个提示开关，只存在本机
 				assert.match(panel(), /data-pref="font" data-val="m" class="on" aria-pressed="true"/, '默认标准字号');
