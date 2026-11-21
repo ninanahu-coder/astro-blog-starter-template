@@ -214,4 +214,7 @@ tools/earth/media/h3/*/config.env
 tools/earth/media/h3/*/queue.json
 tools/earth/media/h3/*/trims.json
 tools/earth/media/h3/*/out/
+tools/earth/media/h3/*/music.wav
+tools/earth/media/h3/*/_music.mp4
+tools/earth/media/h3/*/_black.png
 tools/earth/media/blender/out/

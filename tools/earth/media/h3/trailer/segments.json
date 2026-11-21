@@ -27,5 +27,9 @@
    "action": "The white border of the photo print, the map and the desk slide out past the edges of the frame as the view moves into the print. The limestone pillars inside the print gain depth and the clouds above them begin to drift slowly to the right. The golden sand and the long shadows stay still.",
    "sfx": "a rising dry desert wind"
   }
- ]
+ ],
+ "music": {
+  "sec": 15,
+  "prompt": "An original warm instrumental travel theme: soft fingerpicked acoustic guitar and light piano begin gently, a steady light shaker and warm strings join after four seconds, the melody lifts into a hopeful wide open swell with a gentle low drum from ten seconds, ending on one sustained bright chord. No vocals, no lyrics."
+ }
 }

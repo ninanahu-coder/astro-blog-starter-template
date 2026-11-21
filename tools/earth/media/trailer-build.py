@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """地球人生概念预告片（docs/earth-game/aigc-media.md §6.6）：把 H3 三段转场和尖峰石阵穿行段拼成约 15 秒成片。
-开头定格开始页，每段按 SPEED 加速，全程叠「AI 生成示意」角标，最后叠片名。无声。
+开头定格开始页，每段按 SPEED 加速，全程叠「AI 生成示意」角标，最后叠片名。
+声音：各段 H3 原生音效（同样加速）垫底，上面铺 H3 生成的原创配乐 music.wav（没有就只用音效），整体归一到约 -16 LUFS。
 用法：python3 tools/earth/media/trailer-build.py  （输入 tools/earth/media/h3/trailer/clips/seg1-3.mp4，输出同目录 out/trailer.mp4）"""
 import subprocess
 from pathlib import Path
@@ -45,9 +46,20 @@ norm = f'scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},fps={FP
 fc = [f'[0:v]{norm}[v0]'] + [f'[{i + 1}:v]setpts=PTS/{SPEED},{norm}[v{i + 1}]' for i in range(len(SEGS))]
 fc.append(''.join(f'[v{i}]' for i in range(len(SEGS) + 1)) + f'concat=n={len(SEGS) + 1}:v=1:a=0[cat]')
 t0 = total - TITLE_SEC
+# 声音：定格段补静音，各段原生音效同速加快后接起来；有配乐就压低音效混在一起
+n = len(SEGS); music = T / 'music.wav'
+fc.append(f'anullsrc=r=48000:cl=stereo,atrim=0:{HOLD}[a0]')
+fc += [f'[{i + 1}:a]atempo={SPEED},aresample=48000,aformat=channel_layouts=stereo[a{i + 1}]' for i in range(n)]
+fc.append(''.join(f'[a{i}]' for i in range(n + 1)) + f'concat=n={n + 1}:v=0:a=1,volume=0.5[sfx]')
+if music.exists():
+    ins += ['-i', str(music)]
+    fc.append(f'[{n + 3}:a]atrim=0:{total:.2f},afade=t=in:d=0.3[mus];[sfx][mus]amix=inputs=2:normalize=0[mix]')
+else:
+    fc.append('[sfx]anull[mix]')
+fc.append(f'[mix]loudnorm=I=-16:TP=-1.5:LRA=11,afade=t=out:st={total - 0.8:.2f}:d=0.8[aout]')
 fc.append(f'[{len(SEGS) + 2}:v]format=rgba,fade=t=in:st={t0:.2f}:d=0.6:alpha=1[ttl]')
 fc.append(f'[cat][{len(SEGS) + 1}:v]overlay=0:0[a];[a][ttl]overlay=0:0:enable=\'gte(t,{t0:.2f})\',fade=t=out:st={total - 0.4:.2f}:d=0.4[out]')
 dst = OUT / 'trailer.mp4'
-subprocess.run(['ffmpeg', '-v', 'error', '-y', *ins, '-filter_complex', ';'.join(fc), '-map', '[out]', '-t', f'{total:.2f}', '-an',
+subprocess.run(['ffmpeg', '-v', 'error', '-y', *ins, '-filter_complex', ';'.join(fc), '-map', '[out]', '-map', '[aout]', '-t', f'{total:.2f}', '-c:a', 'aac', '-b:a', '160k',
                 '-c:v', 'libx264', '-profile:v', 'high', '-crf', '19', '-preset', 'slow', '-movflags', '+faststart', str(dst)], check=True)
 print(f'{dst}  {total:.2f}s  {dst.stat().st_size} bytes')
