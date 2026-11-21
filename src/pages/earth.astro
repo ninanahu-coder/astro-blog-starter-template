@@ -841,6 +841,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { dayOf, hoursLabel } from '../game/core/time.ts';
 			import { ITEM_CATS, itemCat, sellItemBlocked, sellPrice, storesOf } from '../game/core/shop.ts';
 			import { checkScore, furnitureSets, moodBreakdown, homeComfort, weeklyCosts, getItem, getTrait, level, mood, moodTier, validTraits, wantedStars } from '../game/core/attributes.ts';
+			import { drankAt, lawSummary } from '../game/core/law.ts';
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
 			import { NPC_DUOS } from '../game/data/npc-duos.ts';
@@ -2491,6 +2492,19 @@ const cardLines = guilloche(400, 260, 14, 9);
 				return `<p class="muted" style="margin-top:4px">气候：${esc(c.zoneName)}。${esc(c.zoneDesc)}（概率参照澳洲气象局${esc(c.station)}站的多年平均）</p>`;
 			}
 
+			/** 档案卡里的法律记录（第 43 批）：只列有的项；全空不显示 */
+			function lawHtml(s: PlayerState): string {
+				const l = lawSummary(s);
+				const parts: string[] = [];
+				if (l.pts) parts.push(`驾照扣分 ${esc(l.pts)}/${esc(l.limit)}（3 年内）`);
+				if (l.banDays) parts.push(`驾照暂停还剩 ${esc(l.banDays)} 天`);
+				if (l.owed) parts.push(`欠罚款 $${esc(l.owed.toLocaleString())}`);
+				if (l.cs) parts.push(`社区服务还差 ${esc(l.cs)} 小时（第 ${esc(l.csDue + 1)} 天前做完，城镇里能做）`);
+				if (l.record) parts.push(`法庭定罪 ${esc(l.record)} 次`);
+				if (!parts.length) return '';
+				return `<p class="law-line">${parts.join(' · ')}</p>${l.visa ? `<p class="muted">${esc(l.visa)}</p>` : ''}`;
+			}
+
 			/** 目的地卡里的走法：并排方块选一种（默认最便宜能走的），下面写路费后剩多少，再一个「出发」大按钮 */
 			function waysHtml(s: PlayerState, destId: string, ways: ReturnType<typeof travelOptions>) {
 				const open = ways.filter((o) => o.available);
@@ -2506,7 +2520,13 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const days = s.nextWeek - dayOf(s.clock);
 				const settle = wc.total > 0 && days <= 2 ? `，${days ? `${days} 天后` : '今天'}周结算要付 $${wc.total.toLocaleString()}${left < wc.total ? '，会不够' : '，还够'}` : '';
 				const name = getLocation(region, destId)!.name;
-				return `<div class="tiles">${tiles}</div>
+				// 第 43 批：刚喝过酒还选自己开车、驾照暂停中有车不能开，各提醒一句
+				const law = lawSummary(s);
+				// 路边呼气测试只在公路自驾、到达时做：按到达时刻判断还在不在喝酒窗口里（合并 main 后复核）
+				const selfDrive = chosen.mode === 'road' && s.vehicle !== 'none' && !law.banDays;
+				const lawNote = selfDrive && drankAt(s, s.clock + chosen.minutes) ? '<p class="budget tight">刚喝过酒：现在自己开车遇到路边呼气测试会超标。可以先歇几个小时再走。</p>'
+					: law.banDays && s.vehicle !== 'none' ? `<p class="budget">驾照暂停中（还剩 ${esc(law.banDays)} 天），这段时间只能坐车。</p>` : '';
+				return `<div class="tiles">${tiles}</div>${lawNote}
 					<p class="budget${settle && left < wc.total ? ' tight' : ''}">${esc(chosen.label)}路费后剩 $${left.toLocaleString()}${settle}。</p>
 					<button class="primary wide" data-go="${destId}" data-mode="${chosen.mode}">出发去${esc(name)} · ${esc(chosen.label)} $${chosen.cost}</button>`;
 			}
@@ -2673,6 +2693,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					quests: questHtml,
 					me: `<div class="card"><h3>档案</h3><p>${origin.icon} ${origin.name} · 座驾：${veh}</p>
 					<p>已探索 ${Object.keys(s.visited).length}/${region.locations.length} 个地点 · 麻烦值 ${Math.round(s.heat)}/100（${wantedStars(s.heat)} 星）</p>
+					${lawHtml(s)}
 						<p>Lv${lv.lv} ${lv.title} · 声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next}` : ''} · 心情 ${m}（${tier.name}，检定 ${tier.check >= 0 ? '+' : ''}${tier.check}）</p>
 						<div class="tags">${traits || '<span class="muted">没有性格特质</span>'}</div>
 						<div class="inline" style="margin-top:10px"><button data-share>分享我的进度</button></div></div>`,

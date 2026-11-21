@@ -1,5 +1,6 @@
 // 真实地点：玩家拿着手机真的走到某家餐馆、健身房、公园，就能在游戏里做对应的事。
 // 纯函数：现实时间 now（毫秒）由服务端传入，客户端无法伪造；坐标来自手机定位，可以伪造，所以做了精度、距离和速度三道检查。
+import { noteDrink } from './law.ts';
 import { realDayOf } from './daily.ts';
 import { addMoodlet, applyEffect, certBonus, clone, collapsedResult, fail, getCareer, getLocation, log, pickVenueEvent, startEvent, tryPromote } from './engine.ts';
 import {
@@ -209,6 +210,7 @@ function simpleOp(prev: PlayerState, region: Region, venue: Venue, type: VenueTy
 	state.venueCd[op.id] = now; // 晕倒也算来过一次，冷却照常
 	if (applyEffect(state, { ...out.fx, minutes: op.minutes }, region)) return collapsedResult(state);
 	if (op.id === 'train') addMoodlet(state, 'sore'); // 练完 12 小时内再练只有一半效果（超量恢复）
+	noteDrink(state, op.id, 'venue'); // 法律：在真实酒吧喝过酒，4 小时内自己开车遇到呼气测试会超标
 	const msg = `在${venue.name}${op.name}：${out.notes.join('，')}。`;
 	log(state, msg);
 	return { ok: true, state, msg: msg + venueEvent(state, type, now) };

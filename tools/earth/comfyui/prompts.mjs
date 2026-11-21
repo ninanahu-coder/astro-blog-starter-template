@@ -93,6 +93,8 @@ const EVENT_SCENE = {
 	'breakdown-belt': 'a car pulled over on a gravel shoulder, close view of a snapped engine fan belt under the bonnet',
 	'roo-dusk': 'a kangaroo leaping across an outback highway at sunset, seen through a windscreen',
 	'rbt': 'a roadside random breath test checkpoint at dusk, a police car with flashing blue and red lights and cones, no badges or lettering',
+	'speed-late': 'a dashboard view of an open highway with a roadside speed sign and a speed camera box on a pole, daylight, no readable numbers or lettering',
+	'parking-limit': 'a parked hatchback in a city street time-limited parking bay with a parking sign and a ticket under the wiper, no readable lettering',
 	'hitchhiker': 'a backpacker seen from behind with thumb out at a junction on the edge of a country town',
 	'busker-duet': 'a street violinist seen from the side playing on a sunny street corner, open instrument case on the ground',
 	'shark-alarm': 'a lifeguard tower with a raised red flag, swimmers hurrying out of the surf onto the beach',

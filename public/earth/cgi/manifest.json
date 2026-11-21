@@ -96,6 +96,8 @@
     "event:rain-shelter": "/earth/cgi/event-rain-shelter.webp",
     "event:rainbow": "/earth/cgi/event-rainbow.webp",
     "event:rbt": "/earth/cgi/event-rbt.webp",
+    "event:speed-late": "/earth/cgi/event-rbt.webp",
+    "event:parking-limit": "/earth/cgi/event-rbt.webp",
     "event:remarkable-rocks": "/earth/cgi/event-remarkable-rocks.webp",
     "event:roo-dusk": "/earth/cgi/event-roo-dusk.webp",
     "event:shark-alarm": "/earth/cgi/event-shark-alarm.webp",

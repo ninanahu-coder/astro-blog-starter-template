@@ -37,6 +37,8 @@ import { checkScore, costMult, gainMult, getItem, heatMult, homeComfort, hurtMul
 import { CAPS, clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
 import { fixProblem, roundFix } from './fix.ts';
+import { applyLawOutcome, lawWeekly, licenceBanned, noteDrink, serveCommunity } from './law.ts';
+import { COMMUNITY_SERVICE } from '../data/law.ts';
 import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
 import { modeNeeds, transitOptions, WALK_STAMINA_PER_KM, withRouteFare } from './transport.ts';
@@ -248,11 +250,11 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 		if (wx.closesSea) { available = false; reason = `今天${wx.name}，渡轮停航`; }
 	} else {
 		km = straight * 1.25; // 公路绕行系数
-		const v = getVehicle(state.vehicle);
+		const v = licenceBanned(state) ? undefined : getVehicle(state.vehicle); // 驾照暂停：有车也只能坐大巴
 		if (r.mode === 'track') {
 			label = `${v?.icon ?? '🚙'} 越野土路`;
 			const speed = v?.trackSpeed ?? 0;
-			if (!speed) { available = false; reason = '需要能走土路的车（四驱或露营车）'; }
+			if (!speed) { available = false; reason = licenceBanned(state) ? '驾照暂停中，不能自己开车' : '需要能走土路的车（四驱或露营车）'; }
 			else if (wx.road?.trackClosed) { available = false; reason = `今天${wx.name}，土路封闭`; }
 			minutes = (km / ((speed || 55) + state.skills.driving * 0.15)) * 60 * (wx.road?.trackMult ?? 1);
 			cost = km * (v?.costPerKm ?? 0.22);
@@ -278,7 +280,7 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 	if (!opt.available) return fail(prev, opt.reason ?? '暂时无法出行。');
 	const state = clone(prev);
 	state.cash -= opt.cost;
-	const selfDrive = (mode === 'road' || mode === 'track') && !!getVehicle(state.vehicle);
+	const selfDrive = (mode === 'road' || mode === 'track') && !!getVehicle(state.vehicle) && !licenceBanned(state);
 	if (selfDrive) {
 		growSkill(state, 'driving', opt.km / 150);
 		if (mode === 'track') growSkill(state, 'survival', opt.km / 300);
@@ -296,12 +298,12 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 		const pool = EVENTS.filter((e) => e.breakdown);
 		if (pool.length) breakdown = pool[Math.floor(roll(state) * pool.length)];
 	}
-	arrive(state, region, toId, mode, breakdown);
+	arrive(state, region, toId, mode, breakdown, mode === 'road' && selfDrive);
 	return { ok: true, state, msg: `抵达${getLocation(region, toId)!.name}。` };
 }
 
 /** override：这趟已经定好的事件（抛锚）。先后：盘查 → 首次到访的签名事件 → override → 普通到达事件 */
-function arrive(state: PlayerState, region: Region, locId: string, mode: TravelMode | 'gps', override: GameEvent | null = null) {
+function arrive(state: PlayerState, region: Region, locId: string, mode: TravelMode | 'gps', override: GameEvent | null = null, selfDrive?: boolean) {
 	const loc = getLocation(region, locId)!;
 	const first = !state.visited[locId];
 	state.loc = locId;
@@ -325,7 +327,7 @@ function arrive(state: PlayerState, region: Region, locId: string, mode: TravelM
 		addMoodlet(state, 'festival');
 		log(state, `正赶上${fest.name}：${fest.desc}`);
 	}
-	const picked = pickArrivalEvent(state, loc, mode === 'gps' ? null : mode, first, override);
+	const picked = pickArrivalEvent(state, loc, mode === 'gps' ? null : mode, first, override, selfDrive);
 	if (picked) {
 		const ev = picked.ev;
 		startEvent(state, ev, picked.src);
@@ -499,10 +501,13 @@ function drawable(state: PlayerState, e: GameEvent): boolean {
  * 先后：盘查 → 首次到访的签名事件 → override（抛锚） → 已解锁的链式事件 → 按到达几率随机抽。
  * 掷骰的次数和顺序与第一版之前一致：没有链式事件、防厌倦规则关着时，同一个种子抽到同一个事件。
  */
-export function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean, override: GameEvent | null = null): { ev: GameEvent; src: EventSource } | null {
+export function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean, override: GameEvent | null = null, drove?: boolean): { ev: GameEvent; src: EventSource } | null {
 	if (state.heat >= HEAT_CHECK_AT) { const ev = EVENTS.find((e) => e.id === 'heat-check'); return ev ? { ev, src: 'forced' } : null; }
 	state.evMem = memoryOn(state.evMem, state.clock);
-	const pool = EVENTS.filter((e) => eventMatches(e, loc, mode, state.clock) && drawable(state, e));
+	// 交通执法事件（driving: true，第 43 批）只在自己开车时出现；驾照暂停时开不了车。
+	// 出行时传进来出发那一刻的判断（drove）：停驾在路上到期时，坐大巴来的人不会被当成自己开车
+	const selfDrive = drove ?? (mode === 'road' && !!getVehicle(state.vehicle) && !licenceBanned(state));
+	const pool = EVENTS.filter((e) => eventMatches(e, loc, mode, state.clock) && drawable(state, e) && (!e.driving || selfDrive));
 	// 首次到访：有签名事件就必出（这趟的抛锚让给它）
 	const signature = pool.filter((e) => e.once);
 	if (first && signature.length) return { ev: signature[Math.floor(roll(state) * signature.length)], src: 'signature' };
@@ -571,13 +576,18 @@ export function resolveEvent(prev: PlayerState, region: Region, choiceIdx: numbe
 		const passed = checkScore(state, choice.check.skill).total + roll(state) * 60 >= choice.check.dc;
 		if (!passed && choice.fail) outcome = choice.fail;
 	}
+	if (choice.risk !== undefined && choice.fail && roll(state) < choice.risk) outcome = choice.fail;
 	state.evMem = noteResolved(state.evMem, outcome, state.clock);
-	if (applyEffect(state, outcome.fx, region)) return collapsedResult(state);
-	log(state, `【${ev.title}】${outcome.text}`);
+	// 法律后果在晕倒之前记下：拒绝吹气、逃跑时正好晕倒，罚款、停驾、定罪照样算（合并 main 后复核）
+	const collapsed = applyEffect(state, outcome.fx, region);
+	const law = outcome.law ? applyLawOutcome(state, outcome.law) : '';
+	if (collapsed) return collapsedResult(state);
+	const text = law ? `${outcome.text}${law}` : outcome.text;
+	log(state, `【${ev.title}】${text}`);
 	// 事件链：同一场景的下一幕，立刻接上
 	const next = outcome.then ? EVENTS.find((e) => e.id === outcome.then) : undefined;
 	if (next) startEvent(state, next, 'chain');
-	return { ok: true, state, msg: outcome.text };
+	return { ok: true, state, msg: text };
 }
 
 // ---------- 地点互动 ----------
@@ -595,6 +605,7 @@ export function activitiesAt(state: PlayerState, region: Region): { act: Activit
 
 function blockedReason(state: PlayerState, act: Activity): string | undefined {
 	if (!isOpen(act.hours, state.clock)) return `营业时间 ${hoursLabel(act.hours!)}`;
+	if (act.id === COMMUNITY_SERVICE.activity && state.law.cs <= 0) return '没有要做的社区服务';
 	if (act.exposed === 'sea' && weatherAt(state).closesSea) return '今天有风暴，海上的活动取消了';
 	if (VISA_GIGS.includes(act.id)) {
 		const visa = visaBlocked(state, act.minutes);
@@ -629,6 +640,12 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	const state = clone(prev);
 	if (applyEffect(state, bodyScaled(prev, { ...scaledFx(prev, act), minutes: act.minutes }), region)) return collapsedResult(state);
 	if (VISA_GIGS.includes(act.id)) logWork(state, act.minutes, prev.clock);
+	noteDrink(state, act.id);
+	if (act.id === COMMUNITY_SERVICE.activity) {
+		const left = serveCommunity(state, act.minutes / 60);
+		log(state, `在${loc.name}做了 ${act.minutes / 60} 小时社区服务，${left ? `还差 ${left} 小时` : '全部做完了'}。`);
+		return { ok: true, state, msg: `${act.icon} ${left ? `社区服务还差 ${left} 小时` : '社区服务全部做完了'}` };
+	}
 	log(state, `在${loc.name}${act.name}。`);
 	return { ok: true, state, msg: `${act.icon} ${act.name}完成。` };
 }
@@ -968,6 +985,7 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 		const perk = npc.perk!;
 		gain = RELATION_GAIN.perk;
 		if (applyEffect(state, perk.fx, region)) return collapsedResult(state);
+		noteDrink(state, npc.id, 'perk');
 		text = `${perk.name}：${perk.desc}`;
 	}
 	rel.score = Math.max(-100, Math.min(100, rel.score + gain));
@@ -1185,6 +1203,7 @@ function weeklyTick(state: PlayerState, region: Region) {
 				log(state, `没钱续${v.name}的保险，无保险上路被记了一笔。`);
 			}
 		}
+		for (const line of lawWeekly(state)) log(state, line);
 	}
 }
 
@@ -1555,6 +1574,7 @@ export function doExperience(prev: PlayerState, region: Region, id: string): Act
 		const fun = Math.round((e.fx.needs?.fun ?? 0) * REPEAT_FUN_SHARE);
 		if (applyEffect(state, { minutes: e.minutes, needs: { fun }, moodlet: 'good-time' }, region)) return collapsedResult(state);
 	}
+	noteDrink(state, e.id, 'experience');
 	let msg = offer.first ? `体验了${e.name}，收进了收藏册（声望 +${e.respect}）。` : `又体验了一次${e.name}。`;
 	// 称号奖励每个片区只发一次：记进存档，以后加了新体验再补齐也不重复发
 	const gained = completeAreas(state).filter((id) => !(state.areas ?? []).includes(id));

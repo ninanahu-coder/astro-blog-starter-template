@@ -161,11 +161,29 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'rbt', title: '路边临检', icon: '🚓', arrivedBy: ['road'], weight: 3,
+		// 第 43 批：只在自己开车时出现；结果看有没有刚喝过酒（core/law.ts breathTest），拒绝测试走法庭
+		id: 'rbt', title: '路边临检', icon: '🚓', arrivedBy: ['road'], driving: true, weight: 3,
 		text: '警察挥手让你靠边：随机呼气酒精测试。',
 		choices: [
-			{ label: '配合检查', ok: { text: '“祝您旅途愉快。”', fx: { heat: -10 } } },
-			{ label: '找借口搪塞', check: { skill: 'street', dc: 55 }, ok: { text: '他们摆摆手放你走了。', fx: { skills: { street: 2 } } }, fail: { text: '越描越黑，被开了罚单。', fx: { cash: -250, heat: 20 } } },
+			{ label: '配合吹气', ok: { text: '你对着仪器吹了一口气。', fx: { minutes: 5, heat: -10 }, law: 'breath' } },
+			{ label: '拒绝吹气', ok: { text: '拒绝呼气测试本身就违法，你被带回警局做笔录。', fx: { minutes: 90 }, law: 'refuse-test' } },
+		],
+	},
+	{
+		id: 'speed-late', title: '赶时间', icon: '⏱️', arrivedBy: ['road'], driving: true, weight: 2,
+		text: '导航显示你要迟到了，前面这段限速 110。',
+		choices: [
+			{ label: '按限速开', ok: { text: '晚到了十分钟，天没塌下来。', fx: { minutes: 10 } } },
+			// 违法的选项不给好处：没被拍到也只是「没事」
+			{ label: '踩一脚油门', risk: 0.5, ok: { text: '没被拍到，算下来只早到了三分钟，心还怦怦跳。', fx: { needs: { fun: -3 } } }, fail: { text: '路边的测速相机闪了一下。', fx: {}, law: 'speed-mid' } },
+		],
+	},
+	{
+		id: 'parking-limit', title: '限时停车', icon: '🅿️', kinds: ['city', 'town'], arrivedBy: ['road'], driving: true, weight: 2,
+		text: '你把车停进了 2 小时限时位，可事情办得比预想久。',
+		choices: [
+			{ label: '回去挪车', ok: { text: '赶在超时前挪了车。', fx: { minutes: 15 } } },
+			{ label: '再待一会儿', risk: 0.4, ok: { text: '回来时挡风玻璃上什么也没有。', fx: {} }, fail: { text: '雨刷下夹着一张罚单。', fx: {}, law: 'parking' } },
 		],
 	},
 	{
@@ -243,7 +261,8 @@ export const EVENTS: GameEvent[] = [
 		text: '两名警员拦住你：“最近有人反映了一些情况，麻烦配合一下。”',
 		choices: [
 			{ label: '老实配合', ok: { text: '问了半小时话，交了罚款，这事算翻篇了。', fx: { minutes: 30, cash: -200, heat: -50 } } },
-			{ label: '想办法溜走', check: { skill: 'stamina', dc: 60 }, ok: { text: '你拐进小巷甩掉了他们。', fx: { heat: -15, skills: { stamina: 2, street: 2 } } }, fail: { text: '没跑出五十米就被按住了。', fx: { cash: -500, health: -10, heat: -30 } } },
+			// 第 43 批：逃避盘查不再降麻烦值、不涨能力；被拦下走法庭（罚款 + 社区服务 + 定罪记录）
+			{ label: '想办法溜走', risk: 0.7, ok: { text: '你暂时躲开了，可他们记下了你的样子。', fx: { heat: 10 } }, fail: { text: '没走出多远就被拦下了，这下要上法庭。', fx: { minutes: 120, heat: -30 }, law: 'evade' } },
 		],
 	},
 	// ---------- 按时段出现（抵达时的时刻） ----------

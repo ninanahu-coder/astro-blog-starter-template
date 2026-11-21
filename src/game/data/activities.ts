@@ -29,5 +29,7 @@ export const ACTIVITIES: Activity[] = [
 	{ id: 'charity-dinner', name: '慈善晚餐', icon: '🍲', kinds: ['city', 'port', 'town'], hours: [18, 19], minutes: 60, fx: { needs: { hunger: 50, social: 5, fun: -5 } }, desc: '社区厨房的免费晚饭，傍晚开放。' },
 	{ id: 'recycle', name: '捡空瓶换押金', icon: '♻️', minutes: 120, fx: { cash: 8, needs: { energy: -8, hygiene: -10, fun: -6 } }, desc: '哪里都能做，挣得最少。身无分文时凑路费用。' },
 	{ id: 'rest', name: '歇一会儿', icon: '☕', minutes: 60, fx: { needs: { energy: 4 } }, desc: '找个阴凉地方坐一小时，等上班或等店开门。' },
+	// 第 43 批：法庭判的社区服务，只有欠着小时时能做（core/law.ts）；做了不给钱、不涨能力
+	{ id: 'community-service', name: '社区服务', icon: '🧹', kinds: ['city', 'town'], minutes: 240, fx: { needs: { energy: -15, fun: -5 } }, hours: [8, 16], desc: '法庭判的社区服务，每次 4 小时。' },
 	{ id: 'lay-low', name: '低调几天', icon: '🕶️', minutes: 300, fx: { heat: -40, needs: { fun: -10, social: -10 } }, desc: '让麻烦值降下来。' },
 ];

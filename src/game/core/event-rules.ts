@@ -173,9 +173,11 @@ export function cleanEvMem(raw: unknown, events: readonly GameEvent[], clock: nu
 const EVENT_KEYS = new Set([
 	'id', 'title', 'icon', 'text', 'weight', 'choices', 'locs', 'tags', 'kinds', 'arrivedBy', 'venueTypes', 'seasons', 'weather', 'periods', 'hours',
 	'once', 'animal', 'breakdown', 'need', 'cooldown', 'daily', 'max', 'locked', 'unlockDays',
+	'driving', // 法律（第 43 批）：只在自己开车抵达时出现
 ]);
-const CHOICE_KEYS = new Set(['label', 'cost', 'check', 'exposed', 'ok', 'fail']);
-const OUTCOME_KEYS = new Set(['text', 'fx', 'unlocks', 'then']);
+// risk（选项按几率出 fail）、law（结果带法律后果）来自法律（第 43 批，core/law.ts）
+const CHOICE_KEYS = new Set(['label', 'cost', 'check', 'risk', 'exposed', 'ok', 'fail']);
+const OUTCOME_KEYS = new Set(['text', 'fx', 'unlocks', 'then', 'law']);
 const NEED_FIELDS = new Set(['min', 'max', 'rel', 'items']);
 const SEASONS = ['spring', 'summer', 'autumn', 'winter'];
 const PERIODS = ['dawn', 'day', 'dusk', 'night'];
@@ -215,6 +217,8 @@ export function validateEvents(list: readonly GameEvent[]): string[] {
 		if (ev.hours !== undefined && !(Array.isArray(ev.hours) && ev.hours.length === 2 && ev.hours.every((h) => Number.isInteger(h) && h >= 0 && h <= 24))) e('hours 必须是 [开, 关] 两个 0–24 的整点');
 		if (ev.venueTypes && (ev.locs || ev.tags || ev.kinds || ev.arrivedBy)) e('真实地点事件（venueTypes）不按城镇匹配，不能同时写 locs/tags/kinds/arrivedBy');
 		if (ev.breakdown && ev.weight !== 0) e('抛锚事件 weight 必须写 0（只在抛锚时抽）');
+		if (ev.driving !== undefined && ev.driving !== true) e('driving 只能写 true');
+		if (ev.driving && ev.venueTypes) e('driving 事件是开车抵达城镇时的事，不能写 venueTypes');
 		if (ev.once && ev.locked) e('once 和 locked 不能同时写：签名事件首次到访必出，链式事件要解锁才出');
 		if (ev.unlockDays !== undefined && !ev.locked) e('unlockDays 只对 locked 事件有意义');
 		if (ev.cooldown !== undefined && !posNum(ev.cooldown)) e('cooldown（游戏小时）必须 > 0');
@@ -257,7 +261,9 @@ export function validateEvents(list: readonly GameEvent[]): string[] {
 			if (!nonEmpty(c.label)) ce('缺少 label');
 			if (c.cost !== undefined && !posNum(c.cost)) ce('cost 必须 > 0');
 			if (c.check !== undefined && !((SKILL_KEYS as readonly string[]).includes(c.check?.skill) && Number.isFinite(c.check?.dc))) ce(`check 要写 skill（${SKILL_KEYS.join('/')}）和 dc`);
-			if (c.fail !== undefined && !c.check) ce('有 fail 却没有 check，fail 永远用不上');
+			if (c.risk !== undefined && !(typeof c.risk === 'number' && c.risk > 0 && c.risk < 1)) ce('risk 必须是 0 到 1 之间（不含两端）的几率');
+			if (c.risk !== undefined && c.fail === undefined) ce('写了 risk 却没有 fail，被查到时没有结果');
+			if (c.fail !== undefined && !c.check && c.risk === undefined) ce('有 fail 却没有 check 或 risk，fail 永远用不上');
 			if (c.exposed !== undefined && c.exposed !== 'sea') ce('exposed 只能是 sea');
 			for (const [name, o] of [['ok', c.ok], ['fail', c.fail]] as const) {
 				if (o === undefined) { if (name === 'ok') ce('缺少 ok'); continue; }
@@ -265,6 +271,8 @@ export function validateEvents(list: readonly GameEvent[]): string[] {
 				for (const k of Object.keys(o)) if (!OUTCOME_KEYS.has(k)) ce(`${name} 里不认识的字段「${k}」`);
 				if (!nonEmpty(o.text)) ce(`${name} 缺少 text`);
 				if (!isObj(o.fx)) ce(`${name} 缺少 fx（没有效果写 {}）`);
+				// law 的取值（违章 id 或 breath）由测试按 data/law.ts 另查，和地点、NPC 一样
+				if (o.law !== undefined && !nonEmpty(o.law)) ce(`${name}.law 必须是违章 id 或 breath`);
 				if (o.unlocks !== undefined) {
 					if (!strList(o.unlocks)) ce(`${name}.unlocks 必须是非空字符串数组`);
 					else for (const id of o.unlocks) {

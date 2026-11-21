@@ -17,6 +17,9 @@ import { MOODLETS } from '../../src/game/data/moodlets.ts';
 import { NPCS } from '../../src/game/data/npcs.ts';
 import { VENUE_TYPES } from '../../src/game/data/venues.ts';
 import { WA, WORLD } from '../../src/game/data/wa.ts';
+import { getOffence } from '../../src/game/data/law.ts';
+import { licenceBanned } from '../../src/game/core/law.ts';
+import { getVehicle } from '../../src/game/core/engine.ts';
 
 const fresh = (seed = 42): PlayerState =>
 	createCharacter({ id: 'event-engine', name: '测', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed });
@@ -43,6 +46,7 @@ test('现有事件全部通过校验；外部引用（地点、真实地点类�
 		for (const c of e.choices) for (const o of [c.ok, c.fail]) {
 			if (o?.fx.moodlet) assert.ok(moods.has(o.fx.moodlet), `${e.id}：心情 ${o.fx.moodlet}`);
 			for (const id of Object.keys(o?.fx.items ?? {})) assert.ok(items.has(id), `${e.id}：物品 ${id}`);
+			if (o?.law !== undefined) assert.ok(o.law === 'breath' || getOffence(o.law), `${e.id}：违章 ${o.law}`);
 		}
 	}
 });
@@ -73,7 +77,14 @@ test('校验：常见写错都报出来，并带事件 id', () => {
 	bad([ev('a', { need: { rel: [{ npc: 'mia' }] } })], /至少写 min 或 max/);
 	bad([ev('a', { need: { rel: [{ npc: 'mia', min: 50, max: 10 }] } })], /min 大于 max/);
 	bad([ev('a', { need: { mood: 3 } as never })], /need 里不认识的字段「mood」/);
-	bad([ev('a', { choices: [{ label: 'x', ok: { text: 'x', fx: {} }, fail: { text: 'y', fx: {} } }] })], /有 fail 却没有 check/);
+	bad([ev('a', { choices: [{ label: 'x', ok: { text: 'x', fx: {} }, fail: { text: 'y', fx: {} } }] })], /有 fail 却没有 check 或 risk/);
+	// 法律（第 43 批）带来的字段：risk、law、driving
+	bad([ev('a', { choices: [{ label: 'x', risk: 1.2, ok: { text: 'x', fx: {} }, fail: { text: 'y', fx: {} } }] })], /risk 必须是 0 到 1/);
+	bad([ev('a', { choices: [{ label: 'x', risk: 0.3, ok: { text: 'x', fx: {} } }] })], /写了 risk 却没有 fail/);
+	bad([ev('a', { choices: [{ label: 'x', ok: { text: 'x', fx: {}, law: '' } }] })], /law 必须是违章 id 或 breath/);
+	bad([ev('a', { driving: 'yes' as unknown as true })], /driving 只能写 true/);
+	bad([ev('a', { driving: true, venueTypes: ['gym'] })], /driving 事件.*不能写 venueTypes/);
+	assert.deepEqual(validateEvents([ev('a', { driving: true, choices: [{ label: 'x', risk: 0.3, ok: { text: 'x', fx: {} }, fail: { text: 'y', fx: {}, law: 'parking' } }] })]), [], 'risk + fail + law 的正确写法能过');
 	bad([ev('a', { choices: [{ label: 'x', check: { skill: 'luck' as never, dc: 3 }, ok: { text: 'x', fx: {} } }] })], /check 要写 skill/);
 	bad([ev('a', { choices: [{ label: 'x', ok: { text: 'x' } as never }] })], /缺少 fx/);
 	bad([ev('a', { choices: [{ label: 'x', exposed: 'sea', ok: { text: 'x', fx: {} } }] })], /至少留一个不下海的/);
@@ -222,10 +233,11 @@ test('按权重抽：和第一版之前的累减写法逐个一致', () => {
 });
 
 // ---------- 引擎：向后兼容 ----------
-/** 第一版之前的 pickArrivalEvent 原样搬过来做参照（加上 need/locked 两条新过滤；现有事件都没写） */
+/** 第一版之前的 pickArrivalEvent 原样搬过来做参照（加上 need/locked 两条新过滤；现有事件都没写）。合并法律分支后，加上它原有的「交通执法事件只在自己开车时出现」 */
 function legacyPick(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean, override: GameEvent | null): GameEvent | null {
 	if (state.heat >= HEAT_CHECK_AT) return EVENTS.find((e) => e.id === 'heat-check') ?? null;
-	const pool = EVENTS.filter((e) => e.weight > 0 && !e.locked && needMet(e, state) && eventMatches(e, loc, mode, state.clock) && !(e.once && state.seen.includes(e.id)));
+	const selfDrive = mode === 'road' && !!getVehicle(state.vehicle) && !licenceBanned(state);
+	const pool = EVENTS.filter((e) => e.weight > 0 && !e.locked && needMet(e, state) && eventMatches(e, loc, mode, state.clock) && !(e.once && state.seen.includes(e.id)) && (!e.driving || selfDrive));
 	const signature = pool.filter((e) => e.once);
 	if (first && signature.length) return signature[Math.floor(roll(state) * signature.length)];
 	if (override) return override;

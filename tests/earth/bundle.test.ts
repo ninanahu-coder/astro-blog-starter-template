@@ -34,10 +34,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  * 同时改成「首屏 = 入口 + 它静态 import 的所有分块」：只量入口的话，按需加载会把共用代码挪进静态分块，数字变小但首屏并没变小。
  * 第二批（2026-11-21 起，用户定「每个分支按需上调」）：每合一个分支，gzip 上限调到「实际 + 1KB」，在 PR 里写明涨了多少。
  *   - 事件引擎：main fdd7b44 是 174,944 字节，规则层（event-rules.ts）加了约 3.3KB 到 178,259，上限 175,000 → 179,300。
+ *   - 法律：违章表、法律规则、3 个交通事件、档案卡和出行提醒，gzip 178,259 → 181,601（+3.3KB），上限 179,300 → 182,600；
+ *     未压缩 568,058 字节超过 560,000，同样按「实际 + 3KB」调到 571,100。
  */
-export const FIRST_SCREEN_MAX = 560_000;
+export const FIRST_SCREEN_MAX = 571_100;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 179_300;
+export const FIRST_SCREEN_GZIP_MAX = 182_600;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
