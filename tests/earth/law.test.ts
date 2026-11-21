@@ -2,13 +2,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
-import { activitiesAt, applyEffect, getPendingEvent, performActivity, resolveEvent, travel, travelOptions } from '../../src/game/core/engine.ts';
-import { applyOffence, breathTest, cleanLaw, demeritTotal, drankRecently, emptyLaw, heatCooldown, LAW_HIST_MAX, lawSummary, lawWeekly, licenceBanned, noteDrink, payFine, serveCommunity, visaNote } from '../../src/game/core/law.ts';
-import { COMMUNITY_SERVICE, DEMERITS, DRINK, FINE_DEBT, getOffence, HEAT_RULES, OFFENCES, SA_VICTIMS_LEVY } from '../../src/game/data/law.ts';
+import { activitiesAt, applyEffect, getPendingEvent, performActivity, pickArrivalEvent, resolveEvent, travel, travelOptions } from '../../src/game/core/engine.ts';
+import { applyOffence, breathTest, cleanLaw, demeritTotal, drankAt, drankRecently, emptyLaw, LAW_HIST_MAX, lawSummary, lawWeekly, licenceBanned, noteDrink, payFine, serveCommunity, visaNote } from '../../src/game/core/law.ts';
+import { COMMUNITY_SERVICE, DEMERITS, DRINK, FINE_DEBT, getOffence, OFFENCES, SA_VICTIMS_LEVY } from '../../src/game/data/law.ts';
+import { VITALS } from '../../src/game/core/vitals.ts';
 import { ACTIVITIES } from '../../src/game/data/activities.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
 import { WA } from '../../src/game/data/wa.ts';
-import type { PlayerState } from '../../src/game/core/types.ts';
+import type { PlayerState, Region, Venue } from '../../src/game/core/types.ts';
+import { venueAction } from '../../src/game/core/venues.ts';
 
 const DAY = 1440;
 const at = (hour: number, day = 0) => day * DAY + hour * 60;
@@ -178,18 +180,10 @@ test('麻烦值：违章按特质系数上涨；随时间冷却，冷却对谁�
 	applyOffence(bold, 'drink-low');
 	assert.equal(bold.heat, getOffence('drink-low')!.heat * 1.5);
 
-	const s = make({ heat: 50 });
-	heatCooldown(s, 240);
-	assert.equal(s.heat, 50 - 4 * HEAT_RULES.coolPerHour);
-	heatCooldown(s, -60);
-	assert.equal(s.heat, 49, '负时间不动');
-	const z = make({ heat: 0.1 });
-	heatCooldown(z, 600);
-	assert.equal(z.heat, 0, '不会低于 0');
-	// 引擎里时间流逝时冷却
+	// 时间流逝时的冷却只有一处：main 的 vitals.ts（VITALS.heatCoolPerHour）。合并时删掉了本分支的 heatCooldown，免得冷却翻倍
 	const e = make({ heat: 50 });
 	applyEffect(e, { minutes: 120 }, WA);
-	assert.equal(e.heat, 50 - 2 * HEAT_RULES.coolPerHour);
+	assert.equal(e.heat, 50 - 2 * VITALS.heatCoolPerHour, '两小时只冷却一份');
 });
 
 test('社区服务：没欠着做不了；做一次抵 4 小时；逾期周结算麻烦值上涨、期限顺延', () => {
@@ -305,4 +299,87 @@ test('存档清洗：旧存档没有 law、各种坏值都不抛、钳到范围�
 	const s = sanitizeState({ ...base, law: { ...dirty } })!;
 	assert.deepEqual(sanitizeState(structuredClone(s)), s);
 	assert.equal(cleanLaw({ ban: clock - 5 }, clock).ban, 0, '过期的停驾清掉');
+});
+
+// ---------- 合并 main 后复核补的 ----------
+test('喝酒的来源：地点活动、真实酒吧「喝一杯」、NPC 请喝酒、酒庄晚宴都记下；别的不记', () => {
+	for (const [id, from] of [['pub', 'activity'], ['wine', 'activity'], ['drink', 'venue'], ['bill', 'perk'], ['greta', 'perk'], ['margaret-dinner', 'experience'], ['fest-long-table', 'experience']] as const) {
+		const s = make();
+		noteDrink(s, id, from);
+		assert.ok(drankRecently(s), `${from} ${id}`);
+	}
+	for (const [id, from] of [['meal', 'venue'], ['sam', 'perk'], ['swan-cruise', 'experience'], ['drink', 'activity']] as const) {
+		const s = make();
+		noteDrink(s, id, from);
+		assert.equal(drankRecently(s), false, `${from} ${id} 不算`);
+	}
+});
+
+test('真实酒吧「喝一杯」之后马上开车遇到路检：按酒驾处理', () => {
+	const pubVenue: Venue = { id: 't-pub', loc: 'perth', name: 't-pub', lat: -31.95, lon: 115.86, type: 'pub', source: 'seed' };
+	const R: Region = { ...WA, venues: [pubVenue] };
+	const T = Date.UTC(2026, 10, 14, 9, 0); // 珀斯下午 5 点
+	let s = make({ clock: at(17, 10) });
+	const r = venueAction(s, R, { op: 'drink', venue: 't-pub', lat: pubVenue.lat, lon: pubVenue.lon, acc: 10 }, T);
+	assert.ok(r.ok, r.msg);
+	assert.ok(drankRecently(r.state), '记下喝过酒');
+	s = { ...r.state, pending: { eventId: 'rbt' } };
+	const blow = resolveEvent(s, WA, 0);
+	assert.equal(blow.state.law.hist.at(-1)?.id, 'drink-low');
+});
+
+test('拒绝吹气时正好晕倒：照样定罪、停驾，不会因为晕倒逃掉', () => {
+	const s = make({ health: 1, needs: { hunger: 0, energy: 0, hygiene: 50, fun: 50, social: 50 }, pending: { eventId: 'rbt' } });
+	const r = resolveEvent(s, WA, 1);
+	assert.match(r.msg, /晕|医院/, '确实晕倒了');
+	assert.equal(r.state.law.record, 1, '定罪照样记');
+	assert.ok(r.state.law.ban > 0, '停驾照样记');
+});
+
+test('停驾中有车：一百个种子都抽不到交通事件；土路不能自己开', () => {
+	const driving = new Set(EVENTS.filter((e) => e.driving).map((e) => e.id));
+	for (let seed = 1; seed <= 100; seed++) {
+		const s = make({ visited: { perth: 1, fremantle: 1 }, law: { ...emptyLaw(), ban: at(12, 10) + 30 * DAY } }, seed);
+		const r = travel(s, WA, 'fremantle', 'road');
+		assert.ok(!driving.has(getPendingEvent(r.state)?.id ?? ''), `种子 ${seed}`);
+	}
+	const banned = make({ loc: 'exmouth', vehicle: '4wd', law: { ...emptyLaw(), ban: at(12, 10) + 30 * DAY } });
+	const tracks = travelOptions(banned, WA).filter((x) => x.mode === 'track');
+	assert.ok(tracks.length > 0, '这一带有土路');
+	for (const o of tracks) {
+		assert.equal(o.available, false);
+		assert.match(o.reason ?? '', /驾照暂停/);
+	}
+});
+
+test('停驾在路上到期：出发时坐的大巴，到了也不会被当成自己开车', () => {
+	const driving = new Set(EVENTS.filter((e) => e.driving).map((e) => e.id));
+	for (let seed = 1; seed <= 100; seed++) {
+		const s = make({ visited: { perth: 1, fremantle: 1 }, law: { ...emptyLaw(), ban: at(12, 10) + 5 } }, seed);
+		const r = travel(s, WA, 'fremantle', 'road');
+		assert.ok(r.ok);
+		assert.ok(!licenceBanned(r.state), '到达时停驾已经到期');
+		assert.ok(!driving.has(getPendingEvent(r.state)?.id ?? ''), `种子 ${seed}`);
+	}
+});
+
+test('出行卡按到达时刻判断喝酒窗口：drankAt', () => {
+	const s = make({ law: { ...emptyLaw(), drank: at(12, 10) - 60 } });
+	assert.equal(drankAt(s, s.clock), true);
+	assert.equal(drankAt(s, s.clock + 3 * 60 - 1), true);
+	assert.equal(drankAt(s, s.clock + 3 * 60), false, '喝完 4 小时后到达就不算');
+	assert.equal(drankAt(make(), make().clock), false);
+});
+
+test('直接调 pickArrivalEvent（不传出发时的判断）：停驾中有车也不出交通事件', () => {
+	const driving = new Set(EVENTS.filter((e) => e.driving).map((e) => e.id));
+	const loc = WA.locations.find((l) => l.id === 'fremantle')!;
+	let free = 0;
+	for (let seed = 1; seed <= 200; seed++) {
+		const banned = make({ visited: { perth: 1, fremantle: 1 }, law: { ...emptyLaw(), ban: at(12, 10) + 30 * DAY } }, seed);
+		assert.ok(!driving.has(pickArrivalEvent(banned, loc, 'road', false, null)?.ev.id ?? ''), `种子 ${seed}`);
+		const ok = make({ visited: { perth: 1, fremantle: 1 } }, seed);
+		if (driving.has(pickArrivalEvent(ok, loc, 'road', false, null)?.ev.id ?? '')) free++;
+	}
+	assert.ok(free > 0, '（对照）没停驾时能抽到');
 });

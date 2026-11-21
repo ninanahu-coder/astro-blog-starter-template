@@ -21,11 +21,25 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *    合并的人合完最后一个分支后重量一次（node tools/earth/bundle-report.mjs），把这两个数改成「实测 + 3%」。
  *    不要再「取各分支里最大的那个上限」：增量是相加的。
  * 2. 合并结束后做 P1（事件正文按需加载）+ P3（NPC 对话、小知识按需加载），再把上限降到 450KB、gzip 140KB。
+ * 第 24 批（现实节日、公众假期的日期数据和时区规则约 7KB，屏蔽举报界面约 6KB）：本分支量法与 main 相同，合并时并入上面的临时上限。
+ * 第 29 批（NPC 帮个小忙 17 条文案、关系变淡）正常长到约 401KB，上限提到 420KB。
+ * 第 28 批（任务总览、支线、成就领奖、称号）约 +30KB，合并时并入上面的临时上限。
  * 真实地点约 87KB，打回首屏照样会超。
+ * v36 新手引导（引导数据、纯函数、便签和回流卡片）约 +13KB，合并时并入下面的临时上限。
+ * v22 主要路线（路线数据、到站和沿途事件、「附近」页的路线卡）约 +18KB，合并时并入下面的临时上限。
+ * v31（宠物与野生动物）：宠物规则、数据、图鉴新动物和更新日志 +19.5KB（392.7KB → 412.2KB），上限提到 415KB。别的分支也加首屏内容时合并后要重测。
+ * v32 公交、火车、步行（线路表、3 个事件、更新日志）让首屏到了约 400.6KB，上限提到 420KB（和 v22 主要路线分支同一个数）。
+ * 第 25 批（经济、理财）：main 的 e429bcd 是 392,671 字节，理财（行情、存档字段、理财卡）加了约 7.6KB 到 400,250，上限提到 410KB。
+ * 试过把理财卡改成按需加载，只省 600 字节（卡片和首屏共用几乎所有代码），不值得。
+ * 同时改成「首屏 = 入口 + 它静态 import 的所有分块」：只量入口的话，按需加载会把共用代码挪进静态分块，数字变小但首屏并没变小。
+ * 第二批（2026-11-21 起，用户定「每个分支按需上调」）：每合一个分支，gzip 上限调到「实际 + 1KB」，在 PR 里写明涨了多少。
+ *   - 事件引擎：main fdd7b44 是 174,944 字节，规则层（event-rules.ts）加了约 3.3KB 到 178,259，上限 175,000 → 179,300。
+ *   - 法律：违章表、法律规则、3 个交通事件、档案卡和出行提醒，gzip 178,259 → 181,601（+3.3KB），上限 179,300 → 182,600；
+ *     未压缩 568,058 字节超过 560,000，同样按「实际 + 3KB」调到 571,100。
  */
-export const FIRST_SCREEN_MAX = 560_000;
+export const FIRST_SCREEN_MAX = 571_100;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 175_000;
+export const FIRST_SCREEN_GZIP_MAX = 182_600;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
@@ -43,7 +57,8 @@ async function split() {
 		const outputs = out.metafile.outputs;
 		const base = (p: string) => p.split(/[\\/]/).pop()!;
 		const files = new Map(out.outputFiles.map((f) => [base(f.path), f.contents]));
-		const entryName = Object.keys(outputs).find((k) => outputs[k].entryPoint)!;
+		// 页面脚本本身的入口名是 earth-page.ts（见上面的 sourcefile）；按需加载的模块（更新日志、emoji 查找表……）在元数据里也标了 entryPoint，不能拿第一个当入口（输出顺序会变）
+		const entryName = Object.keys(outputs).find((k) => outputs[k].entryPoint?.endsWith('earth-page.ts'))!;
 		const first = new Set([entryName]);
 		for (const name of first) for (const i of outputs[name].imports) if (i.kind === 'import-statement' && outputs[i.path]) first.add(i.path);
 		const names = [...first];
@@ -61,8 +76,8 @@ async function split() {
 
 test('首屏脚本不含真实地点、地图库、二维码库、更新日志，体积在上限内', async () => {
 	const { outputs, first, inputs, bytes, gzip } = await split();
-	// 更新日志（第 41 批）：每批都变长，打开「我」页才加载
-	for (const heavy of ['wa.venues.json', 'sa.venues.json', 'node_modules/maplibre-gl', 'node_modules/qrcode-generator', 'src/game/data/changelog.ts']) {
+	// 更新日志（第 41 批）：每批都变长，打开「我」页才加载；环境音和背景音乐的合成器（v37）只在玩家打开时才加载
+	for (const heavy of ['wa.venues.json', 'sa.venues.json', 'node_modules/maplibre-gl', 'node_modules/qrcode-generator', 'src/game/data/changelog.ts', 'src/game/ui/ambient.ts', 'src/game/data/emoji-set.ts']) {
 		assert.ok(!inputs.some((i) => i.includes(heavy)), `${heavy} 被打进了首屏`);
 		assert.ok(Object.entries(outputs).some(([k, o]) => !first.includes(k) && Object.keys(o.inputs).some((i) => i.includes(heavy))), `${heavy} 应该在单独的包里`);
 	}

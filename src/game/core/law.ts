@@ -1,6 +1,6 @@
 // 犯罪、罚款和法律后果（第 43 批，设计见 docs/earth-game/law.md）。
 // 只读的函数是纯函数；名字以 apply/pay/serve/law 开头的函数原地修改传入的 state（调用方传的是 clone），和 engine.ts 的约定一致。
-import { COMMUNITY_SERVICE, DEMERITS, DRINK, FINE_DEBT, getOffence, HEAT_RULES, OFFENCES, VISA_NOTE, VISA_ORIGINS, type LawRegion, type Penalty } from '../data/law.ts';
+import { COMMUNITY_SERVICE, DEMERITS, DRINK, FINE_DEBT, getOffence, OFFENCES, VISA_NOTE, VISA_ORIGINS, type LawRegion, type Penalty } from '../data/law.ts';
 import { heatMult } from './attributes.ts';
 import { dayOf } from './time.ts';
 import type { LawRecord, PlayerState } from './types.ts';
@@ -65,7 +65,9 @@ export const licenceBanned = (state: PlayerState) => state.law.ban > state.clock
 export const banDaysLeft = (state: PlayerState) => (licenceBanned(state) ? Math.ceil((state.law.ban - state.clock) / 1440) : 0);
 
 /** 刚喝过酒（窗口内开车遇到呼气测试会超标） */
-export const drankRecently = (state: PlayerState) => state.law.drank >= 0 && state.clock - state.law.drank < DRINK.windowMin;
+export const drankRecently = (state: PlayerState) => drankAt(state, state.clock);
+/** 到某个游戏时刻（比如开车到达时）还在喝酒窗口里吗；出行卡按到达时刻提醒（路边呼气测试在到达时做） */
+export const drankAt = (state: PlayerState, clock: number) => state.law.drank >= 0 && clock - state.law.drank < DRINK.windowMin;
 
 /** 3 年内有没有酒驾记录（再犯走法庭） */
 const drinkBefore = (state: PlayerState) => {
@@ -156,14 +158,10 @@ export function applyLawOutcome(state: PlayerState, lawId: string): string {
 	return lawId === 'breath' ? breathTest(state) : applyOffence(state, lawId);
 }
 
-/** 时间流逝时的麻烦值冷却（不乘特质系数，冷却对谁都一样） */
-export function heatCooldown(state: PlayerState, minutes: number) {
-	if (minutes > 0 && state.heat > 0) state.heat = clamp100(state.heat - (minutes * HEAT_RULES.coolPerHour) / 60);
-}
-
-/** 做了喝酒的活动 */
-export function noteDrink(state: PlayerState, activityId: string) {
-	if (DRINK.activities.includes(activityId)) state.law.drank = state.clock;
+/** 做了喝酒的事：地点活动、真实地点的「喝一杯」、NPC 请喝酒、带酒的体验。喝完的时刻记下来（时间已经流逝过） */
+export function noteDrink(state: PlayerState, id: string, from: 'activity' | 'venue' | 'perk' | 'experience' = 'activity') {
+	const list = from === 'venue' ? DRINK.venueOps : from === 'perk' ? DRINK.npcPerks : from === 'experience' ? DRINK.experiences : DRINK.activities;
+	if (list.includes(id)) state.law.drank = state.clock;
 }
 
 /** 做社区服务：抵掉 hours 小时；做完清掉期限。返回剩余小时 */

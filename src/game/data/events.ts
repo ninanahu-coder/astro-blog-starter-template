@@ -1,8 +1,10 @@
 // 到达地点触发的事件。once=true 的是地标“签名事件”，首次到访优先触发。
 // 新增事件只需往数组里加一条；effects 全部走 engine.applyEffect，无需写逻辑代码。
 import type { GameEvent } from '../core/types.ts';
+import { assertEvents } from '../core/event-rules.ts';
 import { VENUE_EVENTS } from './venue-events.ts';
 import { SA_EVENTS } from './events-sa.ts';
+import { TRAIL_EVENTS } from './trail-events.ts';
 
 export const EVENTS: GameEvent[] = [
 	{
@@ -273,7 +275,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'dusk-sunset', title: '海边日落', icon: '🌇', tags: ['beach'], periods: ['dusk'], weather: ['sunny', 'cloudy', 'hot'], weight: 5,
+		id: 'dusk-sunset', title: '海边日落', icon: '🌇', tags: ['beach'], periods: ['dusk'], weather: ['sunny', 'cloudy', 'hot', 'cold'], weight: 5,
 		text: '太阳正沉进海里，整片海滩都被染成了橘红色。',
 		choices: [
 			{ label: '坐下来看完', ok: { text: '最后一点光消失时，海滩上有人鼓起了掌。', fx: { minutes: 40, needs: { fun: 25 } } } },
@@ -322,7 +324,7 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'busselton-jetty-walk', title: '走完长栈桥', icon: '🌉', locs: ['busselton'], weather: ['sunny', 'cloudy', 'hot'], weight: 3,
+		id: 'busselton-jetty-walk', title: '走完长栈桥', icon: '🌉', locs: ['busselton'], weather: ['sunny', 'cloudy', 'hot', 'cold'], weight: 3,
 		text: '木栈桥伸进海湾快两公里，尽头的海面下是一座水下观测站。',
 		choices: [
 			{ label: '一口气走到尽头再走回来', check: { skill: 'stamina', dc: 30 }, ok: { text: '来回快四公里，海风一路吹着，回到岸上腿是软的、心情是好的。', fx: { minutes: 75, needs: { fun: 20, energy: -12 }, skills: { stamina: 1 } } }, fail: { text: '走到一半太晒，你坐上了栈桥小火车。', fx: { minutes: 50, needs: { fun: 12, energy: -6 } } } },
@@ -379,7 +381,7 @@ export const EVENTS: GameEvent[] = [
 	},
 	// 第 25 轮：夜间事件 +6（天黑后抵达时才会抽到，数值待平衡）
 	{
-		id: 'night-milky-way', title: '头顶的银河', icon: '🌌', kinds: ['outback', 'park'], periods: ['night'], weather: ['sunny', 'hot'], weight: 4,
+		id: 'night-milky-way', title: '头顶的银河', icon: '🌌', kinds: ['outback', 'park'], periods: ['night'], weather: ['sunny', 'hot', 'cold'], weight: 4,
 		text: '离城镇太远，一点灯光都没有，银河从地平线一头拱到另一头。',
 		choices: [
 			{ label: '躺在地上认星座', check: { skill: 'survival', dc: 25 }, ok: { text: '你找到了南十字星，顺着它指的方向认出了正南。', fx: { minutes: 40, needs: { fun: 25 }, skills: { survival: 1 } } }, fail: { text: '星星太多，你一个星座也没认出来，但看得很满足。', fx: { minutes: 40, needs: { fun: 18 } } } },
@@ -426,6 +428,35 @@ export const EVENTS: GameEvent[] = [
 			{ label: '打个招呼就回房', ok: { text: '有人说明早一起去看日出，你答应了。', fx: { minutes: 5, needs: { social: 6 } } } },
 		],
 	},
+	// 第 32 批：坐公共交通、区域火车、步行抵达时才会抽到（数值待平衡）
+	{
+		id: 'transit-hometown', title: '车厢里的乡音', icon: '🚆', arrivedBy: ['transit'], weight: 3,
+		text: '对面两个学生在用中文吐槽作业截止日，其中一个背包上挂着你家乡的钥匙扣。',
+		choices: [
+			{ label: '用家乡话搭一句', check: { skill: 'charisma', dc: 20 }, ok: { text: '真是同乡。到站前你们互加了好友，约了周末一起去买菜。', fx: { needs: { social: 20, fun: 6 }, skills: { charisma: 1 } } }, fail: { text: '你一开口，他们愣了一下，礼貌地笑了笑就下车了。', fx: { needs: { social: 5 } } } },
+			{ label: '戴上耳机看窗外', ok: { text: '窗外的河面一闪一闪，你小睡了一会儿。', fx: { needs: { energy: 4 } } } },
+		],
+	},
+	{
+		id: 'rail-wheatbelt', title: '窗外的麦田带', icon: '🌾', arrivedBy: ['rail'], weight: 3,
+		text: '火车开出城区，窗外换成一望无际的麦田和盐湖，信号一格一格掉没了。',
+		choices: [
+			{ label: '去餐车买杯热饮（$5）', cost: 5, ok: { text: '捧着热饮看了一路的风景，难得什么也不用想。', fx: { needs: { fun: 12, hunger: 6 } } } },
+			{ label: '靠着窗睡一觉', ok: { text: '醒来已经快到站了，脖子有点酸。', fx: { needs: { energy: 10 } } } },
+		],
+	},
+	{
+		id: 'walk-blister', title: '脚底磨出了泡', icon: '🦶', arrivedBy: ['walk'], weight: 3,
+		text: '走到最后一段，鞋里有个地方一直在磨，每一步都在提醒你。',
+		choices: [
+			{ label: '找个药店买创可贴（$8）', cost: 8, ok: { text: '贴好以后舒服多了，顺手买了瓶水。', fx: { minutes: 15, needs: { energy: 3 } } } },
+			{ label: '咬咬牙走完', check: { skill: 'stamina', dc: 30 }, ok: { text: '到了才发现已经磨破了，不过体力确实练出来了。', fx: { health: -1, skills: { stamina: 1 } } }, fail: { text: '一瘸一拐走到了，今天不想再动了。', fx: { health: -3, needs: { energy: -8 } } } },
+		],
+	},
 	...VENUE_EVENTS,
 	...SA_EVENTS,
+	...TRAIL_EVENTS,
 ];
+
+// 加载时校验：字段拼错、引用不存在的后续事件、链式事件没人解锁……直接报错（写法见 docs/earth-game/event-engine.md §5）
+assertEvents(EVENTS);

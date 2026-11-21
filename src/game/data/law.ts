@@ -107,15 +107,16 @@ export const DEMERITS = {
 	banDays: 90, // 待平衡
 };
 
-/** 麻烦值的冷却和阈值（待平衡）。0.25/h 与分支 activity-attrs 的 heatCoolPerHour 相同，合并时只留一处 */
-export const HEAT_RULES = {
-	coolPerHour: 0.25,
-};
-
 /** 喝过酒之后多久内开车、遇到呼气测试会超标（游戏简化：不算体重、杯数，待平衡） */
 export const DRINK = {
 	/** 喝酒的活动 id（地点互动） */
 	activities: ['pub', 'wine'],
+	/** 真实地点的「喝一杯」（core/venues.ts，合并 main 后复核补上） */
+	venueOps: ['drink'],
+	/** 请你喝酒的 NPC 福利：比尔「老酒吧请客」、葛蕾塔「酒窖午餐」 */
+	npcPerks: ['bill', 'greta'],
+	/** 带酒的付费体验：酒庄晚宴、酒庄长桌宴 */
+	experiences: ['margaret-dinner', 'fest-long-table'],
 	windowMin: 4 * 60,
 };
 

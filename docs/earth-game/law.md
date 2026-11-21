@@ -1,8 +1,8 @@
-# 犯罪、罚款和法律后果（第 43 批，2026-11-20，分支 `claude/earth-law`）
+# 犯罪、罚款和法律后果（第 43 批，2026-11-20，分支 `claude/earth-law`；2026-11-21 合并 main `b0ce469`，更新日志改为 v68）
 
 本文写清麻烦值、通缉星级、交通罚单、法庭、社区服务和签证提示怎么运作。每节标明：
 
-- **【现状】**：main（`4f9c9e5`）里已经有的；
+- **【现状】**：分支开出时 main（`4f9c9e5`）里已经有的（麻烦值自然冷却是合并时 main 已经有的，见 §2.2）；
 - **【本批】**：这个分支落地的第一版；
 - **【提议】**：只写了设计、没做的。
 
@@ -12,8 +12,8 @@
 
 | 位置 | 内容 |
 | --- | --- |
-| `src/game/data/law.ts` | 违章表 `OFFENCES`（两州罚款、扣分、停驾、出处）、扣分上限 `DEMERITS`、冷却 `HEAT_RULES`、喝酒窗口 `DRINK`、社区服务、欠款、签证提示 |
-| `src/game/core/law.ts` | 纯函数：`applyOffence`、`breathTest`、`demeritTotal`、`licenceBanned`、`heatCooldown`、`lawWeekly`、`serveCommunity`、`visaNote`、`lawSummary`、存档清洗 `cleanLaw` |
+| `src/game/data/law.ts` | 违章表 `OFFENCES`（两州罚款、扣分、停驾、出处）、扣分上限 `DEMERITS`、喝酒窗口 `DRINK`、社区服务、欠款、签证提示 |
+| `src/game/core/law.ts` | 纯函数：`applyOffence`、`breathTest`、`demeritTotal`、`licenceBanned`、`lawWeekly`、`serveCommunity`、`visaNote`、`lawSummary`、存档清洗 `cleanLaw` |
 | `src/game/core/engine.ts` | 只加了几处调用（见 §8） |
 | `src/game/data/events.ts` | `rbt`、`heat-check` 改写；新事件 `speed-late`、`parking-limit` |
 | `src/game/data/activities.ts` | 新活动 `community-service` |
@@ -38,12 +38,11 @@
 | 盘查 | `heat ≥ 60`（3 星）到达任何地点必出 `heat-check`，优先于签名事件和抛锚 |
 | 上涨 | 事件效果 `fx.heat > 0` × 特质系数：`lawful` 0.5、`daredevil` 1.5；没钱续车险每周 +8 |
 | 来源 | `rbt` 搪塞失败 +20、`pearl-offer` +15/+10、喂野生动物 +10、凑近海龟 +3、矿权地 +10 等 |
-| 下降 | 活动「低调几天」−40；`rbt` 配合 −10；`heat-check` 配合 −50；不会随时间自然下降 |
+| 下降 | 活动「低调几天」−40；`rbt` 配合 −10；`heat-check` 配合 −50；随时间自然冷却（main 的 `vitals.ts`，见 §2.2） |
 
 ### 2.2 【本批】
 
-- **自然冷却** 0.25/小时（`HEAT_RULES.coolPerHour`，待平衡），在 `advance()` 里随时间流逝结算，不乘特质系数。
-  分支 `claude/earth-activity-attrs` 的 `vitals.ts` 也加了同样的 `heatCoolPerHour: 0.25`；**合并时只留一处**（见 §9）。
+- **自然冷却**（合并后不算本批）0.25/小时，待平衡。2026-11-21 合并 main 时，按 §下面「和并行分支的关系」的办法只留一处：`core/vitals.ts` 的 `VITALS.heatCoolPerHour`，在 `passTime()` 里结算，不乘特质系数。本分支原来的 `heatCooldown` 和 `HEAT_RULES` 已删掉。
   从 60 冷却到 59 要 4 小时，从 60 降到 40 要 80 小时（3 天多），「低调几天」仍是主要降法。
 - **违章上涨**：每条违章有自己的 `heat`（0–30），走 `addHeat()`，乘特质系数（守规矩减半、胆大包天 1.5 倍）。
 - 星级和盘查阈值不变。
@@ -180,7 +179,7 @@ law: {
 
 | 位置 | 改动 |
 | --- | --- |
-| `advance()` | 需求衰减后加一行 `heatCooldown(state, minutes)` |
+| `advance()` | （合并后不再改：冷却走 main 的 `passTime()`） |
 | `resolveEvent()` | 能力检定后加 `risk`；结算效果后结算 `outcome.law`，处罚说明接在结果文字后 |
 | `pickArrivalEvent()` | 抽取池过滤 `driving` 事件 |
 | `blockedReason()` | 社区服务没欠着时不能做 |
@@ -199,9 +198,21 @@ law: {
 | `claude/earth-home-vehicle` | 改 `priceRoute` 的天气路况 | 可能同一函数内相邻，按两边都保留合并 |
 | `claude/earth-education-career` | `core/visa.ts` 签证工时 | 不冲突；§6 提议两者合并显示 |
 | `claude/earth-economy` | 经济数值 | 罚款是真实值，不随经济调整；如果经济分支改了现金尺度，罚款相对大小会变，交给平衡会话判断 |
-| 各分支 | `changelog.ts` 顶部（本分支 v43）、`cgi/manifest.json`（新增 `event:speed-late` 暂借 `event-rbt.webp`、`event:parking-limit` 暂借 `perth.webp`）、`prompts.mjs` 加了两条场景 | 都保留 |
+| 各分支 | `changelog.ts` 顶部（本分支 v43，合并时改成 v68）、`cgi/manifest.json`（新增 `event:speed-late`、`event:parking-limit` 都暂借 `event-rbt.webp`；`parking-limit` 原来借珀斯的地点图，事件在任何城镇都会出，合并时改掉）、`prompts.mjs` 加了两条场景 | 都保留 |
 
 ## 10. 测试和变异检查
+
+**合并 main（2026-11-21）后复核补的**（3 个审查员 + 反驳员，8 条成立，都已改）：
+- 喝酒的来源不止地点活动：真实酒吧的「喝一杯」、比尔和葛蕾塔请喝酒、酒庄晚宴和长桌宴也记进喝酒窗口（`DRINK.venueOps`、`npcPerks`、`experiences`）。
+- 拒绝吹气、逃跑时正好晕倒：先记法律后果，再看晕倒，罚款、停驾、定罪照样算。
+- 自己开不开车按出发时定（`travel()` 把判断传给 `pickArrivalEvent`），停驾在路上到期时坐大巴的人不会被开罚单。
+- 出行卡的酒驾提醒只在公路自驾时出，按到达时刻判断（`drankAt`）。
+- 事件引擎的加载校验认识 `driving`、`risk`、`law`（见 event-engine.md §3.4）。
+- 补测试：各喝酒来源、真实酒吧喝完路检、晕倒不逃罚、停驾抽不到交通事件和土路不能开、停驾路上到期、`drankAt` 边界。
+- 原来 `law.test.ts` 里测本分支 `heatCooldown` 的部分删了，改测引擎里两小时只冷却一份。
+
+以下是分支第一版时的记录（合并前）：
+
 
 - `tests/earth/law.test.ts` 15 条：数据完整和关键真实值、事件数据（违法选项不给好处、交通事件标 driving）、两州罚款不同、欠款和周结算、酒驾再犯走法庭和签证提示、12 分停驾和 3 年窗口、呼气测试窗口边界、麻烦值特质系数和冷却、社区服务、停驾只能坐大巴、坐大巴抽不到交通事件、喝酒→路检整条链、盘查溜走、存档清洗。
 - 变异检查（手工 22 个变异，逐个改源码跑 `law.test.ts`）：**22/22 被测试抓到**。包括扣分窗口、12 分边界 `>=`、喝酒窗口边界 `<`、不分州、钱不够不记欠款、特质系数、清洗读原型链、冷却单位、引擎各处调用被删。
@@ -209,7 +220,9 @@ law: {
 
 ## 11. 模拟结果
 
-`npm run earth:sim -- --days=180 --runs=100`，main `4f9c9e5` 对比本分支：**11 行里 9 行逐字相同**，变的两行：
+合并 main 后（2026-11-21）：main `b0ce469` 对比合并结果，只有「打零工的背包客」「农场工」两行变了，回归基线已按合并结果重写，差异表写在 PR 里交 Codex 判断。
+
+以下是分支第一版时：`npm run earth:sim -- --days=180 --runs=100`，main `4f9c9e5` 对比本分支：**11 行里 9 行逐字相同**，变的两行：
 
 | 策略 | 指标 | main | 本分支 |
 | --- | --- | --- | --- |
