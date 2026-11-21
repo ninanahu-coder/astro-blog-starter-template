@@ -32,10 +32,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  * 第 25 批（经济、理财）：main 的 e429bcd 是 392,671 字节，理财（行情、存档字段、理财卡）加了约 7.6KB 到 400,250，上限提到 410KB。
  * 试过把理财卡改成按需加载，只省 600 字节（卡片和首屏共用几乎所有代码），不值得。
  * 同时改成「首屏 = 入口 + 它静态 import 的所有分块」：只量入口的话，按需加载会把共用代码挪进静态分块，数字变小但首屏并没变小。
+ * 第二批（2026-11-21 起，用户定「每个分支按需上调」）：每合一个分支，gzip 上限调到「实际 + 1KB」，在 PR 里写明涨了多少。
+ *   - 事件引擎：main fdd7b44 是 174,944 字节，规则层（event-rules.ts）加了约 3.3KB 到 178,259，上限 175,000 → 179,300。
  */
 export const FIRST_SCREEN_MAX = 560_000;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 175_000;
+export const FIRST_SCREEN_GZIP_MAX = 179_300;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');

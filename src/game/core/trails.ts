@@ -1,7 +1,7 @@
 // 主要路线（实地路线）：玩家本人拿着手机按顺序走过几个真实地点，到站和沿途触发事件。设计见 docs/earth-game/gps-route-design.md。
 // 纯函数：现实时间 now（毫秒）由服务端传入；坐标来自手机，可以伪造，所以沿用真实地点的精度和瞬移检查（fixProblem），
 // 再加上站与站之间的平均速度检查。存档里只记每条路线到了第几站，不记轨迹。
-import { addLog, addMoodlet, applyEffect, clone, collapsedResult, fail, getLocation } from './engine.ts';
+import { addLog, addMoodlet, applyEffect, clone, collapsedResult, fail, getLocation, startEvent } from './engine.ts';
 import { haversineKm, locateInRegion } from './geo.ts';
 import { fixProblem } from './venues.ts';
 import { EVENTS } from '../data/events.ts';
@@ -125,13 +125,19 @@ export function trailStep(prev: PlayerState, region: Region, req: TrailRequest, 
 		if (fast) return fail(prev, fast);
 		const state = clone(prev);
 		state.trails[v.trail.id] = { ...p, leg: true };
-		state.pending = { eventId: stop.along };
+		startTrailEvent(state, stop.along);
 		addLog(state, `在去${stop.name}的路上。`);
 		return done(state, req, now, `🚶 ${v.trail.title}：在去${stop.name}的路上……`);
 	}
 	const v = here.reduce((a, b) => (distM(b.next!, req.lat, req.lon) < distM(a.next!, req.lat, req.lon) ? b : a));
 	const left = Math.max(0, distM(v.next!, req.lat, req.lon) - (v.next!.radiusM ?? TRAIL_RULES.stopRadiusM));
 	return fail(prev, `离「${v.next!.name}」还有 ${left} 米。`);
+}
+
+/** 路线上的事件也走事件引擎（engine.ts 的 startEvent）：记进 evMem，冷却、次数上限、链式解锁对路线事件同样算数 */
+function startTrailEvent(state: PlayerState, id: string | undefined) {
+	const ev = id ? EVENTS.find((e) => e.id === id) : undefined;
+	if (ev) startEvent(state, ev, 'forced');
 }
 
 function arriveStop(prev: PlayerState, region: Region, trail: TrailDef, at: number, req: TrailRequest, now: number): ActionResult {
@@ -156,7 +162,7 @@ function arriveStop(prev: PlayerState, region: Region, trail: TrailDef, at: numb
 		addLog(state, `🚶 走完了「${trail.title}」：${trail.outro}${got}`);
 		msg += ` 路线走完！${got}`;
 	}
-	if (eventExists(stop.event)) state.pending = { eventId: stop.event };
+	startTrailEvent(state, stop.event);
 	return done(state, req, now, msg);
 }
 

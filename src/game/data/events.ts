@@ -1,6 +1,7 @@
 // 到达地点触发的事件。once=true 的是地标“签名事件”，首次到访优先触发。
 // 新增事件只需往数组里加一条；effects 全部走 engine.applyEffect，无需写逻辑代码。
 import type { GameEvent } from '../core/types.ts';
+import { assertEvents } from '../core/event-rules.ts';
 import { VENUE_EVENTS } from './venue-events.ts';
 import { SA_EVENTS } from './events-sa.ts';
 import { TRAIL_EVENTS } from './trail-events.ts';
@@ -437,3 +438,6 @@ export const EVENTS: GameEvent[] = [
 	...SA_EVENTS,
 	...TRAIL_EVENTS,
 ];
+
+// 加载时校验：字段拼错、引用不存在的后续事件、链式事件没人解锁……直接报错（写法见 docs/earth-game/event-engine.md §5）
+assertEvents(EVENTS);

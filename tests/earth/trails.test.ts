@@ -112,6 +112,7 @@ test('按顺序走完一条路线：每站一次收获，到站事件挂上，�
 	assert.deepEqual(s0, snap, '不修改入参');
 	assert.deepEqual(first.state.trails[CITY.id], { at: 1, leg: false, t: T0 });
 	assert.equal(first.state.pending?.eventId, CITY.stops[0].event, '到站事件');
+	assert.deepEqual(first.state.evMem.recent.slice(-1), [CITY.stops[0].event], '到站事件也记进事件引擎（合并事件引擎后）');
 	assert.equal(first.state.clock, s0.clock + TRAIL_RULES.stopMinutes, '到站花游戏时间');
 	assert.equal(trailStep(first.state, WORLD, at(CITY.stops[1]), T0 + 30 * MIN).msg, '先处理眼前的事件。');
 
@@ -169,6 +170,7 @@ test('沿途：走在两站之间的走廊里触发这一段的沿途事件，�
 	const r = trailStep(s, WORLD, between(a, b, 0.5), now + 3 * MIN);
 	assert.ok(r.ok, r.msg);
 	assert.equal(r.state.pending?.eventId, b.along);
+	assert.deepEqual(r.state.evMem.recent.slice(-1), [b.along], '沿途事件也记进事件引擎');
 	assert.deepEqual(r.state.trails[CITY.id], { at: 1, leg: true, t: now });
 	// 同一段不再出
 	const again = trailStep(clear(r.state), WORLD, between(a, b, 0.6), now + 4 * MIN);
