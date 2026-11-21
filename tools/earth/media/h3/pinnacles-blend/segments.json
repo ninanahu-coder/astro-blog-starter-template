@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic golden-hour desert landscape, hundreds of pale pitted limestone pillars rising from golden-orange wind-rippled sand under a dramatic sunset sky with orange and purple clouds, long shadows running to the right",
+ "continuity": "every pillar keeps its shape, texture and place on the ground as the viewpoint advances, and the scene settles into the framing shown in Picture 2 and holds there through the end of the shot.",
+ "ambience": "a dry desert wind and faint sand hiss",
+ "segments": [
+  {
+   "first": "kf/a_raw.png",
+   "last": "kf/b_raw.png",
+   "sec": 5,
+   "camera": "The camera pushes in at slow speed along the open sand between the pillars and rises slightly, travelling from the viewpoint of Picture 1 to the viewpoint of Picture 2.",
+   "action": "The nearest pillars glide past on both sides with natural parallax while the distant pillars shift only a little. The clouds drift slowly to the right throughout the shot and the long shadows stay fixed on the sand. The pillars themselves stay still.",
+   "sfx": "soft whisper of drifting sand"
+  }
+ ]
+}
