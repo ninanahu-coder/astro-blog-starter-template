@@ -20,6 +20,7 @@ export const SYSTEMS = [
 	{ id: 'shop', name: '商店', how: '不买东西（buy）' },
 	{ id: 'gigs', name: '零工', how: '不做零工（work-mine / work-farm / work-cafe / busk）' },
 	{ id: 'charity', name: '免费餐', how: '不吃慈善餐（charity-meal / charity-dinner）' },
+	{ id: 'visa', name: '签证', how: '不申请签证、不考雅思（visa，第 43 批；签证过期后不能工作照常生效）' },
 ] as const;
 export type SystemId = (typeof SYSTEMS)[number]['id'];
 export const SYSTEM_IDS: readonly SystemId[] = SYSTEMS.map((x) => x.id);
@@ -35,6 +36,7 @@ export function systemOf(a: GameAction): SystemId | undefined {
 		case 'npc': return 'social';
 		case 'buy': return 'shop';
 		case 'home': return a.op === 'rent' ? 'rent' : undefined;
+		case 'visa': return 'visa';
 		case 'activity':
 			if ((GIGS as readonly string[]).includes(a.id)) return 'gigs';
 			if (a.id === 'charity-meal' || a.id === 'charity-dinner') return 'charity';

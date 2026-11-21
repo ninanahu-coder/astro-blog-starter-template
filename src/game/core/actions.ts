@@ -27,6 +27,8 @@ import { settleDecay } from './relations.ts';
 import { dayOf } from './time.ts';
 import { adoptPet, boardPet, dogJoinsRun, petAction, petTravelBlocked, PET_OPS, type PetOp } from './pets.ts';
 import { PET, PET_KINDS } from '../data/pets.ts';
+import { VISA_ROUTES } from '../data/visas.ts';
+import { applyVisa, settleVisa, takeIelts, visaWorkBlocked } from './immigration.ts';
 
 export type GameAction =
 	| { t: 'travel'; to: string; mode: TravelMode }
@@ -63,7 +65,9 @@ export type GameAction =
 	| { t: 'pet'; op: 'board'; days: number }
 	| { t: 'pet'; op: PetOp }
 	| { t: 'trail'; lat: number; lon: number; acc: number }
-	| ({ t: 'onboard' } & OnboardOp);
+	| ({ t: 'onboard' } & OnboardOp)
+	| { t: 'visa'; op: 'apply'; route: string }
+	| { t: 'visa'; op: 'ielts' };
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air', 'transit', 'rail', 'walk'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond'];
@@ -138,6 +142,9 @@ export function parseAction(raw: unknown): GameAction | null {
 			}
 			if (a.op === 'board') return Number.isInteger(a.days) && (a.days as number) >= 1 && (a.days as number) <= PET.boardMaxDays ? { t: 'pet', op: 'board', days: a.days as number } : null;
 			return PET_OPS.includes(a.op as PetOp) ? { t: 'pet', op: a.op as PetOp } : null;
+		case 'visa':
+			if (a.op === 'ielts') return { t: 'visa', op: 'ielts' };
+			return a.op === 'apply' && typeof a.route === 'string' && VISA_ROUTES.some((r) => r.id === a.route) ? { t: 'visa', op: 'apply', route: a.route } : null;
 		case 'property':
 			if (!str(a.id)) return null;
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
@@ -161,6 +168,8 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		const r = applyOnboard(state, a);
 		return r.state === state ? r : { ...r, state: { ...r.state, rev: nextRev(state.rev) } };
 	}
+	const noVisa = visaWorkBlocked(state, a); // 签证过期不能工作（第 43 批）
+	if (noVisa) return { ok: false, state, msg: noVisa };
 	let r: ActionResult;
 	switch (a.t) {
 		case 'travel': {
@@ -205,6 +214,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'trail': r = trailStep(state, region, a, now); break;
 		case 'claim': r = claimAchievement(state, region, a.id); break;
 		case 'title': r = wearTitle(state, a.id); break;
+		case 'visa': r = a.op === 'ielts' ? takeIelts(state, region) : applyVisa(state, region, a.route); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
@@ -224,6 +234,8 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 			if (feats.length) msg += ` 🔓 新出现：${feats.map((f) => f.name).join('、')}`;
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
+		const visaNote = settleVisa(state, r.state); // 签证：记经验、毕业、到期提醒和过期（第 43 批）
+		if (visaNote) msg += ` ${visaNote}`;
 	}
 	// 跨过午夜：好久没来往的关系变淡（第 29 批）。按动作开始前后的游戏日结算，失败的动作不推进时间
 	const out = capState({ ...settleDecay(r.state, dayOf(state.clock), dayOf(r.state.clock)), rev: nextRev(state.rev) });

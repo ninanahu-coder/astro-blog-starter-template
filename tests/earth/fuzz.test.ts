@@ -1,6 +1,7 @@
 // 随机动作序列的回归测试：多种出身、特质和随机动作（大部分合法，少量故意不合法）连续执行，
 // 检查引擎不抛异常、不改入参、数值始终有限且在范围内，服务端的规范化（sanitizeState）对结果是稳定的。
 // 随机数用固定种子，失败时能按 seed 复现。
+import { ieltsAt, visaOptions } from '../../src/game/core/immigration.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction, type GameAction } from '../../src/game/core/actions.ts';
@@ -134,6 +135,8 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 	if (photoQuestNow(s, WA) && !photoQuestNow(s, WA)!.blocked) c.push({ t: 'photo' });
 	if (s.needs.fun < 50 && fishingAt(s, WA) && !fishingAt(s, WA)!.blocked) c.push({ t: 'fish' });
 	for (const x of experiencesAt(s, WA)) if (!x.blocked) c.push({ t: 'experience', id: x.exp.id });
+	for (const x of visaOptions(s, WA)) if (!x.blocked) c.push({ t: 'visa', op: 'apply', route: x.route.id }); // 第 43 批
+	if (ieltsAt(s, WA) && !ieltsAt(s, WA)!.blocked) c.push({ t: 'visa', op: 'ielts' });
 	const here = WA.venues.filter((v) => v.loc === s.loc);
 	if (here.length) {
 		// 只挑这类地点有的动作，站在门口、精度 10 米

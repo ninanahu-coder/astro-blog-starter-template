@@ -1,5 +1,6 @@
 // 真实地点：玩家拿着手机真的走到某家餐馆、健身房、公园，就能在游戏里做对应的事。
 // 纯函数：现实时间 now（毫秒）由服务端传入，客户端无法伪造；坐标来自手机定位，可以伪造，所以做了精度、距离和速度三道检查。
+import { canWork, VISA_EXPIRED_MSG } from './visa.ts';
 import { noteDrink } from './law.ts';
 import { realDayOf } from './daily.ts';
 import { addMoodlet, applyEffect, certBonus, clone, collapsedResult, fail, getCareer, getLocation, log, pickVenueEvent, startEvent, tryPromote } from './engine.ts';
@@ -162,6 +163,7 @@ function workPreview(state: PlayerState, type: VenueTypeDef, venue: Venue, now: 
 
 function workBlocked(state: PlayerState, type: VenueTypeDef, venue: Venue, now: number): string | undefined {
 	if (state.clockIn?.venue === venue.id) return undefined; // 可以打下班卡
+	if (!canWork(state)) return VISA_EXPIRED_MSG;
 	if (!workTerms(state, type, venue)) return '这里需要在你的工作地点有对应的职业才能上班';
 	const today = realDayOf(now);
 	if (state.realWork.day === today && state.realWork.min >= FIX_RULES.dayMaxMin) return `今天已经计满 ${FIX_RULES.dayMaxMin / 60} 小时`;

@@ -38,10 +38,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *     未压缩 568,058 字节超过 560,000，同样按「实际 + 3KB」调到 571,100。
  *   - 玩家交易：交易所卡片、面交选择器（ui/market.ts）、交易规则，gzip 181,646 → 185,660（+4.0KB），上限 182,600 → 186,700；
  *     未压缩 568,167 → 582,106，上限 571,100 → 585,100。
+ *   - 签证路线：签证规则和数据（含偏远地区邮编表）、移民打分、签证卡片，gzip 185,814 → 190,759（+4.9KB），上限 186,700 → 191,800；
+ *     未压缩 582,723 → 598,580，上限 585,100 → 601,600。
  */
-export const FIRST_SCREEN_MAX = 585_100;
+export const FIRST_SCREEN_MAX = 601_600;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 186_700;
+export const FIRST_SCREEN_GZIP_MAX = 191_800;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');

@@ -215,6 +215,7 @@ AIGC 短片和 NPC 语音（第 1 轮试点，远程 H3 + MiniMax TTS）另见 [
 威胁模型、安全问题清单（含严重性、复现条件、修复状态）和限流参数见 [`security-review.md`](security-review.md)（v40）。限流工具在 `src/game/server/ratelimit.ts`，静态页安全响应头在 `public/_headers`。
 
 玩家之间的交易所、拍卖、面交（托管、并发、防重放、防刷和 RMT 红线）见 [`player-trade.md`](player-trade.md)（v69）。
+留学生的签证路线（学生签、485、雇主担保、技术移民打分、偏远地区，以官方为准、游戏简化）见 [`visa.md`](visa.md)（v70）。
 
 ## 9. 路线图
 
