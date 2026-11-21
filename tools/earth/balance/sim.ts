@@ -6,7 +6,16 @@
 //   npm run earth:sim -- --days=120 --runs=100
 //   npm run earth:sim -- --out=docs/earth-game/balance-report.md
 //   npm run earth:sim -- --origins     出身对照：每个出身跑同样三种策略（零工 / 咖啡店 / 不干活），都不带特质
+//
+// 平衡调试工具（docs/earth-game/balance-tools.md）。不加下面这些参数时，输出和加之前逐字一致：
+//   --eco                   报告末尾加「经济流水：投放与回收」表
+//   --off=events,coop       关掉这些系统再跑（只改机器人行为，见 systems.ts；--list-systems 列出全部）
+//   --ab=events             同样的种子跑两遍：全开 vs 关掉，输出对比（ab.ts）
+//   --format=json|csv       导出结构化结果（默认 md）；配合 --out 写文件
+//   --only=barista,idle     只跑这些策略
 import { writeFileSync } from 'node:fs';
+import { averageEco, blankEco, parseSystems, recordEco, SYSTEMS, systemOf, type EcoStats } from './systems.ts';
+import { ecoMarkdown, toCsv, toJson, type PlanResult, type SimResult } from './report.ts';
 import { applyAction, applyCoop, type GameAction } from '../../../src/game/core/actions.ts';
 import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
@@ -25,6 +34,32 @@ const DAYS = Number(arg('days', '60'));
 const RUNS = Number(arg('runs', '40'));
 const OUT = arg('out', '');
 const BY_ORIGIN = process.argv.includes('--origins');
+// 平衡调试工具的参数（见文件头）
+const FORMAT = arg('format', 'md');
+const ONLY = arg('only', '').split(',').filter(Boolean);
+if (process.argv.includes('--list-systems')) {
+	for (const x of SYSTEMS) console.log(`${x.id.padEnd(11)} ${x.name}：${x.how}`);
+	process.exit(0);
+}
+if (process.argv.some((a) => a.startsWith('--ab='))) {
+	// A/B 要两次独立的模拟：交给 ab.ts 起两个子进程，本进程不跑
+	await import('./ab.ts');
+	process.exit(0);
+}
+let OFF: Set<string>;
+try {
+	OFF = new Set(parseSystems(arg('off', '')));
+} catch (e) {
+	console.error((e as Error).message);
+	process.exit(2);
+}
+if (!Number.isInteger(DAYS) || DAYS < 1 || !Number.isInteger(RUNS) || RUNS < 1 || !['md', 'json', 'csv'].includes(FORMAT)) {
+	console.error('--days、--runs 要是正整数，--format 只能是 md、json、csv');
+	process.exit(2);
+}
+/** 每个机器人的现金流水和被拦下的次数（不放进 Bot.stats：少改别的分支也在改的地方） */
+const ECO = new WeakMap<object, EcoStats>();
+const ecoOf = (b: object) => ECO.get(b) ?? (ECO.set(b, blankEco()), ECO.get(b)!);
 
 // ---------- 机器人 ----------
 interface Bot {
@@ -194,6 +229,8 @@ function recordCollapse(b: Bot, before: PlayerState, after: PlayerState, a: Game
 
 /** 尝试一个动作；成功则更新状态并统计 */
 function tryAct(b: Bot, a: GameAction): boolean {
+	const sys = OFF.size ? systemOf(a) : undefined;
+	if (sys && OFF.has(sys)) return (ecoOf(b).blocked[sys] = (ecoOf(b).blocked[sys] ?? 0) + 1), false;
 	const before = b.s;
 	const r = applyAction(b.s, WA, a);
 	if (!r.ok) {
@@ -203,6 +240,12 @@ function tryAct(b: Bot, a: GameAction): boolean {
 	b.s = r.state;
 	const key = actionKey(a);
 	b.stats.flow[key] = (b.stats.flow[key] ?? 0) + (b.s.cash - before.cash);
+	recordEco(ecoOf(b), a.t, key, b.s.cash - before.cash);
+	if (OFF.has('events') && b.s.pending) {
+		// 事件系统关掉：这次动作抽中的事件直接丢掉，不结算选项
+		b.s = { ...b.s, pending: null };
+		ecoOf(b).blocked.events = (ecoOf(b).blocked.events ?? 0) + 1;
+	}
 	if (a.t === 'activity' && (GIG_IDS as readonly string[]).includes(a.id)) {
 		b.stats.diag.gigStarted++;
 		if (r.collapsed) b.stats.diag.gigCollapsed++;
@@ -347,6 +390,7 @@ function stepSafeDrifter(b: Bot) {
 function tryCoop(b: Bot): boolean {
 	const s = b.s;
 	const cfg = b.plan.coop!;
+	if (OFF.has('coop')) return false;
 	const open = coopsAt(s, WA).find((x) => !x.blocked);
 	if (!open) return false;
 	if (cfg.mateChance < 1 && b.rng() >= cfg.mateChance) return false;
@@ -358,6 +402,7 @@ function tryCoop(b: Bot): boolean {
 	const me = r.results[0];
 	if (!me.ok) return false;
 	b.stats.flow.coop = (b.stats.flow.coop ?? 0) + (me.state.cash - s.cash);
+	recordEco(ecoOf(b), 'coop', 'coop', me.state.cash - s.cash);
 	b.stats.coops++;
 	if (r.success) b.stats.coopOk++;
 	b.stats.coopKinds[open.def.id] = (b.stats.coopKinds[open.def.id] ?? 0) + 1;
@@ -525,6 +570,8 @@ function runBot(plan: Plan, seed: number): Bot {
 }
 
 // ---------- 汇总 ----------
+if (ONLY.length) for (const list of [PLANS, ORIGIN_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
+const results: PlanResult[] = [];
 const pct = (xs: number[], p: number) => {
 	const v = [...xs].sort((a, b) => a - b);
 	return v[Math.min(v.length - 1, Math.floor(p * v.length))];
@@ -599,6 +646,21 @@ for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 		collapseDiagRows.push(`| ${plan.name} | ${beforeText} | 饱食 ${causes[0].toFixed(2)}，精力 ${causes[1].toFixed(2)}，同时 ${causes[2].toFixed(2)}，其他 ${causes[3].toFixed(2)} | ${travel.toFixed(2)} | ${common} |`);
 	}
 	out(`| ${plan.name} | ${money(pct(at(7), 0.5))} | ${money(pct(at(30), 0.5))} | ${money(pct(at(endD), 0.5))} | ${money(pct(at(endD), 0.1))}–${money(pct(at(endD), 0.9))} | ${money(net)} | ${money(pct(bots.map((b) => netWorth(b.s)), 0.5))} | ${(() => { const d = bots.map((b) => b.stats.homeDay).filter((x): x is number => x !== undefined); return d.length > bots.length / 2 ? `第 ${pct(d, 0.5)} 天` : '—'; })()} | ${m.toFixed(0)} | ${coll.toFixed(2)} | ${ev.toFixed(2)} | ${pr.toFixed(2)} | ${promoCol} | ${(broke * 100).toFixed(0)}% |`);
+	// 结构化结果（--format=json / csv、基线、A/B 用）：和上面这一行同一批机器人、同一套口径
+	const eco = averageEco(bots.map((b) => ecoOf(b)), DAYS);
+	const homeDays = bots.map((b) => b.stats.homeDay).filter((x): x is number => x !== undefined);
+	results.push({
+		id: plan.id, name: plan.name,
+		metrics: {
+			cashDay7: pct(at(7), 0.5), cashDay30: pct(at(30), 0.5), cashEnd: pct(at(endD), 0.5), cashEndP10: pct(at(endD), 0.1), cashEndP90: pct(at(endD), 0.9),
+			netPerDay: net, netWorth: pct(bots.map((b) => netWorth(b.s)), 0.5), homeDay: homeDays.length > bots.length / 2 ? pct(homeDays, 0.5) : null, mood: m,
+			collapses: coll, evictions: ev, promotions: pr, promo1Day: nth(0).length ? pct(nth(0), 0.5) : null, promo2Day: nth(1).length ? pct(nth(1), 0.5) : null,
+			brokeShare: broke, events: avg(bots.map((b) => b.stats.events)), coops: avg(bots.map((b) => b.stats.coops)),
+			ecoIn: Object.values(eco.in).reduce((x, y) => x + y, 0), ecoOut: Object.values(eco.out).reduce((x, y) => x + y, 0),
+		},
+		skills: Object.fromEntries(SKILL_KEYS.map((k) => [k, pct(bots.map((b) => b.s.skills[k]), 0.5)])),
+		flow, eco: { in: eco.in, out: eco.out, inDetail: eco.inDetail, outDetail: eco.outDetail }, blocked: eco.blocked,
+	});
 }
 out();
 out('## 第 ' + DAYS + ' 天的能力值（中位）');
@@ -637,7 +699,9 @@ out('诊断口径：零工“完成”不含途中晕倒且拿不到工资的动
 out();
 out('说明：日均净收入 = (期末现金 − 开局现金) / 天数；破产天数 = 当天结束时现金低于 $20 的天数。');
 
-const text = lines.join('\n') + '\n';
+if (OFF.size) out(`\n**本次关掉的系统：${[...OFF].join('，')}**（只改机器人行为，见 docs/earth-game/balance-tools.md）`);
+const result: SimResult = { days: DAYS, runs: RUNS, origins: BY_ORIGIN, off: [...OFF] as SimResult['off'], plans: results };
+const text = FORMAT === 'json' ? toJson([result]) : FORMAT === 'csv' ? toCsv([result]) : lines.join('\n') + '\n' + (process.argv.includes('--eco') ? '\n' + ecoMarkdown(result) : '');
 process.stdout.write(text);
 if (OUT) {
 	writeFileSync(OUT, text);
