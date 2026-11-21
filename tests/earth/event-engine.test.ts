@@ -316,7 +316,7 @@ test('事件链：选项解锁后续事件，到了合适的地方优先出（�
 		],
 	});
 	const meet = ev('t-meet', { locked: true, locs: ['fremantle'], unlockDays: 3 });
-	const whisper = ev('t-whisper', { weight: 0 });
+	const whisper = ev('t-whisper', { weight: 0, animal: 'bottlenose-dolphin' });
 	withEvents([start, meet, whisper], () => {
 		const loc = (id: string) => WA.locations.find((l) => l.id === id)!;
 		let s = fresh(5);
@@ -350,6 +350,7 @@ test('事件链：选项解锁后续事件，到了合适的地方优先出（�
 		startEvent(s2, start, 'forced');
 		s2 = resolveEvent(s2, WA, 1).state;
 		assert.equal(getPendingEvent(s2)?.id, 't-whisper');
+		assert.ok(s2.dex.includes('bottlenose-dolphin'), '下一幕带的动物也记进图鉴（合并 main 后复核）');
 		assert.equal(resolveEvent(s2, WA, 0).state.pending, null);
 	});
 });
@@ -454,4 +455,14 @@ test('存档：旧存档没有 evMem 给空记录；坏值、未知事件、未�
 	// 走一遍 sanitizeState 也幂等
 	const once = sanitizeState({ ...base, evMem: raw }, locs)!;
 	assert.deepEqual(sanitizeState(once, locs), once);
+});
+
+test('startEvent 统一做事件的附带效果：被查挂上「有麻烦」状态（合并 main 后复核）', () => {
+	const heat = EVENTS.find((e) => e.id === 'heat-check');
+	assert.ok(heat, '数据里有被查事件');
+	const s = fresh(3);
+	startEvent(s, heat!, 'forced');
+	assert.equal(s.pending?.eventId, 'heat-check');
+	assert.ok(s.moodlets.some((m) => m.id === 'in-trouble'), '挂上了「有麻烦」');
+	assert.deepEqual(s.evMem.recent.slice(-1), ['heat-check']);
 });

@@ -6,7 +6,7 @@
 
 - 规则层（纯函数）：`src/game/core/event-rules.ts`
 - 抽取和结算：`src/game/core/engine.ts` 的 `pickArrivalEvent`、`pickVenueEvent`、`startEvent`、`resolveEvent`
-- 数据：`src/game/data/events.ts`（到达事件，末尾合入 `VENUE_EVENTS`、`SA_EVENTS`）、`events-sa.ts`、`venue-events.ts`
+- 数据：`src/game/data/events.ts`（到达事件，末尾合入 `VENUE_EVENTS`、`SA_EVENTS`、`TRAIL_EVENTS`）、`events-sa.ts`、`venue-events.ts`、`trail-events.ts`（实地路线的到站和沿途事件，合并 main 后加入）
 - 测试：`tests/earth/event-engine.test.ts`
 
 ---
@@ -64,13 +64,13 @@
 - 条件只有地点、时间、天气，不能按属性（钱、能力、需求）、NPC 关系、物品；
 - 到店事件只看季节；
 - 内容写错（字段名拼错、引用不存在的东西）不会报错，事件默默不出现；
-- GPS 路线分支（PR #55）的到站事件按 id 直接挂 `pending`，绕过抽取，也就不会有任何记录。
+- GPS 路线分支（PR #55）的到站事件按 id 直接挂 `pending`，绕过抽取，也就不会有任何记录。（合并 main 后已改成走 `startEvent`，见 §6。）
 
 ---
 
 ## 2. 设计原则（第一版）
 
-1. **不写 = 和以前一样。** 所有新字段可选；全局防厌倦规则默认关闭。现有 84 个事件的抽取结果、掷骰次数、种子走向都不变。
+1. **不写 = 和以前一样。** 所有新字段可选；全局防厌倦规则默认关闭。现有事件（第一版时 84 个，合并 main 后 97 个，多出的 13 个是实地路线事件，权重都是 0）的抽取结果、掷骰次数、种子走向都不变。
 2. **规则层是纯函数，不碰随机数。** `event-rules.ts` 里的函数只接收数据、返回新数据；需要随机的地方（按权重抽）由调用方传进一个 [0,1) 的数，引擎只用 `roll(state)` 产生它。
 3. **数据驱动。** 新玩法写在事件数据里，引擎不为某个事件写特例（AGENTS.md）。
 4. **加载时报错。** `data/events.ts` 末尾调用 `assertEvents(EVENTS)`，数据有问题直接抛错并列出全部问题；`npm test` 在合并前就会跑到。
@@ -172,7 +172,7 @@
 
 ### 4.2 记录：`startEvent` 和 `evMem`
 
-任何来源的事件挂成 `pending` 时都应调用 `startEvent(state, ev, src)`：写 `pending`，并记进 `state.evMem`（`noteTriggered`）：
+任何来源的事件挂成 `pending` 时都应调用 `startEvent(state, ev, src)`：写 `pending`，并记进 `state.evMem`（`noteTriggered`）。现在的来源有到达、真实地点、事件链的下一幕、实地路线。事件自带的附带效果也在 `startEvent` 里统一做：被查（`heat-check`）挂上「有麻烦」状态，带 `animal` 的事件记进图鉴，所以事件链的下一幕、路线事件也一样生效：
 
 ```ts
 evMem: {
@@ -221,7 +221,7 @@ evMem: {
 
 | 分支 | 关系 | 合并时 |
 | --- | --- | --- |
-| `claude/earth-gps-route`（PR #55） | 到站、沿途事件 `weight: 0`，在 `core/trails.ts` 里直接写 `state.pending = { eventId }`，不经抽取 | 行为不受影响（按 id 挂，不进池）。合并后建议把那两处改成 `startEvent(state, ev, 'forced')`，这样路线事件也进 `recent`，以后能写冷却；本分支**没有**去改那个分支。用它的事件数据跑过 `validateEvents`：94 个全部通过 |
+| `claude/earth-gps-route`（PR #55） | 到站、沿途事件 `weight: 0`，在 `core/trails.ts` 里直接写 `state.pending = { eventId }`，不经抽取 | 已合并（2026-11-21 合并 main 时）。`trails.ts` 的两处改成 `startTrailEvent` → `startEvent(state, ev, 'forced')`，路线事件也记进 `evMem`，以后写冷却、次数上限、链式解锁都算数。抽取结果不变（权重 0，不进池）。用它的事件数据跑过 `validateEvents`：94 个全部通过 |
 | `claude/earth-transport` | 新增 `arrivedBy: ['transit' / 'rail' / 'walk']` 事件 | 校验不查 `arrivedBy` 取值，不会误报；用它的事件数据跑过：87 个全部通过 |
 | `claude/earth-weather` | 三个事件加了 `cold` 天气 | 校验从 `data/weather.ts` 读天气清单，合并后那边的 `WEATHERS` 带着 `cold`，不会误报。只拿它的事件配本分支的天气表会报 3 条，这是预期的 |
 | `claude/earth-live-social`（PR #56） | 不碰事件引擎 | `PlayerState` 都加了字段（对方 `live`、`blocked`，本分支 `evMem`），`types.ts`、`createCharacter`、`sanitizeState` 各一行，合并时两边都留 |
@@ -239,7 +239,7 @@ evMem: {
 
 ## 8. 模拟结果
 
-改动前（main 4f9c9e5）和改动后输出**逐字相同**（`diff` 无差异）。原因：现有事件没有写任何新字段、全局规则默认关闭，抽取池、掷骰次数和顺序都没变；新加的 `evMem` 只记录，不参与现有事件的抽取。
+改动前（main 4f9c9e5）和改动后输出**逐字相同**（`diff` 无差异）。2026-11-21 合并最新 main（fdd7b44）后再比一次，仍和 main 逐字相同，回归基线 `earth:baseline` 无变化。原因：现有事件没有写任何新字段、全局规则默认关闭，抽取池、掷骰次数和顺序都没变；新加的 `evMem` 只记录，不参与现有事件的抽取。
 
 ---
 
@@ -250,7 +250,6 @@ evMem: {
 | 打开全局防厌倦规则 | 按 §4.3 请 Codex 分析后定值 | Codex 分析，用户拍板，Claude 实施 |
 | 第一批链式事件内容 | 例如码头老渔夫、合租室友、打工老板三条短链（2–3 幕），先在一个城市试 | 文案和数值待平衡 |
 | 给现有高权重事件加 `cooldown` | 会改变现有抽取结果，需要和平衡一起做 | 同上 |
-| 路线事件改走 `startEvent` | GPS 路线分支合并后 | Claude |
 | 界面提示「有后续」 | 解锁了链式事件时在日志里给一句提示（不剧透内容） | Claude，改 `earth.astro` 局部 |
 | 主线剧情、任务分支接事件链 | `story.ts` 的目标可以写成「某个链式事件出现过」；等任务分支（`claude/earth-quests`）定了目标格式再接 | 待定 |
 | 条件里加「去过某地」「做过某职业」「有房 / 有车」 | 现在 `need` 只能比数值、关系、物品；按需要再加，加之前先确认没有别的分支在做 | 待定 |

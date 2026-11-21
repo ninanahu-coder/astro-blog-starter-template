@@ -15,7 +15,7 @@ export interface GuideView {
 }
 
 /**
- * 前三天显示；过了第三天、或者九步都做完就不显示（返回 null）。
+ * 前三天显示；过了第三天、或者十步都做完就不显示（返回 null）。
  * 解开规则：到了第 N 天解开第 N 组；前面各组都做完也会提前解开下一组。
  */
 export function guideView(s: PlayerState): GuideView | null {
