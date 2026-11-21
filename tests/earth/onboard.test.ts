@@ -249,9 +249,15 @@ test('服务端：离开 5 天后第一次读取记下回流，点过后保存�
 test('页面模板（v36，合并 main 时这些行两边都改过）：渐进出现包住各组卡片、设置里有引导开关和屏蔽名单、更新日志下完重画今天页', async () => {
 	const { readFileSync } = await import('node:fs');
 	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
-	assert.match(src, /\$\{festHtml\}\$\{on\('hobby'\) \? skyCard\(s\) : ''\}/, '星空跟钓鱼、摄影同一组');
-	assert.match(src, /\$\{on\('study'\) \? courseHtml \+ certHtml \+ studyHtml : ''\}/, '学历课程跟课程、证书同一组');
+	// 体验改造 P1 起各组卡片收进「在这里」的抽屉，渐进出现仍然包住同样的几组
+	assert.match(src, /expHtml \+ \(on\('hobby'\) \? photoQuestHtml \+ fishHtml \+ skyCard\(s\) : ''\)/, '星空跟钓鱼、摄影同一组');
+	assert.match(src, /on\('study'\) \? courseHtml \+ certHtml \+ studyHtml : ''/, '学历课程跟课程、证书同一组');
+	assert.match(src, /\(on\('garage'\) \? dealerHtml \+ garageHtml : ''\) \+ \(on\('estate'\) \? propHtml : ''\)/, '车行和房产各自受渐进出现控制');
 	assert.match(src, /<button data-ob-guide aria-pressed="\$\{!state!\.onboard\.off\}">/, '设置里的引导开关');
 	assert.match(src, /<div class="card"><h3>提示<\/h3>\$\{tips\}[\s\S]{0,600}?<\/div><\/div>\n\t*\$\{blockedCard\(state!\)\}/, '提示卡后面是屏蔽名单');
 	assert.match(src, /tab === 'place' && returnView\(state, state\.daily\.day\) && !obHidden\.has\('back'\)\)\)\) renderPanel\(\)/, '更新日志下完，今天页有回流卡片就重画');
+});
+
+test('渐进出现的「在哪里找」指向体验改造 P1 后的位置（今天页「在这里」的抽屉）', () => {
+	for (const f of FEATURES) assert.match(f.where, /^今天页「在这里 · (体验和爱好|学习|车和房产)」里/, f.id);
 });

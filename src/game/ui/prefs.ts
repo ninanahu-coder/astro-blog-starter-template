@@ -19,6 +19,7 @@ export interface Prefs {
 	music: boolean; // 背景音乐（v37，默认关）
 	volume: VolumeLevel; // 总音量（v37）：轻 / 中 / 响
 	basemap: boolean; // 出行页用真实地图（第 31 轮，默认开）
+	haptic: boolean; // 做事成功、失败时手机轻震（体验改造 P1，默认开；只有安卓浏览器支持）
 	lang: Locale; // 界面语言（第 38 批，默认简体中文）
 }
 
@@ -26,7 +27,7 @@ export const PREFS_KEY = 'earth.prefs.v1';
 /** 旧版设置：大字模式开关（'1' 为开） */
 export const LEGACY_BIG_KEY = 'earth.big.v1';
 
-export const DEFAULT_PREFS: Prefs = { motion: 'auto', font: 'm', guide: true, recap: true, achToast: true, sound: false, ambience: false, music: false, volume: 'mid', basemap: true, lang: DEFAULT_LOCALE };
+export const DEFAULT_PREFS: Prefs = { motion: 'auto', font: 'm', guide: true, recap: true, achToast: true, sound: false, ambience: false, music: false, volume: 'mid', basemap: true, haptic: true, lang: DEFAULT_LOCALE };
 
 // 第二项是字符串表的键（第 38 批），显示时用 t() 取当前语言的文字
 export const MOTION_OPTIONS: [Motion, StrKey][] = [['auto', 'pref.motion.auto'], ['reduce', 'pref.motion.reduce'], ['full', 'pref.motion.full']];
@@ -63,6 +64,7 @@ export function parsePrefs(raw: string | null, legacy: { big?: string | null } =
 		music: bool(own('music'), DEFAULT_PREFS.music),
 		volume: pick(own('volume'), VOLUME_OPTIONS, DEFAULT_PREFS.volume),
 		basemap: bool(own('basemap'), DEFAULT_PREFS.basemap),
+		haptic: bool(own('haptic'), DEFAULT_PREFS.haptic),
 		lang: isLocale(own('lang')) ? (own('lang') as Locale) : DEFAULT_PREFS.lang,
 	};
 }

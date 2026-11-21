@@ -184,6 +184,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			await idle();
 		};
 		const panel = () => el('panel').innerHTML;
+		// 体验改造 P1：今天页的分组收进了抽屉，查分组里的内容用这个（今天页 + 各抽屉）
+		const placeAll = () => withDrawers(click, el);
 		// 在线频道的消息：页面攒 150 毫秒合成一次重画（第 35 轮），发完等它画完
 		const wsSay = async (m: unknown) => { lastWs!.onmessage!({ data: JSON.stringify(m) }); await pause(200); };
 		// 改了服务端存档后让页面去同步：等页面缓存的存档版本和服务端一致（最多 2 秒），不靠固定睡眠
@@ -233,7 +235,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		const qActs = [...quick.matchAll(/data-act="([^"]+)"/g)].map((m) => m[1]);
 		assert.ok(qActs.length >= 2 && qActs.length <= 4, `快捷动作 ${qActs.length} 个`);
 		assert.equal(new Set(qActs).size, qActs.length, '快捷动作不重复');
-		for (const id of qActs) assert.match(panel(), new RegExp(`class="row" data-act="${id}"`), `${id} 在完整列表里也有`);
+		// 体验改造 P1：完整列表在「做事」抽屉里
+		await click({ drawer: 'do' });
+		for (const id of qActs) assert.match(el('modal').innerHTML, new RegExp(`class="row" data-act="${id}"`), `${id} 在完整列表里也有`);
+		await click({ drawerClose: '' });
 		// 左上人物名牌：等级环，点了去成长页；右上现金和天气
 		assert.match(el('hud').innerHTML, /<button class="lv-plate" data-tab="grow" aria-label="Lv1 新来的，升级进度 \d+%，去成长页">/);
 		assert.match(el('hud').innerHTML, /<div class="scene-right"><span class="chip cash">\$120<\/span>/);
@@ -625,8 +630,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ recapClose: String(today - 1) });
 		assert.ok(!panel().includes('昨天回顾'), '点知道了后收起');
 		// 附近页底部有留言板和输入框
-		assert.match(panel(), /📝 留言板/);
-		assert.match(panel(), /id="note-form"[\s\S]*maxlength="60"/);
+		assert.match((await placeAll()), /📝 留言板/);
+		assert.match((await placeAll()), /id="note-form"[\s\S]*maxlength="60"/);
 		// 夜里：根元素换成夜晚，出行页地图上有星星
 		assert.ok(rootClasses.contains('p-night') && !rootClasses.contains('p-day'), '夜里换成夜晚配色');
 		await click({ tab: 'go' });
@@ -654,8 +659,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		data.set('save:' + cred.id, camp);
 		await pullNow();
 		await click({ tab: 'place' });
-		assert.match(panel(), /<button data-veh="sell" disabled>/, '住营地时卖车按钮灰掉');
-		assert.match(panel(), /你住在房车营地/);
+		assert.match((await placeAll()), /<button data-veh="sell" disabled>/, '住营地时卖车按钮灰掉');
+		assert.match((await placeAll()), /你住在房车营地/);
 		// 后台同步比动作晚回来（复现第 27 轮查到的竞态）：同步请求故意慢 150ms，期间做一个动作
 		const fastFetch = g.fetch;
 		g.fetch = async (u: string, o?: RequestInit) => {
@@ -737,6 +742,21 @@ type HashOpts = {
 	/** 页面能用的 AudioContext（不给就是没有 Web Audio 的浏览器） */
 	audio?: unknown;
 };
+/**
+ * 体验改造 P1：今天页的分组收进了底部抽屉（做事、买东西、工作、住处、这里的人、体验和爱好……）。
+ * 依次打开今天页上的每个抽屉，把今天页和抽屉里的内容拼在一起，给检查「今天页里有什么」的测试用；最后关上抽屉。
+ */
+async function withDrawers(click: (d: Record<string, string>) => Promise<void>, el: (id: string) => { innerHTML: string }) {
+	const panel = el('panel').innerHTML;
+	let all = panel;
+	for (const m of panel.matchAll(/data-drawer="([a-z]+)"/g)) {
+		await click({ drawer: m[1] });
+		all += '\n' + el('modal').innerHTML;
+		await click({ drawerClose: '' });
+	}
+	return all;
+}
+
 async function openWithHash(hash: string, local: { cred: unknown; state: unknown } | null, world: EarthWorld, confirmAnswer = true, opts: HashOpts = {}) {
 	const els = new Map<string, El>();
 	const el = (id: string): El => {
@@ -954,8 +974,9 @@ test('界面：留言超过每地点上限时页面留下最新的（服务器�
 		},
 		after: async ({ click, el }) => {
 			await click({ tab: 'place' });
-			for (let i = 0; i < 50 && !el('panel').innerHTML.includes('第0新的留言'); i++) await pause(10);
-			html = el('panel').innerHTML;
+			await click({ drawer: 'place' });
+			for (let i = 0; i < 50 && !el('modal').innerHTML.includes('第0新的留言'); i++) await pause(10);
+			html = el('modal').innerHTML;
 		},
 	});
 	assert.ok(html.includes('第0新的留言'), '最新的在');
@@ -970,7 +991,7 @@ test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，�
 	await openWithHash('', a, world, true, {
 		after: async ({ click, el }) => {
 			await click({ tab: 'place' });
-			panel = el('panel').innerHTML;
+			panel = await withDrawers(click, el);
 			hud = el('hud').innerHTML;
 		},
 	});
@@ -985,7 +1006,7 @@ test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，�
 	// 虚拟人生风格：今天页顶栏是当地小场景，地点名牌、需求环、NPC 立绘
 	assert.match(hud, /<div class="scene"><svg class="scene-art"/);
 	// 地点名牌：大字地名，下面一行是时间（第 15 批从顶上的时间胶囊挪进来）
-	assert.match(hud, /<div class="plate"><h1>[^<]+<\/h1><span class="en" lang="en">[^<]+<\/span><small title="[^"]+">[^<]*\d+:\d\d[^<]*<\/small><\/div>/);
+	assert.match(hud, /<div class="plate"><h1>[^<]+<\/h1><span class="en" lang="en" aria-hidden="true">[^<]+<\/span><small title="[^"]+">[^<]*\d+:\d\d[^<]*<\/small><\/div>/);
 	assert.doesNotMatch(hud, /pill-on/, '顶上不再有单独的时间胶囊');
 	assert.match(panel, /<div class="rings">/);
 	assert.equal((panel.match(/class="ring /g) ?? []).length, 6, '六个需求环');
@@ -1008,7 +1029,7 @@ test('界面：火险高以上时卡片、顶栏、提示（第 39 轮，只做�
 		after: async ({ click, el }) => {
 			await click({ tab: 'place' });
 			await pause(700);
-			panel = el('panel').innerHTML;
+			panel = await withDrawers(click, el);
 			hud = el('hud').innerHTML;
 			toasts = el('toast').textContent;
 		},
@@ -1094,7 +1115,7 @@ test('界面：虚拟人生风格——最缺的需求变成想法气泡；NPC �
 	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
 		after: async ({ click, el }) => {
 			await click({ tab: 'place' });
-			panel = el('panel').innerHTML;
+			panel = await withDrawers(click, el);
 			hud = el('hud').innerHTML;
 		},
 	});
@@ -1540,13 +1561,15 @@ test('界面：界面配图（第 21 批）——清单里有的键用小图、�
 	rec.state.inventory = {};
 	rec.state.properties = [];
 	data.set('save:' + a.cred.id, rec);
-	let place = '', grow = '', assets = '';
+	let place = '', growSlip = '', grow = '', assets = '';
 	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
 		cgi: { 'exp:swan-cruise': '/earth/cgi/exp.webp?"><b>x', 'banner:grow': '/earth/cgi/banner-grow.webp', 'empty:bag': '/earth/cgi/empty-bag.webp' },
 		after: async ({ click, el }) => {
 			await click({ tab: 'place' });
-			place = el('panel').innerHTML;
+			place = await withDrawers(click, el);
 			await click({ tab: 'grow' });
+			growSlip = el('panel').innerHTML;
+			await click({ obTip: 'grow' });
 			grow = el('panel').innerHTML;
 			await click({ tab: 'me' });
 			await click({ metab: 'assets' });
@@ -1556,8 +1579,10 @@ test('界面：界面配图（第 21 批）——清单里有的键用小图、�
 	assert.match(place, /<img class="thumb" src="\/earth\/cgi\/exp\.webp\?&quot;&gt;&lt;b&gt;x" alt="" loading="lazy" width="48" height="48" \/><span class="body">✨ 天鹅河日落游船/, '体验行左边是小图，地址转义');
 	assert.doesNotMatch(place, /exp\.webp\?"><b>/, '地址里的引号和尖括号不能原样进 HTML');
 	assert.equal((place.match(/class="thumb"/g) ?? []).length, 1, '清单里没有的（工作、住处……）不出小图');
-	// 新角色第一次进成长页有新手便签（v36），便签下面就是横幅
-	assert.ok(grow.replace(/^<section class="slip"[\s\S]*?<\/section>\s*/, '').startsWith('<div class="banner"><img src="/earth/cgi/banner-grow.webp"'), '成长页顶上是横幅');
+	// 体验改造 P1：新角色第一次进成长页有新手便签，这时不放装饰横幅；关掉便签后顶上是横幅
+	assert.match(growSlip, /<section class="slip"/);
+	assert.doesNotMatch(growSlip, /class="banner"/, '有新手便签时不放横幅');
+	assert.ok(grow.startsWith('<div class="banner"><img src="/earth/cgi/banner-grow.webp"'), '成长页顶上是横幅');
 	assert.match(assets, /<div class="empty-art"><img src="\/earth\/cgi\/empty-bag\.webp" alt="" loading="lazy" \/><\/div><p>空的。/, '背包空的时候有插图');
 	assert.doesNotMatch(assets, /empty-art"><img src="[^"]*estate/, '清单里没有的空状态不占位');
 	assert.deepEqual(a11yIssues(place), []);
@@ -1793,7 +1818,114 @@ test('界面：留言列表拉取失败（限流、同步码失效、断网）�
 			await pause(1);
 			return new Response(JSON.stringify({ ok: false, msg: '操作太频繁' }), { status: 429 });
 		},
-		after: async ({ click }) => { await click({ tab: 'place' }); await pause(300); },
+		// 体验改造 P1：留言板在「地点」抽屉里，打开抽屉才拉
+		after: async ({ click }) => { await click({ tab: 'place' }); await click({ drawer: 'place' }); await pause(300); },
 	});
 	assert.ok(notes >= 1 && notes <= 3, `留言列表请求了 ${notes} 次`);
+});
+
+test('界面：体验改造 P1——今天页分三层，第 1 天不超过 6 张卡；商店、做事等收进底部抽屉，抽屉能开能关', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'ux-p1-a', '三层');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.loc = 'perth';
+	rec.state.cash = 500;
+	data.set('save:' + a.cred.id, rec);
+	let place = '', shop = '', shopOpen = false, closed = false, bogus = false, tabClosed = false;
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			place = el('panel').innerHTML;
+			await click({ drawer: 'shop' });
+			shop = el('modal').innerHTML;
+			shopOpen = !el('modal').classList.contains('hidden');
+			await click({ drawerClose: '' });
+			closed = el('modal').classList.contains('hidden');
+			await click({ drawer: 'constructor' });
+			bogus = el('modal').classList.contains('hidden');
+			await click({ drawer: 'do' });
+			await click({ tab: 'go' });
+			tabClosed = el('modal').classList.contains('hidden');
+		},
+	});
+	const cards = (place.match(/class="card[ "]/g) ?? []).length;
+	assert.ok(cards <= 6, `第 1 天今天页 ${cards} 张卡，门槛 6 张`);
+	assert.doesNotMatch(place, /data-buy=/, '商品不摊在今天页上');
+	assert.match(place, /<button class="row here-row" data-drawer="shop" aria-haspopup="dialog">/, '「买东西」是一行摘要');
+	assert.match(place, /data-drawer="do"[^>]*>[\s\S]*?现在能做 \d+ 项/, '「做事」摘要写明现在能做几项');
+	const at = (x: string) => place.indexOf(x);
+	assert.ok(at('<h3>状态</h3>') >= 0 && at('<h3>状态</h3>') < at('class="next"') && at('class="next"') < at('class="card here"') && at('class="card here"') < at('class="later-zone"'), '现在 → 在这里 → 以后');
+	assert.ok(shopOpen, '点摘要行打开抽屉');
+	assert.match(shop, /<div class="sheet drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">/);
+	assert.match(shop, /<h2 id="drawer-title"><span aria-hidden="true">🛍️<\/span> 买东西<\/h2>/);
+	assert.match(shop, /data-buy="/, '抽屉里是完整的商品列表');
+	assert.ok(closed, '点「关闭」收起');
+	assert.ok(bogus, '不认识的抽屉名不打开（原型链上的名字也不行）');
+	assert.ok(tabClosed, '切到别的标签时抽屉收起');
+	assert.deepEqual(a11yIssues(place), []);
+	assert.deepEqual(a11yIssues(shop), []);
+});
+
+test('界面：体验改造 P1——做成一件事，变了的需求环飘出变化值、顶栏钱数也飘；在「做事」抽屉里做完自动收起，商店里买完不收', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'ux-p1-b', '反馈');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.loc = 'perth';
+	rec.state.cash = 500;
+	rec.state.needs.hunger = 30;
+	data.set('save:' + a.cred.id, rec);
+	let panel = '', hud = '', doOpen = false, afterAct = false, shopHtml = '', afterBuy = '', buyOpen = false;
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			await click({ drawer: 'do' });
+			doOpen = !el('modal').classList.contains('hidden');
+			await click({ act: 'eat' });
+			await pause(80);
+			panel = el('panel').innerHTML;
+			hud = el('hud').innerHTML;
+			afterAct = el('modal').classList.contains('hidden');
+			await click({ drawer: 'shop' });
+			shopHtml = el('modal').innerHTML;
+			const item = shopHtml.match(/<button class="row" data-buy="([^"]+)" >/)?.[1];
+			assert.ok(item, '商店里有能买的东西');
+			await click({ buy: item! });
+			await pause(80);
+			afterBuy = el('hud').innerHTML;
+			buyOpen = !el('modal').classList.contains('hidden') && el('modal').innerHTML.includes('drawer-title');
+		},
+	});
+	assert.ok(doOpen);
+	assert.match(panel, /<div class="ring [^"]*bump" role="img" aria-label="饱食 \d+，刚才加了 \d+/, '饱食环跳一下，读屏念出变化');
+	assert.match(panel, /<i class="ring-delta up" aria-hidden="true">\+\d+<\/i><b data-from="30">/, '饱食环飘出 +N，数字从 30 滚到新值');
+	assert.match(panel, /<div class="result-strip">/, '状态环下面有「刚才」');
+	assert.match(hud, /<span class="chip cash bump">\$\d+<i class="cash-delta down" aria-hidden="true">−\$\d+<\/i><\/span>/, '花了钱，顶栏钱数飘出 −$N');
+	assert.ok(afterAct, '在「做事」抽屉里做完自动收起，看得到环的变化');
+	assert.match(afterBuy, /class="cash-delta down"/);
+	assert.ok(buyOpen, '商店里买完抽屉留着，可以接着买');
+});
+
+test('界面：体验改造 P1——「地点」抽屉关着时不拉留言板（留言到了要重画，会冲掉刚出现的环和钱数动画），打开才拉', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'ux-p1-c', '留言关');
+	let notes = 0, afterOpen = 0;
+	await openWithHash('', a, world, true, {
+		reply: async (body) => {
+			if (body.action !== 'notes') return undefined;
+			notes++;
+			return new Response(JSON.stringify({ ok: true, notes: [], at: Date.now() }));
+		},
+		after: async ({ click }) => {
+			await click({ tab: 'place' });
+			await pause(200);
+			await click({ tab: 'go' });
+			await click({ tab: 'place' });
+			await pause(200);
+			afterOpen = notes;
+			await click({ drawer: 'place' });
+			await pause(200);
+		},
+	});
+	assert.equal(afterOpen, 0, '「地点」抽屉没打开时一次都不拉');
+	assert.ok(notes >= 1, '打开「地点」抽屉才拉留言');
 });

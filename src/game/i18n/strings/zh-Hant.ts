@@ -40,6 +40,8 @@ export const ZH_HANT: Record<StrKey, string> = {
 	'pref.volume.mid': '中',
 	'pref.volume.high': '響',
 	'pref.sound.note': '聲音都是現場合成的，不下載音訊檔；手機上要先點一下頁面才會出聲。重要的事都有文字提示，不開聲音不會錯過。',
+	'pref.haptic': '震動',
+	'pref.haptic.hint': '做成一件事輕震一下，沒做成震兩下；只有安卓手機支援，iPhone 不會震',
 	'pref.basemap': '真實地圖',
 	'pref.basemap.hint': '出行頁用 OpenStreetMap 真實地圖，圖磚向 OpenFreeMap 請求；關掉或離線時用手繪地圖',
 	'pref.basemap.failed': '。這次沒載入出來，正在用手繪地圖',

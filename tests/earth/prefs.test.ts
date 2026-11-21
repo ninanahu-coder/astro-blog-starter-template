@@ -15,7 +15,7 @@ test('没有设置时用默认值（音效默认关）；旧版大字模式开�
 });
 
 test('合法设置原样读回', () => {
-	const p = { motion: 'reduce', font: 'xl', guide: false, recap: false, achToast: false, sound: true, ambience: true, music: true, volume: 'low', basemap: false, lang: 'en' } as const;
+	const p = { motion: 'reduce', font: 'xl', guide: false, recap: false, achToast: false, sound: true, ambience: true, music: true, volume: 'low', basemap: false, haptic: false, lang: 'en' } as const;
 	assert.deepEqual(parsePrefs(JSON.stringify(p)), p);
 });
 

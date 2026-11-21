@@ -20,8 +20,10 @@ const TABS = ['place', 'near', 'go', 'grow', 'me', 'social'];
 const METABS = ['overview', 'assets', 'people', 'log', 'news', 'sync'];
 const ERRORS = ['js', 'promise', 'net', 'api4xx', 'api5xx', 'ws'];
 const PERF = ['load', 'api'];
+/** 今天页「在这里」打开了哪一组（体验改造 P1）：只记组名 */
+const DRAWERS = ['do', 'shop', 'work', 'home', 'people', 'fun', 'study', 'garage', 'pet', 'place'];
 /** 客户端事件白名单：名字 -> 允许的参数（null 表示不带参数）。服务端用同一份表校验（stats.ts） */
-export const STAT_EVENTS: Record<string, readonly string[] | null> = { session: null, tab: TABS, metab: METABS, err: ERRORS, perf: PERF };
+export const STAT_EVENTS: Record<string, readonly string[] | null> = { session: null, tab: TABS, metab: METABS, drawer: DRAWERS, err: ERRORS, perf: PERF };
 
 export type StatEvent = [string] | [string, string] | [string, string, number];
 
