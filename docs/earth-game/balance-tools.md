@@ -2,7 +2,7 @@
 
 > 给开发者和 Codex 做平衡分析用，不对玩家开放。
 > 分支 `claude/earth-balance-tools`，从 main `4f9c9e5` 开出。
-> 代码：`tools/earth/balance/`（模拟器、系统开关、导出、A/B、基线、待平衡面板）、`src/game/dev/` + `tools/earth/gm/`（GM 控制台）、`.github/workflows/earth-balance.yml`（PR 检查）。
+> 代码：`tools/earth/balance/`（模拟器、系统开关、导出、A/B、基线、待平衡面板）、`src/game/dev/` + `tools/earth/gm/`（GM 控制台）、`tools/earth/balance/earth-balance.workflow.yml`（PR 检查的模板，还没启用）。
 > 测试：`tests/earth/balance-tools.test.ts`、`tests/earth/gm.test.ts`。变异检查：`python3 tools/earth/balance/mutate.py`。
 > 按 AGENTS.md，这批工具只负责产出数据。平衡结论由 Codex 下，用户拍板；本文和代码里都不判断哪个数值该改。
 
@@ -165,10 +165,11 @@ npm run earth:baseline -- --update         # 确认是有意改数值：重写�
 
 - `tools/earth/balance/baseline.json`：每种策略一行，存核心指标（现金、净资产、心情、晕倒、升职、破产占比、事件、共同事件、投放和回收合计），以及按类型的 `eco.in.*`、`eco.out.*`。数值四舍五入到 4 位小数，避免不同 Node 版本的浮点尾数造成误报。整次运行约 15 秒。
 - 比较规则：容差为 0。任何指标变化都算差异；一边有、另一边没有的策略或指标也算；天数或种子数不同时直接报错。
-- **PR 检查**（`.github/workflows/earth-balance.yml`）：PR 改动 `src/game/**`、`tools/earth/balance/**` 或依赖时触发。
+- **PR 检查（还没启用）**：模板在 `tools/earth/balance/earth-balance.workflow.yml`。2026-11-21 合并时，本机 gh 授权没有 workflow 权限，推送 `.github/workflows/` 被 GitHub 拒绝；用户定先不启用。要启用就把它拷到 `.github/workflows/earth-balance.yml`。在那之前，改了数值的分支要在本机跑 `npm run earth:baseline`，基线有变就 `--update` 一起提交。
+  启用后：PR 改动 `src/game/**`、`tools/earth/balance/**` 或依赖时触发。
   1. 和 PR 自己提交的 baseline.json 比较，不一致就失败。改了数值就必须连基线一起改，基线的 diff 就是这次平衡变化的清单。
   2. 和目标分支上的 baseline.json 比较，把变化表写进这次运行的 Summary，只报告，不判失败。审查者和 Codex 可以直接看。
-  - 权限只有 `contents: read`：不部署、不推送、不评论。**这个工作流还没在 GitHub 上实际跑过**（本分支不推送），第一次开 PR 时要看一下它是否正常运行。
+  - 权限只有 `contents: read`：不部署、不推送、不评论。**这个工作流还没在 GitHub 上实际跑过**，启用后第一次开 PR 时要看一下它是否正常运行。
 - 并行分支合并时：两个分支都改了数值的话，baseline.json 一定会冲突。**不要手工合并这个文件**，合并完代码后重跑 `npm run earth:baseline -- --update`。
 
 ## 6. 测试和变异检查

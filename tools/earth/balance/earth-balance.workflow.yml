@@ -1,4 +1,6 @@
 # 平衡回归基线（docs/earth-game/balance-tools.md §5）
+# 现在只是模板，没有启用：本机的 gh 授权没有 workflow 权限，推不了 .github/workflows/。
+# 要启用：拷到 .github/workflows/earth-balance.yml，并把下面 paths 里自己的路径改成那个位置。
 # PR 改了规则、数据或模拟器时：跑一次 60 天 × 20 种子的模拟，
 # 1. 和 PR 自己提交的 tools/earth/balance/baseline.json 比 —— 不一致就失败（改了数值要连基线一起提交）；
 # 2. 和目标分支上的基线比 —— 只把变化表写进这次运行的 Summary，给审查和 Codex 看，不判失败。

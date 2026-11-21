@@ -174,8 +174,9 @@ test('提交的 baseline.json：口径是 60 天 × 20 种子，覆盖全部策�
 	for (const row of Object.values(b.plans)) for (const k of ['netPerDay', 'ecoIn', 'ecoOut', 'mood']) assert.equal(typeof row[k], 'number', k);
 });
 
-test('PR 检查的工作流：跑 earth:baseline，并把对比写进 Summary', () => {
-	const wf = readFileSync(join(ROOT, '.github/workflows/earth-balance.yml'), 'utf8');
+// 工作流模板（还没启用，见 balance-tools.md §5）：本机 gh 授权推不了 .github/workflows/
+test('PR 检查的工作流模板：跑 earth:baseline，并把对比写进 Summary', () => {
+	const wf = readFileSync(join(ROOT, 'tools/earth/balance/earth-balance.workflow.yml'), 'utf8');
 	assert.match(wf, /npm run -s earth:baseline -- --against=.* --summary="\$GITHUB_STEP_SUMMARY"/);
 	assert.match(wf, /contents: read/);
 	assert.doesNotMatch(wf, /deploy|wrangler|git push/);
