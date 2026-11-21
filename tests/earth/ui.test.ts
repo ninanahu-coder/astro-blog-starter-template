@@ -740,6 +740,10 @@ type HashOpts = {
 	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; doc: Record<string, (e: unknown) => void>; el: (id: string) => El; show: () => void; hide: () => void }) => Promise<void>;
 	/** 页面能用的 AudioContext（不给就是没有 Web Audio 的浏览器） */
 	audio?: unknown;
+	/** AIGC 媒体清单（/earth/media/manifest.json）；不给时 404 */
+	media?: unknown;
+	/** 系统开了省流量（navigator.connection.saveData，体验改造 P3） */
+	saveData?: boolean;
 };
 /**
  * 体验改造 P1：今天页的分组收进了底部抽屉（做事、买东西、工作、住处、这里的人、体验和爱好……）。
@@ -773,7 +777,7 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	const winLs: Record<string, (e: unknown) => void> = {};
 	const g = globalThis as any;
 	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, prompt: g.prompt, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
-	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[], prompts: [] as string[] };
+	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[], prompts: [] as string[], fetched: [] as string[] };
 	const root = new ClassList();
 	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, documentElement: { classList: root }, hidden: !!opts.hidden };
 	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => { winLs[t] = f; }, AudioContext: opts.audio };
@@ -783,6 +787,8 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	g.confirm = (m: string) => { seen.asked.push(m); return confirmAnswer; };
 	g.prompt = (m: string) => { seen.prompts.push(m); return opts.prompt ?? null; };
 	g.fetch = async (u: string, o?: RequestInit) => {
+		seen.fetched.push(String(u));
+		if (String(u) === '/earth/media/manifest.json' && opts.media) return new Response(JSON.stringify(opts.media), { status: 200 });
 		if (String(u) === '/earth/cgi/manifest.json' && opts.cgi) return new Response(JSON.stringify({ images: opts.cgi }), { status: 200 });
 		if (String(u) !== '/api/earth/save') return new Response('{}', { status: 404 });
 		const res = () => world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: o?.body as string }));
@@ -798,7 +804,7 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	const timers = new Set<ReturnType<typeof setTimeout>>();
 	const realSetTimeout = saved.setTimeout;
 	g.setTimeout = (f: () => void, ms?: number) => { const id = realSetTimeout(f, ms); timers.add(id); return id; };
-	Object.defineProperty(g, 'navigator', { value: { geolocation: null, clipboard: null }, configurable: true });
+	Object.defineProperty(g, 'navigator', { value: { geolocation: null, clipboard: null, ...(opts.saveData === undefined ? {} : { connection: { saveData: opts.saveData } }) }, configurable: true });
 	const dir = mkdtempSync(join(tmpdir(), 'earth-ui-'));
 	try {
 		const file = join(dir, 'page.mjs');
@@ -1928,4 +1934,109 @@ test('界面：体验改造 P1——「地点」抽屉关着时不拉留言板�
 	});
 	assert.equal(afterOpen, 0, '「地点」抽屉没打开时一次都不拉');
 	assert.ok(notes >= 1, '打开「地点」抽屉才拉留言');
+});
+
+// 体验改造 P3：画面设置三档（docs/earth-game/ux-p3.md）
+let heroSeq = 0;
+async function heroUnder(prefs: Record<string, unknown> | null, saveData?: boolean) {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'p3-hero-' + ++heroSeq, '画面');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.loc = 'perth';
+	data.set('save:' + a.cred.id, rec);
+	let html = '';
+	const r = await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		extra: prefs ? { 'earth.prefs.v1': JSON.stringify(prefs) } : {},
+		saveData,
+		media: { loc: { perth: { src: '/earth/media/loc/perth.mp4', poster: '/earth/cgi/perth.webp' } }, voice: {} },
+		cgi: { perth: '/earth/cgi/perth.webp', 'banner:grow': '/earth/cgi/banner-grow.webp' },
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			html = await withDrawers(click, el);
+		},
+	});
+	return { html, root: r.root };
+}
+
+test('界面：画面设置（P3）——标准档放地点短片；省电档只放静态高清图；省流量档放 1 倍小图，不出 <video>（不发视频请求）', async () => {
+	const std = await heroUnder({ visual: 'standard' });
+	assert.match(std.html, /<video class="loc-clip" src="\/earth\/media\/loc\/perth\.mp4"/, '标准档放短片');
+	assert.equal(std.root.contains('calm'), false, '标准档不减少动画');
+
+	const bat = await heroUnder({ visual: 'battery' });
+	assert.doesNotMatch(bat.html, /<video|\/earth\/media\/loc\//, '省电档不出短片');
+	assert.match(bat.html, /<div class="hero has-media"><img src="\/earth\/cgi\/perth\.webp"/, '省电档还是高清图');
+	assert.equal(bat.root.contains('calm'), true, '省电档动画从简');
+
+	const dat = await heroUnder({ visual: 'data' });
+	assert.doesNotMatch(dat.html, /<video|\/earth\/media\/loc\//, '省流量档不出短片');
+	assert.match(dat.html, /<div class="hero has-media"><img src="\/earth\/cgi\/1x\/perth\.webp"/, '省流量档换 1 倍图');
+	assert.doesNotMatch(dat.html, /src="\/earth\/cgi\/(?!1x\/)/, '省流量档页面上没有一张 2 倍图');
+	assert.equal(dat.root.contains('calm'), true);
+
+	// 动画明确设成「正常」：听玩家的，省电档也不减少动画；但短片照样不放
+	const full = await heroUnder({ visual: 'battery', motion: 'full' });
+	assert.equal(full.root.contains('calm'), false, '动画设成「正常」时不被画面档覆盖');
+	assert.doesNotMatch(full.html, /<video/);
+});
+
+test('界面：画面设置（P3）——默认「跟随系统」：系统开了省流量就按省流量档；没开就按标准档', async () => {
+	const sys = await heroUnder(null, true);
+	assert.match(sys.html, /<img src="\/earth\/cgi\/1x\/perth\.webp"/, '系统省流量 → 1 倍图');
+	assert.doesNotMatch(sys.html, /<video/, '系统省流量 → 不放短片');
+	const plain = await heroUnder(null, false);
+	assert.match(plain.html, /<video class="loc-clip"/, '系统没开省流量 → 标准档');
+	// 玩家手动选了标准档：系统省流量也不改
+	const pinned = await heroUnder({ visual: 'standard' }, true);
+	assert.match(pinned.html, /<video class="loc-clip"/, '手动选的档位优先');
+});
+
+test('界面：画面设置（P3）——设置页四个选项、说明跟着档位换；暂停了的环境音、真实地图在开关旁边写明；不认识的值不改', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'p3-settings', '设置');
+	let before = '', after = '';
+	const r = await openWithHash('', a, world, true, {
+		extra: { 'earth.prefs.v1': JSON.stringify({ ambience: true }) },
+		after: async ({ click, el }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'sync' });
+			before = el('panel').innerHTML;
+			await click({ pref: 'visual', val: 'data' });
+			after = el('panel').innerHTML;
+			await click({ pref: 'visual', val: 'ultra' });
+		},
+	});
+	for (const v of ['auto', 'standard', 'battery', 'data']) assert.match(before, new RegExp(`data-pref="visual" data-val="${v}"`), v);
+	assert.match(before, /data-pref="visual" data-val="auto" class="on" aria-pressed="true">跟随系统/, '默认跟随系统');
+	assert.match(before, /短片自动播放、真实地图、全部动画、高清配图。/, '没有系统信号时按标准档说明');
+	assert.doesNotMatch(before, /档下暂停/, '标准档什么都不暂停');
+	assert.match(after, /data-pref="visual" data-val="data" class="on" aria-pressed="true">省流量/);
+	assert.match(after, /不下载短片和真实地图/);
+	assert.match(after, /环境音[\s\S]*?（「省流量」档下暂停）[\s\S]*?data-pref="ambience" aria-pressed="true"/, '环境音开关保持打开，旁边写明暂停');
+	assert.match(after, /真实地图<small>[^<]*（「省流量」档下暂停）/, '真实地图写明暂停');
+	assert.equal(JSON.parse(r.store.get('earth.prefs.v1')!).visual, 'data', '存进本机，不认识的值不改');
+	assert.deepEqual(a11yIssues(after), []);
+});
+
+test('界面：画面设置（P3）——省电档不放环境音和音乐，开关不动；换回标准档马上放', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'p3-audio', '省电');
+	const { Ctx, log } = fakeWebAudio();
+	const r = await openWithHash('', a, world, true, {
+		audio: Ctx,
+		extra: { 'earth.prefs.v1': JSON.stringify({ ambience: true, music: true, visual: 'battery' }) },
+		after: async ({ click }) => {
+			await click({ tab: 'me' });
+			for (let i = 0; i < 10; i++) await pause(10);
+			assert.equal(log.srcStarted, 0, '省电档：环境音不放');
+			assert.ok(!log.oscs.some((f) => f > 80 && f < 1200), '省电档：音乐不放');
+			await click({ metab: 'sync' });
+			await click({ pref: 'visual', val: 'standard' });
+			for (let i = 0; i < 20 && log.srcStarted === 0; i++) await pause(10);
+			assert.ok(log.srcStarted >= 1, '换回标准档：环境音开始放');
+		},
+	});
+	const saved = JSON.parse(r.store.get('earth.prefs.v1')!);
+	assert.equal(saved.ambience, true, '画面档不改环境音开关');
+	assert.equal(saved.music, true);
 });

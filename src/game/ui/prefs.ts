@@ -3,6 +3,7 @@
 // 界面语言（第 38 批）也存在这里：语言是这台设备的显示偏好，不进存档（见 docs/earth-game/i18n.md §4）。
 
 import { DEFAULT_LOCALE, isLocale, type Locale, type StrKey } from '../i18n/index.ts';
+import type { VisualMode } from './visual.ts';
 
 export type Motion = 'auto' | 'reduce' | 'full';
 export type FontSize = 'm' | 'l' | 'xl';
@@ -21,17 +22,19 @@ export interface Prefs {
 	basemap: boolean; // 出行页用真实地图（第 31 轮，默认开）
 	haptic: boolean; // 做事成功、失败时手机轻震（体验改造 P1，默认开；只有安卓浏览器支持）
 	lang: Locale; // 界面语言（第 38 批，默认简体中文）
+	visual: VisualMode; // 画面档（体验改造 P3）：跟随系统 / 标准 / 省电 / 省流量，默认跟随系统（见 ui/visual.ts）
 }
 
 export const PREFS_KEY = 'earth.prefs.v1';
 /** 旧版设置：大字模式开关（'1' 为开） */
 export const LEGACY_BIG_KEY = 'earth.big.v1';
 
-export const DEFAULT_PREFS: Prefs = { motion: 'auto', font: 'm', guide: true, recap: true, achToast: true, sound: true, ambience: false, music: false, volume: 'low', basemap: true, haptic: true, lang: DEFAULT_LOCALE };
+export const DEFAULT_PREFS: Prefs = { motion: 'auto', font: 'm', guide: true, recap: true, achToast: true, sound: true, ambience: false, music: false, volume: 'low', basemap: true, haptic: true, lang: DEFAULT_LOCALE, visual: 'auto' };
 
 // 第二项是字符串表的键（第 38 批），显示时用 t() 取当前语言的文字
 export const MOTION_OPTIONS: [Motion, StrKey][] = [['auto', 'pref.motion.auto'], ['reduce', 'pref.motion.reduce'], ['full', 'pref.motion.full']];
 export const FONT_OPTIONS: [FontSize, StrKey][] = [['m', 'pref.font.m'], ['l', 'pref.font.l'], ['xl', 'pref.font.xl']];
+export const VISUAL_OPTIONS: [VisualMode, StrKey][] = [['auto', 'pref.visual.auto'], ['standard', 'pref.visual.standard'], ['battery', 'pref.visual.battery'], ['data', 'pref.visual.data']];
 export const VOLUME_OPTIONS: [VolumeLevel, StrKey][] = [['low', 'pref.volume.low'], ['mid', 'pref.volume.mid'], ['high', 'pref.volume.high']];
 export const TIP_OPTIONS: [keyof Pick<Prefs, 'guide' | 'recap' | 'achToast'>, string, string][] = [
 	['guide', '新手指南', '前三天在今天页顶上的分步提示'],
@@ -66,8 +69,9 @@ export function parsePrefs(raw: string | null, legacy: { big?: string | null } =
 		basemap: bool(own('basemap'), DEFAULT_PREFS.basemap),
 		haptic: bool(own('haptic'), DEFAULT_PREFS.haptic),
 		lang: isLocale(own('lang')) ? (own('lang') as Locale) : DEFAULT_PREFS.lang,
+		visual: pick(own('visual'), VISUAL_OPTIONS, DEFAULT_PREFS.visual),
 	};
 }
 
-/** 要不要减少动画：选了「跟随系统」时看系统的减少动态效果设置 */
-export const calmMotion = (p: Prefs, systemReduce: boolean) => p.motion === 'reduce' || (p.motion === 'auto' && systemReduce);
+/** 要不要减少动画：选了「跟随系统」时看系统的减少动态效果设置；presetCalm 是画面档要求的（省电、省流量档），动画明确设成「正常」时听玩家的 */
+export const calmMotion = (p: Prefs, systemReduce: boolean, presetCalm = false) => p.motion === 'reduce' || (p.motion === 'auto' && (systemReduce || presetCalm));
