@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic golden-hour landscape, the Perth city skyline across the Swan River seen from a hillside park, eucalyptus branches framing the top left, with the skyline, the river and the composition shown in <Picture 1> preserved. From the first frame warm sunset light glows on the river and the eucalyptus leaves sway gently in a light breeze. The camera pushes in with small amplitude at slow speed toward the city skyline and comes to rest on a slightly tighter wide shot of the skyline in the final second. Ripples shimmer across the river surface, soft clouds drift slowly to the right above the skyline, and the city buildings stay still.
+
+overall_soundscape: A gentle evening breeze through eucalyptus leaves, distant birdsong and a faint far-off city hum; soft rustle of leaves.
+
+non_diegetic_music: N/A

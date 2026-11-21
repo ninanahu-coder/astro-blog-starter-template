@@ -203,3 +203,13 @@ dist
 
 # CGI 原图（GPT image 2 / ComfyUI 输出的大 PNG，不进仓库）
 tools/earth/comfyui/.raw/
+
+# AIGC 短片的远程原片、关键帧和目检拼图（体积大，不进仓库）
+tools/earth/media/h3/*/clips/
+tools/earth/media/h3/*/kf/
+tools/earth/media/h3/*/_frames768/
+tools/earth/media/h3/*/contact.jpg
+tools/earth/media/h3/*/_prompts/dry/
+tools/earth/media/h3/*/config.env
+tools/earth/media/h3/*/queue.json
+tools/earth/media/h3/*/trims.json

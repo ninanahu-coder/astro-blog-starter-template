@@ -1,39 +1,43 @@
-// 成就：只是里程碑展示，不发奖励、不进存档——由当前存档现算（core/achievements.ts）。
-// 加一条成就只要选一个指标（metric）和目标值，不写针对单条成就的代码。
-import type { AchievementDef } from '../core/achievements.ts';
+// 成就：里程碑由当前存档现算（core/achievements.ts）。加一条成就只要选一个指标（metric）和目标值，不写针对单条成就的代码。
+// 第 28 批起成就可以领奖：达成后在成长页点「领取」，服务端核对达成、没领过才发，领过的 id 记进存档 achClaimed。
+// 没写 reward 的按 ACH_DEFAULT_REWARD 发；title: true 表示另外获得一个和成就同名的称号（id 为 ach.<成就 id>）。
+// 奖励数值全部「待平衡」：33 条全领合计声望 +43、12 个称号（见 docs/earth-game/quests-design.md 的预算表），等 Codex 分析后由用户拍板。
+import type { AchievementDef, AchievementReward } from '../core/achievements.ts';
+
+export const ACH_DEFAULT_REWARD: AchievementReward = { respect: 1 };
 
 export const ACHIEVEMENTS: AchievementDef[] = [
 	{ id: 'explore-5', icon: '🧭', name: '出门看看', desc: '去过 5 个地方', metric: 'places', goal: 5 },
 	{ id: 'explore-10', icon: '🗺️', name: '走南闯北', desc: '去过 10 个地方', metric: 'places', goal: 10 },
-	{ id: 'explore-all', icon: '🌏', name: '活地图', desc: '去过地图上全部地方', metric: 'places', goal: 'all-places' },
+	{ id: 'explore-all', icon: '🌏', name: '活地图', desc: '去过地图上全部地方', metric: 'places', goal: 'all-places', reward: { respect: 2, title: true } },
 	{ id: 'checkin-5', icon: '📌', name: '打卡达人', desc: '本人到场打卡 5 个地点', metric: 'checkins', goal: 5 },
 	{ id: 'collect-5', icon: '🎟️', name: '体验派', desc: '收藏 5 项体验', metric: 'collected', goal: 5 },
-	{ id: 'collect-all', icon: '🏅', name: '收藏册满了', desc: '收藏全部体验', metric: 'collected', goal: 'all-experiences' },
+	{ id: 'collect-all', icon: '🏅', name: '收藏册满了', desc: '收藏全部体验', metric: 'collected', goal: 'all-experiences', reward: { respect: 2, title: true } },
 	{ id: 'friend-1', icon: '🤝', name: '有个朋友', desc: '和 1 位当地人成为朋友', metric: 'friends', goal: 1 },
 	{ id: 'friend-3', icon: '👥', name: '人缘不错', desc: '和 3 位当地人成为朋友', metric: 'friends', goal: 3 },
-	{ id: 'bestie', icon: '💛', name: '挚友', desc: '和 1 位当地人成为挚友', metric: 'besties', goal: 1 },
+	{ id: 'bestie', icon: '💛', name: '挚友', desc: '和 1 位当地人成为挚友', metric: 'besties', goal: 1, reward: { respect: 2, title: true } },
 	{ id: 'home', icon: '🏠', name: '有个家', desc: '租下或住进自己的住处', metric: 'home', goal: 1 },
 	{ id: 'owner', icon: '🔑', name: '有房一族', desc: '拥有 1 套房产', metric: 'properties', goal: 1 },
-	{ id: 'landlord', icon: '🏘️', name: '包租公', desc: '同时拥有 2 套房产', metric: 'properties', goal: 2 },
-	{ id: 'top-job', icon: '💼', name: '做到头了', desc: '在一份工作里升到最高职位', metric: 'topJob', goal: 1 },
+	{ id: 'landlord', icon: '🏘️', name: '包租公', desc: '同时拥有 2 套房产', metric: 'properties', goal: 2, reward: { respect: 2, title: true } },
+	{ id: 'top-job', icon: '💼', name: '做到头了', desc: '在一份工作里升到最高职位', metric: 'topJob', goal: 1, reward: { respect: 2, title: true } },
 	{ id: 'worth-10k', icon: '💵', name: '小有积蓄', desc: '净资产达到 $10,000', metric: 'worth', goal: 10_000 },
-	{ id: 'worth-100k', icon: '💰', name: '十万身家', desc: '净资产达到 $100,000', metric: 'worth', goal: 100_000 },
+	{ id: 'worth-100k', icon: '💰', name: '十万身家', desc: '净资产达到 $100,000', metric: 'worth', goal: 100_000, reward: { respect: 2, title: true } },
 	{ id: 'level-5', icon: '⭐', name: '本地通', desc: '等级达到 5', metric: 'level', goal: 5 },
 	{ id: 'photo-10', icon: '📷', name: '随手拍', desc: '天气相册里有 10 张照片', metric: 'photos', goal: 10 },
 	{ id: 'photo-30', icon: '🖼️', name: '四季相册', desc: '天气相册里有 30 张照片', metric: 'photos', goal: 30 },
 	{ id: 'rain-5', icon: '☔', name: '雨中漫步', desc: '在 5 个地方拍到下雨', metric: 'rainPhotos', goal: 5 },
 	{ id: 'coop-1', icon: '🙌', name: '搭把手', desc: '和别的玩家一起做过 1 种共同事件', metric: 'coops', goal: 1 },
 	{ id: 'coop-4', icon: '🤜', name: '合作愉快', desc: '一起做过 4 种共同事件', metric: 'coops', goal: 4 },
-	{ id: 'coop-all', icon: '🫶', name: '什么都一起干过', desc: '每种共同事件都参加过', metric: 'coops', goal: 'all-coops' },
+	{ id: 'coop-all', icon: '🫶', name: '什么都一起干过', desc: '每种共同事件都参加过', metric: 'coops', goal: 'all-coops', reward: { respect: 2, title: true } },
 	{ id: 'fest-3', icon: '🎉', name: '节日常客', desc: '参加 3 个节日的专属体验', metric: 'festivals', goal: 3 },
-	{ id: 'fest-all', icon: '🎆', name: '一年到头都在过节', desc: '参加全部节日的专属体验', metric: 'festivals', goal: 'all-festivals' },
+	{ id: 'fest-all', icon: '🎆', name: '一年到头都在过节', desc: '参加全部节日的专属体验', metric: 'festivals', goal: 'all-festivals', reward: { respect: 2, title: true } },
 	{ id: 'skill-50', icon: '🛠️', name: '一技之长', desc: '任意一项能力达到 50', metric: 'topSkill', goal: 50 },
-	{ id: 'skill-80', icon: '🎓', name: '行家', desc: '任意一项能力达到 80', metric: 'topSkill', goal: 80 },
+	{ id: 'skill-80', icon: '🎓', name: '行家', desc: '任意一项能力达到 80', metric: 'topSkill', goal: 80, reward: { respect: 2, title: true } },
 	{ id: 'friend-5', icon: '🫂', name: '老熟人', desc: '和 5 位当地人成为朋友', metric: 'friends', goal: 5 },
 	{ id: 'trips-50', icon: '🧳', name: '在路上', desc: '累计到达各地 50 次', metric: 'trips', goal: 50 },
 	{ id: 'dex-5', icon: '🔭', name: '观察家', desc: '野生动物图鉴里记下 5 种动物', metric: 'dex', goal: 5 },
-	{ id: 'dex-15', icon: '🦘', name: '博物学家', desc: '野生动物图鉴里记下 15 种动物', metric: 'dex', goal: 15 },
-	{ id: 'fish-5', icon: '🎣', name: '钓友', desc: '钓到 5 种不同的鱼', metric: 'fish', goal: 5 },
+	{ id: 'dex-15', icon: '🦘', name: '博物学家', desc: '野生动物图鉴里记下 15 种动物', metric: 'dex', goal: 15, reward: { respect: 2, title: true } },
+	{ id: 'fish-5', icon: '🎣', name: '钓友', desc: '钓到 5 种不同的鱼', metric: 'fish', goal: 5, reward: { respect: 1, title: true } },
 	{ id: 'facts-15', icon: '📖', name: '百事通', desc: '解锁 15 张地点小知识卡', metric: 'facts', goal: 15 },
-	{ id: 'storm-3', icon: '⛈️', name: '追风者', desc: '在 3 个地方拍到风暴', metric: 'stormPhotos', goal: 3 },
+	{ id: 'storm-3', icon: '⛈️', name: '追风者', desc: '在 3 个地方拍到风暴', metric: 'stormPhotos', goal: 3, reward: { respect: 1, title: true } },
 ];

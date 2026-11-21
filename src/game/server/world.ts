@@ -3,17 +3,19 @@
 // 另有保留实例 '@SAVES' 负责云存档（跨设备同步）。
 // 权威结算：客户端只发送动作（create / act），由本实例调用规则引擎结算并保存；
 // 客户端不能上传存档，改本地数据不会影响服务器上的进度。
-import { applyAction, applyCoop, applyTrade, applyWeeklyClaim, parseAction, publicState } from '../core/actions.ts';
+import { applyAction, applyBlock, applyCoop, applyTrade, applyWeeklyClaim, parseAction, publicState } from '../core/actions.ts';
+import { addReport, BLOCK_MAX, isBlocked, isReportReason, REPORTS_PER_DAY, reportHidden, type ReportRec } from '../core/safety.ts';
 import { addWeekly, goalOfWeek, weekDaysLeft, weeklyMine, weekOf, type WeeklyMetric } from '../core/weekly.ts';
 import { giveBlocked, saleRange, TRADE_DAILY, tradesToday } from '../core/trade.ts';
 import { bidLot, buyLot, cancelLot, claimMail, createLot, EXCHANGE, lotView, newbieBlocked, parseSwapSide, pushMail, quotaAdd, quotaBlocked, quotaOf, resolveSwap, settleLot, swapCash, swapShapeBlocked, type Lot, type Mail, type SwapSide } from '../core/exchange.ts';
 import { noteMet } from '../core/social.ts';
-import { cleanNote, NOTES_LOC_DAY, NOTES_PER_DAY, NOTES_PER_LOC } from '../core/notes.ts';
+import { cleanNote, contactError, NOTES_LOC_DAY, NOTES_PER_DAY, NOTES_PER_LOC } from '../core/notes.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
 import { getItem } from '../core/attributes.ts';
 import { coopBlocked } from '../core/coop.ts';
 import { getCoop } from '../data/coop.ts';
 import { claimDaily, realDayOf } from '../core/daily.ts';
+import { noteReturn } from '../core/onboard.ts';
 import { refreshWishes } from '../core/wishes.ts';
 import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
 import { carryUnknown, SAVE_VERSION } from '../core/save.ts';
@@ -21,9 +23,16 @@ import { boardEntry, rankBoard } from '../core/board.ts';
 import type { PlayerState, Region } from '../core/types.ts';
 import { FULL_AREAS, WORLD } from '../data/wa.ts';
 import { areaOf } from '../data/areas-base.ts';
+import { liveDeal, monthOfDay, redeemCode, redeemProblem, statementFor } from '../core/sponsor.ts';
+import { SPONSORS, type SponsorDeal } from '../data/sponsors.ts';
+import { actionCounts, BORN_KEEP_DAYS, BORN_PREFIX, cleanBatch, funnelSteps, mergeDays, READ_MAX_DAYS, StatsBuffer, STATS_BODY_MAX, type Counts, type FunnelStep } from './stats.ts';
 import { ipKey, RateLimiter, readBounded } from './ratelimit.ts';
 
 const SAVES_ROOM = '@SAVES';
+/** 客户端统计上报（界面使用、报错、性能）汇总在这个保留实例，不挤占存档实例 */
+const STATS_ROOM = '@STATS';
+const STATS_WINDOW_MS = 60 * 1000;
+const STATS_LIMIT = 6; // 每 IP 每分钟最多几批（客户端正常一分钟最多一批）
 const MAX_CONNS = 200;
 // 安全加固（v40，见 docs/earth-game/security-review.md）
 const CONNS_PER_IP = 6; // 同一来源在一个区域频道里最多同时连几个：不然一个人开 200 个连接就能把整个区域占满
@@ -55,6 +64,13 @@ const CONFLICT_MSG = '进度刚刚更新过（另一台设备，或别的玩家�
 const OFFER_RE = /^[a-f0-9]{10}$/;
 const NOTE_RE = /^[a-f0-9]{8}$/;
 const HASH_RE = /^[a-f0-9]{12}$/;
+const PIN_RE = /^\d{6}$/;
+const PIN_TRIES_PLAYER = 5; // 每个玩家每条赞助每天最多输错这么多次 PIN
+const PIN_TRIES_DEAL = 100; // 每条赞助每天合计最多输错这么多次，超过当天锁定（6 位 PIN 有一百万种，一天最多猜中万分之一）
+/** 一个玩家某天在某条赞助的核销记录：at 领码时间，ok 店员确认时间，tries 输错 PIN 次数 */
+interface RedeemRec { at: number; ok?: number; tries: number }
+/** 店员 PIN：只存加盐哈希 */
+interface PinRec { salt: string; hash: string }
 const OFFER_TTL_MS = 30 * 60 * 1000; // 送礼、二手摊的挂单 30 分钟没人接就撤下
 const OFFER_MAX = 500;
 const OFFER_PER_PLAYER = 3; // 每人同时挂着的送礼 + 二手摊最多 3 件
@@ -88,6 +104,8 @@ interface Offer {
 	id: string;
 	kind: 'gift' | 'sale' | 'swap';
 	from: string;
+	/** 挂单人的 id 哈希前缀：屏蔽了他的人看不到这张单 */
+	fromHash: string;
 	fromName: string;
 	fromAvatar: string;
 	to: string | null;
@@ -157,6 +175,8 @@ export class EarthWorld {
 	private boardGen = 0; // 每次写入加一：读榜期间有写入时，读到的旧列表不放进缓存
 	private lobbies = new Map<string, Lobby>();
 	private hintAt = new WeakMap<WebSocket, Record<string, number>>();
+	/** 每个连接屏蔽了谁（id 哈希前缀，客户端按自己存档里的屏蔽名单发来）：这些人的聊天和表情不转给这个连接 */
+	private mutes = new WeakMap<WebSocket, Set<string>>();
 	private offers = new Map<string, Offer>();
 	private week: { week: number; count: number } | null = null; // 这周全服累计数（内存里一份，落盘在 'week:<序号>'）
 	private weekLoading: Promise<void> | null = null;
@@ -167,13 +187,27 @@ export class EarthWorld {
 	private lots: Map<string, Lot> | null = null; // 交易所拍品（内存一份，落盘在 'lot:<id>'；只在 marketChain 里读写）
 	private marketChain: Promise<unknown> = Promise.resolve(); // 交易所的所有改动排队：拍品、邮箱、账本不会被两个请求交错改
 
-	constructor(ctx: DurableObjectState, _env: unknown) {
+	private stats: StatsBuffer; // 统计计数（见 stats.ts）：内存里攒一会儿再合并落盘
+	private statsRate = new Map<string, { n: number; resetAt: number }>();
+
+	private sponsorToken: string; // 商户对账单接口的令牌（Workers 机密 EARTH_SPONSOR_TOKEN）；没配置就不开放这个接口
+	private redeemChain: Promise<unknown> = Promise.resolve(); // 核销计数排队写入：每天、每月的计数是所有玩家共用的
+
+	constructor(ctx: DurableObjectState, env: unknown) {
 		this.ctx = ctx;
+		this.stats = new StatsBuffer(ctx.storage as never);
+		const t = (env as { EARTH_SPONSOR_TOKEN?: unknown } | null)?.EARTH_SPONSOR_TOKEN;
+		this.sponsorToken = typeof t === 'string' && t.length >= 32 ? t : '';
 	}
 
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 		if (url.pathname === '/api/earth/save') return this.handleSave(request);
+		if (url.pathname === '/api/earth/sponsor-report') return this.handleSponsorReport(request, url);
+		if (url.pathname === '/api/earth/sponsor-pin') return this.handleSponsorPin(request);
+		if (url.pathname === '/api/earth/stats') return this.handleStats(request);
+		// 只有 routeEarth 核对过查询令牌后才会转到这里（外部请求到不了这个路径）
+		if (url.pathname === '/api/earth/stats/read') return this.handleStatsRead(url);
 		if ((request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
 			return new Response('expected websocket', { status: 426 });
 		}
@@ -253,9 +287,20 @@ export class EarthWorld {
 				break;
 			case 'chat': {
 				const text = String(m.text ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, CHAT_MAX);
-				if (text) this.broadcastAt(me.loc, { t: 'chat', id: me.id, name: me.name, avatar: me.avatar, text, at: now });
+				if (!text) break;
+				// 在线频道不能发网址、联系方式和坐标（第 24 批）：不转发，只告诉发的人
+				const why = contactError(text);
+				if (why) {
+					this.send(ws, { t: 'notice', msg: '没发出去：聊天里' + why });
+					break;
+				}
+				this.broadcastAt(me.loc, { t: 'chat', id: me.id, name: me.name, avatar: me.avatar, text, at: now }, me.id);
 				break;
 			}
+			case 'mute':
+				// 屏蔽名单（第 24 批）：整份替换，只收合法的哈希，最多 BLOCK_MAX 个
+				if (Array.isArray(m.ids)) this.mutes.set(ws, new Set(m.ids.filter((x: unknown): x is string => typeof x === 'string' && HASH_RE.test(x)).slice(0, BLOCK_MAX)));
+				break;
 			case 'coop':
 			case 'trade': {
 				// 共同事件大厅或交易挂单有变化：只提醒同一地点的其他人去拉一次列表，不带任何内容（内容以服务端为准）
@@ -269,7 +314,7 @@ export class EarthWorld {
 				if (EMOTES.includes(m.kind) && typeof m.to === 'string') {
 					// 只能对同一地点的玩家互动
 					for (const [sock, p] of this.sockets) {
-						if (p.id === m.to && p.loc === me.loc) this.send(sock, { t: 'emote', from: me.id, name: me.name, kind: m.kind });
+						if (p.id === m.to && p.loc === me.loc && !this.mutes.get(sock)?.has(me.id)) this.send(sock, { t: 'emote', from: me.id, name: me.name, kind: m.kind });
 					}
 				}
 				break;
@@ -315,14 +360,70 @@ export class EarthWorld {
 			} catch {}
 		}
 	}
-	private broadcastAt(loc: string, data: unknown) {
+	/** from：发消息的人的 id 哈希前缀；屏蔽了他的连接收不到 */
+	private broadcastAt(loc: string, data: unknown, from?: string) {
 		const raw = JSON.stringify(data);
 		for (const [ws, p] of this.sockets) {
 			if (p.loc !== loc) continue;
+			if (from && this.mutes.get(ws)?.has(from)) continue;
 			try {
 				ws.send(raw);
 			} catch {}
 		}
+	}
+
+	// ---------- 统计（设计见 docs/earth-game/analytics.md） ----------
+
+	/**
+	 * 记一次服务端结算的统计。claim：这次领了每日奖励（= 今天第一次来，算一个活跃日，并按注册日记留存）；
+	 * steps：这次第一次走到的漏斗步骤（记在注册那天的汇总里）。出错只丢统计，不影响游戏。
+	 */
+	private async track(id: string, day: number, add: Counts, claim: { cash: number } | null | undefined, steps: FunnelStep[] = []): Promise<void> {
+		try {
+			this.stats.add(day, claim ? { ...add, active: 1, 'eco.in.daily': claim.cash } : add);
+			if (!claim && steps.length === 0) return;
+			const bornKey = BORN_PREFIX + (await sha256Hex(id)).slice(0, 12);
+			const born = await this.ctx.storage.get<number>(bornKey);
+			if (typeof born !== 'number' || !Number.isInteger(born)) return;
+			const k = day - born;
+			const cohort: Counts = {};
+			if (claim && k >= 1 && k <= BORN_KEEP_DAYS) cohort['ret.' + k] = 1;
+			for (const s of steps) cohort['fn.' + s] = 1;
+			this.stats.add(born, cohort);
+			// 过了留存窗口就删掉注册日：不再需要
+			if (k > BORN_KEEP_DAYS) await this.ctx.storage.delete(bornKey);
+		} catch {}
+	}
+
+	/** 客户端上报一批事件（'@STATS' 实例）：限流、限大小、白名单校验后只记计数 */
+	private async handleStats(request: Request): Promise<Response> {
+		if (request.method !== 'POST') return json({ ok: false }, 405);
+		const ip = request.headers.get('CF-Connecting-IP') || 'local';
+		const now = Date.now();
+		const rate = this.statsRate.get(ip);
+		if (!rate || now > rate.resetAt) {
+			if (this.statsRate.size > 5000) this.statsRate.clear();
+			this.statsRate.set(ip, { n: 1, resetAt: now + STATS_WINDOW_MS });
+		} else if (++rate.n > STATS_LIMIT) return json({ ok: false }, 429);
+		const text = await request.text();
+		if (text.length > STATS_BODY_MAX) return json({ ok: false }, 413);
+		let raw: unknown;
+		try {
+			raw = JSON.parse(text);
+		} catch {
+			return json({ ok: false }, 400);
+		}
+		const counts = cleanBatch(raw);
+		if (!counts) return json({ ok: false }, 400);
+		this.stats.add(realDayOf(now), counts);
+		return json({ ok: true });
+	}
+
+	private async handleStatsRead(url: URL): Promise<Response> {
+		const from = Number(url.searchParams.get('from'));
+		const to = Number(url.searchParams.get('to'));
+		if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < from || to - from > READ_MAX_DAYS) return json({ ok: false, msg: '日期范围无效' }, 400);
+		return json({ ok: true, days: await this.stats.read(from, to) });
 	}
 
 	// ---------- 云存档与权威结算（仅 '@SAVES' 实例；storage 键：save:<id> = { keyHash, state, at }） ----------
@@ -541,8 +642,13 @@ export class EarthWorld {
 			refreshWishes(state);
 			const first = claimDaily(state, realDayOf(now));
 			const created = first ? { ...first.state, rev: 0 } : state;
-			// 建号的现实日：交易所的新号限制按它算（只在服务端，和存档一次写入）
-			await this.persistMany([{ id, keyHash, state: created, at: now }], undefined, { ['born:' + id]: realDayOf(now) });
+			// 统计：记下注册日（只存现实日序号，键是 id 哈希前缀；关了统计的玩家不记）
+			const track = body.nt !== true;
+			const day = realDayOf(now);
+			// 建号的现实日另记一份 'since:' + id：交易所的新号限制按它算，是玩法规则，和统计开不开无关（和存档一次写入）。
+			// 不能用 'born:'：那是统计的注册日（按 id 哈希、玩家关了统计就不记），合并 main 时两边撞了前缀
+			await this.persistMany([{ id, keyHash, state: created, at: now }], undefined, { ['since:' + id]: day, ...(track ? { [BORN_PREFIX + (await sha256Hex(id)).slice(0, 12)]: day } : {}) });
+			if (track) this.stats.add(day, { new: 1, active: 1, ...(first ? { 'eco.in.daily': first.cash } : {}) });
 			return json({ ok: true, state: publicState(created), at: now, daily: first?.msg });
 		}
 
@@ -560,13 +666,15 @@ export class EarthWorld {
 		// 落盘和返回之前统一再过一遍存档校验：存下来的永远是规范形式，不依赖每条规则各自守住上限
 		const locs = new Set(region.locations.map((l) => l.id));
 		const canon = (s: typeof current) => sanitizeState(s, locs, { fallbackLoc: region.spawn, now }) ?? s;
-		const claim = claimDaily(current, realDayOf(now));
+		// 回流（v36）：离开几天后第一次回来，在发每日奖励之前记下离开了多久（领奖会把 daily.day 改成今天）
+		const claim = claimDaily(noteReturn(current, realDayOf(now)), realDayOf(now));
 		const live = claim ? canon(claim.state) : current;
 		// 校验时修过存档（挪了地点、清了未来的时间戳等）也要写回：不然只上线不操作的话，每次都重新修一遍，
 		// 被改成「今天已领」的每日奖励永远领不到
 		// 比较的是带上未知字段后的落盘形式：别的分支加的字段不算「修过」，不会每次读取都写一遍
 		const migrated = JSON.stringify(carryUnknown(raw, current)) !== JSON.stringify(rec.state);
 		if ((claim || migrated) && action === 'get') await this.persist(id, keyHash, live, now, raw);
+		if (claim && action === 'get' && body.nt !== true) await this.track(id, realDayOf(now), {}, claim);
 
 		if (action === 'get') return json({ ok: true, state: publicState(live), at: now, daily: claim?.msg });
 
@@ -599,6 +707,8 @@ export class EarthWorld {
 			// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
 			else if (migrated) await this.persistMany([{ id, keyHash, state: current, at: now, raw }], undefined, opEntry);
 			else if (op) await this.ctx.storage.put(opEntry);
+			// 统计（玩家关了就不记）：功能使用、现金流入流出、新手漏斗、每日活跃和留存。只按结算结果记，不信客户端
+			if (body.nt !== true) await this.track(id, realDayOf(now), actionCounts(act, live, r.state, r.ok), next !== current ? claim : null, r.ok && !r.collapsed ? funnelSteps(live, r.state) : []);
 			return json({ ok: r.ok, msg: r.msg, state: publicState(next), at: now, daily: claim?.msg });
 		}
 		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, wall, locked, raw);
@@ -618,13 +728,16 @@ export class EarthWorld {
 			await this.deleteAccount(id);
 			return json({ ok: true, msg: '账号和云端存档已删除', at: wall });
 		}
+		if (action === 'redeem') return this.handleRedeem(body, id, current, region, now);
 		if (action === 'notes') {
 			// notes { op: 'list' }：这个地点的留言；{ op: 'post', text }：留一句；{ op: 'delete', note }：删自己的
 			const loc = current.loc;
 			const hash = (await sha256Hex(id)).slice(0, 12);
 			const day = realDayOf(now);
 			const list = await this.notesAt(loc);
-			const view = () => ({ notes: list.map((n) => ({ id: n.id, name: n.name, avatar: n.avatar, text: n.text, at: n.at, mine: n.author === hash })).reverse() });
+			// 屏蔽的人的留言不给我看；最近被好几个人举报的人的留言先对所有人隐藏（自己的照常看得到，第 24 批）
+			const hidden = await this.hiddenAuthors(list.map((n) => n.author), day);
+			const view = () => ({ notes: list.filter((n) => n.author === hash || (!isBlocked(current, n.author) && !hidden.has(n.author))).map((n) => ({ id: n.id, name: n.name, avatar: n.avatar, text: n.text, at: n.at, mine: n.author === hash })).reverse() });
 			if (body.op === 'list') return json({ ok: true, ...view(), at: now });
 			if (body.op === 'post') {
 				const c = cleanNote(body.text);
@@ -662,6 +775,7 @@ export class EarthWorld {
 			}
 			return json({ ok: false, msg: '请求无效' }, 400);
 		}
+		if (action === 'safety') return this.handleSafety(body, id, keyHash, current, live, now, canon);
 		if (action === 'weekly') {
 			// weekly { op: 'status' }：这周的目标、全服进度、我出了几份力；{ op: 'claim', rev }：达成后领奖
 			const day = realDayOf(now);
@@ -732,7 +846,7 @@ export class EarthWorld {
 				else lots.set(k.slice(4), v as Lot);
 			}
 		});
-		await this.ctx.storage.delete(['save:' + id, 'ops:' + id, 'rank:' + h, 'h:' + h, 'notecd:' + h, 'mail:' + id, 'mops:' + id, 'born:' + id, 'xq:' + h]);
+		await this.ctx.storage.delete(['save:' + id, 'ops:' + id, 'rank:' + h, 'h:' + h, 'notecd:' + h, 'mail:' + id, 'mops:' + id, 'since:' + id, 'xq:' + h]);
 		for (const [k, o] of this.offers) if (o.from === id || o.toId === id) this.offers.delete(k);
 		for (const [k, l] of this.lobbies) {
 			if (l.done) { l.done.ids = l.done.ids.filter((x) => x !== id); continue; }
@@ -750,6 +864,130 @@ export class EarthWorld {
 	// coop { op: 'leave', lobby }                退出；发起人退出就解散
 	// coop { op: 'start', lobby, rev }           发起人开始：重新检查每个成员，人够就结算并写所有人的存档
 	// 大厅的过期和结果时间用服务器真实时间（wall），不用为防时钟回拨而沿用的存档时间
+	/**
+	 * 商户赞助的核销，分两步，都只读存档、不改存档：
+	 * 1. redeem { op: 'claim', deal, lat, lon, acc }：人在店里才发核销码。同一个玩家、同一条赞助、同一个珀斯日期只有一个码，再点返回同一个。
+	 *    这一步只记「领了」（当月领取数，给商户参考），不计费。
+	 * 2. redeem { op: 'confirm', deal, pin }：店员在玩家手机上输入这家店的 PIN，输对才算核销一次，当天、当月核销数各加一，
+	 *    对账单只按这个数收费。商户设了每日上限时，到上限就不再发码、也不再确认。
+	 * PIN 由运营用对账令牌通过 /api/earth/sponsor-pin 生成，只存加盐哈希。试错：每人每条赞助每天 5 次，每条赞助每天合计 100 次，超过当天锁定。
+	 */
+	private async handleRedeem(body: any, id: string, state: PlayerState, region: Region, now: number): Promise<Response> {
+		const dealId = typeof body.deal === 'string' ? body.deal.slice(0, 80) : '';
+		const day = realDayOf(now);
+		const hash = (await sha256Hex(id)).slice(0, 12);
+		if (body.op === 'confirm') return this.confirmRedeem(dealId, typeof body.pin === 'string' ? body.pin : '', hash, day, region, now);
+		const req = { deal: dealId, lat: Number(body.lat), lon: Number(body.lon), acc: Number(body.acc) };
+		const bad = redeemProblem(state, region.venues, SPONSORS, req, now);
+		if (bad) return json({ ok: false, msg: bad, at: now });
+		const deal = liveDeal(SPONSORS, dealId, now)!;
+		const code = redeemCode(await sha256Hex(`${deal.id}:${day}:${hash}`));
+		const view = (confirmed: boolean) => this.redeemView(deal, region, code, day, confirmed);
+		return this.inRedeem(async () => {
+			const mine = `rd:${deal.id}:${day}:${hash}`;
+			const rec = await this.ctx.storage.get<RedeemRec>(mine);
+			if (rec) return json({ ok: true, dup: true, msg: rec.ok ? '今天已经核销过这张优惠。' : '今天已经领过这张优惠，给店员看同一个核销码就行。', redeem: view(!!rec.ok), at: now });
+			const n = Number((await this.ctx.storage.get<number>(`rdd:${deal.id}:${day}`)) ?? 0);
+			if (deal.dailyCap && n >= deal.dailyCap) return json({ ok: false, msg: '这家店今天的优惠已经发完了，明天再来。', at: now });
+			const claimKey = `rdc:${deal.id}:${monthOfDay(day)}`;
+			const c = Number((await this.ctx.storage.get<number>(claimKey)) ?? 0);
+			await this.ctx.storage.put({ [mine]: { at: now, tries: 0 } satisfies RedeemRec, [claimKey]: c + 1 });
+			return json({ ok: true, msg: '已领取，把这个页面给店员看，请店员输入店铺 PIN 确认。', redeem: view(false), at: now });
+		});
+	}
+
+	private redeemView(deal: SponsorDeal, region: Region, code: string, day: number, confirmed: boolean) {
+		const venue = region.venues.find((v) => v.id === deal.venueId);
+		return { deal: deal.id, venue: venue?.name ?? '', offer: deal.offer, terms: deal.terms, code, day, confirmed };
+	}
+
+	/** 店员输入 PIN 确认核销。不再查定位（店员就在店里），但必须是今天领过码的人、赞助今天还生效 */
+	private confirmRedeem(dealId: string, pin: string, hash: string, day: number, region: Region, now: number): Promise<Response> {
+		return this.inRedeem(async () => {
+			const deal = liveDeal(SPONSORS, dealId, now);
+			if (!deal) return json({ ok: false, msg: '这个优惠不存在或已经过期。', at: now });
+			const mine = `rd:${deal.id}:${day}:${hash}`;
+			const rec = await this.ctx.storage.get<RedeemRec>(mine);
+			if (!rec) return json({ ok: false, msg: '今天还没领这张优惠：先在店里点「使用优惠」。', at: now });
+			const code = redeemCode(await sha256Hex(`${deal.id}:${day}:${hash}`));
+			if (rec.ok) return json({ ok: true, dup: true, msg: '今天已经核销过这张优惠。', redeem: this.redeemView(deal, region, code, day, true), at: now });
+			const pinRec = await this.ctx.storage.get<PinRec>(`pin:${deal.id}`);
+			if (!pinRec) return json({ ok: false, msg: '这家店还没开通店员确认，请直接出示核销码。', at: now });
+			const failKey = `rdf:${deal.id}:${day}`;
+			const fails = Number((await this.ctx.storage.get<number>(failKey)) ?? 0);
+			if (rec.tries >= PIN_TRIES_PLAYER || fails >= PIN_TRIES_DEAL) return json({ ok: false, msg: '今天输错次数太多，已锁定，明天再试。', at: now });
+			if (!PIN_RE.test(pin) || !timingSafeEqual(await sha256Hex(pinRec.salt + ':' + pin), pinRec.hash)) {
+				await this.ctx.storage.put({ [mine]: { ...rec, tries: rec.tries + 1 } satisfies RedeemRec, [failKey]: fails + 1 });
+				const left = PIN_TRIES_PLAYER - rec.tries - 1;
+				return json({ ok: false, msg: left > 0 ? `PIN 不对，还能试 ${left} 次。` : 'PIN 不对，今天已锁定。', at: now });
+			}
+			const dayKey = `rdd:${deal.id}:${day}`;
+			const n = Number((await this.ctx.storage.get<number>(dayKey)) ?? 0);
+			if (deal.dailyCap && n >= deal.dailyCap) return json({ ok: false, msg: '这家店今天的优惠已经发完了，明天再来。', at: now });
+			const monthKey = `rdm:${deal.id}:${monthOfDay(day)}`;
+			const m = Number((await this.ctx.storage.get<number>(monthKey)) ?? 0);
+			// 三个键一次写入：要么都记上，要么都没记
+			await this.ctx.storage.put({ [mine]: { ...rec, ok: now } satisfies RedeemRec, [dayKey]: n + 1, [monthKey]: m + 1 });
+			return json({ ok: true, msg: '核销成功。', redeem: this.redeemView(deal, region, code, day, true), at: now });
+		});
+	}
+
+	/** 核销相关的读改写排队执行：每天、每月的计数和每条赞助的试错次数是所有玩家共用的 */
+	private inRedeem(fn: () => Promise<Response>): Promise<Response> {
+		const run = this.redeemChain.then(fn);
+		this.redeemChain = run.catch(() => undefined);
+		return run;
+	}
+
+	/** 运营接口（对账单、PIN）的鉴权：没配置令牌返回 404，令牌不对返回 401，通过返回 null */
+	private async sponsorAuth(request: Request): Promise<Response | null> {
+		if (!this.sponsorToken) return json({ ok: false, msg: '未开放' }, 404);
+		const auth = request.headers.get('Authorization') ?? '';
+		const given = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+		if (!timingSafeEqual(await sha256Hex(given), await sha256Hex(this.sponsorToken))) return json({ ok: false, msg: '未授权' }, 401);
+		return null;
+	}
+
+	/** 商户对账单 GET /api/earth/sponsor-report?month=YYYY-MM：只有计数和金额，不含玩家信息。收费只按店员确认过的核销数 */
+	private async handleSponsorReport(request: Request, url: URL): Promise<Response> {
+		const denied = await this.sponsorAuth(request);
+		if (denied) return denied;
+		if (request.method !== 'GET') return json({ ok: false, msg: '请求无效' }, 405);
+		const month = url.searchParams.get('month') ?? '';
+		if (!/^\d{4}-\d{2}$/.test(month)) return json({ ok: false, msg: '月份格式应为 YYYY-MM' }, 400);
+		const rows = [];
+		for (const d of SPONSORS) {
+			const r = statementFor(d, month, Number((await this.ctx.storage.get<number>(`rdm:${d.id}:${month}`)) ?? 0));
+			if (r) rows.push({ ...r, claims: Number((await this.ctx.storage.get<number>(`rdc:${d.id}:${month}`)) ?? 0), pin: !!(await this.ctx.storage.get(`pin:${d.id}`)) });
+		}
+		return json({ ok: true, month, currency: 'AUD', unit: 'cents', rows });
+	}
+
+	/**
+	 * 生成或重置一条赞助的店员 PIN：POST /api/earth/sponsor-pin { deal }。新 PIN 只在这次返回一次，服务端只存加盐哈希；
+	 * 重置后旧 PIN 立刻失效。PIN 线下交给商户，不进仓库、不进日志。
+	 */
+	private async handleSponsorPin(request: Request): Promise<Response> {
+		const denied = await this.sponsorAuth(request);
+		if (denied) return denied;
+		if (request.method !== 'POST') return json({ ok: false, msg: '请求无效' }, 405);
+		const text = await request.text();
+		if (text.length > 1024) return json({ ok: false, msg: '请求过大' }, 413);
+		let body: any;
+		try {
+			body = JSON.parse(text);
+		} catch {
+			return json({ ok: false, msg: '请求无效' }, 400);
+		}
+		const deal = SPONSORS.find((d) => d.id === body?.deal);
+		if (!deal) return json({ ok: false, msg: '没有这条赞助' }, 404);
+		const rnd = crypto.getRandomValues(new Uint32Array(1))[0];
+		const pin = String(rnd % 1_000_000).padStart(6, '0');
+		const salt = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
+		await this.ctx.storage.put(`pin:${deal.id}`, { salt, hash: await sha256Hex(salt + ':' + pin) } satisfies PinRec);
+		return json({ ok: true, deal: deal.id, pin });
+	}
+
 	private pruneLobbies(now: number) {
 		// 正在结算的队伍不清：不然结算写完时大厅已经没了，队友拉不到结果
 		for (const [k, l] of this.lobbies) if (!l.starting && (l.done ? now - l.done.at > COOP_DONE_MS : now - l.at > COOP_OPEN_MS)) this.lobbies.delete(k);
@@ -876,9 +1114,84 @@ export class EarthWorld {
 		for (const [k, o] of this.offers) if (!o.taking && wall - o.at > OFFER_TTL_MS) this.offers.delete(k);
 	}
 
-	private tradeView(id: string, hash: string, loc: string) {
+	/** 最近被足够多的不同的人举报的作者（只查这些作者的举报记录） */
+	private async hiddenAuthors(authors: string[], day: number): Promise<Set<string>> {
+		const keys = [...new Set(authors)].filter((a) => HASH_RE.test(a)).map((a) => 'report:' + a);
+		const out = new Set<string>();
+		if (!keys.length) return out;
+		// 逐个取（最多 NOTES_PER_LOC 个作者）
+		const got = await Promise.all(keys.map((k) => this.ctx.storage.get<ReportRec[]>(k)));
+		keys.forEach((k, i) => { const v = got[i]; if (Array.isArray(v) && reportHidden(v, day)) out.add(k.slice('report:'.length)); });
+		return out;
+	}
+
+	// ---------- 屏蔽与举报（第 24 批） ----------
+	// safety { op: 'block', peer | note, rev }          屏蔽在线的某人（peer = 在线状态里的哈希）或某条留言的作者
+	// safety { op: 'unblock', hash, rev }               解除屏蔽
+	// safety { op: 'report', peer | note, reason, quote?, rev }  举报并顺手屏蔽；留言的原话由服务端从留言板取，聊天的原话由举报人提交（只作参考）
+	// 目标一律由服务端查实：peer 必须是有存档的玩家，note 必须是我所在地点留言板上的留言。别人的真实 id 不出服务端
+	private async handleSafety(body: any, id: string, keyHash: string, current: PlayerState, live: PlayerState, now: number, canon: (s: PlayerState) => PlayerState): Promise<Response> {
+		const hash = (await sha256Hex(id)).slice(0, 12);
+		const day = realDayOf(now);
+		const op = body.op;
+		if (op !== 'block' && op !== 'unblock' && op !== 'report') return json({ ok: false, msg: '请求无效' }, 400);
+		if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: CONFLICT_MSG, state: publicState(current), at: now }, 409);
+		if (op === 'unblock') {
+			if (typeof body.hash !== 'string' || !HASH_RE.test(body.hash)) return json({ ok: false, msg: '请求无效' }, 400);
+			const who = live.blocked[body.hash];
+			const r = applyBlock(live, 'unblock', { hash: body.hash, name: who?.name ?? '对方', avatar: who?.avatar ?? '' }, day);
+			if (!r.ok) return json({ ok: false, msg: r.msg, state: publicState(current), at: now });
+			const next = canon(r.state);
+			await this.persist(id, keyHash, next, now);
+			return json({ ok: true, msg: r.msg, state: publicState(next), at: now });
+		}
+		// 找到对方：在线状态里的哈希，或我所在地点的一条留言
+		let target: { hash: string; name: string; avatar: string; quote: string; ctx: ReportRec['ctx'] } | null = null;
+		if (typeof body.note === 'string' && NOTE_RE.test(body.note)) {
+			const n = (await this.notesAt(current.loc)).find((x) => x.id === body.note);
+			if (n) target = { hash: n.author, name: n.name, avatar: n.avatar, quote: n.text, ctx: 'note' };
+		} else if (typeof body.peer === 'string' && HASH_RE.test(body.peer)) {
+			const pid = await this.ctx.storage.get<string>('h:' + body.peer);
+			const prec = typeof pid === 'string' ? await this.ctx.storage.get<{ state: any }>('save:' + pid) : undefined;
+			if (prec?.state) target = { hash: body.peer, name: cleanName(prec.state.name) || '旅人', avatar: String(prec.state.avatar ?? '🧑').replace(/[<>&"']/g, '').slice(0, 8), quote: typeof body.quote === 'string' ? body.quote : '', ctx: typeof body.quote === 'string' && body.quote ? 'chat' : 'player' };
+		}
+		if (!target) return json({ ok: false, msg: '找不到这位玩家', state: publicState(current), at: now }, 404);
+		if (target.hash === hash) return json({ ok: false, msg: op === 'report' ? '不能举报自己' : '不能屏蔽自己', state: publicState(current), at: now }, 400);
+		let msg = '';
+		if (op === 'report') {
+			if (!isReportReason(body.reason)) return json({ ok: false, msg: '选一个举报原因', state: publicState(current), at: now }, 400);
+			const reason = body.reason;
+			const t = target;
+			const res = await this.inNotes('@report', async () => {
+				// 举报人的每日次数和被举报人的记录排队写：两个人同时举报也不会互相覆盖
+				const cd = await this.ctx.storage.get<{ day: number; n: number }>('reportcd:' + hash);
+				const today = Math.max(day, cd?.day ?? 0);
+				const used = cd && cd.day === today ? cd.n : 0;
+				if (used >= REPORTS_PER_DAY) return `今天已经举报了 ${REPORTS_PER_DAY} 次，明天再来。`;
+				const list = (await this.ctx.storage.get<ReportRec[]>('report:' + t.hash)) ?? [];
+				const next = addReport(Array.isArray(list) ? list : [], { by: hash, reason, ctx: t.ctx, day: today, quote: t.quote });
+				if (typeof next === 'string') return next;
+				await this.ctx.storage.put({ ['report:' + t.hash]: next, ['reportcd:' + hash]: { day: today, n: used + 1 } });
+				return null;
+			});
+			if (typeof res === 'string') return json({ ok: false, msg: res, state: publicState(current), at: now }, 429);
+			msg = '举报收到了，谢谢。';
+		}
+		// 举报顺手屏蔽；已经屏蔽过就只记举报
+		if (isBlocked(live, target.hash)) {
+			if (op === 'block') return json({ ok: false, msg: '已经屏蔽过了。', state: publicState(current), at: now });
+			return json({ ok: true, msg, state: publicState(current), at: now });
+		}
+		const r = applyBlock(live, 'block', target, day, hash);
+		if (!r.ok) return json({ ok: !!msg, msg: msg ? `${msg}${r.msg}` : r.msg, state: publicState(current), at: now });
+		const next = canon(r.state);
+		await this.persist(id, keyHash, next, now);
+		return json({ ok: true, msg: msg ? `${msg}${r.msg}` : r.msg, state: publicState(next), at: now });
+	}
+
+	private tradeView(id: string, hash: string, loc: string, blocked: PlayerState['blocked'] = {}) {
 		const offers = [...this.offers.values()]
-			.filter((o) => o.from === id || (o.loc === loc && (o.kind === 'sale' || o.to === hash)))
+			.filter((o) => o.from === id || (o.loc === loc && (o.kind === 'sale' || o.to === hash) && !Object.hasOwn(blocked, o.fromHash)))
 			.map((o) => ({ id: o.id, kind: o.kind, item: o.item, price: o.price, name: o.fromName, avatar: o.fromAvatar, toName: o.from === id ? o.toName : '', loc: o.loc, mine: o.from === id, taking: !!o.taking, ...(o.kind === 'swap' ? { give: o.give, want: o.want } : {}) }));
 		return { offers };
 	}
@@ -888,7 +1201,7 @@ export class EarthWorld {
 		const hash = (await sha256Hex(id)).slice(0, 12);
 		const day = realDayOf(now);
 		const op = body.op;
-		const view = (st: PlayerState) => this.tradeView(id, hash, st.loc);
+		const view = (st: PlayerState) => this.tradeView(id, hash, st.loc, st.blocked);
 		const reply = (extra: Record<string, unknown> = {}) => json({ ok: true, ...view(current), at: now, ...extra });
 		const no = (msg: string, status = 400) => json({ ok: false, msg, ...view(current), at: now }, status);
 		const mineOpen = () => [...this.offers.values()].filter((o) => o.from === id).length;
@@ -917,6 +1230,10 @@ export class EarthWorld {
 				const target = await this.ctx.storage.get<string>('h:' + body.to);
 				const trec = typeof target === 'string' ? await this.ctx.storage.get<{ state: any }>('save:' + target) : undefined;
 				if (!target || !trec || trec.state?.loc !== current.loc) return no('对方不在这里，送不了');
+				// 屏蔽（第 24 批）：我屏蔽了对方，或对方屏蔽了我，都送不了；不告诉是谁屏蔽了谁
+				if (isBlocked(current, body.to)) return no('你屏蔽了对方，先解除屏蔽再送');
+				const tb = trec.state?.blocked;
+				if (tb && typeof tb === 'object' && Object.hasOwn(tb, hash)) return no('对方现在收不到礼物');
 				if ([...this.offers.values()].filter((o) => o.toId === target).length >= OFFER_PER_TARGET) return no('对方还有好几份礼物没收，等等再送');
 				to = body.to;
 				toId = target;
@@ -930,7 +1247,7 @@ export class EarthWorld {
 			if (this.offers.size >= OFFER_MAX) return no('现在挂单太多了，稍后再试');
 			if ([...this.offers.values()].filter((o) => o.loc === current.loc).length >= OFFER_PER_LOC) return no('这里挂着的东西太多了，稍后再试');
 			const oid = newId();
-			this.offers.set(oid, { id: oid, kind: op, from: id, fromName: current.name, fromAvatar: current.avatar, to, toId, toName, item: item.id, price, loc: current.loc, at: wall });
+			this.offers.set(oid, { id: oid, kind: op, from: id, fromHash: hash, fromName: current.name, fromAvatar: current.avatar, to, toId, toName, item: item.id, price, loc: current.loc, at: wall });
 			return reply({ msg: op === 'gift' ? `${item.icon} 等${toName}收下${item.name}` : `${item.icon} ${item.name}挂上二手摊了，$${price}` });
 		}
 		if (op === 'swap') {
@@ -955,11 +1272,15 @@ export class EarthWorld {
 			const target = await this.ctx.storage.get<string>('h:' + body.to);
 			const trec = typeof target === 'string' ? await this.ctx.storage.get<{ state: any }>('save:' + target) : undefined;
 			if (!target || !trec || trec.state?.loc !== current.loc) return no('对方不在这里，换不了');
+			// 屏蔽（第 24 批，合并 main 时补上）：我屏蔽了对方，或对方屏蔽了我，都换不了；不告诉是谁屏蔽了谁
+			if (isBlocked(current, body.to)) return no('你屏蔽了对方，先解除屏蔽再换');
+			const tbs = trec.state?.blocked;
+			if (tbs && typeof tbs === 'object' && Object.hasOwn(tbs, hash)) return no('对方现在不能和你交换');
 			if ([...this.offers.values()].filter((x) => x.toId === target).length >= OFFER_PER_TARGET) return no('对方还有好几份没处理，等等再说');
 			if (this.offers.size >= OFFER_MAX || [...this.offers.values()].filter((x) => x.loc === current.loc).length >= OFFER_PER_LOC) return no('现在挂单太多了，稍后再试');
 			const oid = newId();
 			const first = give.items[0]?.item ?? want.items[0].item;
-			this.offers.set(oid, { id: oid, kind: 'swap', from: id, fromName: current.name, fromAvatar: current.avatar, to: body.to, toId: target, toName: cleanName(trec.state?.name) || '旅人', item: first, price: 0, loc: current.loc, at: wall, give, want });
+			this.offers.set(oid, { id: oid, kind: 'swap', from: id, fromHash: hash, fromName: current.name, fromAvatar: current.avatar, to: body.to, toId: target, toName: cleanName(trec.state?.name) || '旅人', item: first, price: 0, loc: current.loc, at: wall, give, want });
 			return reply({ msg: `🤝 等${cleanName(trec.state?.name) || '旅人'}回应换物` });
 		}
 		const o = typeof body.offer === 'string' && OFFER_RE.test(body.offer) ? this.offers.get(body.offer) : undefined;
@@ -1060,7 +1381,7 @@ export class EarthWorld {
 	}
 
 	private async bornOf(id: string): Promise<number | null> {
-		const b = await this.ctx.storage.get<unknown>('born:' + id);
+		const b = await this.ctx.storage.get<unknown>('since:' + id);
 		return Number.isInteger(b) ? (b as number) : null;
 	}
 
@@ -1104,7 +1425,8 @@ export class EarthWorld {
 			const born = await this.bornOf(id);
 			const view = (st: PlayerState, mail: Mail[], q = quota) => {
 				const all = [...lots.values()];
-				const open = all.filter((l) => l.seller !== id).sort((a, b) => a.endsAt - b.endsAt).slice(0, LOTS_SHOWN);
+				// 屏蔽（第 24 批，合并 main 时补上）：我屏蔽了的人挂的东西不显示，和送礼、二手摊的列表一样
+				const open = all.filter((l) => l.seller !== id && !isBlocked(st, l.sellerHash)).sort((a, b) => a.endsAt - b.endsAt).slice(0, LOTS_SHOWN);
 				return {
 					lots: open.map((l) => lotView(l, id)),
 					mine: all.filter((l) => l.seller === id).map((l) => lotView(l, id)),
@@ -1174,6 +1496,13 @@ export class EarthWorld {
 				if (typeof r === 'string') return refuse(r);
 				const next = r.mail ? pushMail(box, r.mail) : box;
 				return commit(r.state, '已撤回', { ['lot:' + lot.id]: { gone: true }, ...(r.mail ? { ['mail:' + id]: next } : {}) }, [[lot.id, null]], next);
+			}
+			// 屏蔽：我屏蔽了卖家，或卖家屏蔽了我，都买不了、拍不了（不告诉是谁屏蔽了谁，同送礼）
+			if (op === 'buy' || op === 'bid') {
+				if (isBlocked(live, lot.sellerHash)) return refuse('你屏蔽了对方，先解除屏蔽再买');
+				const srec = await this.ctx.storage.get<{ state: any }>('save:' + lot.seller);
+				const sb = srec?.state?.blocked;
+				if (sb && typeof sb === 'object' && Object.hasOwn(sb, hash)) return refuse('对方现在不接受你的出价');
 			}
 			if (op === 'buy') {
 				const qb = quotaBlocked(quota, lot.price, lot.sellerHash);
@@ -1257,7 +1586,11 @@ export class EarthWorld {
 /** Worker 入口路由：命中 /api/earth/* 返回 Response，否则返回 null 交给 Astro */
 export function routeEarth(request: Request, env: any): Promise<Response> | null {
 	const url = new URL(request.url);
-	if (url.pathname === '/api/earth/save') {
+	if (url.pathname === '/api/earth/stats') {
+		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(STATS_ROOM)).fetch(request);
+	}
+	if (url.pathname === '/api/earth/stats/read') return readStats(request, env);
+	if (url.pathname === '/api/earth/save' || url.pathname === '/api/earth/sponsor-report' || url.pathname === '/api/earth/sponsor-pin') {
 		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(SAVES_ROOM)).fetch(request);
 	}
 	if (url.pathname === '/api/earth/ws') {
@@ -1265,4 +1598,24 @@ export function routeEarth(request: Request, env: any): Promise<Response> | null
 		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(region)).fetch(request);
 	}
 	return null;
+}
+
+/**
+ * 查询统计汇总：GET /api/earth/stats/read?from=<现实日>&to=<现实日>，带 Authorization: Bearer <EARTH_STATS_TOKEN>。
+ * 令牌是 Worker 的 secret（不是付费服务）；没配置或不对一律 404，不暴露接口存在。
+ * 合并存档实例（服务端结算的计数）和统计实例（客户端上报的计数）。
+ */
+async function readStats(request: Request, env: any): Promise<Response> {
+	const token = typeof env?.EARTH_STATS_TOKEN === 'string' ? env.EARTH_STATS_TOKEN : '';
+	const auth = request.headers.get('Authorization') || '';
+	if (request.method !== 'GET' || token.length < 32 || !timingSafeEqual(auth, 'Bearer ' + token)) return json({ ok: false }, 404);
+	const q = new URL(request.url).search;
+	const parts: Record<string, Counts>[] = [];
+	for (const room of [SAVES_ROOM, STATS_ROOM]) {
+		const res = await env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(room)).fetch(new Request('https://internal/api/earth/stats/read' + q));
+		const data = (await res.json()) as any;
+		if (!data?.ok) return json(data, res.status);
+		parts.push(data.days);
+	}
+	return json({ ok: true, days: mergeDays(...parts) });
 }

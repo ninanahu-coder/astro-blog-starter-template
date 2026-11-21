@@ -439,6 +439,19 @@ export const swapCash = (give: SwapSide, want: SwapSide) => give.cash + want.cas
  * 一笔面交：a 给出 give、拿到 want；b 反过来。双方同一地点，锁内重新检查后一次结算。不改入参。
  * 收钱一方付 swapFee（货币回收）。
  */
+/**
+ * 收到换物请求的一方现在能不能同意（纯函数，界面提前把「同意」按钮置灰用；结算时服务端仍按 resolveSwap 全部重查）。
+ * 只查自己这边：今天收下的次数、待处理事件、有没有对方要的东西和钱、背包放不放得下。新号限制和每日额度只有服务端知道，不在这里查。
+ */
+export function swapReceiverBlocked(b: PlayerState, give: SwapSide, want: SwapSide, day: number): string | undefined {
+	if (tradesToday(b, day).in >= TRADE_DAILY) return `今天已经收下 ${TRADE_DAILY} 次了`;
+	if (b.pending) return '先处理眼前的事件';
+	if (!want.items.every((x) => (b.inventory[x.item] ?? 0) >= x.n)) return '你没有对方想要的东西';
+	if (b.cash < want.cash) return `要付 $${want.cash}，钱不够`;
+	if (!give.items.every((x) => roomFor(b, x.item) + (want.items.find((y) => y.item === x.item)?.n ?? 0) >= x.n)) return '背包放不下';
+	return undefined;
+}
+
 export function resolveSwap(a: PlayerState, b: PlayerState, give: SwapSide, want: SwapSide, ctx: { now: number; day: number; tx: string; aHash: string; bHash: string }): { a: PlayerState; b: PlayerState; fee: number; entry: LedgerEntry } | string {
 	if (a.id === b.id) return '不能和自己交易。';
 	// 和送礼、二手摊共用每日次数：发起人算送出一次，收下的人算收下一次

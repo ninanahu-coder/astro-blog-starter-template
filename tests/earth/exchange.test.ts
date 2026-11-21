@@ -4,9 +4,10 @@ import { test } from 'node:test';
 import { createCharacter } from '../../src/game/core/character.ts';
 import {
 	bidLot, buyLot, cancelLot, claimMail, createLot, EXCHANGE, feeOf, minBid, newbieBlocked, parseSwapSide, priceBand, priceFlags, pushMail,
-	quotaAdd, quotaBlocked, quotaOf, resolveSwap, settleLot, swapCashBand, swapShapeBlocked, type Lot, type Mail,
+	quotaAdd, quotaBlocked, quotaOf, resolveSwap, settleLot, swapCashBand, swapReceiverBlocked, swapShapeBlocked, type Lot, type Mail,
 } from '../../src/game/core/exchange.ts';
 import { swapCashOptions } from '../../src/game/ui/market.ts';
+import { getItem } from '../../src/game/core/attributes.ts';
 
 const DAY = 20_000;
 const T0 = 1_800_000_000_000;
@@ -242,4 +243,20 @@ test('界面：交易所卡片和面交说明里的玩家名字、邮箱文字�
 	assert.equal(picker.includes('<img'), false);
 	assert.ok(picker.includes('data-swap="send"'));
 	assert.equal(swapDesc(esc, { items: [{ item: 'snack', n: 2 }], cash: 0 }, { items: [], cash: 9 }), '拿出 🍫能量棒×2，想换你的 $9');
+});
+
+test('换物预检（合并 main 后，界面用来把「同意」置灰）：东西、钱、背包、待处理事件、今天收下的次数', () => {
+	const give = { items: [{ item: 'snack', n: 1 }], cash: 0 };
+	const want = { items: [{ item: 'surfboard', n: 1 }], cash: 0 };
+	const ok = mk('pre-b', { inventory: { surfboard: 1 }, cash: 100 });
+	assert.equal(swapReceiverBlocked(ok, give, want, DAY), undefined);
+	assert.match(swapReceiverBlocked(mk('pre-b', { inventory: {} }), give, want, DAY)!, /没有对方想要的东西/);
+	assert.match(swapReceiverBlocked(mk('pre-b', { inventory: { surfboard: 1 }, cash: 10 }), give, { ...want, cash: 40 }, DAY)!, /钱不够/);
+	assert.match(swapReceiverBlocked({ ...ok, pending: { eventId: 'x' } }, give, want, DAY)!, /事件/);
+	const full = getItem('snack')!.max;
+	assert.match(swapReceiverBlocked(mk('pre-b', { inventory: { surfboard: 1, snack: full } }), give, want, DAY)!, /背包放不下/, '对方给的东西已经拿满了');
+	assert.match(swapReceiverBlocked({ ...ok, trades: { day: DAY, out: 0, in: 99 } } as never, give, want, DAY)!, /收下/);
+	// 和服务端结算一致：预检通过的，resolveSwap 在收件人这边也不挡
+	const a = mk('pre-a', { inventory: { snack: 1 } });
+	assert.equal(typeof resolveSwap(a, ok, give, want, { now: T0, day: DAY, tx: 't', aHash: 'aaaaaaaaaaaa', bHash: 'bbbbbbbbbbbb' }), 'object');
 });

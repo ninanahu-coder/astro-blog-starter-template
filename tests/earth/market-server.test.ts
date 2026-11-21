@@ -43,7 +43,7 @@ async function veteran(w: ReturnType<typeof makeWorld>, c: Cred, over: { cash?: 
 	await w.call({ action: 'create', ...c, profile });
 	const rec = w.data.get('save:' + c.id);
 	w.data.set('save:' + c.id, { ...rec, state: { ...rec.state, clock: 10 * 1440, cash: over.cash ?? 1000, inventory: over.inventory ?? {}, ...(over.loc ? { loc: over.loc } : {}) } });
-	w.data.set('born:' + c.id, realDayOf(Date.now()) - 10);
+	w.data.set('since:' + c.id, realDayOf(Date.now()) - 10);
 	return (await w.call({ action: 'get', ...c })).data.state;
 }
 const rev = async (w: ReturnType<typeof makeWorld>, c: Cred) => (await w.call({ action: 'get', ...c })).data.state.rev;
@@ -309,10 +309,100 @@ test('注销：他挂的拍品撤下，已出价的人全额退回邮箱；他�
 	assert.ok((await mkt(w, B, 'bid', { lot, amount: 300 })).data.ok);
 	const del = await w.call({ action: 'delete', ...S, confirm: 'delete' });
 	assert.ok(del.data.ok, del.data.msg);
-	for (const k of ['save:', 'born:', 'mail:', 'mops:']) assert.equal(w.data.has(k + S.id), false, k);
+	for (const k of ['save:', 'since:', 'mail:', 'mops:']) assert.equal(w.data.has(k + S.id), false, k);
 	assert.equal(w.data.has('xq:' + hashOf(S.id)), false);
 	const bl = (await mkt(w, B, 'list')).data;
 	assert.equal(bl.lots.length, 0);
 	assert.equal(bl.mail[0].cash, 300);
 	assert.equal((await mkt(w, B, 'claim')).data.state.cash, 900);
+});
+
+// ---------- 合并 main 后复核补的 ----------
+/** 直接在存档里记下 who 屏蔽了 target（测试用；正式流程走 safety 动作） */
+function block(w: ReturnType<typeof makeWorld>, who: Cred, target: Cred) {
+	const rec = w.data.get('save:' + who.id);
+	const blocked = { ...(rec.state.blocked ?? {}), [hashOf(target.id)]: { name: '被屏蔽', avatar: '🙈', day: realDayOf(Date.now()) } };
+	w.data.set('save:' + who.id, { ...rec, state: { ...rec.state, blocked } });
+}
+
+test('屏蔽（合并 main 后）：屏蔽了卖家就看不到他挂的东西，也买不了、拍不了；卖家屏蔽了我也一样', async () => {
+	const w = makeWorld();
+	const S = cred('mkt-block-seller');
+	const A = cred('mkt-block-a');
+	const B = cred('mkt-block-b');
+	await veteran(w, S, { cash: 100, inventory: { swag: 1, surfboard: 1 } });
+	await veteran(w, A, { cash: 900 });
+	await veteran(w, B, { cash: 900 });
+	assert.ok((await mkt(w, S, 'sell', { kind: 'fixed', item: 'swag', price: 150 })).data.ok);
+	assert.ok((await mkt(w, S, 'sell', { kind: 'auction', item: 'surfboard', price: 200, hours: 24 })).data.ok);
+	const lots = (await mkt(w, A, 'list')).data.lots;
+	assert.equal(lots.length, 2, '（对照）没屏蔽时看得到两件');
+	const fixed = lots.find((l: any) => l.kind === 'fixed').id;
+	const auction = lots.find((l: any) => l.kind === 'auction').id;
+	// A 屏蔽了卖家
+	block(w, A, S);
+	assert.equal((await mkt(w, A, 'list')).data.lots.length, 0, '屏蔽了卖家：列表里看不到');
+	assert.match((await mkt(w, A, 'buy', { lot: fixed })).data.msg, /你屏蔽了对方/);
+	assert.match((await mkt(w, A, 'bid', { lot: auction, amount: 250 })).data.msg, /你屏蔽了对方/);
+	// 卖家屏蔽了 B：B 看得到（不暴露谁屏蔽了谁），但买不了、拍不了
+	block(w, S, B);
+	assert.equal((await mkt(w, B, 'list')).data.lots.length, 2);
+	assert.match((await mkt(w, B, 'buy', { lot: fixed })).data.msg, /对方现在不接受/);
+	assert.match((await mkt(w, B, 'bid', { lot: auction, amount: 250 })).data.msg, /对方现在不接受/);
+	assert.equal(saved(w, B).cash, 900, '没扣钱');
+	assert.equal(itemTotal(w, 'swag'), 1);
+});
+
+test('屏蔽（合并 main 后）：面交换物两个方向都发不出；已经发出的换物请求，屏蔽后列表里看不到', async () => {
+	const w = makeWorld();
+	const A = cred('swap-block-a');
+	const B = cred('swap-block-b');
+	await veteran(w, A, { cash: 600, inventory: { snack: 2 } });
+	await veteran(w, B, { cash: 50, inventory: { surfboard: 1 } });
+	const call = (c: Cred, op: string, extra: Record<string, unknown> = {}) => w.call({ action: 'trade', op, ...c, ...extra });
+	const body = (to: Cred) => ({ to: hashOf(to.id), give: { items: [{ item: 'snack', n: 1 }] }, want: { items: [{ item: 'surfboard', n: 1 }] } });
+	const sent = await call(A, 'swap', body(B));
+	assert.ok(sent.data.ok, sent.data.msg);
+	const seen = (await call(B, 'list')).data.offers.filter((o: any) => o.kind === 'swap');
+	assert.equal(seen.length, 1, '（对照）没屏蔽时收件人看得到');
+	assert.ok(seen[0].give && seen[0].want, '换物内容带着');
+	block(w, B, A);
+	assert.equal((await call(B, 'list')).data.offers.filter((o: any) => o.kind === 'swap').length, 0, 'B 屏蔽 A 后看不到 A 的换物请求');
+	assert.match((await call(A, 'swap', body(B))).data.msg, /对方现在不能和你交换/, '被对方屏蔽了：发不出');
+	assert.match((await call(B, 'swap', { to: hashOf(A.id), give: { items: [{ item: 'surfboard', n: 1 }] }, want: { items: [{ item: 'snack', n: 1 }] } })).data.msg, /你屏蔽了对方/, '自己屏蔽了对方：发不出');
+});
+
+test('建号日（合并 main 后）：玩家关了统计（nt）也照样记 since:（新号限制要用），但不记统计的 born:', async () => {
+	const w = makeWorld();
+	const N = cred('since-nt-1');
+	const made = await w.call({ action: 'create', ...N, profile, nt: true });
+	assert.ok(made.data.ok, made.data.msg);
+	assert.equal(w.data.get('since:' + N.id), realDayOf(Date.now()));
+	assert.equal([...w.data.keys()].some((k) => k.startsWith('born:')), false, '统计的注册日不记');
+	const rec = w.data.get('save:' + N.id);
+	w.data.set('save:' + N.id, { ...rec, state: { ...rec.state, clock: 10 * 1440, inventory: { swag: 1 } } });
+	assert.match((await mkt(w, N, 'sell', { kind: 'fixed', item: 'swag', price: 150 })).data.msg, /满 3 天/, '照样按新号限制');
+});
+
+test('注销（合并 main 后补测）：最高出价的人注销，出价清掉，拍品还在；到期没人出价退回卖家', async () => {
+	const w = makeWorld();
+	const S = cred('mkt-seller-del2');
+	const B = cred('mkt-bidder-del2');
+	await veteran(w, S, { cash: 100, inventory: { surfboard: 1 } });
+	await veteran(w, B, { cash: 900 });
+	const lot = (await mkt(w, S, 'sell', { kind: 'auction', item: 'surfboard', price: 200, hours: 6 })).data.mine[0].id;
+	assert.ok((await mkt(w, B, 'bid', { lot, amount: 300 })).data.ok);
+	assert.ok((await w.call({ action: 'delete', ...B, confirm: 'delete' })).data.ok);
+	assert.equal(w.data.has('mail:' + B.id), false, '注销的人没有邮箱留下');
+	const mine = (await mkt(w, S, 'list')).data.mine;
+	assert.equal(mine.length, 1, '拍品还在');
+	assert.equal(mine[0].bid, 0, '出价清掉了');
+	// 到期：没人出价，东西退回卖家邮箱
+	const cached = await (w.world as any).loadLots();
+	cached.get(lot).endsAt = Date.now() - 1;
+	w.data.set('lot:' + lot, { ...w.data.get('lot:' + lot), endsAt: Date.now() - 1 });
+	const after = (await mkt(w, S, 'list')).data;
+	assert.equal(after.mine.length, 0);
+	assert.ok(after.mail.some((m: any) => m.item === 'surfboard'), '流拍退回卖家');
+	assert.equal(itemTotal(w, 'surfboard'), 1);
 });
