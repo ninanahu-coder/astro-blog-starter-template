@@ -66,6 +66,7 @@ export const WORLD_DAYS_MAX = 20000;
 /** 对游戏的影响系数（全部待平衡） */
 export const WORLD_FX = {
 	/** 油价每偏离中心 1%，各出行方式的路费变动多少 %（燃油在票价里的份额，自驾最高） */
+	// 渡轮的份额只用于没有真实票价的渡轮线路：现在的渡轮线路都在 ROUTE_FARES 里，按真实票价，不乘燃油系数（合并 main 时定）
 	fuelShare: { road: 0.5, track: 0.5, bus: 0.3, air: 0.3, ferry: 0.2 },
 	/** 矿业景气每偏离中心 1%，矿业公司工资变动多少 % */
 	miningPayShare: 0.5,

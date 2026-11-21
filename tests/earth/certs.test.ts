@@ -7,6 +7,7 @@ import { applyEffect, applyJob, careerPay, certsAt, takeCert, workShift } from '
 import { workTerms } from '../../src/game/core/venues.ts';
 import { CAREERS } from '../../src/game/data/careers.ts';
 import { CERTS } from '../../src/game/data/certs.ts';
+import { AWARDS } from '../../src/game/data/education.ts';
 import { VENUE_TYPES } from '../../src/game/data/venues.ts';
 import { WA } from '../../src/game/data/wa.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
@@ -25,7 +26,8 @@ test('证书数据：id 唯一、对应真实职业、至少一个地点能考�
 		assert.ok(c.price > 0 && c.minutes > 0 && c.payBonus > 0 && c.payBonus < 1, c.id);
 		assert.ok(WA.locations.some((l) => c.where.kinds?.includes(l.kind) || c.where.tags?.some((t) => l.tags.includes(t))), `${c.id} 有地方考`);
 	}
-	for (const k of CAREERS) assert.ok(CERTS.some((c) => c.career === k.id), `${k.id} 有对应证书`);
+	// 每份职业要么有加薪证书，要么入行要学历（第 33 批的 IT 公司靠学历课程入行，没有单独的加薪证）
+	for (const k of CAREERS) assert.ok(CERTS.some((c) => c.career === k.id) || k.levels[0].req?.certs?.some((id) => AWARDS.includes(id)), `${k.id} 有对应证书或学历门槛`);
 });
 
 test('考证：时段、钱、只考一次、有待处理事件不行；考完扣钱、花时间、记下证书', () => {

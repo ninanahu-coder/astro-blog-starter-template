@@ -61,9 +61,13 @@ export interface WeeklyCosts {
 	total: number;
 }
 
-/** 每周固定开销：房租（住自有房时为 0）+ 车辆保险保养 + 房产的物业费与还款。不含租金收入 */
+/** 下一次周结算按哪天的世界行情算：就是下一个结算日（weeklyTick、settleProperties 结算时用的那天）。结算日已过还没结算时取今天 */
+export const settleDay = (state: PlayerState) => Math.max(dayOf(state.clock), state.nextWeek);
+
+/** 每周固定开销：房租（住自有房时为 0）+ 车辆保险保养 + 房产的物业费与还款。不含租金收入。
+ * 房租和房贷按下一个结算日的行情（世界事件），和结算时实际扣的一致：「结算前钱不够」的提示不会在换期那周说错 */
 export function weeklyCosts(state: PlayerState): WeeklyCosts {
-	const day = dayOf(state.clock);
+	const day = settleDay(state);
 	const rent = state.home && !state.home.owned ? rentOn(HOMES.find((h) => h.id === state.home!.type)?.rentWeek ?? 0, day) : 0; // 世界事件：租金指数
 	const vehicle = VEHICLES.find((v) => v.id === state.vehicle)?.weekly ?? 0;
 	const property = state.properties.reduce((sum, p) => {

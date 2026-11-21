@@ -1,7 +1,10 @@
 // 真实地点：玩家拿着手机真的走到某家餐馆、健身房、公园，就能在游戏里做对应的事。
 // 纯函数：现实时间 now（毫秒）由服务端传入，客户端无法伪造；坐标来自手机定位，可以伪造，所以做了精度、距离和速度三道检查。
+import { careerPayMult } from './world.ts';
+import { canWork, VISA_EXPIRED_MSG } from './visa.ts';
+import { noteDrink } from './law.ts';
 import { realDayOf } from './daily.ts';
-import { addMoodlet, applyEffect, certBonus, clone, collapsedResult, fail, getCareer, getLocation, log, pickVenueEvent, tryPromote } from './engine.ts';
+import { addMoodlet, applyEffect, certBonus, clone, collapsedResult, fail, getCareer, getLocation, log, pickVenueEvent, startEvent, tryPromote } from './engine.ts';
 import {
 	drinkOutcome, exerciseOutcome, groceriesOutcome, healOutcome, mealOutcome, relaxOutcome, studyOutcome, trainOutcome, workPay,
 	type OpOutcome,
@@ -42,7 +45,8 @@ export function workTerms(state: PlayerState, type: VenueTypeDef, venue: Venue):
 	const c = job ? getCareer(job.career) : undefined;
 	if (job && job.loc === venue.loc && c?.venues?.includes(type.id)) {
 		// 先和零工时薪取高，再乘证书加成：持证在哪家店打卡都是完整的加成（和游戏内上班一致）
-		const base = Math.max(c.levels[job.level].pay / (c.minutes / 60), type.gigRate ?? 0) * (1 + certBonus(state, c.id));
+		// 世界事件：矿业景气系数乘在职业时薪上（和游戏内上班 careerPay 一致），零工时薪不受影响
+		const base = Math.max((c.levels[job.level].pay / (c.minutes / 60)) * careerPayMult(c.id, dayOf(state.clock)), type.gigRate ?? 0) * (1 + certBonus(state, c.id));
 		return { hourly: Math.round(base * ON_SITE_BONUS * 10) / 10, skill: c.skill, career: true };
 	}
 	return gigTerms(type);
@@ -161,6 +165,7 @@ function workPreview(state: PlayerState, type: VenueTypeDef, venue: Venue, now: 
 
 function workBlocked(state: PlayerState, type: VenueTypeDef, venue: Venue, now: number): string | undefined {
 	if (state.clockIn?.venue === venue.id) return undefined; // 可以打下班卡
+	if (!canWork(state)) return VISA_EXPIRED_MSG;
 	if (!workTerms(state, type, venue)) return '这里需要在你的工作地点有对应的职业才能上班';
 	const today = realDayOf(now);
 	if (state.realWork.day === today && state.realWork.min >= FIX_RULES.dayMaxMin) return `今天已经计满 ${FIX_RULES.dayMaxMin / 60} 小时`;
@@ -209,6 +214,7 @@ function simpleOp(prev: PlayerState, region: Region, venue: Venue, type: VenueTy
 	state.venueCd[op.id] = now; // 晕倒也算来过一次，冷却照常
 	if (applyEffect(state, { ...out.fx, minutes: op.minutes }, region)) return collapsedResult(state);
 	if (op.id === 'train') addMoodlet(state, 'sore'); // 练完 12 小时内再练只有一半效果（超量恢复）
+	noteDrink(state, op.id, 'venue'); // 法律：在真实酒吧喝过酒，4 小时内自己开车遇到呼气测试会超标
 	const msg = `在${venue.name}${op.name}：${out.notes.join('，')}。`;
 	log(state, msg);
 	return { ok: true, state, msg: msg + venueEvent(state, type, now) };
@@ -217,9 +223,10 @@ function simpleOp(prev: PlayerState, region: Region, venue: Venue, type: VenueTy
 /** 做完一件事后可能遇到事件：同一时间只有一个，现实里至少隔 eventGapMin 分钟 */
 function venueEvent(state: PlayerState, type: VenueTypeDef, now: number): string {
 	if (state.pending || now - state.venueEvAt < FIX_RULES.eventGapMin * 60_000) return '';
-	const ev = pickVenueEvent(state, type.id, FIX_RULES.eventChance);
-	if (!ev) return '';
-	state.pending = { eventId: ev.id };
+	const picked = pickVenueEvent(state, type.id, FIX_RULES.eventChance);
+	if (!picked) return '';
+	const ev = picked.ev;
+	startEvent(state, ev, picked.src);
 	state.venueEvAt = now;
 	return ` 这时：${ev.icon} ${ev.title}。`;
 }

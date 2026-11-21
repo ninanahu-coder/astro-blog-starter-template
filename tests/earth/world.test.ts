@@ -2,9 +2,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction } from '../../src/game/core/actions.ts';
-import { weeklyCosts } from '../../src/game/core/attributes.ts';
+import { settleDay, weeklyCosts } from '../../src/game/core/attributes.ts';
 import { createCharacter } from '../../src/game/core/character.ts';
-import { careerPay, careersAt, firstRent, travelOptions } from '../../src/game/core/engine.ts';
+import { bondFor, careerPay, careersAt, firstRent, rentHome, travelOptions } from '../../src/game/core/engine.ts';
 import { loanPayment, weeklyInterest, weeklyPrincipal } from '../../src/game/core/finance.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
 import {
@@ -13,6 +13,8 @@ import {
 import { getCareer } from '../../src/game/core/engine.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
 import { PROPERTIES } from '../../src/game/data/properties.ts';
+import { weeklyBudget } from '../../src/game/core/economy.ts';
+import { FINANCE } from '../../src/game/core/finance.ts';
 import { WA } from '../../src/game/data/wa.ts';
 import { INDICATORS, NEWS_LOOKBACK_DAYS, NEWS_MAX, NEWS_TEXT, WORLD_DAYS_MAX, WORLD_FX } from '../../src/game/data/world.ts';
 import { worldCard } from '../../src/game/ui/world.ts';
@@ -104,7 +106,9 @@ test('引擎：路费随油价变，房租首期和每周开销随租金行情�
 	assert.ok(c0.length > 0);
 	for (const o of c0) {
 		const o1 = c1.find((x) => x.to === o.to && x.mode === o.mode)!;
-		if (o.cost >= 20) assert.ok(o1.cost > o.cost, `${o.label} → ${o.to}：${o.cost} → ${o1.cost}`);
+		// 按真实票价的线路（公交、火车、部分渡轮，world-events.md §8：真实票价不随油价变）不乘燃油系数；按公里估价的线路随油价涨
+		if (o.note && /票价/.test(o.note)) assert.equal(o1.cost, o.cost, `${o.label} → ${o.to}：真实票价不变`);
+		else if (o.cost >= 20) assert.ok(o1.cost > o.cost, `${o.label} → ${o.to}：${o.cost} → ${o1.cost}`);
 	}
 	// 背包客没车：公路坐巴士，按巴士的燃油份额涨（比自驾少）
 	const bus = c0.filter((o) => o.mode === 'road' && o.cost >= 60);
@@ -251,5 +255,69 @@ test('界面卡片：六个指标、新闻和免责声明都在；数据里的�
 		assert.ok(out.includes('&lt;img'));
 	} finally {
 		[t.title, t2.title] = keep;
+	}
+});
+
+// ---------- 合并 main 后复核补的 ----------
+test('结算前的开销估算按下一个结算日的行情：换期那周提示和实际扣款一致（合并 main 后复核）', () => {
+	// 租金指数换期：前一天和换期当天周租不同（结算按结算日扣，见上一个测试）
+	const home = HOMES.find((h) => h.rentWeek >= 150 && h.rentWeek <= 400)!;
+	const rentStep = firstDay((d) => d >= 7 && d % 7 === 0 && rentOn(home.rentWeek, d) !== rentOn(home.rentWeek, d - 1));
+	const s = make({ clock: (rentStep - 1) * DAY + 8 * 60, nextWeek: rentStep, home: { type: home.id, loc: WA.spawn, furniture: {} } });
+	assert.equal(settleDay(s), rentStep);
+	assert.equal(weeklyCosts(s).rent, rentOn(home.rentWeek, rentStep), '按结算日，不按今天');
+	assert.notEqual(weeklyCosts(s).rent, rentOn(home.rentWeek, rentStep - 1));
+	// 利率换期：房贷还款也按结算日
+	const rateStep = firstDay((d) => d >= 7 && d % 7 === 0 && loanRateMult(d) !== loanRateMult(d - 1));
+	const pr = PROPERTIES[0];
+	const loan = Math.round(pr.price * 0.8);
+	const owner = make({ clock: (rateStep - 1) * DAY + 8 * 60, nextWeek: rateStep, properties: [{ id: pr.id, loan, rented: false, missed: 0 }] as never });
+	assert.equal(weeklyCosts(owner).property, pr.weekly + loanPayment(pr, loan, loanRateMult(rateStep)));
+	assert.notEqual(weeklyCosts(owner).property, pr.weekly + loanPayment(pr, loan, loanRateMult(rateStep - 1)));
+	// 结算日已过还没结算（离线很久）：取今天
+	assert.equal(settleDay(make({ clock: 40 * DAY, nextWeek: 35 })), 40);
+});
+
+test('页面：自己住处的周租、已有房产的租金收入和还款按下一个结算日显示（合并 main 后复核）', async () => {
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(src, /每周 \$\$\{rentOn\(homeHere\.rentWeek, settleDay\(s\)\)\}/, '住处卡');
+	assert.match(src, /出租中 \+\$\$\{rentOn\(pr\.rentIncome, settleDay\(s\)\)\}/, '已有房产的租金');
+	assert.match(src, /每周还 \$\$\{loanPayment\(pr, op\.loan, loanRateMult\(settleDay\(s\)\)\)\}/, '已有房产的还款');
+});
+
+test('押金按标价（合并 main 后定）：租金指数高的时候签约，押金也不超过存档清洗的上限', () => {
+	const hi = firstDay((d) => rentMult(d) > 1.03);
+	const home = HOMES.find((h) => h.id === 'room')!;
+	const s = make({ cash: 5000, clock: hi * DAY + 9 * 60, nextWeek: hi + 7 });
+	const r = rentHome(s, WA, 'room');
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.home!.bond, bondFor(home));
+	assert.equal(bondFor(home), Math.round(home.rentWeek * 2));
+	assert.ok(firstRent(s, home) > 0);
+});
+
+test('每周收支估算的出租收入按结算日的租金行情（合并 main 后复核）', () => {
+	const hi = firstDay((d) => d % 7 === 0 && rentMult(d) > 1.03);
+	const pr = PROPERTIES[0];
+	const s = make({ clock: (hi - 1) * DAY + 8 * 60, nextWeek: hi, properties: [{ id: pr.id, loan: 0, rented: true, missed: 0 }] as never });
+	assert.equal(weeklyBudget(s).rentIncome, Math.round(rentOn(pr.rentIncome, hi) * (1 - FINANCE.vacancy)));
+	assert.ok(weeklyBudget(s).rentIncome > Math.round(pr.rentIncome * (1 - FINANCE.vacancy)));
+});
+
+test('按真实票价的线路（公交、火车、渡轮）在油价高低的日子都不变（合并 main 后定，world-events.md §8）', () => {
+	const days = [0, ...DAYS.filter((d) => indicatorOn(getIndicator('oil'), d) >= 215 || indicatorOn(getIndicator('oil'), d) <= 165).filter((_, i) => i % 9 === 0)];
+	assert.ok(days.some((d) => d > 300), '要包括后面几轮油价周期');
+	for (const loc of ['perth', 'fremantle', 'kalgoorlie']) {
+		const base = travelOptions(make({ loc, cash: 50000, clock: 8 * 60 }), WA).filter((o) => o.note && /票价/.test(o.note));
+		assert.ok(loc !== 'perth' || base.length > 0, '珀斯有真实票价线路');
+		for (const d of days) {
+			const now = travelOptions(make({ loc, cash: 50000, clock: d * DAY + 8 * 60 }), WA);
+			for (const o of base) {
+				const o1 = now.find((x) => x.to === o.to && x.mode === o.mode && x.label === o.label);
+				// 周日 Transperth 免费（note 变成「刷卡免费」）不算
+				if (o1 && o1.note && /票价/.test(o1.note)) assert.equal(o1.cost, o.cost, `${loc} ${o.label} → ${o.to} 第 ${d} 天`);
+			}
+		}
 	}
 });

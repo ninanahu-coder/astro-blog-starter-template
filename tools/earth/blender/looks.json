@@ -1,0 +1,31 @@
+{
+	"note": "人物形象和装束的数据。looks 的顺序和 src/game/core/character.ts 的 AVATARS 一一对应（tests/earth/characters.test.ts 会检查）。tone 是 SKIN_TONES 的下标 0–4。颜色、发型都是原创设定，不对应任何真人。",
+	"looks": [
+		{ "emoji": "🧑", "name": "短发", "tone": 1, "hair": { "style": "short", "color": "#231c18" } },
+		{ "emoji": "👩", "name": "长发", "tone": 1, "hair": { "style": "long", "color": "#2b1e17" } },
+		{ "emoji": "👨", "name": "侧分", "tone": 0, "hair": { "style": "side", "color": "#5a3b24" } },
+		{ "emoji": "🧔", "name": "络腮胡", "tone": 3, "hair": { "style": "short", "color": "#1f1815", "beard": "#1f1815" } },
+		{ "emoji": "👱", "name": "金发", "tone": 0, "hair": { "style": "side", "color": "#dcb45f", "brow": "#a8843f" } },
+		{ "emoji": "🧑‍🦱", "name": "卷发", "tone": 4, "hair": { "style": "curly", "color": "#17120f" } },
+		{ "emoji": "👩‍🦰", "name": "红发", "tone": 0, "hair": { "style": "long", "color": "#b5532a", "brow": "#8a4322" } },
+		{ "emoji": "🧕", "name": "头巾", "tone": 2, "hair": { "style": "hijab", "color": "#2f6f73", "brow": "#2a1f18" } },
+		{ "emoji": "🤠", "name": "宽檐帽", "tone": 2, "hair": { "style": "under-hat", "color": "#3a2a1e" }, "extras": ["widehat"], "hat": "#b08a56" },
+		{ "emoji": "😎", "name": "墨镜", "tone": 3, "hair": { "style": "bun", "color": "#1b1512" }, "extras": ["sunnies"] }
+	],
+	"outfits": {
+		"backpacker": { "name": "背包客", "top": { "color": "#6f7f4a", "sleeve": "short" }, "bottom": { "color": "#59616e", "len": "short" }, "shoes": { "type": "boot", "color": "#6a4a30" }, "extras": [{ "kind": "backpack", "size": "big", "color": "#c4572e", "roll": "#d9b36a", "strap": "#8a3a1e" }] },
+		"fifo": { "name": "矿区轮班工", "top": { "color": "#f07a1a", "sleeve": "long" }, "bottom": { "color": "#1f2f4d", "len": "long" }, "shoes": { "type": "boot", "color": "#b58a4c" }, "extras": [{ "kind": "collar" }, { "kind": "stripes" }, { "kind": "hardhat", "color": "#f5f5f0" }] },
+		"student": { "name": "留学生", "top": { "color": "#15284d", "sleeve": "long" }, "bottom": { "color": "#4a6a96", "len": "long" }, "shoes": { "type": "sneaker", "color": "#f3f7f5", "sole": "#dcbc6c" }, "extras": [{ "kind": "hood" }, { "kind": "backpack", "size": "small", "color": "#dcbc6c", "strap": "#b89a4e" }] },
+		"surfer": { "name": "冲浪手", "top": { "color": "#2aa7a1", "sleeve": "short" }, "bottom": { "color": "#e8684a", "len": "short" }, "shoes": { "type": "thong", "color": "#1f2f4d" }, "extras": [{ "kind": "surfboard", "color": "#f3efe2", "stripe": "#2aa7a1" }] },
+		"barista": { "name": "咖啡店", "top": { "color": "#26272b", "sleeve": "short" }, "bottom": { "color": "#3b3f47", "len": "long" }, "shoes": { "type": "sneaker", "color": "#f3f7f5" }, "extras": [{ "kind": "apron", "color": "#6f7f4a", "bib": true }] },
+		"lifeguard": { "name": "海滩救生队", "top": { "color": "#f2c230", "sleeve": "long" }, "bottom": { "color": "#c8262c", "len": "short" }, "shoes": { "type": "bare" }, "extras": [{ "kind": "cap", "color": "#c8262c" }] },
+		"guide": { "name": "旅游公司", "top": { "color": "#bfa978", "sleeve": "short" }, "bottom": { "color": "#6b6f4f", "len": "short" }, "shoes": { "type": "boot", "color": "#6a4a30" }, "extras": [{ "kind": "collar" }, { "kind": "widehat", "color": "#8f7a52", "band": "#4a3a26" }] },
+		"miner": { "name": "矿业公司", "top": { "color": "#e6d21f", "sleeve": "long" }, "bottom": { "color": "#1f2f4d", "len": "long" }, "shoes": { "type": "boot", "color": "#b58a4c" }, "extras": [{ "kind": "collar" }, { "kind": "stripes" }, { "kind": "hardhat", "color": "#f5f5f0" }] },
+		"trucker": { "name": "货运公司", "top": { "color": "#a8322d", "sleeve": "short" }, "bottom": { "color": "#3f5f8a", "len": "long" }, "shoes": { "type": "boot", "color": "#4a3526" }, "extras": [{ "kind": "collar" }, { "kind": "cap", "color": "#1f2f4d" }] },
+		"bartender": { "name": "酒吧", "top": { "color": "#1d1e22", "sleeve": "long" }, "bottom": { "color": "#2a2b30", "len": "long" }, "shoes": { "type": "sneaker", "color": "#1d1e22", "sole": "#3a3b40" }, "extras": [{ "kind": "collar" }, { "kind": "apron", "color": "#4a2f28", "bib": false }] },
+		"farmhand": { "name": "农场", "top": { "color": "#7a8fa6", "sleeve": "long" }, "bottom": { "color": "#3f5f8a", "len": "long" }, "shoes": { "type": "boot", "color": "#6a4a30" }, "extras": [{ "kind": "collar" }, { "kind": "widehat", "color": "#8a6a44", "band": "#3a2a1e" }] },
+		"builder": { "name": "建筑工地", "top": { "color": "#e6d21f", "sleeve": "none" }, "bottom": { "color": "#2b3d5c", "len": "short" }, "shoes": { "type": "boot", "color": "#b58a4c" }, "extras": [{ "kind": "stripes" }, { "kind": "toolbelt" }, { "kind": "hardhat", "color": "#f2c230" }] },
+		"carer": { "name": "养老院", "top": { "color": "#3d8f8a", "sleeve": "short" }, "bottom": { "color": "#3d8f8a", "len": "long" }, "shoes": { "type": "sneaker", "color": "#f3f7f5" }, "extras": [] },
+		"it-support": { "name": "IT 公司", "top": { "color": "#8fb4d9", "sleeve": "short" }, "bottom": { "color": "#8a7a5c", "len": "long" }, "shoes": { "type": "sneaker", "color": "#f3f7f5" }, "extras": [{ "kind": "collar" }, { "kind": "lanyard", "color": "#1d3fbf" }] }
+	}
+}

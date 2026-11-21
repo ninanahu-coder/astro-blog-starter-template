@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic a dramatic seaside landscape at sunset, a red-and-white striped lighthouse on a grassy headland beside a curving path, a turquoise ocean with breaking waves and towering clouds, with the the lighthouse, the path, the shoreline and the composition shown in <Picture 1> preserved. From the first frame waves roll in and break in white spray against the rocks. The camera pushes in with small amplitude at slow speed toward the lighthouse and comes to rest on a slightly tighter wide shot of the lighthouse and the breaking waves in the final second. Spray rises and falls over the rocks, the towering clouds drift slowly, and the coastal grasses in the foreground bend in the wind, and the lighthouse and the distant buildings stay still.
+
+overall_soundscape: Strong surf crashing on rocks and a steady sea wind; spray hissing on the rocks.
+
+non_diegetic_music: N/A
