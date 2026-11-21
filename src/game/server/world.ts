@@ -6,7 +6,8 @@
 import { applyAction, applyBlock, applyCoop, applyTrade, applyWeeklyClaim, parseAction, publicState } from '../core/actions.ts';
 import { addReport, BLOCK_MAX, isBlocked, isReportReason, REPORTS_PER_DAY, reportHidden, type ReportRec } from '../core/safety.ts';
 import { addWeekly, goalOfWeek, weekDaysLeft, weeklyMine, weekOf, type WeeklyMetric } from '../core/weekly.ts';
-import { giveBlocked, saleRange } from '../core/trade.ts';
+import { giveBlocked, saleRange, TRADE_DAILY, tradesToday } from '../core/trade.ts';
+import { bidLot, buyLot, cancelLot, claimMail, createLot, EXCHANGE, lotView, newbieBlocked, parseSwapSide, pushMail, quotaAdd, quotaBlocked, quotaOf, resolveSwap, settleLot, swapCash, swapShapeBlocked, type Lot, type Mail, type SwapSide } from '../core/exchange.ts';
 import { noteMet } from '../core/social.ts';
 import { cleanNote, contactError, NOTES_LOC_DAY, NOTES_PER_DAY, NOTES_PER_LOC } from '../core/notes.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
@@ -76,6 +77,11 @@ const OFFER_PER_PLAYER = 3; // 每人同时挂着的送礼 + 二手摊最多 3 �
 const OFFER_PER_TARGET = 3; // 每人同时最多收到 3 份待收的礼物
 const OFFER_PER_LOC = 30; // 每个地点同时最多 30 张挂单
 const KEY_RE = /^[a-zA-Z0-9]{16,64}$/;
+// 交易所（寄卖、拍卖，见 docs/earth-game/player-trade.md）：拍品、邮箱、额度、账本都落盘，所有改动在 marketChain 里排队
+const LOT_RE = /^[a-f0-9]{12}$/;
+const LOTS_MAX = 600; // 全服同时在售 / 在拍的上限
+const LOTS_SHOWN = 60; // 列表一次最多返回几件
+const MOPS_KEEP = 16; // 交易所请求编号记住最近几个（防重放：同一编号只执行一次）
 
 /** 共同事件大厅：只在 '@SAVES' 实例的内存里（实例重启就没了，最多影响几分钟内没开始的大厅）。成员 id 是真实存档 id，绝不发给客户端 */
 interface Lobby {
@@ -96,7 +102,7 @@ interface Lobby {
  */
 interface Offer {
 	id: string;
-	kind: 'gift' | 'sale';
+	kind: 'gift' | 'sale' | 'swap';
 	from: string;
 	/** 挂单人的 id 哈希前缀：屏蔽了他的人看不到这张单 */
 	fromHash: string;
@@ -112,6 +118,9 @@ interface Offer {
 	at: number;
 	/** 有人接单的请求已经排队：这时不能撤回、拒绝或再被别人接 */
 	taking?: boolean;
+	/** 面交换物（kind 'swap'）：发起人给出的、想换来的 */
+	give?: SwapSide;
+	want?: SwapSide;
 }
 
 /** 地点留言：落盘在 'notes:<地点>'；author 是 id 哈希前缀，不发给客户端（只告诉是不是自己的） */
@@ -175,6 +184,8 @@ export class EarthWorld {
 	private notes = new Map<string, Note[]>(); // 地点 -> 留言（内存一份，先改内存再落盘，不会丢别人同时写的）
 	private notesLoading = new Map<string, Promise<void>>();
 	private notesChain = new Map<string, Promise<unknown>>(); // 同一地点的发帖、删帖排队执行：限额检查和写入之间不会插进别人的
+	private lots: Map<string, Lot> | null = null; // 交易所拍品（内存一份，落盘在 'lot:<id>'；只在 marketChain 里读写）
+	private marketChain: Promise<unknown> = Promise.resolve(); // 交易所的所有改动排队：拍品、邮箱、账本不会被两个请求交错改
 
 	private stats: StatsBuffer; // 统计计数（见 stats.ts）：内存里攒一会儿再合并落盘
 	private statsRate = new Map<string, { n: number; resetAt: number }>();
@@ -634,7 +645,9 @@ export class EarthWorld {
 			// 统计：记下注册日（只存现实日序号，键是 id 哈希前缀；关了统计的玩家不记）
 			const track = body.nt !== true;
 			const day = realDayOf(now);
-			await this.persistMany([{ id, keyHash, state: created, at: now }], undefined, track ? { [BORN_PREFIX + (await sha256Hex(id)).slice(0, 12)]: day } : {});
+			// 建号的现实日另记一份 'since:' + id：交易所的新号限制按它算，是玩法规则，和统计开不开无关（和存档一次写入）。
+			// 不能用 'born:'：那是统计的注册日（按 id 哈希、玩家关了统计就不记），合并 main 时两边撞了前缀
+			await this.persistMany([{ id, keyHash, state: created, at: now }], undefined, { ['since:' + id]: day, ...(track ? { [BORN_PREFIX + (await sha256Hex(id)).slice(0, 12)]: day } : {}) });
 			if (track) this.stats.add(day, { new: 1, active: 1, ...(first ? { 'eco.in.daily': first.cash } : {}) });
 			return json({ ok: true, state: publicState(created), at: now, daily: first?.msg });
 		}
@@ -700,6 +713,7 @@ export class EarthWorld {
 		}
 		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, wall, locked, raw);
 		if (action === 'trade') return this.handleTrade(body, id, keyHash, current, live, region, now, wall, locked, raw);
+		if (action === 'market') return this.handleMarket(body, id, keyHash, current, live, region, now, wall, raw, migrated);
 		if (action === 'rekey') {
 			// 换码只改 keyHash，存档、版本号、榜单都不动。不带这次没落定的每日奖励（和规则拒绝的动作一样）
 			const newKey = body.newKey;
@@ -810,7 +824,29 @@ export class EarthWorld {
 				list.splice(0, list.length, ...next);
 			});
 		}
-		await this.ctx.storage.delete(['save:' + id, 'ops:' + id, 'rank:' + h, 'h:' + h, 'notecd:' + h]);
+		await this.inMarket(async () => {
+			// 交易所：他挂的东西撤下（有人出价的退给出价人）；他是最高出价的拍品清掉出价（托管的钱随账号一起删）
+			const lots = await this.loadLots();
+			const entries: Record<string, unknown> = {};
+			const mails = new Map<string, Mail[]>();
+			for (const lot of lots.values()) {
+				if (lot.seller === id) {
+					if (lot.bidder && lot.bid > 0 && lot.bidder !== id) {
+						const box = mails.get(lot.bidder) ?? (await this.mailOf(lot.bidder));
+						mails.set(lot.bidder, pushMail(box, { id: EarthWorld.hex(5), cash: lot.bid, item: null, n: 0, text: '拍卖的卖家注销了账号，退回你出的钱', at: Date.now() }));
+					}
+					entries['lot:' + lot.id] = { gone: true };
+				} else if (lot.bidder === id) entries['lot:' + lot.id] = { ...lot, bid: 0, bidder: null, bidderHash: '' };
+			}
+			for (const [to, box] of mails) entries['mail:' + to] = box;
+			if (Object.keys(entries).length) await this.ctx.storage.put(entries);
+			for (const [k, v] of Object.entries(entries)) {
+				if (!k.startsWith('lot:')) continue;
+				if ((v as { gone?: boolean }).gone) lots.delete(k.slice(4));
+				else lots.set(k.slice(4), v as Lot);
+			}
+		});
+		await this.ctx.storage.delete(['save:' + id, 'ops:' + id, 'rank:' + h, 'h:' + h, 'notecd:' + h, 'mail:' + id, 'mops:' + id, 'since:' + id, 'xq:' + h]);
 		for (const [k, o] of this.offers) if (o.from === id || o.toId === id) this.offers.delete(k);
 		for (const [k, l] of this.lobbies) {
 			if (l.done) { l.done.ids = l.done.ids.filter((x) => x !== id); continue; }
@@ -1156,7 +1192,7 @@ export class EarthWorld {
 	private tradeView(id: string, hash: string, loc: string, blocked: PlayerState['blocked'] = {}) {
 		const offers = [...this.offers.values()]
 			.filter((o) => o.from === id || (o.loc === loc && (o.kind === 'sale' || o.to === hash) && !Object.hasOwn(blocked, o.fromHash)))
-			.map((o) => ({ id: o.id, kind: o.kind, item: o.item, price: o.price, name: o.fromName, avatar: o.fromAvatar, toName: o.from === id ? o.toName : '', loc: o.loc, mine: o.from === id, taking: !!o.taking }));
+			.map((o) => ({ id: o.id, kind: o.kind, item: o.item, price: o.price, name: o.fromName, avatar: o.fromAvatar, toName: o.from === id ? o.toName : '', loc: o.loc, mine: o.from === id, taking: !!o.taking, ...(o.kind === 'swap' ? { give: o.give, want: o.want } : {}) }));
 		return { offers };
 	}
 
@@ -1214,6 +1250,39 @@ export class EarthWorld {
 			this.offers.set(oid, { id: oid, kind: op, from: id, fromHash: hash, fromName: current.name, fromAvatar: current.avatar, to, toId, toName, item: item.id, price, loc: current.loc, at: wall });
 			return reply({ msg: op === 'gift' ? `${item.icon} 等${toName}收下${item.name}` : `${item.icon} ${item.name}挂上二手摊了，$${price}` });
 		}
+		if (op === 'swap') {
+			// 面交换物：发给同一地点的某位玩家，对方收下时锁住双方存档再结算（见 docs/earth-game/player-trade.md）
+			const give = parseSwapSide(body.give);
+			const want = parseSwapSide(body.want);
+			if (!give || !want) return no('交换内容无效');
+			const shape = swapShapeBlocked(give, want);
+			if (shape) return no(shape);
+			if (live.pending) return no('先处理眼前的事件。');
+			if (!give.items.every((x) => (live.inventory[x.item] ?? 0) >= x.n) || live.cash < give.cash) return no('你没有这么多东西或钱');
+			if (tradesToday(live, day).out >= TRADE_DAILY) return no(`今天已经给出去 ${TRADE_DAILY} 次了，明天再来。`);
+			if (swapCash(give, want) > 0) {
+				const nb = newbieBlocked(live, await this.bornOf(id), day);
+				if (nb) return no(nb);
+				const qb = quotaBlocked(quotaOf(await this.ctx.storage.get('xq:' + hash), day), give.cash, null);
+				if (qb) return no(qb);
+			}
+			if (mineOpen() >= OFFER_PER_PLAYER) return no(`同时最多挂 ${OFFER_PER_PLAYER} 件，先撤回一件`);
+			if (typeof body.to !== 'string' || !HASH_RE.test(body.to)) return no('要和谁交换？');
+			if (body.to === hash) return no('不能和自己交换');
+			const target = await this.ctx.storage.get<string>('h:' + body.to);
+			const trec = typeof target === 'string' ? await this.ctx.storage.get<{ state: any }>('save:' + target) : undefined;
+			if (!target || !trec || trec.state?.loc !== current.loc) return no('对方不在这里，换不了');
+			// 屏蔽（第 24 批，合并 main 时补上）：我屏蔽了对方，或对方屏蔽了我，都换不了；不告诉是谁屏蔽了谁
+			if (isBlocked(current, body.to)) return no('你屏蔽了对方，先解除屏蔽再换');
+			const tbs = trec.state?.blocked;
+			if (tbs && typeof tbs === 'object' && Object.hasOwn(tbs, hash)) return no('对方现在不能和你交换');
+			if ([...this.offers.values()].filter((x) => x.toId === target).length >= OFFER_PER_TARGET) return no('对方还有好几份没处理，等等再说');
+			if (this.offers.size >= OFFER_MAX || [...this.offers.values()].filter((x) => x.loc === current.loc).length >= OFFER_PER_LOC) return no('现在挂单太多了，稍后再试');
+			const oid = newId();
+			const first = give.items[0]?.item ?? want.items[0].item;
+			this.offers.set(oid, { id: oid, kind: 'swap', from: id, fromHash: hash, fromName: current.name, fromAvatar: current.avatar, to: body.to, toId: target, toName: cleanName(trec.state?.name) || '旅人', item: first, price: 0, loc: current.loc, at: wall, give, want });
+			return reply({ msg: `🤝 等${cleanName(trec.state?.name) || '旅人'}回应换物` });
+		}
 		const o = typeof body.offer === 'string' && OFFER_RE.test(body.offer) ? this.offers.get(body.offer) : undefined;
 		if (!o) return no('这件东西已经被拿走或撤回了', 404);
 		const item = getItem(o.item)!;
@@ -1224,14 +1293,14 @@ export class EarthWorld {
 			return reply({ msg: '已撤回' });
 		}
 		if (op === 'decline') {
-			if (o.kind !== 'gift' || o.to !== hash) return no('这不是给你的');
+			if ((o.kind !== 'gift' && o.kind !== 'swap') || o.to !== hash) return no('这不是给你的');
 			if (o.taking) return no('正在处理，稍后再试', 409);
 			this.offers.delete(o.id);
 			return reply({ msg: `没有收下${item.name}` });
 		}
 		if (op === 'accept') {
 			if (o.from === id) return no('不能收下自己挂的');
-			if (o.kind === 'gift' && o.toId !== id) return no('这不是给你的');
+			if ((o.kind === 'gift' || o.kind === 'swap') && o.toId !== id) return no('这不是给你的');
 			if (o.loc !== current.loc) return no('要在同一个地点才能拿');
 			if (!locked.has(o.from)) return no('正在处理，稍后再试', 409);
 			if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: CONFLICT_MSG, state: publicState(current), ...view(current), at: now }, 409);
@@ -1248,6 +1317,7 @@ export class EarthWorld {
 				this.offers.delete(o.id);
 				return no(o.kind === 'gift' ? '对方已经离开这里了' : '摊主已经走了，这个摊收了');
 			}
+			if (o.kind === 'swap') return this.acceptSwap(o, id, hash, keyHash, current, live, raw, rec, fromState, fNow, now, day, locs, region, view);
 			const r = applyTrade(fromState, live, o.item, o.price, day, { from: o.fromName, to: current.name });
 			if (typeof r === 'string') {
 				// 对方已经没有这件东西（或今天给出去太多次）：这张单作废
@@ -1271,6 +1341,245 @@ export class EarthWorld {
 			return json({ ok: true, msg, state: publicState(mine), ...view(mine), at: now });
 		}
 		return no('请求无效');
+	}
+	// ---------- 交易所：寄卖（一口价）、拍卖 ----------
+	// market { op: 'list' }                                  在售 / 在拍、我挂的、我的邮箱、今天的额度
+	// market { op: 'sell', kind, item, price, hours, rev, nonce }  挂出：东西从背包扣走托管，扣挂单费
+	// market { op: 'buy', lot, rev, nonce }                  一口价买下
+	// market { op: 'bid', lot, amount, rev, nonce }          出价：钱从现金扣走托管，被超过的人退回邮箱
+	// market { op: 'cancel', lot, rev, nonce }               撤回（拍卖有人出价后不能撤）
+	// market { op: 'claim', rev, nonce }                     领邮箱
+	// 所有改动都在 marketChain 里排队，并且持有本人的存档锁：拍品、邮箱、账本、额度、本人存档在同一次 put 里写入（全写或全不写）。
+	// 到期的拍品在任何一次交易所请求开头统一结算（不需要定时器）：结算只写邮箱，不碰别人的存档。
+	// nonce：客户端生成的请求编号，断网重交沿用同一个；服务端记住最近 MOPS_KEEP 个，重复到达的不再执行。
+	private static hex(bytes: number): string {
+		return [...crypto.getRandomValues(new Uint8Array(bytes))].map((b) => b.toString(16).padStart(2, '0')).join('');
+	}
+
+	private inMarket<T>(fn: () => Promise<T>): Promise<T> {
+		const run = this.marketChain.then(fn);
+		this.marketChain = run.catch(() => undefined);
+		return run;
+	}
+
+	/** 只在 marketChain 里调用 */
+	private async loadLots(): Promise<Map<string, Lot>> {
+		if (!this.lots) {
+			const m = new Map<string, Lot>();
+			for (const [k, v] of await this.ctx.storage.list<Lot | { gone: true }>({ prefix: 'lot:' })) {
+				if (v && !('gone' in v) && typeof v.id === 'string') m.set(k.slice(4), v);
+			}
+			this.lots = m;
+		}
+		return this.lots;
+	}
+
+	/** 只在 marketChain 里调用 */
+	private async mailOf(id: string): Promise<Mail[]> {
+		const raw = await this.ctx.storage.get<unknown>('mail:' + id);
+		return Array.isArray(raw) ? (raw as Mail[]).filter((m) => m && typeof m.id === 'string' && Number.isFinite(m.cash) && m.cash >= 0) : [];
+	}
+
+	private async bornOf(id: string): Promise<number | null> {
+		const b = await this.ctx.storage.get<unknown>('since:' + id);
+		return Number.isInteger(b) ? (b as number) : null;
+	}
+
+	/** 结算所有到期的拍品（只在 marketChain 里调用）：拍品作废、邮箱、账本、回收的手续费一次写入 */
+	private async settleDue(wall: number, day: number): Promise<void> {
+		const lots = await this.loadLots();
+		const due = [...lots.values()].filter((l) => wall >= l.endsAt);
+		if (!due.length) return;
+		const entries: Record<string, unknown> = {};
+		const boxes = new Map<string, Mail[]>();
+		let sink = 0;
+		for (const lot of due) {
+			const r = settleLot(lot, wall, { a: EarthWorld.hex(5), b: EarthWorld.hex(5), tx: EarthWorld.hex(6) })!;
+			for (const { to, mail } of r.mails) boxes.set(to, pushMail(boxes.get(to) ?? (await this.mailOf(to)), mail));
+			if (r.entry) entries[`tx:${day}:${r.entry.tx}`] = r.entry;
+			sink += r.fee;
+			entries['lot:' + lot.id] = { gone: true };
+		}
+		for (const [to, box] of boxes) entries['mail:' + to] = box;
+		if (sink) entries['sink:' + day] = ((await this.ctx.storage.get<number>('sink:' + day)) ?? 0) + sink;
+		await this.ctx.storage.put(entries);
+		for (const lot of due) lots.delete(lot.id);
+		// 作废标记写成功后再删（删失败也无妨：读的时候跳过）
+		try {
+			void Promise.resolve(this.ctx.storage.delete(due.map((l) => 'lot:' + l.id))).catch(() => undefined);
+		} catch {}
+	}
+
+	private async handleMarket(body: any, id: string, keyHash: string, current: PlayerState, live: PlayerState, region: Region, now: number, wall: number, raw: unknown, migrated: boolean): Promise<Response> {
+		const hash = (await sha256Hex(id)).slice(0, 12);
+		const day = realDayOf(now);
+		const op = body.op;
+		const locs = new Set(region.locations.map((x) => x.id));
+		const canon = (st: PlayerState) => sanitizeState(st, locs, { fallbackLoc: region.spawn, now }) ?? st;
+		return this.inMarket(async () => {
+			await this.settleDue(wall, day);
+			const lots = await this.loadLots();
+			const box = await this.mailOf(id);
+			const qRaw = await this.ctx.storage.get('xq:' + hash);
+			const quota = quotaOf(qRaw, day);
+			const born = await this.bornOf(id);
+			const view = (st: PlayerState, mail: Mail[], q = quota) => {
+				const all = [...lots.values()];
+				// 屏蔽（第 24 批，合并 main 时补上）：我屏蔽了的人挂的东西不显示，和送礼、二手摊的列表一样
+				const open = all.filter((l) => l.seller !== id && !isBlocked(st, l.sellerHash)).sort((a, b) => a.endsAt - b.endsAt).slice(0, LOTS_SHOWN);
+				return {
+					lots: open.map((l) => lotView(l, id)),
+					mine: all.filter((l) => l.seller === id).map((l) => lotView(l, id)),
+					mail: mail.map((m) => ({ id: m.id, cash: m.cash, item: m.item, n: m.n, text: m.text, at: m.at })),
+					quota: { deals: q.deals, volume: q.volume, maxDeals: EXCHANGE.dailyDeals, maxVolume: EXCHANGE.dailyVolume },
+					newbie: newbieBlocked(st, born, day) ?? null,
+				};
+			};
+			const no = (msg: string, status = 400) => json({ ok: false, msg, ...view(live, box), at: now }, status);
+			if (op === 'list') return json({ ok: true, ...view(live, box), at: now });
+			if (!['sell', 'buy', 'bid', 'cancel', 'claim'].includes(op)) return no('请求无效');
+
+			// 防重放：同一请求编号只执行一次（结果和存档同一次写入）
+			const nonce = typeof body.nonce === 'string' && OP_RE.test(body.nonce) ? body.nonce : null;
+			if (!nonce) return no('请求编号无效');
+			const mopsRaw = await this.ctx.storage.get<unknown>('mops:' + id);
+			const mops: OpDone[] = Array.isArray(mopsRaw) ? mopsRaw.filter((o): o is OpDone => !!o && typeof o === 'object' && typeof o.op === 'string' && typeof o.ok === 'boolean' && typeof o.msg === 'string').slice(-MOPS_KEEP) : [];
+			const seen = mops.find((o) => o.op === nonce);
+			if (seen) return json({ ok: seen.ok, msg: seen.msg, dup: true, state: publicState(current), ...view(current, box), at: now });
+			if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: CONFLICT_MSG, state: publicState(current), ...view(current, box), at: now }, 409);
+			const done = (ok: boolean, msg: string) => ({ ['mops:' + id]: [...mops, { op: nonce, ok, msg }].slice(-MOPS_KEEP) });
+			/** 规则拒绝：记下编号（重交得到同样的答复），校验时修过的存档顺带写回 */
+			const refuse = async (msg: string, status = 400) => {
+				if (migrated) await this.persistMany([{ id, keyHash, state: current, at: now, raw }], undefined, done(false, msg));
+				else await this.ctx.storage.put(done(false, msg));
+				return no(msg, status);
+			};
+			/** 成交：本人存档、拍品、邮箱、额度、账本、回收的手续费一次写入；写成功后才改内存里的拍品 */
+			const commit = async (st: PlayerState, msg: string, extra: Record<string, unknown>, lotSet: [string, Lot | null][], mail: Mail[]) => {
+				const next = canon(st);
+				await this.persistMany([{ id, keyHash, state: next, at: now, raw }], undefined, { ...extra, ...done(true, msg) });
+				for (const [k, l] of lotSet) {
+					if (l) lots.set(k, l);
+					else lots.delete(k);
+				}
+				return json({ ok: true, msg, state: publicState(next), ...view(next, mail, quotaOf(extra['xq:' + hash] ?? qRaw, day)), at: now });
+			};
+			const sinkAdd = async (fee: number) => (fee ? { ['sink:' + day]: ((await this.ctx.storage.get<number>('sink:' + day)) ?? 0) + fee } : {});
+
+			if (op === 'claim') {
+				const r = claimMail(live, box);
+				if (typeof r === 'string') return refuse(r);
+				return commit(r.state, `📬 领到${r.cash ? ` $${r.cash}` : ''}${r.cash && r.items ? ' 和' : ''}${r.items ? ` ${r.items} 件东西` : ''}`, { ['mail:' + id]: r.left }, [], r.left);
+			}
+			const nb = newbieBlocked(live, born, day);
+			if (nb && op !== 'cancel') return refuse(nb, 403);
+
+			if (op === 'sell') {
+				const kind = body.kind === 'auction' ? 'auction' : body.kind === 'fixed' ? 'fixed' : null;
+				if (!kind) return refuse('请求无效');
+				if (lots.size >= LOTS_MAX) return refuse('交易所现在挂满了，稍后再试', 429);
+				const qb = quotaBlocked(quota, 0, null);
+				if (qb) return refuse(qb, 429);
+				const lotId = EarthWorld.hex(6);
+				const mineN = [...lots.values()].filter((l) => l.seller === id).length;
+				const r = createLot(live, { kind, item: String(body.item ?? ''), price: body.price, hours: Number(body.hours) }, { lotId, hash, now: wall, openLots: mineN });
+				if (typeof r === 'string') return refuse(r);
+				const q = quotaAdd(quota, 0, null);
+				return commit(r.state, kind === 'fixed' ? '挂到交易所了' : '送去拍卖了', { ['lot:' + lotId]: r.lot, ['xq:' + hash]: q, ...(await sinkAdd(r.fee)) }, [[lotId, r.lot]], box);
+			}
+
+			const lot = typeof body.lot === 'string' && LOT_RE.test(body.lot) ? lots.get(body.lot) : undefined;
+			if (!lot) return refuse('这件已经卖掉、拍完或撤回了', 404);
+
+			if (op === 'cancel') {
+				const r = cancelLot(live, lot, { now: wall, mailId: EarthWorld.hex(5) });
+				if (typeof r === 'string') return refuse(r);
+				const next = r.mail ? pushMail(box, r.mail) : box;
+				return commit(r.state, '已撤回', { ['lot:' + lot.id]: { gone: true }, ...(r.mail ? { ['mail:' + id]: next } : {}) }, [[lot.id, null]], next);
+			}
+			// 屏蔽：我屏蔽了卖家，或卖家屏蔽了我，都买不了、拍不了（不告诉是谁屏蔽了谁，同送礼）
+			if (op === 'buy' || op === 'bid') {
+				if (isBlocked(live, lot.sellerHash)) return refuse('你屏蔽了对方，先解除屏蔽再买');
+				const srec = await this.ctx.storage.get<{ state: any }>('save:' + lot.seller);
+				const sb = srec?.state?.blocked;
+				if (sb && typeof sb === 'object' && Object.hasOwn(sb, hash)) return refuse('对方现在不接受你的出价');
+			}
+			if (op === 'buy') {
+				const qb = quotaBlocked(quota, lot.price, lot.sellerHash);
+				if (qb) return refuse(qb, 429);
+				const tx = EarthWorld.hex(6);
+				const r = buyLot(live, lot, { now: wall, mailId: EarthWorld.hex(5), tx, buyerHash: hash });
+				if (typeof r === 'string') return refuse(r);
+				const sellerBox = pushMail(await this.mailOf(lot.seller), r.mail);
+				return commit(r.buyer, `花 $${lot.price} 买下了`, {
+					['lot:' + lot.id]: { gone: true }, ['mail:' + lot.seller]: sellerBox, ['xq:' + hash]: quotaAdd(quota, lot.price, lot.sellerHash),
+					[`tx:${day}:${tx}`]: r.entry, ...(await sinkAdd(r.fee)),
+				}, [[lot.id, null]], box);
+			}
+			if (op === 'bid') {
+				const amount = body.amount;
+				// 额度按这次新付出的钱算（自己加价只算差额）
+				const extraCash = Number.isInteger(amount) ? amount - (lot.bidder === id ? lot.bid : 0) : 0;
+				const qb = quotaBlocked(quota, extraCash, lot.sellerHash, lot.id);
+				if (qb) return refuse(qb, 429);
+				const r = bidLot(live, lot, amount, { now: wall, mailId: EarthWorld.hex(5), bidderHash: hash });
+				if (typeof r === 'string') return refuse(r);
+				const extra: Record<string, unknown> = { ['lot:' + lot.id]: r.lot, ['xq:' + hash]: quotaAdd(quota, extraCash, lot.sellerHash, lot.id) };
+				if (r.refund) extra['mail:' + r.refund.to] = pushMail(await this.mailOf(r.refund.to), r.refund.mail);
+				return commit(r.bidder, `出价 $${amount}，钱先由交易所保管`, extra, [[lot.id, r.lot]], box);
+			}
+			return no('请求无效');
+		});
+	}
+
+	/** 面交换物的接单（handleTrade 里已经锁住双方存档、核对过地点和版本号） */
+	private async acceptSwap(o: Offer, id: string, hash: string, keyHash: string, current: PlayerState, live: PlayerState, raw: unknown, rec: { keyHash: string; state: any; at: number }, fromState: PlayerState, fNow: number, now: number, day: number, locs: Set<string>, region: Region, view: (st: PlayerState) => ReturnType<EarthWorld['tradeView']>): Promise<Response> {
+		const no = (msg: string, status = 400) => json({ ok: false, msg, ...view(current), at: now }, status);
+		const give = o.give!;
+		const want = o.want!;
+		const cash = swapCash(give, want);
+		const fromHash = (await sha256Hex(o.from)).slice(0, 12);
+		let qa = quotaOf(await this.ctx.storage.get('xq:' + fromHash), day);
+		let qb = quotaOf(await this.ctx.storage.get('xq:' + hash), day);
+		if (cash > 0) {
+			// 带钱的面交：双方都要过新号限制和每日额度（同一对玩家每天的笔数也算）
+			const na = newbieBlocked(fromState, await this.bornOf(o.from), day);
+			if (na) return no('对方还不能做带钱的交易：' + na, 403);
+			const nb = newbieBlocked(live, await this.bornOf(id), day);
+			if (nb) return no(nb, 403);
+			const ba = quotaBlocked(qa, give.cash, hash);
+			if (ba) return no('对方' + ba, 429);
+			const bb = quotaBlocked(qb, want.cash, fromHash);
+			if (bb) return no(bb, 429);
+			qa = quotaAdd(qa, give.cash, hash);
+			qb = quotaAdd(qb, want.cash, fromHash);
+		}
+		const tx = EarthWorld.hex(6);
+		const r = resolveSwap(fromState, live, give, want, { now, day, tx, aHash: fromHash, bHash: hash });
+		if (typeof r === 'string') {
+			if (r.startsWith('发起人')) this.offers.delete(o.id);
+			return no(r);
+		}
+		const canon = (st: PlayerState, t: number) => sanitizeState(st, locs, { fallbackLoc: region.spawn, now: t }) ?? st;
+		const met = (st: PlayerState, p: { hash: string; name: string; avatar: string }) => noteMet(st, [p], day);
+		const mine = canon(met(r.b, { hash: fromHash, name: o.fromName, avatar: o.fromAvatar }), now);
+		const theirs = canon(met(r.a, { hash, name: current.name, avatar: current.avatar }), fNow);
+		// 双方存档、额度、账本、回收的手续费一次写入（和交易所共用账本，所以排进 marketChain）
+		await this.inMarket(async () => {
+			const extra: Record<string, unknown> = {};
+			if (cash > 0) {
+				extra['xq:' + fromHash] = qa;
+				extra['xq:' + hash] = qb;
+				extra[`tx:${day}:${tx}`] = r.entry;
+			}
+			if (r.fee) extra['sink:' + day] = ((await this.ctx.storage.get<number>('sink:' + day)) ?? 0) + r.fee;
+			await this.persistMany([
+				{ id: o.from, keyHash: rec.keyHash, state: theirs, at: fNow, raw: rec.state },
+				{ id, keyHash, state: mine, at: now, raw },
+			], undefined, extra);
+		});
+		this.offers.delete(o.id);
+		return json({ ok: true, msg: `🤝 和${o.fromName}换好了`, state: publicState(mine), ...view(mine), at: now });
 	}
 }
 

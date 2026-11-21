@@ -36,10 +36,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *   - 事件引擎：main fdd7b44 是 174,944 字节，规则层（event-rules.ts）加了约 3.3KB 到 178,259，上限 175,000 → 179,300。
  *   - 法律：违章表、法律规则、3 个交通事件、档案卡和出行提醒，gzip 178,259 → 181,601（+3.3KB），上限 179,300 → 182,600；
  *     未压缩 568,058 字节超过 560,000，同样按「实际 + 3KB」调到 571,100。
+ *   - 玩家交易：交易所卡片、面交选择器（ui/market.ts）、交易规则，gzip 181,646 → 185,660（+4.0KB），上限 182,600 → 186,700；
+ *     未压缩 568,167 → 582,106，上限 571,100 → 585,100。
  */
-export const FIRST_SCREEN_MAX = 571_100;
+export const FIRST_SCREEN_MAX = 585_100;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 182_600;
+export const FIRST_SCREEN_GZIP_MAX = 186_700;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
