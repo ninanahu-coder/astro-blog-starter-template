@@ -213,3 +213,4 @@ tools/earth/media/h3/*/_prompts/dry/
 tools/earth/media/h3/*/config.env
 tools/earth/media/h3/*/queue.json
 tools/earth/media/h3/*/trims.json
+tools/earth/media/blender/out/
