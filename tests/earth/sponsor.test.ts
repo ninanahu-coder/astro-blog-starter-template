@@ -303,3 +303,10 @@ test('服务端核销：没开通 PIN 不能确认；整条赞助当天输错太
 		assert.match((await w.call({ action: 'redeem', op: 'confirm', ...p, deal: d.id, pin })).data.msg, /已锁定/);
 	});
 });
+
+test('入口转发（合并 main 时这一行有冲突）：对账单和 PIN 接口跟存档一样转到存档实例，统计接口另走统计实例', async () => {
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/game/server/world.ts', import.meta.url), 'utf8');
+	assert.match(src, /if \(url\.pathname === '\/api\/earth\/save' \|\| url\.pathname === '\/api\/earth\/sponsor-report' \|\| url\.pathname === '\/api\/earth\/sponsor-pin'\) \{/);
+	assert.match(src, /if \(url\.pathname === '\/api\/earth\/stats\/read'\) return readStats\(request, env\);/);
+});

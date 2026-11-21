@@ -1,0 +1,22 @@
+{
+	"_note": "NPC 打招呼语音的台词与音色（MiniMax 系统音色，全部是虚构人物，不克隆任何真人声音）。改台词后删掉对应 mp3 再跑 generate-voice.mjs。",
+	"lines": [
+		{ "npc": "mia", "voice": "Chinese (Mandarin)_Warm_Bestie", "text": "早啊！还是老样子吗？今天的豆子刚烘好，特别香。" },
+		{ "npc": "jack", "voice": "Chinese (Mandarin)_Humorous_Elder", "text": "哟，又是你。坐会儿吧，我给你讲讲那条差点把船拖翻的大鱼。" },
+		{ "npc": "linda", "voice": "Chinese (Mandarin)_Warm_HeartedGirl", "text": "嗨！路上碰到短尾矮袋鼠可别喂它们，它们自己会找吃的。" },
+		{ "npc": "leo", "voice": "Chinese (Mandarin)_Unrestrained_Young_Man", "text": "嘿，朋友！今天这组浪真漂亮，板子拿好，咱们下水去。" },
+		{ "npc": "nan", "voice": "Chinese (Mandarin)_Warm-HeartedAunt", "text": "来啦，快进屋坐。茶刚泡好，还是热的。" },
+		{ "npc": "bill", "voice": "Chinese (Mandarin)_Stubborn_Friend", "text": "这个位子我坐了十几年了。来，陪我喝一杯，说说你今天干了啥。" },
+		{ "npc": "sam", "voice": "Chinese (Mandarin)_Straightforward_Boy", "text": "早上好！今天风平浪静，运气好的话能碰上鲸鲨。" },
+		{ "npc": "dave", "voice": "Chinese (Mandarin)_Lyrical_Voice", "text": "你也睡不着？夜里的矿区公路，安静得只听得见发动机。" },
+		{ "npc": "yuki", "voice": "Chinese (Mandarin)_Mature_Woman", "text": "欢迎光临。这颗你对着光看看，真珠的光泽是从里面透出来的。" },
+		{ "npc": "tom", "voice": "Chinese (Mandarin)_Reliable_Executive", "text": "刚卸完货，今天的龙虾不错。来，长椅上晒会儿太阳。" },
+		{ "npc": "harry", "voice": "Chinese (Mandarin)_Gentleman", "text": "欢迎来到码头博物馆。这座港口的故事，得从一百多年前讲起。" },
+		{ "npc": "ruby", "voice": "Chinese (Mandarin)_Crisp_Girl", "text": "想进峡谷走走？跟紧我，雨后那几块石头特别滑。" },
+		{ "npc": "rosa", "voice": "Chinese (Mandarin)_Kind-hearted_Elder", "text": "你来得正巧，那群海豚又游回来了，我正数着呢。" },
+		{ "npc": "mack", "voice": "Chinese (Mandarin)_Southern_Young_Man", "text": "尝一个？今早刚摘的芒果，甜得很。" },
+		{ "npc": "greta", "voice": "Chinese (Mandarin)_Wise_Women", "text": "欢迎来酒庄。这一桶是我们家第五代的手艺，你闻闻看。" },
+		{ "npc": "kev", "voice": "Chinese (Mandarin)_Sincere_Adult", "text": "外面热吧？下来坐，地底下一年四季都凉快。" },
+		{ "npc": "ayla", "voice": "Chinese (Mandarin)_ExplorativeGirl", "text": "小声点，沙滩上那几只海狮正在睡午觉呢。" }
+	]
+}

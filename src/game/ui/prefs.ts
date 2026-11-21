@@ -3,6 +3,7 @@
 
 export type Motion = 'auto' | 'reduce' | 'full';
 export type FontSize = 'm' | 'l' | 'xl';
+export type VolumeLevel = 'low' | 'mid' | 'high';
 
 export interface Prefs {
 	motion: Motion; // 动画：跟随系统 / 减少 / 正常
@@ -11,6 +12,9 @@ export interface Prefs {
 	recap: boolean; // 显示昨天回顾
 	achToast: boolean; // 达成成就时弹出提示
 	sound: boolean; // 音效（默认关）
+	ambience: boolean; // 环境音：海浪、城市、风、雨（v37，默认关）
+	music: boolean; // 背景音乐（v37，默认关）
+	volume: VolumeLevel; // 总音量（v37）：轻 / 中 / 响
 	basemap: boolean; // 出行页用真实地图（第 31 轮，默认开）
 }
 
@@ -18,10 +22,11 @@ export const PREFS_KEY = 'earth.prefs.v1';
 /** 旧版设置：大字模式开关（'1' 为开） */
 export const LEGACY_BIG_KEY = 'earth.big.v1';
 
-export const DEFAULT_PREFS: Prefs = { motion: 'auto', font: 'm', guide: true, recap: true, achToast: true, sound: false, basemap: true };
+export const DEFAULT_PREFS: Prefs = { motion: 'auto', font: 'm', guide: true, recap: true, achToast: true, sound: false, ambience: false, music: false, volume: 'mid', basemap: true };
 
 export const MOTION_OPTIONS: [Motion, string][] = [['auto', '跟随系统'], ['reduce', '减少'], ['full', '正常']];
 export const FONT_OPTIONS: [FontSize, string][] = [['m', '标准'], ['l', '大'], ['xl', '特大']];
+export const VOLUME_OPTIONS: [VolumeLevel, string][] = [['low', '轻'], ['mid', '中'], ['high', '响']];
 export const TIP_OPTIONS: [keyof Pick<Prefs, 'guide' | 'recap' | 'achToast'>, string, string][] = [
 	['guide', '新手指南', '前三天在今天页顶上的分步提示'],
 	['recap', '昨天回顾', '跨过一天后在今天页顶上显示前一天的变化'],
@@ -49,6 +54,9 @@ export function parsePrefs(raw: string | null, legacy: { big?: string | null } =
 		recap: bool(own('recap'), DEFAULT_PREFS.recap),
 		achToast: bool(own('achToast'), DEFAULT_PREFS.achToast),
 		sound: bool(own('sound'), DEFAULT_PREFS.sound),
+		ambience: bool(own('ambience'), DEFAULT_PREFS.ambience),
+		music: bool(own('music'), DEFAULT_PREFS.music),
+		volume: pick(own('volume'), VOLUME_OPTIONS, DEFAULT_PREFS.volume),
 		basemap: bool(own('basemap'), DEFAULT_PREFS.basemap),
 	};
 }

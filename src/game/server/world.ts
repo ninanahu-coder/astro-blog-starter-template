@@ -3,27 +3,42 @@
 // 另有保留实例 '@SAVES' 负责云存档（跨设备同步）。
 // 权威结算：客户端只发送动作（create / act），由本实例调用规则引擎结算并保存；
 // 客户端不能上传存档，改本地数据不会影响服务器上的进度。
-import { applyAction, applyCoop, applyTrade, applyWeeklyClaim, parseAction, publicState } from '../core/actions.ts';
+import { applyAction, applyBlock, applyCoop, applyTrade, applyWeeklyClaim, parseAction, publicState } from '../core/actions.ts';
+import { addReport, BLOCK_MAX, isBlocked, isReportReason, REPORTS_PER_DAY, reportHidden, type ReportRec } from '../core/safety.ts';
 import { addWeekly, goalOfWeek, weekDaysLeft, weeklyMine, weekOf, type WeeklyMetric } from '../core/weekly.ts';
 import { giveBlocked, saleRange } from '../core/trade.ts';
 import { noteMet } from '../core/social.ts';
-import { cleanNote, NOTES_LOC_DAY, NOTES_PER_DAY, NOTES_PER_LOC } from '../core/notes.ts';
+import { cleanNote, contactError, NOTES_LOC_DAY, NOTES_PER_DAY, NOTES_PER_LOC } from '../core/notes.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
 import { getItem } from '../core/attributes.ts';
 import { coopBlocked } from '../core/coop.ts';
 import { getCoop } from '../data/coop.ts';
 import { claimDaily, realDayOf } from '../core/daily.ts';
+import { noteReturn } from '../core/onboard.ts';
 import { refreshWishes } from '../core/wishes.ts';
 import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
+import { carryUnknown, SAVE_VERSION } from '../core/save.ts';
 import { boardEntry, rankBoard } from '../core/board.ts';
 import type { PlayerState, Region } from '../core/types.ts';
 import { FULL_AREAS, WORLD } from '../data/wa.ts';
 import { areaOf } from '../data/areas-base.ts';
 import { liveDeal, monthOfDay, redeemCode, redeemProblem, statementFor } from '../core/sponsor.ts';
 import { SPONSORS, type SponsorDeal } from '../data/sponsors.ts';
+import { actionCounts, BORN_KEEP_DAYS, BORN_PREFIX, cleanBatch, funnelSteps, mergeDays, READ_MAX_DAYS, StatsBuffer, STATS_BODY_MAX, type Counts, type FunnelStep } from './stats.ts';
+import { ipKey, RateLimiter, readBounded } from './ratelimit.ts';
 
 const SAVES_ROOM = '@SAVES';
+/** 客户端统计上报（界面使用、报错、性能）汇总在这个保留实例，不挤占存档实例 */
+const STATS_ROOM = '@STATS';
+const STATS_WINDOW_MS = 60 * 1000;
+const STATS_LIMIT = 6; // 每 IP 每分钟最多几批（客户端正常一分钟最多一批）
 const MAX_CONNS = 200;
+// 安全加固（v40，见 docs/earth-game/security-review.md）
+const CONNS_PER_IP = 6; // 同一来源在一个区域频道里最多同时连几个：不然一个人开 200 个连接就能把整个区域占满
+const CHAT_WINDOW_MS = 10_000;
+const CHAT_PER_IP = 6; // 同一来源 10 秒内最多发 6 句（多开几个连接也算在一起）；原来只有每个连接 5 秒 20 条的总消息限流，聊天能刷到每秒 4 句
+const CREATE_WINDOW_MS = 60 * 60 * 1000;
+const CREATE_PER_IP = 20; // 同一来源每小时最多新建 20 个角色：挡批量注册刷每日奖励、送礼养大号、灌榜和撑大存储；手机运营商共用出口地址，不能卡太死
 const MSG_WINDOW_MS = 5000;
 const MSG_LIMIT = 20;
 const IDLE_TIMEOUT_MS = 70000; // 客户端每 20s ping
@@ -83,6 +98,8 @@ interface Offer {
 	id: string;
 	kind: 'gift' | 'sale';
 	from: string;
+	/** 挂单人的 id 哈希前缀：屏蔽了他的人看不到这张单 */
+	fromHash: string;
 	fromName: string;
 	fromAvatar: string;
 	to: string | null;
@@ -116,7 +133,11 @@ interface Presence {
 }
 
 const json = (data: unknown, status = 200) =>
-	new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+	new Response(JSON.stringify(data), {
+		status,
+		// 响应里有存档：不进任何缓存；不让浏览器按内容猜类型
+		headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
+	});
 
 async function sha256Hex(s: string): Promise<string> {
 	const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
@@ -135,13 +156,18 @@ export class EarthWorld {
 	private sockets = new Map<WebSocket, Presence>();
 	private lastSeen = new Map<WebSocket, number>();
 	private msgCount = new Map<WebSocket, { n: number; resetAt: number }>();
-	private saveRate = new Map<string, { n: number; resetAt: number }>();
+	private saveRate = new RateLimiter(SAVE_LIMIT, SAVE_WINDOW_MS);
+	private createRate = new RateLimiter(CREATE_PER_IP, CREATE_WINDOW_MS);
+	private chatRate = new RateLimiter(CHAT_PER_IP, CHAT_WINDOW_MS);
+	private sockIp = new Map<WebSocket, string>(); // 连接 -> 来源限流键（只在内存，不广播、不落盘）
 	private sweeper: ReturnType<typeof setInterval> | null = null;
 	private locks = new Map<string, Promise<unknown>>(); // 同一存档的请求排队执行，避免并发读改写
 	private board: [string, unknown][] | null = null; // 榜单记录的内存缓存；所有存档都写在这个实例里，写入时作废
 	private boardGen = 0; // 每次写入加一：读榜期间有写入时，读到的旧列表不放进缓存
 	private lobbies = new Map<string, Lobby>();
 	private hintAt = new WeakMap<WebSocket, Record<string, number>>();
+	/** 每个连接屏蔽了谁（id 哈希前缀，客户端按自己存档里的屏蔽名单发来）：这些人的聊天和表情不转给这个连接 */
+	private mutes = new WeakMap<WebSocket, Set<string>>();
 	private offers = new Map<string, Offer>();
 	private week: { week: number; count: number } | null = null; // 这周全服累计数（内存里一份，落盘在 'week:<序号>'）
 	private weekLoading: Promise<void> | null = null;
@@ -150,11 +176,15 @@ export class EarthWorld {
 	private notesLoading = new Map<string, Promise<void>>();
 	private notesChain = new Map<string, Promise<unknown>>(); // 同一地点的发帖、删帖排队执行：限额检查和写入之间不会插进别人的
 
+	private stats: StatsBuffer; // 统计计数（见 stats.ts）：内存里攒一会儿再合并落盘
+	private statsRate = new Map<string, { n: number; resetAt: number }>();
+
 	private sponsorToken: string; // 商户对账单接口的令牌（Workers 机密 EARTH_SPONSOR_TOKEN）；没配置就不开放这个接口
 	private redeemChain: Promise<unknown> = Promise.resolve(); // 核销计数排队写入：每天、每月的计数是所有玩家共用的
 
 	constructor(ctx: DurableObjectState, env: unknown) {
 		this.ctx = ctx;
+		this.stats = new StatsBuffer(ctx.storage as never);
 		const t = (env as { EARTH_SPONSOR_TOKEN?: unknown } | null)?.EARTH_SPONSOR_TOKEN;
 		this.sponsorToken = typeof t === 'string' && t.length >= 32 ? t : '';
 	}
@@ -164,6 +194,9 @@ export class EarthWorld {
 		if (url.pathname === '/api/earth/save') return this.handleSave(request);
 		if (url.pathname === '/api/earth/sponsor-report') return this.handleSponsorReport(request, url);
 		if (url.pathname === '/api/earth/sponsor-pin') return this.handleSponsorPin(request);
+		if (url.pathname === '/api/earth/stats') return this.handleStats(request);
+		// 只有 routeEarth 核对过查询令牌后才会转到这里（外部请求到不了这个路径）
+		if (url.pathname === '/api/earth/stats/read') return this.handleStatsRead(url);
 		if ((request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
 			return new Response('expected websocket', { status: 426 });
 		}
@@ -174,6 +207,8 @@ export class EarthWorld {
 		const id = url.searchParams.get('id') || '';
 		if (!ID_RE.test(id)) return new Response('bad id', { status: 400 });
 		if (this.sockets.size >= MAX_CONNS) return new Response('region full', { status: 503 });
+		const ip = ipKey(request.headers.get('CF-Connecting-IP'));
+		if (this.connsFrom(ip) >= CONNS_PER_IP) return new Response('too many connections', { status: 429 });
 		const locs = new Set(region.locations.map((l) => l.id));
 		const loc = url.searchParams.get('loc') || '';
 		const me: Presence = {
@@ -188,6 +223,7 @@ export class EarthWorld {
 		const server = pair[1];
 		server.accept();
 		this.sockets.set(server, me);
+		this.sockIp.set(server, ip);
 		this.lastSeen.set(server, Date.now());
 		this.send(server, { t: 'hello', you: me.id, players: this.roster(), emotes: EMOTES });
 		this.broadcast({ t: 'join', p: me }, server);
@@ -201,6 +237,12 @@ export class EarthWorld {
 		server.addEventListener('close', drop);
 		server.addEventListener('error', drop);
 		return new Response(null, { status: 101, webSocket: pair[0] } as ResponseInit);
+	}
+
+	private connsFrom(ip: string): number {
+		let n = 0;
+		for (const v of this.sockIp.values()) if (v === ip) n++;
+		return n;
 	}
 
 	/** 同一玩家多设备在线时只列一次（取最新连接） */
@@ -220,6 +262,8 @@ export class EarthWorld {
 		else if (++rate.n > MSG_LIMIT) return;
 		const m = JSON.parse(raw);
 		if (!m || typeof m !== 'object') return;
+		// 聊天另有按来源的限流：超出的句子直接丢掉（不回错误，免得刷屏的人拿它当节拍器）
+		if (m.t === 'chat' && !this.chatRate.hit(this.sockIp.get(ws) ?? 'ws:' + me.id, now)) return;
 		switch (m.t) {
 			case 'ping':
 				this.send(ws, { t: 'pong' });
@@ -232,9 +276,20 @@ export class EarthWorld {
 				break;
 			case 'chat': {
 				const text = String(m.text ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, CHAT_MAX);
-				if (text) this.broadcastAt(me.loc, { t: 'chat', id: me.id, name: me.name, avatar: me.avatar, text, at: now });
+				if (!text) break;
+				// 在线频道不能发网址、联系方式和坐标（第 24 批）：不转发，只告诉发的人
+				const why = contactError(text);
+				if (why) {
+					this.send(ws, { t: 'notice', msg: '没发出去：聊天里' + why });
+					break;
+				}
+				this.broadcastAt(me.loc, { t: 'chat', id: me.id, name: me.name, avatar: me.avatar, text, at: now }, me.id);
 				break;
 			}
+			case 'mute':
+				// 屏蔽名单（第 24 批）：整份替换，只收合法的哈希，最多 BLOCK_MAX 个
+				if (Array.isArray(m.ids)) this.mutes.set(ws, new Set(m.ids.filter((x: unknown): x is string => typeof x === 'string' && HASH_RE.test(x)).slice(0, BLOCK_MAX)));
+				break;
 			case 'coop':
 			case 'trade': {
 				// 共同事件大厅或交易挂单有变化：只提醒同一地点的其他人去拉一次列表，不带任何内容（内容以服务端为准）
@@ -248,7 +303,7 @@ export class EarthWorld {
 				if (EMOTES.includes(m.kind) && typeof m.to === 'string') {
 					// 只能对同一地点的玩家互动
 					for (const [sock, p] of this.sockets) {
-						if (p.id === m.to && p.loc === me.loc) this.send(sock, { t: 'emote', from: me.id, name: me.name, kind: m.kind });
+						if (p.id === m.to && p.loc === me.loc && !this.mutes.get(sock)?.has(me.id)) this.send(sock, { t: 'emote', from: me.id, name: me.name, kind: m.kind });
 					}
 				}
 				break;
@@ -259,6 +314,7 @@ export class EarthWorld {
 		const me = this.sockets.get(ws);
 		if (!me) return;
 		this.sockets.delete(ws);
+		this.sockIp.delete(ws);
 		this.lastSeen.delete(ws);
 		this.msgCount.delete(ws);
 		try {
@@ -293,14 +349,70 @@ export class EarthWorld {
 			} catch {}
 		}
 	}
-	private broadcastAt(loc: string, data: unknown) {
+	/** from：发消息的人的 id 哈希前缀；屏蔽了他的连接收不到 */
+	private broadcastAt(loc: string, data: unknown, from?: string) {
 		const raw = JSON.stringify(data);
 		for (const [ws, p] of this.sockets) {
 			if (p.loc !== loc) continue;
+			if (from && this.mutes.get(ws)?.has(from)) continue;
 			try {
 				ws.send(raw);
 			} catch {}
 		}
+	}
+
+	// ---------- 统计（设计见 docs/earth-game/analytics.md） ----------
+
+	/**
+	 * 记一次服务端结算的统计。claim：这次领了每日奖励（= 今天第一次来，算一个活跃日，并按注册日记留存）；
+	 * steps：这次第一次走到的漏斗步骤（记在注册那天的汇总里）。出错只丢统计，不影响游戏。
+	 */
+	private async track(id: string, day: number, add: Counts, claim: { cash: number } | null | undefined, steps: FunnelStep[] = []): Promise<void> {
+		try {
+			this.stats.add(day, claim ? { ...add, active: 1, 'eco.in.daily': claim.cash } : add);
+			if (!claim && steps.length === 0) return;
+			const bornKey = BORN_PREFIX + (await sha256Hex(id)).slice(0, 12);
+			const born = await this.ctx.storage.get<number>(bornKey);
+			if (typeof born !== 'number' || !Number.isInteger(born)) return;
+			const k = day - born;
+			const cohort: Counts = {};
+			if (claim && k >= 1 && k <= BORN_KEEP_DAYS) cohort['ret.' + k] = 1;
+			for (const s of steps) cohort['fn.' + s] = 1;
+			this.stats.add(born, cohort);
+			// 过了留存窗口就删掉注册日：不再需要
+			if (k > BORN_KEEP_DAYS) await this.ctx.storage.delete(bornKey);
+		} catch {}
+	}
+
+	/** 客户端上报一批事件（'@STATS' 实例）：限流、限大小、白名单校验后只记计数 */
+	private async handleStats(request: Request): Promise<Response> {
+		if (request.method !== 'POST') return json({ ok: false }, 405);
+		const ip = request.headers.get('CF-Connecting-IP') || 'local';
+		const now = Date.now();
+		const rate = this.statsRate.get(ip);
+		if (!rate || now > rate.resetAt) {
+			if (this.statsRate.size > 5000) this.statsRate.clear();
+			this.statsRate.set(ip, { n: 1, resetAt: now + STATS_WINDOW_MS });
+		} else if (++rate.n > STATS_LIMIT) return json({ ok: false }, 429);
+		const text = await request.text();
+		if (text.length > STATS_BODY_MAX) return json({ ok: false }, 413);
+		let raw: unknown;
+		try {
+			raw = JSON.parse(text);
+		} catch {
+			return json({ ok: false }, 400);
+		}
+		const counts = cleanBatch(raw);
+		if (!counts) return json({ ok: false }, 400);
+		this.stats.add(realDayOf(now), counts);
+		return json({ ok: true });
+	}
+
+	private async handleStatsRead(url: URL): Promise<Response> {
+		const from = Number(url.searchParams.get('from'));
+		const to = Number(url.searchParams.get('to'));
+		if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to < from || to - from > READ_MAX_DAYS) return json({ ok: false, msg: '日期范围无效' }, 400);
+		return json({ ok: true, days: await this.stats.read(from, to) });
 	}
 
 	// ---------- 云存档与权威结算（仅 '@SAVES' 实例；storage 键：save:<id> = { keyHash, state, at }） ----------
@@ -311,18 +423,19 @@ export class EarthWorld {
 	//   act    { id, key, rev, act: GameAction, op? }                  执行一个动作；rev 与服务端不一致返回 409
 	//          op：动作编号。这个编号的动作已经结算过（响应在路上丢了、客户端重交）时不再执行，返回当时的结果和最新存档（dup: true）
 	//   board  { id, key }                                             净资产排行榜（前 20 名和自己的名次），只读
+	//   rekey  { id, key, newKey }                                     更换同步码：旧 key 立即失效。重交（旧 key 已失效、newKey 已生效）当作成功
+	//   export { id, key }                                             导出这名玩家在服务器上的全部数据（存档、留言、榜单记录），不含 key 和种子
+	//   delete { id, key, confirm: 'delete' }                          删除账号：存档、动作编号、榜单、留言、挂单、队伍全部删掉
+	// 存档的格式版本、迁移和「别的分支加的字段」怎么保留，见 core/save.ts 和 docs/earth-game/save-sync.md
 	private async handleSave(request: Request): Promise<Response> {
 		if (request.method !== 'POST') return json({ ok: false, msg: '请求无效' }, 405);
-		const ip = request.headers.get('CF-Connecting-IP') || 'local';
+		const ip = ipKey(request.headers.get('CF-Connecting-IP'));
 		const now = Date.now();
-		const rate = this.saveRate.get(ip);
-		if (!rate || now > rate.resetAt) {
-			if (this.saveRate.size > 5000) this.saveRate.clear();
-			this.saveRate.set(ip, { n: 1, resetAt: now + SAVE_WINDOW_MS });
-		} else if (++rate.n > SAVE_LIMIT) return json({ ok: false, msg: '操作太频繁' }, 429);
+		if (!this.saveRate.hit(ip, now)) return json({ ok: false, msg: '操作太频繁' }, 429);
 
-		const text = await request.text();
-		if (text.length > SAVE_BODY_MAX) return json({ ok: false, msg: '请求过大' }, 413);
+		// 边读边数：超过上限立刻停，不先把几十 MB 的请求体整个读进内存
+		const text = await readBounded(request, SAVE_BODY_MAX);
+		if (text === null) return json({ ok: false, msg: '请求过大' }, 413);
 		let body: any;
 		try {
 			body = JSON.parse(text);
@@ -333,6 +446,8 @@ export class EarthWorld {
 		if (typeof id !== 'string' || !ID_RE.test(id) || typeof key !== 'string' || !KEY_RE.test(key)) {
 			return json({ ok: false, msg: '同步码无效' }, 400);
 		}
+		// 新建角色另有按来源的限流（在格式检查之后：格式不对的请求不占名额）
+		if (body.action === 'create' && !this.createRate.hit(ip, now)) return json({ ok: false, msg: '这个网络新建角色太频繁了，过一会儿再试' }, 429);
 		// 同一存档串行处理：上一个请求结束后才开始下一个。共同事件开始时要改所有成员的存档，同时排在每个成员的队列后面
 		const ids = [id];
 		let starting: Lobby | undefined;
@@ -437,22 +552,23 @@ export class EarthWorld {
 	}
 
 	/** 存档落盘，同时更新这名玩家的榜单记录。榜单用 id 的哈希前缀做键（和在线状态一样），真实 id 是凭证的一部分，不能外露 */
-	private async persist(id: string, keyHash: string, state: PlayerState, now: number): Promise<void> {
-		await this.persistMany([{ id, keyHash, state, at: now }]);
+	private async persist(id: string, keyHash: string, state: PlayerState, now: number, raw?: unknown): Promise<void> {
+		await this.persistMany([{ id, keyHash, state, at: now, raw }]);
 	}
 
 	/**
 	 * 多个存档在同一次 put 里写入（Durable Object 存储对单次多键 put 保证全写或全不写）：共同事件不会出现一部分人拿到奖励。
 	 * week：这次要给全服周计数加几，和存档一起写（见 commitWeek）
 	 */
-	private async persistMany(saves: { id: string; keyHash: string; state: PlayerState; at: number }[], week?: { week: number; k: number }, extra: Record<string, unknown> = {}): Promise<void> {
+	private async persistMany(saves: { id: string; keyHash: string; state: PlayerState; at: number; raw?: unknown }[], week?: { week: number; k: number }, extra: Record<string, unknown> = {}): Promise<void> {
 		const entries: Record<string, unknown> = { ...extra };
 		for (const x of saves) {
 			const h = (await sha256Hex(x.id)).slice(0, 12);
 			const rankKey = 'rank:' + h;
 			// 净资产没变时沿用上一条记录的时间，「同分先达到的在前」才成立
 			const prev = await this.ctx.storage.get(rankKey);
-			entries['save:' + x.id] = { keyHash: x.keyHash, state: x.state, at: x.at };
+			// raw：落盘前的原存档。这版代码不认识的字段（别的分支加的）原样带上，不在来回部署时丢掉（见 core/save.ts）
+			entries['save:' + x.id] = { keyHash: x.keyHash, state: x.raw === undefined ? x.state : carryUnknown(x.raw, x.state), at: x.at };
 			// 在线状态里的 id 哈希 -> 真实 id：送礼时按哈希找到收件人。只存在服务端存储里，从不发给客户端
 			entries['h:' + h] = x.id;
 			entries[rankKey] = boardEntry(x.state, x.at, prev);
@@ -472,7 +588,14 @@ export class EarthWorld {
 	private async handleSaveLocked(body: any, id: string, key: string, wall: number, locked = new Set([id])): Promise<Response> {
 		const keyHash = await sha256Hex(id + ':' + key);
 		const rec = await this.ctx.storage.get<{ keyHash: string; state: any; at: number }>('save:' + id);
-		if (rec && !timingSafeEqual(rec.keyHash, keyHash)) return json({ ok: false, msg: '同步码无效' }, 403);
+		if (rec && !timingSafeEqual(rec.keyHash, keyHash)) {
+			// 换码的回复在路上丢了：客户端拿旧码重交，而存档已经认新码了。新码对得上就当成功，不然这台设备就被锁在外面
+			if (body.action === 'rekey' && typeof body.newKey === 'string' && KEY_RE.test(body.newKey) && timingSafeEqual(rec.keyHash, await sha256Hex(id + ':' + body.newKey))) {
+				const st = sanitizeState(rec.state, new Set(WORLD.locations.map((l) => l.id)), { fallbackLoc: WORLD.spawn, now: wall });
+				return json({ ok: true, dup: true, msg: '同步码已更换', state: st && st.id === id ? publicState(st) : undefined, at: wall });
+			}
+			return json({ ok: false, badKey: true, msg: '同步码无效（可能已在另一台设备更换）' }, 403);
+		}
 		// 同一存档的时间不倒退：服务器时钟回拨时沿用上次落盘的时间，不然跨午夜回拨能把刚领的每日奖励改回前一天再领一次，
 		// 回拨超过一分钟还会把合法的定位、冷却、上班卡当成「未来」清掉。落盘时间超前太多（超过一天）当作坏数据，不跟它走
 		const now = EarthWorld.saveNow(rec, wall);
@@ -508,26 +631,37 @@ export class EarthWorld {
 			refreshWishes(state);
 			const first = claimDaily(state, realDayOf(now));
 			const created = first ? { ...first.state, rev: 0 } : state;
-			await this.persist(id, keyHash, created, now);
+			// 统计：记下注册日（只存现实日序号，键是 id 哈希前缀；关了统计的玩家不记）
+			const track = body.nt !== true;
+			const day = realDayOf(now);
+			await this.persistMany([{ id, keyHash, state: created, at: now }], undefined, track ? { [BORN_PREFIX + (await sha256Hex(id)).slice(0, 12)]: day } : {});
+			if (track) this.stats.add(day, { new: 1, active: 1, ...(first ? { 'eco.in.daily': first.cash } : {}) });
 			return json({ ok: true, state: publicState(created), at: now, daily: first?.msg });
 		}
 
 		if (!rec) return json({ ok: false, msg: '云端没有这个存档' }, 404);
 		// 规则用整个世界（所有区域合在一起，第 41 轮）：跨区域出行、找最近的医院、成就都不分区域
 		const region = WORLD;
-		const current = sanitizeState(rec.state, new Set(region.locations.map((l) => l.id)), { fallbackLoc: region.spawn, now });
-		if (!current) return json({ ok: false, msg: '云端存档已损坏' }, 500);
+		const sane = sanitizeState(rec.state, new Set(region.locations.map((l) => l.id)), { fallbackLoc: region.spawn, now });
+		// 存档里写的 id 必须就是这个存档的 id：不然动作会记在别人的名下（榜单哈希、送礼收件人都按 id 算）
+		const current = sane && sane.id === id ? sane : null;
+		// 损坏的存档原样留着不覆盖（能人工救回），也不让客户端新建同 id 的角色盖掉它
+		if (!current) return json({ ok: false, corrupt: true, msg: '云端存档已损坏' }, 500);
+		const raw = rec.state;
 
 		// 每日奖励：按现实日期（服务端时钟）每天第一次读取或行动时发放
 		// 落盘和返回之前统一再过一遍存档校验：存下来的永远是规范形式，不依赖每条规则各自守住上限
 		const locs = new Set(region.locations.map((l) => l.id));
 		const canon = (s: typeof current) => sanitizeState(s, locs, { fallbackLoc: region.spawn, now }) ?? s;
-		const claim = claimDaily(current, realDayOf(now));
+		// 回流（v36）：离开几天后第一次回来，在发每日奖励之前记下离开了多久（领奖会把 daily.day 改成今天）
+		const claim = claimDaily(noteReturn(current, realDayOf(now)), realDayOf(now));
 		const live = claim ? canon(claim.state) : current;
 		// 校验时修过存档（挪了地点、清了未来的时间戳等）也要写回：不然只上线不操作的话，每次都重新修一遍，
 		// 被改成「今天已领」的每日奖励永远领不到
-		const migrated = JSON.stringify(current) !== JSON.stringify(rec.state);
-		if ((claim || migrated) && action === 'get') await this.persist(id, keyHash, live, now);
+		// 比较的是带上未知字段后的落盘形式：别的分支加的字段不算「修过」，不会每次读取都写一遍
+		const migrated = JSON.stringify(carryUnknown(raw, current)) !== JSON.stringify(rec.state);
+		if ((claim || migrated) && action === 'get') await this.persist(id, keyHash, live, now, raw);
+		if (claim && action === 'get' && body.nt !== true) await this.track(id, realDayOf(now), {}, claim);
 
 		if (action === 'get') return json({ ok: true, state: publicState(live), at: now, daily: claim?.msg });
 
@@ -556,14 +690,30 @@ export class EarthWorld {
 			// 结算结果和存档一起记下（同一次写入）：要么都落盘，要么重交时照常再算
 			const opEntry = op ? { ['ops:' + id]: [...ops, { op, ok: r.ok, msg: String(r.msg ?? '') }].slice(-OPS_KEEP) } : {};
 			// 存档和全服周计数一次写入
-			if (next !== current) await this.persistMany([{ id, keyHash, state: next, at: now }], counted ? { week, k: 1 } : undefined, opEntry);
+			if (next !== current) await this.persistMany([{ id, keyHash, state: next, at: now, raw }], counted ? { week, k: 1 } : undefined, opEntry);
 			// 动作没改动存档（被规则拒绝）但校验时修过存档：把修好的写回，不带这次没落定的每日奖励
-			else if (migrated) await this.persistMany([{ id, keyHash, state: current, at: now }], undefined, opEntry);
+			else if (migrated) await this.persistMany([{ id, keyHash, state: current, at: now, raw }], undefined, opEntry);
 			else if (op) await this.ctx.storage.put(opEntry);
+			// 统计（玩家关了就不记）：功能使用、现金流入流出、新手漏斗、每日活跃和留存。只按结算结果记，不信客户端
+			if (body.nt !== true) await this.track(id, realDayOf(now), actionCounts(act, live, r.state, r.ok), next !== current ? claim : null, r.ok && !r.collapsed ? funnelSteps(live, r.state) : []);
 			return json({ ok: r.ok, msg: r.msg, state: publicState(next), at: now, daily: claim?.msg });
 		}
-		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, wall, locked);
-		if (action === 'trade') return this.handleTrade(body, id, keyHash, current, live, region, now, wall, locked);
+		if (action === 'coop') return this.handleCoop(body, id, keyHash, current, live, region, now, wall, locked, raw);
+		if (action === 'trade') return this.handleTrade(body, id, keyHash, current, live, region, now, wall, locked, raw);
+		if (action === 'rekey') {
+			// 换码只改 keyHash，存档、版本号、榜单都不动。不带这次没落定的每日奖励（和规则拒绝的动作一样）
+			const newKey = body.newKey;
+			if (typeof newKey !== 'string' || !KEY_RE.test(newKey) || newKey === key) return json({ ok: false, msg: '新同步码无效' }, 400);
+			const newHash = await sha256Hex(id + ':' + newKey);
+			await this.persist(id, newHash, current, now, raw);
+			return json({ ok: true, msg: '同步码已更换，旧的同步码和二维码已失效', state: publicState(current), at: now });
+		}
+		if (action === 'export') return json({ ok: true, export: await this.exportOf(id, raw, current, wall), at: now });
+		if (action === 'delete') {
+			if (body.confirm !== 'delete') return json({ ok: false, msg: '请求无效' }, 400);
+			await this.deleteAccount(id);
+			return json({ ok: true, msg: '账号和云端存档已删除', at: wall });
+		}
 		if (action === 'redeem') return this.handleRedeem(body, id, current, region, now);
 		if (action === 'notes') {
 			// notes { op: 'list' }：这个地点的留言；{ op: 'post', text }：留一句；{ op: 'delete', note }：删自己的
@@ -571,7 +721,9 @@ export class EarthWorld {
 			const hash = (await sha256Hex(id)).slice(0, 12);
 			const day = realDayOf(now);
 			const list = await this.notesAt(loc);
-			const view = () => ({ notes: list.map((n) => ({ id: n.id, name: n.name, avatar: n.avatar, text: n.text, at: n.at, mine: n.author === hash })).reverse() });
+			// 屏蔽的人的留言不给我看；最近被好几个人举报的人的留言先对所有人隐藏（自己的照常看得到，第 24 批）
+			const hidden = await this.hiddenAuthors(list.map((n) => n.author), day);
+			const view = () => ({ notes: list.filter((n) => n.author === hash || (!isBlocked(current, n.author) && !hidden.has(n.author))).map((n) => ({ id: n.id, name: n.name, avatar: n.avatar, text: n.text, at: n.at, mine: n.author === hash })).reverse() });
 			if (body.op === 'list') return json({ ok: true, ...view(), at: now });
 			if (body.op === 'post') {
 				const c = cleanNote(body.text);
@@ -609,6 +761,7 @@ export class EarthWorld {
 			}
 			return json({ ok: false, msg: '请求无效' }, 400);
 		}
+		if (action === 'safety') return this.handleSafety(body, id, keyHash, current, live, now, canon);
 		if (action === 'weekly') {
 			// weekly { op: 'status' }：这周的目标、全服进度、我出了几份力；{ op: 'claim', rev }：达成后领奖
 			const day = realDayOf(now);
@@ -621,12 +774,51 @@ export class EarthWorld {
 				const r = applyWeeklyClaim(live, week, count);
 				if (!r.ok) return json({ ok: false, msg: r.msg, ...view(live), at: now });
 				const next = canon(r.state);
-				await this.persist(id, keyHash, next, now);
+				await this.persist(id, keyHash, next, now, raw);
 				return json({ ok: true, msg: r.msg, state: publicState(next), ...view(next), at: now });
 			}
 			return json({ ok: false, msg: '请求无效' }, 400);
 		}
 		return json({ ok: false, msg: '请求无效' }, 400);
+	}
+
+	// ---------- 导出与删除账号 ----------
+	/** 这名玩家在服务器上的全部数据：存档（含这版代码不认识的字段，种子清零）、自己的留言、榜单记录。不含 key、keyHash、真实 id 以外的别人的数据 */
+	private async exportOf(id: string, raw: unknown, current: PlayerState, wall: number) {
+		const h = (await sha256Hex(id)).slice(0, 12);
+		const notes: { loc: string; text: string; at: number }[] = [];
+		for (const [k, list] of await this.ctx.storage.list<Note[]>({ prefix: 'notes:' })) {
+			for (const n of Array.isArray(list) ? list : []) if (n && n.author === h) notes.push({ loc: k.slice(6), text: String(n.text), at: n.at });
+		}
+		const rank = await this.ctx.storage.get('rank:' + h);
+		// 真实 id 是同步码的一半：导出文件可能被转给别人，只放哈希前缀（和在线状态、榜单里一样）
+		const { id: _id, ...state } = carryUnknown(raw, publicState(current)) as PlayerState & Record<string, unknown>;
+		return { format: 'earth-save-export', v: SAVE_VERSION, exportedAt: wall, player: h, state, notes, rank: rank ?? null };
+	}
+
+	/** 删除账号：调用方已经持有这个存档的锁。同一次 delete 删掉所有按 id、id 哈希记的键；留言按地点排队改；内存里的挂单和队伍一起清 */
+	private async deleteAccount(id: string): Promise<void> {
+		const h = (await sha256Hex(id)).slice(0, 12);
+		const locs = [...(await this.ctx.storage.list<Note[]>({ prefix: 'notes:' })).entries()]
+			.filter(([, list]) => Array.isArray(list) && list.some((n) => n && n.author === h))
+			.map(([k]) => k.slice(6));
+		for (const loc of locs) {
+			await this.inNotes(loc, async () => {
+				const list = await this.notesAt(loc);
+				const next = list.filter((n) => n.author !== h);
+				await this.ctx.storage.put('notes:' + loc, next);
+				list.splice(0, list.length, ...next);
+			});
+		}
+		await this.ctx.storage.delete(['save:' + id, 'ops:' + id, 'rank:' + h, 'h:' + h, 'notecd:' + h]);
+		for (const [k, o] of this.offers) if (o.from === id || o.toId === id) this.offers.delete(k);
+		for (const [k, l] of this.lobbies) {
+			if (l.done) { l.done.ids = l.done.ids.filter((x) => x !== id); continue; }
+			if (l.host === id) this.lobbies.delete(k);
+			else l.members = l.members.filter((m) => m.id !== id);
+		}
+		this.boardGen++;
+		this.board = null;
 	}
 
 	// ---------- 共同事件 ----------
@@ -781,7 +973,7 @@ export class EarthWorld {
 		return { lobbies, results };
 	}
 
-	private async handleCoop(body: any, id: string, keyHash: string, current: PlayerState, live: PlayerState, region: Region, now: number, wall: number, locked: Set<string>): Promise<Response> {
+	private async handleCoop(body: any, id: string, keyHash: string, current: PlayerState, live: PlayerState, region: Region, now: number, wall: number, locked: Set<string>, raw: unknown): Promise<Response> {
 		this.pruneLobbies(wall);
 		const op = body.op;
 		const reply = (extra: Record<string, unknown> = {}, status = 200) => json({ ok: true, ...this.coopView(id, current.loc), at: now, ...extra }, status);
@@ -836,18 +1028,18 @@ export class EarthWorld {
 			}
 			// 重新读每个成员的存档（已在锁内），还在这里、现在能参加的才算数
 			const locs = new Set(region.locations.map((x) => x.id));
-			const members: { id: string; keyHash: string; state: PlayerState; name: string; role: number; now: number }[] = [];
+			const members: { id: string; keyHash: string; state: PlayerState; name: string; role: number; now: number; raw: unknown }[] = [];
 			// 只结算排队时已经锁住的成员：之后才加入的人存档没锁，不能动
 			for (const m of l.members.filter((x) => locked.has(x.id))) {
 				if (m.id === id) {
-					members.push({ id, keyHash, state: live, name: m.name, role: m.role, now });
+					members.push({ id, keyHash, state: live, name: m.name, role: m.role, now, raw });
 					continue;
 				}
 				const rec = await this.ctx.storage.get<{ keyHash: string; state: any; at: number }>('save:' + m.id);
 				// 每个队友用自己存档的时间校验和落盘，不用发起人的（时钟回拨时两边沿用的时间不一样）
 				const mNow = EarthWorld.saveNow(rec, wall);
 				const st = rec ? sanitizeState(rec.state, locs, { fallbackLoc: region.spawn, now: mNow }) : null;
-				if (rec && st) members.push({ id: m.id, keyHash: rec.keyHash, state: st, name: m.name, role: m.role, now: mNow });
+				if (rec && st && st.id === m.id) members.push({ id: m.id, keyHash: rec.keyHash, state: st, name: m.name, role: m.role, now: mNow, raw: rec.state });
 			}
 			const ready = members.filter((m) => m.state.loc === l.loc && !coopBlocked(m.state, region, def));
 			if (!ready.some((m) => m.id === id)) { unfreeze(); return no(coopBlocked(live, region, def) ?? '你现在不能参加'); }
@@ -863,7 +1055,7 @@ export class EarthWorld {
 				const noted = noteMet(r.results[i].state, people.filter((_, j) => j !== i), coopDay);
 				const met = goalOfWeek(week).metric === 'coop' ? addWeekly(noted, week) : noted;
 				if (met !== noted) counted++;
-				return { id: m.id, keyHash: m.keyHash, at: m.now, state: sanitizeState(met, locs, { fallbackLoc: region.spawn, now: m.now }) ?? met };
+				return { id: m.id, keyHash: m.keyHash, at: m.now, raw: m.raw, state: sanitizeState(met, locs, { fallbackLoc: region.spawn, now: m.now }) ?? met };
 			});
 			// 所有人和全服周计数一次写入：写失败就谁都没拿到，队伍还在、可以重试；写成功后大厅标记结束，版本号也都变了，重复开始会被拒绝
 			await this.persistMany(saves, { week, k: counted });
@@ -886,19 +1078,94 @@ export class EarthWorld {
 		for (const [k, o] of this.offers) if (!o.taking && wall - o.at > OFFER_TTL_MS) this.offers.delete(k);
 	}
 
-	private tradeView(id: string, hash: string, loc: string) {
+	/** 最近被足够多的不同的人举报的作者（只查这些作者的举报记录） */
+	private async hiddenAuthors(authors: string[], day: number): Promise<Set<string>> {
+		const keys = [...new Set(authors)].filter((a) => HASH_RE.test(a)).map((a) => 'report:' + a);
+		const out = new Set<string>();
+		if (!keys.length) return out;
+		// 逐个取（最多 NOTES_PER_LOC 个作者）
+		const got = await Promise.all(keys.map((k) => this.ctx.storage.get<ReportRec[]>(k)));
+		keys.forEach((k, i) => { const v = got[i]; if (Array.isArray(v) && reportHidden(v, day)) out.add(k.slice('report:'.length)); });
+		return out;
+	}
+
+	// ---------- 屏蔽与举报（第 24 批） ----------
+	// safety { op: 'block', peer | note, rev }          屏蔽在线的某人（peer = 在线状态里的哈希）或某条留言的作者
+	// safety { op: 'unblock', hash, rev }               解除屏蔽
+	// safety { op: 'report', peer | note, reason, quote?, rev }  举报并顺手屏蔽；留言的原话由服务端从留言板取，聊天的原话由举报人提交（只作参考）
+	// 目标一律由服务端查实：peer 必须是有存档的玩家，note 必须是我所在地点留言板上的留言。别人的真实 id 不出服务端
+	private async handleSafety(body: any, id: string, keyHash: string, current: PlayerState, live: PlayerState, now: number, canon: (s: PlayerState) => PlayerState): Promise<Response> {
+		const hash = (await sha256Hex(id)).slice(0, 12);
+		const day = realDayOf(now);
+		const op = body.op;
+		if (op !== 'block' && op !== 'unblock' && op !== 'report') return json({ ok: false, msg: '请求无效' }, 400);
+		if (body.rev !== current.rev) return json({ ok: false, conflict: true, msg: CONFLICT_MSG, state: publicState(current), at: now }, 409);
+		if (op === 'unblock') {
+			if (typeof body.hash !== 'string' || !HASH_RE.test(body.hash)) return json({ ok: false, msg: '请求无效' }, 400);
+			const who = live.blocked[body.hash];
+			const r = applyBlock(live, 'unblock', { hash: body.hash, name: who?.name ?? '对方', avatar: who?.avatar ?? '' }, day);
+			if (!r.ok) return json({ ok: false, msg: r.msg, state: publicState(current), at: now });
+			const next = canon(r.state);
+			await this.persist(id, keyHash, next, now);
+			return json({ ok: true, msg: r.msg, state: publicState(next), at: now });
+		}
+		// 找到对方：在线状态里的哈希，或我所在地点的一条留言
+		let target: { hash: string; name: string; avatar: string; quote: string; ctx: ReportRec['ctx'] } | null = null;
+		if (typeof body.note === 'string' && NOTE_RE.test(body.note)) {
+			const n = (await this.notesAt(current.loc)).find((x) => x.id === body.note);
+			if (n) target = { hash: n.author, name: n.name, avatar: n.avatar, quote: n.text, ctx: 'note' };
+		} else if (typeof body.peer === 'string' && HASH_RE.test(body.peer)) {
+			const pid = await this.ctx.storage.get<string>('h:' + body.peer);
+			const prec = typeof pid === 'string' ? await this.ctx.storage.get<{ state: any }>('save:' + pid) : undefined;
+			if (prec?.state) target = { hash: body.peer, name: cleanName(prec.state.name) || '旅人', avatar: String(prec.state.avatar ?? '🧑').replace(/[<>&"']/g, '').slice(0, 8), quote: typeof body.quote === 'string' ? body.quote : '', ctx: typeof body.quote === 'string' && body.quote ? 'chat' : 'player' };
+		}
+		if (!target) return json({ ok: false, msg: '找不到这位玩家', state: publicState(current), at: now }, 404);
+		if (target.hash === hash) return json({ ok: false, msg: op === 'report' ? '不能举报自己' : '不能屏蔽自己', state: publicState(current), at: now }, 400);
+		let msg = '';
+		if (op === 'report') {
+			if (!isReportReason(body.reason)) return json({ ok: false, msg: '选一个举报原因', state: publicState(current), at: now }, 400);
+			const reason = body.reason;
+			const t = target;
+			const res = await this.inNotes('@report', async () => {
+				// 举报人的每日次数和被举报人的记录排队写：两个人同时举报也不会互相覆盖
+				const cd = await this.ctx.storage.get<{ day: number; n: number }>('reportcd:' + hash);
+				const today = Math.max(day, cd?.day ?? 0);
+				const used = cd && cd.day === today ? cd.n : 0;
+				if (used >= REPORTS_PER_DAY) return `今天已经举报了 ${REPORTS_PER_DAY} 次，明天再来。`;
+				const list = (await this.ctx.storage.get<ReportRec[]>('report:' + t.hash)) ?? [];
+				const next = addReport(Array.isArray(list) ? list : [], { by: hash, reason, ctx: t.ctx, day: today, quote: t.quote });
+				if (typeof next === 'string') return next;
+				await this.ctx.storage.put({ ['report:' + t.hash]: next, ['reportcd:' + hash]: { day: today, n: used + 1 } });
+				return null;
+			});
+			if (typeof res === 'string') return json({ ok: false, msg: res, state: publicState(current), at: now }, 429);
+			msg = '举报收到了，谢谢。';
+		}
+		// 举报顺手屏蔽；已经屏蔽过就只记举报
+		if (isBlocked(live, target.hash)) {
+			if (op === 'block') return json({ ok: false, msg: '已经屏蔽过了。', state: publicState(current), at: now });
+			return json({ ok: true, msg, state: publicState(current), at: now });
+		}
+		const r = applyBlock(live, 'block', target, day, hash);
+		if (!r.ok) return json({ ok: !!msg, msg: msg ? `${msg}${r.msg}` : r.msg, state: publicState(current), at: now });
+		const next = canon(r.state);
+		await this.persist(id, keyHash, next, now);
+		return json({ ok: true, msg: msg ? `${msg}${r.msg}` : r.msg, state: publicState(next), at: now });
+	}
+
+	private tradeView(id: string, hash: string, loc: string, blocked: PlayerState['blocked'] = {}) {
 		const offers = [...this.offers.values()]
-			.filter((o) => o.from === id || (o.loc === loc && (o.kind === 'sale' || o.to === hash)))
+			.filter((o) => o.from === id || (o.loc === loc && (o.kind === 'sale' || o.to === hash) && !Object.hasOwn(blocked, o.fromHash)))
 			.map((o) => ({ id: o.id, kind: o.kind, item: o.item, price: o.price, name: o.fromName, avatar: o.fromAvatar, toName: o.from === id ? o.toName : '', loc: o.loc, mine: o.from === id, taking: !!o.taking }));
 		return { offers };
 	}
 
-	private async handleTrade(body: any, id: string, keyHash: string, current: PlayerState, live: PlayerState, region: Region, now: number, wall: number, locked: Set<string>): Promise<Response> {
+	private async handleTrade(body: any, id: string, keyHash: string, current: PlayerState, live: PlayerState, region: Region, now: number, wall: number, locked: Set<string>, raw: unknown): Promise<Response> {
 		this.pruneOffers(wall);
 		const hash = (await sha256Hex(id)).slice(0, 12);
 		const day = realDayOf(now);
 		const op = body.op;
-		const view = (st: PlayerState) => this.tradeView(id, hash, st.loc);
+		const view = (st: PlayerState) => this.tradeView(id, hash, st.loc, st.blocked);
 		const reply = (extra: Record<string, unknown> = {}) => json({ ok: true, ...view(current), at: now, ...extra });
 		const no = (msg: string, status = 400) => json({ ok: false, msg, ...view(current), at: now }, status);
 		const mineOpen = () => [...this.offers.values()].filter((o) => o.from === id).length;
@@ -927,6 +1194,10 @@ export class EarthWorld {
 				const target = await this.ctx.storage.get<string>('h:' + body.to);
 				const trec = typeof target === 'string' ? await this.ctx.storage.get<{ state: any }>('save:' + target) : undefined;
 				if (!target || !trec || trec.state?.loc !== current.loc) return no('对方不在这里，送不了');
+				// 屏蔽（第 24 批）：我屏蔽了对方，或对方屏蔽了我，都送不了；不告诉是谁屏蔽了谁
+				if (isBlocked(current, body.to)) return no('你屏蔽了对方，先解除屏蔽再送');
+				const tb = trec.state?.blocked;
+				if (tb && typeof tb === 'object' && Object.hasOwn(tb, hash)) return no('对方现在收不到礼物');
 				if ([...this.offers.values()].filter((o) => o.toId === target).length >= OFFER_PER_TARGET) return no('对方还有好几份礼物没收，等等再送');
 				to = body.to;
 				toId = target;
@@ -940,7 +1211,7 @@ export class EarthWorld {
 			if (this.offers.size >= OFFER_MAX) return no('现在挂单太多了，稍后再试');
 			if ([...this.offers.values()].filter((o) => o.loc === current.loc).length >= OFFER_PER_LOC) return no('这里挂着的东西太多了，稍后再试');
 			const oid = newId();
-			this.offers.set(oid, { id: oid, kind: op, from: id, fromName: current.name, fromAvatar: current.avatar, to, toId, toName, item: item.id, price, loc: current.loc, at: wall });
+			this.offers.set(oid, { id: oid, kind: op, from: id, fromHash: hash, fromName: current.name, fromAvatar: current.avatar, to, toId, toName, item: item.id, price, loc: current.loc, at: wall });
 			return reply({ msg: op === 'gift' ? `${item.icon} 等${toName}收下${item.name}` : `${item.icon} ${item.name}挂上二手摊了，$${price}` });
 		}
 		const o = typeof body.offer === 'string' && OFFER_RE.test(body.offer) ? this.offers.get(body.offer) : undefined;
@@ -968,7 +1239,7 @@ export class EarthWorld {
 			const rec = await this.ctx.storage.get<{ keyHash: string; state: any; at: number }>('save:' + o.from);
 			const fNow = EarthWorld.saveNow(rec, wall);
 			const fromState = rec ? sanitizeState(rec.state, locs, { fallbackLoc: region.spawn, now: fNow }) : null;
-			if (!rec || !fromState) {
+			if (!rec || !fromState || fromState.id !== o.from) {
 				this.offers.delete(o.id);
 				return no('对方的存档不在了');
 			}
@@ -992,8 +1263,8 @@ export class EarthWorld {
 			const mine = canon(toAfter, now);
 			// 一笔交易算一次（双方都记一份力）；和双方存档一次写入
 			await this.persistMany([
-				{ id: o.from, keyHash: rec.keyHash, state: canon(wk(noteMet(r.from, [{ hash, name: current.name, avatar: current.avatar }], day)), fNow), at: fNow },
-				{ id, keyHash, state: mine, at: now },
+				{ id: o.from, keyHash: rec.keyHash, state: canon(wk(noteMet(r.from, [{ hash, name: current.name, avatar: current.avatar }], day)), fNow), at: fNow, raw: rec.state },
+				{ id, keyHash, state: mine, at: now, raw },
 			], { week, k: toAfter.weekly !== r.to.weekly ? 1 : 0 });
 			this.offers.delete(o.id);
 			const msg = o.price > 0 ? `${item.icon} 花 $${o.price} 买下了${item.name}` : `${item.icon} 收下了${o.fromName}送的${item.name}`;
@@ -1006,6 +1277,10 @@ export class EarthWorld {
 /** Worker 入口路由：命中 /api/earth/* 返回 Response，否则返回 null 交给 Astro */
 export function routeEarth(request: Request, env: any): Promise<Response> | null {
 	const url = new URL(request.url);
+	if (url.pathname === '/api/earth/stats') {
+		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(STATS_ROOM)).fetch(request);
+	}
+	if (url.pathname === '/api/earth/stats/read') return readStats(request, env);
 	if (url.pathname === '/api/earth/save' || url.pathname === '/api/earth/sponsor-report' || url.pathname === '/api/earth/sponsor-pin') {
 		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(SAVES_ROOM)).fetch(request);
 	}
@@ -1014,4 +1289,24 @@ export function routeEarth(request: Request, env: any): Promise<Response> | null
 		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(region)).fetch(request);
 	}
 	return null;
+}
+
+/**
+ * 查询统计汇总：GET /api/earth/stats/read?from=<现实日>&to=<现实日>，带 Authorization: Bearer <EARTH_STATS_TOKEN>。
+ * 令牌是 Worker 的 secret（不是付费服务）；没配置或不对一律 404，不暴露接口存在。
+ * 合并存档实例（服务端结算的计数）和统计实例（客户端上报的计数）。
+ */
+async function readStats(request: Request, env: any): Promise<Response> {
+	const token = typeof env?.EARTH_STATS_TOKEN === 'string' ? env.EARTH_STATS_TOKEN : '';
+	const auth = request.headers.get('Authorization') || '';
+	if (request.method !== 'GET' || token.length < 32 || !timingSafeEqual(auth, 'Bearer ' + token)) return json({ ok: false }, 404);
+	const q = new URL(request.url).search;
+	const parts: Record<string, Counts>[] = [];
+	for (const room of [SAVES_ROOM, STATS_ROOM]) {
+		const res = await env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(room)).fetch(new Request('https://internal/api/earth/stats/read' + q));
+		const data = (await res.json()) as any;
+		if (!data?.ok) return json(data, res.status);
+		parts.push(data.days);
+	}
+	return json({ ok: true, days: mergeDays(...parts) });
 }

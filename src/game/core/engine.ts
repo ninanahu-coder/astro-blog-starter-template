@@ -3,38 +3,53 @@
 import { unit, weatherAt, weatherOn } from './weather.ts';
 import { ANIMALS, DEX_GROUPS, type AnimalDef } from '../data/wildlife.ts';
 import { FISH, FISHING, type FishDef } from '../data/fish.ts';
+import { getPetKind, homeAllowsPet } from '../data/pets.ts';
 import { FACTS, type PlaceFact } from '../data/facts.ts';
 import { NPC_DUOS, type NpcDuo } from '../data/npc-duos.ts';
 import { PHOTO_CHAIN_BONUS, PHOTO_MINUTES, PHOTO_QUESTS, type PhotoQuest } from '../data/photo-quests.ts';
 import { ACTIVITIES } from '../data/activities.ts';
 import { EVENTS } from '../data/events.ts';
 import { ITEMS } from '../data/items.ts';
+import { SHOP_RULES } from '../data/shops.ts';
+import { buyPrice, markdownNow, sellItemBlocked, sellPrice } from './shop.ts';
 import { NPCS } from '../data/npcs.ts';
+import { GIFT_GAIN, RELATION_GAIN, RELATION_TIERS } from '../data/relations.ts';
+import { bondBlocked, confideDue, confideLine, favorToday, isConfidant, isFading } from './relations.ts';
+import { CONFIDANT } from '../data/relations.ts';
+import type { NpcFavor } from '../data/npc-favors.ts';
 import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../data/careers.ts';
-import { HOMES } from '../data/housing.ts';
+import { BOND_WEEKS, HOMES } from '../data/housing.ts';
+import { areaOf } from '../data/areas-base.ts';
 import { PROPERTIES } from '../data/properties.ts';
-import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, saleProceeds, weeklyInterest, weeklyPrincipal } from './finance.ts';
+import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, saleProceeds, vehicleDuty, weeklyInterest, weeklyPrincipal } from './finance.ts';
 import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } from '../data/furniture.ts';
-import { BREAKDOWN, CAR_KM_MAX, DEALER_HOURS, DEALER_TAG, GARAGE, SERVICE_KM, VEHICLES } from '../data/vehicles.ts';
+import { BREAKDOWN, CAR_KM_MAX, DEALER_HOURS, DEALER_TAG, DEPRECIATION, GARAGE, SERVICE_KM, VEHICLES } from '../data/vehicles.ts';
 import { COURSE_PRICE_STEP, COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
+import { credentialName, VISA_GIGS } from '../data/education.ts';
+import { logWork, visaBlocked } from './visa.ts';
 import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
-import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, period, weekdayOf } from './time.ts';
+import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, period, SEASONS, weekdayOf } from './time.ts';
+import { WEATHERS } from '../data/weather.ts';
 import { FESTIVALS } from '../data/festivals.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
-import { checkScore, costMult, decayMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
+import { checkScore, costMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
 import { CAPS, clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
+import { fixProblem, roundFix } from './fix.ts';
+import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
+import { modeNeeds, transitOptions, WALK_STAMINA_PER_KM, withRouteFare } from './transport.ts';
+import { holdingsValue } from './market.ts';
+import { bodyScaled, gainNeed, passTime } from './vitals.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type {
 	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
-/** 每游戏分钟的需求衰减 */
-export const DECAY: Record<string, number> = { hunger: 0.07, energy: 0.05, hygiene: 0.035, fun: 0.04, social: 0.03 };
-const STARVE_DMG = 0.02; // 饱食或精力见底时每分钟掉血
+// 需求衰减、饿 / 累掉健康、健康自然恢复、麻烦值冷却都在 vitals.ts（DECAY 在这里转出，模拟脚本沿用旧的导入路径）
+export { DECAY } from './vitals.ts';
 const ARRIVAL_EVENT_CHANCE = 0.55;
 const HEAT_CHECK_AT = 60;
 
@@ -61,19 +76,16 @@ export function getLocation(region: Region, id: string): GameLocation | undefine
 // ---------- 时间与效果 ----------
 /** 返回 true 表示途中晕倒（已被送往医院） */
 /**
- * 时间流逝：需求衰减、饥饿伤害，再做跨周结算。返回途中是否晕倒。
+ * 时间流逝：需求衰减、饥饿伤害、健康自然恢复、麻烦值冷却（见 vitals.ts），再做跨周结算。返回途中是否晕倒。
  * gains 是本动作的收获（工资等）：没晕倒才入账，而且在跨周结算之前，所以这一班的工资能付刚到期的房租房贷。
  */
-function advance(state: PlayerState, minutes: number, region: Region, gains?: () => void): boolean {
+function advance(state: PlayerState, minutes: number, region: Region, gains?: () => void, asleep = false): boolean {
 	if (minutes <= 0) {
 		gains?.();
 		return false;
 	}
 	state.clock = Math.min(CAPS.clock, state.clock + minutes); // 上限只有损坏的存档会碰到；在这里钳住，后面的日志、状态到期时间都用钳过的时间
-	for (const k of NEED_KEYS) state.needs[k] = clamp100(state.needs[k] - DECAY[k] * decayMult(state, k) * minutes);
-	if (state.needs.hunger <= 0 || state.needs.energy <= 0) {
-		state.health = clamp100(state.health - STARVE_DMG * minutes);
-	}
+	passTime(state, minutes, asleep);
 	const collapsed = state.health <= 0;
 	if (!collapsed) gains?.();
 	weeklyTick(state, region);
@@ -157,8 +169,8 @@ export function applyEffect(state: PlayerState, fx: Effect, region: Region): boo
 	};
 	// 先流逝时间（会衰减需求），再结算需求增减，保证“睡 8 小时”后精力确实是满的
 	// 途中晕倒：原动作到此为止，收获、需求、状态、健康都不再结算（不然露营晕倒还会拿到「星空下醒来」）
-	if (advance(state, fx.minutes ?? 0, region, gains)) return true;
-	if (fx.needs) for (const k of NEED_KEYS) if (fx.needs[k]) state.needs[k] = clamp100(state.needs[k] + fx.needs[k]!);
+	if (advance(state, fx.minutes ?? 0, region, gains, !!fx.asleep)) return true;
+	if (fx.needs) for (const k of NEED_KEYS) if (fx.needs[k]) gainNeed(state, k, fx.needs[k]!); // 精力不超过精力上限
 	if (fx.moodlet) addMoodlet(state, fx.moodlet);
 	if (fx.health) {
 		if (fx.health <= -5) addMoodlet(state, 'hurt');
@@ -198,6 +210,8 @@ export interface TravelOption {
 	cost: number;
 	available: boolean;
 	reason?: string;
+	/** 票价出处、免费等补充说明（第 32 批，公共交通和渡轮） */
+	note?: string;
 }
 
 export function travelOptions(state: PlayerState, region: Region): TravelOption[] {
@@ -209,8 +223,9 @@ export function travelOptions(state: PlayerState, region: Region): TravelOption[
 		if (!toId) continue;
 		const to = getLocation(region, toId);
 		if (!to) continue;
-		out.push(priceRoute(state, r, here, to));
+		out.push(withRouteFare(state, here.id, priceRoute(state, r, here, to)));
 	}
+	out.push(...transitOptions(state, region)); // 第 32 批：公交、区域火车、步行
 	return out.sort((x, y) => x.km - y.km);
 }
 
@@ -218,6 +233,8 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 	const straight = haversineKm(from.lat, from.lon, to.lat, to.lon);
 	let km = straight, minutes = 0, cost = 0, label = '', available = true;
 	let reason: string | undefined;
+	// 第 26 批（待平衡）：出发地当天的天气影响陆路耗时，风暴天土路封闭、渡轮停航
+	const wx = weatherOn(from.id, dayOf(state.clock));
 	if (r.mode === 'air') {
 		minutes = 60 + (km / 750) * 60;
 		cost = 120 + km * 0.25;
@@ -226,6 +243,7 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 		minutes = 45;
 		cost = 40;
 		label = '⛴️ 渡轮';
+		if (wx.closesSea) { available = false; reason = `今天${wx.name}，渡轮停航`; }
 	} else {
 		km = straight * 1.25; // 公路绕行系数
 		const v = getVehicle(state.vehicle);
@@ -233,15 +251,16 @@ function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLo
 			label = `${v?.icon ?? '🚙'} 越野土路`;
 			const speed = v?.trackSpeed ?? 0;
 			if (!speed) { available = false; reason = '需要能走土路的车（四驱或露营车）'; }
-			minutes = (km / ((speed || 55) + state.skills.driving * 0.15)) * 60;
+			else if (wx.road?.trackClosed) { available = false; reason = `今天${wx.name}，土路封闭`; }
+			minutes = (km / ((speed || 55) + state.skills.driving * 0.15)) * 60 * (wx.road?.trackMult ?? 1);
 			cost = km * (v?.costPerKm ?? 0.22);
 		} else if (!v) {
 			label = '🚌 长途巴士';
-			minutes = (km / 70) * 60 + 20;
+			minutes = (km / 70) * 60 * (wx.road?.mult ?? 1) + 20;
 			cost = 8 + km * 0.12;
 		} else {
 			label = `${v.icon} 自驾`;
-			minutes = (km / (v.speed + state.skills.driving * 0.25)) * 60;
+			minutes = (km / (v.speed + state.skills.driving * 0.25)) * 60 * (wx.road?.mult ?? 1);
 			cost = km * v.costPerKm;
 		}
 	}
@@ -262,8 +281,9 @@ export function travel(prev: PlayerState, region: Region, toId: string, mode: Tr
 		growSkill(state, 'driving', opt.km / 150);
 		if (mode === 'track') growSkill(state, 'survival', opt.km / 300);
 	}
-	const ride = selfDrive ? getVehicle(state.vehicle)?.ride : undefined;
-	if (ride) for (const k of NEED_KEYS) if (ride[k]) state.needs[k] = clamp100(state.needs[k] + ride[k]! * opt.minutes);
+	if (mode === 'walk') growSkill(state, 'stamina', opt.km * WALK_STAMINA_PER_KM);
+	const ride = selfDrive ? getVehicle(state.vehicle)?.ride : modeNeeds(mode);
+	if (ride) for (const k of NEED_KEYS) if (ride[k]) gainNeed(state, k, ride[k]! * opt.minutes);
 	if (advance(state, opt.minutes, region)) return collapsedResult(state); // collapse 已把人送去医院，没到达
 	if (selfDrive) state.car = { km: Math.min(CAR_KM_MAX, state.car.km + opt.km), since: Math.min(CAR_KM_MAX, state.car.since + opt.km) };
 	// 该保养的车按几率抛锚。事件先后：盘查 → 首次到访的签名事件 → 抛锚 → 普通到达事件，所以标的几率就是实际几率（被盘查、首次到访有签名事件时除外）；
@@ -394,12 +414,33 @@ export function goFishing(prev: PlayerState, region: Region): ActionResult {
 // ---------- 野生动物图鉴 ----------
 /** 此刻在这个地方可能看见的动物（还没见过的） */
 export function animalsAt(state: PlayerState, loc: GameLocation): AnimalDef[] {
-	const season = dateOf(state.clock).season;
-	const p = period(state.clock).id;
-	return ANIMALS.filter((a) => !state.dex.includes(a.id)
-		&& (a.where.locs?.includes(loc.id) || matches(a.where, loc))
-		&& (!a.seasons || a.seasons.includes(season))
-		&& (!a.periods || a.periods.includes(p)));
+	const w = weatherOn(loc.id, dayOf(state.clock));
+	return ANIMALS.filter((a) => !state.dex.includes(a.id) && (a.where.locs?.includes(loc.id) || matches(a.where, loc)) && animalActive(a, state.clock, w));
+}
+
+/** 这个时刻、这种天气下它会不会出来：季节、时段、天气都要对；海洋动物风暴天看不到（v31） */
+export function animalActive(a: AnimalDef, clock: number, w: { id: string; closesSea?: boolean }): boolean {
+	if (a.seasons && !a.seasons.includes(dateOf(clock).season)) return false;
+	if (a.periods && !a.periods.includes(period(clock).id)) return false;
+	if (a.weather && !a.weather.includes(w.id)) return false;
+	return !(a.group === 'sea' && w.closesSea);
+}
+
+/** 图鉴上的出没提示：季节、时段、天气（没有限制返回空串） */
+export function animalHint(a: AnimalDef): string {
+	const PERIOD_NAME: Record<string, string> = { dawn: '清晨', day: '白天', dusk: '傍晚', night: '夜里' };
+	const parts = [
+		a.seasons ? `${a.seasons.map((x) => SEASONS.find((y) => y.id === x)!.name).join('、')}季` : '',
+		a.periods ? a.periods.map((p) => PERIOD_NAME[p]).join('、') : '',
+		a.weather ? `${a.weather.map((id) => WEATHERS.find((w) => w.id === id)?.name ?? id).join('、')}天` : '',
+	];
+	return parts.filter(Boolean).join(' · ');
+}
+
+/** 当季限定的动物（只在部分季节出现、本季正好在其中） */
+export function seasonAnimals(clock: number): AnimalDef[] {
+	const season = dateOf(clock).season;
+	return ANIMALS.filter((a) => a.seasons?.includes(season));
 }
 
 /** 抵达时看见哪只新动物（最多一只）。只读种子做哈希、不推进它，所以不影响其他随机结果 */
@@ -518,6 +559,10 @@ export function activitiesAt(state: PlayerState, region: Region): { act: Activit
 function blockedReason(state: PlayerState, act: Activity): string | undefined {
 	if (!isOpen(act.hours, state.clock)) return `营业时间 ${hoursLabel(act.hours!)}`;
 	if (act.exposed === 'sea' && weatherAt(state).closesSea) return '今天有风暴，海上的活动取消了';
+	if (VISA_GIGS.includes(act.id)) {
+		const visa = visaBlocked(state, act.minutes);
+		if (visa) return visa;
+	}
 	const req = act.requires;
 	if (!req) return undefined;
 	if (req.cash && state.cash < req.cash) return `需要 $${req.cash}`;
@@ -545,7 +590,8 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	const blocked = blockedReason(prev, act);
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);
-	if (applyEffect(state, { ...scaledFx(prev, act), minutes: act.minutes }, region)) return collapsedResult(state);
+	if (applyEffect(state, bodyScaled(prev, { ...scaledFx(prev, act), minutes: act.minutes }), region)) return collapsedResult(state);
+	if (VISA_GIGS.includes(act.id)) logWork(state, act.minutes, prev.clock);
 	log(state, `在${loc.name}${act.name}。`);
 	return { ok: true, state, msg: `${act.icon} ${act.name}完成。` };
 }
@@ -555,10 +601,15 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
  * 用手机真实坐标打卡：
  * - 落在某地点半径内且不是当前所在地 → 直接“抵达”（不花钱不耗时），并触发到达事件；
  * - 再检查 400m 内的 POI，首次打卡给奖励。
+ * 定位要过精度和瞬移检查（GPS_FIX_RULES，now 为服务端时间）；成功后记下这次定位，和真实地点共用。
+ * acc 缺省（旧客户端）直接拒绝并提示刷新：按默认精度放行等于让任何人省掉这个字段就绕过精度检查。
  */
-export function gpsCheckIn(prev: PlayerState, region: Region, lat: number, lon: number): ActionResult {
+export function gpsCheckIn(prev: PlayerState, region: Region, lat: number, lon: number, acc: number | undefined, now: number): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
-	if (!Number.isFinite(lat) || !Number.isFinite(lon)) return fail(prev, '定位无效。');
+	if (!Number.isFinite(now) || now <= 0) return fail(prev, '真实定位需要联网才能用。');
+	if (acc === undefined) return fail(prev, '页面版本过旧，刷新页面后再定位。');
+	const bad = fixProblem(prev, lat, lon, acc, now, GPS_FIX_RULES);
+	if (bad) return fail(prev, bad);
 	const hit = locateInRegion(region, lat, lon);
 	if (!hit) return fail(prev, '你的真实位置不在任何已开放地点附近。');
 	const state = clone(prev);
@@ -577,6 +628,7 @@ export function gpsCheckIn(prev: PlayerState, region: Region, lat: number, lon: 
 		msgs.push(`打卡 ${p.name}：声望 +2`);
 	}
 	if (!msgs.length) return fail(prev, '你已经在这里了，附近暂无新的打卡点。');
+	state.fix = roundFix(lat, lon, now);
 	return { ok: true, state, msg: msgs.join(' ') };
 }
 
@@ -588,19 +640,37 @@ function soldAt(item: ItemDef, loc: GameLocation): boolean {
 export interface ShopEntry {
 	item: ItemDef;
 	price: number;
+	/** 正在贴打折贴（price 已经打过折） */
+	markdown?: boolean;
 	blocked?: string;
 }
 
-/** 当前地点可买的物品（价格已含特质折扣） */
+/** 当前地点可买的物品（价格已含特质折扣和打折贴，见 core/shop.ts 的 buyPrice） */
 export function shopAt(state: PlayerState, region: Region): ShopEntry[] {
 	const loc = getLocation(region, state.loc);
 	if (!loc) return [];
 	return ITEMS.filter((i) => soldAt(i, loc)).map((item) => {
-		const price = Math.round(item.price * costMult(state));
+		const price = buyPrice(state, item);
 		const have = state.inventory[item.id] ?? 0;
 		const blocked = have >= item.max ? '已带满' : state.cash < price ? `需要 $${price}` : undefined;
-		return { item, price, blocked };
+		return markdownNow(state, item) ? { item, price, markdown: true, blocked } : { item, price, blocked };
 	});
+}
+
+/** 把一件装备 / 收藏卖给二手店（城市、城镇），按标价的固定比例回收，见 core/shop.ts */
+export function sellItem(prev: PlayerState, region: Region, itemId: string): ActionResult {
+	const item = getItem(itemId);
+	const why = sellItemBlocked(prev, getLocation(region, prev.loc), item);
+	if (why) return fail(prev, why);
+	const got = sellPrice(item!)!;
+	const state = clone(prev);
+	const left = (state.inventory[itemId] ?? 0) - 1;
+	if (left > 0) state.inventory[itemId] = left;
+	else Reflect.deleteProperty(state.inventory, itemId);
+	state.cash += got;
+	log(state, `${item!.icon} 把${item!.name}卖给了二手店，收回 $${got}。`);
+	if (advance(state, SHOP_RULES.sellMinutes, region)) return collapsedResult(state);
+	return { ok: true, state, msg: `把${item!.name}卖给了二手店，收回 $${got}。` };
 }
 
 export function buyItem(prev: PlayerState, region: Region, itemId: string): ActionResult {
@@ -626,17 +696,10 @@ export function useItem(prev: PlayerState, region: Region, itemId: string): Acti
 }
 
 // ---------- NPC 与关系 ----------
-export const RELATION_TIERS = [
-	{ min: -100, name: '有过节' },
-	{ min: 0, name: '陌生人' },
-	{ min: 10, name: '认识' },
-	{ min: 30, name: '朋友' },
-	{ min: 60, name: '好友' },
-	{ min: 90, name: '挚友' },
-];
+export { RELATION_TIERS, GIFT_GAIN };
 
 export function relationTier(score: number): string {
-	let name = RELATION_TIERS[0].name;
+	let name: string = RELATION_TIERS[0].name;
 	for (const t of RELATION_TIERS) if (score >= t.min) name = t.name;
 	return name;
 }
@@ -644,8 +707,6 @@ export function relationTier(score: number): string {
 export const getRelation = (state: PlayerState, npcId: string): Relation =>
 	state.relations[npcId] ?? { score: 0, last: {}, seen: [], known: [] };
 
-/** 送礼时关系的变化 */
-export const GIFT_GAIN: Record<GiftReaction, number> = { love: 15, like: 9, neutral: 3, dislike: -8 };
 export const GIFT_LABEL: Record<GiftReaction, string> = { love: '最爱', like: '喜欢', neutral: '一般', dislike: '讨厌' };
 
 export function giftReaction(npc: NpcDef, itemId: string): GiftReaction {
@@ -720,6 +781,12 @@ export interface NpcAvailability {
 	gift?: string;
 	/** 下一段剧情的门槛 */
 	nextStory?: number;
+	/** TA 今天开口托你帮的小忙（第 29 批）；有的时候 blocked 里才有 favor 键 */
+	favor?: NpcFavor;
+	/** 好久没来往，关系正在变淡（第 29 批） */
+	fading: boolean;
+	/** 是知己（第 29 批）：blocked 里有 unbond 键；够格结为知己时有 bond 键 */
+	confidant: boolean;
 }
 
 /** 不指定物品时挑哪件：最爱 > 喜欢 > 一般，讨厌的不挑；随身装备（睡袋、冲浪板……）不会被自动送出，要送得明确指定 */
@@ -748,8 +815,14 @@ export function npcsAt(state: PlayerState, region: Region): NpcAvailability[] {
 		};
 		const perk = perkBlocked(npc, rel, today, !!weatherAt(state).closesSea);
 		if (perk !== null) blocked.perk = perk;
+		const favor = favorToday(state, npc.id, today);
+		if (favor) blocked.favor = (state.inventory[favor.item] ?? 0) < favor.qty ? `需要 ${favor.qty} 件${getItem(favor.item)?.name ?? ''}` : undefined;
 		const nextStory = npc.stories.find((st) => !rel.seen.includes(st.at))?.at;
-		return { npc, rel, tier: relationTier(rel.score), gift, blocked, nextStory };
+		const bond = bondBlocked(state, rel, today);
+		if (bond !== null) blocked.bond = bond;
+		const confidant = isConfidant(rel);
+		if (confidant) blocked.unbond = undefined;
+		return { npc, rel, tier: relationTier(rel.score), gift, blocked, nextStory, favor, fading: isFading(rel, today), confidant };
 	});
 }
 
@@ -787,7 +860,7 @@ function unlockDuos(state: PlayerState, region: Region, npcId: string): string[]
 
 /**
  * 与 NPC 互动：聊天（魅力检定决定涨多少）、送礼（看 TA 对这件东西的反应）、帮忙（花时间体力，涨声望）、
- * 专属互动（关系够了才解锁，有冷却）。聊天、送礼、帮忙每种每个游戏日一次。
+ * 专属互动（关系够了才解锁，有冷却）、帮个小忙（TA 开口时交出要的东西，每期一次）。聊天、送礼、帮忙每种每个游戏日一次。
  * 关系第一次达到某段剧情的门槛时触发那段剧情和它的回报。
  */
 export function interactNpc(prev: PlayerState, region: Region, npcId: string, action: NpcAction, itemId?: string): ActionResult {
@@ -795,6 +868,9 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 	const here = npcsAt(prev, region).find((a) => a.npc.id === npcId);
 	if (!here) return fail(prev, 'TA现在不在这里。');
 	if (action === 'perk' && !here.npc.perk) return fail(prev, 'TA没有这个互动。');
+	if (action === 'favor' && !here.favor) return fail(prev, 'TA今天没有要你帮的忙。');
+	if (action === 'bond' && !('bond' in here.blocked)) return fail(prev, `关系到「${relationTier(CONFIDANT.minScore)}」、看过那一段故事后才能结为知己。`);
+	if (action === 'unbond' && !here.confidant) return fail(prev, 'TA还不是你的知己。');
 	const why = here.blocked[action];
 	if (why) return fail(prev, why);
 	const gift = action === 'gift' ? itemId ?? here.gift : undefined;
@@ -812,10 +888,13 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 	let gain = 0;
 	let text = '';
 	if (action === 'chat') {
+		// 知己每隔几天会多讲一段近况（第 29 批，只给心情）
+		const confide = confideDue(rel, dayOf(prev.clock)) ? confideLine(npcId, dayOf(prev.clock)) : undefined;
+		if (confide) rel.told = dayOf(prev.clock);
 		const good = checkScore(state, 'charisma').total + roll(state) * 60 >= 45;
-		gain = good ? 7 : 3;
-		if (applyEffect(state, { minutes: 30, needs: { social: 18, fun: 5 }, skills: { charisma: 0.5 } }, region)) return collapsedResult(state);
-		text = good ? `和${npc.name}聊得很投机。` : `和${npc.name}寒暄了几句。`;
+		gain = good ? RELATION_GAIN.chatGood : RELATION_GAIN.chatPlain;
+		if (applyEffect(state, { minutes: 30, needs: { social: 18, fun: 5 }, skills: { charisma: 0.5 }, moodlet: confide ? 'heart-to-heart' : undefined }, region)) return collapsedResult(state);
+		text = (good ? `和${npc.name}聊得很投机。` : `和${npc.name}寒暄了几句。`) + (confide ? `【近况】${confide}` : '');
 	} else if (action === 'gift') {
 		const r = giftReaction(npc, gift!);
 		gain = GIFT_GAIN[r];
@@ -829,12 +908,28 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 		}[r];
 		if (!rel.known.includes(gift!)) rel.known.push(gift!);
 	} else if (action === 'help') {
-		gain = 9;
+		gain = RELATION_GAIN.help;
 		if (applyEffect(state, { minutes: 120, respect: 1, needs: { energy: -18, social: 10 }, skills: { strength: 0.5, stamina: 0.5 } }, region)) return collapsedResult(state);
 		text = `帮${npc.name}干了两小时活。`;
+	} else if (action === 'bond') {
+		// 结为知己（第 29 批）：不涨分，之后关系不再变淡，聊天时会听到近况
+		rel.bond = dayOf(prev.clock);
+		if (applyEffect(state, { minutes: CONFIDANT.minutes, moodlet: 'confidant' }, region)) return collapsedResult(state);
+		text = `你和${npc.name}聊到很晚，从此成了知己。`;
+	} else if (action === 'unbond') {
+		delete rel.bond;
+		delete rel.told;
+		if (applyEffect(state, { minutes: 10 }, region)) return collapsedResult(state);
+		text = `你和${npc.name}说好不再算知己了，还是朋友。`;
+	} else if (action === 'favor') {
+		// 帮个小忙：交出 TA 要的东西，拿一点跑腿费（第 29 批，数值待平衡）
+		const f = here.favor!;
+		gain = RELATION_GAIN.favor;
+		if (applyEffect(state, { ...f.fx, items: { ...f.fx.items, [f.item]: (f.fx.items?.[f.item] ?? 0) - f.qty } }, region)) return collapsedResult(state);
+		text = `帮${npc.name}带了${f.qty} 件${getItem(f.item)?.name ?? ''}。${f.thanks}`;
 	} else {
 		const perk = npc.perk!;
-		gain = 2;
+		gain = RELATION_GAIN.perk;
 		if (applyEffect(state, perk.fx, region)) return collapsedResult(state);
 		text = `${perk.name}：${perk.desc}`;
 	}
@@ -846,11 +941,13 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 }
 
 // ---------- 职业 ----------
-const matches = (w: Where, loc: GameLocation) => !!(w.kinds?.includes(loc.kind) || w.tags?.some((t) => loc.tags.includes(t)));
+export const matches = (w: Where, loc: GameLocation) => !!(w.kinds?.includes(loc.kind) || w.tags?.some((t) => loc.tags.includes(t)));
 
 /** 是否满足某个职业等级的要求；不满足时返回原因 */
 function unmet(state: PlayerState, lv: CareerLevel): string | undefined {
 	if (lv.req?.respect && state.respect < lv.req.respect) return `声望需达到 ${lv.req.respect}`;
+	const miss = lv.req?.certs?.find((id) => !state.certs.includes(id));
+	if (miss) return `需要${credentialName(miss)}`;
 	for (const k of SKILL_KEYS) {
 		const need = lv.req?.skills?.[k];
 		if (need && state.skills[k] < need) return `${SKILL_META[k].name}需达到 ${need}`;
@@ -895,7 +992,7 @@ export function shiftBlocked(state: PlayerState): string | undefined {
 	if (job.lastDay === dayOf(state.clock)) return '今天已经上过班了';
 	if (!isOpen(c.start, state.clock)) return `上班时间 ${hoursLabel(c.start)} 开始`;
 	if (state.needs.energy < 20) return '太累了，先休息';
-	return undefined;
+	return visaBlocked(state, c.minutes);
 }
 
 /** 下一级的升职条件，已经是最高级时返回 null */
@@ -960,7 +1057,8 @@ export function workShift(prev: PlayerState, region: Region): ActionResult {
 	const good = checkScore(state, c.skill).total + roll(state) * 60 >= SHIFT_DC[Math.min(job.level, SHIFT_DC.length - 1)];
 	const pay = Math.round(careerPay(state, job.career, job.level) * (good ? 1 + GOOD_BONUS : 1));
 	job.lastDay = state.workDay = dayOf(state.clock);
-	if (applyEffect(state, { ...c.shift, minutes: c.minutes, cash: pay }, region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
+	if (applyEffect(state, bodyScaled(prev, { ...c.shift, minutes: c.minutes, cash: pay }), region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
+	logWork(state, c.minutes, prev.clock);
 	job.shifts++;
 	if (good) job.good++;
 	const msg = `${lv.title}上班 ${Math.round(c.minutes / 60)} 小时，收入 $${pay}${good ? '（表现出色，有奖金）' : ''}。` + tryPromote(state);
@@ -992,13 +1090,23 @@ export function furnitureValue(state: PlayerState): number {
 	return Object.values(state.home.furniture).reduce((sum, id) => sum + Math.round((getFurniture(id)?.price ?? 0) * FURNITURE_RESALE), 0);
 }
 
-/** 离开住处：家具半价折现 */
-function vacate(state: PlayerState): number {
+/** 租房押金：周租 × 押金周数（房型的 bondWeeks，默认 BOND_WEEKS） */
+export function bondFor(home: HomeDef): number {
+	return Math.round(home.rentWeek * (home.bondWeeks ?? BOND_WEEKS));
+}
+
+/** 离开住处：家具半价折现，押金退回（arrears：先从押金里扣的欠租）。返回家具折现，退回的押金写进 refund */
+function vacate(state: PlayerState, arrears = 0, refund?: { bond: number }): number {
 	const got = furnitureValue(state);
-	state.cash += got;
+	const bond = Math.max(0, (state.home?.bond ?? 0) - arrears);
+	state.cash += got + bond;
+	if (refund) refund.bond = bond;
 	state.home = null;
 	return got;
 }
+
+/** 日志里的押金一句 */
+const bondNote = (n: number) => (n ? `，押金退回 $${n}` : '');
 
 /**
  * 每周结算：时间每跨过一个结算日执行一次。
@@ -1010,8 +1118,9 @@ function weeklyTick(state: PlayerState, region: Region) {
 		if (state.home && !state.home.owned && !homeUsable(state)) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
-			const got = vacate(state);
-			log(state, `周结算：没有能睡人的车，退掉了${place}的${def.name}${got ? `，家具折现 $${got}` : ''}。`);
+			const back = { bond: 0 };
+			const got = vacate(state, 0, back);
+			log(state, `周结算：没有能睡人的车，退掉了${place}的${def.name}${got ? `，家具折现 $${got}` : ''}${bondNote(back.bond)}。`);
 		}
 		if (state.home && !state.home.owned) {
 			const def = getHome(state.home.type)!;
@@ -1020,9 +1129,12 @@ function weeklyTick(state: PlayerState, region: Region) {
 				state.cash -= def.rentWeek;
 				log(state, `周结算：支付${place}${def.name}房租 $${def.rentWeek}。`);
 			} else {
-				const got = vacate(state);
+				// 押金先抵这周房租，剩下的退回
+				const kept = Math.min(state.home.bond ?? 0, def.rentWeek);
+				const back = { bond: 0 };
+				const got = vacate(state, kept, back);
 				addMoodlet(state, 'evicted');
-				log(state, `付不起${place}${def.name}的房租，房东收回了房子${got ? `，家具折现 $${got}` : ''}。`);
+				log(state, `付不起${place}${def.name}的房租，房东收回了房子${kept ? `，押金扣了 $${kept} 抵房租` : ''}${got ? `，家具折现 $${got}` : ''}${bondNote(back.bond)}。`);
 			}
 		}
 		settleProperties(state, region);
@@ -1058,6 +1170,11 @@ export function firstRent(state: PlayerState, home: HomeDef): number {
 	return Math.round((home.rentWeek * days) / 7);
 }
 
+/** 租下要先付的钱 = 首期租金 + 押金 − 旧住处退回的押金（换房时旧押金在付款前退回） */
+export function moveInCost(state: PlayerState, home: HomeDef): number {
+	return firstRent(state, home) + bondFor(home) - (state.home && !state.home.owned ? (state.home.bond ?? 0) : 0);
+}
+
 export interface HomeOffer {
 	home: HomeDef;
 	blocked?: string;
@@ -1070,7 +1187,8 @@ export function homesAt(state: PlayerState, region: Region): HomeOffer[] {
 		home,
 		blocked: state.home?.type === home.id && state.home.loc === loc.id && !state.home.owned ? '你正住在这里'
 			: home.vehicleSleep && !canSleepIn(state.vehicle) ? '要有能睡人的车（比如露营车）才能住营地'
-			: state.cash < firstRent(state, home) ? `首期租金 $${firstRent(state, home)}` : undefined,
+			: state.pet && !homeAllowsPet(home.id, state.pet.kind) ? `这里不许养${getPetKind(state.pet.kind)?.name ?? '宠物'}`
+			: state.cash < moveInCost(state, home) ? `首期租金 $${firstRent(state, home)}${bondFor(home) ? ` + 押金 $${bondFor(home)}` : ''}` : undefined,
 	}));
 }
 
@@ -1082,12 +1200,14 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string): Act
 	if (offer.blocked) return fail(prev, offer.blocked);
 	const state = clone(prev);
 	const due = firstRent(state, offer.home);
-	const sold = vacate(state);
-	state.cash -= due;
-	state.home = { type: homeId, loc: state.loc, furniture: {} };
+	const bond = bondFor(offer.home);
+	const back = { bond: 0 };
+	const sold = vacate(state, 0, back);
+	state.cash -= due + bond;
+	state.home = { type: homeId, loc: state.loc, furniture: {}, ...(bond ? { bond } : {}) };
 	addMoodlet(state, 'new-home');
 	if (advance(state, 60, region)) return collapsedResult(state);
-	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}，之后每周 $${offer.home.rentWeek}${sold ? `；旧家具折现 $${sold}` : ''}。`;
+	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}${bond ? `、押金 $${bond}（搬走时退）` : ''}，之后每周 $${offer.home.rentWeek}${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；旧住处押金退回 $${back.bond}` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1097,8 +1217,9 @@ export function leaveHome(prev: PlayerState): ActionResult {
 	if (!prev.home) return fail(prev, '你没有住处。');
 	const state = clone(prev);
 	const own = !!state.home!.owned;
-	const got = vacate(state);
-	const msg = `${own ? '搬出了自己的房子' : '退掉了租的房子'}${got ? `，家具折现 $${got}` : ''}。`;
+	const back = { bond: 0 };
+	const got = vacate(state, 0, back);
+	const msg = `${own ? '搬出了自己的房子' : '退掉了租的房子'}${got ? `，家具折现 $${got}` : ''}${bondNote(back.bond)}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1114,7 +1235,7 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	// 睡这一觉用的是入睡时的住处：睡到一半跨过结算日，住处可能因为欠租或断供被收走（state.home 变成 null）
 	const furniture = Object.values(prev.home.furniture);
 	const cosy = homeComfort(prev) >= 3 || 'bed' in prev.home.furniture;
-	if (applyEffect(state, { minutes: 480, health: 15 + def.comfort, needs: { energy: 100, hygiene: 50 + def.comfort * 2, fun: 5 + def.comfort } }, region)) return collapsedResult(state);
+	if (applyEffect(state, bodyScaled(prev, { minutes: 480, asleep: true, health: 15 + def.comfort, needs: { energy: 100, hygiene: 50 + def.comfort * 2, fun: 5 + def.comfort } }), region)) return collapsedResult(state);
 	for (const id of furniture) {
 		const extra = getFurniture(id)?.sleep;
 		if (extra && applyEffect(state, extra, region)) return collapsedResult(state);
@@ -1126,14 +1247,22 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 
 // ---------- 交通工具 ----------
 export const getVehicle = (id: string): VehicleDef | undefined => VEHICLES.find((v) => v.id === id);
-export const resaleValue = (id: string) => {
+/** 回收价：第 26 批起随里程下降（DEPRECIATION），最低剩原价的 floor。km 不传按新车算 */
+export const resaleValue = (id: string, km = 0) => {
 	const v = getVehicle(id);
-	return v ? Math.round(v.price * v.resale) : 0;
+	if (!v) return 0;
+	const share = Math.max(Math.min(v.resale, DEPRECIATION.floor), v.resale - Math.max(0, km) * DEPRECIATION.perKm);
+	return Math.round(v.price * share);
 };
+
+/** 在这个地点买这辆车要交的过户印花税（按地点所在区域的真实公式，见 finance.ts） */
+export const dutyAt = (locId: string, v: VehicleDef) => vehicleDuty(v.price, areaOf(locId)?.id ?? 'wa');
 
 export interface DealerOffer {
 	vehicle: VehicleDef;
-	/** 扣除旧车折抵后要付的钱 */
+	/** 过户印花税（已算进 net） */
+	duty: number;
+	/** 车价 + 印花税 − 旧车折抵，要付的钱 */
 	net: number;
 	blocked?: string;
 }
@@ -1143,11 +1272,12 @@ export function dealerAt(state: PlayerState, region: Region): DealerOffer[] {
 	const loc = getLocation(region, state.loc);
 	if (!loc || !loc.tags.includes(DEALER_TAG)) return [];
 	const open = isOpen(DEALER_HOURS, state.clock);
-	const tradeIn = resaleValue(state.vehicle);
+	const tradeIn = resaleValue(state.vehicle, state.car.km);
 	return VEHICLES.map((vehicle) => {
-		const net = vehicle.price - tradeIn;
+		const duty = dutyAt(loc.id, vehicle);
+		const net = vehicle.price + duty - tradeIn;
 		const blocked = !open ? `车行营业时间 ${hoursLabel(DEALER_HOURS)}` : state.vehicle === vehicle.id ? '你已经有这辆车' : campBlocks(state, vehicle.id) ?? (state.cash < net ? `还差 $${net - state.cash}` : undefined);
-		return { vehicle, net, blocked };
+		return { vehicle, duty, net, blocked };
 	});
 }
 
@@ -1158,11 +1288,13 @@ export function buyVehicle(prev: PlayerState, region: Region, id: string): Actio
 	if (offer.blocked) return fail(prev, offer.blocked);
 	const state = clone(prev);
 	const old = getVehicle(state.vehicle);
+	const tradeIn = resaleValue(state.vehicle, state.car.km);
 	state.cash -= offer.net;
 	state.vehicle = id;
 	state.car = { km: 0, since: 0 };
 	if (advance(state, 60, region)) return collapsedResult(state);
-	const msg = old ? `用${old.name}折抵 $${resaleValue(old.id)}，换了一辆${offer.vehicle.name}。` : `买了一辆${offer.vehicle.name}。`;
+	const duty = offer.duty ? `（含过户印花税 $${offer.duty}）` : '';
+	const msg = old ? `用${old.name}折抵 $${tradeIn}，换了一辆${offer.vehicle.name}${duty}。` : `买了一辆${offer.vehicle.name}${duty}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1183,7 +1315,7 @@ export function sellVehicle(prev: PlayerState, region: Region): ActionResult {
 	const camp = campBlocks(prev, 'none');
 	if (camp) return fail(prev, camp);
 	const state = clone(prev);
-	const got = resaleValue(v.id);
+	const got = resaleValue(v.id, prev.car.km);
 	state.cash += got;
 	state.vehicle = 'none';
 	state.car = { km: 0, since: 0 };
@@ -1234,7 +1366,7 @@ export function sleepInVehicle(prev: PlayerState, region: Region): ActionResult 
 	const v = getVehicle(prev.vehicle);
 	if (!v?.sleep) return fail(prev, '你的车不能睡人。');
 	const state = clone(prev);
-	if (applyEffect(state, { ...v.sleep, minutes: 480 }, region)) return collapsedResult(state);
+	if (applyEffect(state, bodyScaled(prev, { ...v.sleep, minutes: 480, asleep: true }), region)) return collapsedResult(state);
 	log(state, `在${v.name}里睡了一觉。`);
 	return { ok: true, state, msg: '在车里睡了一觉。' };
 }
@@ -1486,13 +1618,13 @@ export function relaxAtHome(prev: PlayerState, region: Region): ActionResult {
 export const getProperty = (id: string): PropertyDef | undefined => PROPERTIES.find((p) => p.id === id);
 export const ownedProperty = (state: PlayerState, id: string): OwnedProperty | undefined => state.properties.find((p) => p.id === id);
 
-/** 净资产 = 现金 + 车辆残值 + 住处家具折现 + 各房产（按正常卖出到手价，已扣贷款） */
+/** 净资产 = 现金 + 车辆残值（按里程折旧）+ 住处家具折现 + 租房押金 + 各房产（按正常卖出到手价，已扣贷款）+ 金融资产（按今天价格卖出的到手价） */
 export function netWorth(state: PlayerState): number {
 	const estate = state.properties.reduce((sum, p) => {
 		const def = getProperty(p.id);
 		return sum + (def ? propertyEquity(def, p.loan) : 0);
 	}, 0);
-	return state.cash + resaleValue(state.vehicle) + furnitureValue(state) + estate;
+	return state.cash + resaleValue(state.vehicle, state.car.km) + furnitureValue(state) + (state.home?.bond ?? 0) + estate + holdingsValue(state);
 }
 
 /** 每周结算里的房产部分。顺序：租金收入 → 维修 → 物业费与还款 → 断供处理 */
@@ -1612,7 +1744,8 @@ export function moveIntoProperty(prev: PlayerState, id: string): ActionResult {
 	if (!def || !ownedProperty(prev, id)) return fail(prev, '你没有这套房。');
 	if (prev.home?.owned === id) return fail(prev, '你已经住在这里。');
 	const state = clone(prev);
-	const sold = vacate(state);
+	const back = { bond: 0 };
+	const sold = vacate(state, 0, back);
 	const mine = ownedProperty(state, id)!;
 	mine.rented = false;
 	Reflect.deleteProperty(mine, 'fresh');
@@ -1620,7 +1753,7 @@ export function moveIntoProperty(prev: PlayerState, id: string): ActionResult {
 	// 「搬了新家」每套房只给一次：搬出再搬回不花钱也不花时间，不能拿来反复刷
 	if (!mine.lived) addMoodlet(state, 'new-home');
 	mine.lived = true;
-	const msg = `搬进了自己的${def.name}，以后不用交房租了${sold ? `；旧家具折现 $${sold}` : ''}。`;
+	const msg = `搬进了自己的${def.name}，以后不用交房租了${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；租房押金退回 $${back.bond}` : ''}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
