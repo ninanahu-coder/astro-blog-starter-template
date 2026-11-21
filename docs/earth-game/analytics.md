@@ -163,6 +163,7 @@ curl -s -H "Authorization: Bearer $EARTH_STATS_TOKEN" "https://<站点>/api/eart
 
 1. **Workers Logs 里的 WebSocket 握手 URL**：`wrangler.json` 开着 `observability`，在线频道的 `/api/earth/ws?…&id=…&name=…` 会进 Cloudflare 的请求日志，含真实 id（同步码的一半）和角色名。这不是本次新增的，但和本设计的隐私承诺冲突。建议：握手改用首条消息传 id/name，或对 `/api/earth/ws` 关闭日志采样。**改动涉及在线频道协议，没有在本分支做**，留给对应分支评估。
 2. 共同事件、交易、周目标领奖的现金流还没进 `eco.*`。
+   - 2026-11-21 合并 main 后补记：`eco.out.asset` / `eco.in.asset` 是理财买入、卖出（现金换成持仓或换回来），**不是货币回收或投放**，算平衡时要单独看或剔除；持仓的盈亏只在卖出时以现金差出现。宠物（`pet`）、学历课程（`study`）、现实活动纪念（`live`）、领成就（`claim`）等 main 新加的动作按动作类型自动计入 `use.*` 和 `eco.*`，子操作不在白名单里的只记类型。
 3. 长期不再上线的玩家的 `born:` 不会被删（见 3.1）。
 4. 运营方是否是 APP entity、APP 8 对云存储的适用、儿童网络隐私守则，需要用户或法律顾问确认。
 5. 默认开启是需要用户确认的决定（3.2）。

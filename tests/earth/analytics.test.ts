@@ -62,7 +62,8 @@ async function playThrough(nt: boolean) {
 	};
 	assert.ok((await act({ t: 'job', op: 'apply', career: c.data.state.job?.career ?? 'barista' })).status < 500);
 	const poi = WA.pois.find((x) => x.loc === 'perth')!;
-	const gps = await act({ t: 'gps', lat: poi.lat, lon: poi.lon });
+	// main 的 GPS 防作弊要求带定位精度（不带按旧页面拒绝），这里按真实手机给 10 米
+	const gps = await act({ t: 'gps', lat: poi.lat, lon: poi.lon, acc: 10 });
 	assert.ok(gps.data.ok, gps.data.msg);
 	const trip = await act({ t: 'travel', to: 'fremantle', mode: 'road' });
 	assert.ok(trip.data.ok, trip.data.msg);
@@ -341,4 +342,35 @@ test('页面里每一处 tm.track 的事件名和参数都是白名单里的字�
 	}
 	// 关掉统计时，存档请求带 nt
 	assert.match(page, /statsOn \? body : \{ \.\.\.\(body as object\), nt: true \}/);
+});
+
+test('合并 main 后新加的动作（宠物、理财、现实活动、路线、领成就、新手引导）也只按类型计数，玩家输入的名字和 id 不进统计键', () => {
+	const s = createCharacter({ id: 'y'.repeat(8), name: '统计', avatar: '🙂', origin: 'student', traits: [], region: 'perth', spawn: WA.spawn, seed: 2 });
+	const acts = [
+		{ t: 'pet', op: 'adopt', kind: 'dog', from: 'shelter', name: 'Secret狗名' },
+		{ t: 'asset', op: 'buy', id: 'asx-index', amount: 500 },
+		{ t: 'live', id: 'perth-festival-2027' },
+		{ t: 'trail', lat: -31.95, lon: 115.86, acc: 10 },
+		{ t: 'claim', id: 'first-step' },
+		{ t: 'onboard', op: 'tip', id: 'go' },
+	] as any[];
+	for (const a of acts) {
+		const c = actionCounts(a, s, { ...s, cash: s.cash - 7 }, true);
+		const keys = Object.keys(c);
+		assert.ok(keys.includes('use.' + a.t) || keys.some((k) => k.startsWith('use.' + a.t + '.')), `${a.t} 记了 use`);
+		for (const k of keys) {
+			assert.match(k, /^[a-z0-9.]+$/, k);
+			for (const secret of ['Secret', 'asx', 'perth', 'first', '31.95', '115.86']) assert.ok(!k.includes(secret), `${k} 不该带 ${secret}`);
+		}
+	}
+	assert.deepEqual(actionCounts(acts[1], s, { ...s, cash: s.cash - 500 }, true), { 'use.asset.buy': 1, 'eco.out.asset': 500 }, '理财买入记成 eco.out.asset（文档写明不是回收）');
+});
+
+test('页面模板（第 39 批，合并 main 时开场换成了入境卡）：入境卡底部有统计告知和开关，设置里有隐私卡，切「我」的分栏会记一次', () => {
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	const card = src.slice(src.indexOf('id="c-card"'), src.indexOf('</section>', src.indexOf('id="c-card"')));
+	assert.match(card, /<p class="ac-privacy stats-note"><span id="c-stats-text"><\/span> <button id="c-stats" type="button">关闭统计<\/button><\/p>/, '告知在入境卡里，创建前就能看到并关掉');
+	assert.match(src, /\.ac-privacy button \{ min-height: 44px;/, '开关点击区不小于 44px');
+	assert.match(src, /<div class="card"><h3>隐私<\/h3>[^\n]*\$\{STATS_NOTE\}[^\n]*data-pref="stats" aria-pressed="\$\{statsOn\}"/, '设置里的隐私卡和开关');
+	assert.match(src, /meTab = d\.metab; tm\.track\('metab', meTab\); renderPanel\(\);/, '切分栏记一次（只记分栏名）');
 });
