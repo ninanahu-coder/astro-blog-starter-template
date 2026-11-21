@@ -1,0 +1,139 @@
+---
+// GM 沙盒页（平衡调试工具，仅开发）：只有 `astro dev` 时由 tools/earth/gm/integration.mjs 注入到 /earth/gm，
+// 生产构建既不注入路由、也不打包本文件（tests/earth/gm.test.ts 真跑一次构建来证明）。
+// 万一被别的方式挂上了线上，这里再挡一道：不是开发环境就 404。
+// 存档是浏览器里的沙盒副本，不连服务器、不碰同步码；规则见 docs/earth-game/balance-tools.md §4。
+if (!import.meta.env.DEV) return new Response(null, { status: 404 });
+---
+
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex" />
+		<title>GM 沙盒（开发）</title>
+		<style>
+			:root { --bg: #f4f6f5; --card: #fff; --ink: #18211d; --mute: #5b6862; --line: #d5dcd8; --warn-bg: #fff1d6; --warn-ink: #6b4500; --ok: #1d6b45; --bad: #a12a2a; }
+			@media (prefers-color-scheme: dark) {
+				:root { --bg: #0e1513; --card: #17201d; --ink: #e6ece9; --mute: #9aa8a1; --line: #2c3833; --warn-bg: #3a2c0d; --warn-ink: #f4d58d; --ok: #7fd3a6; --bad: #f19a9a; }
+			}
+			* { box-sizing: border-box; }
+			body { margin: 0; padding: 16px; background: var(--bg); color: var(--ink); font: 15px/1.5 system-ui, -apple-system, 'PingFang SC', sans-serif; }
+			main { max-width: 720px; margin: 0 auto; display: grid; gap: 12px; }
+			.warn { background: var(--warn-bg); color: var(--warn-ink); padding: 10px 12px; border-radius: 10px; font-weight: 600; }
+			section { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: grid; gap: 8px; }
+			h1 { font-size: 20px; margin: 0; }
+			h2 { font-size: 15px; margin: 0; color: var(--mute); }
+			.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+			input, select, textarea, button { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; min-height: 36px; }
+			input, select { flex: 1 1 140px; min-width: 0; }
+			textarea { width: 100%; min-height: 90px; font-family: ui-monospace, monospace; font-size: 12px; }
+			button { cursor: pointer; background: var(--card); }
+			#log { margin: 0; padding-left: 18px; font-size: 13px; }
+			.ok { color: var(--ok); }
+			.bad { color: var(--bad); }
+		</style>
+	</head>
+	<body>
+		<main data-gm="__earth_gm_console__">
+			<h1>GM 沙盒</h1>
+			<p class="warn">仅开发环境。这里改的是浏览器里的一份沙盒存档，不连服务器，也不会同步到任何线上存档。</p>
+			<section><h2>当前状态</h2><div id="status"></div><div id="pending" class="row"></div></section>
+			<section>
+				<h2>存档</h2>
+				<div class="row"><select id="origin"></select><button id="new">新建角色</button></div>
+				<textarea id="json" placeholder="粘贴存档 JSON 后点导入；点导出会把当前存档放进来"></textarea>
+				<div class="row"><button id="import">导入</button><button id="export">导出</button></div>
+			</section>
+			<section>
+				<h2>改现金</h2>
+				<div class="row"><input id="cash" inputmode="numeric" placeholder="5000" /><button id="setcash">设为</button><button id="addcash">加上</button></div>
+			</section>
+			<section>
+				<h2>改时间</h2>
+				<div class="row"><input id="dur" placeholder="2d、3h、90m、1d6h" /><button id="skip">跳过（不结算）</button><button id="pass">快进（按规则歇着过）</button></div>
+			</section>
+			<section>
+				<h2>触发事件</h2>
+				<div class="row"><select id="event"></select><button id="trigger">触发</button></div>
+			</section>
+			<section>
+				<h2>命令</h2>
+				<div class="row"><input id="cmd" placeholder='cash+=300 · act={"t":"activity","id":"swim"}' /><button id="run">执行</button></div>
+				<ol id="log"></ol>
+			</section>
+		</main>
+		<script>
+			import { createCharacter, ORIGINS, sanitizeState } from '../core/character.ts';
+			import { getPendingEvent } from '../core/engine.ts';
+			import type { PlayerState } from '../core/types.ts';
+			import { WORLD } from '../data/wa.ts';
+			import { gmCommand, gmEvents, gmWhen, type GmResult } from './gm.ts';
+
+			const KEY = 'earth-gm-sandbox';
+			const region = WORLD;
+			const locs = new Set(region.locations.map((l) => l.id));
+			const esc = (s: unknown) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+			const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+			const fresh = (origin: string) => createCharacter({ id: 'gm-sandbox-0001', name: 'GM', avatar: '🧑', origin, region: region.id, spawn: region.spawn, seed: 1 });
+
+			let state: PlayerState = (() => {
+				try {
+					const raw = localStorage.getItem(KEY);
+					if (raw) return sanitizeState(JSON.parse(raw), locs, { fallbackLoc: region.spawn }) ?? fresh('backpacker');
+				} catch {}
+				return fresh('backpacker');
+			})();
+
+			function save() {
+				try { localStorage.setItem(KEY, JSON.stringify(state)); } catch {}
+			}
+			function log(r: Pick<GmResult, 'ok' | 'msg'>, what: string) {
+				const li = document.createElement('li');
+				li.className = r.ok ? 'ok' : 'bad';
+				li.textContent = `${what}：${r.msg}`;
+				$('log').prepend(li);
+			}
+			function run(cmd: string) {
+				const r = gmCommand(state, region, cmd);
+				state = r.state;
+				log(r, cmd);
+				save();
+				render();
+			}
+			function render() {
+				const ev = getPendingEvent(state);
+				$('status').innerHTML = `${esc(gmWhen(state.clock))}（clock ${esc(state.clock)}）· ${esc(state.loc)} · 现金 $${esc(state.cash)} · 健康 ${esc(Math.round(state.health))}`;
+				$('pending').innerHTML = ev ? `待选事件「${esc(ev.title)}」：${ev.choices.map((c, i) => `<button data-choose="${i}">${esc(c.label)}</button>`).join('')}` : '';
+			}
+
+			$('origin').innerHTML = ORIGINS.map((o) => `<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('');
+			$('event').innerHTML = gmEvents().map((e) => `<option value="${esc(e.id)}">${esc(e.title)}（${esc(e.id)}）</option>`).join('');
+			$('new').onclick = () => { state = fresh($<HTMLSelectElement>('origin').value); log({ ok: true, msg: '新建了沙盒角色' }, '新建'); save(); render(); };
+			$('export').onclick = () => { $<HTMLTextAreaElement>('json').value = JSON.stringify(state, null, 2); };
+			$('import').onclick = () => {
+				let next: PlayerState | null = null;
+				try {
+					const raw = JSON.parse($<HTMLTextAreaElement>('json').value);
+					next = sanitizeState(raw?.save ?? raw?.state ?? raw, locs, { fallbackLoc: region.spawn });
+				} catch {}
+				if (next) state = next;
+				log({ ok: !!next, msg: next ? '已导入' : '不是有效的存档' }, '导入');
+				save();
+				render();
+			};
+			$('setcash').onclick = () => run(`cash=${$<HTMLInputElement>('cash').value}`);
+			$('addcash').onclick = () => run(`cash+=${$<HTMLInputElement>('cash').value}`);
+			$('skip').onclick = () => run(`skip=${$<HTMLInputElement>('dur').value}`);
+			$('pass').onclick = () => run(`pass=${$<HTMLInputElement>('dur').value}`);
+			$('trigger').onclick = () => run(`event=${$<HTMLSelectElement>('event').value}`);
+			$('run').onclick = () => run($<HTMLInputElement>('cmd').value);
+			$('pending').onclick = (e) => {
+				const b = (e.target as HTMLElement).closest<HTMLElement>('[data-choose]');
+				if (b) run(`choose=${b.dataset.choose}`);
+			};
+			render();
+		</script>
+	</body>
+</html>

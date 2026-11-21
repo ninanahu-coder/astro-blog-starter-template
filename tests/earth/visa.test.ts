@@ -3,7 +3,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
-import { applyVisa, canWork, ieltsAt, regionalCategory, routeUnmet, settleVisa, takeIelts, visaAge, visaKindNow, visaOptions, visaPoints, visaWorkBlocked } from '../../src/game/core/immigration.ts';
+import { applyVisa, canWork, degreeOf, ieltsAt, regionalCategory, routeUnmet, settleVisa, takeIelts, visaAge, visaKindNow, visaOptions, visaPoints, visaWorkBlocked } from '../../src/game/core/immigration.ts';
+import { visaBlocked, visaCapped } from '../../src/game/core/visa.ts';
+import { shiftBlocked } from '../../src/game/core/engine.ts';
+import { venueAction } from '../../src/game/core/venues.ts';
+import { SYSTEM_IDS, systemOf } from '../../tools/earth/balance/systems.ts';
 import { cleanVisa, newVisa } from '../../src/game/core/visa-save.ts';
 import { visaCardHtml } from '../../src/game/ui/visa-card.ts';
 import { CAREERS } from '../../src/game/data/careers.ts';
@@ -307,4 +311,71 @@ test('签证卡片：数据文字都经过 esc；有出处和免责声明；按�
 	assert.ok(html.includes('data-visa-ielts'));
 	const plain = visaCardHtml(s, WA);
 	assert.doesNotMatch(plain.replace(/<\/?[a-z][^>]*>/g, ''), /[<>]/, '默认 esc 之后正文里没有裸尖括号');
+});
+
+// ---------- 合并 main 后复核补的 ----------
+test('职业对应（合并 main 后）：每个职业要么算签证经验，要么明确列为不算；main 的持证职业都算', () => {
+	// 不算签证经验的职业（游戏里没有对应的清单职业）：新加职业时要在 OCCUPATIONS 或这里二选一
+	const NOT_LISTED = new Set<string>([]);
+	for (const c of CAREERS) assert.ok(OCCUPATIONS.some((o) => o.career === c.id) || NOT_LISTED.has(c.id), `职业 ${c.id} 没有决定算不算签证经验`);
+	for (const id of ['builder', 'carer', 'it-support']) assert.ok(OCCUPATIONS.some((o) => o.career === id), id);
+	// 持证职业上班也攒经验
+	const before = graduate({ job: { career: 'it-support', level: 0, loc: 'perth', shifts: 0, lastDay: -1 } as never, workDay: 0 } as never);
+	const after = structuredClone(before);
+	after.workDay = 1;
+	settleVisa(before, after);
+	assert.equal(after.visa.exp, 1);
+	assert.equal(after.visa.occ, 'it-support');
+});
+
+test('学生签证工时（合并 main 后，visa.md §3.7）：只有持学生签证时才限；485、永居之后不限；老存档没有签证记录按出身', () => {
+	const enrolled = (visa: Partial<VisaState>, over: Partial<PlayerState> = {}) => make({ clock: at(10, 20), study: { bachelor: { n: 3, day: 19 } } as never, ...over }, visa);
+	assert.equal(visaCapped(enrolled({ kind: 'student', until: 200 })), true, '学生签证在读：限');
+	assert.equal(visaCapped(enrolled({ kind: 'graduate', until: 200 })), false, '485：不限');
+	assert.equal(visaCapped(enrolled({ kind: 'pr', until: -1 })), false, '永居：不限');
+	const old = enrolled({});
+	delete (old as { visa?: unknown }).visa;
+	assert.equal(visaCapped(old), true, '老存档没有签证记录：按出身（留学生）');
+});
+
+test('签证过期（合并 main 后）：上班、雇佣零工、真实地点打上班卡在界面上就置灰；已经打了的卡照样能打下班卡', () => {
+	const s = make({ clock: at(10, 80), job: { career: 'barista', level: 0, loc: WA.spawn, shifts: 0, lastDay: -1 } as never, loc: WA.spawn }, { kind: 'student', until: 70 });
+	assert.equal(canWork(s), false);
+	assert.match(shiftBlocked(s) ?? '', /签证已过期/, '上班按钮置灰');
+	assert.match(visaBlocked(s, 60) ?? '', /签证已过期/, '雇佣零工置灰');
+	assert.match(visaWorkBlocked(s, { t: 'venue', op: 'work', venue: 'v1' }) ?? '', /签证已过期/, '没打卡：不能打上班卡');
+	const clocked = { ...s, clockIn: { venue: 'v1', at: 1, career: 'barista' } as never };
+	assert.equal(visaWorkBlocked(clocked, { t: 'venue', op: 'work', venue: 'v1' }), undefined, '已经打了上班卡：能打下班卡');
+	assert.match(visaWorkBlocked(clocked, { t: 'venue', op: 'work', venue: 'v2' }) ?? '', /签证已过期/, '别的地点不行');
+});
+
+test('学历两边同步（合并 main 后）：签证课程毕业记进 certs；main 学历课程考到的学位也算进打分和申请资格', () => {
+	const s = make({ clock: at(10, 95) }, { course: { end: 90, award: 'bachelor' }, degree: 'none' });
+	const after = structuredClone(s);
+	settleVisa(s, after);
+	assert.equal(after.visa.degree, 'bachelor');
+	assert.ok(after.certs.includes('bachelor'), '记进 certs，系统管理员这类职业要求看它');
+	const viaProgram = make({ clock: at(10, 95), certs: ['bachelor'] }, { course: null, degree: 'none' });
+	assert.equal(degreeOf(viaProgram), 'bachelor');
+	assert.ok(visaPoints(viaProgram).lines.some((x) => /学历：本科/.test(x.label) && x.pts > 0), '打分算本科');
+	assert.equal(routeUnmet(viaProgram, WA, 'graduate')?.includes('要先毕业') ?? false, false, '毕业生签证不再说要先毕业');
+});
+
+test('老存档补签证（合并 main 后）：在第几百天补，年龄也是 22 岁，不会一读档就超龄', () => {
+	for (const day of [0, 300, 3000]) {
+		const v = newVisa('student', day);
+		const s = make({ clock: at(10, day) }, v);
+		assert.equal(visaAge(s), R.startAge, `第 ${day} 天补的签证`);
+	}
+});
+
+test('签证过期（合并 main 后）：真实地点直接调也打不了上班卡；平衡工具认得签证系统', () => {
+	const cafe = { id: 't-visa-cafe', loc: WA.spawn, name: 't-visa-cafe', lat: -31.95, lon: 115.86, type: 'cafe', source: 'seed' } as const;
+	const region = { ...WA, venues: [cafe] };
+	const s = make({ clock: at(10, 80), job: { career: 'barista', level: 0, loc: WA.spawn, shifts: 0, lastDay: -1 } as never, loc: WA.spawn }, { kind: 'student', until: 70 });
+	const r = venueAction(s, region as never, { op: 'work', venue: cafe.id, lat: cafe.lat, lon: cafe.lon, acc: 10 }, Date.UTC(2026, 10, 14, 1, 0));
+	assert.equal(r.ok, false);
+	assert.match(r.msg, /签证已过期/);
+	assert.equal(systemOf({ t: 'visa', op: 'ielts' }), 'visa');
+	assert.ok(SYSTEM_IDS.includes('visa'));
 });

@@ -4,6 +4,9 @@
 import { CATEGORY2_POSTCODES, OCCUPATIONS, POINTS, VISA_GIGS, VISA_KINDS, VISA_ROUTES, VISA_RULES, type OccupationDef, type VisaKind, type VisaRoute, type VisaRouteDef } from '../data/visas.ts';
 import { applyEffect, clone, collapsedResult, fail, getCareer, getLocation, log, roll } from './engine.ts';
 import { dayOf } from './time.ts';
+import { canWork, daysLeft, isTemporary, VISA_EXPIRED_MSG, visaKindNow } from './visa.ts';
+// 签证状态的判断在 core/visa.ts（engine 也要用），这里转出，保持原来的导入路径
+export { canWork, daysLeft, isTemporary, visaKindNow };
 import type { ActionResult, PlayerState, Region } from './types.ts';
 
 const R = VISA_RULES;
@@ -11,27 +14,17 @@ export const getVisaKind = (id: VisaKind) => VISA_KINDS.find((k) => k.id === id)
 export const getRoute = (id: string) => VISA_ROUTES.find((r) => r.id === id);
 
 /** 临时签证（会到期） */
-export const isTemporary = (k: VisaKind) => k === 'student' || k === 'graduate' || k === 'graduate2' || k === 'sponsored' || k === 'regional';
+/** 打分和资格用的学历：签证课程毕业的，和 main 学历课程考到的（certs 里的 'bachelor'），取较高的 */
+export function degreeOf(s: PlayerState): 'none' | 'bachelor' | 'master' {
+	if (s.visa.degree === 'master') return 'master';
+	return s.visa.degree === 'bachelor' || s.certs.includes('bachelor') ? 'bachelor' : 'none';
+}
 
 /** 现在的年龄：开局年龄 + 过了几个签证年 */
 export const visaAge = (s: PlayerState) => s.visa.age0 + Math.floor(dayOf(s.clock) / R.daysPerYear);
 
 /** 签证年（经验、在签时间）：游戏日 ÷ daysPerYear，保留一位小数 */
 export const years = (days: number) => Math.floor((days / R.daysPerYear) * 10) / 10;
-
-/** 还剩几天到期（到期日当天算 0）；不会到期返回 null */
-export function daysLeft(s: PlayerState): number | null {
-	return isTemporary(s.visa.kind) ? s.visa.until - dayOf(s.clock) : null;
-}
-
-/** 实际状态：临时签证过了到期日就算过期（存档里的 kind 要等下一个动作结算时才改） */
-export function visaKindNow(s: PlayerState): VisaKind {
-	const left = daysLeft(s);
-	return left !== null && left < 0 ? 'expired' : s.visa.kind;
-}
-
-/** 现在能不能合法工作。none（本地人等）和 PR 都能；过期不能 */
-export const canWork = (s: PlayerState) => visaKindNow(s) !== 'expired';
 
 /** 当前位置的地区类别（现实按邮编分类；游戏按地点查表，见 data/visas.ts 的 CATEGORY2_POSTCODES）。region 留给以后别的州 */
 export function regionalCategory(s: PlayerState, _region?: Region): 2 | 3 {
@@ -55,9 +48,9 @@ export function visaPoints(s: PlayerState, nomination?: 'state' | 'regional'): {
 		{ label: `年龄 ${age} 岁`, pts: POINTS.age.find(([lo, hi]) => age >= lo && age <= hi)?.[2] ?? 0 },
 		{ label: `英语 雅思 ${v.ielts || '未考'}`, pts: POINTS.english.find(([min]) => v.ielts >= min)?.[1] ?? 0 },
 		{ label: `澳洲本行经验 ${years(v.exp)} 年`, pts: POINTS.ausExp.find(([min]) => yrs >= min)?.[1] ?? 0 },
-		{ label: `学历：${{ none: '无', bachelor: '本科', master: '硕士' }[v.degree]}`, pts: POINTS.degree[v.degree] ?? 0 },
-		{ label: '在澳洲读满两年', pts: v.degree !== 'none' ? POINTS.ausStudy : 0 },
-		{ label: '在偏远地区读书（西澳、南澳）', pts: v.degree !== 'none' ? POINTS.regionalStudy : 0 },
+		{ label: `学历：${{ none: '无', bachelor: '本科', master: '硕士' }[degreeOf(s)]}`, pts: POINTS.degree[degreeOf(s)] ?? 0 },
+		{ label: '在澳洲读满两年', pts: degreeOf(s) !== 'none' ? POINTS.ausStudy : 0 },
+		{ label: '在偏远地区读书（西澳、南澳）', pts: degreeOf(s) !== 'none' ? POINTS.regionalStudy : 0 },
 		{ label: '单身申请', pts: POINTS.single },
 	];
 	if (nomination) lines.push({ label: nomination === 'state' ? '州政府提名（190）' : '偏远地区提名（491）', pts: POINTS.nomination[nomination] });
@@ -84,9 +77,9 @@ export function routeUnmet(s: PlayerState, region: Region, id: VisaRoute): strin
 	const exp = (y: number) => (v.exp < y * R.daysPerYear ? `清单职业经验要 ${y} 年（现在 ${years(v.exp)} 年）` : undefined);
 	switch (id) {
 		case 'student':
-			return v.course && v.course.end > today ? '现在的课程还没读完' : v.degree === 'none' ? '本科毕业后才能报硕士' : undefined;
+			return v.course && v.course.end > today ? '现在的课程还没读完' : degreeOf(s) === 'none' ? '本科毕业后才能报硕士' : undefined;
 		case 'graduate':
-			return v.course ? `${v.course.end - today} 天后毕业才能申请` : v.degree === 'none' ? '要先毕业' : age > R.graduate.maxAge ? `年龄要在 ${R.graduate.maxAge} 岁以下` : v.had.includes('graduate') ? '毕业生签证只能拿一次' : ielts(R.graduate.minIelts);
+			return v.course ? `${v.course.end - today} 天后毕业才能申请` : degreeOf(s) === 'none' ? '要先毕业' : age > R.graduate.maxAge ? `年龄要在 ${R.graduate.maxAge} 岁以下` : v.had.includes('graduate') ? '毕业生签证只能拿一次' : ielts(R.graduate.minIelts);
 		case 'graduate2':
 			return v.had.includes('graduate2') ? '第二次毕业生签证只能拿一次' : age > R.graduate.maxAge ? `年龄要在 ${R.graduate.maxAge} 岁以下` : undefined;
 		case 'sponsored': {
@@ -201,10 +194,12 @@ export function takeIelts(prev: PlayerState, region: Region): ActionResult {
 }
 
 /** 签证过期时不能做的动作；返回原因 */
-export function visaWorkBlocked(s: PlayerState, a: { t: string; op?: string; id?: string }): string | undefined {
+export function visaWorkBlocked(s: PlayerState, a: { t: string; op?: string; id?: string; venue?: string }): string | undefined {
 	if (canWork(s)) return undefined;
-	const work = (a.t === 'job' && (a.op === 'apply' || a.op === 'work')) || (a.t === 'activity' && !!a.id && VISA_GIGS.includes(a.id)) || (a.t === 'venue' && a.op === 'work');
-	return work ? '签证已过期，不能工作。去「我」页重新申请签证。' : undefined;
+	// 真实地点：打上班卡要合法工作；已经打了卡（签证有效时打的）照样能打下班卡，不然卡会一直挂着（合并 main 后复核）
+	const clockOut = a.t === 'venue' && a.op === 'work' && !!s.clockIn && s.clockIn.venue === a.venue;
+	const work = (a.t === 'job' && (a.op === 'apply' || a.op === 'work')) || (a.t === 'activity' && !!a.id && VISA_GIGS.includes(a.id)) || (a.t === 'venue' && a.op === 'work' && !clockOut);
+	return work ? VISA_EXPIRED_MSG : undefined;
 }
 
 /**
@@ -227,6 +222,8 @@ export function settleVisa(before: PlayerState, after: PlayerState): string {
 	const today = dayOf(after.clock);
 	if (v.course && today >= v.course.end) {
 		v.degree = v.course.award;
+		// main 的学历课程（PROGRAMS）和职业要求看 certs 里的 'bachelor'：签证课程毕业也记进去，两边不用重读（合并 main 后复核）
+		if (v.course.award === 'bachelor' && !after.certs.includes('bachelor')) after.certs = [...after.certs, 'bachelor'];
 		const name = v.course.award === 'master' ? '硕士' : '本科';
 		v.course = null;
 		notes.push(`🎓 ${name}毕业了！`);

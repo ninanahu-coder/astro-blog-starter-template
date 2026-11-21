@@ -11,7 +11,10 @@ export function newVisa(origin: string, day: number): VisaState {
 	if (origin !== 'student') return noneVisa();
 	const end = day + VISA_RULES.startCourseDays;
 	return {
-		kind: 'student', until: end + VISA_RULES.courseTailDays, since: day, age0: VISA_RULES.startAge,
+		kind: 'student', until: end + VISA_RULES.courseTailDays, since: day,
+		// 年龄按「拿到这份签证那天 22 岁」倒推第 0 天的年龄：老存档在第几百天补签证也不会一读档就超龄（合并 main 后复核）
+		// age0 可以小于 16 甚至为负：它只是倒推出来的「第 0 天」年龄，真正显示和判断用的是 visaAge
+		age0: VISA_RULES.startAge - Math.floor(day / VISA_RULES.daysPerYear),
 		ielts: VISA_RULES.startIelts, degree: 'none', course: { end, award: 'bachelor' },
 		exp: 0, occ: null, sponsor: null, expAt: 0, had: ['student'], warned: false,
 	};
@@ -46,7 +49,7 @@ export function cleanVisa(raw: unknown, origin: string, day: number, careers: Re
 		kind,
 		until: temp ? int(r.until, 0, max, day) : -1,
 		since: int(r.since, 0, max, 0),
-		age0: int(r.age0, 16, 80, VISA_RULES.startAge),
+		age0: int(r.age0, -100_000, 80, VISA_RULES.startAge),
 		ielts,
 		degree: DEGREES.includes(r.degree as never) ? (r.degree as VisaState['degree']) : 'none',
 		course,

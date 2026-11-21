@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic a historic harbour at sunset, limestone warehouses, a cobbled wharf with bollards, ropes and fishing nets, fishing boats moored at the jetty and a small lighthouse on the breakwater, with the the warehouses, the wharf, the moored boats, the lighthouse and the composition shown in <Picture 1> preserved. From the first frame the moored fishing boats rock gently on the water and small ripples glitter in the low sun. The camera pushes in with small amplitude at slow speed toward the moored fishing boats and the lighthouse and comes to rest on a slightly tighter wide shot of the boats and the harbour in the final second. Waves break softly against the far breakwater, clouds drift slowly across the orange sky, and the pine branches at the top right sway lightly, and the warehouses, the wharf and the lighthouse stay still.
+
+overall_soundscape: Water lapping against wooden pilings, creaking mooring ropes and distant gulls; soft knock of a hull against the jetty.
+
+non_diegetic_music: N/A

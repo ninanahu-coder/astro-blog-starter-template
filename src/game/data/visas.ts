@@ -131,6 +131,10 @@ export const OCCUPATIONS: OccupationDef[] = [
 	{ career: 'miner', title: '矿山设备操作员', minLevel: 1, skilled: true, sponsor: true },
 	{ career: 'trucker', title: '重型卡车司机', minLevel: 1, skilled: false, sponsor: true },
 	{ career: 'farmhand', title: '农场主管', minLevel: 2, skilled: true, sponsor: true },
+	// 合并 main 时补上 main 的三个持证职业（visa.md §9 原本就列为合并时要做）。等级和能走哪条路是游戏取值，待平衡
+	{ career: 'builder', title: '建筑工长', minLevel: 1, skilled: true, sponsor: true },
+	{ career: 'carer', title: '养老护理员', minLevel: 1, skilled: false, sponsor: true },
+	{ career: 'it-support', title: 'ICT 支持工程师', minLevel: 0, skilled: true, sponsor: true },
 ];
 
 /**
@@ -150,8 +154,8 @@ export const CATEGORY2_RANGES: [number, number][] = [
 	[5000, 5171], [5173, 5174], [5231, 5235], [5240, 5252], [5351, 5351], [5950, 5960],
 ];
 
-/** 签证过期时不能做的零工（雇佣性质；街头表演不算） */
-export const VISA_GIGS = ['work-cafe', 'work-mine', 'work-farm'];
+/** 签证过期时不能做的零工（雇佣性质；街头表演不算）。和学生签证工时用同一份清单（data/education.ts），合并时去掉了重复的定义 */
+export { VISA_GIGS } from './education.ts';
 
 /** 页面上显示的出处和免责声明 */
 export const VISA_SOURCE = { name: 'Home Affairs', url: 'https://immi.homeaffairs.gov.au/visas/getting-a-visa/visa-listing' };

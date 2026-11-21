@@ -106,7 +106,7 @@ function inside([x, y]: [number, number], poly: [number, number][]) {
 test('南澳数据（第 42 轮）：坐标在范围内、大陆地点在轮廓里；区域内路线连通；航班两头都有机场；标签和类型合法；每个地点 3 条小知识', async () => {
 	const { FACTS } = await import('../../src/game/data/facts.ts');
 	const KINDS = new Set(WA.locations.map((l) => l.kind));
-	const TAGS = new Set(['airport', 'hospital', 'pub', 'beach', 'reef', 'surf', 'wine', 'whale', 'dolphin', 'market', 'gym', 'gorge', 'gold', 'opal']);
+	const TAGS = new Set(['airport', 'hospital', 'pub', 'beach', 'reef', 'surf', 'wine', 'whale', 'dolphin', 'market', 'gym', 'gorge', 'gold', 'opal', 'dealer']); // dealer：第 26 批阿德莱德加车行
 	const b = SA_BASE.bounds;
 	for (const l of SA_BASE.locations) {
 		assert.ok(l.lat > b.minLat && l.lat < b.maxLat && l.lon > b.minLon && l.lon < b.maxLon, `${l.id} 在范围内`);
