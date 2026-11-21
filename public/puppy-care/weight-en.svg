@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 300" font-family="Segoe UI, Helvetica, Arial, sans-serif" role="img">
+<rect x="0" y="0" width="720" height="300" rx="20" fill="#FDF6EC"/>
+<text x="360" y="40" font-size="24" font-weight="700" fill="#1D3D57" text-anchor="middle">Daily weighing: the earliest warning</text>
+<line x1="74" y1="232" x2="620" y2="232" stroke="#8A8A8A" stroke-width="2"/>
+<line x1="74" y1="232" x2="74" y2="74" stroke="#8A8A8A" stroke-width="2"/>
+<text x="347" y="268" font-size="13" font-weight="600" fill="#8A8A8A" text-anchor="middle">Age (days)</text>
+<text x="26" y="153" font-size="13" font-weight="600" fill="#8A8A8A" text-anchor="middle" transform="rotate(-90 26 153)">Weight</text>
+<path d="M 74 218 C 180 220 300 150 400 108 S 560 82 612 84" stroke="#3E9B6E" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+<path d="M 74 218 C 170 214 250 210 320 214 S 470 236 560 244" stroke="#D25A54" stroke-width="4" fill="none" stroke-linecap="round" stroke-dasharray="2 8" stroke-linejoin="round"/>
+<circle cx="74" cy="218" r="5" fill="#2C5F8A"/>
+<text x="76" y="254" font-size="12" font-weight="600" fill="#2C5F8A" text-anchor="middle">Birth</text>
+<circle cx="400" cy="108" r="5" fill="#3E9B6E"/>
+<text x="408" y="100" font-size="12" font-weight="700" fill="#3E9B6E" text-anchor="start">Doubled</text>
+<circle cx="360" cy="286" r="0" />
+<rect x="150" y="0 " width="0" height="0"/>
+<line x1="150" y1="0" x2="150" y2="0" stroke="none"/>
+<g transform="translate(96,150)"><rect x="0" y="-9" width="18" height="4" rx="2" fill="#3E9B6E"/></g>
+<text x="120" y="145" font-size="12" font-weight="600" fill="#3E9B6E" text-anchor="start">Normal: +5–10%/day, doubles by day 7–10</text>
+<g transform="translate(96,172)"><rect x="0" y="-9" width="18" height="4" rx="2" fill="#D25A54"/></g>
+<text x="120" y="167" font-size="12" font-weight="600" fill="#D25A54" text-anchor="start">Red flag: flat or falling → call the vet</text>
+</svg>
