@@ -756,7 +756,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.drawer-head svg.drawer-ico { color: var(--accent); }
 			.story-steps svg.lu { margin-right: 6px; color: var(--dim); }
 			.story-steps svg.lu.done { color: var(--ok); }
-			img.emo { display: inline-block; width: 1.2em; height: 1.2em; vertical-align: -0.22em; object-fit: contain; }
+			/* 写成 #app / #modal / #toast 下的 img.emo：比「事件主视觉」「地点主图」这些通用 img 规则更具体，不会被拉满或压暗 */
+			#app img.emo, #modal img.emo, #toast img.emo { position: static; inset: auto; display: inline-block; width: 1.2em; height: 1.2em; vertical-align: -0.22em; object-fit: contain; opacity: 1; border-radius: 0; box-shadow: none; }
 			/* ---------- 体验改造 P1（docs/earth-game/ux-p1.md）---------- */
 			/* 今天页「在这里」：每组一行摘要，右边一个箭头，点开从底部弹出抽屉 */
 			.here .list { margin-top: 8px; }
@@ -1020,8 +1021,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 				if (audio.state === 'suspended' && !document.hidden) void audio.resume?.();
 				return audio;
 			}
+			// 玩家点过、按过键之后才出声（浏览器的自动播放限制）；点之前的提示音直接不放，不攒着
+			let gestured = false;
 			function sfx(cue: Cue) {
-				if (!prefs.sound) return;
+				if (!prefs.sound || !gestured) return;
 				try {
 					const a = ensureAudio();
 					if (a) playCue(a, cue, mixer!.sfx);
@@ -3197,6 +3200,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			// ---------- 输入 ----------
 			// 键盘：事件结果页按 Esc 等于点「继续」（还没选的事件必须选一个，Esc 不关）
 			document.addEventListener('keydown', (e) => {
+				gestured = true;
 				if ((e as KeyboardEvent).key !== 'Escape') return;
 				if (drawer && !eventResult && !(state && getPendingEvent(state))) { closeDrawer(); return; }
 				if (!eventResult || (state && getPendingEvent(state))) return;
@@ -3230,6 +3234,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				} catch {}
 			});
 			document.addEventListener('click', (e) => {
+				gestured = true;
 				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close]');
 				// 打开了环境音或音乐、但还没出过声：第一次点页面任何地方时解锁音频（浏览器的自动播放限制）
 				if (!audio && (prefs.ambience || prefs.music)) { try { ensureAudio(); } catch {} syncScene(); }

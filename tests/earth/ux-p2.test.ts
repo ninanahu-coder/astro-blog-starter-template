@@ -56,7 +56,7 @@ test('页面接上了：查找表按需加载（不进首屏），下好后补�
 	for (const w of ["paint($('hud')", "paint($('panel'), html)", 'paint(modal, `<div class="sheet drawer"']) assert.ok(PAGE.includes(w), w);
 	assert.equal((PAGE.match(/paint\(modal, `<div class="sheet" role="dialog"/g) ?? []).length, 2, '事件和结果页');
 	assert.match(PAGE, /el\.textContent = msg;\n\t*emo\?\.emojify\(el\);/, '提示条');
-	assert.match(PAGE, /img\.emo \{ display: inline-block; width: 1\.2em; height: 1\.2em;/);
+	assert.match(PAGE, /#app img\.emo, #modal img\.emo, #toast img\.emo \{[^}]*width: 1\.2em; height: 1\.2em;/);
 });
 
 test('Lucide：雪碧图在构建时写进页面，每个名字都有；lu() 输出装饰性图标；页面脚本只 import 类型', () => {
@@ -79,4 +79,49 @@ test('音效默认开、总音量默认最轻（用户 2026-11-21 定）；环�
 	assert.equal(DEFAULT_PREFS.volume, 'low');
 	assert.equal(DEFAULT_PREFS.ambience, false);
 	assert.equal(DEFAULT_PREFS.music, false);
+});
+
+// ---------- 多角度复核（2026-11-21）后补的 ----------
+import { isSafeIcon } from '../../tools/earth/icons/build-lucide.mjs';
+import { CUE_RATE, CUES, cueSamples, VOLUME, type Cue } from '../../src/game/ui/sound.ts';
+import { zzfxSamples } from '../../src/game/ui/zzfx.ts';
+
+test('复核修正：Lucide 雪碧图按白名单校验（用 set:html 写进页面，黑名单挡不住 <img/src/onerror>）', () => {
+	assert.equal(isSafeIcon('<path d="M3 10a2 2 0 0 1 2-2" /><circle cx="12" cy="10" r="2.4" />'), true);
+	for (const bad of ['<img/src="x"/onerror="alert(1)">', '<path d="M1" onload="x" />', '<script/>', '<use href="#a" />', '<path d="M1"/><foreignObject/>', '<a href="x"><path d="M1"/></a>', 'text']) assert.equal(isSafeIcon(bad), false, bad);
+	for (const sym of LUCIDE_SPRITE.matchAll(/<symbol id="lu-[a-z-]+" viewBox="0 0 24 24">([\s\S]*?)<\/symbol>/g)) assert.ok(isSafeIcon(sym[1]), sym[1]);
+	assert.match(LUCIDE_SPRITE, /^<!-- Lucide icons https:\/\/lucide\.dev ISC License Copyright \(c\) \d{4} Lucide Icons and Contributors Permission to use, copy, modify/, '雪碧图前面带完整 ISC 许可');
+});
+
+test('复核修正：第三方许可汇总（ZzFX MIT、Lucide ISC、Fluent MIT），ZzFX 源码头部用 /*! */ 保留注释', () => {
+	const lic = readFileSync(join(ROOT, 'public/earth/LICENSES.txt'), 'utf8');
+	for (const s of ['ZzFX', 'Copyright (c) 2019 Frank Force', 'Lucide', 'ISC License', 'Fluent Emoji', 'Copyright (c) Microsoft Corporation']) assert.ok(lic.includes(s), s);
+	assert.match(readFileSync(join(ROOT, 'src/game/ui/zzfx.ts'), 'utf8'), /\/\*!\nZzFX - Zuper Zmall Zound Zynth - Micro Edition\nMIT License - Copyright 2019 Frank Force/);
+});
+
+test('复核修正：每个声部的滑音不滑过 0 Hz（滑过去会先降到底再往上走）', () => {
+	for (const [cue, voices] of Object.entries(CUES)) for (const v of voices) {
+		const [, , f = 220, a = 0, su = 0, re = 0.1, , , slide = 0, , , , , , , , , , de = 0] = v.zz;
+		assert.ok(f + 500 * slide * (a + de + su + re) > 40, `${cue} 结尾 ${f + 500 * slide * (a + de + su + re)} Hz`);
+	}
+});
+
+test('复核修正：风暴是低通滤过的闷雷（高频成分远小于整体）；同一时刻的声部是叠加不是覆盖', () => {
+	const hiRatio = (s: Float32Array) => { let e = 0, d = 0; for (let i = 1; i < s.length; i++) { e += s[i] * s[i]; d += (s[i] - s[i - 1]) ** 2; } return d / e; };
+	assert.ok(hiRatio(cueSamples('storm')) < 0.2, `风暴高频比 ${hiRatio(cueSamples('storm'))}`);
+	const flipped = CUES.storm[0].zz.slice() as typeof CUES.storm[0]['zz'];
+	flipped[20] = -(flipped[20] ?? 0);
+	assert.ok(hiRatio(zzfxSamples(flipped, CUE_RATE, () => 0.5)) > hiRatio(cueSamples('storm')) * 5, '滤波换成正号（高通）时高频多得多：说明现在是低通');
+	const [v1, v2] = CUES.stamp;
+	const a = zzfxSamples(v1.zz, CUE_RATE, () => 0.5), b = zzfxSamples(v2.zz, CUE_RATE, () => 0.5);
+	const sum = cueSamples('stamp' as Cue);
+	for (const i of [0, 10, 200, Math.min(a.length, b.length) - 1]) assert.ok(Math.abs(sum[i] - (a[i] + b[i]) * VOLUME) < 1e-6, `第 ${i} 个采样`);
+});
+
+test('复核修正：页面把「进账」传给提示音；玩家点过或按过键之前不出声（不在没手势时建音频、攒着声音）', () => {
+	assert.match(PAGE, /weather: weatherAt\(state\)\.id, coin: state\.cash > before\.cash \}\);/);
+	assert.match(PAGE, /function sfx\(cue: Cue\) \{\n\t*if \(!prefs\.sound \|\| !gestured\) return;/);
+	assert.match(PAGE, /document\.addEventListener\('keydown', \(e\) => \{\n\t*gestured = true;/);
+	assert.match(PAGE, /gestured = true;\n\t*const t = \(e\.target as Element\)\.closest<HTMLElement>\('\[data-tab\],/);
+	assert.match(PAGE, /#app img\.emo, #modal img\.emo, #toast img\.emo \{ position: static; inset: auto;[^}]*opacity: 1;/, 'emoji 小图不被事件主视觉的 img 规则拉满、压暗');
 });
