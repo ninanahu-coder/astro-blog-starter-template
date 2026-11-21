@@ -90,8 +90,8 @@ test('界面引用的键都存在，基准表里的键都有人用', () => {
 	const unused = BASE_KEYS.filter((k) => !used.has(k));
 	assert.deepEqual(unused, [], '字符串表里没人用的键');
 	for (const m of PAGE.matchAll(/\btx\(\s*([^'\s)][^,)]*)/g)) {
-		// 用变量传键时，变量必须来自带 StrKey 类型的表（TABS / ME_TABS / *_OPTIONS），类型由 tsc 保证；新的变量名要在这里登记
-		assert.match(m[1], /^(label|name|tabKey|v \?)/, `tx() 的参数来源不明：${m[1]}`);
+		// 用变量传键时，变量必须来自带 StrKey 类型的表（TABS / ME_TABS / *_OPTIONS）或带 StrKey 类型的参数（设置页 toggle 的 name、hint），类型由 tsc 保证；新的变量名要在这里登记
+		assert.match(m[1], /^(label|name|hint|tabKey|v \?)/, `tx() 的参数来源不明：${m[1]}`);
 	}
 });
 
@@ -140,4 +140,11 @@ test('现实时间按区域时区：珀斯全年 +8；阿德莱德夏令时 +10:
 	assert.match(fmtRealDateTime(jan, 'en', 'nowhere'), /08:00/, '不认识的区域按珀斯');
 	assert.match(fmtRealDateTime(jan, 'en', '__proto__'), /08:00/);
 	assert.match(fmtRealDateTime(jan, 'zh-Hans', 'wa'), /2026/);
+});
+
+test('设置页模板（合并 main 时这张卡两边都改过）：显示卡里有语言选择，声音三条开关、音量和说明都走字符串表', () => {
+	assert.match(PAGE, /<p class="muted">\$\{tx\('pref\.display\.hint'\)\}<\/p>\$\{lang\}\$\{seg\('font', 'pref\.font', FONT_OPTIONS\)\}/, '语言选择在显示卡最上面');
+	assert.match(PAGE, /const lang = `<div class="pref-row" role="group" aria-label="\$\{tx\('pref\.lang'\)\}">[^\n]*data-pref="lang"/, '语言按钮');
+	for (const k of ['sound', 'ambience', 'music']) assert.match(PAGE, new RegExp(`toggle\\('${k}', 'pref\\.${k}', 'pref\\.${k}\\.hint'\\)`), k);
+	assert.match(PAGE, /seg\('volume', 'pref\.volume', VOLUME_OPTIONS\)/);
 });

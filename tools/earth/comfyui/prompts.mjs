@@ -4,6 +4,18 @@ import { EVENTS } from '../../../src/game/data/events.ts';
 import { AREAS } from '../../../src/game/data/areas-base.ts';
 import { SA_EVENTS } from '../../../src/game/data/events-sa.ts';
 import { VENUE_EVENTS } from '../../../src/game/data/venue-events.ts';
+import { EXPERIENCES } from '../../../src/game/data/experiences.ts';
+import { PHOTO_QUESTS } from '../../../src/game/data/photo-quests.ts';
+import { FESTIVALS } from '../../../src/game/data/festivals.ts';
+import { VEHICLES } from '../../../src/game/data/vehicles.ts';
+import { PROPERTIES } from '../../../src/game/data/properties.ts';
+import { HOMES } from '../../../src/game/data/housing.ts';
+import { CAREERS } from '../../../src/game/data/careers.ts';
+import { COURSES } from '../../../src/game/data/courses.ts';
+import { CERTS } from '../../../src/game/data/certs.ts';
+import { FISH } from '../../../src/game/data/fish.ts';
+import { NPCS } from '../../../src/game/data/npcs.ts';
+import { TRAIL_EVENTS } from '../../../src/game/data/trail-events.ts';
 
 export const STYLE = 'cinematic CGI game key art, stylized realism, warm golden light, wide landscape shot, main subject centred in the middle band of the frame, highly detailed, no text, no lettering on signs, no logos, no watermark, no identifiable people';
 export const NEGATIVE = 'text, watermark, logo, signature, lowres, blurry, deformed, extra limbs, real person likeness';
@@ -135,6 +147,10 @@ const EVENT_SCENE = {
 	// 南澳
 	'central-market': 'a bustling covered food market with cheese, bread and fruit stalls, shoppers seen from behind',
 	'glenelg-tram': 'a modern tram arriving at its seaside terminus beside a beach and a long jetty',
+	// 第 32 批出行事件：暂借相近的已有图（清单指向 glenelg-tram / hedland-ore-train / busselton-jetty-walk），按提示词重新生成后替换
+	'transit-hometown': 'inside a quiet suburban commuter train carriage, two university students with backpacks chatting across the aisle, river glinting through the window',
+	'rail-wheatbelt': 'view from a regional passenger train window over endless golden wheat fields and a pale salt lake under a wide sky',
+	'walk-blister': 'a lone walker in sneakers sitting on a roadside kerb taping a blistered heel, a long empty suburban footpath behind',
 	'hahndorf-bakery': 'a nineteenth-century German stone village street with a bakery displaying pretzels and sausages',
 	'barossa-vintage': 'the open door of an old stone wine cellar with oak barrels, gnarled old vines outside',
 	'mclaren-coast': 'vineyards rolling downhill to coastal cliffs and a sandy beach',
@@ -146,12 +162,238 @@ const EVENT_SCENE = {
 	'wilpena-wallaby': 'a yellow-footed rock wallaby with a ringed yellow and black tail crouching in a rock crevice',
 	'blue-lake': 'a vivid cobalt blue lake inside a volcanic crater ringed by cliffs',
 	'ceduna-oysters': 'freshly shucked oysters on ice at a small jetty-side shack, oyster leases on a calm bay',
+	// 主要路线（实地路线）的事件（v22）：珀斯、弗里曼特尔、阿德莱德的路线共用，只写普通城市街景
+	'trail-quay-start': 'a phone with a walking map held up at the start of a city riverside promenade, morning light',
+	'trail-library-seat': 'an empty seat by a big window in a quiet modern public library reading room',
+	'trail-asian-grocer': 'shelves of colourful Asian sauces, noodles and snacks in a small city grocery store',
+	'trail-notice-board': 'a cork notice board crowded with handwritten flyers and tear-off phone number strips',
+	'trail-prison-gate': 'tall pale limestone walls and a heavy old gatehouse of a nineteenth-century prison on a hill',
+	'trail-city-view': 'a hilltop lookout over a modern city skyline beside a wide blue river, gum trees in the foreground',
+	'trail-along-busker': 'a street guitarist seen from the side on a sunny pedestrian mall, open guitar case with coins',
+	'trail-along-crossing': 'a pedestrian crossing at a city intersection, people seen from behind waiting for the green signal',
+	'trail-along-sea-breeze': 'gum tree leaves and shop awnings blowing in a cool afternoon breeze on a quiet street',
+	'trail-along-stairs': 'a long steep flight of outdoor stairs climbing a bushland hillside, a jogger seen from behind',
 };
 
 // 南澳事件写 South Australia，其余西澳。店铺通用事件两州都会触发：只写普通郊区，并点名不要地标（只写 Australia 时画出了悉尼歌剧院、海港大桥和乌鲁鲁）
 const SA_IDS = new Set(SA_EVENTS.map((e) => e.id));
 const VENUE_IDS = new Set(VENUE_EVENTS.map((e) => e.id));
-const eventPlace = (id) => (SA_IDS.has(id) ? 'South Australia' : VENUE_IDS.has(id) ? 'an ordinary Australian suburb, no famous landmarks, bridges, opera house or monoliths in view' : 'Western Australia');
+const TRAIL_IDS = new Set(TRAIL_EVENTS.map((e) => e.id));
+const eventPlace = (id) => (SA_IDS.has(id) ? 'South Australia' : VENUE_IDS.has(id) ? 'an ordinary Australian suburb, no famous landmarks, bridges, opera house or monoliths in view' : TRAIL_IDS.has(id) ? 'an ordinary Australian city centre, no famous landmarks, bridges, opera house or monoliths in view' : 'Western Australia');
+
+// NPC 头像：半身像，背景是他们的常驻地点。都是虚构角色：写「原创、不像任何真人或名人」，不写族裔，只写年龄、职业和穿着。
+// 画面方形，页面上只显示 56px，压成 256 宽
+export const PORTRAIT_STYLE = 'head and shoulders portrait of a fictional original character, not resembling any real person or celebrity, friendly expression looking at the viewer, face centred, stylized realism CGI game character portrait, soft warm light, softly blurred background, no text, no logos, no watermark';
+const NPC_LOOK = {
+	mia: 'a woman around thirty, barista apron over a black t-shirt, hair tied up, busy city cafe with an espresso machine behind her',
+	jack: 'a weathered old fisherman around seventy, white stubble, wool beanie and faded work shirt, fishing harbour with old boats behind him',
+	linda: 'a woman in her forties, park ranger in a khaki uniform shirt and wide-brimmed hat, island scrub and turquoise bay behind her',
+	leo: 'a sun-tanned man around thirty with salty wavy hair, rash vest, surf beach with breaking waves behind him',
+	nan: 'a warm woman in her sixties, cardigan, holding a teapot, cosy seaside guesthouse porch behind her',
+	bill: 'a burly miner in his fifties, orange hi-vis work shirt with red dust on it, old outback hotel bar behind him',
+	sam: 'a man in his thirties, dive guide in a zipped-up black wetsuit with a dive mask pushed up on his forehead, turquoise reef water behind him',
+	dave: 'a road train truck driver in his fifties, cap and flannel shirt, long truck cab lit up at night behind him',
+	yuki: 'a Japanese-Australian woman in her forties, elegant linen shirt, small pearl earrings, tropical pearl shop behind her',
+	tom: 'a rock lobster boat captain in his fifties, oilskin jacket, sun-creased face, fishing port at dawn behind him',
+	harry: 'a retired lighthouse keeper around seventy, grey beard, navy knitted jumper, harbour museum with a ship model behind him',
+	ruby: 'a woman around thirty, gorge guide in a sun shirt and cap, red banded rock gorge behind her',
+	rosa: 'a cheerful grandmother in her late sixties, volunteer polo shirt and sun visor, calm bay shallows behind her',
+	mack: 'a mango farmer in his fifties, broad-brimmed hat and work shirt, rows of mango trees and an irrigation channel behind him',
+	greta: 'a winemaker woman around forty, rolled-up sleeves, holding a glass of red wine, old stone winery and vineyard behind her',
+	kev: 'an opal miner in his fifties, dusty singlet and miner helmet with a lamp, pale underground dugout walls behind him',
+	ayla: 'a woman around thirty, wildlife ranger in a green uniform shirt, wild coastal headland with sea lions on the beach behind her',
+};
+
+// ── 界面配图（设计清单见 docs/earth-game/cg-screens.md）──
+// 小图（行内缩略图、图鉴格子）：方形构图、一个主体、背景简单，页面上只显示 48–56px，压成 256 宽
+export const THUMB_STYLE = 'cinematic CGI game art, stylized realism, warm golden light, square composition, one clear subject centred and filling most of the frame, simple uncluttered background, reads clearly as a small thumbnail, highly detailed, no text, no lettering on signs, no logos, no watermark, no identifiable people';
+// 不分州的通用画面（职业、住处、课程、证书……）：写普通郊区并点名不要地标
+const GENERIC_PLACE = 'an ordinary Australian setting, no famous landmarks, bridges, opera house or monoliths in view';
+const LOC_AREA = new Map(AREAS.flatMap((a) => a.locations.map((l) => [l.id, REGION_EN[a.id] ?? 'Western Australia'])));
+const placeOf = (locId) => LOC_AREA.get(locId) ?? 'Western Australia';
+
+// 收费体验：今天页「体验」卡每行左边的缩略图，也用在成长页的收藏册（exp:<id>）
+const EXP_SCENE = {
+	'rottnest-cycle': 'a bicycle parked on a coastal path above a small turquoise bay on a low scrubby island',
+	'prison-night': 'a torch beam lighting a dark nineteenth-century limestone prison corridor lined with heavy cell doors',
+	'swan-cruise': 'the open deck of a river cruise boat at sunset facing a glowing city skyline across wide water',
+	'margaret-dinner': 'a long dinner table set with wine glasses among vineyard rows at golden hour',
+	'albany-whales': 'a humpback whale breaching right beside a small whale watching boat',
+	'lucky-bay': 'a dusty four-wheel-drive parked on dazzling white sand with kangaroos lazing beside turquoise water',
+	'pinnacles-stars': 'the Milky Way glowing above limestone pillars in a desert at night',
+	'kalbarri-skywalk': 'a cantilevered steel skywalk platform jutting out over a deep red sandstone river gorge',
+	'monkey-mia-feed': 'a hand offering a small fish to a wild dolphin in clear knee-deep water',
+	'super-pit-tour': 'a giant mining haul truck on the terraced floor of a vast open-cut gold mine',
+	'wave-rock-dawn': 'first dawn light creeping over the crest of a giant curved granite rock wave',
+	'whale-shark-swim': 'a snorkeller in a full-length wetsuit seen from behind swimming beside a giant spotted whale shark in blue water',
+	'karijini-canyon': 'a person in a long-sleeve rash vest and board shorts seen from behind leaping into an emerald pool at the bottom of a red banded-rock gorge',
+	'broome-camels': 'a line of camels silhouetted on a wide beach against a huge orange sunset',
+	'bungle-flight': 'view from a small plane window over orange and black striped beehive-shaped sandstone domes',
+	'fest-wildflower-walk': 'a narrow walking trail through carpets of pink and yellow wildflowers on a red gorge rim',
+	'fest-race-day': 'racehorses thundering past a country racecourse grandstand, spectators in fancy hats seen from behind',
+	'fest-skyshow': 'fireworks bursting over a wide river at night, picnic blankets on the grassy bank in the foreground',
+	'fest-surf-final': 'a surfer in a full wetsuit riding a huge glassy wave below a clifftop lined with spectators seen from behind',
+	'fest-long-table': 'a long communal table on a winery lawn laden with local dishes at sunset',
+	'fest-street-show': 'a street performer seen from behind juggling flaming torches high above a heritage street crowd',
+	'fest-ocean-cinema': 'an outdoor cinema screen on a beach at dusk showing an underwater scene of a whale shark, the sea behind it, beanbags on the sand',
+	'fest-whale-watch': 'an old timber whaling station lookout above a calm bay with a whale spout in the distance',
+	'fest-lantern-walk': 'a paper lantern parade with a dragon dance through an old tin-roofed town street at night, people seen from behind',
+};
+
+// 摄影任务：今天页「摄影任务」卡顶上的目标画面（photo:<id>），宽图
+const PHOTO_SCENE = {
+	'swan-dusk': 'pink and orange sunset clouds reflected on a wide calm river with a city skyline and black swans',
+	'freo-dawn': 'small fishing boats motoring out of a heritage port harbour at dawn, seagulls overhead',
+	'quokka-sun': 'a quokka basking in warm sunshine on a sandy island path, low scrub around it',
+	'jetty-rain': 'a very long white timber jetty stretching into a grey sea on a rainy day, raindrops dimpling the water',
+	'pinnacles-stars': 'the Milky Way arching above thousands of limestone pillars in a desert at night',
+	'wave-noon': 'harsh midday sun on a giant curved granite rock wave under a deep blue sky',
+	'coral-blue': 'crystal clear turquoise water over coral heads right off a white beach, seen from above',
+	'cable-sunset': 'a camel train walking along a beach in front of a setting sun, long reflections on wet sand',
+};
+
+// 节日：节日卡顶上的封面（fest:<id>），宽图
+const FEST_SCENE = {
+	wildflower: 'a small town flower market with red gorge cliffs covered in wildflowers behind it',
+	'goldfields-cup': 'racegoers in hats seen from behind at a dusty country racecourse, horses racing down the straight',
+	skyshow: 'crowds on a riverbank seen from behind watching a huge fireworks show over a city at night',
+	'surf-pro': 'a surfing contest on a big reef break, white marquees and spectators on the clifftop seen from behind',
+	'pearl-festival': 'dragon boats on a tropical bay at dusk and a lantern-lit night market on the shore',
+	'gourmet-escape': 'chefs\' hands plating rock lobster at long tables on a winery lawn',
+	'street-arts': 'stilt walkers and jugglers performing in a heritage street packed with spectators seen from behind',
+	'whale-shark': 'a dive boat on a turquoise reef with the huge shadow of a whale shark beneath it, a small beach town at dusk',
+	'whale-season': 'whale watching boats in a wide bay as humpback whales spout, people at a seaside lookout seen from behind',
+};
+
+// 车行和「档案」里的车（veh:<id>），方形
+const VEH_SCENE = {
+	motorbike: 'a road motorbike parked on the shoulder of a coastal highway',
+	car: 'a modest used family hatchback parked on a quiet suburban street',
+	'4wd': 'a dusty four-wheel-drive with a roof rack on a corrugated red dirt track',
+	campervan: 'a white pop-top campervan parked under gum trees at a quiet campsite',
+};
+
+// 可买的房产（prop:<id>），方形；房产在哪个州按 loc 写
+const PROP_SCENE = {
+	'kal-cottage': 'an old tin-roofed miner\'s cottage with a front verandah, distant lights of an open-cut mine at dusk',
+	'perth-apartment': 'a small city apartment balcony overlooking a wide river and skyline',
+	'freo-terrace': 'a row of century-old limestone terrace houses on a heritage port street',
+	'margaret-beach-house': 'a timber beach house with a deck behind coastal dunes, a surf break beyond',
+	'adelaide-villa': 'a bluestone cottage with cast iron lace on its front verandah on a leafy old street',
+	'glenelg-unit': 'a low seaside apartment block beside a beach and a long jetty at sunset',
+	'coober-dugout': 'the entrance of an underground dugout home cut into a pale desert hillside, a ventilation pipe poking out on top',
+};
+
+// 租住的住处（home:<id>），方形
+const HOME_SCENE = {
+	room: 'a small tidy share-house bedroom with a single bed, a desk and a backpack on the floor',
+	flat: 'a compact modern one-bedroom apartment interior with a small kitchen and a sofa in afternoon light',
+	beach: 'a small weatherboard beach shack with a verandah just above the sand, ocean beyond',
+	campground: 'a caravan park powered site with a campervan, a barbecue and gum trees at dusk',
+	seaview: 'a high-rise apartment balcony looking out over the ocean',
+	dugout: 'the inside of an underground home carved into pale sandstone, arched rooms lit by warm lamps',
+};
+
+// 职业（career:<id>），方形；有人只写背影或手
+const CAREER_SCENE = {
+	barista: 'a barista\'s hands pouring latte art into a cup beside a chrome espresso machine',
+	lifeguard: 'a red and yellow surf rescue board and flags on a sunny beach, a lifesaver seen from behind watching the waves',
+	guide: 'a tour guide in a wide-brimmed hat seen from behind leading a small group along a red rock trail',
+	miner: 'a hard hat with a head lamp and an orange hi-vis vest resting on a crate above vast open-cut mine terraces',
+	trucker: 'a long road train truck pulling three trailers along an empty outback highway',
+	bartender: 'a bartender\'s hands pulling a beer from a tap at a timber pub counter',
+	farmhand: 'a farmhand seen from behind driving a tractor through golden wheat paddocks',
+	builder: 'a tradie in a hard hat and hi-vis vest seen from behind carrying timber frames across a suburban house building site',
+	carer: 'a carer\'s hands holding an elderly resident\'s hand beside a cup of tea in a bright aged care lounge',
+	'it-support': 'a help desk worker seen from behind fixing a laptop at a tidy office desk with two monitors and cables',
+};
+
+// 课程（course:<id>），方形
+const COURSE_SCENE = {
+	'driving-school': 'a learner driver\'s view over a steering wheel onto a quiet suburban road, an instructor\'s hand pointing ahead',
+	'surf-school': 'soft foam surfboards lined up on the sand, beginners in long-sleeve rash vests seen from behind practising standing up',
+	'personal-trainer': 'kettlebells and dumbbells on a rubber floor, a trainer seen from behind holding a clipboard',
+	'run-club': 'a group of runners seen from behind on a riverside path at sunrise',
+	networking: 'an evening workshop room with small round tables, coffee cups and people seen from behind chatting',
+	bushcraft: 'a local guide\'s hand pointing at native bush plants in red sandy scrub, a compass in the other hand',
+	negotiation: 'two pairs of hands across a table over a blank notepad and a calculator, mid deal',
+};
+
+// 职业证书（cert:<id>），方形
+const CERT_SCENE = {
+	rsa: 'a hand politely pushing a glass of beer back across a pub counter',
+	'barista-cert': 'a perfect rosetta latte art in a cup on a saucer next to a steel milk jug',
+	'bronze-medallion': 'a lifesaver in a long-sleeve rash vest and swim cap seen from behind swimming a rescue tube out through the surf',
+	'wilderness-first-aid': 'an open first aid kit with a splint and bandages on a rock in the bush',
+	'mine-induction': 'safety boots, a hard hat, ear muffs and a hi-vis vest laid out neatly on a bench, red dust',
+	'hr-licence': 'side view of a heavy prime mover truck with a long trailer on an open highway',
+	'tractor-ticket': 'a tractor and a forklift in a farm shed yard beside hay bales',
+	'white-card': 'a blank plastic safety induction card lying on a hard hat next to steel-capped boots at a building site, no readable text',
+	'first-aid': 'hands practising CPR compressions on a training manikin on a classroom floor, a first aid kit beside it',
+};
+
+// 鱼获图鉴（fish:<id>），方形；钓到前页面仍显示问号
+const FISH_SCENE = {
+	herring: 'an Australian herring',
+	mullet: 'a sea mullet',
+	whiting: 'a King George whiting',
+	'black-bream': 'a black bream',
+	salmon: 'an Australian salmon',
+	squid: 'a southern calamari squid',
+	'blue-crab': 'a blue swimmer crab',
+	'pink-snapper': 'a pink snapper',
+	dhufish: 'a West Australian dhufish',
+	trevally: 'a golden trevally',
+	mackerel: 'a Spanish mackerel',
+	barramundi: 'a barramundi',
+};
+
+// 页头横幅和空状态：宽图，页面里只显示一条（object-fit: cover）
+const BANNER_SCENE = {
+	grow: 'an open travel journal with blank pages, loose photo prints, a compass and a pressed wildflower on a timber table',
+	social: 'a group of friends seen from behind sharing a beach barbecue at sunset',
+	near: 'an ordinary suburban main street with cafes and small shops in morning light, shopfronts without any signage',
+};
+const EMPTY_SCENE = {
+	bag: 'an empty canvas backpack lying open on timber floorboards in soft light',
+	rels: 'two empty chairs facing each other on a sunny timber verandah',
+	estate: 'an empty grassy suburban block at sunset with a single gum tree and a garden gate',
+};
+
+/** 界面配图任务：键名前缀 → 场景表；square 的出 1024×1024 并压成 256 宽，其余 1536×1024 */
+function screenJobs() {
+	const jobs = [];
+	const square = (key, file, scene, place) => jobs.push({ key, file, prompt: `${scene}, ${place}, ${THUMB_STYLE}`, size: '1024x1024', width: 256 });
+	const wide = (key, file, scene, place, width) => jobs.push({ key, file, prompt: `${scene}, ${place}, ${STYLE}`, width });
+	for (const e of EXPERIENCES) if (EXP_SCENE[e.id]) square(`exp:${e.id}`, `exp-${e.id}.png`, EXP_SCENE[e.id], placeOf(e.loc));
+	for (const q of PHOTO_QUESTS) if (PHOTO_SCENE[q.id]) wide(`photo:${q.id}`, `photo-${q.id}.png`, PHOTO_SCENE[q.id], placeOf(q.loc), 960);
+	for (const f of FESTIVALS) if (FEST_SCENE[f.id]) wide(`fest:${f.id}`, `fest-${f.id}.png`, FEST_SCENE[f.id], placeOf(f.loc), 960);
+	for (const v of VEHICLES) if (VEH_SCENE[v.id]) square(`veh:${v.id}`, `veh-${v.id}.png`, VEH_SCENE[v.id], GENERIC_PLACE);
+	for (const p of PROPERTIES) if (PROP_SCENE[p.id]) square(`prop:${p.id}`, `prop-${p.id}.png`, PROP_SCENE[p.id], placeOf(p.loc));
+	for (const h of HOMES) if (HOME_SCENE[h.id]) square(`home:${h.id}`, `home-${h.id}.png`, HOME_SCENE[h.id], GENERIC_PLACE);
+	for (const c of CAREERS) if (CAREER_SCENE[c.id]) square(`career:${c.id}`, `career-${c.id}.png`, CAREER_SCENE[c.id], GENERIC_PLACE);
+	for (const c of COURSES) if (COURSE_SCENE[c.id]) square(`course:${c.id}`, `course-${c.id}.png`, COURSE_SCENE[c.id], GENERIC_PLACE);
+	for (const c of CERTS) if (CERT_SCENE[c.id]) square(`cert:${c.id}`, `cert-${c.id}.png`, CERT_SCENE[c.id], GENERIC_PLACE);
+	for (const f of FISH) if (FISH_SCENE[f.id]) square(`fish:${f.id}`, `fish-${f.id}.png`, `side view of ${FISH_SCENE[f.id]} freshly caught, lying on wet timber jetty boards`, 'Western Australian coast');
+	for (const [id, scene] of Object.entries(BANNER_SCENE)) wide(`banner:${id}`, `banner-${id}.png`, scene, GENERIC_PLACE, 960);
+	for (const [id, scene] of Object.entries(EMPTY_SCENE)) wide(`empty:${id}`, `empty-${id}.png`, scene, GENERIC_PLACE, 640);
+	return jobs;
+}
+/** 界面配图的类别：键名前缀、尺寸和「每项都要有图」用的数据（测试和文档共用） */
+export const SCREEN_KINDS = {
+	exp: { square: true, ids: Object.keys(EXP_SCENE) },
+	photo: { square: false, ids: Object.keys(PHOTO_SCENE) },
+	fest: { square: false, ids: Object.keys(FEST_SCENE) },
+	veh: { square: true, ids: Object.keys(VEH_SCENE) },
+	prop: { square: true, ids: Object.keys(PROP_SCENE) },
+	home: { square: true, ids: Object.keys(HOME_SCENE) },
+	career: { square: true, ids: Object.keys(CAREER_SCENE) },
+	course: { square: true, ids: Object.keys(COURSE_SCENE) },
+	cert: { square: true, ids: Object.keys(CERT_SCENE) },
+	fish: { square: true, ids: Object.keys(FISH_SCENE) },
+	banner: { square: false, ids: Object.keys(BANNER_SCENE) },
+	empty: { square: false, ids: Object.keys(EMPTY_SCENE) },
+};
 
 export function buildJobs() {
 	const jobs = [];
@@ -169,6 +411,12 @@ export function buildJobs() {
 		const scene = EVENT_SCENE[e.id];
 		if (!scene) continue;
 		jobs.push({ key: `event:${e.id}`, file: `event-${e.id}.png`, prompt: `${scene}, ${eventPlace(e.id)}, ${STYLE}` });
+	}
+	jobs.push(...screenJobs());
+	for (const n of NPCS) {
+		const look = NPC_LOOK[n.id];
+		if (!look) continue;
+		jobs.push({ key: `npc:${n.id}`, file: `npc-${n.id}.png`, prompt: `${look}, ${PORTRAIT_STYLE}`, size: '1024x1024', width: 256 });
 	}
 	return jobs;
 }

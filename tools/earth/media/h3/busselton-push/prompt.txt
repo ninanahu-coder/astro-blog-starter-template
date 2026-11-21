@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic sunset seascape, a very long white timber jetty stretching across calm turquoise water toward the horizon, with the jetty, the small shed, the shoreline and the composition shown in <Picture 1> preserved. From the first frame small calm waves roll softly toward the sandy shore and sunlight glitters on the water surface. The camera pushes in with small amplitude at slow speed along the jetty toward the horizon and comes to rest on a slightly tighter wide shot of the jetty in the final second. Pink clouds drift slowly across the sky, coastal shrubs at the bottom left sway lightly, and the jetty and its small shed stay still.
+
+overall_soundscape: Small waves lapping on sand and a light sea breeze; soft wash of water over the shore.
+
+non_diegetic_music: N/A
