@@ -40,7 +40,13 @@ test('地点短片验收记录：清单每一段都有测量且过线（tools/ea
 		assert.equal(r.bytes, statSync(file(c.src)).size, `${k} 成片换过但没重新测量`);
 		assert.equal(r.mode, c.once ? 'once' : 'loop', `${k} once / 循环和验收记录不一致`);
 		assert.ok((r.kf_diff as number) < 10, `${k} 首帧和关键帧差太多（可能串帧）`);
-		if (c.once) {
+		if (r.kind === 'keyframed') {
+			// 首尾帧定镜头（Blender 定机位 + 重绘 + H3 补间）：只播一次；末帧要落在第二张关键帧上，中间没有单帧跳变
+			assert.equal(c.once, true, `${k} 首尾不同的片子必须只播一次`);
+			assert.ok((r.kf_end_diff as number) < 10, `${k} 末帧没落在关键帧上`);
+			assert.ok((r.max_over_median as number) < 3, `${k} 有单帧跳变`);
+			assert.match(c.poster ?? '', /^\/earth\/media\/loc\//, `${k} 封面要用短片自己的首帧`);
+		} else if (c.once) {
 			// 推镜：至少推近 4%，一路向前、不回弹
 			assert.ok((r.scale_end as number) >= 1.04, `${k} 推镜不够：×${r.scale_end}`);
 			assert.ok((r.rebound as number) <= 0.01 && r.monotonic === true, `${k} 推镜有回弹`);

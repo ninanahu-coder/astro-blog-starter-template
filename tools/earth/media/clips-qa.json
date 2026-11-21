@@ -1,5 +1,5 @@
 {
- "note": "地点短片验收测量（tools/earth/media/qa-clip.py，原片 320×180 灰度）；目检结论见 docs/earth-game/aigc-media.md §6.4；loop 片的 web_loop_seam 是成片（交叉淡化后）末帧 vs 首帧，和 web_max_adjacent（成片内最大相邻差）同口径",
+ "note": "地点短片验收测量（tools/earth/media/qa-clip.py，原片 320×180 灰度）；目检结论见 docs/earth-game/aigc-media.md §6.4；loop 片的 web_loop_seam 是成片（交叉淡化后）末帧 vs 首帧，和 web_max_adjacent（成片内最大相邻差）同口径；kind=keyframed 的片子镜头由首尾关键帧决定（不量推近比例），改查首帧/末帧对两张关键帧的还原（kf_diff、kf_end_diff）和有没有单帧跳变（max_over_median）",
  "clips": {
   "busselton": {
    "mode": "once",
@@ -175,18 +175,17 @@
   },
   "pinnacles": {
    "mode": "once",
-   "source": "pinnacles-push",
-   "seed": "7701",
-   "bytes": 555683,
+   "kind": "keyframed",
+   "source": "pinnacles-blend",
+   "seed": "7700+1（FL2VA；首尾帧 = Blender f_0001 / f_0124 经 gpt-image-2 重绘）",
+   "bytes": 768818,
    "frames": 124,
    "sec": 5.17,
-   "kf_diff": 4.14,
-   "motion_median": 1.52,
-   "motion_max": 2.21,
-   "scale_end": 1.105,
-   "scale_peak": 1.105,
-   "rebound": 0.0,
-   "monotonic": true,
+   "kf_diff": 4.05,
+   "kf_end_diff": 5.42,
+   "motion_median": 6.34,
+   "motion_max": 9.13,
+   "max_over_median": 1.44,
    "pass": true
   }
  }

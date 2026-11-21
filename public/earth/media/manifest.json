@@ -49,7 +49,7 @@
 		},
 		"pinnacles": {
 			"src": "/earth/media/loc/pinnacles.mp4",
-			"poster": "/earth/cgi/pinnacles.webp",
+			"poster": "/earth/media/loc/pinnacles.webp",
 			"once": true
 		}
 	},
