@@ -113,7 +113,7 @@ test('greetHtml：文字转义、按钮点了才播、标明 AI 语音；没有�
 test('页面：媒体清单异步拉取，地点主视觉和 NPC 卡片走 media.ts', () => {
 	const page = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
 	assert.match(page, /fetch\('\/earth\/media\/manifest\.json'\)/);
-	assert.match(page, /heroHtml\(esc, media\.loc\[key\]/);
+	assert.match(page, /heroHtml\(esc, fx\.clips \? media\.loc\[key\] : undefined/, '省电、省流量档不放短片（体验改造 P3）');
 	assert.match(page, /greetHtml\(esc, npc\.id, npc\.name, media\.voice\[npc\.id\]\)/);
 	assert.doesNotMatch(page, /import [^;]*media\/manifest\.json/);
 	// 重绘沿用正在播的短片；once 的播完（或这次到达已播过）不再 play

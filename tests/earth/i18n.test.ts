@@ -143,7 +143,7 @@ test('现实时间按区域时区：珀斯全年 +8；阿德莱德夏令时 +10:
 });
 
 test('设置页模板（合并 main 时这张卡两边都改过）：显示卡里有语言选择，声音三条开关、音量和说明都走字符串表', () => {
-	assert.match(PAGE, /<p class="muted">\$\{tx\('pref\.display\.hint'\)\}<\/p>\$\{lang\}\$\{seg\('font', 'pref\.font', FONT_OPTIONS\)\}/, '语言选择在显示卡最上面');
+	assert.match(PAGE, /<p class="muted">\$\{tx\('pref\.display\.hint'\)\}<\/p>\$\{lang\}\$\{visual\}\$\{seg\('font', 'pref\.font', FONT_OPTIONS\)\}/, '语言选择在显示卡最上面，下面紧跟画面档（体验改造 P3）');
 	assert.match(PAGE, /const lang = `<div class="pref-row" role="group" aria-label="\$\{tx\('pref\.lang'\)\}">[^\n]*data-pref="lang"/, '语言按钮');
 	for (const k of ['sound', 'ambience', 'music']) assert.match(PAGE, new RegExp(`toggle\\('${k}', 'pref\\.${k}', 'pref\\.${k}\\.hint'\\)`), k);
 	assert.match(PAGE, /seg\('volume', 'pref\.volume', VOLUME_OPTIONS\)/);

@@ -818,7 +818,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { setHtml } from '../game/ui/dom.ts';
 			import { lu } from '../game/ui/lu.ts';
 			import type { LucideName } from '../game/ui/lucide-sprite.ts';
-			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, VOLUME_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
+			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, VISUAL_OPTIONS, VOLUME_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
+			import { cgiForPreset, readSaveData, resolvePreset, VISUAL_FX, type VisualFx, type VisualPreset } from '../game/ui/visual.ts';
 			import { ambienceFor, createMixer, cueAfter, musicFor, playCue, type AudioLike, type Cue, type Mixer } from '../game/ui/sound.ts';
 			import type { Beds, BedCtx } from '../game/ui/ambient.ts';
 			import { photoHtml } from '../game/ui/char.ts';
@@ -967,6 +968,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 				if (mins > 0) out.push({ text: `用时 ${mins >= 60 ? Math.floor(mins / 60) + ' 小时' + (mins % 60 ? ' ' + (mins % 60) + ' 分' : '') : mins + ' 分钟'}`, up: true });
 				return out;
 			}
+			/** 配图清单原样（2 倍图地址）；cgi 是按当前画面档换好地址的那份（省流量档换 1 倍图，见 ui/visual.ts） */
+			let cgiRaw: Record<string, string> = {};
 			let cgi: Record<string, string> = {};
 			/** AIGC 短片和语音清单（docs/earth-game/aigc-media.md），页面起来后异步拉取；拉不到就一直是空的，全部退回静态图和文字 */
 			let media: MediaManifest = EMPTY_MEDIA;
@@ -993,12 +996,27 @@ const cardLines = guilloche(400, 260, 14, 9);
 			};
 			// 本机显示设置（第 28 轮）：动画、字号、提示开关
 			let prefs: Prefs = parsePrefs(store.get(PREFS_KEY), { big: store.get(LEGACY_BIG_KEY) });
+			// 画面档（体验改造 P3）：标准 / 省电 / 省流量，「跟随系统」时看系统的省流量和减少动态效果。fx 是这一档开哪些东西
+			let preset: VisualPreset = 'standard';
+			/** 系统开了减少动态效果（applyPrefs 里更新） */
+			let sysReduce = false;
+			/** 每一档在设置页上的名字和说明（字符串表的键） */
+			const VISUAL_TEXT: Record<VisualPreset, { name: StrKey; hint: StrKey }> = {
+				standard: { name: 'pref.visual.standard', hint: 'pref.visual.hint.standard' },
+				battery: { name: 'pref.visual.battery', hint: 'pref.visual.hint.battery' },
+				data: { name: 'pref.visual.data', hint: 'pref.visual.hint.data' },
+			};
+			let fx: VisualFx = VISUAL_FX.standard;
 			function applyPrefs() {
-				const cl = document.documentElement?.classList;
-				if (!cl) return;
 				const mm = (window as { matchMedia?: (q: string) => { matches: boolean } }).matchMedia;
 				const sys = typeof mm === 'function' && mm.call(window, '(prefers-reduced-motion: reduce)').matches;
-				cl.toggle('calm', calmMotion(prefs, sys));
+				sysReduce = sys;
+				preset = resolvePreset(prefs.visual, { saveData: readSaveData(typeof navigator === 'object' ? navigator : null), reduceMotion: sys });
+				fx = VISUAL_FX[preset];
+				cgi = cgiForPreset(cgiRaw, fx.hiDpi);
+				const cl = document.documentElement?.classList;
+				if (!cl) return;
+				cl.toggle('calm', calmMotion(prefs, sys, fx.calm));
 				for (const [f] of FONT_OPTIONS) cl.toggle(`fs-${f}`, prefs.font === f);
 				document.documentElement.lang = LOCALES[prefs.lang].tag;
 			}
@@ -1008,7 +1026,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			let mixer: Mixer | null = null;
 			let beds: Beds | null = null;
 			let bedsLoading = false;
-			const chans = () => ({ sfx: prefs.sound, ambience: prefs.ambience, music: prefs.music, volume: prefs.volume });
+			const chans = () => ({ sfx: prefs.sound, ambience: prefs.ambience && fx.beds, music: prefs.music && fx.beds, volume: prefs.volume });
 			/** 建好（或拿到）音频；只能在点击等用户操作里第一次调用 */
 			function ensureAudio() {
 				if (!audio) {
@@ -1043,8 +1061,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 					}
 					const loc = getLocation(region, state.loc)!;
 					const scene = { kind: loc.kind, tags: loc.tags, weather: weatherAt(state).id, phase: skyPhase(loc, state.clock), festival: !!festivalsSoon(state.clock, loc.id).here };
-					beds.setAmbience(prefs.ambience ? ambienceFor(scene) : null);
-					beds.setMusic(prefs.music ? musicFor(scene) : null);
+					beds.setAmbience(prefs.ambience && fx.beds ? ambienceFor(scene) : null);
+					beds.setMusic(prefs.music && fx.beds ? musicFor(scene) : null);
 				} catch {}
 			}
 			/** 界面文案（第 38 批）：按设置里的语言取字符串表，结果已经过 esc()，可以直接拼进 HTML。见 docs/earth-game/i18n.md */
@@ -1736,9 +1754,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 				for (const k of NEED_KEYS) { const d = Math.round(b.needs[k]) - Math.round(a.needs[k]); if (d) out[k] = d; }
 				return out;
 			}
-			/** 震动反馈：只有安卓浏览器支持，iPhone Safari 没有这个接口；设置里关掉或「减少动态效果」时不震 */
+			/** 震动反馈：只有安卓浏览器支持，iPhone Safari 没有这个接口；设置里关掉或「减少动态效果」时不震。
+			 * 只看玩家的动画设置和系统的减少动态效果，不跟画面档（P3 复核：省电、省流量档不该悄悄关掉震动） */
 			function buzz(p: number | number[]) {
-				if (!prefs.haptic || document.documentElement?.classList?.contains('calm')) return;
+				if (!prefs.haptic || calmMotion(prefs, sysReduce)) return;
 				try { (navigator as Navigator & { vibrate?: (p: number | number[]) => boolean }).vibrate?.(p); } catch {}
 			}
 
@@ -1914,7 +1933,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const wrap = $('map-wrap');
 				webglOk ??= webglSupported(document as unknown as { createElement?: (t: string) => unknown });
 				const online = (navigator as { onLine?: boolean }).onLine !== false;
-				if (!canUseBasemap({ pref: prefs.basemap, online, webgl: webglOk, failed: basemapFailed })) {
+				if (!canUseBasemap({ pref: prefs.basemap && fx.basemap, online, webgl: webglOk, failed: basemapFailed })) {
 					wrap.classList.remove('real');
 					return;
 				}
@@ -1961,7 +1980,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			}
 
 			function hero(key: string, fallback: string) {
-				return heroHtml(esc, media.loc[key], cgi[key], fallback);
+				return heroHtml(esc, fx.clips ? media.loc[key] : undefined, cgi[key], fallback);
 			}
 			/** NPC 头像：有 CGI 用图，没有就用按 id 画的 SVG 立绘 */
 			function portrait(id: string) {
@@ -2985,17 +3004,23 @@ const cardLines = guilloche(400, 260, 14, 9);
 				return `<div class="card"><h3>已屏蔽的人</h3><p class="muted">看不到他们的聊天、表情、留言和挂单，他们也送不了你东西。对方不会收到通知。</p>${rows ? `<div class="list" style="margin-top:8px">${rows}</div>` : '<p class="muted">还没有屏蔽任何人。</p>'}</div>`;
 			}
 			function panelSync() {
-				const seg = (key: 'font' | 'motion' | 'volume', label: StrKey, opts: [string, StrKey][]) =>
+				const seg = (key: 'font' | 'motion' | 'volume' | 'visual', label: StrKey, opts: [string, StrKey][]) =>
 					`<div class="pref-row" role="group" aria-label="${tx(label)}"><span>${tx(label)}</span><div class="seg">${opts.map(([v, name]) => `<button data-pref="${key}" data-val="${v}" class="${prefs[key] === v ? 'on' : ''}" aria-pressed="${prefs[key] === v}">${tx(name)}</button>`).join('')}</div></div>`;
 				const onOff = (v: boolean) => tx(v ? 'pref.on' : 'pref.off');
 				const tips = TIP_OPTIONS.map(([k, name, hint]) => `<div class="row" style="margin-top:8px"><span class="body">${name}<small>${hint}</small></span><button data-pref="${k}" aria-pressed="${prefs[k]}">${prefs[k] ? '已开启' : '已关闭'}</button></div>`).join('');
-				const toggle = (k: 'sound' | 'ambience' | 'music' | 'haptic', name: StrKey, hint: StrKey) => `<div class="row" style="margin-top:8px"><span class="body">${tx(name)}<small>${tx(hint)}</small></span><button data-pref="${k}" aria-pressed="${prefs[k]}">${onOff(prefs[k])}</button></div>`;
+				// 这一档暂停了的单项（环境音、音乐、真实地图）：开关照常能点，提示里说明现在被画面档暂停
+				const { name, hint } = VISUAL_TEXT[preset];
+				const held = (on: boolean) => (on ? '' : tx('pref.visual.held', { mode: tx(name) }));
+				const toggle = (k: 'sound' | 'ambience' | 'music' | 'haptic', name: StrKey, hint: StrKey) => `<div class="row" style="margin-top:8px"><span class="body">${tx(name)}<small>${tx(hint)}${(k === 'ambience' || k === 'music') && prefs[k] ? held(fx.beds) : ''}</small></span><button data-pref="${k}" aria-pressed="${prefs[k]}">${onOff(prefs[k])}</button></div>`;
 				// 声音（v37）：三条分轨各自开关，加一个总音量；默认都关。声音只是点缀，所有信息都有文字和画面
 				const sound = `${toggle('sound', 'pref.sound', 'pref.sound.hint')}${toggle('ambience', 'pref.ambience', 'pref.ambience.hint')}${toggle('music', 'pref.music', 'pref.music.hint')}${seg('volume', 'pref.volume', VOLUME_OPTIONS)}${toggle('haptic', 'pref.haptic', 'pref.haptic.hint')}<p class="muted" style="margin-top:4px">${tx('pref.sound.note')}</p>`;
-				const real = `<div class="row" style="margin-top:8px"><span class="body">${tx('pref.basemap')}<small>${tx('pref.basemap.hint')}${basemapFailed ? tx('pref.basemap.failed') : ''}</small></span><button data-pref="basemap" aria-pressed="${prefs.basemap}">${onOff(prefs.basemap)}</button></div>`;
+				const real = `<div class="row" style="margin-top:8px"><span class="body">${tx('pref.basemap')}<small>${tx('pref.basemap.hint')}${prefs.basemap ? held(fx.basemap) : ''}${basemapFailed ? tx('pref.basemap.failed') : ''}</small></span><button data-pref="basemap" aria-pressed="${prefs.basemap}">${onOff(prefs.basemap)}</button></div>`;
+				// 画面档：四个按钮，下面一行说明这一档开了什么；跟随系统时先说现在按哪一档、为什么
+				const why = prefs.visual !== 'auto' ? '' : preset === 'data' ? tx('pref.visual.why.data') : preset === 'battery' ? tx('pref.visual.why.motion') : '';
+				const visual = `${seg('visual', 'pref.visual', VISUAL_OPTIONS)}<p class="muted" style="margin-top:4px">${why}${tx(hint)}</p>`;
 				// 语言名用各自的语言写，按钮带 lang，读屏和字体回退都按那门语言处理
 				const lang = `<div class="pref-row" role="group" aria-label="${tx('pref.lang')}"><span>${tx('pref.lang')}</span><div class="seg">${LOCALE_ORDER.map((l) => `<button data-pref="lang" data-val="${l}" lang="${LOCALES[l].tag}" class="${prefs.lang === l ? 'on' : ''}" aria-pressed="${prefs.lang === l}">${esc(LOCALES[l].label)}</button>`).join('')}</div></div>${prefs.lang === 'zh-Hans' ? '' : `<p class="muted">${tx('pref.lang.partial')}</p>`}`;
-				return `<div class="card"><h3>${tx('pref.display')}</h3><p class="muted">${tx('pref.display.hint')}</p>${lang}${seg('font', 'pref.font', FONT_OPTIONS)}${seg('motion', 'pref.motion', MOTION_OPTIONS)}${sound}${real}</div>
+				return `<div class="card"><h3>${tx('pref.display')}</h3><p class="muted">${tx('pref.display.hint')}</p>${lang}${visual}${seg('font', 'pref.font', FONT_OPTIONS)}${seg('motion', 'pref.motion', MOTION_OPTIONS)}${sound}${real}</div>
 					<div class="card"><h3>提示</h3>${tips}
 						<div class="row" style="margin-top:8px"><span class="body">引导提示和渐进出现<small>第一次进入各页的提示、新卡片出现的提醒；关掉后所有卡片直接显示。跟着存档走，换设备也一样</small></span><button data-ob-guide aria-pressed="${!state!.onboard.off}">${state!.onboard.off ? '已关闭' : '已开启'}</button></div></div>
 					${blockedCard(state!)}
@@ -3286,6 +3311,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					else if (k === 'haptic') { setPrefs({ haptic: !prefs.haptic }); buzz(10); }
 					else if (k === 'basemap') { setPrefs({ basemap: !prefs.basemap }); basemapFailed = false; if (!prefs.basemap) dropBasemap(); }
 					else if (k === 'lang' && isLocale(d.val)) setPrefs({ lang: d.val });
+					else if (k === 'visual' && VISUAL_OPTIONS.some(([v]) => v === d.val)) { setPrefs({ visual: d.val as Prefs['visual'] }); visualChanged(); }
 					renderPanel();
 				}
 				else if (d.quick !== undefined) {
@@ -3707,7 +3733,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			renderCreate();
 			render();
 			fetch('/earth/media/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: unknown) => { media = parseMedia(m); if (state) renderPanel(); }).catch(() => {});
-			fetch('/earth/cgi/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: any) => { cgi = m.images || {}; if (state) { renderPanel(); renderEvent(); } }).catch(() => {});
+			fetch('/earth/cgi/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: any) => { cgiRaw = m.images && typeof m.images === 'object' ? m.images : {}; cgi = cgiForPreset(cgiRaw, fx.hiDpi); if (state) { renderPanel(); renderEvent(); } }).catch(() => {});
 			// 有扫码链接时先处理完它（期间 syncing：原角色不连线、不同步、不补交、不能操作），再决定要不要为原角色启动
 			syncing = !!readSyncHash(location.hash);
 			void (async () => {
@@ -3723,6 +3749,24 @@ const cardLines = guilloche(400, 260, 14, 9);
 				try { if (document.hidden) void audio?.suspend?.(); else if (audio && (prefs.sound || prefs.ambience || prefs.music)) void audio.resume?.(); } catch {}
 				if (!document.hidden && state) { connect(); pullCloud(); }
 			});
+			// 画面档换了之后：省流量档拆掉真实地图（不再请求图块），环境音按这一档重新放
+			function visualChanged() {
+				if (!fx.basemap) dropBasemap();
+				syncScene();
+			}
+			// 系统的省流量、减少动态效果在玩的时候改了：「跟随系统」时跟着换档，重画当前页
+			const followSystem = () => {
+				const before = preset;
+				applyPrefs();
+				if (preset === before) return;
+				visualChanged();
+				if (state) renderPanel();
+			};
+			try {
+				const mq = typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+				mq?.addEventListener?.('change', followSystem);
+				(navigator as { connection?: { addEventListener?: (t: string, f: () => void) => void } }).connection?.addEventListener?.('change', followSystem);
+			} catch {}
 			// 手机断网时立刻显示离线，恢复后自动重连并同步
 			if (typeof window.addEventListener === 'function') {
 				window.addEventListener('offline', () => { syncStatus = '离线：可以查看，联网后才能行动'; if (state) { renderHud(); if (tab === 'go') renderMap(); } });
