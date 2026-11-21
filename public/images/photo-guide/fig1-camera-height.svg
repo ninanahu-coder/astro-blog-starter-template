@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 310" width="800" height="310" font-family="-apple-system,'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif">
+  <rect width="800" height="310" fill="#ffffff"/>
+  <text x="16" y="28" font-size="16" font-weight="700" fill="#222939">图 1 · 机位高度:蹲下来,镜头与狗眼齐平</text>
+  <text x="16" y="46" font-size="11" fill="#60739f">Fig 1 · Camera height: get down to the dog's eye level</text>
+
+  <!-- Panel A: standing (bad) -->
+  <g>
+    <rect x="10" y="58" width="246" height="196" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <text x="228" y="82" font-size="20" font-weight="700" fill="#dc2626" text-anchor="middle">✗</text>
+    <line x1="26" y1="232" x2="240" y2="232" stroke="#c9d2e3" stroke-width="2"/>
+    <!-- person standing -->
+    <circle cx="60" cy="100" r="11" fill="none" stroke="#222939" stroke-width="4"/>
+    <line x1="60" y1="111" x2="60" y2="168" stroke="#222939" stroke-width="5" stroke-linecap="round"/>
+    <line x1="60" y1="168" x2="48" y2="230" stroke="#222939" stroke-width="5" stroke-linecap="round"/>
+    <line x1="60" y1="168" x2="72" y2="230" stroke="#222939" stroke-width="5" stroke-linecap="round"/>
+    <line x1="60" y1="124" x2="82" y2="134" stroke="#222939" stroke-width="4" stroke-linecap="round"/>
+    <rect x="80" y="126" width="11" height="18" rx="2" fill="#2337ff"/>
+    <!-- steep sightline -->
+    <line x1="92" y1="138" x2="206" y2="196" stroke="#dc2626" stroke-width="2" stroke-dasharray="5 4"/>
+    <polygon points="206,196 196,192 199,187" fill="#dc2626"/>
+    <!-- dog -->
+    <ellipse cx="185" cy="212" rx="24" ry="13" fill="#60739f"/>
+    <circle cx="212" cy="200" r="10" fill="#60739f"/>
+    <polygon points="206,193 211,184 216,193" fill="#60739f"/>
+    <circle cx="216" cy="198" r="1.8" fill="#ffffff"/>
+    <line x1="170" y1="222" x2="170" y2="231" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="180" y1="224" x2="180" y2="231" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="192" y1="224" x2="192" y2="231" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="202" y1="222" x2="202" y2="231" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="162" y1="206" x2="152" y2="196" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <text x="133" y="272" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">站姿俯拍</text>
+    <text x="133" y="290" font-size="11" fill="#60739f" text-anchor="middle">头大身小、只见头顶和背</text>
+  </g>
+
+  <!-- Panel B: crouching (good, default) -->
+  <g>
+    <rect x="277" y="58" width="246" height="196" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <text x="495" y="82" font-size="20" font-weight="700" fill="#15803d" text-anchor="middle">✓</text>
+    <line x1="293" y1="232" x2="507" y2="232" stroke="#c9d2e3" stroke-width="2"/>
+    <!-- person crouching -->
+    <circle cx="330" cy="158" r="11" fill="none" stroke="#222939" stroke-width="4"/>
+    <line x1="330" y1="169" x2="330" y2="196" stroke="#222939" stroke-width="5" stroke-linecap="round"/>
+    <polyline points="330,196 318,214 322,230" fill="none" stroke="#222939" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <polyline points="330,196 343,214 338,230" fill="none" stroke="#222939" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="330" y1="178" x2="354" y2="188" stroke="#222939" stroke-width="4" stroke-linecap="round"/>
+    <rect x="352" y="182" width="11" height="18" rx="2" fill="#2337ff"/>
+    <!-- level sightline -->
+    <line x1="364" y1="196" x2="470" y2="196" stroke="#15803d" stroke-width="2" stroke-dasharray="5 4"/>
+    <polygon points="474,196 464,191 464,201" fill="#15803d"/>
+    <!-- dog -->
+    <ellipse cx="452" cy="212" rx="24" ry="13" fill="#60739f"/>
+    <circle cx="479" cy="200" r="10" fill="#60739f"/>
+    <polygon points="473,193 478,184 483,193" fill="#60739f"/>
+    <circle cx="483" cy="198" r="1.8" fill="#ffffff"/>
+    <line x1="437" y1="222" x2="437" y2="231" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="447" y1="224" x2="447" y2="231" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="459" y1="224" x2="459" y2="231" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="469" y1="222" x2="469" y2="231" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="429" y1="206" x2="419" y2="196" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <text x="400" y="272" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">蹲姿平视(默认)</text>
+    <text x="400" y="290" font-size="11" fill="#60739f" text-anchor="middle">与狗眼齐平,照片有交流感</text>
+  </g>
+
+  <!-- Panel C: ground level (good) -->
+  <g>
+    <rect x="544" y="58" width="246" height="196" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <text x="762" y="82" font-size="20" font-weight="700" fill="#15803d" text-anchor="middle">✓</text>
+    <line x1="560" y1="232" x2="774" y2="232" stroke="#c9d2e3" stroke-width="2"/>
+    <!-- person prone -->
+    <circle cx="580" cy="212" r="10" fill="none" stroke="#222939" stroke-width="4"/>
+    <line x1="590" y1="220" x2="632" y2="226" stroke="#222939" stroke-width="5" stroke-linecap="round"/>
+    <line x1="588" y1="216" x2="612" y2="208" stroke="#222939" stroke-width="4" stroke-linecap="round"/>
+    <rect x="610" y="200" width="11" height="18" rx="2" fill="#2337ff"/>
+    <!-- slightly-up sightline -->
+    <line x1="622" y1="210" x2="726" y2="199" stroke="#15803d" stroke-width="2" stroke-dasharray="5 4"/>
+    <polygon points="730,198 720,195 721,204" fill="#15803d"/>
+    <!-- dog -->
+    <ellipse cx="708" cy="212" rx="24" ry="13" fill="#60739f"/>
+    <circle cx="735" cy="200" r="10" fill="#60739f"/>
+    <polygon points="729,193 734,184 739,193" fill="#60739f"/>
+    <circle cx="739" cy="198" r="1.8" fill="#ffffff"/>
+    <line x1="693" y1="222" x2="693" y2="231" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="703" y1="224" x2="703" y2="231" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="715" y1="224" x2="715" y2="231" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="725" y1="222" x2="725" y2="231" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="685" y1="206" x2="675" y2="196" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <text x="667" y="272" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">贴地低角度</text>
+    <text x="667" y="290" font-size="11" fill="#60739f" text-anchor="middle">冲击力强,把小奶狗拍得神气</text>
+  </g>
+</svg>

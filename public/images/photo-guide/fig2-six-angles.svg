@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 430" width="800" height="430" font-family="-apple-system,'PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif">
+  <rect width="800" height="430" fill="#ffffff"/>
+  <text x="16" y="28" font-size="16" font-weight="700" fill="#222939">图 2 · 六种常用拍摄角度</text>
+  <text x="16" y="46" font-size="11" fill="#60739f">Fig 2 · Six go-to shooting angles</text>
+
+  <!-- Cell 1: eye level -->
+  <g transform="translate(10,58)">
+    <rect width="246" height="172" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <line x1="26" y1="100" x2="222" y2="100" stroke="#c9d2e3" stroke-width="2"/>
+    <rect x="42" y="58" width="11" height="18" rx="2" fill="#2337ff"/>
+    <line x1="56" y1="67" x2="158" y2="67" stroke="#15803d" stroke-width="2" stroke-dasharray="5 4"/>
+    <polygon points="162,67 152,62 152,72" fill="#15803d"/>
+    <ellipse cx="180" cy="82" rx="21" ry="11" fill="#60739f"/>
+    <circle cx="203" cy="71" r="9" fill="#60739f"/>
+    <polygon points="198,64 202,56 207,64" fill="#60739f"/>
+    <circle cx="207" cy="69" r="1.6" fill="#ffffff"/>
+    <line x1="167" y1="91" x2="167" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="176" y1="92" x2="176" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="187" y1="92" x2="187" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="195" y1="91" x2="195" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <text x="123" y="132" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">① 狗眼平视(默认)</text>
+    <text x="123" y="152" font-size="11" fill="#60739f" text-anchor="middle">客户日报、日常记录</text>
+  </g>
+
+  <!-- Cell 2: ground level -->
+  <g transform="translate(273,58)">
+    <rect width="246" height="172" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <line x1="26" y1="100" x2="222" y2="100" stroke="#c9d2e3" stroke-width="2"/>
+    <rect x="42" y="80" width="11" height="18" rx="2" fill="#2337ff"/>
+    <line x1="56" y1="88" x2="158" y2="74" stroke="#15803d" stroke-width="2" stroke-dasharray="5 4"/>
+    <polygon points="162,73 152,71 154,80" fill="#15803d"/>
+    <ellipse cx="180" cy="82" rx="21" ry="11" fill="#60739f"/>
+    <circle cx="203" cy="71" r="9" fill="#60739f"/>
+    <polygon points="198,64 202,56 207,64" fill="#60739f"/>
+    <circle cx="207" cy="69" r="1.6" fill="#ffffff"/>
+    <line x1="167" y1="91" x2="167" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="176" y1="92" x2="176" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="187" y1="92" x2="187" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="195" y1="91" x2="195" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <text x="123" y="132" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">② 贴地低角度</text>
+    <text x="123" y="152" font-size="11" fill="#60739f" text-anchor="middle">冲镜头的气势、显高大</text>
+  </g>
+
+  <!-- Cell 3: overhead -->
+  <g transform="translate(536,58)">
+    <rect width="246" height="172" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <rect x="117" y="14" width="12" height="20" rx="2" fill="#2337ff"/>
+    <line x1="123" y1="38" x2="123" y2="50" stroke="#15803d" stroke-width="2" stroke-dasharray="4 3"/>
+    <polygon points="123,55 118,46 128,46" fill="#15803d"/>
+    <rect x="62" y="56" width="122" height="52" rx="8" fill="none" stroke="#60739f" stroke-width="3"/>
+    <ellipse cx="92" cy="78" rx="13" ry="8" fill="#60739f"/><circle cx="92" cy="68" r="5" fill="#60739f"/>
+    <ellipse cx="123" cy="90" rx="13" ry="8" fill="#60739f"/><circle cx="123" cy="80" r="5" fill="#60739f"/>
+    <ellipse cx="154" cy="76" rx="13" ry="8" fill="#60739f"/><circle cx="154" cy="66" r="5" fill="#60739f"/>
+    <text x="123" y="132" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">③ 正上方俯拍</text>
+    <text x="123" y="152" font-size="11" fill="#60739f" text-anchor="middle">一窝全家福、每周成长对比</text>
+  </g>
+
+  <!-- Cell 4: full-body profile -->
+  <g transform="translate(10,255)">
+    <rect width="246" height="172" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <line x1="26" y1="100" x2="222" y2="100" stroke="#c9d2e3" stroke-width="2"/>
+    <ellipse cx="105" cy="76" rx="28" ry="14" fill="#60739f"/>
+    <circle cx="136" cy="60" r="11" fill="#60739f"/>
+    <polygon points="130,52 135,42 141,52" fill="#60739f"/>
+    <circle cx="141" cy="58" r="1.8" fill="#ffffff"/>
+    <line x1="88" y1="88" x2="88" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="99" y1="90" x2="99" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="112" y1="90" x2="112" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="122" y1="88" x2="122" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="79" y1="68" x2="68" y2="57" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <!-- frame corner brackets -->
+    <path d="M 48,38 h 14 M 48,38 v 14" stroke="#2337ff" stroke-width="3" fill="none"/>
+    <path d="M 168,38 h -14 M 168,38 v 14" stroke="#2337ff" stroke-width="3" fill="none"/>
+    <path d="M 48,106 h 14 M 48,106 v -14" stroke="#2337ff" stroke-width="3" fill="none"/>
+    <path d="M 168,106 h -14 M 168,106 v -14" stroke="#2337ff" stroke-width="3" fill="none"/>
+    <rect x="196" y="62" width="11" height="18" rx="2" fill="#2337ff"/>
+    <line x1="194" y1="71" x2="176" y2="71" stroke="#15803d" stroke-width="2" stroke-dasharray="4 3"/>
+    <text x="123" y="132" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">④ 全身侧面</text>
+    <text x="123" y="152" font-size="11" fill="#60739f" text-anchor="middle">领养标准照:体型毛色一目了然</text>
+  </g>
+
+  <!-- Cell 5: close-up -->
+  <g transform="translate(273,255)">
+    <rect width="246" height="172" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <circle cx="110" cy="66" r="31" fill="#60739f"/>
+    <polygon points="88,44 96,22 108,40" fill="#60739f"/>
+    <polygon points="132,44 124,22 112,40" fill="#60739f"/>
+    <circle cx="132" cy="76" r="13" fill="#8fa0c4"/>
+    <circle cx="137" cy="72" r="4" fill="#222939"/>
+    <circle cx="98" cy="58" r="3.5" fill="#ffffff"/>
+    <circle cx="98" cy="58" r="11" fill="none" stroke="#2337ff" stroke-width="2.5" stroke-dasharray="4 3"/>
+    <line x1="109" y1="58" x2="168" y2="46" stroke="#2337ff" stroke-width="1.5"/>
+    <text x="172" y="50" font-size="11" fill="#2337ff">对焦在眼睛</text>
+    <text x="123" y="132" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">⑤ 特写</text>
+    <text x="123" y="152" font-size="11" fill="#60739f" text-anchor="middle">睡颜、爪垫、鼻头等细节</text>
+  </g>
+
+  <!-- Cell 6: follow cam -->
+  <g transform="translate(536,255)">
+    <rect width="246" height="172" rx="8" fill="#f8f9fc" stroke="#e5e9f0"/>
+    <line x1="26" y1="100" x2="222" y2="100" stroke="#c9d2e3" stroke-width="2"/>
+    <rect x="44" y="60" width="11" height="18" rx="2" fill="#2337ff"/>
+    <path d="M 58,72 C 90,80 110,80 138,76" fill="none" stroke="#15803d" stroke-width="2" stroke-dasharray="5 4"/>
+    <polygon points="142,75 132,72 134,81" fill="#15803d"/>
+    <ellipse cx="170" cy="82" rx="21" ry="11" fill="#60739f"/>
+    <circle cx="193" cy="71" r="9" fill="#60739f"/>
+    <polygon points="188,64 192,56 197,64" fill="#60739f"/>
+    <circle cx="197" cy="69" r="1.6" fill="#ffffff"/>
+    <line x1="157" y1="91" x2="157" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="166" y1="92" x2="166" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="177" y1="92" x2="177" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="185" y1="91" x2="185" y2="99" stroke="#60739f" stroke-width="4" stroke-linecap="round"/>
+    <line x1="210" y1="70" x2="226" y2="70" stroke="#8fa0c4" stroke-width="2"/>
+    <line x1="212" y1="78" x2="224" y2="78" stroke="#8fa0c4" stroke-width="2"/>
+    <text x="123" y="132" font-size="13" font-weight="700" fill="#222939" text-anchor="middle">⑥ 跟随视角</text>
+    <text x="123" y="152" font-size="11" fill="#60739f" text-anchor="middle">散步、探索场地,代入感最强</text>
+  </g>
+</svg>
