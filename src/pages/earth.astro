@@ -286,9 +286,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.hud-chips { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; font-variant-numeric: tabular-nums; }
 			.chip { padding: 4px 10px; border-radius: 8px; background: var(--soft); color: var(--text); font-size: 13px; white-space: nowrap; }
 			.chip.cash { background: var(--tint-green); color: var(--tint-green-ink); font-weight: 700; }
-			.hud-chips .moodchip { min-height: 32px; }
+			/* 点击区 44px（体验改造 P1），用负外边距抵掉多出来的高度，顶栏一排的高度不变 */
+			.hud-chips .moodchip { min-height: 44px; margin-block: -6px; }
 			.hud-chips .sync-dot { margin-left: auto; font-size: 12px; color: var(--dim); }
-			em.lack { font-style: normal; font-size: 11px; font-weight: 700; color: var(--low-ink); }
+			em.lack { font-style: normal; font-size: 12px; font-weight: 700; color: var(--low-ink); }
 			.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 10px; }
 			.tile { min-height: 64px; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 12px; background: var(--card2); color: var(--text); text-align: left; }
 			.tile b { font-size: 14px; }
@@ -313,7 +314,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.sync-dot::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
 			.sync-dot.off::before { background: var(--mid); }
 			.mini-needs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
-			.mini-needs .need { font-size: 11px; color: var(--dim); text-align: center; }
+			.mini-needs .need { font-size: 12px; color: var(--dim); text-align: center; }
 			.bar { height: 8px; border-radius: 4px; background: var(--soft); overflow: hidden; margin-top: 4px; }
 			.mini-needs .bar { height: 5px; margin-top: 2px; }
 			.bar i { display: block; height: 100%; border-radius: inherit; background: var(--ok); }
@@ -326,7 +327,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			#map-wrap.real #basemap { visibility: visible; }
 			#map-wrap.real #map { visibility: hidden; }
 			.p-night #basemap .maplibregl-canvas { filter: invert(0.92) hue-rotate(180deg) brightness(0.85); }
-			#basemap .pin { display: flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; min-height: 0; font: inherit; font-size: 12px; color: #18263f; cursor: pointer; }
+			#basemap .pin { display: flex; align-items: center; gap: 4px; padding: 0; border: 0; background: none; min-height: 44px; font: inherit; font-size: 12px; color: #18263f; cursor: pointer; }
 			#basemap .pin-dot { width: 10px; height: 10px; border-radius: 50%; background: #1d3fbf; border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,0.25); flex: none; }
 			#basemap .pin.new .pin-dot { background: #fff; border-color: #b3155c; }
 			#basemap .pin.here .pin-dot { width: 14px; height: 14px; background: #15284d; }
@@ -363,7 +364,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 
 			#tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: center; background: var(--card); border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
 			#tabs .tabs-in { display: flex; width: 100%; max-width: 560px; }
-			#tabs button { flex: 1; border: 0; border-radius: 0; background: none; min-height: var(--nav-h); padding: 6px 0; font-size: 11px; font-weight: 600; color: var(--dim); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
+			#tabs button { flex: 1; border: 0; border-radius: 0; background: none; min-height: var(--nav-h); padding: 6px 0; font-size: 12px; font-weight: 600; color: var(--dim); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; }
 			#tabs button.on { color: var(--accent); }
 			#tabs svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 			#panel:focus { outline: none; }
@@ -389,7 +390,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.hero { height: 140px; border-radius: 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; font-size: 48px; background: var(--pass); overflow: hidden; }
 			.hero img, .hero video { width: 100%; height: 100%; object-fit: cover; }
 			.hero.has-media { position: relative; }
-			.ai-tag { position: absolute; left: 8px; bottom: 8px; padding: 2px 7px; border-radius: 6px; background: rgba(8, 14, 24, 0.62); color: #fff; font-size: 11px; line-height: 1.5; pointer-events: none; }
+			.ai-tag { position: absolute; left: 8px; bottom: 8px; padding: 2px 7px; border-radius: 6px; background: rgba(8, 14, 24, 0.62); color: #fff; font-size: 12px; line-height: 1.5; pointer-events: none; }
 			#modal .ev-hero .ai-tag { position: absolute; top: 14px; left: 14px; bottom: auto; }
 			.greet { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: 14px; }
 			.greet button { min-height: 36px; padding: 4px 12px; }
@@ -421,7 +422,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.ac-privacy button { min-height: 44px; padding: 0 6px; border: 0; background: none; color: var(--pen); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 			.chat { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; font-size: 14px; margin: 8px 0; }
 			.chat b { color: var(--accent); font-weight: 600; }
-			.chat button.mini { font-size: 11px; padding: 0 6px; min-height: 0; margin-left: 4px; opacity: 0.7; }
+			.chat button.mini { font-size: 12px; padding: 0 10px; min-height: 44px; min-width: 44px; margin-left: 4px; opacity: 0.7; }
 			.inline { display: flex; gap: 8px; flex-wrap: wrap; }
 			.note { display: flex; gap: 8px; align-items: flex-start; padding: 8px 0; border-top: 1px solid var(--line); }
 			.note .body { flex: 1; overflow-wrap: anywhere; }
@@ -466,15 +467,15 @@ const cardLines = guilloche(400, 260, 14, 9);
 			#hud .lv-ring .track { fill: none; stroke: var(--soft); stroke-width: 4; }
 			#hud .lv-ring .arc { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
 			#hud .lv-ava { position: relative; font-size: 22px; line-height: 1; }
-			#hud .lv-num { position: absolute; right: -4px; bottom: -3px; min-width: 20px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: var(--accent); color: var(--accent-ink); border: 2px solid var(--card); font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+			#hud .lv-num { position: absolute; right: -4px; bottom: -3px; min-width: 20px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: var(--accent); color: var(--accent-ink); border: 2px solid var(--card); font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 			#hud .lv-txt { display: flex; flex-direction: column; min-width: 0; }
 			#hud .lv-txt b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-			#hud .lv-txt small { font-size: 11px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+			#hud .lv-txt small { font-size: 12px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 			#hud .scene-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: none; }
 			#hud .scene-right .chip.cash { box-shadow: 0 2px 8px var(--shadow); }
 			#hud .plate { position: absolute; left: 12px; top: calc(66px + env(safe-area-inset-top)); display: flex; flex-direction: column; padding: 8px 14px; border-radius: 14px; background: var(--text); color: var(--bg); max-width: 62%; }
 			#hud .plate h1 { margin: 0; font-size: 21px; line-height: 1.2; color: inherit; }
-			#hud .plate small { font-size: 11px; color: inherit; }
+			#hud .plate small { font-size: 12px; color: inherit; }
 			#hud .thought { position: absolute; left: calc(50% + 16px); bottom: calc(15.6cqw + 4px); padding: 6px 10px; border-radius: 16px 16px 16px 4px; background: var(--card); color: var(--low-ink); font-size: 12px; font-weight: 700; box-shadow: 0 2px 10px var(--shadow); max-width: calc(50% - 28px); }
 			#hud.scened .hud-chips { padding: 0 16px; margin-top: 10px; }
 			/* 今天页：心愿小卡片（三列）和四个快捷动作 */
@@ -485,10 +486,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.quick button { min-height: 72px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; padding: 6px 2px; border-radius: 16px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; min-width: 0; }
 			.quick .qico { font-size: 22px; line-height: 1; }
 			.quick b { font-size: 12px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-			.quick small { font-size: 11px; color: var(--dim); }
+			.quick small { font-size: 12px; color: var(--dim); }
 			/* 需求环 */
 			.rings { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 6px; }
-			.ring { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; color: var(--text2); text-align: center; }
+			.ring { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 12px; color: var(--text2); text-align: center; }
 			.ring svg { width: 100%; max-width: 54px; aspect-ratio: 1; display: block; }
 			.ring .track { fill: var(--card2); stroke: var(--soft); stroke-width: 5; }
 			.ring .arc { fill: none; stroke: var(--ok); stroke-width: 5; stroke-linecap: round; }
@@ -502,7 +503,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.npc-head .portrait { width: 56px; height: 56px; flex: none; }
 			.npc-head img.portrait { border-radius: 14px; object-fit: cover; background: var(--tint-blue); }
 			.npc-name { display: flex; flex-direction: column; padding: 6px 12px; border-radius: 12px; background: var(--text); color: var(--bg); min-width: 0; }
-			.npc-name b { font-size: 15px; } .npc-name small { font-size: 11px; color: inherit; }
+			.npc-name b { font-size: 15px; } .npc-name small { font-size: 12px; color: inherit; }
 			.npc-rel { margin-left: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; font-size: 12px; color: var(--tint-green-ink); font-weight: 700; min-width: 96px; }
 			.npc-rel .bar { width: 96px; margin: 0; }
 			.npc-talk .bubble { position: relative; margin: 0; padding: 10px 12px; border-radius: 4px 16px 16px 16px; background: var(--card); color: var(--text); font-size: 14px; line-height: 1.6; }
@@ -535,7 +536,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.seg { display: flex; gap: 4px; padding: 4px; background: var(--seg-bg); border-radius: 14px; }
 			.seg button { flex: 1; min-height: 44px; border: 0; border-radius: 10px; background: transparent; font-size: 14px; color: var(--text2); padding: 0 4px; }
 			.seg button.on { background: var(--card); color: var(--text); font-weight: 700; box-shadow: 0 1px 2px var(--shadow); }
-			.seg .new-tag { margin-left: 3px; padding: 0 5px; border-radius: 8px; background: var(--warm); color: var(--warm-ink); font-size: 11px; font-weight: 700; line-height: 16px; display: inline-block; vertical-align: 1px; }
+			.seg .new-tag { margin-left: 3px; padding: 0 5px; border-radius: 8px; background: var(--warm); color: var(--warm-ink); font-size: 12px; font-weight: 700; line-height: 16px; display: inline-block; vertical-align: 1px; }
 			.news ul { margin: 6px 0 0; padding-left: 1.2em; }
 			.news li { margin: 4px 0; line-height: 1.5; }
 			.guide-head { display: flex; justify-content: space-between; align-items: center; }
@@ -548,7 +549,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.guide .tick { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--tick-line); flex: none; display: flex; align-items: center; justify-content: center; font-size: 13px; color: #fff; }
 			.guide li.done .tick { background: var(--ok); border-color: var(--ok); }
 			.guide li.now .tick { border-color: var(--accent); }
-			.guide .now-tag { margin-left: 6px; font-style: normal; font-size: 11px; font-weight: 600; color: var(--accent); }
+			.guide .now-tag { margin-left: 6px; font-style: normal; font-size: 12px; font-weight: 600; color: var(--accent); }
 			.guide .guide-go { margin-top: 6px; min-height: 44px; padding: 0 14px; }
 			.recap-log { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
 			.recap-log .muted { font-variant-numeric: tabular-nums; margin-right: 4px; }
@@ -598,7 +599,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.ach .ach-ico { font-size: 20px; filter: grayscale(1); }
 			.ach.done .ach-ico { filter: none; }
 			.ach b { display: block; font-size: 13px; }
-			.ach small { display: block; color: var(--dim); font-size: 11px; }
+			.ach small { display: block; color: var(--dim); font-size: 12px; }
 			.ach > span:nth-child(2) { flex: 1; min-width: 0; }
 			.ach .claim { flex: none; align-self: center; font-size: 12px; padding: 4px 10px; }
 			.quest-list { display: grid; gap: 8px; margin-top: 8px; }
@@ -607,7 +608,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.quest .q-ico { font-size: 20px; flex: none; }
 			.quest .q-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 			.quest .q-body small { color: var(--dim); font-size: 12px; }
-			.quest .q-kind { font-size: 11px; color: var(--dim); }
+			.quest .q-kind { font-size: 12px; color: var(--dim); }
 			.quest .q-n { flex: none; font-size: 12px; color: var(--dim); font-variant-numeric: tabular-nums; align-self: center; }
 			.next.clock .clock-time { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 			.next.clock .clock-time b { font-size: 34px; font-weight: 900; letter-spacing: -1px; }
@@ -629,7 +630,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.trail { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
 			.trail button { padding: 6px 4px; font-size: 13px; line-height: 1.3; background: var(--card2); color: var(--dim); }
 			.trail button.been { background: var(--tint-blue); color: var(--tint-blue-ink); border-color: transparent; font-weight: 600; }
-			.trail small { display: block; font-size: 11px; font-weight: 400; }
+			.trail small { display: block; font-size: 12px; font-weight: 400; }
 			.album { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
 			.album-row { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 3px 0; border-bottom: 1px solid var(--line); }
 			.album-row:last-child { border-bottom: 0; }
@@ -644,10 +645,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.log-day { margin: 14px 0 4px; font-size: 13px; color: var(--dim); font-weight: 700; }
 			.log-row { display: flex; gap: 10px; font-size: 14px; padding: 6px 0; border-bottom: 1px solid var(--line); }
 			.log-row .t { color: var(--dim); font-variant-numeric: tabular-nums; flex: none; width: 3.2em; }
-			.skill .train { display: block; font-size: 11px; color: var(--dim); }
+			.skill .train { display: block; font-size: 12px; color: var(--dim); }
 			.warn-text { color: var(--tint-red-ink); font-weight: 600; }
 			#tabs button { position: relative; }
-			#tabs .badge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--warm); color: var(--warm-ink); font-size: 11px; line-height: 18px; text-align: center; }
+			#tabs .badge { position: absolute; top: 6px; left: calc(50% + 6px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--warm); color: var(--warm-ink); font-size: 12px; line-height: 18px; text-align: center; }
 			#modal .ach-line { margin: 0; font-size: 15px; font-weight: 700; color: var(--tint-cost-ink); }
 			button.wide { display: block; width: 100%; margin-top: 10px; min-height: 52px; font-size: 16px; }
 			.section-title { margin: 8px 2px -2px; font-size: 14px; font-weight: 700; color: var(--text2); }
@@ -745,6 +746,40 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.pill.cost { background: var(--tint-cost); color: var(--tint-cost-ink); }
 			.pill.up { background: var(--tint-green); color: var(--tint-green-ink); }
 			.pill.bad { background: var(--tint-red); color: var(--tint-red-ink); }
+			/* ---------- 体验改造 P1（docs/earth-game/ux-p1.md）---------- */
+			/* 今天页「在这里」：每组一行摘要，右边一个箭头，点开从底部弹出抽屉 */
+			.here .list { margin-top: 8px; }
+			.here-row .chev { flex: none; font-size: 24px; line-height: 1; color: var(--dim); }
+			.later-zone { display: flex; flex-direction: column; gap: 12px; }
+			.later-acts { margin-top: 10px; }
+			.later-acts > summary { min-height: 44px; display: flex; align-items: center; color: var(--dim); font-size: 14px; cursor: pointer; }
+			.later-acts .list { margin-top: 4px; }
+			/* 刚才：结果一句话 + 变化小签，紧贴在状态环下面 */
+			.result-strip { display: flex; flex-direction: column; gap: 6px; padding: 10px 14px; border-radius: 16px; background: var(--card); box-shadow: 0 1px 2px var(--shadow); animation: strip-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+			.result-strip p { margin: 0; font-size: 14px; color: var(--text); }
+			@keyframes strip-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+			/* 抽屉：借用底部弹窗，头部固定，内容可滚 */
+			#modal .drawer { display: flex; flex-direction: column; }
+			#modal .drawer-head { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px 12px; background: var(--bg); border-bottom: 1px solid var(--line); }
+			#modal .drawer-head h2 { margin: 0; font-size: 19px; }
+			#modal .drawer-x { min-height: 44px; min-width: 64px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--text); font: inherit; font-weight: 700; }
+			#modal .drawer-body { display: flex; flex-direction: column; gap: 12px; padding: 12px 16px calc(20px + env(safe-area-inset-bottom)); }
+			/* 需求环：变了的环跳一下，飘出变化值；钱数同理 */
+			.ring.bump svg { animation: ring-bump 460ms cubic-bezier(0.16, 1, 0.3, 1); }
+			.ring-delta, .cash-delta { position: absolute; z-index: 2; padding: 1px 6px; border-radius: 8px; font-size: 12px; font-weight: 800; font-style: normal; line-height: 1.4; white-space: nowrap; pointer-events: none; animation: delta-up 1600ms ease-out both; }
+			.ring-delta { top: -8px; right: 0; }
+			.ring-delta.up, .cash-delta.up { background: var(--tint-green); color: var(--tint-green-ink); }
+			.ring-delta.down, .cash-delta.down { background: var(--tint-red); color: var(--tint-red-ink); }
+			.chip.cash { position: relative; }
+			html.calm .ring-delta, html.calm .cash-delta { display: none; }
+			.chip.cash.bump { animation: ring-bump 460ms cubic-bezier(0.16, 1, 0.3, 1); }
+			.cash-delta { top: calc(100% + 4px); right: 0; }
+			@keyframes ring-bump { 0% { transform: scale(1); } 35% { transform: scale(1.12); } 100% { transform: scale(1); } }
+			@keyframes delta-up { 0% { opacity: 0; transform: translateY(6px); } 15% { opacity: 1; transform: none; } 75% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
+			/* 没做成：提示条变成警示色并轻摇一下 */
+			#toast.bad { background: var(--tint-red); color: var(--tint-red-ink); }
+			#toast.shake { animation: toast-shake 360ms ease-in-out; }
+			@keyframes toast-shake { 0%, 100% { transform: translateX(-50%); } 25% { transform: translateX(calc(-50% - 6px)); } 75% { transform: translateX(calc(-50% + 6px)); } }
 			#toast { position: fixed; left: 50%; bottom: calc(var(--nav-h) + 16px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--pass); color: var(--pass-ink); padding: 10px 16px; border-radius: 12px; box-shadow: 0 8px 20px -8px rgba(3, 9, 22, 0.5); font-size: 14px; z-index: 30; max-width: 88vw; text-align: center; }
 		</style>
 
@@ -895,6 +930,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 			let lastDelta: { text: string; up: boolean }[] = [];
 			// 上一个成功动作新达成的成就（事件结果页显示）
 			let lastAch: string[] = [];
+			// 体验改造 P1（docs/earth-game/ux-p1.md）：今天页「在这里」一层的分组，点开从底部弹出抽屉；只在本机内存里
+			let drawer: string | null = null;
+			let placeGroups: Record<string, { icon: string; title: string; html: string }> = {};
+			// 上一个成功动作让哪几个需求环变了多少（画一次就清掉）；钱变了多少（顶栏）
+			let ringFx: Record<string, number> = {};
+			let cashFx = 0;
 			/** 对比动作前后的存档，列出看得见的变化：现金、健康、声望、需求、能力、用掉的时间 */
 			function stateDelta(a: PlayerState, b: PlayerState) {
 				const out: { text: string; up: boolean }[] = [];
@@ -1026,10 +1067,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 			};
 
 			let toastTimer = 0;
-			function toast(msg: string) {
+			function toast(msg: string, bad = false) {
 				const el = $('toast');
 				el.textContent = msg;
 				el.classList.remove('hidden');
+				el.classList.toggle('bad', bad);
+				if (bad) { el.classList.remove('shake'); void (el as HTMLElement).offsetWidth; el.classList.add('shake'); }
 				clearTimeout(toastTimer);
 				toastTimer = window.setTimeout(() => el.classList.add('hidden'), 2600);
 			}
@@ -1288,7 +1331,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				notesLoc = loc;
 				notesAt = Date.now();
 				notesLoading = false;
-				if (tab === 'place') renderPanel();
+				if (tab === 'place' && drawer === 'place') renderPanel();
 			}
 			async function noteOp(op: string, extra: Record<string, unknown>) {
 				if (!state || !cred || busy) return;
@@ -1324,7 +1367,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const clean = sanitizeState(remote, LOC_IDS, { fallbackLoc: region.spawn });
 				if (!clean) return false;
 				const moved = !state || state.loc !== clean.loc;
-				if (state && clean.rev !== state.rev && !busy) lastDelta = [];
+				if (state && clean.rev !== state.rev && !busy) { lastDelta = []; ringFx = {}; cashFx = 0; }
 				state = clean;
 				syncStatus = `已同步 · 版本 ${clean.rev}`;
 				cache();
@@ -1638,6 +1681,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 					// 只有返回的正好是动作前那一版的下一版，变化才是这个动作带来的
 					if (data.ok && state && state.rev === nextRev(before.rev)) {
 						lastDelta = stateDelta(before, state);
+						ringFx = ringChanges(before, state);
+						cashFx = state.cash - before.cash;
+						buzz(10);
+						if (drawer && drawer !== 'shop') drawer = null;
 						const got = newAchievements(before, state, region);
 						lastAch = got.map((d) => `${d.icon} ${d.name}`);
 						if (got.length && prefs.achToast) setTimeout(() => toast(`🏅 达成成就：${got.map((d) => d.name).join('、')}（去成长页领奖）`), 1200);
@@ -1645,7 +1692,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						if (cue) sfx(cue);
 					}
 					else { lastDelta = []; lastAch = []; }
-					if (!data.ok) { sfx('fail'); if (!quiet) toast(data.msg || '操作失败'); render(); return { kind: 'fail', msg: data.msg || '操作失败' }; }
+					if (!data.ok) { sfx('fail'); buzz([12, 50, 12]); if (!quiet) toast(data.msg || '操作失败', true); render(); return { kind: 'fail', msg: data.msg || '操作失败' }; }
 					return { kind: 'ok', msg: data.msg };
 				} catch {
 					syncStatus = '离线：可以查看，联网后才能行动';
@@ -1657,11 +1704,25 @@ const cardLines = guilloche(400, 260, 14, 9);
 				}
 			}
 
+			/** 动作前后各个需求环的变化（只记看得出的整数变化） */
+			function ringChanges(a: PlayerState, b: PlayerState) {
+				const out: Record<string, number> = {};
+				const dh = Math.round(b.health) - Math.round(a.health);
+				if (dh) out.health = dh;
+				for (const k of NEED_KEYS) { const d = Math.round(b.needs[k]) - Math.round(a.needs[k]); if (d) out[k] = d; }
+				return out;
+			}
+			/** 震动反馈：只有安卓浏览器支持，iPhone Safari 没有这个接口；设置里关掉或「减少动态效果」时不震 */
+			function buzz(p: number | number[]) {
+				if (!prefs.haptic || document.documentElement?.classList?.contains('calm')) return;
+				try { (navigator as Navigator & { vibrate?: (p: number | number[]) => boolean }).vibrate?.(p); } catch {}
+			}
+
 			// ---------- 渲染 ----------
 			function barCls(v: number) { return v < 25 ? 'low' : v < 50 ? 'mid' : ''; }
 			/** 健康 + 5 项需求，今天页和顶栏共用 */
 			function needList(s: PlayerState) {
-				return [{ name: '健康', icon: '❤️', v: Math.round(s.health) }, ...NEED_KEYS.map((k) => ({ name: NEED_META[k].name, icon: NEED_META[k].icon, v: Math.round(s.needs[k]) }))];
+				return [{ key: 'health', name: '健康', icon: '❤️', v: Math.round(s.health) }, ...NEED_KEYS.map((k) => ({ key: k as string, name: NEED_META[k].name, icon: NEED_META[k].icon, v: Math.round(s.needs[k]) }))];
 			}
 			function moodCls(m: number) { return m < 25 ? ' low' : m < 50 ? ' mid' : ''; }
 			const PERIOD_ICON: Record<string, string> = { dawn: '🌅', day: '🌤️', dusk: '🌇', night: '🌙' };
@@ -1708,7 +1769,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const note = phaseNote(p.id, skyPhase(loc, s.clock));
 				const time = `${PERIOD_ICON[p.id]} ${dateLabel(s.clock)} · ${WEEKDAYS[weekdayOf(s.clock)]} ${formatClock(s.clock).split(' ')[1]} ${p.name}${note ? `（${note}）` : ''}`;
 				const sync = `<span class="sync-dot${online ? '' : ' off'}">${online ? '已同步' : '离线'}</span>`;
-				const cash = `<span class="chip cash">$${s.cash.toLocaleString()}</span>`;
+				const cf = Math.round(cashFx);
+				cashFx = 0;
+				const cash = `<span class="chip cash${cf ? ' bump' : ''}">$${s.cash.toLocaleString()}${cf ? `<i class="cash-delta ${cf > 0 ? 'up' : 'down'}" aria-hidden="true">${cf > 0 ? '+' : '−'}$${Math.abs(cf).toLocaleString()}</i>` : ''}</span>`;
 				const moodBtn = `<button class="moodchip${moodCls(m)}" data-tab="me" title="看心情的来源"><span>心情 ${moodTier(m).name} ${m}</span></button>`;
 				const starHtml = stars ? `<span class="chip" title="通缉星级（麻烦值 ${Math.round(s.heat)}）">${'★'.repeat(stars)}</span>` : '';
 				let top: string;
@@ -1728,7 +1791,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					top = `<div class="scene">${sceneSvg({ phase: skyPhase(loc, s.clock), weather: w.id, kind: loc.kind, tags: loc.tags })}
 						<div class="scene-top">${lvPlate}<div class="scene-right">${cash}
 						<span class="wx-pill${w.closesSea ? ' storm' : ''}">${w.icon} ${esc(w.name)} ${temps(loc, s.clock, w.id).max}°${w.closesSea ? ' · 海上关闭' : ''}</span></div></div>
-						<div class="plate"><h1>${esc(loc.name)}</h1><span class="en" lang="en">${esc(loc.en)}</span><small title="${formatClock(s.clock)}">${time}</small></div>${thought}</div>
+						<div class="plate"><h1>${esc(loc.name)}</h1><span class="en" lang="en" aria-hidden="true">${esc(loc.en)}</span><small title="${formatClock(s.clock)}">${time}</small></div>${thought}</div>
 						<div class="hud-chips"><span class="chip">${esc(role)}</span>${starHtml}${fireChip(s)}${uvChip(s)}${moodBtn}${sync}</div>`;
 				} else {
 					// 其他页：副标题 + 页名；右边现金和心情，下面一条迷你需求条
@@ -1890,7 +1953,27 @@ const cardLines = guilloche(400, 260, 14, 9);
 				return cgi[key] ? hero(key, '') : '';
 			}
 			/** 页头横幅和空状态小插图：有图才出 */
+			/** 这一页正显示新手便签（renderPanel 里每次重算） */
+			let slipOnPage = false;
+			/** 需求环上变了的数字从旧值滚到新值（500ms 缓出）；减少动态效果时直接显示新值 */
+			function tickNumbers() {
+				if (typeof document.querySelectorAll !== 'function' || typeof requestAnimationFrame !== 'function' || document.documentElement?.classList?.contains('calm')) return;
+				for (const b of document.querySelectorAll<HTMLElement>('#panel .ring b[data-from]')) {
+					const from = Number(b.dataset.from), to = Number(b.textContent);
+					b.removeAttribute('data-from');
+					if (!Number.isFinite(from) || !Number.isFinite(to) || from === to) continue;
+					const t0 = performance.now();
+					const step = (t: number) => {
+						const k = Math.min(1, (t - t0) / 500);
+						b.textContent = String(Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3))));
+						if (k < 1) requestAnimationFrame(step);
+					};
+					b.textContent = String(from);
+					requestAnimationFrame(step);
+				}
+			}
 			function banner(key: string) {
+				if (slipOnPage) return '';
 				return cgi[key] ? `<div class="banner"><img src="${esc(cgi[key])}" alt="" loading="lazy" /></div>` : '';
 			}
 			function emptyArt(key: string) {
@@ -1904,9 +1987,11 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const list = needList(s);
 				const min = Math.min(...list.map((n) => n.v));
 				// 需求环（虚拟人生风格）：六个圆环一排，数字在环中间；最低一项低于 60 时名字下标「最缺」
-				return `<div class="card"><h3>状态</h3><div class="rings">${list.map((n) => `<div class="ring ${barCls(n.v)}" role="img" aria-label="${n.name} ${n.v}${n.v === min && min < 60 ? '，最缺' : ''}">
+				const fx = ringFx;
+				ringFx = {};
+				return `<div class="card"><h3>状态</h3><div class="rings">${list.map((n) => { const d = Math.round(fx[n.key] ?? 0); return `<div class="ring ${barCls(n.v)}${d ? ' bump' : ''}" role="img" aria-label="${n.name} ${n.v}${d ? `，刚才${d > 0 ? '加' : '减'}了 ${Math.abs(d)}` : ''}${n.v === min && min < 60 ? '，最缺' : ''}">
 					<svg viewBox="0 0 50 50" aria-hidden="true" focusable="false"><circle cx="25" cy="25" r="21" class="track"/><circle cx="25" cy="25" r="21" class="arc" stroke-dasharray="${ringDash(n.v)}" transform="rotate(-90 25 25)"/></svg>
-					<b>${n.v}</b><span><span aria-hidden="true">${n.icon}</span> ${n.name}</span>${n.v === min && min < 60 ? '<em class="lack">最缺</em>' : ''}</div>`).join('')}</div></div>`;
+					${d ? `<i class="ring-delta ${d > 0 ? 'up' : 'down'}" aria-hidden="true">${d > 0 ? '+' : '−'}${Math.abs(d)}</i>` : ''}<b${d ? ` data-from="${n.v - d}"` : ''}>${n.v}</b><span><span aria-hidden="true">${n.icon}</span> ${n.name}</span>${n.v === min && min < 60 ? '<em class="lack">最缺</em>' : ''}</div>`; }).join('')}</div></div>`;
 			}
 			/** 四个快捷动作：从最缺的需求起，每项挑这里能补它最多、还没选过的事；有待处理事件或凑不够两个时不显示。只是快捷入口，下面的完整列表照旧 */
 			function quickActs(s: PlayerState) {
@@ -2127,7 +2212,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 
 			/** 留言板：这个地点最近的留言，和留一句的输入框 */
 			function notesCard(s: PlayerState) {
-				loadNotes();
+				if (drawer === 'place') loadNotes();
 				const list = notesLoc === s.loc ? notesList : [];
 				const ago = (at: number) => { const m = Math.max(0, Math.round((srvNow() - at) / 60_000)); return m < 60 ? `${m} 分钟前` : m < 1440 ? `${Math.round(m / 60)} 小时前` : `${Math.round(m / 1440)} 天前`; };
 				const rows = list.map((n) => `<div class="note"><span class="ico">${esc(n.avatar)}</span><span class="body"><b>${esc(n.name)}</b> <small class="muted">${ago(n.at)}</small><br />${esc(n.text)}</span>${n.mine ? `<button data-note="delete" data-note-id="${esc(n.id)}" aria-label="删掉这条留言">删</button>` : `<span class="meta"><button data-safety="block" data-note-id="${esc(n.id)}" aria-label="屏蔽${esc(n.name)}">屏蔽</button> <button data-report-pick="note" data-note-id="${esc(n.id)}" data-name="${esc(n.name)}" data-quote="${esc(n.text)}" aria-label="举报这条留言">举报</button></span>`}</div>`).join('');
@@ -2183,12 +2268,16 @@ const cardLines = guilloche(400, 260, 14, 9);
 			function panelPlace() {
 				const s = state!;
 				const loc = getLocation(region, s.loc)!;
-				const acts = activitiesAt(s, region).map(({ act, blocked }) => `
+				const actRow = ({ act, blocked }: ReturnType<typeof activitiesAt>[number]) => `
 					<button class="row" data-act="${act.id}" ${blocked ? 'disabled' : ''}>
 						<span class="ico">${act.icon}</span>
 						<span class="body">${esc(act.name)}<small>${esc(blocked ?? act.desc)}</small></span>
 						<span class="meta"><b>${act.fx.cash ? (act.fx.cash > 0 ? '+' : '−') + '$' + Math.abs(act.fx.cash) : '免费'}</b>${minutesLabel(act.minutes)}</span>
-					</button>`).join('');
+					</button>`;
+				// 现在能做的和做不了的（没开门、钱不够……）分开：做不了的收进「稍后」，不和能做的混在一起
+				const allActs = activitiesAt(s, region);
+				const openActs = allActs.filter((x) => !x.blocked);
+				const laterActs = allActs.filter((x) => x.blocked);
 				const pois = region.pois.filter((p) => p.loc === loc.id);
 				const poiHtml = pois.length ? `<div class="card"><h3>打卡点</h3><p>人到现场、打开定位即可打卡（${pois.filter((p) => s.checkins.includes(p.id)).length}/${pois.length}）</p>
 					<div class="list" style="margin-top:8px">${pois.map((p) => `<div class="row"><span class="ico">${s.checkins.includes(p.id) ? '✅' : '📌'}</span><span class="body">${esc(p.name)}<small>${esc(p.category)}</small></span></div>`).join('')}</div></div>` : '';
@@ -2249,7 +2338,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					? `<p style="margin-top:8px">${esc(fact.text)} <a class="muted" href="${esc(fact.source)}" target="_blank" rel="noopener">来源</a></p>`
 					: `<p style="margin-top:8px" class="muted">第 ${i + 1} 次来时解锁</p>`).join('')}</details>` : '';
 				const sp = storyProgress(s);
-				const storyCard = sp ? `<details class="card" open><summary><h3 style="display:inline">📖 ${esc(sp.chapter.title)}</h3> <span class="muted">${sp.index + 1}/${STORY.length}</span></summary><p>${esc(sp.chapter.intro)}</p><ul class="story-steps">${sp.steps.map((x) => `<li>${x.got >= x.need ? '✅' : '⬜'} ${esc(x.step.text)}${x.need > 1 ? ` <span class="muted">${x.got}/${x.need}</span>` : ''}</li>`).join('')}</ul></details>` : '';
+				const storyCard = sp ? `<details class="card"><summary><h3 style="display:inline">📖 ${esc(sp.chapter.title)}</h3> <span class="muted">${sp.index + 1}/${STORY.length}</span></summary><p>${esc(sp.chapter.intro)}</p><ul class="story-steps">${sp.steps.map((x) => `<li>${x.got >= x.need ? '✅' : '⬜'} ${esc(x.step.text)}${x.need > 1 ? ` <span class="muted">${x.got}/${x.need}</span>` : ''}</li>`).join('')}</ul></details>` : '';
 				const pq = photoQuestNow(s, region);
 				const photoQuestHtml = pq ? `<div class="card">${cover('photo:' + pq.quest.id)}<h3>📷 摄影任务 ${pq.index + 1}/${PHOTO_QUESTS.length}：${esc(pq.quest.title)}</h3><p>${esc(pq.quest.hint)}</p>
 					<div class="row" style="margin-top:8px"><span class="body">拍下来<small>${esc(pq.blocked ?? `${PHOTO_MINUTES} 分钟 · $${pq.quest.cash}、声望 +${pq.quest.respect}`)}</small></span><button data-photo ${pq.blocked ? 'disabled' : ''}>拍照</button></div></div>` : '';
@@ -2295,16 +2384,46 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const seaWish = (id: string) => { const w = getWish(id); return !!w && w.done.t === 'activity' && w.done.ids.some((a) => ACTIVITIES.find((x) => x.id === a)?.exposed === 'sea'); };
 				const wishHtml = s.wishes.length ? `<div class="card"><h3>今天的心愿 · 还剩 ${s.wishes.length} 个</h3><div class="wishes">${s.wishes.map((id) => `<div class="wish"><span class="dot" aria-hidden="true"></span><span>${esc(getWish(id)?.text ?? '')}${seaClosed && seaWish(id) ? '（这里今天有风暴，换个海边）' : ''}</span></div>`).join('')}</div><p style="margin-top:6px" class="muted">做到了加心情和声望，过了今天会换一批。</p></div>` : '';
 				const { here: festHere, soon: festSoon } = festivalsSoon(s.clock, loc.id);
-				const festHtml = `<div class="card">${festHere ? cover('fest:' + festHere.festival.id) : ''}<h3>${festHere ? `🎉 ${esc(festHere.festival.name)}进行中` : '节日'}</h3>${festHere ? `<p>${esc(festHere.festival.desc)} 节日专属体验在下面的「体验」里。</p>` : ''}
+				const festHtml = `<div class="card">${festHere ? cover('fest:' + festHere.festival.id) : ''}<h3>${festHere ? `🎉 ${esc(festHere.festival.name)}进行中` : '节日'}</h3>${festHere ? `<p>${esc(festHere.festival.desc)} 节日专属体验在「在这里 · 体验和爱好」里。</p>` : ''}
 					${festSoon.map((c) => cgi['fest:' + c.festival.id]
 						? `<div class="row" style="margin-top:8px">${thumb('fest:' + c.festival.id)}<span class="body">${esc(c.festival.name)}<small>${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(getLocation(region, c.festival.loc)!.name)}</small></span></div>`
 						: `<p style="margin-top:4px">${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(c.festival.name)} · ${esc(getLocation(region, c.festival.loc)!.name)}</p>`).join('')}</div>`;
 				// 渐进出现（v36）：新角色头一两天先不摆钓鱼、课程、车行、房产这些卡，条件到了自动出现
 				const on = (id: string) => featureShown(s, id);
-				// 主界面定稿（第 15 批）：需求环 → 下一步 → 心愿 → 四个快捷动作，其余卡片照旧往下排
+				// 体验改造 P1（docs/earth-game/ux-p1.md）：今天页分三层。
+				// 现在：状态、刚才的变化、下一步、心愿、快捷动作，一直展开；
+				// 在这里：每组一行摘要，点开从底部弹出抽屉（商店也在抽屉里）；
+				// 以后：主线、现实活动、节日、之后会出现，收着。
+				const placeInfo = `<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
+						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
+						<p style="margin-top:6px">今天${weatherAt(s).icon} ${esc(weatherAt(s).name)}：${esc(weatherAt(s).desc)} 明后天${forecast(s.loc, dayOf(s.clock) + 1, 2).map((w) => `${w.icon} ${esc(w.name)}`).join('，')}。</p>
+						${climateLine(s.loc)}
+					</div>${poiHtml}${factHtml}${notesCard(s)}`;
+				const doHtml = `${vanHtml ? `<div class="list">${vanHtml}</div>` : ''}<div class="list"${vanHtml ? ' style="margin-top:8px"' : ''}>${openActs.map(actRow).join('') || '<p class="muted">现在这里没有能做的事。</p>'}</div>
+					${laterActs.length ? `<details class="later-acts"><summary>稍后开门或现在做不了 · ${laterActs.length} 项</summary><div class="list">${laterActs.map(actRow).join('')}</div></details>` : ''}`;
+				const favorHere = people.some((p) => p.favor);
+				const groups: [string, string, string, string, string][] = [
+					['do', '✨', '做事', doHtml, `现在能做 ${openActs.length + (vanHtml ? 1 : 0)} 项${laterActs.length ? ` · 稍后 ${laterActs.length} 项` : ''}`],
+					['shop', '🛍️', '买东西', shopHtml, `${shop.length} 件${shop.some((x) => x.markdown) ? ' · 有打折' : ''}`],
+					['work', '💼', '工作', workHtml, workHere ? `${esc(career!.name)} · ${shiftWhy ? '现在不能上班' : '可以上班'}` : `${offers.length} 个职位在招`],
+					['home', '🏠', '住处', homeHtml, homeHere ? `你的${esc(homeHere.name)}` : `${rentals.length} 处可租`],
+					['people', '👥', '这里的人', peopleHtml, people.length ? `${people.length} 位在这里${favorHere ? ' · 有人托你帮忙' : ''}` : '现在没人在'],
+					['fun', '🎟️', '体验和爱好', expHtml + (on('hobby') ? photoQuestHtml + fishHtml + skyCard(s) : ''), [exps.length ? `${exps.length} 项体验` : '', on('hobby') && pq ? '摄影任务' : '', on('hobby') && spot ? '能钓鱼' : ''].filter(Boolean).join(' · ') || '看看星空'],
+					['study', '📚', '学习', on('study') ? courseHtml + certHtml + studyHtml : '', [courses.length ? `${courses.length} 门课` : '', certs.length ? `${certs.length} 个证书` : '', programs.length ? `${programs.length} 个学历` : ''].filter(Boolean).join(' · ')],
+					['garage', '🚗', '车和房产', (on('garage') ? dealerHtml + garageHtml : '') + (on('estate') ? propHtml : ''), [on('garage') && dealer.length ? '车行' : '', on('garage') && garage ? '修车厂' : '', on('estate') && props.some((x) => !x.owned) ? `${props.filter((x) => !x.owned).length} 套房出售` : '', on('estate') && props.some((x) => x.owned) ? '你的房产' : ''].filter(Boolean).join(' · ')],
+					['pet', '🐾', '宠物', petHtml, ps ? `${ps.def.icon} ${esc(ps.pet.name)}${petNotes(ps) ? ' · ' + esc(petNotes(ps)) : ''}` : '领养或买一只'],
+					['place', '📍', esc(loc.name), placeInfo, '地点、天气、打卡点、小知识、留言板'],
+				];
+				const shown = groups.filter(([, , , html]) => html.trim());
+				placeGroups = Object.fromEntries(shown.map(([id, icon, title, html]) => [id, { icon, title, html }]));
+				const hereHtml = `<section class="card here" aria-labelledby="here-title"><h3 id="here-title">在${esc(loc.name)}</h3><div class="list">
+						<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
+						${shown.map(([id, icon, title, , sum]) => `<button class="row here-row" data-drawer="${id}" aria-haspopup="dialog"><span class="ico" aria-hidden="true">${icon}</span><span class="body">${title}<small>${sum}</small></span><span class="chev" aria-hidden="true">›</span></button>`).join('')}
+					</div></section>`;
 				return `
 					${returnCard(s)}
 					${needsCard(s)}
+					${resultStrip()}
 					${nextCard(s, !!homeHere, !!workHere && !shiftWhy)}
 					${wishHtml}
 					${quickHtml(s)}
@@ -2313,15 +2432,14 @@ const cardLines = guilloche(400, 260, 14, 9);
 					${recapCard(s)}
 					${guideCard(s)}
 					${featSlip(s)}
-					<div class="card">${hero(loc.id, KIND_ICON[loc.kind])}
-						<h3>${esc(loc.name)} <span class="muted">${esc(loc.en)}</span></h3><p>${esc(loc.blurb)}</p>
-						<p style="margin-top:6px">今天${weatherAt(s).icon} ${esc(weatherAt(s).name)}：${esc(weatherAt(s).desc)} 明后天${forecast(s.loc, dayOf(s.clock) + 1, 2).map((w) => `${w.icon} ${esc(w.name)}`).join('，')}。</p>
-						${climateLine(s.loc)}
-						${lastOutcome ? `<p style="margin-top:8px;color:var(--text)">💡 ${esc(lastOutcome)}</p>` : ''}
-						${lastDelta.length ? `<div class="pills" style="margin-top:8px" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
-					</div>
-					<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-					${storyCard}${liveCard(s)}${festHtml}${on('hobby') ? skyCard(s) : ''}${peopleHtml}${workHtml}${homeHtml}${expHtml}${vanHtml}<p class="section-title">在${esc(loc.name)}能做的事</p><div class="list">${acts}</div>${on('hobby') ? photoQuestHtml + fishHtml : ''}${petHtml}${on('study') ? courseHtml + certHtml + studyHtml : ''}${shopHtml}${on('garage') ? dealerHtml + garageHtml : ''}${on('estate') ? propHtml : ''}${poiHtml}${factHtml}${notesCard(s)}${laterNote(s)}`;
+					${hereHtml}
+					<section class="later-zone" aria-label="以后">${storyCard}${liveCard(s)}${festHtml}${laterNote(s)}</section>`;
+			}
+
+			/** 「刚才」：上一个成功动作的结果和数值变化，紧贴在状态环下面（以前在地点卡里，要往下翻才看得到） */
+			function resultStrip() {
+				if (!lastOutcome && !lastDelta.length) return '';
+				return `<div class="result-strip">${lastOutcome ? `<p>${esc(lastOutcome)}</p>` : ''}${lastDelta.length ? `<div class="pills" aria-label="刚才的变化">${lastDelta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}</div>`;
 			}
 
 			/** 地点卡里的一行气候说明：气候区 + 参照的气象站（第 30 批） */
@@ -2847,9 +2965,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 					`<div class="pref-row" role="group" aria-label="${tx(label)}"><span>${tx(label)}</span><div class="seg">${opts.map(([v, name]) => `<button data-pref="${key}" data-val="${v}" class="${prefs[key] === v ? 'on' : ''}" aria-pressed="${prefs[key] === v}">${tx(name)}</button>`).join('')}</div></div>`;
 				const onOff = (v: boolean) => tx(v ? 'pref.on' : 'pref.off');
 				const tips = TIP_OPTIONS.map(([k, name, hint]) => `<div class="row" style="margin-top:8px"><span class="body">${name}<small>${hint}</small></span><button data-pref="${k}" aria-pressed="${prefs[k]}">${prefs[k] ? '已开启' : '已关闭'}</button></div>`).join('');
-				const toggle = (k: 'sound' | 'ambience' | 'music', name: StrKey, hint: StrKey) => `<div class="row" style="margin-top:8px"><span class="body">${tx(name)}<small>${tx(hint)}</small></span><button data-pref="${k}" aria-pressed="${prefs[k]}">${onOff(prefs[k])}</button></div>`;
+				const toggle = (k: 'sound' | 'ambience' | 'music' | 'haptic', name: StrKey, hint: StrKey) => `<div class="row" style="margin-top:8px"><span class="body">${tx(name)}<small>${tx(hint)}</small></span><button data-pref="${k}" aria-pressed="${prefs[k]}">${onOff(prefs[k])}</button></div>`;
 				// 声音（v37）：三条分轨各自开关，加一个总音量；默认都关。声音只是点缀，所有信息都有文字和画面
-				const sound = `${toggle('sound', 'pref.sound', 'pref.sound.hint')}${toggle('ambience', 'pref.ambience', 'pref.ambience.hint')}${toggle('music', 'pref.music', 'pref.music.hint')}${seg('volume', 'pref.volume', VOLUME_OPTIONS)}<p class="muted" style="margin-top:4px">${tx('pref.sound.note')}</p>`;
+				const sound = `${toggle('sound', 'pref.sound', 'pref.sound.hint')}${toggle('ambience', 'pref.ambience', 'pref.ambience.hint')}${toggle('music', 'pref.music', 'pref.music.hint')}${seg('volume', 'pref.volume', VOLUME_OPTIONS)}${toggle('haptic', 'pref.haptic', 'pref.haptic.hint')}<p class="muted" style="margin-top:4px">${tx('pref.sound.note')}</p>`;
 				const real = `<div class="row" style="margin-top:8px"><span class="body">${tx('pref.basemap')}<small>${tx('pref.basemap.hint')}${basemapFailed ? tx('pref.basemap.failed') : ''}</small></span><button data-pref="basemap" aria-pressed="${prefs.basemap}">${onOff(prefs.basemap)}</button></div>`;
 				// 语言名用各自的语言写，按钮带 lang，读屏和字体回退都按那门语言处理
 				const lang = `<div class="pref-row" role="group" aria-label="${tx('pref.lang')}"><span>${tx('pref.lang')}</span><div class="seg">${LOCALE_ORDER.map((l) => `<button data-pref="lang" data-val="${l}" lang="${LOCALES[l].tag}" class="${prefs.lang === l ? 'on' : ''}" aria-pressed="${prefs.lang === l}">${esc(LOCALES[l].label)}</button>`).join('')}</div></div>${prefs.lang === 'zh-Hans' ? '' : `<p class="muted">${tx('pref.lang.partial')}</p>`}`;
@@ -2892,7 +3010,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				if (typeof IntersectionObserver !== 'function' || typeof document.querySelectorAll !== 'function') return;
 				const loc = state?.loc ?? '';
 				if (loc !== clipLoc) { onceDone.clear(); clipLoc = loc; }
-				let vids = [...document.querySelectorAll<HTMLVideoElement>('#panel video.loc-clip')];
+				let vids = [...document.querySelectorAll<HTMLVideoElement>('#panel video.loc-clip, #modal .drawer video.loc-clip')];
 				const same = prev && vids.find((v) => v.getAttribute('src') === prev.getAttribute('src'));
 				if (prev && same) { same.replaceWith(prev); vids = vids.map((v) => (v === same ? prev : v)); }
 				if (!vids.length || document.documentElement?.classList?.contains('calm')) return;
@@ -2926,10 +3044,17 @@ const cardLines = guilloche(400, 260, 14, 9);
 				renderMap();
 				renderHud();
 				const page = (tab === 'me' && meTab === 'sync' ? 'sync' : tab) as OnboardPage;
+				// 这一页有新手便签时不放装饰横幅：第一屏留给便签和真正的内容（体验改造 P1）
+				slipOnPage = tab !== 'place' && !!tipSlip(page);
+				// 需求环只在今天页：在别的页做的事不留到以后回今天页时再飘
+				if (tab !== 'place') ringFx = {};
 				const html = { place: panelPlace, near: () => goSeg() + tipSlip('near') + banner('banner:near') + panelNear(), go: () => goSeg() + tipSlip('go') + panelGo(), grow: () => tipSlip('grow') + panelMe('grow'), me: () => tipSlip(page) + panelMe(), social: () => tipSlip('social') + panelSocial() }[tab]!();
 				const prevClip = typeof document.querySelector === 'function' ? document.querySelector<HTMLVideoElement>('#panel video.loc-clip') : null;
 				setHtml($('panel'), html);
 				wireClips(prevClip);
+				tickNumbers();
+				// 抽屉开着时跟着今天页一起重画（留言后到、后台同步换了存档……）；不抢焦点
+				if (drawer) renderEvent();
 				const chat = document.getElementById('chat');
 				if (chat) chat.scrollTop = chat.scrollHeight;
 			}
@@ -2956,6 +3081,34 @@ const cardLines = guilloche(400, 260, 14, 9);
 					// 选完选项后原来聚焦的按钮被结果页替换掉了：焦点移到「继续」
 					if (modalShown !== r) modal.querySelector<HTMLElement>('button')?.focus();
 					modalShown = r;
+					return;
+				}
+				const g = !ev && drawer && tab === 'place' ? placeGroups[drawer] : undefined;
+				if (!ev && drawer && !g) drawer = null;
+				if (g) {
+					const key = 'drawer:' + drawer;
+					// 同一个抽屉重画（买完东西、后台同步）：记下滚到哪、焦点在哪个按钮，重画后放回去，不跳回顶部
+					const same = modalShown === key;
+					const q = (sel: string) => (typeof modal.querySelector === 'function' ? modal.querySelector<HTMLElement>(sel) : null);
+					const prevTop = same ? q('.sheet.drawer')?.scrollTop ?? 0 : 0;
+					const ae = typeof document.activeElement === 'object' ? (document.activeElement as HTMLElement | null) : null;
+					const focusKey = same && ae && typeof modal.contains === 'function' && modal.contains(ae) ? Object.entries(ae.dataset ?? {}).map(([k, v]) => `[data-${k.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase())}="${CSS.escape(String(v))}"]`).join('') : '';
+					const prevClip = q('video.loc-clip') as HTMLVideoElement | null;
+					setHtml(modal, `<div class="sheet drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+						<div class="drawer-head"><h2 id="drawer-title"><span aria-hidden="true">${g.icon}</span> ${g.title}</h2><button class="drawer-x" data-drawer-close aria-label="关闭${g.title}">关闭</button></div>
+						<div class="drawer-body">${g.html}</div></div>`);
+					modal.classList.remove('hidden');
+					game.inert = true;
+					if (!same) q('.drawer-x')?.focus();
+					else {
+						const sh = q('.sheet.drawer');
+						if (sh) sh.scrollTop = prevTop;
+						const f = focusKey ? q(focusKey) : null;
+						if (f && !f.hasAttribute('disabled')) f.focus({ preventScroll: true });
+						else if (ae && !modal.contains?.(ae)) q('.drawer-x')?.focus({ preventScroll: true });
+					}
+					modalShown = key;
+					wireClips(prevClip);
 					return;
 				}
 				if (!ev) {
@@ -3023,9 +3176,23 @@ const cardLines = guilloche(400, 260, 14, 9);
 			// ---------- 输入 ----------
 			// 键盘：事件结果页按 Esc 等于点「继续」（还没选的事件必须选一个，Esc 不关）
 			document.addEventListener('keydown', (e) => {
-				if ((e as KeyboardEvent).key !== 'Escape' || !eventResult || (state && getPendingEvent(state))) return;
+				if ((e as KeyboardEvent).key !== 'Escape') return;
+				if (drawer && !eventResult && !(state && getPendingEvent(state))) { closeDrawer(); return; }
+				if (!eventResult || (state && getPendingEvent(state))) return;
 				eventResult = null;
 				renderEvent();
+			});
+			/** 关抽屉，焦点回到打开它的那一行（找不到就回到页面内容） */
+			function closeDrawer() {
+				const id = drawer;
+				drawer = null;
+				renderEvent();
+				const back = id && typeof document.querySelector === 'function' ? document.querySelector<HTMLElement>(`[data-drawer="${id}"]`) : null;
+				if (back) back.focus?.(); else ($('panel') as HTMLElement).focus?.({ preventScroll: true });
+			}
+			// 点抽屉外面的遮罩：关掉（事件弹窗不受影响，事件必须选一个选项）
+			$('modal').addEventListener('click', (e) => {
+				if (drawer && !eventResult && e.target === $('modal') && !(state && getPendingEvent(state))) closeDrawer();
 			});
 			// NPC 打招呼语音：只在玩家点「听」时播放；再点一次同一条就停
 			document.addEventListener('click', (e) => {
@@ -3042,14 +3209,24 @@ const cardLines = guilloche(400, 260, 14, 9);
 				} catch {}
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close]');
 				// 打开了环境音或音乐、但还没出过声：第一次点页面任何地方时解锁音频（浏览器的自动播放限制）
 				if (!audio && (prefs.ambience || prefs.music)) { try { ensureAudio(); } catch {} syncScene(); }
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
+				if (d.drawer) {
+					const g = d.drawer;
+					if (Object.hasOwn(placeGroups, g)) { drawer = g; tm.track('drawer', drawer); }
+					sfx('tap');
+					// 「地点」抽屉里有留言板：打开时重画一遍今天页，顺带去拉最新留言
+					if (drawer === 'place') renderPanel(); else renderEvent();
+					return;
+				}
+				if ('drawerClose' in d) { closeDrawer(); return; }
 				if (d.tab) {
 					if (d.tab !== tab) sfx('tap');
 					tab = d.tab;
+					if (drawer) { drawer = null; renderEvent(); }
 					tm.track('tab', tab);
 					if (tab === 'near') retryVenues();
 					if (tab === 'place') maybeFireWarn();
@@ -3080,6 +3257,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					else if (k === 'volume' && VOLUME_OPTIONS.some(([v]) => v === d.val)) { setPrefs({ volume: d.val as Prefs['volume'] }); syncScene(); sfx('ok'); }
 					// 重新打开时再试一次（上次失败的标记清掉）；关掉就把地图拆了，不再向图块服务发请求
 					else if (k === 'stats') { setStats(!statsOn); toast(statsOn ? '匿名统计已开启' : '匿名统计已关闭，不会再发送'); }
+					else if (k === 'haptic') { setPrefs({ haptic: !prefs.haptic }); buzz(10); }
 					else if (k === 'basemap') { setPrefs({ basemap: !prefs.basemap }); basemapFailed = false; if (!prefs.basemap) dropBasemap(); }
 					else if (k === 'lang' && isLocale(d.val)) setPrefs({ lang: d.val });
 					renderPanel();

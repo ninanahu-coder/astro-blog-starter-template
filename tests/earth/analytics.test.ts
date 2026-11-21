@@ -338,9 +338,11 @@ test('页面里每一处 tm.track 的事件名和参数都是白名单里的字�
 		const n = name.slice(1, -1);
 		assert.ok(Object.hasOwn(STAT_EVENTS, n), n);
 		if (arg && arg.startsWith("'")) assert.ok(STAT_EVENTS[n]!.includes(arg.slice(1, -1)), args);
-		else if (arg) assert.ok(['tab', 'meTab'].includes(arg), `变量参数只能是当前页面：${args}`);
+		// drawer：先核对过是今天页分组里的 id（分组 id 是代码里写死的），服务端还会按白名单再查一遍
+		else if (arg) assert.ok(['tab', 'meTab', 'drawer'].includes(arg), `变量参数只能是当前页面或抽屉：${args}`);
 	}
 	// 关掉统计时，存档请求带 nt
+	assert.match(page, /if \(Object\.hasOwn\(placeGroups, g\)\) \{ drawer = g; tm\.track\('drawer', drawer\); \}/, '抽屉名先核对再上报');
 	assert.match(page, /statsOn \? body : \{ \.\.\.\(body as object\), nt: true \}/);
 });
 

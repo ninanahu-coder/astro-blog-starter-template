@@ -40,6 +40,8 @@ export const EN: Record<StrKey, string> = {
 	'pref.volume.mid': 'Medium',
 	'pref.volume.high': 'High',
 	'pref.sound.note': 'All sounds are synthesised live, so no audio files are downloaded. On a phone, tap the page once before any sound can play. Everything important also appears as text, so you won’t miss anything with sound off.',
+	'pref.haptic': 'Vibration',
+	'pref.haptic.hint': 'A short buzz when something works and two when it doesn’t. Android only; iPhones don’t vibrate for web pages.',
 	'pref.basemap': 'Real map',
 	'pref.basemap.hint': 'The Travel map uses OpenStreetMap with tiles from OpenFreeMap. When off or offline, the hand-drawn map is used',
 	'pref.basemap.failed': '. It did not load this time, so the hand-drawn map is shown',

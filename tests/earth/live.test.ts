@@ -215,7 +215,7 @@ test('今天页（页面模板）：现实活动卡挂在故事卡后面，领�
 	const { readFileSync } = await import('node:fs');
 	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
 	assert.match(src, /\$\{storyCard\}\$\{liveCard\(s\)\}\$\{festHtml\}/, '今天页现实活动卡');
-	assert.match(src, /\$\{petHtml\}/, '宠物卡');
+	assert.match(src, /\['pet', '🐾', '宠物', petHtml, /, '宠物卡（体验改造 P1 起在「在这里」的宠物抽屉里）');
 	const click = src.match(/closest<HTMLElement>\('\[data-tab\][^']*'\)/)?.[0] ?? '';
 	for (const a of ['live', 'safety', 'report-pick', 'report', 'pet']) assert.ok(click.includes(`[data-${a}]`), `点击委托缺 data-${a}`);
 });

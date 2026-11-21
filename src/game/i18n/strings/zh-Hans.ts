@@ -44,6 +44,8 @@ export const ZH_HANS = {
 	'pref.volume.mid': '中',
 	'pref.volume.high': '响',
 	'pref.sound.note': '声音都是现场合成的，不下载音频文件；手机上要先点一下页面才会出声。重要的事都有文字提示，不开声音不会错过。',
+	'pref.haptic': '震动',
+	'pref.haptic.hint': '做成一件事轻震一下，没做成震两下；只有安卓手机支持，iPhone 不会震',
 	'pref.basemap': '真实地图',
 	'pref.basemap.hint': '出行页用 OpenStreetMap 真实地图，图块向 OpenFreeMap 请求；关掉或离线时用手绘地图',
 	'pref.basemap.failed': '。这次没加载出来，正在用手绘地图',
