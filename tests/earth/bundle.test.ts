@@ -53,7 +53,8 @@ async function split() {
 		const outputs = out.metafile.outputs;
 		const base = (p: string) => p.split(/[\\/]/).pop()!;
 		const files = new Map(out.outputFiles.map((f) => [base(f.path), f.contents]));
-		const entryName = Object.keys(outputs).find((k) => outputs[k].entryPoint)!;
+		// 页面脚本本身的入口名是 earth-page.ts（见上面的 sourcefile）；按需加载的模块（更新日志、emoji 查找表……）在元数据里也标了 entryPoint，不能拿第一个当入口（输出顺序会变）
+		const entryName = Object.keys(outputs).find((k) => outputs[k].entryPoint?.endsWith('earth-page.ts'))!;
 		const first = new Set([entryName]);
 		for (const name of first) for (const i of outputs[name].imports) if (i.kind === 'import-statement' && outputs[i.path]) first.add(i.path);
 		const names = [...first];
@@ -72,7 +73,7 @@ async function split() {
 test('首屏脚本不含真实地点、地图库、二维码库、更新日志，体积在上限内', async () => {
 	const { outputs, first, inputs, bytes, gzip } = await split();
 	// 更新日志（第 41 批）：每批都变长，打开「我」页才加载；环境音和背景音乐的合成器（v37）只在玩家打开时才加载
-	for (const heavy of ['wa.venues.json', 'sa.venues.json', 'node_modules/maplibre-gl', 'node_modules/qrcode-generator', 'src/game/data/changelog.ts', 'src/game/ui/ambient.ts']) {
+	for (const heavy of ['wa.venues.json', 'sa.venues.json', 'node_modules/maplibre-gl', 'node_modules/qrcode-generator', 'src/game/data/changelog.ts', 'src/game/ui/ambient.ts', 'src/game/data/emoji-set.ts']) {
 		assert.ok(!inputs.some((i) => i.includes(heavy)), `${heavy} 被打进了首屏`);
 		assert.ok(Object.entries(outputs).some(([k, o]) => !first.includes(k) && Object.keys(o.inputs).some((i) => i.includes(heavy))), `${heavy} 应该在单独的包里`);
 	}

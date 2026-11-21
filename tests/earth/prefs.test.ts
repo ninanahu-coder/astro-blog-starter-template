@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { calmMotion, DEFAULT_PREFS, parsePrefs } from '../../src/game/ui/prefs.ts';
 
-test('没有设置时用默认值（音效默认关）；旧版大字模式开着的迁移成字号「大」', () => {
-	assert.equal(DEFAULT_PREFS.sound, false, '音效默认关');
+test('没有设置时用默认值（体验改造 P2 起音效默认开、音量最轻；环境音和音乐仍默认关）；旧版大字模式开着的迁移成字号「大」', () => {
+	assert.equal(DEFAULT_PREFS.sound, true, '音效默认开（用户 2026-11-21 定）');
 	assert.equal(DEFAULT_PREFS.ambience, false, '环境音默认关（v37）');
 	assert.equal(DEFAULT_PREFS.music, false, '背景音乐默认关（v37）');
-	assert.equal(DEFAULT_PREFS.volume, 'mid');
+	assert.equal(DEFAULT_PREFS.volume, 'low', '默认最轻一档');
 	assert.deepEqual(parsePrefs(null), DEFAULT_PREFS);
 	assert.equal(parsePrefs(null, { big: '1' }).font, 'l');
 	assert.equal(parsePrefs(null, { big: '0' }).font, 'm');

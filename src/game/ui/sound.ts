@@ -3,30 +3,49 @@
 // 环境音和背景音乐的合成器在 ui/ambient.ts，只有玩家打开了其中一个才动态加载。
 // 浏览器要求先有用户操作才能出声：AudioContext 只在玩家点了按钮之后才建（见 earth.astro 的 ensureAudio）。
 import type { VolumeLevel } from './prefs.ts';
+import { zzfxSamples, type ZzfxParams } from './zzfx.ts';
 
-export type Cue = 'tap' | 'ok' | 'fail' | 'event' | 'ach' | 'arrive' | 'level' | 'stamp' | 'rain' | 'storm';
+export type Cue = 'tap' | 'ok' | 'fail' | 'event' | 'ach' | 'arrive' | 'level' | 'stamp' | 'rain' | 'storm' | 'coin';
 
-/** 每个音：频率（Hz）、从第几秒开始、持续几秒、波形（默认正弦） */
-export interface Note { f: number; at: number; d: number; w?: 'sine' | 'triangle' }
+/**
+ * 每个提示音由一到四个「声部」叠成：从第几秒开始，加一组 ZzFX 参数（体验改造 P2，见 ui/zzfx.ts）。
+ * ZzFX 参数顺序：音量、随机、频率、起音、持续、释放、波形（0 正弦 1 三角 4 噪声）、波形曲线、滑音、滑音变化、跳音、跳音时刻、重复、噪声……滤波。
+ * 设计原则：短（整段不超过半秒）、轻、只用正弦 / 三角，噪声只用在盖章和雷声这种本来就是闷响的地方。
+ * 这些数值没有人用耳朵试听过，真机试听后在这里调（docs/earth-game/ux-p2.md）。
+ */
+export interface Voice { at: number; zz: ZzfxParams }
 
-export const CUES: Record<Cue, Note[]> = {
-	tap: [{ f: 880, at: 0, d: 0.03 }], // 切换标签：很短的一下
-	ok: [{ f: 660, at: 0, d: 0.07 }], // 做成一件事：一声轻响
-	fail: [{ f: 220, at: 0, d: 0.12 }], // 没做成：一声低音
-	event: [{ f: 523, at: 0, d: 0.1 }, { f: 784, at: 0.1, d: 0.16 }], // 事件弹出：上行两音
-	ach: [{ f: 523, at: 0, d: 0.09 }, { f: 659, at: 0.09, d: 0.09 }, { f: 784, at: 0.18, d: 0.22 }], // 成就：三音
-	arrive: [{ f: 392, at: 0, d: 0.12, w: 'triangle' }, { f: 587, at: 0.08, d: 0.2 }], // 到达：低到高两音，像车停稳后的一声提示
-	level: [{ f: 523, at: 0, d: 0.08 }, { f: 659, at: 0.07, d: 0.08 }, { f: 784, at: 0.14, d: 0.08 }, { f: 1047, at: 0.21, d: 0.26 }], // 升级：四音上行
-	stamp: [{ f: 170, at: 0, d: 0.07, w: 'triangle' }, { f: 340, at: 0.01, d: 0.05, w: 'triangle' }], // 入境盖章：短促的闷响
-	rain: [{ f: 1319, at: 0, d: 0.04 }, { f: 1047, at: 0.09, d: 0.04 }, { f: 1568, at: 0.17, d: 0.04 }], // 到达时在下雨：几滴水声
-	storm: [{ f: 165, at: 0, d: 0.42, w: 'triangle' }, { f: 196, at: 0.05, d: 0.35, w: 'triangle' }], // 到达时是风暴：低沉的闷雷
+export const CUES: Record<Cue, Voice[]> = {
+	tap: [{ at: 0, zz: [0.5, 0, 1200, 0, 0.005, 0.03, 0] }], // 切换标签：很短的一下
+	ok: [{ at: 0, zz: [0.8, 0, 660, 0.005, 0.03, 0.12, 1, 1, 0, 0, 220, 0.05] }], // 做成一件事：一声上扬的「叮」（660 → 880）
+	coin: [{ at: 0, zz: [0.7, 0, 988, 0.005, 0.02, 0.1, 1, 1, 0, 0, 330, 0.04] }], // 进账：投币声（B5 → E6）
+	fail: [{ at: 0, zz: [0.8, 0, 260, 0.01, 0.06, 0.16, 1, 1, -0.8] }], // 没做成：往下滑的低音（260 → 约 170 Hz，不滑过 0）
+	event: [{ at: 0, zz: [0.7, 0, 523, 0.005, 0.05, 0.12, 0] }, { at: 0.1, zz: [0.7, 0, 784, 0.005, 0.06, 0.18, 0] }], // 事件弹出：上行两音
+	ach: [{ at: 0, zz: [0.7, 0, 523, 0.005, 0.04, 0.1, 1] }, { at: 0.09, zz: [0.7, 0, 659, 0.005, 0.04, 0.1, 1] }, { at: 0.18, zz: [0.8, 0, 784, 0.005, 0.08, 0.22, 0] }], // 成就：三音
+	arrive: [{ at: 0, zz: [0.7, 0, 392, 0.01, 0.06, 0.14, 1] }, { at: 0.08, zz: [0.6, 0, 587, 0.01, 0.08, 0.2, 0] }], // 到达：低到高两音
+	level: [523, 659, 784].map((f, i) => ({ at: i * 0.07, zz: [0.7, 0, f, 0.005, 0.03, 0.08, 1] as ZzfxParams })).concat([{ at: 0.21, zz: [0.8, 0, 1047, 0.005, 0.06, 0.2, 0] }]), // 升级：四音上行
+	stamp: [{ at: 0, zz: [1, 0, 160, 0, 0.02, 0.09, 0, 1, -0.8, 0, 0, 0, 0, 0.4] }, { at: 0, zz: [0.4, 0, 300, 0, 0, 0.04, 4] }], // 入境盖章：一声闷响加纸面的「啪」（160 → 约 115 Hz，手机喇叭放得出来）
+	rain: [1319, 1047, 1568].map((f, i) => ({ at: [0, 0.09, 0.17][i], zz: [0.5, 0, f, 0.002, 0.01, 0.05, 0, 1, -1] as ZzfxParams })), // 到达时在下雨：几滴水声
+	storm: [{ at: 0, zz: [0.45, 0, 70, 0.02, 0.2, 0.25, 4, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, -200] }], // 到达时是风暴：低通滤过的低沉雷声（ZzFX 里滤波为负是低通；22.05 kHz 下 -200 约等于 400 Hz 截止）
 };
 
-/** 单个音的峰值音量：提示音要轻，不盖过系统声音（再乘总音量） */
+/** 单个声部的峰值音量：提示音要轻，不盖过系统声音（再乘总音量） */
 export const VOLUME = 0.08;
+
+/** 提示音的采样率：手机上 22.05 kHz 足够这些短音用，算得也快 */
+export const CUE_RATE = 22050;
+
+/** 把一个提示音的各声部叠成一段采样（纯函数；随机固定，同一个音每次一样） */
+export function cueSamples(cue: Cue, rate = CUE_RATE): Float32Array {
+	const parts = CUES[cue].map((v) => ({ off: Math.round(v.at * rate), s: zzfxSamples(v.zz, rate, () => 0.5) }));
+	const out = new Float32Array(parts.reduce((n, p) => Math.max(n, p.off + p.s.length), 0));
+	for (const p of parts) for (let i = 0; i < p.s.length; i++) out[p.off + i] += p.s[i] * VOLUME;
+	return out;
+}
 
 type Param = { value?: number; setValueAtTime(v: number, t: number): void; linearRampToValueAtTime(v: number, t: number): void; exponentialRampToValueAtTime(v: number, t: number): void; setTargetAtTime?(v: number, t: number, c: number): void };
 export interface GainLike { gain: Param; connect(n: unknown): unknown; disconnect?(): void }
+export interface BufferLike { getChannelData(c: number): Float32Array }
 
 /** 只用到的 Web Audio 接口，方便在测试里换成假的 */
 export interface AudioLike {
@@ -38,30 +57,33 @@ export interface AudioLike {
 	destination: unknown;
 	createOscillator(): { type: string; frequency: { value: number }; connect(n: unknown): unknown; start(t: number): void; stop(t: number): void };
 	createGain(): GainLike;
+	createBuffer(channels: number, length: number, rate: number): BufferLike;
+	createBufferSource(): { buffer: unknown; connect(n: unknown): unknown; start(t?: number): void };
 }
 
-/** 播一个提示音：每个音一个振荡器，起音 10 毫秒、指数衰减，避免爆音。out 是要接到的分轨（默认直接接扬声器） */
+/** 每个 AudioContext 一份缓存：同一个提示音只算一次采样 */
+const cache = new WeakMap<object, Map<Cue, BufferLike>>();
+
+/** 播一个提示音：第一次用到时按 ZzFX 参数算好采样、存起来，之后直接放。out 是要接到的分轨（默认直接接扬声器） */
 export function playCue(ctx: AudioLike, cue: Cue, out: unknown = ctx.destination) {
 	if (ctx.state === 'suspended') void ctx.resume?.();
-	const t0 = ctx.currentTime;
-	for (const n of CUES[cue]) {
-		const osc = ctx.createOscillator();
-		const gain = ctx.createGain();
-		osc.type = n.w ?? 'sine';
-		osc.frequency.value = n.f;
-		const start = t0 + n.at;
-		gain.gain.setValueAtTime(0.0001, start);
-		gain.gain.linearRampToValueAtTime(VOLUME, start + 0.01);
-		gain.gain.exponentialRampToValueAtTime(0.0001, start + n.d);
-		osc.connect(gain);
-		gain.connect(out);
-		osc.start(start);
-		osc.stop(start + n.d + 0.02);
+	let m = cache.get(ctx);
+	if (!m) cache.set(ctx, (m = new Map()));
+	let buf = m.get(cue);
+	if (!buf) {
+		const s = cueSamples(cue);
+		buf = ctx.createBuffer(1, Math.max(1, s.length), CUE_RATE);
+		buf.getChannelData(0).set(s);
+		m.set(cue, buf);
 	}
+	const src = ctx.createBufferSource();
+	src.buffer = buf;
+	src.connect(out);
+	src.start(ctx.currentTime);
 }
 
-/** 一个动作结算完放哪个提示音（纯函数）：成就 > 升级 > 到达（按天气换） > 做成；失败一律低音。到达后马上弹事件的，让事件那一声来响 */
-export function cueAfter(r: { ok: boolean; ach?: boolean; levelUp?: boolean; travel?: boolean; pending?: boolean; weather?: string }): Cue | null {
+/** 一个动作结算完放哪个提示音（纯函数）：成就 > 升级 > 到达（按天气换） > 进账（钱多了） > 做成；失败一律低音。到达后马上弹事件的，让事件那一声来响 */
+export function cueAfter(r: { ok: boolean; ach?: boolean; levelUp?: boolean; travel?: boolean; pending?: boolean; weather?: string; coin?: boolean }): Cue | null {
 	if (!r.ok) return 'fail';
 	if (r.ach) return 'ach';
 	if (r.levelUp) return 'level';
@@ -69,7 +91,7 @@ export function cueAfter(r: { ok: boolean; ach?: boolean; levelUp?: boolean; tra
 		if (r.pending) return null;
 		return r.weather === 'storm' ? 'storm' : r.weather === 'rain' ? 'rain' : 'arrive';
 	}
-	return 'ok';
+	return r.coin ? 'coin' : 'ok';
 }
 
 // ---------- 分轨 ----------
