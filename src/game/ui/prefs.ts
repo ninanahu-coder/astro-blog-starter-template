@@ -1,5 +1,8 @@
 // 本机显示设置（第 28 轮）：动画、字号、提示开关。只存在这台设备的 localStorage 里，不进存档、不上传。
 // 读进来的内容一律当不可信数据：不认识的值退回默认，旧版「大字模式」开关迁移成字号「大」。
+// 界面语言（第 38 批）也存在这里：语言是这台设备的显示偏好，不进存档（见 docs/earth-game/i18n.md §4）。
+
+import { DEFAULT_LOCALE, isLocale, type Locale, type StrKey } from '../i18n/index.ts';
 
 export type Motion = 'auto' | 'reduce' | 'full';
 export type FontSize = 'm' | 'l' | 'xl';
@@ -16,24 +19,26 @@ export interface Prefs {
 	music: boolean; // 背景音乐（v37，默认关）
 	volume: VolumeLevel; // 总音量（v37）：轻 / 中 / 响
 	basemap: boolean; // 出行页用真实地图（第 31 轮，默认开）
+	lang: Locale; // 界面语言（第 38 批，默认简体中文）
 }
 
 export const PREFS_KEY = 'earth.prefs.v1';
 /** 旧版设置：大字模式开关（'1' 为开） */
 export const LEGACY_BIG_KEY = 'earth.big.v1';
 
-export const DEFAULT_PREFS: Prefs = { motion: 'auto', font: 'm', guide: true, recap: true, achToast: true, sound: false, ambience: false, music: false, volume: 'mid', basemap: true };
+export const DEFAULT_PREFS: Prefs = { motion: 'auto', font: 'm', guide: true, recap: true, achToast: true, sound: false, ambience: false, music: false, volume: 'mid', basemap: true, lang: DEFAULT_LOCALE };
 
-export const MOTION_OPTIONS: [Motion, string][] = [['auto', '跟随系统'], ['reduce', '减少'], ['full', '正常']];
-export const FONT_OPTIONS: [FontSize, string][] = [['m', '标准'], ['l', '大'], ['xl', '特大']];
-export const VOLUME_OPTIONS: [VolumeLevel, string][] = [['low', '轻'], ['mid', '中'], ['high', '响']];
+// 第二项是字符串表的键（第 38 批），显示时用 t() 取当前语言的文字
+export const MOTION_OPTIONS: [Motion, StrKey][] = [['auto', 'pref.motion.auto'], ['reduce', 'pref.motion.reduce'], ['full', 'pref.motion.full']];
+export const FONT_OPTIONS: [FontSize, StrKey][] = [['m', 'pref.font.m'], ['l', 'pref.font.l'], ['xl', 'pref.font.xl']];
+export const VOLUME_OPTIONS: [VolumeLevel, StrKey][] = [['low', 'pref.volume.low'], ['mid', 'pref.volume.mid'], ['high', 'pref.volume.high']];
 export const TIP_OPTIONS: [keyof Pick<Prefs, 'guide' | 'recap' | 'achToast'>, string, string][] = [
 	['guide', '新手指南', '前三天在今天页顶上的分步提示'],
 	['recap', '昨天回顾', '跨过一天后在今天页顶上显示前一天的变化'],
 	['achToast', '成就提示', '达成成就时在屏幕底部弹出一句'],
 ];
 
-const pick = <T extends string>(v: unknown, opts: [T, string][], d: T): T => (opts.some(([k]) => k === v) ? (v as T) : d);
+const pick = <T extends string>(v: unknown, opts: [T, unknown][], d: T): T => (opts.some(([k]) => k === v) ? (v as T) : d);
 const bool = (v: unknown, d: boolean) => (typeof v === 'boolean' ? v : d);
 
 /** 从本机存储读出设置；raw 是 PREFS_KEY 的内容，legacy 是旧版大字模式键的内容（只在还没有新设置时用来迁移） */
@@ -58,6 +63,7 @@ export function parsePrefs(raw: string | null, legacy: { big?: string | null } =
 		music: bool(own('music'), DEFAULT_PREFS.music),
 		volume: pick(own('volume'), VOLUME_OPTIONS, DEFAULT_PREFS.volume),
 		basemap: bool(own('basemap'), DEFAULT_PREFS.basemap),
+		lang: isLocale(own('lang')) ? (own('lang') as Locale) : DEFAULT_PREFS.lang,
 	};
 }
 
