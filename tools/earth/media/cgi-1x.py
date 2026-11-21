@@ -4,9 +4,11 @@
 public/earth/cgi/manifest.json 里的每张图缩到一半宽，存到 public/earth/cgi/1x/ 下同名文件。
 原图是按手机 2 倍屏准备的（宽图 640–960、方图 256），省流量档换成 1 倍图，每张大约只有原来的四分之一。
 用 cwebp 压（和原图同一个工具），质量 72、不带元数据。重跑会覆盖；清单里删掉的图，1x 目录里的旧文件也会删掉。
+每张 1 倍图是从哪张原图生成的记在 1x/sources.json（原图 SHA-256 前 16 位），测试据此发现「换了原图忘了重跑」。
 
 用法：python3 tools/earth/media/cgi-1x.py
 """
+import hashlib
 import json
 import struct
 import subprocess
@@ -34,6 +36,7 @@ def main():
     images = json.loads((CGI / 'manifest.json').read_text())['images']
     OUT.mkdir(exist_ok=True)
     keep = set()
+    sources = {}
     total_src = total_out = 0
     for url in sorted(set(images.values())):
         name = url.removeprefix('/earth/cgi/')
@@ -41,9 +44,11 @@ def main():
         w, h = webp_size(src.read_bytes())
         dst = OUT / name
         keep.add(name)
+        sources[name] = hashlib.sha256(src.read_bytes()).hexdigest()[:16]
         subprocess.run(['cwebp', '-quiet', '-q', '72', '-m', '6', '-metadata', 'none', '-resize', str(max(1, round(w / 2))), str(max(1, round(h / 2))), str(src), '-o', str(dst)], check=True)
         total_src += src.stat().st_size
         total_out += dst.stat().st_size
+    (OUT / 'sources.json').write_text(json.dumps(dict(sorted(sources.items())), indent=1) + '\n')
     for f in OUT.glob('*.webp'):
         if f.name not in keep:
             f.unlink()

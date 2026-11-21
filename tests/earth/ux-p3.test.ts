@@ -1,6 +1,7 @@
 // 体验改造 P3：画面设置三档（docs/earth-game/ux-p3.md）。
 // 纯函数（档位怎么选、每档开什么、配图地址怎么换）、1 倍配图素材、设置读写、页面接线。
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { test } from 'node:test';
 import { calmMotion, DEFAULT_PREFS, parsePrefs, VISUAL_OPTIONS } from '../../src/game/ui/prefs.ts';
@@ -66,7 +67,11 @@ test('P3 1 倍配图：清单里每张图都有，正好一半宽高，比原图
 		out += b.length;
 	}
 	assert.ok(out < src * 0.4, `1 倍图总量 ${out} 应不到原图 ${src} 的四成`);
-	for (const f of readdirSync(CGI + '1x')) assert.ok(names.has(f), `1x 目录里多了 ${f}`);
+	for (const f of readdirSync(CGI + '1x')) assert.ok(f === 'sources.json' || names.has(f), `1x 目录里多了 ${f}`);
+	// 换了原图（尺寸不变）却忘了重跑生成脚本：1 倍图还是旧画面。记录的原图指纹对不上就报
+	const sources = JSON.parse(readFileSync(CGI + '1x/sources.json', 'utf8')) as Record<string, string>;
+	assert.deepEqual(Object.keys(sources).sort(), [...names].sort(), 'sources.json 和清单一一对应');
+	for (const n of names) assert.equal(sources[n], createHash('sha256').update(readFileSync(CGI + n)).digest('hex').slice(0, 16), `${n} 的原图换过了，重跑 tools/earth/media/cgi-1x.py`);
 	assert.ok(existsSync('tools/earth/media/cgi-1x.py') && statSync('tools/earth/media/cgi-1x.py').size > 0, '生成脚本在仓库里');
 });
 
@@ -97,6 +102,8 @@ test('P3 页面接线：底图、短片、环境音、动画、配图都经过�
 	assert.match(PAGE, /beds\.setAmbience\(prefs\.ambience && fx\.beds \?/);
 	assert.match(PAGE, /beds\.setMusic\(prefs\.music && fx\.beds \?/);
 	assert.match(PAGE, /cl\.toggle\('calm', calmMotion\(prefs, sys, fx\.calm\)\)/, '动画看画面档');
+	assert.match(PAGE, /preset = resolvePreset\(prefs\.visual, \{ saveData: readSaveData\(typeof navigator === 'object' \? navigator : null\), reduceMotion: sys \}\);/, '系统的两个信号都传进选档');
+	assert.match(PAGE, /function buzz\(p: number \| number\[\]\) \{\n\t+if \(!prefs\.haptic \|\| calmMotion\(prefs, sysReduce\)\) return;/, '震动不跟画面档（复核）');
 	assert.match(PAGE, /cgi = cgiForPreset\(cgiRaw, fx\.hiDpi\);[\s\S]{0,40}const cl = document/, '换档时配图地址跟着换');
 	assert.match(PAGE, /cgiRaw = m\.images && typeof m\.images === 'object' \? m\.images : \{\}; cgi = cgiForPreset\(cgiRaw, fx\.hiDpi\)/, '清单到了按当前档换地址');
 	assert.match(PAGE, /function visualChanged\(\) \{\n\t+if \(!fx\.basemap\) dropBasemap\(\);\n\t+syncScene\(\);/, '换到省流量档马上拆底图、停环境音');

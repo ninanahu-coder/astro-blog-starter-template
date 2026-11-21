@@ -998,6 +998,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			let prefs: Prefs = parsePrefs(store.get(PREFS_KEY), { big: store.get(LEGACY_BIG_KEY) });
 			// 画面档（体验改造 P3）：标准 / 省电 / 省流量，「跟随系统」时看系统的省流量和减少动态效果。fx 是这一档开哪些东西
 			let preset: VisualPreset = 'standard';
+			/** 系统开了减少动态效果（applyPrefs 里更新） */
+			let sysReduce = false;
 			/** 每一档在设置页上的名字和说明（字符串表的键） */
 			const VISUAL_TEXT: Record<VisualPreset, { name: StrKey; hint: StrKey }> = {
 				standard: { name: 'pref.visual.standard', hint: 'pref.visual.hint.standard' },
@@ -1008,6 +1010,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			function applyPrefs() {
 				const mm = (window as { matchMedia?: (q: string) => { matches: boolean } }).matchMedia;
 				const sys = typeof mm === 'function' && mm.call(window, '(prefers-reduced-motion: reduce)').matches;
+				sysReduce = sys;
 				preset = resolvePreset(prefs.visual, { saveData: readSaveData(typeof navigator === 'object' ? navigator : null), reduceMotion: sys });
 				fx = VISUAL_FX[preset];
 				cgi = cgiForPreset(cgiRaw, fx.hiDpi);
@@ -1751,9 +1754,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 				for (const k of NEED_KEYS) { const d = Math.round(b.needs[k]) - Math.round(a.needs[k]); if (d) out[k] = d; }
 				return out;
 			}
-			/** 震动反馈：只有安卓浏览器支持，iPhone Safari 没有这个接口；设置里关掉或「减少动态效果」时不震 */
+			/** 震动反馈：只有安卓浏览器支持，iPhone Safari 没有这个接口；设置里关掉或「减少动态效果」时不震。
+			 * 只看玩家的动画设置和系统的减少动态效果，不跟画面档（P3 复核：省电、省流量档不该悄悄关掉震动） */
 			function buzz(p: number | number[]) {
-				if (!prefs.haptic || document.documentElement?.classList?.contains('calm')) return;
+				if (!prefs.haptic || calmMotion(prefs, sysReduce)) return;
 				try { (navigator as Navigator & { vibrate?: (p: number | number[]) => boolean }).vibrate?.(p); } catch {}
 			}
 
