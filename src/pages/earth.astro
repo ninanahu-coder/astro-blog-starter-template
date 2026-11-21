@@ -98,6 +98,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 							<text x="60" y="86" id="c-stamp-date" class="small"></text>
 						</svg>
 					</div>
+					<p class="ac-privacy stats-note"><span id="c-stats-text"></span> <button id="c-stats" type="button">关闭统计</button></p>
 				</div>
 			</section>
 
@@ -400,6 +401,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.skill { display: grid; grid-template-columns: 30px 1fr 44px; align-items: center; gap: 8px; margin: 8px 0; font-size: 13px; }
 			.skill .bar i { background: var(--accent); }
 			.muted { color: var(--dim); font-size: 13px; }
+			/* 入境卡底部的统计告知（第 39 批）：卡纸上的小字，开关是圆珠笔蓝的文字按钮，点击区不小于 44px */
+			.ac-privacy { margin: 10px 0 0; font-size: 12px; line-height: 1.6; color: var(--ink-p2); }
+			.ac-privacy button { min-height: 44px; padding: 0 6px; border: 0; background: none; color: var(--pen); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 			.chat { display: flex; flex-direction: column; gap: 4px; max-height: 180px; overflow-y: auto; font-size: 14px; margin: 8px 0; }
 			.chat b { color: var(--accent); font-weight: 600; }
 			.chat button.mini { font-size: 11px; padding: 0 6px; min-height: 0; margin-left: 4px; opacity: 0.7; }
@@ -754,6 +758,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { ambienceFor, createMixer, cueAfter, musicFor, playCue, type AudioLike, type Cue, type Mixer } from '../game/ui/sound.ts';
 			import type { Beds, BedCtx } from '../game/ui/ambient.ts';
 			import { photoHtml } from '../game/ui/char.ts';
+			import { parseStatsPref, STATS_PREF_KEY, Telemetry, type NavPrivacy } from '../game/ui/telemetry.ts';
 			import { actLabel, enqueue, flushSummary, opId, parseQueue, QUEUE_KEY, QUEUE_MAX, queueable, queueJson, type Queued } from '../game/ui/queue.ts';
 			import { codeOf, exportName, hashAction, makeQr, parseCred, parsePendingKey, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, exitPoint, mapLabel, webglSupported, type Basemap, type Pin } from '../game/ui/basemap.ts';
@@ -968,6 +973,27 @@ const cardLines = guilloche(400, 260, 14, 9);
 				store.set(PREFS_KEY, JSON.stringify(prefs));
 				applyPrefs();
 				try { mixer?.set(chans()); } catch {}
+			}
+			// 匿名统计（第 39 批，见 docs/earth-game/analytics.md）：默认开，浏览器开了全局隐私控制/请勿跟踪时默认关；设置里随时关。
+			// 只报白名单事件（页面、报错类别、耗时），攒一批再发，失败留到下次，永远不影响游戏
+			let statsOn = parseStatsPref(store.get(STATS_PREF_KEY), navigator as NavPrivacy);
+			const tm = new Telemetry({
+				enabled: () => statsOn,
+				store,
+				send: async (body) => (await fetch('/api/earth/stats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body, keepalive: true })).ok,
+			});
+			function setStats(on: boolean) {
+				statsOn = on;
+				store.set(STATS_PREF_KEY, on ? '1' : '0');
+				if (!on) tm.clear();
+			}
+			const STATS_NOTE = '游戏会记录匿名的使用统计（各功能用了多少、报错和加载速度），不含名字、位置和同步码，用来改进游戏。';
+			tm.track('session');
+			setInterval(() => void tm.flush(), 60000);
+			document.addEventListener('visibilitychange', () => { if (document.hidden) void tm.flush(); });
+			if (typeof window.addEventListener === 'function') {
+				window.addEventListener('error', () => tm.track('err', 'js'));
+				window.addEventListener('unhandledrejection', () => tm.track('err', 'promise'));
 			}
 			const randId = (n: number) => {
 				const a = new Uint8Array(n);
@@ -1256,7 +1282,13 @@ const cardLines = guilloche(400, 260, 14, 9);
 			}
 			const srvNow = () => Date.now() + clockSkew;
 			async function api(body: unknown) {
-				const res = await fetch('/api/earth/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+				const t0 = performance.now();
+				let res: Response;
+				// 关了统计：告诉服务器这次请求不要记统计（nt = no tracking）
+				try { res = await fetch('/api/earth/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(statsOn ? body : { ...(body as object), nt: true }) }); }
+				catch (e) { tm.track('err', 'net'); throw e; }
+				tm.track('perf', 'api', performance.now() - t0);
+				if (res.status >= 500) tm.track('err', 'api5xx');
 				const data = (await res.json()) as any;
 				// 冷却和上班卡都按服务器时间算：用服务器返回的时间校准，手机时钟不准也不影响
 				if (typeof data?.at === 'number' && Number.isFinite(data.at)) clockSkew = data.at - Date.now();
@@ -1453,6 +1485,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					else return;
 					liveRender();
 				};
+				sock.onerror = () => tm.track('err', 'ws');
 				sock.onclose = () => {
 					if (ws !== sock) return;
 					ws = null;
@@ -2786,6 +2819,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					<div class="card"><h3>提示</h3>${tips}
 						<div class="row" style="margin-top:8px"><span class="body">引导提示和渐进出现<small>第一次进入各页的提示、新卡片出现的提醒；关掉后所有卡片直接显示。跟着存档走，换设备也一样</small></span><button data-ob-guide aria-pressed="${!state!.onboard.off}">${state!.onboard.off ? '已关闭' : '已开启'}</button></div></div>
 					${blockedCard(state!)}
+					<div class="card"><h3>隐私</h3><div class="row"><span class="body">匿名统计<small>${STATS_NOTE}只存按天汇总的次数，数据存放在 Cloudflare（服务器可能在澳洲境外）。默认开启；浏览器开了「全局隐私控制」或「请勿跟踪」时默认关闭。关掉后立即停止发送。</small></span><button data-pref="stats" aria-pressed="${statsOn}">${statsOn ? '已开启' : '已关闭'}</button></div></div>
 					<div class="card"><h3>玩法说明</h3><dl class="help">${HELP.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl></div>
 					${credBad ? `<div class="card"><h3>同步码已失效</h3><p>服务器不认这台设备上的同步码了：可能在另一台设备上更换过，或者账号已删除。输入新的同步码就能接着玩，排队的动作会在那之后补交。</p>
 						<input id="s-code" placeholder="粘贴新的同步码" aria-label="新的同步码" autocomplete="off" style="margin-top:8px" />
@@ -2978,6 +3012,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				if (d.tab) {
 					if (d.tab !== tab) sfx('tap');
 					tab = d.tab;
+					tm.track('tab', tab);
 					if (tab === 'near') retryVenues();
 					if (tab === 'place') maybeFireWarn();
 					if (t.classList.contains('moodchip')) meTab = 'overview';
@@ -2987,7 +3022,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					// 键盘和读屏用户：焦点移到新页面的内容上
 					($('panel') as HTMLElement).focus?.({ preventScroll: true });
 				}
-				else if (d.metab) { meTab = d.metab; renderPanel(); }
+				else if (d.metab) { meTab = d.metab; tm.track('metab', meTab); renderPanel(); }
 				else if (d.obTip) { obSend({ op: 'tip', id: d.obTip }, d.obTip); renderPanel(); ($('panel') as HTMLElement).focus?.({ preventScroll: true }); }
 				else if ('obBack' in d) { obSend({ op: 'back' }, 'back'); renderPanel(); ($('panel') as HTMLElement).focus?.({ preventScroll: true }); }
 				else if ('obAll' in d) { obSend({ op: 'all' }, 'all'); toast('钓鱼、课程、车行、房产等卡片都显示出来了'); renderPanel(); }
@@ -3006,6 +3041,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					else if (k === 'ambience' || k === 'music') { setPrefs({ [k]: !prefs[k] }); try { ensureAudio(); } catch {} syncScene(); }
 					else if (k === 'volume' && VOLUME_OPTIONS.some(([v]) => v === d.val)) { setPrefs({ volume: d.val as Prefs['volume'] }); syncScene(); sfx('ok'); }
 					// 重新打开时再试一次（上次失败的标记清掉）；关掉就把地图拆了，不再向图块服务发请求
+					else if (k === 'stats') { setStats(!statsOn); toast(statsOn ? '匿名统计已开启' : '匿名统计已关闭，不会再发送'); }
 					else if (k === 'basemap') { setPrefs({ basemap: !prefs.basemap }); basemapFailed = false; if (!prefs.basemap) dropBasemap(); }
 					renderPanel();
 				}
@@ -3385,6 +3421,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 			if (recoverCred) { state = null; cred = null; }
 			else if (!cred) state = null;
 			applyPrefs();
+			// 创建角色页的统计告知：可以直接关
+			const renderStatsNote = () => { $('c-stats-text').textContent = STATS_NOTE; $('c-stats').textContent = statsOn ? '关闭统计' : '统计已关闭，点此开启'; };
+			$('c-stats').addEventListener('click', () => { setStats(!statsOn); renderStatsNote(); });
+			renderStatsNote();
 			renderCreate();
 			render();
 			fetch('/earth/media/manifest.json').then((r) => (r.ok ? r.json() : {})).then((m: unknown) => { media = parseMedia(m); if (state) renderPanel(); }).catch(() => {});
@@ -3416,6 +3456,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 				});
 			}
 			// 离线外壳：能「添加到主屏幕」、断网时也能打开查看。注册失败不影响游戏
+			// 首屏加载耗时（抽样，见 telemetry.ts）
+			tm.track('perf', 'load', performance.now());
 			if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('/earth/sw.js', { scope: '/earth/' }).catch(() => {});
 		</script>
 	</body>
