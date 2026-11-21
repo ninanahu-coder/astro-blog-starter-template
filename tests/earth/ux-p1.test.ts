@@ -26,8 +26,8 @@ test('复核修正：抽屉里的地点短片也接上播放；同一个抽屉�
 
 test('复核修正：减少动态效果时不显示飘字；事件结果页开着时 Esc、点遮罩不关后面的抽屉', () => {
 	assert.match(PAGE, /html\.calm \.ring-delta, html\.calm \.cash-delta \{ display: none; \}/);
-	assert.match(PAGE, /if \(drawer && !eventResult && !\(state && getPendingEvent\(state\)\)\) \{ closeDrawer\(\); return; \}/);
-	assert.match(PAGE, /if \(drawer && !eventResult && e\.target === \$\('modal'\)/);
+	assert.match(PAGE, /if \(drawer && (?:!lbAsk && )?!eventResult && !\(state && getPendingEvent\(state\)\)\) \{ closeDrawer\(\); return; \}/); // 合并排行榜后多了「上榜提示盖着时不关」
+	assert.match(PAGE, /if \(drawer && (?:!lbAsk && )?!eventResult && e\.target === \$\('modal'\)/);
 });
 
 test('复核修正：「刚才」的环变化只给今天页用一次，换页、后台同步换存档时清掉', () => {

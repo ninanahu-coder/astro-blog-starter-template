@@ -816,6 +816,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { defaultAmount, investCard } from '../game/ui/invest.ts';
 			import { holdingsValue } from '../game/core/market.ts';
 			import { setHtml } from '../game/ui/dom.ts';
+			import { lbAskHtml, lbAskPref, lbCardHtml, parseLbPref, type LbData, type LbDimId } from '../game/ui/board.ts';
 			import { worldCard } from '../game/ui/world.ts';
 			import { loanRateMult, rentOn } from '../game/core/world.ts';
 			import { lu } from '../game/ui/lu.ts';
@@ -1133,25 +1134,47 @@ const cardLines = guilloche(400, 260, 14, 9);
 			}
 			let dailyNote = '';
 			let clockSkew = 0; // 服务器时间 − 本机时间（毫秒）
-			// 净资产排行榜：打开「社交」页时拉取，一分钟内不重复拉
-			type BoardRow = { rank: number; name: string; avatar: string; worth: number; day: number; me: boolean };
-			let board: { top: BoardRow[]; me: BoardRow | null; total: number } | null = null;
+			// 排行榜（docs/earth-game/leaderboard.md）：打开「社交」页时拉取，一分钟内不重复拉；换维度/范围/榜时立刻拉
+			let board: LbData | null = null;
+			let lbAsk = false; // 要不要弹上榜提示（服务端说这个角色还没有上榜设置）
+			let lbAskDone = false; // 这次打开已经回答过：回答还在路上时，后台同步带回的 lbAsk 不再弹
+			const lbUi: { dim: LbDimId; scope: 'all' | 'season'; board: 'global' | 'region' | 'friends' } = { dim: 'worth', scope: 'season', board: 'global' };
 			let boardAt = 0;
 			let boardLoading = false;
 			let boardError = '';
+			let boardAgain = false; // 请求还在路上时又要强制刷新（切了榜、改了上榜设置）：这次回来后再拉一次
 			async function loadBoard(force = false) {
-				if (!cred || credBad || boardLoading || (!force && Date.now() - boardAt < 60_000)) return;
+				if (!cred || credBad) return;
+				if (boardLoading) { if (force) boardAgain = true; return; }
+				if (!force && Date.now() - boardAt < 60_000) return;
 				boardLoading = true;
+				const q = { dim: lbUi.dim, scope: lbUi.scope, board: lbUi.board };
 				try {
-					const { data } = await api({ action: 'board', id: cred.id, key: cred.key });
-					if (data?.ok && Array.isArray(data.top)) { board = { top: data.top, me: data.me ?? null, total: data.total ?? 0 }; boardError = ''; }
-					else boardError = data?.msg || '排行榜暂时拿不到';
+					const { data } = await api({ action: 'board', id: cred.id, key: cred.key, ...q });
+					// 回来时玩家已经切到别的榜：这份结果作废，按现在的条件再拉（合并 main 后复核）
+					if (q.dim !== lbUi.dim || q.scope !== lbUi.scope || q.board !== lbUi.board) boardAgain = true;
+					else {
+						if (data?.ok && Array.isArray(data.top) && data.q && data.mine && data.season && data.pref) { board = data as LbData; boardError = ''; }
+						else boardError = data?.msg || '排行榜暂时拿不到';
+						boardAt = Date.now();
+					}
 				} catch {
 					boardError = '排行榜需要联网';
+					boardAt = Date.now();
 				}
-				boardAt = Date.now();
 				boardLoading = false;
+				if (boardAgain) { boardAgain = false; return loadBoard(true); }
 				if (tab === 'social') renderPanel();
+			}
+			async function setBoardPref(pref: Record<string, boolean>) {
+				if (!cred || credBad) return;
+				try {
+					const { data } = await api({ action: 'boardpref', id: cred.id, key: cred.key, pref });
+					toast(data?.msg || '设置没保存上');
+				} catch {
+					toast('需要联网');
+				}
+				loadBoard(true);
 			}
 			// 共同事件：同一地点的大厅列表（服务端为准）；打开社交页和收到在线频道的提醒时拉取
 			type CoopLobby = { id: string; coop: string; loc?: string; host: boolean; mine: boolean; away?: boolean; starting?: boolean; members: { name: string; avatar: string; role: number; me: boolean }[] };
@@ -1456,6 +1479,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 				// 冷却和上班卡都按服务器时间算：用服务器返回的时间校准，手机时钟不准也不影响
 				if (typeof data?.at === 'number' && Number.isFinite(data.at)) clockSkew = data.at - Date.now();
 				if (typeof data?.daily === 'string') dailyNote = data.daily;
+				// 旧玩家还没回答过要不要上榜：读档时服务端带 lbAsk，弹一次（见 renderEvent）
+				if (data?.lbAsk === true && !lbAskDone) lbAsk = true;
 				return { status: res.status, data };
 			}
 			/** 采用服务器返回的存档；位置变了就通知在线频道 */
@@ -2918,13 +2943,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 
 			function boardCard() {
 				loadBoard();
-				const row = (r: BoardRow) => `<div class="row"><span class="ico">${r.rank}</span><span class="body">${esc(r.avatar)} ${r.me ? `<b>${esc(r.name)}（你）</b>` : esc(r.name)}<small>净资产 $${r.worth.toLocaleString()} · 第 ${r.day + 1} 天</small></span></div>`;
-				const body = board
-					? `${board.top.map(row).join('') || '<p class="muted">还没有人上榜。</p>'}${board.me && !board.top.some((r) => r.me) ? `<p class="muted" style="margin:6px 0">……</p>${row(board.me)}` : ''}`
-					: `<p class="muted">${boardLoading ? '正在加载…' : esc(boardError || '正在加载…')}</p>`;
-				return `<div class="card"><h3>🏆 净资产排行</h3><p>全服按净资产排名（现金 + 车 + 家具 + 房产 − 贷款 + 理财），结果由服务端计算。${board ? `共 ${board.total} 人上榜。` : ''}</p>
-					<div class="list" style="margin-top:8px">${body}</div>
-					<div class="inline" style="margin-top:8px"><button data-board ${boardLoading ? 'disabled' : ''}>刷新</button></div></div>`;
+				return lbCardHtml(board, { loading: boardLoading, error: boardError, ...lbUi }, esc);
 			}
 
 			// 手机上打字麻烦：本地频道的快捷短语，点一下直接发
@@ -3217,6 +3236,15 @@ const cardLines = guilloche(400, 260, 14, 9);
 					modalShown = r;
 					return;
 				}
+				if (!ev && lbAsk) {
+					// 旧玩家的一次性上榜提示：只在没有事件、没有事件结果时弹，不打断事件
+					paint(modal, lbAskHtml());
+					modal.classList.remove('hidden');
+					game.inert = true;
+					if (modalShown !== 'lbask') modal.querySelector<HTMLElement>('button')?.focus();
+					modalShown = 'lbask';
+					return;
+				}
 				const g = !ev && drawer && tab === 'place' ? placeGroups[drawer] : undefined;
 				if (!ev && drawer && !g) drawer = null;
 				if (g) {
@@ -3312,7 +3340,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			document.addEventListener('keydown', (e) => {
 				gestured = true;
 				if ((e as KeyboardEvent).key !== 'Escape') return;
-				if (drawer && !eventResult && !(state && getPendingEvent(state))) { closeDrawer(); return; }
+				if (drawer && !lbAsk && !eventResult && !(state && getPendingEvent(state))) { closeDrawer(); return; }
 				if (!eventResult || (state && getPendingEvent(state))) return;
 				eventResult = null;
 				renderEvent();
@@ -3327,7 +3355,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			}
 			// 点抽屉外面的遮罩：关掉（事件弹窗不受影响，事件必须选一个选项）
 			$('modal').addEventListener('click', (e) => {
-				if (drawer && !eventResult && e.target === $('modal') && !(state && getPendingEvent(state))) closeDrawer();
+				if (drawer && !lbAsk && !eventResult && e.target === $('modal') && !(state && getPendingEvent(state))) closeDrawer(); // 上榜提示盖着抽屉时不关
 			});
 			// NPC 打招呼语音：只在玩家点「听」时播放；再点一次同一条就停
 			document.addEventListener('click', (e) => {
@@ -3345,7 +3373,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			});
 			document.addEventListener('click', (e) => {
 				gestured = true;
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
 				// 打开了环境音或音乐、但还没出过声：第一次点页面任何地方时解锁音频（浏览器的自动播放限制）
 				if (!audio && (prefs.ambience || prefs.music)) { try { ensureAudio(); } catch {} syncScene(); }
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
@@ -3526,6 +3554,24 @@ const cardLines = guilloche(400, 260, 14, 9);
 				else if ('copy' in d) navigator.clipboard?.writeText(codeOf(cred!)).then(() => { toast('已复制'); obSend({ op: 'tip', id: 'sync-kept' }); }, () => toast('复制失败，请长按手动复制'));
 				else if ('pull' in d) pullCloud();
 				else if ('board' in d) loadBoard(true);
+				else if (d.lbq) {
+					const [k, v] = d.lbq.split(':');
+					if (k === 'dim' && ['worth', 'places', 'dex', 'respect', 'contest'].includes(v)) lbUi.dim = v as LbDimId;
+					else if (k === 'scope' && (v === 'all' || v === 'season')) lbUi.scope = v;
+					else if (k === 'board' && (v === 'global' || v === 'region' || v === 'friends')) lbUi.board = v;
+					board = null;
+					renderPanel();
+					loadBoard(true);
+				}
+				else if (d.lbpref) { const p = parseLbPref(d.lbpref); if (p) setBoardPref(p); }
+				else if (d.lbask) {
+					const p = lbAskPref(d.lbask);
+					if (!p) return;
+					lbAsk = false;
+					lbAskDone = true;
+					renderEvent();
+					setBoardPref(p);
+				}
 				else if (d.giftpick !== undefined) { giftTo = d.giftpick ? { hash: d.giftpick, name: d.giftName ?? '' } : null; sellPick = false; swapPick = null; renderPanel(); }
 				else if (d.swappick !== undefined) { swapPick = d.swappick ? { to: d.swappick, name: d.giftName ?? '' } : null; giftTo = null; sellPick = false; renderPanel(); }
 				else if (d.swap && swapPick) {

@@ -14,12 +14,17 @@ import { EXPERIENCES } from '../data/experiences.ts';
 import { getItem } from '../core/attributes.ts';
 import { coopBlocked } from '../core/coop.ts';
 import { getCoop } from '../data/coop.ts';
-import { claimDaily, realDayOf } from '../core/daily.ts';
+import { claimDaily, DAILY, realDayOf } from '../core/daily.ts';
 import { noteReturn } from '../core/onboard.ts';
 import { refreshWishes } from '../core/wishes.ts';
 import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
 import { carryUnknown, SAVE_VERSION } from '../core/save.ts';
-import { boardEntry, rankBoard } from '../core/board.ts';
+import {
+	addTitles, cleanLbEntry, cleanPref, LB_PREF_DEFAULT, cleanSeason, cleanTitles, contestPoints, lbAwards, lbEntry, lbSeasonRec, lbSort, lbView, parseQuery, patchPref,
+	seasonDaysLeft, seasonLabel, seasonOfDay, seasonStartDay, titleText, type LbItem, type LbQuery, type LbRanked,
+} from '../core/leaderboard.ts';
+import { LB_CACHE_MS, LB_DIMS, LB_FIRST_SEASON } from '../data/leaderboard.ts';
+import { MET_MAX } from '../core/social.ts';
 import type { PlayerState, Region } from '../core/types.ts';
 import { FULL_AREAS, WORLD } from '../data/wa.ts';
 import { areaOf } from '../data/areas-base.ts';
@@ -171,8 +176,17 @@ export class EarthWorld {
 	private sockIp = new Map<WebSocket, string>(); // 连接 -> 来源限流键（只在内存，不广播、不落盘）
 	private sweeper: ReturnType<typeof setInterval> | null = null;
 	private locks = new Map<string, Promise<unknown>>(); // 同一存档的请求排队执行，避免并发读改写
-	private board: [string, unknown][] | null = null; // 榜单记录的内存缓存；所有存档都写在这个实例里，写入时作废
-	private boardGen = 0; // 每次写入加一：读榜期间有写入时，读到的旧列表不放进缓存
+	// 排行榜（docs/earth-game/leaderboard.md）：所有存档都写在这个实例里，榜单在这里聚合。
+	// lb：当前赛季的内存索引（每人一条 LbItem），第一次看榜时从存储整批读入，之后每次落盘就地更新，不再整表重读
+	private lb: { sid: number; items: Map<string, LbItem> } | null = null;
+	private lbLoading: Promise<void> | null = null;
+	/** 索引读入期间发生的写入：读完后补上（读到的列表可能比这些写入旧） */
+	private lbBacklog: { sid: number; fns: ((items: Map<string, LbItem>, sid: number) => void)[] } | null = null;
+	/** 排名结果缓存：键 = 维度|范围|地区，LB_CACHE_MS 内重复看榜不重排 */
+	private lbCache = new Map<string, { at: number; ranked: LbRanked[] }>();
+	private lbTtl = LB_CACHE_MS;
+	private lbSettling: Promise<void> | null = null;
+	private lbSettled = -1; // 这个实例已确认结算到哪个赛季之前：同一季里看榜不再每次读 lbsettled
 	private lobbies = new Map<string, Lobby>();
 	private hintAt = new WeakMap<WebSocket, Record<string, number>>();
 	/** 每个连接屏蔽了谁（id 哈希前缀，客户端按自己存档里的屏蔽名单发来）：这些人的聊天和表情不转给这个连接 */
@@ -433,7 +447,9 @@ export class EarthWorld {
 	//   get    { id, key }                                             读取存档
 	//   act    { id, key, rev, act: GameAction, op? }                  执行一个动作；rev 与服务端不一致返回 409
 	//          op：动作编号。这个编号的动作已经结算过（响应在路上丢了、客户端重交）时不再执行，返回当时的结果和最新存档（dup: true）
-	//   board  { id, key }                                             净资产排行榜（前 20 名和自己的名次），只读
+	//   board  { id, key, dim?, scope?, board? }                       排行榜（前 20 名和自己的名次），只读。维度 worth/places/dex/respect/contest，
+	//          范围 all（总榜）/season（本赛季），榜 global/region/friends；不带参数 = 全服身家总榜。只有同意上榜的人出现在榜上
+	//   boardpref { id, key, pref: { on?, anon?, region?, friends? } }  上榜同意和显示方式（服务端 lbp:<h>，不在存档里）
 	//   rekey  { id, key, newKey }                                     更换同步码：旧 key 立即失效。重交（旧 key 已失效、newKey 已生效）当作成功
 	//   export { id, key }                                             导出这名玩家在服务器上的全部数据（存档、留言、榜单记录），不含 key 和种子
 	//   delete { id, key, confirm: 'delete' }                          删除账号：存档、动作编号、榜单、留言、挂单、队伍全部删掉
@@ -571,23 +587,184 @@ export class EarthWorld {
 	 * 多个存档在同一次 put 里写入（Durable Object 存储对单次多键 put 保证全写或全不写）：共同事件不会出现一部分人拿到奖励。
 	 * week：这次要给全服周计数加几，和存档一起写（见 commitWeek）
 	 */
-	private async persistMany(saves: { id: string; keyHash: string; state: PlayerState; at: number; raw?: unknown }[], week?: { week: number; k: number }, extra: Record<string, unknown> = {}): Promise<void> {
+	private async persistMany(saves: { id: string; keyHash: string; state: PlayerState; at: number; raw?: unknown; contest?: number }[], week?: { week: number; k: number }, extra: Record<string, unknown> = {}): Promise<void> {
 		const entries: Record<string, unknown> = { ...extra };
+		const lbUpdates: [string, { entry: ReturnType<typeof lbEntry>; season: { sid: number; rec: ReturnType<typeof lbSeasonRec> } }][] = [];
 		for (const x of saves) {
 			const h = (await sha256Hex(x.id)).slice(0, 12);
 			const rankKey = 'rank:' + h;
 			// 净资产没变时沿用上一条记录的时间，「同分先达到的在前」才成立
-			const prev = await this.ctx.storage.get(rankKey);
+			// 赛季记录：本赛季第一次落盘时以上一条榜单记录为起点；比赛积分（共同事件里的比赛）和存档一起记
+			const sid = seasonOfDay(realDayOf(x.at));
+			const seaKey = `lbs:${sid}:${h}`;
+			const [prev, prevSea] = await Promise.all([this.ctx.storage.get(rankKey), this.ctx.storage.get(seaKey)]);
 			// raw：落盘前的原存档。这版代码不认识的字段（别的分支加的）原样带上，不在来回部署时丢掉（见 core/save.ts）
 			entries['save:' + x.id] = { keyHash: x.keyHash, state: x.raw === undefined ? x.state : carryUnknown(x.raw, x.state), at: x.at };
 			// 在线状态里的 id 哈希 -> 真实 id：送礼时按哈希找到收件人。只存在服务端存储里，从不发给客户端
 			entries['h:' + h] = x.id;
-			entries[rankKey] = boardEntry(x.state, x.at, prev);
+			// 榜单数值由服务端从刚结算完的存档算；涨得不正常就挂起复核（lbEntry 里的 lbAnomaly）
+			const entry = lbEntry(x.state, x.at, prev, { places: WORLD.pois.length });
+			// 旧格式的 rank: 记录（排行榜之前的代码或别的分支部署写的）没有 stats：只有净资产可信，打卡、图鉴、声望按现在的值当赛季起点，
+			// 不然终身成绩会整个算进这一季（合并 main 后复核）
+			const pe = cleanLbEntry(prev);
+			const legacy = !!pe && !(prev && typeof prev === 'object' && typeof (prev as { stats?: unknown }).stats === 'object' && (prev as { stats?: unknown }).stats !== null);
+			const before = pe ? (legacy ? { ...entry.stats, worth: pe.stats.worth } : pe.stats) : null;
+			const rec = lbSeasonRec(prevSea, { stats: entry.stats, before, region: x.state.region, now: x.at, realDay: realDayOf(x.at), contest: x.contest });
+			entries[rankKey] = entry;
+			entries[seaKey] = rec;
+			lbUpdates.push([h, { entry, season: { sid, rec } }]);
 		}
 		if (week && week.k > 0) await this.commitWeek(week.week, week.k, entries);
 		else await this.ctx.storage.put(entries);
-		this.boardGen++;
-		this.board = null;
+		// 写成功才更新内存索引
+		for (const [h, u] of lbUpdates) this.lbApply(h, u);
+	}
+
+	// ---------- 排行榜 ----------
+
+	/** 改一个人在内存索引里的记录（索引还在读入时记下来，读完再补） */
+	private lbApply(h: string, u: { entry?: LbItem['entry']; pref?: LbItem['pref']; titles?: LbItem['titles']; season?: { sid: number; rec: LbItem['season'] }; remove?: boolean }) {
+		const f = (items: Map<string, LbItem>, sid: number) => {
+			if (u.remove) { items.delete(h); return; }
+			const it = items.get(h) ?? { h, entry: null, pref: cleanPref(undefined), season: null, titles: [] };
+			if (u.entry !== undefined) it.entry = u.entry;
+			if (u.pref !== undefined) it.pref = u.pref;
+			if (u.titles !== undefined) it.titles = u.titles;
+			if (u.season && u.season.sid === sid) it.season = u.season.rec;
+			items.set(h, it);
+		};
+		if (this.lb) f(this.lb.items, this.lb.sid);
+		if (this.lbBacklog) this.lbBacklog.fns.push(f);
+		// 自己的变化（同意上榜、改匿名）要马上看得到：清掉排名缓存。普通落盘不清，等缓存过期
+		if (u.pref !== undefined || u.remove || u.titles !== undefined) this.lbCache.clear();
+	}
+
+	/** 当前赛季的内存索引：第一次用时把 rank: / lbp: / lbs:<赛季>: / lbt: 整批读进来；赛季换了重新读 */
+	private async lbIndex(sid: number): Promise<Map<string, LbItem>> {
+		while (!this.lb || this.lb.sid !== sid) {
+			if (!this.lbLoading) {
+				const backlog = { sid, fns: [] as ((items: Map<string, LbItem>, sid: number) => void)[] };
+				this.lbBacklog = backlog;
+				this.lbLoading = (async () => {
+					const items = new Map<string, LbItem>();
+					const item = (h: string) => {
+						let it = items.get(h);
+						if (!it) items.set(h, (it = { h, entry: null, pref: cleanPref(undefined), season: null, titles: [] }));
+						return it;
+					};
+					for (const [k, v] of await this.ctx.storage.list({ prefix: 'rank:' })) item(k.slice(5)).entry = cleanLbEntry(v);
+					for (const [k, v] of await this.ctx.storage.list({ prefix: 'lbp:' })) item(k.slice(4)).pref = cleanPref(v);
+					const sp = `lbs:${sid}:`;
+					for (const [k, v] of await this.ctx.storage.list({ prefix: sp })) item(k.slice(sp.length)).season = cleanSeason(v);
+					for (const [k, v] of await this.ctx.storage.list({ prefix: 'lbt:' })) item(k.slice(4)).titles = cleanTitles(v);
+					for (const f of backlog.fns) f(items, sid);
+					this.lb = { sid, items };
+					this.lbCache.clear();
+				})().finally(() => {
+					this.lbLoading = null;
+					if (this.lbBacklog === backlog) this.lbBacklog = null;
+				});
+			}
+			await this.lbLoading;
+		}
+		return this.lb.items;
+	}
+
+	/** 全服、地区榜的排名：缓存 LB_CACHE_MS，期间的落盘不触发重排 */
+	private lbRanked(items: Map<string, LbItem>, q: LbQuery, region: string | undefined, now: number, wall: number): LbRanked[] {
+		const key = `${q.dim}|${q.scope}|${region ?? ''}`;
+		const hit = this.lbCache.get(key);
+		if (hit && wall - hit.at < this.lbTtl && wall >= hit.at) return hit.ranked;
+		const ranked = lbSort(items.values(), { dim: q.dim, scope: q.scope, region }, now);
+		this.lbCache.set(key, { at: wall, ranked });
+		return ranked;
+	}
+
+	/**
+	 * 赛季结算：上一季（以及更早没结算的）按全服赛季榜发称号。看榜时顺带检查，一个实例同时只跑一次。
+	 * 结算完删掉再上一季的赛季记录（只留当前和上一季）。中途失败下次重跑：称号按（赛季, 维度）去重，不会重复发。
+	 */
+	private lbSettle(sid: number): Promise<void> {
+		if (this.lbSettled === sid) return Promise.resolve();
+		if (!this.lbSettling) {
+			this.lbSettling = (async () => {
+				const last = await this.ctx.storage.get<number>('lbsettled');
+				let s = Number.isFinite(last) ? (last as number) + 1 : LB_FIRST_SEASON;
+				s = Math.max(s, sid - 4); // 很久没人看榜：只补最近几季
+				for (; s < sid; s++) {
+					const items = await this.lbIndex(sid);
+					const sp = `lbs:${s}:`;
+					const recs = await this.ctx.storage.list({ prefix: sp });
+					const list: LbItem[] = [];
+					for (const [k, v] of recs) {
+						const it = items.get(k.slice(sp.length));
+						const season = cleanSeason(v);
+						if (it && season) list.push({ ...it, season });
+					}
+					const tz = DAILY.tzOffsetHours * 3_600_000;
+					const start = seasonStartDay(s) * 86_400_000 - tz;
+					const end = seasonStartDay(s + 1) * 86_400_000 - tz;
+					const { awards, withheld } = lbAwards(list, s, end, start);
+					const puts: [string, unknown][] = [];
+					const titled: [string, LbItem['titles']][] = [];
+					for (const [h, add] of awards) {
+						const t = addTitles(items.get(h)?.titles ?? [], add);
+						puts.push(['lbt:' + h, t]);
+						titled.push([h, t]);
+					}
+					if (withheld.length) puts.push(['lbrev:' + s, withheld]);
+					for (let i = 0; i < puts.length; i += 100) await this.ctx.storage.put(Object.fromEntries(puts.slice(i, i + 100)));
+					await this.ctx.storage.put('lbsettled', s);
+					for (const [h, t] of titled) this.lbApply(h, { titles: t });
+					// 再上一季的赛季记录用不到了
+					const old = [...(await this.ctx.storage.list({ prefix: `lbs:${s - 1}:` })).keys()];
+					for (let i = 0; i < old.length; i += 100) await this.ctx.storage.delete(old.slice(i, i + 100));
+				}
+				this.lbSettled = sid;
+			})().finally(() => { this.lbSettling = null; });
+		}
+		return this.lbSettling;
+	}
+
+	/** board：看榜（只读）。查询参数不对时回到默认（全服 · 总榜 · 身家），和旧版净资产榜一样 */
+	private async lbBoard(body: any, id: string, st: any, now: number, wall: number): Promise<Response> {
+		const h = (await sha256Hex(id)).slice(0, 12);
+		const q = parseQuery(body);
+		const day = realDayOf(now);
+		const sid = seasonOfDay(day);
+		await this.lbSettle(sid);
+		const items = await this.lbIndex(sid);
+		const mine = items.get(h);
+		let ranked: LbRanked[];
+		let region: { id: string; name: string } | null = null;
+		if (q.board === 'friends') {
+			// 好友 = 存档里「常遇见的人」（一起做过共同事件、交易过的玩家），加上自己
+			const met = st && typeof st.met === 'object' && st.met ? Object.keys(st.met).filter((k) => HASH_RE.test(k)).slice(0, MET_MAX) : [];
+			const only = new Set([h, ...met]);
+			ranked = lbSort([...only].map((x) => items.get(x)).filter((x): x is LbItem => !!x), { dim: q.dim, scope: q.scope, only }, now);
+		} else {
+			let rid: string | undefined;
+			if (q.board === 'region') {
+				// 地区 = 本赛季登记的地区（第一次落盘时所在的州），不是现在的位置
+				rid = mine?.season?.region || areaOf(st?.loc)?.id || FULL_AREAS[0].id;
+				const a = FULL_AREAS.find((x) => x.id === rid);
+				region = { id: rid, name: a?.name ?? rid };
+			}
+			ranked = this.lbRanked(items, q, rid, now, wall);
+		}
+		const view = lbView(ranked, (x) => items.get(x), h, q, now);
+		const pref = mine?.pref ?? cleanPref(undefined);
+		return json({
+			ok: true,
+			q,
+			...view,
+			season: { id: sid, label: seasonLabel(sid), daysLeft: seasonDaysLeft(day), startDay: seasonStartDay(sid) },
+			pref: { on: pref.on, anon: pref.anon, region: pref.region, friends: pref.friends },
+			titles: (mine?.titles ?? []).slice(-10).reverse().map((t) => ({ text: titleText(t), s: t.s, dim: t.dim, tier: t.tier, rank: t.rank })),
+			region,
+			dims: LB_DIMS.map((d) => ({ id: d.id, name: d.name, icon: d.icon, allTime: d.allTime })),
+			at: now,
+		});
 	}
 
 	/** 某个存档这次用的时间：时钟回拨时沿用它上次落盘的时间（见 handleSaveLocked） */
@@ -614,15 +791,17 @@ export class EarthWorld {
 
 		if (action === 'board') {
 			if (!rec) return json({ ok: false, msg: '云端没有这个存档' }, 404);
-			// 先算好自己的键；拿到列表后立刻排名，中间不再等待，别的存档写入清掉缓存也不影响这次
-			const me = 'rank:' + (await sha256Hex(id)).slice(0, 12);
-			let rows = this.board;
-			if (!rows) {
-				const gen = this.boardGen;
-				rows = [...(await this.ctx.storage.list({ prefix: 'rank:' })).entries()];
-				if (gen === this.boardGen) this.board = rows;
-			}
-			return json({ ok: true, ...rankBoard(rows, me), at: now });
+			return this.lbBoard(body, id, rec.state, now, wall);
+		}
+		if (action === 'boardpref') {
+			// 上榜同意、匿名、地区榜、好友榜四个开关。不是游戏进度：不改存档、不要版本号
+			if (!rec) return json({ ok: false, msg: '云端没有这个存档' }, 404);
+			const h = (await sha256Hex(id)).slice(0, 12);
+			const next = patchPref(await this.ctx.storage.get('lbp:' + h), body.pref, wall);
+			if (!next) return json({ ok: false, msg: '请求无效' }, 400);
+			await this.ctx.storage.put('lbp:' + h, next);
+			this.lbApply(h, { pref: next });
+			return json({ ok: true, msg: next.on ? (next.anon ? '已匿名上榜' : '已用昵称上榜') : '已退出排行榜', pref: { on: next.on, anon: next.anon, region: next.region, friends: next.friends }, at: now });
 		}
 
 		if (action === 'create') {
@@ -645,9 +824,13 @@ export class EarthWorld {
 			// 统计：记下注册日（只存现实日序号，键是 id 哈希前缀；关了统计的玩家不记）
 			const track = body.nt !== true;
 			const day = realDayOf(now);
+			// 排行榜：新角色记下默认的上榜设置（不上榜）：只有排行榜上线前就有的旧角色没有这条，读档时据此问一次要不要上榜
+			const ch = (await sha256Hex(id)).slice(0, 12);
+			const pref = { ...LB_PREF_DEFAULT, at: now };
 			// 建号的现实日另记一份 'since:' + id：交易所的新号限制按它算，是玩法规则，和统计开不开无关（和存档一次写入）。
 			// 不能用 'born:'：那是统计的注册日（按 id 哈希、玩家关了统计就不记），合并 main 时两边撞了前缀
-			await this.persistMany([{ id, keyHash, state: created, at: now }], undefined, { ['since:' + id]: day, ...(track ? { [BORN_PREFIX + (await sha256Hex(id)).slice(0, 12)]: day } : {}) });
+			await this.persistMany([{ id, keyHash, state: created, at: now }], undefined, { ['since:' + id]: day, ['lbp:' + ch]: pref, ...(track ? { [BORN_PREFIX + ch]: day } : {}) });
+			this.lbApply(ch, { pref });
 			if (track) this.stats.add(day, { new: 1, active: 1, ...(first ? { 'eco.in.daily': first.cash } : {}) });
 			return json({ ok: true, state: publicState(created), at: now, daily: first?.msg });
 		}
@@ -676,7 +859,11 @@ export class EarthWorld {
 		if ((claim || migrated) && action === 'get') await this.persist(id, keyHash, live, now, raw);
 		if (claim && action === 'get' && body.nt !== true) await this.track(id, realDayOf(now), {}, claim);
 
-		if (action === 'get') return json({ ok: true, state: publicState(live), at: now, daily: claim?.msg });
+		if (action === 'get') {
+			// 旧玩家（排行榜改成「要本人同意」之前建的角色，还没有上榜设置）：告诉页面问一次。回答（包括「暂不上榜」）后写下设置，换设备也不再问
+			const lbAsk = !(await this.ctx.storage.get('lbp:' + (await sha256Hex(id)).slice(0, 12)));
+			return json({ ok: true, state: publicState(live), at: now, daily: claim?.msg, ...(lbAsk ? { lbAsk: true } : {}) });
+		}
 
 		if (action === 'act') {
 			// 客户端看到的版本落后（另一台设备刚玩过）：不执行，把最新存档还给它
@@ -805,9 +992,15 @@ export class EarthWorld {
 			for (const n of Array.isArray(list) ? list : []) if (n && n.author === h) notes.push({ loc: k.slice(6), text: String(n.text), at: n.at });
 		}
 		const rank = await this.ctx.storage.get('rank:' + h);
+		const sid = seasonOfDay(realDayOf(wall));
+		const lb = {
+			pref: cleanPref(await this.ctx.storage.get('lbp:' + h)),
+			titles: cleanTitles(await this.ctx.storage.get('lbt:' + h)),
+			season: cleanSeason(await this.ctx.storage.get(`lbs:${sid}:${h}`)),
+		};
 		// 真实 id 是同步码的一半：导出文件可能被转给别人，只放哈希前缀（和在线状态、榜单里一样）
 		const { id: _id, ...state } = carryUnknown(raw, publicState(current)) as PlayerState & Record<string, unknown>;
-		return { format: 'earth-save-export', v: SAVE_VERSION, exportedAt: wall, player: h, state, notes, rank: rank ?? null };
+		return { format: 'earth-save-export', v: SAVE_VERSION, exportedAt: wall, player: h, state, notes, rank: rank ?? null, leaderboard: lb };
 	}
 
 	/** 删除账号：调用方已经持有这个存档的锁。同一次 delete 删掉所有按 id、id 哈希记的键；留言按地点排队改；内存里的挂单和队伍一起清 */
@@ -824,6 +1017,7 @@ export class EarthWorld {
 				list.splice(0, list.length, ...next);
 			});
 		}
+		const sid = seasonOfDay(realDayOf(Date.now()));
 		await this.inMarket(async () => {
 			// 交易所：他挂的东西撤下（有人出价的退给出价人）；他是最高出价的拍品清掉出价（托管的钱随账号一起删）
 			const lots = await this.loadLots();
@@ -846,15 +1040,14 @@ export class EarthWorld {
 				else lots.set(k.slice(4), v as Lot);
 			}
 		});
-		await this.ctx.storage.delete(['save:' + id, 'ops:' + id, 'rank:' + h, 'h:' + h, 'notecd:' + h, 'mail:' + id, 'mops:' + id, 'since:' + id, 'xq:' + h]);
+		await this.ctx.storage.delete(['save:' + id, 'ops:' + id, 'rank:' + h, 'h:' + h, 'notecd:' + h, 'mail:' + id, 'mops:' + id, 'since:' + id, 'xq:' + h, 'lbp:' + h, 'lbt:' + h, `lbs:${sid}:${h}`, `lbs:${sid - 1}:${h}`, `lbs:${sid + 1}:${h}`]);
 		for (const [k, o] of this.offers) if (o.from === id || o.toId === id) this.offers.delete(k);
 		for (const [k, l] of this.lobbies) {
 			if (l.done) { l.done.ids = l.done.ids.filter((x) => x !== id); continue; }
 			if (l.host === id) this.lobbies.delete(k);
 			else l.members = l.members.filter((m) => m.id !== id);
 		}
-		this.boardGen++;
-		this.board = null;
+		this.lbApply(h, { remove: true });
 	}
 
 	// ---------- 共同事件 ----------
@@ -1091,7 +1284,8 @@ export class EarthWorld {
 				const noted = noteMet(r.results[i].state, people.filter((_, j) => j !== i), coopDay);
 				const met = goalOfWeek(week).metric === 'coop' ? addWeekly(noted, week) : noted;
 				if (met !== noted) counted++;
-				return { id: m.id, keyHash: m.keyHash, at: m.now, raw: m.raw, state: sanitizeState(met, locs, { fallbackLoc: region.spawn, now: m.now }) ?? met };
+				// 比赛类共同事件给每个成员记比赛积分（排行榜「比赛」维度），只记在服务端的赛季记录里，不改存档
+				return { id: m.id, keyHash: m.keyHash, at: m.now, raw: m.raw, contest: contestPoints(def.id, r.success), state: sanitizeState(met, locs, { fallbackLoc: region.spawn, now: m.now }) ?? met };
 			});
 			// 所有人和全服周计数一次写入：写失败就谁都没拿到，队伍还在、可以重试；写成功后大厅标记结束，版本号也都变了，重复开始会被拒绝
 			await this.persistMany(saves, { week, k: counted });

@@ -28,6 +28,8 @@ import { weatherAt } from '../../../src/game/core/weather.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
+import { lbEntry, type LbEntry, type LbStatKey } from '../../../src/game/core/leaderboard.ts';
+import { LB_ANOMALY } from '../../../src/game/data/leaderboard.ts';
 import { canWork, ieltsAt, visaKindNow, visaOptions } from '../../../src/game/core/immigration.ts';
 import { VISA_RULES } from '../../../src/game/data/visas.ts';
 
@@ -93,6 +95,23 @@ interface Bot {
 		prDay?: number;
 		ielts: number;
 	};
+	/** 排行榜（排行榜第一版）：每个成功动作后按服务端同一个函数算榜单记录，看异常值复核线会不会误伤正常玩法 */
+	lb: { e: LbEntry; now: number; max: Record<LbStatKey, number>; holds: number; why: string[] };
+}
+
+/** 模拟里的现实时间：每个成功动作算 10 秒（一小时 360 个动作，比真人快），只用于净资产一小时涨幅检查 */
+const LB_SIM_STEP_MS = 10_000;
+const LB_KEYS: LbStatKey[] = ['worth', 'respect', 'dex', 'places'];
+function trackLb(b: Bot) {
+	const prev = b.lb.e;
+	b.lb.now += LB_SIM_STEP_MS;
+	const e = lbEntry(b.s, b.lb.now, prev, { places: WA.pois.length });
+	for (const k of LB_KEYS) b.lb.max[k] = Math.max(b.lb.max[k], e.stats[k] - prev.stats[k]);
+	if (e.hold && e.hold.at === b.lb.now) {
+		b.lb.holds++;
+		if (b.lb.why.length < 3) b.lb.why.push(e.hold.why);
+	}
+	b.lb.e = e;
 }
 
 const GIG_IDS = ['work-mine', 'work-farm', 'work-cafe', 'busk'] as const;
@@ -244,6 +263,7 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		return false;
 	}
 	b.s = r.state;
+	trackLb(b);
 	const key = actionKey(a);
 	b.stats.flow[key] = (b.stats.flow[key] ?? 0) + (b.s.cash - before.cash);
 	recordEco(ecoOf(b), a.t, key, b.s.cash - before.cash);
@@ -413,6 +433,7 @@ function tryCoop(b: Bot): boolean {
 	if (r.success) b.stats.coopOk++;
 	b.stats.coopKinds[open.def.id] = (b.stats.coopKinds[open.def.id] ?? 0) + 1;
 	b.s = me.state;
+	trackLb(b);
 	return true;
 }
 
@@ -582,6 +603,7 @@ function runBot(plan: Plan, seed: number): Bot {
 	const b: Bot = {
 		s, plan, rng: mulberry(seed * 7919),
 		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0 },
+		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
 	let lastDay = dayOf(s.clock);
@@ -629,6 +651,7 @@ const skillRows: [string, number[]][] = [];
 const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
 const coopRows: string[] = [];
+const lbRows: string[] = [];
 const visaRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
 for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
@@ -689,6 +712,13 @@ for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 		const travel = bots.reduce((n, b) => n + b.stats.diag.collapseTravel, 0) / RUNS;
 		collapseDiagRows.push(`| ${plan.name} | ${beforeText} | 饱食 ${causes[0].toFixed(2)}，精力 ${causes[1].toFixed(2)}，同时 ${causes[2].toFixed(2)}，其他 ${causes[3].toFixed(2)} | ${travel.toFixed(2)} | ${common} |`);
 	}
+	{
+		const mx = (k: LbStatKey) => bots.map((b) => b.lb.max[k]);
+		const flagged = bots.filter((b) => b.lb.holds > 0);
+		const why = flagged.flatMap((b) => b.lb.why).slice(0, 2).join('；') || '—';
+		const endMed = (k: LbStatKey) => pct(bots.map((b) => b.lb.e.stats[k]), 0.5);
+		lbRows.push(`| ${plan.name} | ${money(pct(mx('worth'), 0.99))} / ${money(Math.max(...mx('worth')))} | ${pct(mx('respect'), 0.99)} / ${Math.max(...mx('respect'))} | ${pct(mx('dex'), 0.99)} / ${Math.max(...mx('dex'))} | ${(flagged.length / bots.length * 100).toFixed(0)}% | ${why} | ${money(endMed('worth'))} / ${endMed('respect')} / ${endMed('dex')}‰ |`);
+	}
 	out(`| ${plan.name} | ${money(pct(at(7), 0.5))} | ${money(pct(at(30), 0.5))} | ${money(pct(at(endD), 0.5))} | ${money(pct(at(endD), 0.1))}–${money(pct(at(endD), 0.9))} | ${money(net)} | ${money(pct(bots.map((b) => netWorth(b.s)), 0.5))} | ${(() => { const d = bots.map((b) => b.stats.homeDay).filter((x): x is number => x !== undefined); return d.length > bots.length / 2 ? `第 ${pct(d, 0.5)} 天` : '—'; })()} | ${m.toFixed(0)} | ${coll.toFixed(2)} | ${ev.toFixed(2)} | ${pr.toFixed(2)} | ${promoCol} | ${(broke * 100).toFixed(0)}% |`);
 	// 结构化结果（--format=json / csv、基线、A/B 用）：和上面这一行同一批机器人、同一套口径
 	const eco = averageEco(bots.map((b) => ecoOf(b)), DAYS);
@@ -738,6 +768,14 @@ out();
 out('| 策略 | 参加次数/人 | 成功率 | 每人每天净现金 | 各种类次数/人 |');
 out('| --- | --- | --- | --- | --- |');
 for (const row of coopRows) out(row);
+out();
+out('## 排行榜（排行榜第一版）');
+out();
+out(`每个成功动作后用服务端同一个函数（core/leaderboard.ts 的 lbEntry）算榜单记录。看的是：正常玩法下单个动作最多能涨多少、会不会碰到异常值复核线（data/leaderboard.ts 的 LB_ANOMALY：净资产 ${money(LB_ANOMALY.worthPerRev)}/动作、${money(LB_ANOMALY.worthPerHour)}/小时，声望 ${LB_ANOMALY.respectPerRev}/动作，图鉴 ${LB_ANOMALY.dexPerRev}‰/动作，打卡 ${LB_ANOMALY.placesPerRev}/动作，均待平衡）。现实时间按每个动作 ${LB_SIM_STEP_MS / 1000} 秒算。机器人不用真实定位，打卡一列恒为 0，没有列出；比赛积分只在服务端记，这里不模拟。`);
+out();
+out('| 策略 | 单个动作最大涨幅：净资产（p99 / 最大） | 声望（p99 / 最大） | 图鉴‰（p99 / 最大） | 触发复核的机器人 | 触发原因（举例） | 期末净资产 / 声望 / 图鉴（中位） |');
+out('| --- | --- | --- | --- | --- | --- | --- |');
+for (const row of lbRows) out(row);
 out();
 out('## 签证路线（第 43 批，只有留学生出身）');
 out();

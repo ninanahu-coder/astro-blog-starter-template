@@ -42,10 +42,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *     未压缩 582,723 → 598,580，上限 585,100 → 601,600。
  *   - 世界事件：六个宏观指标、新闻文案、世界经济卡，gzip 190,990 → 194,352（+3.4KB），上限 191,800 → 195,500；
  *     未压缩 599,223 → 610,177，上限 601,600 → 613,400。
+ *   - 排行榜：榜单卡片、上榜设置和一次性上榜提示（ui/board.ts）、榜单规则，gzip 194,352 → 196,313（+2.0KB），上限 195,500 → 197,300；
+ *     未压缩 610,177 → 616,064，上限 613,400 → 618,900。
  */
-export const FIRST_SCREEN_MAX = 613_400;
+export const FIRST_SCREEN_MAX = 618_900;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 195_500;
+export const FIRST_SCREEN_GZIP_MAX = 197_300;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
