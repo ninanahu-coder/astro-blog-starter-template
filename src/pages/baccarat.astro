@@ -43,6 +43,7 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 			<section class="table">
 				<div class="table-info">
 					<span id="shoe-info">牌靴 —</span>
+					<span class="streak-badge hidden" id="streak"></span>
 					<span class="free-note">虚拟筹码 · 仅供娱乐</span>
 				</div>
 				<div class="hands">
@@ -77,10 +78,25 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 					<span class="road-tabs">
 						<button class="road-tab" data-tab="bead">珠盘</button>
 						<button class="road-tab" data-tab="big">大路</button>
+						<button class="road-tab" data-tab="derived">下三路</button>
 					</span>
 				</div>
 				<div class="road" id="road"></div>
 				<div class="road bigroad hidden" id="bigroad"></div>
+				<div class="road derived hidden" id="derivedroad">
+					<div class="drow">
+						<span class="dlabel">大眼仔</span>
+						<div class="dgrid" id="dgrid-1"></div>
+					</div>
+					<div class="drow">
+						<span class="dlabel">小路</span>
+						<div class="dgrid" id="dgrid-2"></div>
+					</div>
+					<div class="drow">
+						<span class="dlabel">曱甴路</span>
+						<div class="dgrid" id="dgrid-3"></div>
+					</div>
+				</div>
 			</section>
 
 			<section class="bets">
@@ -480,6 +496,8 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 			const msgEl = $('msg');
 			const roadEl = $('road');
 			const bigRoadEl = $('bigroad');
+			const derivedRoadEl = $('derivedroad');
+			const streakEl = $('streak');
 			const dealBtn = $('btn-deal') as HTMLButtonElement;
 			const clearBtn = $('btn-clear') as HTMLButtonElement;
 			const rebetBtn = $('btn-rebet') as HTMLButtonElement;
@@ -665,20 +683,113 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				bigRoadEl.scrollLeft = bigRoadEl.scrollWidth;
 			}
 
+			// ---------- 路单（下三路：大眼仔 / 小路 / 曱甴路） ----------
+			function bigRoadCols(road: RoundResult[]) {
+				// 忽略和局，统计大路每列（边 + 长度）
+				const cols: { side: 'B' | 'P'; len: number }[] = [];
+				for (const e of road) {
+					if (e.r === 'T') continue;
+					const last = cols[cols.length - 1];
+					if (last && last.side === e.r) last.len++;
+					else cols.push({ side: e.r, len: 1 });
+				}
+				return cols;
+			}
+			function derivedRoad(road: RoundResult[], k: number): boolean[] {
+				// k: 1=大眼仔 2=小路 3=曱甴路；返回 true=红 false=蓝
+				const cols = bigRoadCols(road);
+				const out: boolean[] = [];
+				for (let c = 0; c < cols.length; c++) {
+					for (let m = 0; m < cols[c].len; m++) {
+						if (!(m === 0 ? c >= k + 1 : c >= k)) continue;
+						let red: boolean;
+						if (m === 0) red = cols[c - 1].len === cols[c - 1 - k].len; // 齐整=红
+						else red = cols[c - k].len !== m; // 有对应格(len>m)或直落(len<m)=红；恰好断(len===m)=蓝
+						out.push(red);
+					}
+				}
+				return out;
+			}
+			function renderDerivedRoads() {
+				for (const k of [1, 2, 3]) {
+					const grid = $('dgrid-' + k);
+					grid.innerHTML = '';
+					const seq = derivedRoad(history, k);
+					// 同色续列向下（最多 6 行），第 7 个起沿底行右移；变色开新列
+					let col = 0;
+					let row = 0;
+					let maxCol = -1;
+					let prev: boolean | null = null;
+					for (const red of seq) {
+						if (prev === null) {
+							col = 0;
+							row = 0;
+						} else if (red !== prev) {
+							col = maxCol + 1;
+							row = 0;
+						} else if (row < 5) {
+							row++;
+						} else {
+							col++;
+						}
+						prev = red;
+						if (col > maxCol) maxCol = col;
+						const cell = document.createElement('span');
+						cell.className = `dcell dcell-${k} ${red ? 'dred' : 'dblue'}`;
+						cell.style.gridColumn = String(col + 1);
+						cell.style.gridRow = String(row + 1);
+						grid.appendChild(cell);
+					}
+					grid.style.gridTemplateColumns = `repeat(${Math.max(maxCol + 1, 1)}, 14px)`;
+					grid.scrollLeft = grid.scrollWidth;
+				}
+			}
+
+			// ---------- 连胜徽章 ----------
+			function renderStreak() {
+				let side: 'B' | 'P' | null = null;
+				let n = 0;
+				for (let i = history.length - 1; i >= 0; i--) {
+					const r = history[i].r;
+					if (r === 'T') continue;
+					if (side === null) side = r;
+					if (r !== side) break;
+					n++;
+				}
+				if (side && n >= 3) {
+					streakEl.textContent = `${n >= 5 ? '🔥 ' : ''}${side === 'B' ? '庄' : '闲'} ${n} 连`;
+					streakEl.className = 'streak-badge streak-' + side;
+				} else {
+					streakEl.textContent = '';
+					streakEl.className = 'streak-badge hidden';
+				}
+			}
+
 			function renderRoads() {
 				renderRoad();
 				renderBigRoad(history);
+				renderDerivedRoads();
+				renderStreak();
 			}
 
-			let roadTab: 'bead' | 'big' = localStorage.getItem('baccarat_road_tab') === 'big' ? 'big' : 'bead';
+			const savedRoadTab = localStorage.getItem('baccarat_road_tab');
+			let roadTab: 'bead' | 'big' | 'derived' =
+				savedRoadTab === 'big' || savedRoadTab === 'derived' ? savedRoadTab : 'bead';
 			function applyRoadTab() {
 				roadEl.classList.toggle('hidden', roadTab !== 'bead');
 				bigRoadEl.classList.toggle('hidden', roadTab !== 'big');
+				derivedRoadEl.classList.toggle('hidden', roadTab !== 'derived');
 				document.querySelectorAll<HTMLElement>('.road-tab').forEach((b) => {
 					b.classList.toggle('sel', b.dataset.tab === roadTab);
 				});
-				const el = roadTab === 'big' ? bigRoadEl : roadEl;
-				el.scrollLeft = el.scrollWidth;
+				if (roadTab === 'derived') {
+					derivedRoadEl.querySelectorAll<HTMLElement>('.dgrid').forEach((g) => {
+						g.scrollLeft = g.scrollWidth;
+					});
+				} else {
+					const el = roadTab === 'big' ? bigRoadEl : roadEl;
+					el.scrollLeft = el.scrollWidth;
+				}
 			}
 
 			// ---------- 下注 ----------
@@ -1122,7 +1233,8 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 			});
 			document.querySelectorAll<HTMLElement>('.road-tab').forEach((btn) => {
 				btn.addEventListener('click', () => {
-					roadTab = btn.dataset.tab === 'big' ? 'big' : 'bead';
+					const t = btn.dataset.tab;
+					roadTab = t === 'big' || t === 'derived' ? t : 'bead';
 					localStorage.setItem('baccarat_road_tab', roadTab);
 					applyRoadTab();
 					sfxClick();
@@ -1372,8 +1484,26 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 			.table-info {
 				display: flex;
 				justify-content: space-between;
+				align-items: center;
 				font-size: 11px;
 				color: #9cc7b3;
+			}
+			.streak-badge {
+				font-size: 11px;
+				font-weight: 700;
+				line-height: 1;
+				color: #fff;
+				border-radius: 999px;
+				padding: 3px 9px;
+				white-space: nowrap;
+			}
+			.streak-B {
+				background: var(--red);
+				box-shadow: 0 0 10px rgba(216, 64, 74, 0.55);
+			}
+			.streak-P {
+				background: var(--blue);
+				box-shadow: 0 0 10px rgba(61, 123, 233, 0.55);
 			}
 			.hands {
 				flex: 1;
@@ -1725,6 +1855,68 @@ const description = '移动端百家乐小游戏：完整补牌规则、路单�
 				line-height: 1;
 				color: var(--green);
 				z-index: 1;
+			}
+
+			/* 下三路（大眼仔 / 小路 / 曱甴路） */
+			.road.derived {
+				display: flex;
+				flex-direction: column;
+				gap: 5px;
+			}
+			.drow {
+				display: flex;
+				align-items: flex-start;
+				gap: 6px;
+			}
+			.drow + .drow {
+				border-top: 1px solid rgba(0, 0, 0, 0.08);
+				padding-top: 5px;
+			}
+			.dlabel {
+				flex: none;
+				width: 42px;
+				font-size: 10px;
+				font-weight: 700;
+				color: #8a9a90;
+				line-height: 14px;
+			}
+			.dgrid {
+				flex: 1;
+				display: grid;
+				grid-auto-flow: row;
+				grid-template-rows: repeat(6, 14px);
+				gap: 2px;
+				overflow-x: auto;
+				scrollbar-width: thin;
+			}
+			.dcell {
+				width: 14px;
+				height: 14px;
+			}
+			.dcell-1 {
+				border-radius: 50%;
+				border: 2px solid;
+			}
+			.dcell-1.dred {
+				border-color: var(--red);
+			}
+			.dcell-1.dblue {
+				border-color: var(--blue);
+			}
+			.dcell-2 {
+				border-radius: 50%;
+			}
+			.dcell-2.dred {
+				background: var(--red);
+			}
+			.dcell-2.dblue {
+				background: var(--blue);
+			}
+			.dcell-3.dred {
+				background: linear-gradient(45deg, transparent 41%, var(--red) 41% 59%, transparent 59%);
+			}
+			.dcell-3.dblue {
+				background: linear-gradient(45deg, transparent 41%, var(--blue) 41% 59%, transparent 59%);
 			}
 
 			/* 下注区 */
