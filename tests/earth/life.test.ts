@@ -76,12 +76,12 @@ test('租房：首周租金、按周扣租、付不起被收回', () => {
 	assert.ok(homesAt(s, WA).some((o) => o.home.id === 'beach'), '珀斯有海滩，可租海景小屋');
 	const r = rentHome(s, WA, 'room');
 	assert.ok(r.ok);
-	assert.equal(r.state.cash, 840);
+	assert.equal(r.state.cash, 840 - 320, '首周 $160 + 押金 2 周 $320（第 26 批）');
 	assert.equal(r.state.nextWeek, 7);
 	// 第 8 天睡一觉：自动扣第二周
 	const later = performActivity({ ...r.state, clock: at(20, 6) }, WA, 'sleep-camp').state;
 	assert.equal(later.nextWeek, 14);
-	assert.equal(later.cash, 840 - 160 - 25, '房租 + 轿车保险');
+	assert.equal(later.cash, 520 - 160 - 25, '房租 + 轿车保险');
 	// 没钱：被收回
 	const broke = performActivity({ ...r.state, cash: 10, clock: at(20, 6) }, WA, 'sleep-camp').state;
 	assert.equal(broke.home, null);

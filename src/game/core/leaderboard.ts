@@ -147,7 +147,8 @@ export function lbEntry(state: PlayerState, now: number, prev?: unknown, caps?: 
 	const old = cleanLbEntry(prev);
 	const ats = Object.fromEntries(STAT_KEYS.map((k) => [k, old && old.stats[k] === stats[k] && old.ats[k] <= now ? old.ats[k] : now])) as Record<LbStatKey, number>;
 	const why = lbAnomaly(old, stats, state.rev, now, LB_ANOMALY, caps);
-	const hold = why ? { at: now, until: now + LB_HOLD_DAYS * DAY_MS, why } : old && lbHeld(old, now) ? old.hold : null;
+	// 到期后也保留最近一次挂起（是否还藏着看 lbHeld 的 until）：赛季结算按它判断「这一季被挂起过」，到期就清掉会让挂起过的人照样领奖（合并 main 后复核）
+	const hold = why ? { at: now, until: now + LB_HOLD_DAYS * DAY_MS, why } : old?.hold ?? null;
 	const win = old && now - old.win.at <= HOUR_MS && old.win.at <= now ? old.win : { at: now, worth: old ? Math.min(old.stats.worth, stats.worth) : stats.worth };
 	return { name: state.name, avatar: state.avatar, worth: stats.worth, day: dayOf(state.clock), at: ats.worth, stats, ats, rev: state.rev, win, hold };
 }
@@ -418,7 +419,8 @@ export function lbAwards(items: LbItem[], sid: number, seasonEndMs: number, seas
 	for (const d of LB_DIMS) {
 		// 结算看的是「这一季里有没有被挂起过」，用赛季结束时刻判断公开与否：结算晚几天跑也是同一个结果
 		const tainted = (it: LbItem) => !!it.entry?.hold && it.entry.hold.at < seasonEndMs && it.entry.hold.until > seasonStartMs;
-		const ranked = lbSort(items.map((it) => (it.entry?.hold && !tainted(it) ? { ...it, entry: { ...it.entry, hold: null } } : it)), { dim: d.id, scope: 'season' }, seasonEndMs);
+		// 这一季被挂起过的人不进发奖名次（挂起已经到期的也一样，lbSort 只藏还没到期的）；别的赛季的挂起去掉，不影响这一季（合并 main 后复核）
+		const ranked = lbSort(items.filter((it) => !tainted(it)).map((it) => (it.entry?.hold ? { ...it, entry: { ...it.entry, hold: null } } : it)), { dim: d.id, scope: 'season' }, seasonEndMs);
 		// 被挂起的人排在 lbSort 之外：单独找出他们本来的名次，记进复核名单
 		const held = lbSort(items.filter(tainted).map((it) => ({ ...it, entry: { ...it.entry!, hold: null } })), { dim: d.id, scope: 'season' }, seasonEndMs);
 		for (const x of held) {

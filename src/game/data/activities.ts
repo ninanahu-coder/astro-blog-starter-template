@@ -11,8 +11,8 @@ export const ACTIVITIES: Activity[] = [
 	{ id: 'snorkel', name: '浮潜', icon: '🤿', tags: ['reef'], exposed: 'sea', minutes: 120, fx: { moodlet: 'good-time', cash: -45, needs: { fun: 45, energy: -18 }, skills: { swimming: 3 }, respect: 1 }, requires: { cash: 45, skill: { swimming: 15 } }, hours: [7, 16], desc: '珊瑚礁浮潜，需要一点水性。' },
 	{ id: 'surf', name: '冲浪', icon: '🏄', tags: ['surf'], exposed: 'sea', minutes: 120, fx: { moodlet: 'good-time', needs: { fun: 40, energy: -25 }, skills: { stamina: 2.5, swimming: 1.5 }, respect: 1 }, requires: { skill: { swimming: 20 } }, hours: [5, 19], desc: '世界级浪点。' },
 	{ id: 'storm-watch', name: '看风暴', icon: '🌊', tags: ['beach'], weather: ['storm'], minutes: 60, fx: { needs: { fun: 25, energy: -5 }, skills: { survival: 1 } }, desc: '找个安全的高处，看巨浪一排排拍上岸。只在风暴天有。' },
-	{ id: 'sunrise', name: '看日出', icon: '🌅', tags: ['beach'], weather: ['sunny', 'cloudy', 'hot'], hours: [5, 8], minutes: 45, fx: { needs: { fun: 20, energy: -3 } }, desc: '早起一点，在海边看天一点点亮起来。只在不下雨的清晨（5 点到 8 点）。' },
-	{ id: 'stargaze', name: '看星星', icon: '🌌', kinds: ['outback', 'park'], weather: ['sunny', 'cloudy', 'hot'], hours: [20, 2], minutes: 90, fx: { needs: { fun: 30, energy: -8 }, skills: { survival: 1 } }, desc: '离城市够远，银河清清楚楚。只在没下雨的夜里（20 点到凌晨 2 点）。' },
+	{ id: 'sunrise', name: '看日出', icon: '🌅', tags: ['beach'], weather: ['sunny', 'cloudy', 'hot', 'cold'], hours: [5, 8], minutes: 45, fx: { needs: { fun: 20, energy: -3 } }, desc: '早起一点，在海边看天一点点亮起来。只在不下雨的清晨（5 点到 8 点）。' },
+	{ id: 'stargaze', name: '看星星', icon: '🌌', kinds: ['outback', 'park'], weather: ['sunny', 'cloudy', 'hot', 'cold'], hours: [20, 2], minutes: 90, fx: { needs: { fun: 30, energy: -8 }, skills: { survival: 1 } }, desc: '离城市够远，银河清清楚楚。只在没下雨的夜里（20 点到凌晨 2 点）。' },
 	{ id: 'gym', name: '健身', icon: '🏋️', tags: ['gym'], minutes: 90, fx: { cash: -12, needs: { energy: -20, hygiene: -15, fun: 5 }, skills: { strength: 3, stamina: 1.5 } }, requires: { cash: 12 }, hours: [5, 23], desc: '练力量。' },
 	{ id: 'hike', name: '徒步探索', icon: '🥾', kinds: ['park', 'outback', 'coast', 'island'], minutes: 180, fx: { needs: { fun: 30, energy: -25, hygiene: -12 }, skills: { stamina: 2.5, survival: 2 }, respect: 1 }, desc: '用脚丈量这片土地。' },
 	{ id: 'pub', name: '去酒吧坐坐', icon: '🍺', tags: ['pub'], minutes: 120, fx: { moodlet: 'good-time', cash: -30, needs: { social: 50, fun: 25, energy: -8 }, skills: { charisma: 2 } }, requires: { cash: 30 }, hours: [11, 24], desc: '和本地人聊聊。' },
@@ -29,5 +29,7 @@ export const ACTIVITIES: Activity[] = [
 	{ id: 'charity-dinner', name: '慈善晚餐', icon: '🍲', kinds: ['city', 'port', 'town'], hours: [18, 19], minutes: 60, fx: { needs: { hunger: 50, social: 5, fun: -5 } }, desc: '社区厨房的免费晚饭，傍晚开放。' },
 	{ id: 'recycle', name: '捡空瓶换押金', icon: '♻️', minutes: 120, fx: { cash: 8, needs: { energy: -8, hygiene: -10, fun: -6 } }, desc: '哪里都能做，挣得最少。身无分文时凑路费用。' },
 	{ id: 'rest', name: '歇一会儿', icon: '☕', minutes: 60, fx: { needs: { energy: 4 } }, desc: '找个阴凉地方坐一小时，等上班或等店开门。' },
+	// 第 43 批：法庭判的社区服务，只有欠着小时时能做（core/law.ts）；做了不给钱、不涨能力
+	{ id: 'community-service', name: '社区服务', icon: '🧹', kinds: ['city', 'town'], minutes: 240, fx: { needs: { energy: -15, fun: -5 } }, hours: [8, 16], desc: '法庭判的社区服务，每次 4 小时。' },
 	{ id: 'lay-low', name: '低调几天', icon: '🕶️', minutes: 300, fx: { heat: -40, needs: { fun: -10, social: -10 } }, desc: '让麻烦值降下来。' },
 ];

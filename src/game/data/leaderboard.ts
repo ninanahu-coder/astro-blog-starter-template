@@ -14,7 +14,7 @@ export interface LbDimDef {
 }
 
 export const LB_DIMS: LbDimDef[] = [
-	{ id: 'worth', name: '身家', icon: '💰', allTime: true, desc: '净资产：现金 + 车 + 家具 + 房产 − 贷款。赛季榜按本赛季增长排。' },
+	{ id: 'worth', name: '身家', icon: '💰', allTime: true, desc: '净资产：现金 + 车 + 家具 + 租房押金 + 房产（扣掉贷款）+ 理财。赛季榜按本赛季增长排。' },
 	{ id: 'places', name: '打卡', icon: '📍', allTime: true, desc: '用真实定位打卡过的地点数。赛季榜按本赛季新打卡的地点数排。' },
 	{ id: 'dex', name: '图鉴', icon: '📖', allTime: true, desc: '野生动物图鉴 + 钓到过的鱼种的完成度。赛季榜按本赛季新收集的比例排。' },
 	{ id: 'respect', name: '声望', icon: '⭐', allTime: true, desc: '声望。赛季榜按本赛季增长排。' },

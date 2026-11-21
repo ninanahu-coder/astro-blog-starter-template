@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic sunset seascape, a very long white timber jetty stretching across calm turquoise water toward the horizon",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "small waves lapping on sand and a light sea breeze",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "Small calm waves roll softly toward the sandy shore in the foreground, sunlight glitters on the water surface, and pink clouds drift slowly across the sky. Coastal shrubs at the bottom left sway lightly. The jetty and its small shed stay still.",
+   "sfx": "soft wash of water over the shore"
+  }
+ ]
+}

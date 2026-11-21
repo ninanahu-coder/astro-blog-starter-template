@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import {
-	addTitles, badgeOf, cleanLbEntry, cleanPref, contestPoints, dexPermille, lbAnomaly, lbAwards, lbEntry, lbSeasonRec, lbSort, lbStats, lbView, parseQuery, patchPref,
+	addTitles, badgeOf, cleanLbEntry, cleanPref, contestPoints, dexPermille, lbAnomaly, lbAwards, lbEntry, lbHeld, lbSeasonRec, lbSort, lbStats, lbView, parseQuery, patchPref,
 	seasonDaysLeft, seasonLabel, seasonOfDay, seasonStartDay, titleText, type LbItem, type LbSeason, type LbStats,
 } from '../../src/game/core/leaderboard.ts';
 import { LB_ANOMALY, LB_CONTEST, LB_CONTEST_DAY_CAP, LB_FIRST_SEASON, LB_HOLD_DAYS } from '../../src/game/data/leaderboard.ts';
@@ -85,7 +85,27 @@ test('排行榜 core：挂起持续 LB_HOLD_DAYS 天，期间再触发从那次�
 	const e3 = lbEntry({ ...rich, rev: 3 }, 2 * DAY, e2);
 	assert.deepEqual(e3.hold, e2.hold, '正常动作不解除也不延长');
 	const e4 = lbEntry({ ...rich, rev: 4 }, LB_HOLD_DAYS * DAY + 2000, e3);
-	assert.equal(e4.hold, null, '到期解除');
+	assert.ok(!lbHeld(e4, LB_HOLD_DAYS * DAY + 2000), '到期解除：不再藏起来');
+	assert.deepEqual(e4.hold, e2.hold, '最近一次挂起留作记录，赛季结算靠它判断这一季被挂起过（合并 main 后复核）');
+	const e5 = lbEntry({ ...rich, rev: 5, cash: rich.cash + LB_ANOMALY.worthPerRev + 1 }, LB_HOLD_DAYS * DAY + 4 * 3_600_000, e4);
+	assert.ok(lbHeld(e5, LB_HOLD_DAYS * DAY + 4 * 3_600_000) && e5.hold!.at > e2.hold!.at, '到期后再触发：重新挂起');
+});
+
+test('排行榜 core：挂起在赛季中途到期，结算时照样算「这一季被挂起过」，不发奖（合并 main 后复核）', () => {
+	const s = { ...base(), rev: 1 };
+	const start = 72 * DAY, end = 100 * DAY;
+	const e1 = lbEntry(s, start + DAY);
+	const rich = { ...s, rev: 2, cash: s.cash + LB_ANOMALY.worthPerRev + 1 };
+	const e2 = lbEntry(rich, start + 2 * DAY, e1);
+	const e3 = lbEntry({ ...rich, rev: 3 }, start + 20 * DAY, e2); // 挂起早就到期
+	assert.ok(!lbHeld(e3, start + 20 * DAY));
+	const sea = { base: stats({ worth: 0 }), last: stats({ worth: 999_999 }) };
+	const items = [item('cheat', { sea }), item('p01', { sea: { base: stats({ worth: 0 }), last: stats({ worth: 100 }) } })];
+	items[0].entry!.hold = e3.hold;
+	const { awards, withheld } = lbAwards(items, 742, end, start);
+	assert.equal(awards.get('cheat')?.find((t) => t.dim === 'worth'), undefined, '挂起过的不发');
+	assert.equal(awards.get('p01')?.find((t) => t.dim === 'worth')?.tier, 'champion', '下一名补上冠军');
+	assert.deepEqual(withheld.filter((x) => x.dim === 'worth').map((x) => x.h), ['cheat']);
 });
 
 // ---------- core：同意、赛季 ----------
@@ -554,4 +574,35 @@ test('旧玩家上榜提示：弹窗三个按钮对应的设置', () => {
 	assert.deepEqual([...h.matchAll(/data-lbask="([a-z]+)"/g)].map((m) => m[1]), ['nick', 'anon', 'no']);
 	for (const m of h.matchAll(/data-lbask="([a-z]+)"/g)) assert.ok(lbAskPref(m[1]), m[1]);
 	assert.match(h, /aria-labelledby="lbask-title"/);
+});
+
+test('服务端排行榜：旧格式的榜单记录（没有 stats）开新赛季时，打卡、图鉴、声望的赛季分从 0 起，不把终身成绩算进来（合并 main 后复核）', async () => {
+	const w = makeWorld();
+	const id = 'lb-srv-legacy', c = { id, key: 'lbsrvlegacy' + 'k'.repeat(13) };
+	assert.ok((await w.call({ action: 'create', ...c, profile: { ...profile, name: '老玩家' } })).data.ok);
+	const h = await hashOf(id);
+	const rec = w.data.get('save:' + id);
+	// 玩了很久：声望 300；榜单记录是排行榜之前的旧格式（core/board.ts 写的，只有 name/avatar/worth/day/at），没有赛季记录
+	w.data.set('save:' + id, { ...rec, state: { ...rec.state, respect: 300 } });
+	for (const k of [...w.data.keys()].filter((k) => k === 'rank:' + h || k.startsWith('lbs:'))) w.data.delete(k);
+	w.data.set('rank:' + h, { name: '老玩家', avatar: '🧑', worth: rec.state.cash, day: 0, at: Date.now() - 3_600_000 });
+	const r = await w.call({ action: 'act', ...c, rev: rec.state.rev, act: { t: 'activity', id: 'rest' } });
+	assert.ok(r.data.ok, r.data.msg);
+	const sea = [...w.data.entries()].find(([k]) => k.startsWith('lbs:') && k.endsWith(':' + h))![1];
+	assert.ok(sea.base.respect >= 300, `赛季起点的声望按现在的值：${sea.base.respect}`);
+	assert.ok(sea.last.respect - sea.base.respect <= 10, '这一季的声望分只算这一季涨的');
+});
+
+test('页面：切榜时旧请求的结果作废并重拉；上榜提示盖着抽屉时 Esc、点遮罩不关抽屉；提示弹窗换扁平 emoji（合并 main 后复核）', async () => {
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	const fn = src.slice(src.indexOf('async function loadBoard('), src.indexOf('async function setBoardPref('));
+	assert.match(fn, /if \(boardLoading\) \{ if \(force\) boardAgain = true; return; \}/, '请求在路上时的强制刷新不丢');
+	assert.match(fn, /q\.dim !== lbUi\.dim \|\| q\.scope !== lbUi\.scope \|\| q\.board !== lbUi\.board\) boardAgain = true/, '回来时条件变了：结果作废');
+	assert.match(fn, /if \(boardAgain\) \{ boardAgain = false; return loadBoard\(true\); \}/, '作废后重拉');
+	const guards = [...src.matchAll(/if \(drawer && ([^)]*?)!eventResult/g)].map((m) => m[1]);
+	assert.ok(guards.length >= 2, '找得到 Esc 和点遮罩两处关抽屉的判断');
+	for (const g of guards) assert.match(g, /!lbAsk/, '上榜提示盖着时不关抽屉');
+	assert.match(src, /paint\(modal, lbAskHtml\(\)\)/);
+	assert.ok(!/setHtml\(modal, lbAskHtml\(\)\)/.test(src));
 });

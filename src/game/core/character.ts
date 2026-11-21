@@ -1,13 +1,16 @@
 // 角色创建与存档校验。初始属性参考开放世界动作游戏的“能力条”思路：
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
 import { migrateSave } from './save.ts';
+import { cleanVisa, newVisa } from './visa-save.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
-import type { Home, Job, OwnedProperty, Needs, PlayerState, Relation, Skills, Vehicle } from './types.ts';
+import type { Home, Job, OwnedProperty, Needs, Pet, PlayerState, Relation, Skills, Vehicle } from './types.ts';
+import { getPetKind, PET } from '../data/pets.ts';
+import { dayOf } from './time.ts';
 import { ITEMS } from '../data/items.ts';
 import { MAX_TRAITS } from '../data/traits.ts';
 import { NPCS } from '../data/npcs.ts';
 import { CAREERS } from '../data/careers.ts';
-import { HOMES } from '../data/housing.ts';
+import { BOND_WEEKS, HOMES } from '../data/housing.ts';
 import { CAR_KM_MAX, VEHICLES } from '../data/vehicles.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
@@ -18,20 +21,34 @@ import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { realDayOf } from './daily.ts';
+import { cleanOnboard, freshOnboard } from './onboard.ts';
 // 只用到地点和打卡点，不需要真实地点数据：用首屏版区域，页面不必为此加载 wa.venues.json
+import { cleanLaw, emptyLaw } from './law.ts';
 import { AREAS as REGION_AREAS, areaOf, WORLD_BASE } from '../data/areas-base.ts';
 import { COURSES } from '../data/courses.ts';
 import { CERTS } from '../data/certs.ts';
+import { AWARDS, PROGRAMS } from '../data/education.ts';
 import { ANIMALS, DEX_GROUPS } from '../data/wildlife.ts';
 import { FISH } from '../data/fish.ts';
 import { PHOTO_QUESTS } from '../data/photo-quests.ts';
 import { STORY } from '../data/story.ts';
+import { ACHIEVEMENTS } from '../data/achievements.ts';
+import { SIDE_QUESTS } from '../data/quests.ts';
+import { earnedTitles } from './titles.ts';
+import { TRAILS } from '../data/trails.ts';
 import { NPC_DUOS } from '../data/npc-duos.ts';
+import { CONFIDANT } from '../data/relations.ts';
 import { AREA_HISTORY, AREAS, EXPERIENCES } from '../data/experiences.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
+import { cleanEvMem, emptyMemory } from './event-rules.ts';
 import { validTraits } from './attributes.ts';
 import { WEATHERS } from '../data/weather.ts';
+import { cleanBlocked } from './safety.ts';
+
+/** 现实活动的到场纪念（第 24 批，见 core/live.ts）：存档最多记多少个、id 的格式 */
+export const LIVE_MAX = 200;
+export const LIVE_ID_RE = /^[a-z0-9-]{1,48}$/;
 
 /** 天气相册里所有合法的照片 id：地点 × 天气 */
 export const photoIds = (locIds: string[]) => new Set(locIds.flatMap((l) => WEATHERS.map((w) => `${l}|${w.id}`)));
@@ -123,6 +140,7 @@ export function createCharacter(opts: {
 		health: 100,
 		respect: 0,
 		heat: 0,
+		law: emptyLaw(),
 		needs,
 		skills,
 		vehicle: origin.vehicle,
@@ -156,18 +174,30 @@ export function createCharacter(opts: {
 		areas: [],
 		courseDays: {},
 		certs: [],
+		study: {},
+		workLog: { f: 0, min: 0 },
 		coopDays: {},
 		trades: { day: 0, out: 0, in: 0 },
 		met: {},
+		live: [],
+		blocked: {},
 		weekly: { week: 0, n: 0, claimed: false },
+		achClaimed: [],
+		side: { done: [], cur: {} },
+		title: '',
+		pet: null,
 		pending: null,
+		evMem: emptyMemory(),
+		trails: {},
 		fix: null,
 		venueCd: {},
 		venueEvAt: 0,
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
+		visa: newVisa(origin.id, Math.floor(START_CLOCK / 1440)),
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
+		onboard: freshOnboard(),
 		seed: opts.seed >>> 0,
 		rev: 0,
 	};
@@ -254,6 +284,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		health: num(r.health, 0, 100, 100),
 		respect: num(r.respect, 0, CAPS.respect, 0),
 		heat: num(r.heat, 0, 100, 0),
+		law: cleanLaw(r.law, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		needs,
 		skills,
 		vehicle: VEHICLES.some((v) => v.id === r.vehicle) ? r.vehicle : 'none',
@@ -272,6 +303,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		job: cleanJob(r.job, knownLocs),
 		// 旧存档没有这个字段：用当前工作的 lastDay 补上
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
+		visa: cleanVisa(r.visa, ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), new Set(CAREERS.map((c) => c.id))),
 		...cleanEstate(r, knownLocs),
 		holdings: (() => {
 			const out: Record<string, { units: number; cost: number }> = {};
@@ -333,7 +365,16 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			}
 			return out;
 		})(),
-		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id)),
+		certs: [...new Set(strList(r.certs, 50))].filter((id) => CERTS.some((c) => c.id === id) || AWARDS.includes(id)),
+		study: (() => {
+			const out: Record<string, { n: number; day: number }> = {};
+			for (const p of PROGRAMS) {
+				const st = r.study?.[p.id];
+				if (st && typeof st === 'object') out[p.id] = { n: Math.floor(num(st.n, 0, p.sessions, 0)), day: Math.floor(num(st.day, -1, 1e7, -1)) };
+			}
+			return out;
+		})(),
+		workLog: { f: Math.floor(num(r.workLog?.f, 0, 1e6, 0)), min: Math.floor(num(r.workLog?.min, 0, 1e6, 0)) },
 		photoQuest: Math.floor(num(r.photoQuest, 0, PHOTO_QUESTS.length, 0)),
 		story: (() => {
 			const ch = Math.floor(num(r.story?.ch, 0, STORY.length, 0));
@@ -373,6 +414,11 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			n: Math.floor(num(r.weekly?.n, 0, 1e6, 0)),
 			claimed: r.weekly?.claimed === true,
 		},
+		achClaimed: [...new Set(strList(r.achClaimed, 200))].filter((id) => ACHIEVEMENTS.some((d) => d.id === id)),
+		side: cleanSide(r.side),
+		title: '', // 下面按清洗后的来源核对
+		live: Array.isArray(r.live) ? [...new Set((r.live as unknown[]).filter((x): x is string => typeof x === 'string' && LIVE_ID_RE.test(x)))].slice(-LIVE_MAX) : [],
+		blocked: cleanBlocked(r.blocked, cleanName),
 		met: (() => {
 			const out: PlayerState['met'] = {};
 			if (r.met && typeof r.met === 'object') {
@@ -399,14 +445,20 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			}
 			return out;
 		})(),
+		pet: cleanPet(r.pet, num(r.clock, 0, CAPS.clock, START_CLOCK), knownLocs),
 		// 只留还存在的事件：事件被删掉或改名后，界面弹不出来，但其他动作都会被「先处理眼前的事件」挡住
 		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
+		evMem: cleanEvMem(r.evMem, EVENTS, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		...cleanReal(r, opts.now),
+		trails: cleanTrails(r.trails, opts.now),
 		journal,
+		onboard: cleanOnboard(r.onboard, opts.now === undefined ? undefined : realDayOf(opts.now)),
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,
 		// 版本号超出范围说明存档坏了：归零而不是钳到上限。钳到上限的话，下一次动作加一又超出，再读又被钳回去，客户端每次都版本冲突
 		rev: typeof r.rev === 'number' && Number.isFinite(r.rev) && r.rev >= 0 && r.rev < CAPS.rev ? Math.floor(r.rev) : 0,
 	};
+	// 称号必须是这份存档确实拿到的
+	if (typeof r.title === 'string' && earnedTitles(out).some((t) => t.id === r.title)) out.title = r.title;
 	// 按职业打的上班卡必须对得上一份现有的工作，否则作废：不然重新应聘同一职业就能接着用旧卡
 	if (out.clockIn?.career && out.job?.career !== out.clockIn.career) out.clockIn = null;
 	// 每日摘要：记号不能晚于现在这一天，坏了或旧存档没有就从现在算起；yday 必须在记号那天之前结束，否则丢掉
@@ -451,11 +503,45 @@ const finiteIn = (v: unknown, lo: number, hi: number) => typeof v === 'number' &
 const FUTURE_SLACK_MS = 60_000;
 
 /** 每日奖励：领取日在未来的话按「今天已领、连续天数归零」处理，不然要等到那一天才能再领 */
+/** 支线进度（第 28 批，规范见 save-sync.md §5）：只留还存在的支线，进度钳到目标次数；任何输入都不抛 */
+function cleanSide(raw: any): PlayerState['side'] {
+	const done = [...new Set(strList(raw?.done, 200))].filter((id) => SIDE_QUESTS.some((q) => q.id === id));
+	const cur: Record<string, Record<string, number>> = {};
+	const rc = raw?.cur && typeof raw.cur === 'object' && !Array.isArray(raw.cur) ? raw.cur : {};
+	for (const q of SIDE_QUESTS) {
+		// 只留还存在、没做完的支线；进度只留现有的目标，钳到目标次数
+		if (done.includes(q.id) || !Object.hasOwn(rc, q.id) || !rc[q.id] || typeof rc[q.id] !== 'object') continue;
+		const p: Record<string, number> = {};
+		for (const step of q.steps) {
+			const n = Object.hasOwn(rc[q.id], step.id) ? rc[q.id][step.id] : undefined;
+			if (typeof n === 'number' && Number.isFinite(n) && n >= 1) p[step.id] = Math.min(step.n ?? 1, Math.floor(n));
+		}
+		cur[q.id] = p;
+	}
+	return { done, cur };
+}
+
 function cleanDaily(r: any, now?: number): PlayerState['daily'] {
 	const daily = { day: Math.floor(num(r.daily?.day, 0, 1e7, 0)), streak: Math.floor(num(r.daily?.streak, 0, 1e6, 0)) };
 	if (now === undefined) return daily;
 	const today = realDayOf(now);
 	return daily.day > today ? { day: today, streak: 0 } : daily;
+}
+
+/** 主要路线进度：只留已知路线；站数钳到 0..站数；沿途标记只在走到一半时有意义；时间不能在未来 */
+function cleanTrails(raw: any, now?: number): PlayerState['trails'] {
+	const tMax = now === undefined ? 1e15 : now + FUTURE_SLACK_MS;
+	const out: PlayerState['trails'] = {};
+	if (!raw || typeof raw !== 'object') return out;
+	for (const def of TRAILS) {
+		if (!Object.hasOwn(raw, def.id)) continue;
+		const p = raw[def.id];
+		const at = Math.floor(num(p?.at, 0, def.stops.length, 0));
+		const t = finiteIn(p?.t, 0, tMax) ? Math.floor(p.t) : 0;
+		if (at === 0 && !t) continue;
+		out[def.id] = { at, leg: p?.leg === true && at > 0 && at < def.stops.length, t };
+	}
+	return out;
 }
 
 /** 真实定位相关字段：坐标只留 3 位小数，时间为非负整数且不能在未来，动作名只留已知的 */
@@ -515,7 +601,10 @@ function cleanEstate(r: any, knownLocs?: Set<string>): { properties: OwnedProper
 	if (home && typeof r.home.owned === 'string') {
 		const def = PROPERTIES.find((p) => p.id === r.home.owned);
 		const mine = properties.find((p) => p.id === r.home.owned);
-		if (def && mine && !mine.rented && def.loc === home.loc && def.homeType === home.type) home.owned = def.id;
+		if (def && mine && !mine.rented && def.loc === home.loc && def.homeType === home.type) {
+			home.owned = def.id;
+			Reflect.deleteProperty(home, 'bond'); // 自有房没有押金
+		}
 		else home = null;
 	}
 	return { properties, home };
@@ -523,12 +612,15 @@ function cleanEstate(r: any, knownLocs?: Set<string>): { properties: OwnedProper
 
 function cleanHome(raw: any, knownLocs?: Set<string>): Home | null {
 	if (!raw || typeof raw !== 'object') return null;
-	if (!HOMES.some((h) => h.id === raw.type) || typeof raw.loc !== 'string' || (knownLocs && !knownLocs.has(raw.loc))) return null;
+	const def = HOMES.find((h) => h.id === raw.type);
+	if (!def || typeof raw.loc !== 'string' || (knownLocs && !knownLocs.has(raw.loc))) return null;
 	const furniture: Record<string, string> = {};
 	if (raw.furniture && typeof raw.furniture === 'object') {
 		for (const f of FURNITURE) if (raw.furniture[f.slot] === f.id) furniture[f.slot] = f.id;
 	}
-	return { type: raw.type, loc: raw.loc, furniture };
+	// 押金（第 26 批）：不超过这种房型该交的押金；旧存档没有，按 0 算（当初没交过，也不退）
+	const bond = Math.floor(num(raw.bond, 0, Math.round(def.rentWeek * (def.bondWeeks ?? BOND_WEEKS)), 0));
+	return { type: def.id, loc: raw.loc, furniture, ...(bond ? { bond } : {}) };
 }
 
 /**
@@ -543,7 +635,7 @@ function cleanRelations(raw: unknown): Record<string, Relation> {
 		const r = (raw as Record<string, any>)[npc.id];
 		if (!r || typeof r !== 'object') continue;
 		const last: Relation['last'] = {};
-		for (const k of ['chat', 'gift', 'help', 'perk'] as const) {
+		for (const k of ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond'] as const) {
 			const d = r.last?.[k];
 			if (typeof d === 'number' && Number.isFinite(d) && d >= 0) last[k] = Math.floor(d);
 		}
@@ -554,6 +646,14 @@ function cleanRelations(raw: unknown): Record<string, Relation> {
 			: gates.filter((g) => g <= score || (r.bonded === true && g <= 60));
 		const known = Array.isArray(r.known) ? [...new Set(r.known.filter((i: unknown) => typeof i === 'string' && items.has(i)))] as string[] : [];
 		out[npc.id] = { score, last, seen, known };
+		// 知己（第 29 批）：日子是非负整数才保留；同时最多 CONFIDANT.max 位，超出的按 NPC 表顺序丢掉
+		const day = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? Math.min(1e7, Math.floor(v)) : undefined);
+		const bond = day(r.bond);
+		if (bond !== undefined && Object.values(out).filter((x) => x.bond !== undefined).length < CONFIDANT.max) {
+			out[npc.id].bond = bond;
+			const told = day(r.told);
+			if (told !== undefined) out[npc.id].told = told;
+		}
 	}
 	return out;
 }
@@ -573,4 +673,31 @@ export function formatClock(clock: number): string {
 	const day = Math.floor(clock / 1440) + 1;
 	const m = Math.floor(clock % 1440);
 	return `第${day}天 ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
+/** 存档校验：未知种类丢掉；名字过滤；日期为整数且不晚于今天；寄养地点必须存在、天数不超过上限 */
+export function cleanPet(raw: unknown, clock: number, knownLocs?: Set<string>): Pet | null {
+	if (!raw || typeof raw !== 'object') return null;
+	const r = raw as Record<string, unknown>;
+	const def = typeof r.kind === 'string' ? getPetKind(r.kind) : undefined;
+	if (!def) return null;
+	const t = dayOf(clock);
+	const day = (v: unknown, lo: number, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.floor(Math.max(lo, Math.min(t, v))) : d);
+	const since = day(r.since, 0, t);
+	const b = r.board as Record<string, unknown> | null | undefined;
+	const board = b && typeof b === 'object' && typeof b.loc === 'string' && /^[a-z0-9-]{1,40}$/.test(b.loc) && (!knownLocs || knownLocs.has(b.loc)) && typeof b.until === 'number' && Number.isFinite(b.until)
+		? { loc: b.loc, until: Math.floor(Math.max(0, Math.min(t + PET.boardMaxDays, b.until))) }
+		: null;
+	return {
+		kind: def.id,
+		name: cleanName(r.name).slice(0, PET.nameMax) || def.names[0],
+		from: r.from === 'breeder' && def.buy !== undefined ? 'breeder' : 'shelter',
+		since,
+		bond: typeof r.bond === 'number' && Number.isFinite(r.bond) ? clamp100(r.bond) : PET.startBond,
+		fedDay: day(r.fedDay, -1, since),
+		playDay: day(r.playDay, -1, -1),
+		walkDay: def.walk ? day(r.walkDay, -1, -1) : -1,
+		vetDay: day(r.vetDay, -1, since),
+		board,
+	};
 }
