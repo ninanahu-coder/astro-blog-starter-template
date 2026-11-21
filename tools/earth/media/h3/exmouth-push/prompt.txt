@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic a sunset coastal landscape, a turquoise lagoon with a fringing reef, a white sandy cove, red rocky headlands and a white lighthouse on the far hill, with the the lagoon, the reef, the headlands, the lighthouse and the composition shown in <Picture 1> preserved. From the first frame small waves roll in over the reef and break in white lines along the outer edge. The camera pushes in with small amplitude at slow speed toward the lighthouse on the far headland and comes to rest on a slightly tighter wide shot of the lighthouse and the coastline in the final second. Sunlight shimmers on the shallow turquoise water, clouds drift slowly across the sky, and the coastal shrubs in the foreground sway lightly, and the headlands and the lighthouse stay still.
+
+overall_soundscape: Waves washing over a reef and a light coastal breeze; soft wash of water on sand.
+
+non_diegetic_music: N/A

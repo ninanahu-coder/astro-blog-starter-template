@@ -50,3 +50,23 @@ export function expectedYield(def: PropertyDef): number {
 	const repair = FINANCE.repairChance * ((FINANCE.repairMin + FINANCE.repairMax) / 2) * def.price;
 	return ((def.rentIncome * (1 - FINANCE.vacancy) - def.weekly - repair) * 52) / def.price;
 }
+
+// ---------- 车辆过户印花税（第 26 批） ----------
+/**
+ * 买车时按车价交的印花税，用的是真实公式（来源见 docs/earth-game/home-and-vehicle.md）；在游戏里收不收、按什么价收是游戏设定（待平衡）。
+ * - 西澳 vehicle licence duty（轻型车）：≤ $25,000 按 2.75%；$25,000–$50,000 按 R = 2.75 + (价 − 25,000) / 6,666.66（保留两位小数）%；> $50,000 按 6.5%
+ * - 南澳非商用车：≤ $1,000 每 $100（不足按 $100）$1、最低 $5；≤ $2,000 为 $10 + 超出部分每 $100 $2；≤ $3,000 为 $30 + 每 $100 $3；以上为 $60 + 每 $100 $4
+ * 其他区域按西澳算。结果取整到元。
+ */
+export function vehicleDuty(value: number, area: string): number {
+	const v = Math.max(0, value);
+	if (area === 'sa') {
+		const per100 = (over: number) => Math.ceil(over / 100);
+		if (v <= 1000) return Math.max(5, per100(v));
+		if (v <= 2000) return 10 + 2 * per100(v - 1000);
+		if (v <= 3000) return 30 + 3 * per100(v - 2000);
+		return 60 + 4 * per100(v - 3000);
+	}
+	const rate = v <= 25000 ? 2.75 : v <= 50000 ? Math.round((2.75 + (v - 25000) / 6666.66) * 100) / 100 : 6.5;
+	return Math.round((v * rate) / 100);
+}

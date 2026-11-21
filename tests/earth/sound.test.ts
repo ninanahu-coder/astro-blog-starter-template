@@ -152,3 +152,12 @@ test('环境音和音乐跟着场景换：雨、风暴盖过地点；节日盖�
 	assert.equal(musicFor({ ...base, phase: 'night', festival: true }), 'festival:sea');
 	assert.equal(musicFor({ ...base, phase: 'noon' }), 'day:sea');
 });
+
+test('页面模板（v37，合并 main 时这几处两边都改过）：动作后按结果挑一声、盖章响一声、渲染时换环境音并补交引导动作、NPC 语音照常播放', async () => {
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(src, /toast\(`🏅 达成成就：\$\{got\.map\(\(d\) => d\.name\)\.join\('、'\)\}（去成长页领奖）`\), 1200\);\n\t*const cue = cueAfter\(\{[^\n]*\}\);\n\t*if \(cue\) sfx\(cue\);/, '成就提示带「去成长页领奖」，之后按结果挑一声');
+	assert.match(src, /\$\('c-card'\)\.classList\.add\('stamped'\);\n\t*sfx\('stamp'\);/, '入境章落下时响一声');
+	assert.match(src, /renderEvent\(\);\n\t*syncScene\(\);\n\t*if \(obPending\.length\) void flushOnboard\(\);/, '每次渲染：换环境音，再补交断网时没交上的引导动作');
+	assert.match(src, /voicePlayer = new Audio\(line\.src\);[\s\S]{0,120}voicePlayer\.play\(\)\.catch/, 'NPC 打招呼语音照常播放');
+});
