@@ -370,6 +370,21 @@ const cardLines = guilloche(400, 260, 14, 9);
 			#panel { flex: 1; padding: 12px 16px calc(var(--nav-h) + 28px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
 			.card { background: var(--card); border-radius: 20px; padding: 16px; box-shadow: 0 1px 2px var(--shadow); }
 			.card h3 { margin: 0 0 4px; font-size: 17px; font-weight: 700; }
+			.sponsor-tag { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: var(--tint-amber); color: var(--tint-amber-ink); border: 1px solid currentColor; font-size: 13px; font-weight: 700; vertical-align: middle; }
+			.sponsor-offer { margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: var(--tint-amber); color: var(--tint-amber-ink); }
+			.sponsor-offer b { display: block; }
+			.sponsor-offer small { display: block; margin-top: 2px; }
+			.redeem-card { position: relative; margin: 8px 0; padding: 12px; border-radius: 12px; border: 2px solid var(--tint-amber-ink); background: var(--tint-amber); color: var(--tint-amber-ink); text-align: center; }
+			.redeem-card p { margin: 4px 0; }
+			.redeem-card small { display: block; margin-top: 4px; }
+			.redeem-shop { display: block; font-size: 18px; margin-top: 6px; }
+			.redeem-code { display: block; font-size: 44px; letter-spacing: 8px; font-variant-numeric: tabular-nums; margin: 6px 0; }
+			.redeem-pin { display: block; margin: 10px 0 6px; font-weight: 700; }
+			.redeem-pin input { display: block; width: 100%; margin-top: 6px; font-size: 24px; letter-spacing: 6px; text-align: center; padding: 8px; }
+			.redeem-ok { display: block; font-size: 20px; margin-top: 8px; }
+			.redeem-card.done .redeem-live { animation: none; opacity: 0.4; }
+			.redeem-live { position: absolute; top: 12px; right: 12px; width: 12px; height: 12px; border-radius: 50%; background: currentColor; animation: redeem-pulse 1s ease-in-out infinite alternate; }
+			@keyframes redeem-pulse { from { opacity: 1; transform: scale(1); } to { opacity: 0.2; transform: scale(0.6); } }
 			.card p { margin: 0; color: var(--dim); font-size: 13px; }
 			.hero { height: 140px; border-radius: 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: center; font-size: 48px; background: var(--pass); overflow: hidden; }
 			.hero img, .hero video { width: 100%; height: 100%; object-fit: cover; }
@@ -801,6 +816,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { derivedStats } from '../game/core/formulas.ts';
 			import { energyCap, stress } from '../game/core/vitals.ts';
 			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
+			import { activeSponsors } from '../game/core/sponsor.ts';
+			import { SPONSORS } from '../game/data/sponsors.ts';
+			import { parseRedeemView, pinInputId, redeemCardHtml, sponsorOfferHtml, sponsorTagHtml, type RedeemView } from '../game/ui/sponsor.ts';
 			import { distM, trailsIn } from '../game/core/trails.ts';
 			import { getTrail } from '../game/data/trails.ts';
 			import { FIX_RULES } from '../game/data/venues.ts';
@@ -865,6 +883,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 
 			let state: PlayerState | null = null;
 			let cred: Cred | null = null;
+			/** 本机内存里今天领过的赞助核销卡（不写 localStorage；刷新后再点一次，服务端返回同一个码） */
+			const redeemed = new Map<string, RedeemView>();
 			let tab = 'place';
 			let selected: string | null = null;
 			// 目的地卡上选中的交通方式（只对那个目的地有效）
@@ -2759,7 +2779,18 @@ const cardLines = guilloche(400, 260, 14, 9);
 				if (!nearFix) return intro + clockHtml;
 				const list = venuesNear(s, region, nearFix.lat, nearFix.lon, nearFix.acc, srvNow());
 				if (!list.length) return intro + clockHtml + '<div class="card"><p>1.5 公里内没有收录的地点。</p></div>';
-				const cards = list.slice(0, 20).map(({ venue, type, distM, inRange, ops }) => `<div class="card"><h3>${type.icon} ${esc(venue.name)} <span class="muted">${esc(type.name)} · ${distM} 米</span></h3>
+				// 赞助只加标签和优惠说明，不改排序（仍按距离）、不改任何数值
+				const sponsored = activeSponsors(SPONSORS, srvNow());
+				const today = realDayOf(srvNow());
+				// 在店里：没领过给「使用优惠」按钮，今天领过直接给核销卡
+				const sponsorBox = (venueId: string, inRange: boolean) => {
+					const deal = sponsored.get(venueId);
+					if (!deal) return '';
+					const got = redeemed.get(deal.id);
+					if (got && got.day === today) return redeemCardHtml(got);
+					return sponsorOfferHtml(deal) + (inRange ? `<button class="row" data-redeem="${esc(deal.id)}"><span class="ico">🎟️</span><span class="body">使用优惠<small>服务器核对你在店里后，出一个今天有效的核销码给店员看</small></span></button>` : '');
+				};
+				const cards = list.slice(0, 20).map(({ venue, type, distM, inRange, ops }) => `<div class="card"><h3>${type.icon} ${esc(venue.name)}${sponsored.has(venue.id) ? sponsorTagHtml() : ''} <span class="muted">${esc(type.name)} · ${distM} 米</span></h3>${sponsorBox(venue.id, inRange)}
 					${inRange ? ops.map(({ op, outcome, blocked, voids, renews }) => {
 						const clockOut = op.id === 'work' && s.clockIn?.venue === venue.id;
 						const label = op.id === 'work' ? (voids ? '作废上班卡' : renews ? '作废旧卡并重新打卡' : clockOut ? '打下班卡' : '打上班卡') : op.name;
@@ -3004,7 +3035,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				} catch {}
 			});
 			document.addEventListener('click', (e) => {
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm]');
 				// 打开了环境音或音乐、但还没出过声：第一次点页面任何地方时解锁音频（浏览器的自动播放限制）
 				if (!audio && (prefs.ambience || prefs.music)) { try { ensureAudio(); } catch {} syncScene(); }
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
@@ -3154,6 +3185,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 				else if ('locate' in d) locate().then((f) => { if (f) renderPanel(); });
 				else if (d.venue && d.venueOp) venueDo(d.venue, d.venueOp as VenueOp);
 				else if (d.trail) trailDo(d.trail);
+				else if (d.redeem) void redeemDo(d.redeem);
+				else if (d.redeemConfirm) void redeemConfirm(d.redeemConfirm);
 				else if (d.emote && d.to) { ws?.send(JSON.stringify({ t: 'emote', to: d.to, kind: d.emote })); toast(`你向对方 ${d.emote}`); }
 				else if ('qr' in d) {
 					if (qrHtml) { qrHtml = ''; renderPanel(); }
@@ -3252,11 +3285,45 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const f = await locate();
 				if (!f || !state) return;
 				if (state.loc !== t.loc) {
-					const g = await act({ t: 'gps', lat: f.lat, lon: f.lon });
+					const g = await act({ t: 'gps', lat: f.lat, lon: f.lon, acc: f.acc }); // 定位精度必须带上，否则 GPS 防作弊按旧页面拒绝
 					if (!g || state.pending) { render(); return; }
 				}
 				const r = await act({ t: 'trail', lat: f.lat, lon: f.lon, acc: f.acc });
 				if (r) { lastOutcome = r.msg; toast(r.msg); }
+				render();
+			}
+
+			/** 商户赞助的优惠：重新定位，服务端核对在店里后发核销码；不改存档 */
+			async function redeemDo(dealId: string) {
+				if (!cred || busy) return;
+				const f = await locate();
+				if (!f) return;
+				try {
+					const { data } = await api({ action: 'redeem', op: 'claim', id: cred.id, key: cred.key, deal: dealId, lat: f.lat, lon: f.lon, acc: f.acc });
+					const view = data?.ok ? parseRedeemView(data.redeem) : null;
+					if (view) redeemed.set(view.deal, view);
+					toast(typeof data?.msg === 'string' ? data.msg : view ? '已领取' : '没领到，稍后再试');
+				} catch {
+					toast('联网后才能用优惠');
+				}
+				render();
+			}
+
+			/** 店员在玩家手机上输入店铺 PIN，确认核销（只有确认过的才向商户计费） */
+			async function redeemConfirm(dealId: string) {
+				if (!cred || busy) return;
+				const input = document.getElementById(pinInputId(dealId)) as HTMLInputElement | null;
+				const pin = (input?.value ?? '').trim();
+				if (!/^\d{6}$/.test(pin)) { toast('PIN 是 6 位数字'); return; }
+				try {
+					const { data } = await api({ action: 'redeem', op: 'confirm', id: cred.id, key: cred.key, deal: dealId, pin });
+					if (input) input.value = '';
+					const view = data?.ok ? parseRedeemView(data.redeem) : null;
+					if (view) redeemed.set(view.deal, view);
+					toast(typeof data?.msg === 'string' ? data.msg : view ? '核销成功' : '没确认成功，稍后再试');
+				} catch {
+					toast('联网后才能确认');
+				}
 				render();
 			}
 

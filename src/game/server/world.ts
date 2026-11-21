@@ -22,6 +22,8 @@ import { boardEntry, rankBoard } from '../core/board.ts';
 import type { PlayerState, Region } from '../core/types.ts';
 import { FULL_AREAS, WORLD } from '../data/wa.ts';
 import { areaOf } from '../data/areas-base.ts';
+import { liveDeal, monthOfDay, redeemCode, redeemProblem, statementFor } from '../core/sponsor.ts';
+import { SPONSORS, type SponsorDeal } from '../data/sponsors.ts';
 import { actionCounts, BORN_KEEP_DAYS, BORN_PREFIX, cleanBatch, funnelSteps, mergeDays, READ_MAX_DAYS, StatsBuffer, STATS_BODY_MAX, type Counts, type FunnelStep } from './stats.ts';
 import { ipKey, RateLimiter, readBounded } from './ratelimit.ts';
 
@@ -61,6 +63,13 @@ const CONFLICT_MSG = '进度刚刚更新过（另一台设备，或别的玩家�
 const OFFER_RE = /^[a-f0-9]{10}$/;
 const NOTE_RE = /^[a-f0-9]{8}$/;
 const HASH_RE = /^[a-f0-9]{12}$/;
+const PIN_RE = /^\d{6}$/;
+const PIN_TRIES_PLAYER = 5; // 每个玩家每条赞助每天最多输错这么多次 PIN
+const PIN_TRIES_DEAL = 100; // 每条赞助每天合计最多输错这么多次，超过当天锁定（6 位 PIN 有一百万种，一天最多猜中万分之一）
+/** 一个玩家某天在某条赞助的核销记录：at 领码时间，ok 店员确认时间，tries 输错 PIN 次数 */
+interface RedeemRec { at: number; ok?: number; tries: number }
+/** 店员 PIN：只存加盐哈希 */
+interface PinRec { salt: string; hash: string }
 const OFFER_TTL_MS = 30 * 60 * 1000; // 送礼、二手摊的挂单 30 分钟没人接就撤下
 const OFFER_MAX = 500;
 const OFFER_PER_PLAYER = 3; // 每人同时挂着的送礼 + 二手摊最多 3 件
@@ -170,14 +179,21 @@ export class EarthWorld {
 	private stats: StatsBuffer; // 统计计数（见 stats.ts）：内存里攒一会儿再合并落盘
 	private statsRate = new Map<string, { n: number; resetAt: number }>();
 
-	constructor(ctx: DurableObjectState, _env: unknown) {
+	private sponsorToken: string; // 商户对账单接口的令牌（Workers 机密 EARTH_SPONSOR_TOKEN）；没配置就不开放这个接口
+	private redeemChain: Promise<unknown> = Promise.resolve(); // 核销计数排队写入：每天、每月的计数是所有玩家共用的
+
+	constructor(ctx: DurableObjectState, env: unknown) {
 		this.ctx = ctx;
 		this.stats = new StatsBuffer(ctx.storage as never);
+		const t = (env as { EARTH_SPONSOR_TOKEN?: unknown } | null)?.EARTH_SPONSOR_TOKEN;
+		this.sponsorToken = typeof t === 'string' && t.length >= 32 ? t : '';
 	}
 
 	async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
 		if (url.pathname === '/api/earth/save') return this.handleSave(request);
+		if (url.pathname === '/api/earth/sponsor-report') return this.handleSponsorReport(request, url);
+		if (url.pathname === '/api/earth/sponsor-pin') return this.handleSponsorPin(request);
 		if (url.pathname === '/api/earth/stats') return this.handleStats(request);
 		// 只有 routeEarth 核对过查询令牌后才会转到这里（外部请求到不了这个路径）
 		if (url.pathname === '/api/earth/stats/read') return this.handleStatsRead(url);
@@ -698,6 +714,7 @@ export class EarthWorld {
 			await this.deleteAccount(id);
 			return json({ ok: true, msg: '账号和云端存档已删除', at: wall });
 		}
+		if (action === 'redeem') return this.handleRedeem(body, id, current, region, now);
 		if (action === 'notes') {
 			// notes { op: 'list' }：这个地点的留言；{ op: 'post', text }：留一句；{ op: 'delete', note }：删自己的
 			const loc = current.loc;
@@ -811,6 +828,130 @@ export class EarthWorld {
 	// coop { op: 'leave', lobby }                退出；发起人退出就解散
 	// coop { op: 'start', lobby, rev }           发起人开始：重新检查每个成员，人够就结算并写所有人的存档
 	// 大厅的过期和结果时间用服务器真实时间（wall），不用为防时钟回拨而沿用的存档时间
+	/**
+	 * 商户赞助的核销，分两步，都只读存档、不改存档：
+	 * 1. redeem { op: 'claim', deal, lat, lon, acc }：人在店里才发核销码。同一个玩家、同一条赞助、同一个珀斯日期只有一个码，再点返回同一个。
+	 *    这一步只记「领了」（当月领取数，给商户参考），不计费。
+	 * 2. redeem { op: 'confirm', deal, pin }：店员在玩家手机上输入这家店的 PIN，输对才算核销一次，当天、当月核销数各加一，
+	 *    对账单只按这个数收费。商户设了每日上限时，到上限就不再发码、也不再确认。
+	 * PIN 由运营用对账令牌通过 /api/earth/sponsor-pin 生成，只存加盐哈希。试错：每人每条赞助每天 5 次，每条赞助每天合计 100 次，超过当天锁定。
+	 */
+	private async handleRedeem(body: any, id: string, state: PlayerState, region: Region, now: number): Promise<Response> {
+		const dealId = typeof body.deal === 'string' ? body.deal.slice(0, 80) : '';
+		const day = realDayOf(now);
+		const hash = (await sha256Hex(id)).slice(0, 12);
+		if (body.op === 'confirm') return this.confirmRedeem(dealId, typeof body.pin === 'string' ? body.pin : '', hash, day, region, now);
+		const req = { deal: dealId, lat: Number(body.lat), lon: Number(body.lon), acc: Number(body.acc) };
+		const bad = redeemProblem(state, region.venues, SPONSORS, req, now);
+		if (bad) return json({ ok: false, msg: bad, at: now });
+		const deal = liveDeal(SPONSORS, dealId, now)!;
+		const code = redeemCode(await sha256Hex(`${deal.id}:${day}:${hash}`));
+		const view = (confirmed: boolean) => this.redeemView(deal, region, code, day, confirmed);
+		return this.inRedeem(async () => {
+			const mine = `rd:${deal.id}:${day}:${hash}`;
+			const rec = await this.ctx.storage.get<RedeemRec>(mine);
+			if (rec) return json({ ok: true, dup: true, msg: rec.ok ? '今天已经核销过这张优惠。' : '今天已经领过这张优惠，给店员看同一个核销码就行。', redeem: view(!!rec.ok), at: now });
+			const n = Number((await this.ctx.storage.get<number>(`rdd:${deal.id}:${day}`)) ?? 0);
+			if (deal.dailyCap && n >= deal.dailyCap) return json({ ok: false, msg: '这家店今天的优惠已经发完了，明天再来。', at: now });
+			const claimKey = `rdc:${deal.id}:${monthOfDay(day)}`;
+			const c = Number((await this.ctx.storage.get<number>(claimKey)) ?? 0);
+			await this.ctx.storage.put({ [mine]: { at: now, tries: 0 } satisfies RedeemRec, [claimKey]: c + 1 });
+			return json({ ok: true, msg: '已领取，把这个页面给店员看，请店员输入店铺 PIN 确认。', redeem: view(false), at: now });
+		});
+	}
+
+	private redeemView(deal: SponsorDeal, region: Region, code: string, day: number, confirmed: boolean) {
+		const venue = region.venues.find((v) => v.id === deal.venueId);
+		return { deal: deal.id, venue: venue?.name ?? '', offer: deal.offer, terms: deal.terms, code, day, confirmed };
+	}
+
+	/** 店员输入 PIN 确认核销。不再查定位（店员就在店里），但必须是今天领过码的人、赞助今天还生效 */
+	private confirmRedeem(dealId: string, pin: string, hash: string, day: number, region: Region, now: number): Promise<Response> {
+		return this.inRedeem(async () => {
+			const deal = liveDeal(SPONSORS, dealId, now);
+			if (!deal) return json({ ok: false, msg: '这个优惠不存在或已经过期。', at: now });
+			const mine = `rd:${deal.id}:${day}:${hash}`;
+			const rec = await this.ctx.storage.get<RedeemRec>(mine);
+			if (!rec) return json({ ok: false, msg: '今天还没领这张优惠：先在店里点「使用优惠」。', at: now });
+			const code = redeemCode(await sha256Hex(`${deal.id}:${day}:${hash}`));
+			if (rec.ok) return json({ ok: true, dup: true, msg: '今天已经核销过这张优惠。', redeem: this.redeemView(deal, region, code, day, true), at: now });
+			const pinRec = await this.ctx.storage.get<PinRec>(`pin:${deal.id}`);
+			if (!pinRec) return json({ ok: false, msg: '这家店还没开通店员确认，请直接出示核销码。', at: now });
+			const failKey = `rdf:${deal.id}:${day}`;
+			const fails = Number((await this.ctx.storage.get<number>(failKey)) ?? 0);
+			if (rec.tries >= PIN_TRIES_PLAYER || fails >= PIN_TRIES_DEAL) return json({ ok: false, msg: '今天输错次数太多，已锁定，明天再试。', at: now });
+			if (!PIN_RE.test(pin) || !timingSafeEqual(await sha256Hex(pinRec.salt + ':' + pin), pinRec.hash)) {
+				await this.ctx.storage.put({ [mine]: { ...rec, tries: rec.tries + 1 } satisfies RedeemRec, [failKey]: fails + 1 });
+				const left = PIN_TRIES_PLAYER - rec.tries - 1;
+				return json({ ok: false, msg: left > 0 ? `PIN 不对，还能试 ${left} 次。` : 'PIN 不对，今天已锁定。', at: now });
+			}
+			const dayKey = `rdd:${deal.id}:${day}`;
+			const n = Number((await this.ctx.storage.get<number>(dayKey)) ?? 0);
+			if (deal.dailyCap && n >= deal.dailyCap) return json({ ok: false, msg: '这家店今天的优惠已经发完了，明天再来。', at: now });
+			const monthKey = `rdm:${deal.id}:${monthOfDay(day)}`;
+			const m = Number((await this.ctx.storage.get<number>(monthKey)) ?? 0);
+			// 三个键一次写入：要么都记上，要么都没记
+			await this.ctx.storage.put({ [mine]: { ...rec, ok: now } satisfies RedeemRec, [dayKey]: n + 1, [monthKey]: m + 1 });
+			return json({ ok: true, msg: '核销成功。', redeem: this.redeemView(deal, region, code, day, true), at: now });
+		});
+	}
+
+	/** 核销相关的读改写排队执行：每天、每月的计数和每条赞助的试错次数是所有玩家共用的 */
+	private inRedeem(fn: () => Promise<Response>): Promise<Response> {
+		const run = this.redeemChain.then(fn);
+		this.redeemChain = run.catch(() => undefined);
+		return run;
+	}
+
+	/** 运营接口（对账单、PIN）的鉴权：没配置令牌返回 404，令牌不对返回 401，通过返回 null */
+	private async sponsorAuth(request: Request): Promise<Response | null> {
+		if (!this.sponsorToken) return json({ ok: false, msg: '未开放' }, 404);
+		const auth = request.headers.get('Authorization') ?? '';
+		const given = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+		if (!timingSafeEqual(await sha256Hex(given), await sha256Hex(this.sponsorToken))) return json({ ok: false, msg: '未授权' }, 401);
+		return null;
+	}
+
+	/** 商户对账单 GET /api/earth/sponsor-report?month=YYYY-MM：只有计数和金额，不含玩家信息。收费只按店员确认过的核销数 */
+	private async handleSponsorReport(request: Request, url: URL): Promise<Response> {
+		const denied = await this.sponsorAuth(request);
+		if (denied) return denied;
+		if (request.method !== 'GET') return json({ ok: false, msg: '请求无效' }, 405);
+		const month = url.searchParams.get('month') ?? '';
+		if (!/^\d{4}-\d{2}$/.test(month)) return json({ ok: false, msg: '月份格式应为 YYYY-MM' }, 400);
+		const rows = [];
+		for (const d of SPONSORS) {
+			const r = statementFor(d, month, Number((await this.ctx.storage.get<number>(`rdm:${d.id}:${month}`)) ?? 0));
+			if (r) rows.push({ ...r, claims: Number((await this.ctx.storage.get<number>(`rdc:${d.id}:${month}`)) ?? 0), pin: !!(await this.ctx.storage.get(`pin:${d.id}`)) });
+		}
+		return json({ ok: true, month, currency: 'AUD', unit: 'cents', rows });
+	}
+
+	/**
+	 * 生成或重置一条赞助的店员 PIN：POST /api/earth/sponsor-pin { deal }。新 PIN 只在这次返回一次，服务端只存加盐哈希；
+	 * 重置后旧 PIN 立刻失效。PIN 线下交给商户，不进仓库、不进日志。
+	 */
+	private async handleSponsorPin(request: Request): Promise<Response> {
+		const denied = await this.sponsorAuth(request);
+		if (denied) return denied;
+		if (request.method !== 'POST') return json({ ok: false, msg: '请求无效' }, 405);
+		const text = await request.text();
+		if (text.length > 1024) return json({ ok: false, msg: '请求过大' }, 413);
+		let body: any;
+		try {
+			body = JSON.parse(text);
+		} catch {
+			return json({ ok: false, msg: '请求无效' }, 400);
+		}
+		const deal = SPONSORS.find((d) => d.id === body?.deal);
+		if (!deal) return json({ ok: false, msg: '没有这条赞助' }, 404);
+		const rnd = crypto.getRandomValues(new Uint32Array(1))[0];
+		const pin = String(rnd % 1_000_000).padStart(6, '0');
+		const salt = [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
+		await this.ctx.storage.put(`pin:${deal.id}`, { salt, hash: await sha256Hex(salt + ':' + pin) } satisfies PinRec);
+		return json({ ok: true, deal: deal.id, pin });
+	}
+
 	private pruneLobbies(now: number) {
 		// 正在结算的队伍不清：不然结算写完时大厅已经没了，队友拉不到结果
 		for (const [k, l] of this.lobbies) if (!l.starting && (l.done ? now - l.done.at > COOP_DONE_MS : now - l.at > COOP_OPEN_MS)) this.lobbies.delete(k);
@@ -1140,7 +1281,7 @@ export function routeEarth(request: Request, env: any): Promise<Response> | null
 		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(STATS_ROOM)).fetch(request);
 	}
 	if (url.pathname === '/api/earth/stats/read') return readStats(request, env);
-	if (url.pathname === '/api/earth/save') {
+	if (url.pathname === '/api/earth/save' || url.pathname === '/api/earth/sponsor-report' || url.pathname === '/api/earth/sponsor-pin') {
 		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(SAVES_ROOM)).fetch(request);
 	}
 	if (url.pathname === '/api/earth/ws') {

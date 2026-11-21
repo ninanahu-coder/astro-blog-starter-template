@@ -285,3 +285,12 @@ test('附近页（页面模板）：路线卡挂在定位卡后面，路线按�
 	const click = src.match(/closest<HTMLElement>\('\[data-tab\][^']*'\)/)?.[0] ?? '';
 	for (const a of ['trail', 'live', 'pet', 'venue']) assert.ok(click.includes(`[data-${a}]`), `点击委托缺 data-${a}`);
 });
+
+test('页面里每一处 GPS 定位动作都带精度（2026-11-21 修：主要路线先抵达城市那一步漏了 acc，被防作弊按旧页面拒绝）', async () => {
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	const calls = src.match(/act\(\{ t: 'gps'[^}]*\}/g) ?? [];
+	assert.ok(calls.length >= 3, `找到 ${calls.length} 处`);
+	for (const c of calls) assert.match(c, /acc: /, c);
+	assert.match(src, /else if \(d\.trail\) trailDo\(d\.trail\);/, '路线按钮的点击接到 trailDo');
+});
