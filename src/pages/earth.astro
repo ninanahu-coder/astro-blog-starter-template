@@ -10,6 +10,7 @@ const wave = (w: number, y0: number, amp: number, k: number, ph: number) => {
 	return 'M' + pts.join(' L');
 };
 const guilloche = (w: number, h: number, n: number, amp: number) => Array.from({ length: n }, (_, i) => wave(w, ((i + 0.5) * h) / n, amp, 0.021 + (i % 3) * 0.004, i * 0.55)).join(' ');
+import { LUCIDE_SPRITE } from '../game/ui/lucide-sprite.ts';
 const coverLines = guilloche(400, 420, 26, 14);
 const cardLines = guilloche(400, 260, 14, 9);
 ---
@@ -32,6 +33,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 		<meta name="description" content={description} />
 	</head>
 	<body>
+		<Fragment set:html={LUCIDE_SPRITE} />
 		<div id="app">
 			<section id="create" class="hidden" aria-labelledby="c-title">
 				<header class="pp">
@@ -746,6 +748,15 @@ const cardLines = guilloche(400, 260, 14, 9);
 			.pill.cost { background: var(--tint-cost); color: var(--tint-cost-ink); }
 			.pill.up { background: var(--tint-green); color: var(--tint-green-ink); }
 			.pill.bad { background: var(--tint-red); color: var(--tint-red-ink); }
+			/* 体验改造 P2：Fluent Emoji 扁平版小图，跟着字号走；行高里垂直居中 */
+			/* 界面图标（Lucide）：线条跟文字颜色，和底部标签同一画法 */
+			svg.lu { width: 1.25em; height: 1.25em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.25em; }
+			.row .ico svg.lu { width: 22px; height: 22px; color: var(--accent); }
+			.here-row .chev svg.lu { width: 20px; height: 20px; color: var(--dim); }
+			.drawer-head svg.drawer-ico { color: var(--accent); }
+			.story-steps svg.lu { margin-right: 6px; color: var(--dim); }
+			.story-steps svg.lu.done { color: var(--ok); }
+			img.emo { display: inline-block; width: 1.2em; height: 1.2em; vertical-align: -0.22em; object-fit: contain; }
 			/* ---------- 体验改造 P1（docs/earth-game/ux-p1.md）---------- */
 			/* 今天页「在这里」：每组一行摘要，右边一个箭头，点开从底部弹出抽屉 */
 			.here .list { margin-top: 8px; }
@@ -804,6 +815,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { defaultAmount, investCard } from '../game/ui/invest.ts';
 			import { holdingsValue } from '../game/core/market.ts';
 			import { setHtml } from '../game/ui/dom.ts';
+			import { lu } from '../game/ui/lu.ts';
+			import type { LucideName } from '../game/ui/lucide-sprite.ts';
 			import { calmMotion, FONT_OPTIONS, LEGACY_BIG_KEY, MOTION_OPTIONS, parsePrefs, PREFS_KEY, TIP_OPTIONS, VOLUME_OPTIONS, type Prefs } from '../game/ui/prefs.ts';
 			import { ambienceFor, createMixer, cueAfter, musicFor, playCue, type AudioLike, type Cue, type Mixer } from '../game/ui/sound.ts';
 			import type { Beds, BedCtx } from '../game/ui/ambient.ts';
@@ -1067,9 +1080,17 @@ const cardLines = guilloche(400, 260, 14, 9);
 			};
 
 			let toastTimer = 0;
+			// emoji 换图（体验改造 P2）：查找表约 5KB，不进首屏，页面画出来之后再下；下好之前先显示系统 emoji，下好后把已经画的补换一遍
+			let emo: typeof import('../game/ui/emoji.ts') | null = null;
+			void import('../game/ui/emoji.ts').then((m) => { emo = m; for (const id of ['hud', 'panel', 'modal', 'toast']) m.emojify(document.getElementById(id)); }).catch(() => {});
+			/** 写入 HTML（内容没变就不碰 DOM），写了的话把里面的 emoji 换成 Fluent 扁平版小图 */
+			function paint(el: HTMLElement, html: string) {
+				if (setHtml(el, html)) emo?.emojify(el);
+			}
 			function toast(msg: string, bad = false) {
 				const el = $('toast');
 				el.textContent = msg;
+				emo?.emojify(el);
 				el.classList.remove('hidden');
 				el.classList.toggle('bad', bad);
 				if (bad) { el.classList.remove('shake'); void (el as HTMLElement).offsetWidth; el.classList.add('shake'); }
@@ -1811,7 +1832,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				}
 				const offline = syncStatus.startsWith('离线') ? `现在离线：可以查看；做事、出行等可以先排队，联网后自动补交${queue.length ? `（已排 ${queue.length} 个）` : ''}` : queue.length ? `有 ${queue.length} 个排队的动作等着补交` : '';
 				$('hud').classList.toggle('scened', tab === 'place');
-				setHtml($('hud'), `${top}${offline ? `<div class="offline" role="status">${offline}</div>` : ''}`);
+				paint($('hud'), `${top}${offline ? `<div class="offline" role="status">${offline}</div>` : ''}`);
 			}
 
 			/** 玩家所在的区域（地图按它画）；还没有角色时用第一个区域 */
@@ -2338,7 +2359,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					? `<p style="margin-top:8px">${esc(fact.text)} <a class="muted" href="${esc(fact.source)}" target="_blank" rel="noopener">来源</a></p>`
 					: `<p style="margin-top:8px" class="muted">第 ${i + 1} 次来时解锁</p>`).join('')}</details>` : '';
 				const sp = storyProgress(s);
-				const storyCard = sp ? `<details class="card"><summary><h3 style="display:inline">📖 ${esc(sp.chapter.title)}</h3> <span class="muted">${sp.index + 1}/${STORY.length}</span></summary><p>${esc(sp.chapter.intro)}</p><ul class="story-steps">${sp.steps.map((x) => `<li>${x.got >= x.need ? '✅' : '⬜'} ${esc(x.step.text)}${x.need > 1 ? ` <span class="muted">${x.got}/${x.need}</span>` : ''}</li>`).join('')}</ul></details>` : '';
+				const storyCard = sp ? `<details class="card"><summary><h3 style="display:inline">📖 ${esc(sp.chapter.title)}</h3> <span class="muted">${sp.index + 1}/${STORY.length}</span></summary><p>${esc(sp.chapter.intro)}</p><ul class="story-steps">${sp.steps.map((x) => `<li>${lu(x.got >= x.need ? 'circle-check' : 'circle', x.got >= x.need ? 'done' : '')}<span class="sr">${x.got >= x.need ? '已完成：' : '未完成：'}</span>${esc(x.step.text)}${x.need > 1 ? ` <span class="muted">${x.got}/${x.need}</span>` : ''}</li>`).join('')}</ul></details>` : '';
 				const pq = photoQuestNow(s, region);
 				const photoQuestHtml = pq ? `<div class="card">${cover('photo:' + pq.quest.id)}<h3>📷 摄影任务 ${pq.index + 1}/${PHOTO_QUESTS.length}：${esc(pq.quest.title)}</h3><p>${esc(pq.quest.hint)}</p>
 					<div class="row" style="margin-top:8px"><span class="body">拍下来<small>${esc(pq.blocked ?? `${PHOTO_MINUTES} 分钟 · $${pq.quest.cash}、声望 +${pq.quest.respect}`)}</small></span><button data-photo ${pq.blocked ? 'disabled' : ''}>拍照</button></div></div>` : '';
@@ -2402,23 +2423,23 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const doHtml = `${vanHtml ? `<div class="list">${vanHtml}</div>` : ''}<div class="list"${vanHtml ? ' style="margin-top:8px"' : ''}>${openActs.map(actRow).join('') || '<p class="muted">现在这里没有能做的事。</p>'}</div>
 					${laterActs.length ? `<details class="later-acts"><summary>稍后开门或现在做不了 · ${laterActs.length} 项</summary><div class="list">${laterActs.map(actRow).join('')}</div></details>` : ''}`;
 				const favorHere = people.some((p) => p.favor);
-				const groups: [string, string, string, string, string][] = [
-					['do', '✨', '做事', doHtml, `现在能做 ${openActs.length + (vanHtml ? 1 : 0)} 项${laterActs.length ? ` · 稍后 ${laterActs.length} 项` : ''}`],
-					['shop', '🛍️', '买东西', shopHtml, `${shop.length} 件${shop.some((x) => x.markdown) ? ' · 有打折' : ''}`],
-					['work', '💼', '工作', workHtml, workHere ? `${esc(career!.name)} · ${shiftWhy ? '现在不能上班' : '可以上班'}` : `${offers.length} 个职位在招`],
-					['home', '🏠', '住处', homeHtml, homeHere ? `你的${esc(homeHere.name)}` : `${rentals.length} 处可租`],
-					['people', '👥', '这里的人', peopleHtml, people.length ? `${people.length} 位在这里${favorHere ? ' · 有人托你帮忙' : ''}` : '现在没人在'],
-					['fun', '🎟️', '体验和爱好', expHtml + (on('hobby') ? photoQuestHtml + fishHtml + skyCard(s) : ''), [exps.length ? `${exps.length} 项体验` : '', on('hobby') && pq ? '摄影任务' : '', on('hobby') && spot ? '能钓鱼' : ''].filter(Boolean).join(' · ') || '看看星空'],
-					['study', '📚', '学习', on('study') ? courseHtml + certHtml + studyHtml : '', [courses.length ? `${courses.length} 门课` : '', certs.length ? `${certs.length} 个证书` : '', programs.length ? `${programs.length} 个学历` : ''].filter(Boolean).join(' · ')],
-					['garage', '🚗', '车和房产', (on('garage') ? dealerHtml + garageHtml : '') + (on('estate') ? propHtml : ''), [on('garage') && dealer.length ? '车行' : '', on('garage') && garage ? '修车厂' : '', on('estate') && props.some((x) => !x.owned) ? `${props.filter((x) => !x.owned).length} 套房出售` : '', on('estate') && props.some((x) => x.owned) ? '你的房产' : ''].filter(Boolean).join(' · ')],
-					['pet', '🐾', '宠物', petHtml, ps ? `${ps.def.icon} ${esc(ps.pet.name)}${petNotes(ps) ? ' · ' + esc(petNotes(ps)) : ''}` : '领养或买一只'],
-					['place', '📍', esc(loc.name), placeInfo, '地点、天气、打卡点、小知识、留言板'],
+				const groups: [string, LucideName, string, string, string][] = [
+					['do', 'sparkles', '做事', doHtml, `现在能做 ${openActs.length + (vanHtml ? 1 : 0)} 项${laterActs.length ? ` · 稍后 ${laterActs.length} 项` : ''}`],
+					['shop', 'shopping-bag', '买东西', shopHtml, `${shop.length} 件${shop.some((x) => x.markdown) ? ' · 有打折' : ''}`],
+					['work', 'briefcase-business', '工作', workHtml, workHere ? `${esc(career!.name)} · ${shiftWhy ? '现在不能上班' : '可以上班'}` : `${offers.length} 个职位在招`],
+					['home', 'house', '住处', homeHtml, homeHere ? `你的${esc(homeHere.name)}` : `${rentals.length} 处可租`],
+					['people', 'users', '这里的人', peopleHtml, people.length ? `${people.length} 位在这里${favorHere ? ' · 有人托你帮忙' : ''}` : '现在没人在'],
+					['fun', 'ticket', '体验和爱好', expHtml + (on('hobby') ? photoQuestHtml + fishHtml + skyCard(s) : ''), [exps.length ? `${exps.length} 项体验` : '', on('hobby') && pq ? '摄影任务' : '', on('hobby') && spot ? '能钓鱼' : ''].filter(Boolean).join(' · ') || '看看星空'],
+					['study', 'graduation-cap', '学习', on('study') ? courseHtml + certHtml + studyHtml : '', [courses.length ? `${courses.length} 门课` : '', certs.length ? `${certs.length} 个证书` : '', programs.length ? `${programs.length} 个学历` : ''].filter(Boolean).join(' · ')],
+					['garage', 'car', '车和房产', (on('garage') ? dealerHtml + garageHtml : '') + (on('estate') ? propHtml : ''), [on('garage') && dealer.length ? '车行' : '', on('garage') && garage ? '修车厂' : '', on('estate') && props.some((x) => !x.owned) ? `${props.filter((x) => !x.owned).length} 套房出售` : '', on('estate') && props.some((x) => x.owned) ? '你的房产' : ''].filter(Boolean).join(' · ')],
+					['pet', 'paw-print', '宠物', petHtml, ps ? `${ps.def.icon} ${esc(ps.pet.name)}${petNotes(ps) ? ' · ' + esc(petNotes(ps)) : ''}` : '领养或买一只'],
+					['place', 'map-pin', esc(loc.name), placeInfo, '地点、天气、打卡点、小知识、留言板'],
 				];
 				const shown = groups.filter(([, , , html]) => html.trim());
 				placeGroups = Object.fromEntries(shown.map(([id, icon, title, html]) => [id, { icon, title, html }]));
 				const hereHtml = `<section class="card here" aria-labelledby="here-title"><h3 id="here-title">在${esc(loc.name)}</h3><div class="list">
-						<button class="row" data-gps><span class="ico">📡</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
-						${shown.map(([id, icon, title, , sum]) => `<button class="row here-row" data-drawer="${id}" aria-haspopup="dialog"><span class="ico" aria-hidden="true">${icon}</span><span class="body">${title}<small>${sum}</small></span><span class="chev" aria-hidden="true">›</span></button>`).join('')}
+						<button class="row" data-gps><span class="ico">${lu('locate-fixed')}</span><span class="body">真实定位打卡<small>你本人到了某个地点？直接抵达并触发事件</small></span></button>
+						${shown.map(([id, icon, title, , sum]) => `<button class="row here-row" data-drawer="${id}" aria-haspopup="dialog"><span class="ico" aria-hidden="true">${lu(icon)}</span><span class="body">${title}<small>${sum}</small></span><span class="chev" aria-hidden="true">${lu('chevron-right')}</span></button>`).join('')}
 					</div></section>`;
 				return `
 					${returnCard(s)}
@@ -3050,7 +3071,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				if (tab !== 'place') ringFx = {};
 				const html = { place: panelPlace, near: () => goSeg() + tipSlip('near') + banner('banner:near') + panelNear(), go: () => goSeg() + tipSlip('go') + panelGo(), grow: () => tipSlip('grow') + panelMe('grow'), me: () => tipSlip(page) + panelMe(), social: () => tipSlip('social') + panelSocial() }[tab]!();
 				const prevClip = typeof document.querySelector === 'function' ? document.querySelector<HTMLVideoElement>('#panel video.loc-clip') : null;
-				setHtml($('panel'), html);
+				paint($('panel'), html);
 				wireClips(prevClip);
 				tickNumbers();
 				// 抽屉开着时跟着今天页一起重画（留言后到、后台同步换了存档……）；不抢焦点
@@ -3070,7 +3091,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				if (!ev && eventResult) {
 					// 没有下一个待处理事件时，显示刚才那个事件的结果
 					const r = eventResult;
-					setHtml(modal, `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
+					paint(modal, `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
 						<div class="ev-hero"><span class="ev-stamp${modalShown !== r ? ' fresh' : ''}">结果</span><h2 id="ev-title">${r.icon} ${esc(r.title)}</h2></div>
 						<div class="ev-body"><p>${esc(r.text)}</p>
 						${r.delta.length ? `<div class="pills">${r.delta.map((x) => `<span class="pill ${x.text.startsWith('用时') ? '' : x.up ? 'up' : 'bad'}">${esc(x.text)}</span>`).join('')}</div>` : ''}
@@ -3094,8 +3115,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const ae = typeof document.activeElement === 'object' ? (document.activeElement as HTMLElement | null) : null;
 					const focusKey = same && ae && typeof modal.contains === 'function' && modal.contains(ae) ? Object.entries(ae.dataset ?? {}).map(([k, v]) => `[data-${k.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase())}="${CSS.escape(String(v))}"]`).join('') : '';
 					const prevClip = q('video.loc-clip') as HTMLVideoElement | null;
-					setHtml(modal, `<div class="sheet drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
-						<div class="drawer-head"><h2 id="drawer-title"><span aria-hidden="true">${g.icon}</span> ${g.title}</h2><button class="drawer-x" data-drawer-close aria-label="关闭${g.title}">关闭</button></div>
+					paint(modal, `<div class="sheet drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+						<div class="drawer-head"><h2 id="drawer-title">${lu(g.icon as LucideName, 'drawer-ico')} ${g.title}</h2><button class="drawer-x" data-drawer-close aria-label="关闭${g.title}">关闭</button></div>
 						<div class="drawer-body">${g.html}</div></div>`);
 					modal.classList.remove('hidden');
 					game.inert = true;
@@ -3126,7 +3147,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const odds = (skill: Parameters<typeof checkScore>[1], dc: number) => Math.round(Math.max(0, Math.min(1, (checkScore(s, skill).total + 60 - dc) / 60)) * 100);
 				const img = cgi['event:' + ev.id];
 				const key = `${ev.id}@${s.clock}`;
-				setHtml(modal, `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
+				paint(modal, `<div class="sheet" role="dialog" aria-modal="true" aria-labelledby="ev-title">
 					<div class="ev-hero">${img ? `<img src="${esc(img)}" alt="" loading="lazy" /><span class="ai-tag">AI 生成示意</span>` : loc ? `${sceneSvg({ phase: skyPhase(loc, s.clock), weather: weatherAt(s).id, kind: loc.kind, tags: loc.tags, noFigure: true })}<i class="ev-shade"></i>` : ''}<span class="ev-stamp${modalShown !== key ? ' fresh' : ''}">${loc ? `到达 ${esc(loc.name)} · ${formatClock(s.clock).split(' ')[1]}` : '事件'}${weatherAt(s).closesSea ? ' · 风暴天' : ''}</span><h2 id="ev-title">${ev.icon} ${esc(ev.title)}</h2></div>
 					<div class="ev-body"><p>${esc(ev.text)}</p>
 					<div class="list">${(() => { let lit = false; return ev.choices.map((c, i) => {

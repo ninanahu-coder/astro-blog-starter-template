@@ -1857,7 +1857,7 @@ test('界面：体验改造 P1——今天页分三层，第 1 天不超过 6 �
 	assert.ok(at('<h3>状态</h3>') >= 0 && at('<h3>状态</h3>') < at('class="next"') && at('class="next"') < at('class="card here"') && at('class="card here"') < at('class="later-zone"'), '现在 → 在这里 → 以后');
 	assert.ok(shopOpen, '点摘要行打开抽屉');
 	assert.match(shop, /<div class="sheet drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">/);
-	assert.match(shop, /<h2 id="drawer-title"><span aria-hidden="true">🛍️<\/span> 买东西<\/h2>/);
+	assert.match(shop, /<h2 id="drawer-title"><svg class="lu drawer-ico" aria-hidden="true" focusable="false"><use href="#lu-shopping-bag"\/><\/svg> 买东西<\/h2>/, '抽屉标题用 Lucide 图标（P2）');
 	assert.match(shop, /data-buy="/, '抽屉里是完整的商品列表');
 	assert.ok(closed, '点「关闭」收起');
 	assert.ok(bogus, '不认识的抽屉名不打开（原型链上的名字也不行）');
