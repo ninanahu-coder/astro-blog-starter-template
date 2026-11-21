@@ -1,85 +1,83 @@
-// 音效（第 29 轮）：提示音短、轻、频率在人耳舒适范围；播放时每个音一个振荡器，按时间排好、都会停
+// 提示音（第 29 轮；体验改造 P2 起用 ZzFX 合成，见 ui/zzfx.ts）：短、轻、频率在人耳舒适范围；同一个音只算一次采样，按分轨播放
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CUES, playCue, VOLUME, type AudioLike, type Cue } from '../../src/game/ui/sound.ts';
+import { CUE_RATE, CUES, cueSamples, playCue, VOLUME, type AudioLike, type Cue } from '../../src/game/ui/sound.ts';
+import { zzfxSamples } from '../../src/game/ui/zzfx.ts';
 
-/** 假的 AudioContext：记下每个振荡器的频率和起止时间 */
+/** 假的 AudioContext：记下建过的采样缓冲、放过的声源接到哪里、什么时候开始 */
 export function fakeAudio(now = 5) {
-	const oscs: { f: number; start: number; stop: number }[] = [];
-	const peaks: number[] = [];
+	const buffers: { len: number; rate: number; data: Float32Array }[] = [];
+	const plays: { buf: unknown; to: unknown; at: number | undefined }[] = [];
 	let resumed = 0;
 	const ctx: AudioLike & { state: string } = {
 		currentTime: now,
 		state: 'suspended',
 		resume: () => { resumed++; },
 		destination: {},
-		createOscillator() {
-			const o = { f: 0, start: -1, stop: -1 };
-			oscs.push(o);
-			return { type: '', frequency: { set value(v: number) { o.f = v; }, get value() { return o.f; } }, connect: () => {}, start: (t: number) => { o.start = t; }, stop: (t: number) => { o.stop = t; } };
-		},
-		createGain() {
-			return { gain: { setValueAtTime() {}, linearRampToValueAtTime: (v: number) => { peaks.push(v); }, exponentialRampToValueAtTime() {} }, connect: () => {} };
-		},
+		createOscillator() { throw new Error('提示音不再用振荡器'); },
+		createGain() { return { gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect: () => {} }; },
+		createBuffer(_c: number, len: number, rate: number) { const data = new Float32Array(len); const b = { len, rate, data, getChannelData: () => data }; buffers.push(b); return b; },
+		createBufferSource() { const p = { buf: null as unknown, to: null as unknown, at: undefined as number | undefined }; plays.push(p); return { set buffer(v: unknown) { p.buf = v; }, get buffer() { return p.buf; }, connect: (n: unknown) => { p.to = n; }, start: (t?: number) => { p.at = t; } }; },
 	};
-	return { ctx, oscs, peaks, resumed: () => resumed };
+	return { ctx, buffers, plays, resumed: () => resumed };
 }
 
-test('提示音数据：每种都有音，整段不超过半秒，频率 150–2000 Hz，音量很轻', () => {
+const peak = (s: Float32Array) => s.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+
+test('提示音数据：每种都有声部，整段不超过半秒，频率 60–2000 Hz，只用正弦、三角，噪声只给盖章和雷声', () => {
 	assert.ok(VOLUME > 0 && VOLUME <= 0.15);
-	for (const [cue, notes] of Object.entries(CUES)) {
-		assert.ok(notes.length >= 1, cue);
-		for (const n of notes) {
-			assert.ok(n.f >= 150 && n.f <= 2000, `${cue} 频率 ${n.f}`);
-			assert.ok(n.at >= 0 && n.d > 0, cue);
-			assert.ok(n.at + n.d <= 0.5, `${cue} 太长`);
+	for (const [cue, voices] of Object.entries(CUES) as [Cue, (typeof CUES)[Cue]][]) {
+		assert.ok(voices.length >= 1 && voices.length <= 4, cue);
+		for (const v of voices) {
+			const [vol = 1, , f = 220, a = 0, su = 0, re = 0.1, shape = 0] = v.zz;
+			assert.ok(vol > 0 && vol <= 1, `${cue} 音量 ${vol}`);
+			assert.ok(f >= 60 && f <= 2000, `${cue} 频率 ${f}`);
+			assert.ok(v.at >= 0 && v.at + a + su + re <= 0.5, `${cue} 太长`);
+			assert.ok(shape === 0 || shape === 1 || (shape === 4 && (cue === 'stamp' || cue === 'storm')), `${cue} 波形 ${shape}`);
 		}
+		const s = cueSamples(cue);
+		assert.ok(s.length > 0 && s.length <= 0.5 * CUE_RATE + 2, `${cue} 采样长度 ${s.length}`);
+		assert.ok(peak(s) <= VOLUME * voices.length + 1e-6, `${cue} 峰值 ${peak(s)}`);
+		assert.ok(peak(s) > VOLUME * 0.05, `${cue} 不是静音`);
 	}
 });
 
-test('播放：从当前时刻起按顺序排好每个音，每个都会停；挂起的音频会被唤醒', () => {
-	for (const cue of Object.keys(CUES) as Cue[]) {
-		const a = fakeAudio();
-		playCue(a.ctx, cue);
-		assert.equal(a.oscs.length, CUES[cue].length, cue);
-		CUES[cue].forEach((n, i) => {
-			assert.equal(a.oscs[i].f, n.f);
-			assert.equal(a.oscs[i].start, 5 + n.at);
-			assert.ok(a.oscs[i].stop > a.oscs[i].start, '会停');
-		});
-		assert.ok(a.peaks.every((v) => v === VOLUME), '峰值不超过设定音量');
-		assert.equal(a.resumed(), 1);
-	}
+test('ZzFX 采样：长度 = 起音 + 衰减 + 持续 + 释放 + 延迟；随机固定时每次一样；起音和释放从 0 开始、回到 0（不爆音）', () => {
+	const p = [1, 0.05, 440, 0.01, 0.02, 0.05, 1] as const;
+	const a = zzfxSamples([...p], 22050, () => 0.5);
+	assert.equal(a.length, Math.floor((0.01 + 0.02 + 0.05) * 22050));
+	assert.deepEqual([...a], [...zzfxSamples([...p], 22050, () => 0.5)]);
+	assert.ok(Math.abs(a[0]) < 0.01 && Math.abs(a[a.length - 1]) < 0.01);
+	assert.ok(peak(a) > 0.5 && peak(a) <= 1);
+	// 随机 0.5 时频率不偏：440 Hz 正弦 / 三角每秒约 880 次过零
+	const zc = a.slice(0, Math.floor(0.08 * 22050)).reduce((n, v, i, arr) => (i && Math.sign(v) !== Math.sign(arr[i - 1]) ? n + 1 : n), 0);
+	assert.ok(Math.abs(zc / 0.08 - 880) < 60, `过零 ${zc}`);
+});
+
+test('播放：第一次用到时算好采样存起来，之后直接放；接到给定的分轨，不写时接扬声器；挂起的音频会被唤醒', () => {
+	const a = fakeAudio();
+	const bus = { bus: 1 };
+	playCue(a.ctx, 'ok', bus);
+	playCue(a.ctx, 'ok');
+	playCue(a.ctx, 'stamp', bus);
+	assert.equal(a.buffers.length, 2, '同一个音只建一次缓冲');
+	assert.equal(a.buffers[0].rate, CUE_RATE);
+	assert.deepEqual([...a.buffers[0].data], [...cueSamples('ok')]);
+	assert.equal(a.plays.length, 3);
+	assert.equal(a.plays[0].to, bus);
+	assert.equal(a.plays[1].to, a.ctx.destination);
+	assert.equal(a.plays[0].buf, a.plays[1].buf, '复用同一份缓冲');
+	assert.ok(a.plays.every((p) => p.at === 5), '从当前时刻开始');
+	assert.equal(a.resumed(), 3);
+	const b = fakeAudio();
+	playCue(b.ctx, 'ok');
+	assert.equal(b.buffers.length, 1, '换一个 AudioContext 重新建');
 });
 
 // ---------- v37：分轨声音系统 ----------
 import { ambienceFor, channelGains, createMixer, cueAfter, familyOf, MASTER, musicFor } from '../../src/game/ui/sound.ts';
 import { WA_BASE } from '../../src/game/data/wa-base.ts';
 import { SA_BASE } from '../../src/game/data/sa-base.ts';
-
-test('v37 新提示音：到达、升级、盖章、雨、风暴都有；波形只用柔和的正弦、三角', () => {
-	for (const c of ['tap', 'arrive', 'level', 'stamp', 'rain', 'storm'] as Cue[]) assert.ok(CUES[c]?.length, c);
-	for (const notes of Object.values(CUES)) for (const n of notes) assert.ok(n.w === undefined || n.w === 'sine' || n.w === 'triangle');
-	const a = fakeAudio();
-	const types: string[] = [];
-	const orig = a.ctx.createOscillator.bind(a.ctx);
-	a.ctx.createOscillator = () => { const o = orig(); return new Proxy(o, { set(t, k, v) { if (k === 'type') types.push(v); (t as any)[k] = v; return true; } }); };
-	playCue(a.ctx, 'stamp');
-	assert.deepEqual(types, ['triangle', 'triangle']);
-	playCue(a.ctx, 'ok');
-	assert.equal(types[2], 'sine', '没写波形的是正弦');
-});
-
-test('提示音接到给定的分轨上，不写时接扬声器', () => {
-	const conns: unknown[] = [];
-	const a = fakeAudio();
-	a.ctx.createGain = () => ({ gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect: (n: unknown) => { conns.push(n); } });
-	const bus = { bus: 1 };
-	playCue(a.ctx, 'ok', bus);
-	assert.deepEqual(conns, [bus]);
-	playCue(a.ctx, 'ok');
-	assert.equal(conns[1], a.ctx.destination);
-});
 
 test('动作结算后放哪一声：失败 > 成就 > 升级 > 到达（按天气） > 做成；到达就弹事件的不响', () => {
 	assert.equal(cueAfter({ ok: false, ach: true, levelUp: true }), 'fail');
@@ -92,6 +90,9 @@ test('动作结算后放哪一声：失败 > 成就 > 升级 > 到达（按天�
 	assert.equal(cueAfter({ ok: true, travel: true, pending: true, weather: 'storm' }), null);
 	assert.equal(cueAfter({ ok: true, pending: true }), 'ok', '不是出行时 pending 不影响');
 	assert.equal(cueAfter({ ok: true }), 'ok');
+	assert.equal(cueAfter({ ok: true, coin: true }), 'coin', '进账：投币声');
+	assert.equal(cueAfter({ ok: true, coin: true, levelUp: true }), 'level', '升级比进账优先');
+	assert.equal(cueAfter({ ok: true, coin: true, travel: true, weather: 'sunny' }), 'arrive', '到达比进账优先');
 });
 
 test('分轨增益：关掉的轨是 0；总音量三档递增、不认识的档按中', () => {

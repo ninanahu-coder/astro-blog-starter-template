@@ -1688,7 +1688,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						const got = newAchievements(before, state, region);
 						lastAch = got.map((d) => `${d.icon} ${d.name}`);
 						if (got.length && prefs.achToast) setTimeout(() => toast(`🏅 达成成就：${got.map((d) => d.name).join('、')}（去成长页领奖）`), 1200);
-						const cue = cueAfter({ ok: true, ach: got.length > 0, levelUp: level(state.respect).lv > level(before.respect).lv, travel: a.t === 'travel', pending: !!state.pending, weather: weatherAt(state).id });
+						const cue = cueAfter({ ok: true, ach: got.length > 0, levelUp: level(state.respect).lv > level(before.respect).lv, travel: a.t === 'travel', pending: !!state.pending, weather: weatherAt(state).id, coin: state.cash > before.cash });
 						if (cue) sfx(cue);
 					}
 					else { lastDelta = []; lastAch = []; }

@@ -145,7 +145,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	const winListeners: Record<string, (e: unknown) => void> = {};
 	// 假的 Web Audio：记下建了几个 AudioContext、放了几个音（第 29 轮音效）
 	const audioLog = { ctx: 0, notes: 0, offAt: -1 };
-	class FakeAudio { currentTime = 0; state = 'running'; destination = {}; constructor() { audioLog.ctx++; } createOscillator() { audioLog.notes++; return { type: '', frequency: { value: 0 }, connect() {}, start() {}, stop() {} }; } createGain() { return { gain: { setValueAtTime() {}, setTargetAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; } }
+	class FakeAudio { currentTime = 0; state = 'running'; destination = {}; constructor() { audioLog.ctx++; } createOscillator() { audioLog.notes++; return { type: '', frequency: { value: 0 }, connect() {}, start() {}, stop() {} }; } createBuffer(_c: number, n: number) { const d = new Float32Array(n); return { getChannelData: () => d }; } createBufferSource() { return { buffer: null, loop: false, connect() {}, start() { audioLog.notes++; }, stop() {} }; } createGain() { return { gain: { setValueAtTime() {}, setTargetAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; } }
 	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => (winListeners[t] = f), AudioContext: FakeAudio };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', reload() {} };
@@ -319,16 +319,15 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 				assert.equal(JSON.parse(store.get('earth.prefs.v1')!).recap, false, '存进本机');
 				await click({ pref: 'recap' });
 				await click({ pref: 'font', val: 'm' });
-				// 音效（第 29 轮）：默认关，之前做的事都没出声；打开时放一声试听，关掉后不再出声
+				// 音效：体验改造 P2 起默认开（用户 2026-11-21 定），之前做的事已经出过声；关掉、再打开时试听一声，关掉后不再出声
+				assert.match(panel(), /data-pref="sound" aria-pressed="true">已开启/);
+				assert.equal(audioLog.ctx, 1, '默认开：做事时建了一次音频（只建一次）');
+				assert.ok(audioLog.notes >= 1, '之前做的事出过声');
+				await click({ pref: 'sound' });
 				assert.match(panel(), /data-pref="sound" aria-pressed="false">已关闭/);
-				assert.equal(audioLog.ctx, 0, '默认关：没有建音频');
-				await click({ pref: 'sound' });
-				assert.equal(audioLog.ctx, 1, '打开时才建音频');
-				assert.ok(audioLog.notes >= 1, '打开时试听一声');
-				await click({ pref: 'sound' });
 				const quiet = audioLog.notes;
 				await click({ pref: 'sound' });
-				assert.ok(audioLog.notes > quiet, '再打开又能出声');
+				assert.ok(audioLog.notes > quiet, '再打开又能出声（试听）');
 				await click({ pref: 'sound' });
 				assert.match(panel(), /data-pref="sound" aria-pressed="false">/);
 				audioLog.offAt = audioLog.notes;
@@ -1400,7 +1399,8 @@ function fakeWebAudio() {
 		createGain() { const vals: number[] = []; log.gains.push(vals); return { gain: { ...param(), setValueAtTime: (v: number) => { vals.push(v); }, setTargetAtTime: (v: number) => { vals.push(v); } }, connect() {} }; }
 		createOscillator() { const o = { type: '', frequency: { value: 0 }, connect() {}, start() { log.oscs.push(o.frequency.value); }, stop() {} }; return o; }
 		createBuffer(_c: number, len: number) { const d = new Float32Array(len); return { getChannelData: () => d }; }
-		createBufferSource() { return { buffer: null, loop: false, connect() {}, start() { log.srcStarted++; }, stop() { log.srcStopped++; } }; }
+		// 只数循环播放的声源（环境音）；提示音（P2 起也用缓冲声源）放完就结束，不算
+		createBufferSource() { const o = { buffer: null, loop: false, connect() {}, start() { if (o.loop) log.srcStarted++; }, stop() { if (o.loop) log.srcStopped++; } }; return o; }
 		createBiquadFilter() { const f = { type: '', frequency: param(), Q: { value: 0 }, connect() { log.filters.push(f.type); } }; return f; }
 	}
 	return { Ctx, log };
@@ -1466,7 +1466,7 @@ test('界面：声音（v37）——设置页有音效、环境音、背景音�
 	});
 	for (const k of ['sound', 'ambience', 'music']) assert.match(html, new RegExp(`data-pref="${k}" aria-pressed="(true|false)"`), k);
 	assert.match(html, /data-pref="ambience" aria-pressed="true">已开启/);
-	assert.match(html, /data-pref="volume" data-val="mid" class="on" aria-pressed="true"/);
+	assert.match(html, /data-pref="volume" data-val="low" class="on" aria-pressed="true"/, '默认最轻一档（P2）');
 	assert.match(html, /不开声音不会错过/);
 	assert.deepEqual(a11yIssues(html), []);
 });
