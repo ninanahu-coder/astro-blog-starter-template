@@ -852,6 +852,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { MAX_TRAITS, TRAITS } from '../game/data/traits.ts';
 			import { NPCS } from '../game/data/npcs.ts';
 			import { NPC_DUOS } from '../game/data/npc-duos.ts';
+			import { NPC_MOOD_ICON, NPC_MOOD_NAME } from '../game/data/npc-behavior.ts';
+			import { npcWhere } from '../game/core/npc-behavior.ts';
 			import { coopBlocked, coopCostLabel, coopsAt } from '../game/core/coop.ts';
 			import { getCoop } from '../game/data/coop.ts';
 			import { giveBlocked, saleRange, takeBlocked } from '../game/core/trade.ts';
@@ -2412,22 +2414,27 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const people = npcsAt(s, region);
 				const absent = NPCS.filter((n) => !people.some((a) => a.npc.id === n.id)).map((n) => ({ n, plan: npcStatus(n, s.clock).plan }))
 					.filter(({ n, plan }) => plan.loc === loc.id || n.loc === loc.id);
+				// 在路上的 NPC 多说一句（第 43 批）
+				const awayHint = (n: (typeof NPCS)[number]) => {
+					const w = npcWhere(n, s.clock, region);
+					return w.kind === 'travel' && w.to ? `正在去${esc(getLocation(region, w.to)?.name ?? '')}的路上。` : '';
+				};
 				const bagIds = Object.keys(s.inventory).filter((id) => s.inventory[id] > 0 && getItem(id));
 				const giftLabel = (npcId: string, itemId: string) => {
 					const n = NPCS.find((x) => x.id === npcId)!;
 					return getRelation(s, npcId).known.includes(itemId) ? `（${GIFT_LABEL[giftReaction(n, itemId)]}）` : '';
 				};
-				const peopleHtml = people.length || absent.length ? `<div class="card"><h3>这里的人</h3>${people.map(({ npc, rel, tier, blocked, nextStory, favor, fading, confidant }) => `
+				const peopleHtml = people.length || absent.length ? `<div class="card"><h3>这里的人</h3>${people.map(({ npc, rel, tier, blocked, nextStory, favor, fading, confidant, mood }) => `
 					<div class="npc-talk"><div class="npc-head">${portrait(npc.id)}<div class="npc-name"><b>${esc(npc.name)}</b><small>${esc(npc.role)}</small></div>
 					<div class="npc-rel"><small>${confidant ? '🫶 知己' : tier} · ${Math.round(rel.score)}/100</small><div class="bar" role="progressbar" aria-label="和${esc(npc.name)}的关系" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(rel.score)}"><i style="width:${Math.round(Math.max(0, Math.min(100, rel.score)))}%"></i></div></div></div>
-					<p class="bubble">${esc(npc.bio)}</p>${greetHtml(esc, npc.id, npc.name, media.voice[npc.id])}
+					<p class="bubble"><span title="${esc(NPC_MOOD_NAME[mood.level])}">${NPC_MOOD_ICON[mood.level]}</span> ${esc(mood.line)}</p><p class="muted" style="margin-top:4px">${esc(npc.bio)}</p>${greetHtml(esc, npc.id, npc.name, media.voice[npc.id])}
 					${favor ? `<p class="bubble">🙋 ${esc(favor.ask)}</p>` : ''}
 					${fading ? `<p class="muted" style="margin-top:4px">好久没来往了，关系在慢慢变淡。</p>` : ''}
 					<div class="inline talk-choices">${(['chat', 'help'] as const).map((a) => `<button data-npc="${npc.id}" data-npc-act="${a}" ${blocked[a] ? `disabled title="${esc(blocked[a])}"` : ''}>${{ chat: '聊天', help: '帮忙' }[a]}</button>`).join('')}${npc.perk ? `<button data-npc="${npc.id}" data-npc-act="perk" ${blocked.perk ? `disabled title="${esc(blocked.perk)}"` : ''}>✨ ${esc(npc.perk.name)}</button>` : ''}${favor ? `<button data-npc="${npc.id}" data-npc-act="favor" ${blocked.favor ? `disabled title="${esc(blocked.favor)}"` : ''}>🙋 帮忙带 ${getItem(favor.item)?.icon ?? ''} ${esc(getItem(favor.item)?.name ?? '')} ×${favor.qty}</button>` : ''}${'bond' in blocked ? `<button data-npc="${npc.id}" data-npc-act="bond" ${blocked.bond ? `disabled title="${esc(blocked.bond)}"` : ''}>🫶 结为知己</button>` : ''}${confidant ? `<button data-npc="${npc.id}" data-npc-act="unbond">解除知己</button>` : ''}</div>
 					${bagIds.length ? `<div class="inline" style="margin-top:6px"><span class="muted">送礼：</span>${bagIds.map((id) => `<button data-npc="${npc.id}" data-npc-act="gift" data-npc-item="${id}" ${blocked.gift ? `disabled title="${esc(blocked.gift)}"` : ''}>${getItem(id)!.icon} ${esc(getItem(id)!.name)}${giftLabel(npc.id, id)}</button>`).join('')}</div>` : ''}
 					${Object.values(blocked).some(Boolean) ? `<p style="margin-top:4px">${esc([...new Set(Object.values(blocked).filter(Boolean))].join('；'))}</p>` : ''}
 					${nextStory !== undefined ? `<p style="margin-top:4px" class="muted">关系到 ${nextStory}（${relationTier(nextStory)}）会有新故事。</p>` : ''}</div>`).join('')}
-					${absent.map(({ n, plan }) => `<p style="margin-top:8px">${esc(n.name)}（${esc(n.role)}）现在不在。${plan.loc === loc.id ? `今天 ${hoursLabel(plan.hours)} 在这里${plan.note ? `：${esc(plan.note)}` : ''}。` : `今天去了${esc(getLocation(region, plan.loc)?.name ?? '')}${plan.note ? `（${esc(plan.note)}）` : ''}，平时 ${hoursLabel(n.hours)} 在这里。`}</p>`).join('')}</div>` : '';
+					${absent.map(({ n, plan }) => `<p style="margin-top:8px">${esc(n.name)}（${esc(n.role)}）${plan.away ? `今天${esc(plan.note ?? '')}，不在。平时 ${hoursLabel(n.hours)} 在这里。</p>` : `现在不在。${awayHint(n)}${plan.loc === loc.id ? `今天 ${hoursLabel(plan.hours)} 在这里${plan.note ? `：${esc(plan.note)}` : ''}。` : `今天去了${esc(getLocation(region, plan.loc)?.name ?? '')}${plan.note ? `（${esc(plan.note)}）` : ''}，平时 ${hoursLabel(n.hours)} 在这里。`}</p>`}`).join('')}</div>` : '';
 				const job = s.job;
 				const career = job ? getCareer(job.career) : undefined;
 				const workHere = job && job.loc === loc.id && career;
@@ -2628,7 +2635,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				if (dest) {
 					const w = weatherOn(dest.id, dayOf(s.clock));
 					const sig = EVENTS.some((e) => e.once && e.locs?.includes(dest.id) && !s.seen.includes(e.id));
-					const people = NPCS.filter((n) => { const x = npcStatus(n, s.clock); return x.plan.loc === dest.id && x.state !== 'after'; }).map((n) => esc(n.name));
+					const people = NPCS.filter((n) => { const x = npcStatus(n, s.clock); return x.plan.loc === dest.id && x.state !== 'after' && x.state !== 'away'; }).map((n) => esc(n.name));
 					const ways = opts.filter((o) => o.to === dest.id);
 					note = `<div class="card dest"><div class="dest-head"><h3>${KIND_ICON[dest.kind]} ${esc(dest.name)} <span class="muted">${esc(dest.en)}</span></h3><button data-loc="${dest.id}" aria-label="关闭">✕</button></div>
 						<p>${esc(dest.blurb)}</p>
@@ -2708,7 +2715,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const npc = NPCS.find((n) => n.id === id);
 					if (!npc) return '';
 					const plan = npcStatus(npc, s.clock).plan;
-					const where = `今天在${getLocation(region, plan.loc)?.name ?? ''} ${hoursLabel(plan.hours)}`;
+					const where = plan.away ? `今天${plan.note ?? ''}` : `今天在${getLocation(region, plan.loc)?.name ?? ''} ${hoursLabel(plan.hours)}`;
 					const known = r.known.map((i) => `${getItem(i)?.icon ?? ''}${GIFT_LABEL[giftReaction(npc, i)]}`).join(' ');
 					return `<div class="skill"><span></span><div>${esc(npc.name)} <span class="muted">${esc(npc.role)} · ${esc(where)} · 故事 ${r.seen.length}/${npc.stories.length}${known ? ` · ${esc(known)}` : ''}</span><div class="bar"><i style="width:${Math.max(0, r.score)}%"></i></div></div><b title="${relationTier(r.score)}">${r.bond !== undefined ? '🫶 知己' : relationTier(r.score)}</b></div>`;
 				}).join('');
@@ -2975,7 +2982,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const where = getLocation(region, plan.loc)?.name ?? '';
 					const here = presentIds.has(npc.id);
 					const ask = favorToday(s, npc.id, dayOf(s.clock));
-					const sub = `${ask ? `🙋 想托你带${esc(getItem(ask.item)?.name ?? '')} · ` : ''}${isFading(r, dayOf(s.clock)) ? '好久没见 · ' : ''}${r.bond !== undefined ? '🫶 知己' : relationTier(r.score)} ${Math.round(r.score)} · ${here ? '就在这里' : `${esc(where)} ${hoursLabel(plan.hours)}${st === 'after' ? '（今天已经走了）' : ''}`}${plan.note ? ` · ${esc(plan.note)}` : ''}`;
+					const sub = `${ask ? `🙋 想托你带${esc(getItem(ask.item)?.name ?? '')} · ` : ''}${isFading(r, dayOf(s.clock)) ? '好久没见 · ' : ''}${r.bond !== undefined ? '🫶 知己' : relationTier(r.score)} ${Math.round(r.score)} · ${here ? '就在这里' : st === 'away' ? '今天不在' : `${esc(where)} ${hoursLabel(plan.hours)}${st === 'after' ? '（今天已经走了）' : ''}`}${plan.note ? ` · ${esc(plan.note)}` : ''}`;
+					if (st === 'away') return `<div class="row"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta">请假了</span></div>`;
 					return here
 						? `<button class="row" data-tab="place"><span class="body">${esc(npc.name)} · ${esc(npc.role)}<small>${sub}</small></span><span class="meta"><b>去打招呼</b></span></button>`
 						: plan.loc === s.loc

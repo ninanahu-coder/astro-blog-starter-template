@@ -8,6 +8,7 @@ import { parseAction, applyAction } from '../../src/game/core/actions.ts';
 import { isOpen, period } from '../../src/game/core/time.ts';
 import { ITEMS } from '../../src/game/data/items.ts';
 import { NPCS } from '../../src/game/data/npcs.ts';
+import { leaveOn, sickOn, slotMatches } from '../../src/game/core/npc-behavior.ts';
 import { WA, WORLD } from '../../src/game/data/wa.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
@@ -106,22 +107,35 @@ test('存档校验：关系', () => {
 	assert.deepEqual(sanitizeState(old)!.relations, {});
 });
 
-// 第 day 天（0 = 周一）hour 点
+// 第 43 批起 NPC 会请病假、休年假、按天气改安排。按星期测日程的用例挑一个这几位都照常（不病、不休假、没有节日和天气安排）的星期，day 仍是 0 = 周一
+function usualWeek(ids: string[]): number {
+	for (let w = 0; w < 64; w++) {
+		const ok = ids.every((id) => {
+			const n = NPCS.find((x) => x.id === id)!;
+			return Array.from({ length: 8 }, (_, i) => (w * 7 + i) * 1440).every((c) => !sickOn(n, c) && !leaveOn(id, c) && !(n.schedule ?? []).some((sl) => (sl.weather || sl.festival) && slotMatches(n, sl, c)));
+		});
+		if (ok) return w;
+	}
+	throw new Error('找不到一个照常的星期');
+}
+const WEEK = usualWeek(['mia', 'jack', 'dave', 'tom']);
+// 第 day 天（0 = 周一）hour 点；onW 是挑出来的那个照常的星期里的
 const on = (day: number, hour: number) => at(hour, day);
+const onW = (day: number, hour: number) => at(hour, day + WEEK * 7);
 
 test('日程：按星期换地点，凌晨跨午夜沿用前一天的安排', () => {
 	const mia = NPCS.find((n) => n.id === 'mia')!;
-	assert.equal(npcPlan(mia, on(0, 9)).loc, 'perth', '周一在珀斯');
-	assert.equal(npcPlan(mia, on(5, 11)).loc, 'rottnest', '周六去岛上');
-	assert.equal(npcPlan(mia, on(6, 10)).loc, 'fremantle', '周日赶集');
+	assert.equal(npcPlan(mia, onW(0, 9)).loc, 'perth', '周一在珀斯');
+	assert.equal(npcPlan(mia, onW(5, 11)).loc, 'rottnest', '周六去岛上');
+	assert.equal(npcPlan(mia, onW(6, 10)).loc, 'fremantle', '周日赶集');
 	const s = make();
-	assert.deepEqual(npcsAt({ ...s, loc: 'fremantle', clock: on(6, 10) }, WA).map((a) => a.npc.id).sort(), ['jack', 'mia']);
-	assert.ok(!npcsAt({ ...s, loc: 'perth', clock: on(6, 10) }, WA).some((a) => a.npc.id === 'mia'), '周日不在珀斯');
+	assert.deepEqual(npcsAt({ ...s, loc: 'fremantle', clock: onW(6, 10) }, WA).map((a) => a.npc.id).sort(), ['jack', 'mia']);
+	assert.ok(!npcsAt({ ...s, loc: 'perth', clock: onW(6, 10) }, WA).some((a) => a.npc.id === 'mia'), '周日不在珀斯');
 	// 戴夫周五夜里跑布鲁姆线，周六凌晨 3 点仍在布鲁姆
-	assert.ok(npcsAt({ ...s, loc: 'broome', clock: on(4, 22) }, WA).some((a) => a.npc.id === 'dave'));
-	assert.ok(npcsAt({ ...s, loc: 'broome', clock: on(5, 3) }, WA).some((a) => a.npc.id === 'dave'));
-	assert.ok(!npcsAt({ ...s, loc: 'port-hedland', clock: on(5, 3) }, WA).some((a) => a.npc.id === 'dave'));
-	assert.ok(npcsAt({ ...s, loc: 'port-hedland', clock: on(6, 3) }, WA).some((a) => a.npc.id === 'dave'), '周日凌晨回到黑德兰港');
+	assert.ok(npcsAt({ ...s, loc: 'broome', clock: onW(4, 22) }, WA).some((a) => a.npc.id === 'dave'));
+	assert.ok(npcsAt({ ...s, loc: 'broome', clock: onW(5, 3) }, WA).some((a) => a.npc.id === 'dave'));
+	assert.ok(!npcsAt({ ...s, loc: 'port-hedland', clock: onW(5, 3) }, WA).some((a) => a.npc.id === 'dave'));
+	assert.ok(npcsAt({ ...s, loc: 'port-hedland', clock: onW(6, 3) }, WA).some((a) => a.npc.id === 'dave'), '周日凌晨回到黑德兰港');
 });
 
 test('日程：节日优先', () => {
@@ -244,8 +258,8 @@ test('NPC 跨午夜班次：戴夫周五夜里在布鲁姆、周六夜里回黑�
 	const { npcStatus } = await import('../../src/game/core/engine.ts');
 	const { NPCS } = await import('../../src/game/data/npcs.ts');
 	const dave = NPCS.find((n) => n.id === 'dave')!;
-	// 第 4 天是周五（第 0 天周一），第 5 天周六
-	const at = (day: number, hour: number) => npcStatus(dave, day * 1440 + hour * 60);
+	// 第 4 天是周五（第 0 天周一），第 5 天周六；挑一个戴夫照常上班的星期
+	const at = (day: number, hour: number) => npcStatus(dave, (day + WEEK * 7) * 1440 + hour * 60);
 	const fri = 4, sat = 5;
 	assert.deepEqual([at(fri, 21).plan.loc, at(fri, 21).state], ['broome', 'there'], '周五 21 点在布鲁姆');
 	assert.deepEqual([at(sat, 1).plan.loc, at(sat, 1).state], ['broome', 'there'], '周六 1 点还在周五的班次里');

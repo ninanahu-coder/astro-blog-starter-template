@@ -132,11 +132,13 @@ test('风暴天：事件里下海的选项不能选（换别的选项能结算�
 	assert.equal(r.ok, false);
 	assert.match(r.msg, /风暴/);
 	assert.ok(applyAction(s, WA, { t: 'event', choice: sea === 0 ? 1 : 0 }).ok, '另一个选项照常');
-	// 汤姆的「清晨收笼」：杰拉尔顿风暴天、关系够了也做不了
+	// 汤姆的「清晨收笼」：杰拉尔顿风暴天、关系够了也做不了（第 43 批起风暴天汤姆 9–15 点在码头修船；挑他没请病假的一天）
+	const { sickOn } = await import('../../src/game/core/npc-behavior.ts');
+	const tomDef = NPCS.find((n) => n.id === 'tom')!;
 	let gday = -1;
-	for (let d = 0; d < YEAR_DAYS * 4 && gday < 0; d++) if (weatherOn('geraldton', d).id === 'storm' && ![5, 6].includes(d % 7)) gday = d;
+	for (let d = 0; d < YEAR_DAYS * 4 && gday < 0; d++) if (weatherOn('geraldton', d).id === 'storm' && ![5, 6].includes(d % 7) && !sickOn(tomDef, d * 1440)) gday = d;
 	const g = createCharacter({ id: 'storm-perk', name: '收笼', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: 'geraldton', seed: 4 });
-	const gs = { ...g, clock: gday * 1440 + 8 * 60, relations: { tom: { score: 70, last: {}, seen: [10, 30, 60], known: [] } } };
+	const gs = { ...g, clock: gday * 1440 + 10 * 60, relations: { tom: { score: 70, last: {}, seen: [10, 30, 60], known: [] } } };
 	const tom = npcsAt(gs, WA).find((x) => x.npc.id === 'tom');
 	assert.ok(tom, '汤姆在');
 	assert.match(tom!.blocked.perk ?? '', /风暴/);

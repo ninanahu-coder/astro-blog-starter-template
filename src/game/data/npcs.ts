@@ -1,5 +1,6 @@
 // 各地点的常驻 NPC。
-//   loc / hours：常驻地点和作息；schedule：按星期、季节、节日改变去处，按顺序取第一条满足的（见 engine.ts npcPlan）
+//   loc / hours：常驻地点和作息；schedule：按星期、季节、节日、天气改变去处，按顺序取第一条满足的（见 core/npc-behavior.ts planFor）
+//   休年假、病假优先于日程（data/npc-behavior.ts）
 //   gifts：送礼反应，最爱 / 喜欢 / 讨厌，没列出的物品算一般（送过一次玩家就会记住）
 //   stories：好感度第一次达到 at 时的小剧情，各触发一次；60（好友）那段带主要回报
 //   perk：好感度够了解锁的专属互动，每 every 个游戏日一次
@@ -12,6 +13,7 @@ export const NPCS: NpcDef[] = [
 		bio: '在城里最忙的咖啡馆干了五年，谁都认识。',
 		schedule: [
 			{ festival: 'skyshow', loc: 'perth', hours: [15, 23], note: '烟火夜在河岸摆咖啡摊' },
+			{ weather: ['storm'], weatherAt: 'rottnest', weekdays: [5], loc: 'perth', hours: [9, 15], note: '岛上起风暴，渡轮停航，周六留在城里' },
 			{ weekdays: [5], loc: 'rottnest', hours: [10, 16], note: '周六去罗特尼斯岛骑车' },
 			{ weekdays: [6], loc: 'fremantle', hours: [9, 14], note: '周日在弗里曼特尔集市摆摊' },
 		],
@@ -28,6 +30,7 @@ export const NPCS: NpcDef[] = [
 		id: 'jack', name: '老杰克', role: '渔夫', loc: 'fremantle', hours: [5, 12],
 		bio: '码头上补了四十年渔网，故事比鱼多。',
 		schedule: [
+			{ weather: ['storm'], loc: 'fremantle', hours: [9, 15], note: '风暴天不出海，在码头补网' },
 			{ weekdays: [6], loc: 'fremantle', hours: [8, 13], note: '周日在集市卖鱼' },
 			{ seasons: ['summer'], weekdays: [1, 3], loc: 'rottnest', hours: [5, 11], note: '夏天周二、周四去岛外海打鱼' },
 		],
@@ -61,6 +64,7 @@ export const NPCS: NpcDef[] = [
 		schedule: [
 			{ festival: 'surf-pro', loc: 'margaret-river', hours: [5, 20], note: '大师赛期间整天泡在浪点' },
 			{ seasons: ['winter'], weekdays: [0, 1], loc: 'bunbury', hours: [9, 17], note: '冬天周一、周二去班伯里上泳池课' },
+			{ weather: ['storm'], loc: 'margaret-river', hours: [10, 15], note: '风暴天浪太乱不下水，在店里修板' },
 		],
 		gifts: { love: ['surfboard'], like: ['snack', 'coffee'], dislike: ['jerrycan'] },
 		stories: [
@@ -107,6 +111,7 @@ export const NPCS: NpcDef[] = [
 		bio: '和鲸鲨游泳的次数比和人吃饭还多。',
 		schedule: [
 			{ seasons: ['summer'], weekdays: [4, 5, 6], loc: 'monkey-mia', hours: [8, 15], note: '夏天周末去猴子米亚帮忙' },
+			{ weather: ['storm'], loc: 'exmouth', hours: [9, 13], note: '风暴天潜水船停航，在店里检查装备' },
 		],
 		gifts: { love: ['snack'], like: ['water', 'firstaid'], dislike: ['jerrycan'] },
 		stories: [
@@ -151,6 +156,7 @@ export const NPCS: NpcDef[] = [
 		id: 'tom', name: '汤姆', role: '龙虾船船长', loc: 'geraldton', hours: [5, 14],
 		bio: '天不亮就出海，中午回港卸完货就去码头边的长椅上晒太阳。',
 		schedule: [
+			{ weather: ['storm'], loc: 'geraldton', hours: [9, 15], note: '风暴天不出海，在码头修船' },
 			{ weekdays: [5, 6], loc: 'kalbarri', hours: [9, 16], note: '周末开船带游客看卡尔巴里的海崖' },
 		],
 		gifts: { love: ['coffee'], like: ['water', 'firstaid'], dislike: ['surfboard'] },
@@ -181,6 +187,7 @@ export const NPCS: NpcDef[] = [
 		bio: '在峡谷里长大，知道哪块石头雨后会滑。',
 		schedule: [
 			{ seasons: ['summer'], loc: 'port-hedland', hours: [9, 17], note: '夏天太热不带团，去黑德兰港的办公室排班' },
+			{ weather: ['storm'], loc: 'karijini', hours: [9, 13], note: '暴雨峡谷封闭，只在游客中心值半天班' },
 		],
 		gifts: { love: ['water'], like: ['firstaid', 'flynet'], dislike: ['coffee'] },
 		stories: [
@@ -196,6 +203,7 @@ export const NPCS: NpcDef[] = [
 		bio: '退休前是中学生物老师，现在每天在海边数海豚。',
 		schedule: [
 			{ weekdays: [6], loc: 'margaret-river', hours: [10, 15], note: '周日去玛格丽特河看外孙' },
+			{ weather: ['storm'], loc: 'bunbury', hours: [10, 14], note: '风暴天海豚中心只开半天' },
 		],
 		gifts: { love: ['snack'], like: ['coffee', 'water'], dislike: ['jerrycan'] },
 		stories: [
@@ -211,6 +219,7 @@ export const NPCS: NpcDef[] = [
 		bio: '靠一条灌渠种出了半个镇子的芒果。',
 		schedule: [
 			{ seasons: ['winter'], weekdays: [5], loc: 'broome', hours: [9, 16], note: '冬天周六去布鲁姆集市卖芒果' },
+			{ weather: ['hot'], loc: 'kununurra', hours: [5, 10], note: '太热，只干早上凉快那会儿' },
 		],
 		gifts: { love: ['coffee'], like: ['water', 'firstaid'], dislike: ['surfboard'] },
 		stories: [
@@ -257,6 +266,7 @@ export const NPCS: NpcDef[] = [
 		id: 'ayla', name: '艾拉', role: '护林员', loc: 'kangaroo-island', hours: [8, 17],
 		bio: '在袋鼠岛的保护区工作，能叫出好几只海狮的名字。',
 		schedule: [
+			{ weather: ['storm'], weekdays: [6], loc: 'kangaroo-island', hours: [9, 15], note: '风暴天渡轮停航，周日留在岛上' },
 			{ weekdays: [6], loc: 'victor-harbor', hours: [10, 16], note: '周日坐渡轮过海到杰维斯角，再开车去维克多港买东西' },
 		],
 		gifts: { love: ['coffee'], like: ['snack', 'raincoat'], dislike: ['rod'] },

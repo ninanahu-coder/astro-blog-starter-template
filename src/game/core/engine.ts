@@ -14,6 +14,7 @@ import { ITEMS } from '../data/items.ts';
 import { SHOP_RULES } from '../data/shops.ts';
 import { buyPrice, markdownNow, sellItemBlocked, sellPrice } from './shop.ts';
 import { NPCS } from '../data/npcs.ts';
+import { chatDc, npcMood, planFor, type NpcMood, type NpcPlan } from './npc-behavior.ts';
 import { GIFT_GAIN, RELATION_GAIN, RELATION_TIERS } from '../data/relations.ts';
 import { bondBlocked, confideDue, confideLine, favorToday, isConfidant, isFading } from './relations.ts';
 import { CONFIDANT } from '../data/relations.ts';
@@ -31,7 +32,7 @@ import { CERTS } from '../data/certs.ts';
 import { credentialName, VISA_GIGS } from '../data/education.ts';
 import { logWork, visaBlocked } from './visa.ts';
 import { AREAS, EXPERIENCES, REPEAT_FUN_SHARE } from '../data/experiences.ts';
-import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, period, SEASONS, weekdayOf } from './time.ts';
+import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, period, SEASONS } from './time.ts';
 import { WEATHERS } from '../data/weather.ts';
 import { FESTIVALS } from '../data/festivals.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
@@ -49,7 +50,7 @@ import { bodyScaled, gainNeed, passTime } from './vitals.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import { dailyFull, eventReady, memoryOn, needMet, noteResolved, noteTriggered, pickChain, weightedPick, weightOf, type EventSource } from './event-rules.ts';
 import type {
-	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, Hours, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
+	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
 } from './types.ts';
 
 // ---------- 调参常量 ----------
@@ -783,24 +784,10 @@ export function giftReaction(npc: NpcDef, itemId: string): GiftReaction {
 	return 'neutral';
 }
 
-export interface NpcPlan {
-	loc: string;
-	hours: Hours;
-	note?: string;
-}
+export type { NpcPlan };
 
-/** NPC 某天的安排：日程里第一条满足今天条件的，否则常驻地点和作息 */
-export function npcPlan(npc: NpcDef, clock: number): NpcPlan {
-	const wd = weekdayOf(clock);
-	const season = dateOf(clock).season;
-	for (const slot of npc.schedule ?? []) {
-		if (slot.weekdays && !slot.weekdays.includes(wd)) continue;
-		if (slot.seasons && !slot.seasons.includes(season)) continue;
-		if (slot.festival && !festivalActive(slot.festival, clock)) continue;
-		return { loc: slot.loc, hours: slot.hours, note: slot.note };
-	}
-	return { loc: npc.loc, hours: npc.hours };
-}
+/** NPC 某天的安排（规则见 core/npc-behavior.ts：休假 > 病假 > 日程第一条满足的 > 常驻地点和作息） */
+export const npcPlan = (npc: NpcDef, clock: number): NpcPlan => planFor(npc, clock);
 
 /** 跨午夜的作息（如 20:00–6:00）在凌晨时算前一天的安排 */
 /** NPC 此刻适用的安排：凌晨时沿用前一天跨午夜的作息（和「在不在场」的判断一致，界面也用它） */
@@ -813,8 +800,9 @@ export function planNow(npc: NpcDef, clock: number): NpcPlan {
 }
 
 /** NPC 此刻相对当前安排的状态：在那里 / 还没到时间 / 今天已经走了 */
-export function npcStatus(npc: NpcDef, clock: number): { plan: NpcPlan; state: 'there' | 'before' | 'after' } {
+export function npcStatus(npc: NpcDef, clock: number): { plan: NpcPlan; state: 'there' | 'before' | 'after' | 'away' } {
 	const plan = planNow(npc, clock);
+	if (plan.away) return { plan, state: 'away' };
 	if (isOpen(plan.hours, clock)) return { plan, state: 'there' };
 	const [open, close] = plan.hours;
 	const h = hourOf(clock);
@@ -825,7 +813,7 @@ export function npcStatus(npc: NpcDef, clock: number): { plan: NpcPlan; state: '
 /** NPC 此刻是否在某地点 */
 export function npcPresent(npc: NpcDef, loc: string, clock: number): boolean {
 	const p = planNow(npc, clock);
-	return p.loc === loc && isOpen(p.hours, clock);
+	return !p.away && p.loc === loc && isOpen(p.hours, clock);
 }
 
 /** 专属互动不能做的原因；undefined 表示可以做。没有专属互动的 NPC 返回 null */
@@ -854,6 +842,8 @@ export interface NpcAvailability {
 	fading: boolean;
 	/** 是知己（第 29 批）：blocked 里有 unbond 键；够格结为知己时有 bond 键 */
 	confidant: boolean;
+	/** TA 此刻的心情和招呼台词（第 43 批） */
+	mood: NpcMood;
 }
 
 /** 不指定物品时挑哪件：最爱 > 喜欢 > 一般，讨厌的不挑；随身装备（睡袋、冲浪板……）不会被自动送出，要送得明确指定 */
@@ -868,7 +858,6 @@ function pickGift(state: PlayerState, npc: NpcDef): string | undefined {
 
 /** 当前地点、当前时段在场的 NPC */
 export function npcsAt(state: PlayerState, region: Region): NpcAvailability[] {
-	void region;
 	const today = dayOf(state.clock);
 	return NPCS.filter((n) => npcPresent(n, state.loc, state.clock)).map((npc) => {
 		const rel = getRelation(state, npc.id);
@@ -889,7 +878,7 @@ export function npcsAt(state: PlayerState, region: Region): NpcAvailability[] {
 		if (bond !== null) blocked.bond = bond;
 		const confidant = isConfidant(rel);
 		if (confidant) blocked.unbond = undefined;
-		return { npc, rel, tier: relationTier(rel.score), gift, blocked, nextStory, favor, fading: isFading(rel, today), confidant };
+		return { npc, rel, tier: relationTier(rel.score), gift, blocked, nextStory, favor, fading: isFading(rel, today), confidant, mood: npcMood(npc, NPCS, state.clock, region) };
 	});
 }
 
@@ -958,10 +947,11 @@ export function interactNpc(prev: PlayerState, region: Region, npcId: string, ac
 		// 知己每隔几天会多讲一段近况（第 29 批，只给心情）
 		const confide = confideDue(rel, dayOf(prev.clock)) ? confideLine(npcId, dayOf(prev.clock)) : undefined;
 		if (confide) rel.told = dayOf(prev.clock);
-		const good = checkScore(state, 'charisma').total + roll(state) * 60 >= 45;
+		// 门槛按 TA 此刻的心情加减（第 43 批 NPC 行为）
+		const good = checkScore(state, 'charisma').total + roll(state) * 60 >= chatDc(here.mood);
 		gain = good ? RELATION_GAIN.chatGood : RELATION_GAIN.chatPlain;
 		if (applyEffect(state, { minutes: 30, needs: { social: 18, fun: 5 }, skills: { charisma: 0.5 }, moodlet: confide ? 'heart-to-heart' : undefined }, region)) return collapsedResult(state);
-		text = (good ? `和${npc.name}聊得很投机。` : `和${npc.name}寒暄了几句。`) + (confide ? `【近况】${confide}` : '');
+		text = `${npc.name}：${here.mood.line}` + (good ? `和${npc.name}聊得很投机。` : `和${npc.name}寒暄了几句。`) + (confide ? `【近况】${confide}` : '');
 	} else if (action === 'gift') {
 		const r = giftReaction(npc, gift!);
 		gain = GIFT_GAIN[r];

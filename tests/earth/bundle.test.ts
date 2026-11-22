@@ -46,10 +46,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *     未压缩 610,177 → 616,064，上限 613,400 → 618,900。
  *   - 自然灾害：灾害规则和数据（山火、洪水、气旋、热浪、停电）、预警行和顶栏标签，gzip 196,313 → 199,858（+3.5KB），上限 197,300 → 200,800；
  *     未压缩 616,064 → 626,692，上限 618,900 → 629,400。
+ *   - NPC 行为：休假、病假、天气日程、移动、心情和招呼台词（core/npc-behavior.ts、data/npc-behavior.ts），gzip 199,871 → 202,906（+3.0KB），上限 200,800 → 203,900；
+ *     未压缩 626,730 → 635,977，上限 629,400 → 639,000。
  */
-export const FIRST_SCREEN_MAX = 629_400;
+export const FIRST_SCREEN_MAX = 639_000;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 200_800;
+export const FIRST_SCREEN_GZIP_MAX = 203_900;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
