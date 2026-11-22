@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createCharacter } from '../../src/game/core/character.ts';
 import {
-	bushfireLevel, cycloneLevel, evacuationTarget, floodLevel, heatwaveLevel, hotRun, incidentsFor, monthOfDay, routeClosed, warningsOn, type Warning,
+	bushfireLevel, CLAIMABLE, cycloneLevel, evacuationTarget, floodLevel, heatwaveLevel, hotRun, incidentsFor, monthOfDay, routeClosed, warningsOn, workStopped, type Warning,
 } from '../../src/game/core/disasters.ts';
 import { activitiesAt, buyFurniture, cookAtHome, homeActionBlocked, performActivity, rentHome, shiftBlocked, travel, travelOptions, workShift } from '../../src/game/core/engine.ts';
 import { fireDanger, isCoastal } from '../../src/game/core/sky.ts';
@@ -14,6 +14,8 @@ import { DISASTER_RULES, HAZARDS, KIT_ITEM, WARN_LEVELS } from '../../src/game/d
 import { ITEMS } from '../../src/game/data/items.ts';
 import { SA_BASE } from '../../src/game/data/sa-base.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { venueAction, venuesNear } from '../../src/game/core/venues.ts';
+import { VENUE_TYPES } from '../../src/game/data/venues.ts';
 import { warningChip, warningRows } from '../../src/game/ui/disasters.ts';
 
 const DAYS = 112 * 6;
@@ -249,4 +251,88 @@ test('撤离去处：更近但有注意并行动预警的地点不选', () => {
 		return;
 	}
 	assert.fail('扫描范围内没找到');
+});
+
+// ---------- 合并 main 后复核补的 ----------
+test('真实地点打卡：工作地点紧急警告停工当天打不了上班卡，附近列表也显示停工；已经打的卡能打下班卡（合并 main 后复核）', () => {
+	const { l, day } = find((l, d) => !!workStopped(l, d) && WA.venues.some((v) => v.loc === l.id && VENUE_TYPES.find((t) => t.id === v.type && t.gigRate)));
+	const venue = WA.venues.find((v) => v.loc === l.id && VENUE_TYPES.find((t) => t.id === v.type && t.gigRate))!;
+	const now = Date.UTC(2026, 10, 22, 2);
+	const s = make({ loc: l.id, clock: day * 1440 + 10 * 60, needs: { hunger: 90, energy: 90, hygiene: 90, fun: 90, social: 90 } as never });
+	const req = { venue: venue.id, op: 'work' as const, lat: venue.lat, lon: venue.lon, acc: 10 };
+	const r = venueAction(s, WA, req, now);
+	assert.equal(r.ok, false);
+	assert.equal(r.msg, workStopped(l, day), '和游戏内上班同一个停工原因');
+	const op = venuesNear(s, WA, venue.lat, venue.lon, 10, now).find((v) => v.venue.id === venue.id)?.ops.find((o) => o.op.id === 'work');
+	assert.equal(op?.blocked, workStopped(l, day), '附近列表提前显示');
+	// 前一天打的卡（停工前）：停工当天照样能打下班卡
+	const clocked = { ...s, clockIn: { venue: venue.id, at: now - 3 * 3_600_000, career: '' } as never };
+	const out = venueAction(clocked, WA, req, now);
+	assert.notEqual(out.msg, workStopped(l, day), '打下班卡不受停工影响');
+	const gigCard = { ...s, clockIn: { venue: venue.id, at: now - 3 * 3_600_000 } as never };
+	const outOp = venuesNear(gigCard, WA, venue.lat, venue.lon, 10, now).find((v) => v.venue.id === venue.id)?.ops.find((o) => o.op.id === 'work');
+	assert.notEqual(outOp?.blocked, workStopped(l, day), '附近列表里的下班卡按钮不因停工变灰');
+});
+
+test('撤离建议只给玩家现在走得了的去处；都走不了时提示就地避险（合并 main 后复核）', () => {
+	const { l, day } = find((l, d) => warningsOn(l, d).some((w) => w.level === 3 && w.hazard !== 'heatwave' && w.hazard !== 'outage') && !!evacuationTarget(WA, l, d));
+	const ws = warningsOn(l, day);
+	const any = evacuationTarget(WA, l, day)!;
+	assert.equal(evacuationTarget(WA, l, day, new Set([any.id]))?.id, any.id);
+	assert.equal(evacuationTarget(WA, l, day, new Set()), null, '一个都走不了：不给去处');
+	const rows = warningRows(ws, WA, l, day, 'wa', esc, new Set()).join('');
+	assert.match(rows, /现在走不了：留在坚固的建筑里/);
+	assert.ok(!rows.includes('可以撤到'));
+	// 页面传的是 travelOptions 里可用的去处：没车的人不会被指向只能走土路的地方
+	const s = make({ loc: l.id, clock: day * 1440 + 9 * 60, vehicle: 'none', cash: 5000 });
+	const ok = new Set(travelOptions(s, WA).filter((o) => o.available).map((o) => o.to));
+	const go = evacuationTarget(WA, l, day, ok);
+	if (go) assert.ok(ok.has(go.id));
+	// 有预警的地方也不会出现在建议里
+	if (go) assert.ok(!warningsOn(go, day).some((w) => w.level >= 2));
+});
+
+test('公交、火车、步行也按陆路封闭，提示写对交通方式（合并 main 后复核）', () => {
+	for (const [mode, what] of [['transit', '公交停运'], ['rail', '火车停运'], ['walk', '道路封闭'], ['road', '公路封闭']] as const) {
+		const { l, day } = find((l, d) => warningsOn(l, d).some((w) => HAZARDS[w.hazard].closeRoad && w.level >= (HAZARDS[w.hazard].closeRoad as number) && !HAZARDS[w.hazard].inboundOnly));
+		const other = WA.locations.find((x) => x.id !== l.id && !warningsOn(x, day).length)!;
+		const why = routeClosed(other, l, mode, day);
+		assert.ok(why && why.endsWith(what), `${mode}：${why}`);
+	}
+});
+
+test('理赔查询：区间反了（同一天重复结算）返回空，不会把明天算进来（合并 main 后复核）', () => {
+	const { day } = find((l, d) => warningsOn(l, d).some((w) => w.level === 3 && CLAIMABLE.includes(w.hazard)));
+	const { l } = find((l, d) => d === day && warningsOn(l, d).some((w) => w.level === 3 && CLAIMABLE.includes(w.hazard)));
+	const s = make({ loc: l.id, home: { type: 'room', loc: l.id, furniture: {} } });
+	assert.ok(incidentsFor(s, WA, day, day).length > 0);
+	assert.deepEqual(incidentsFor(s, WA, day, day - 1), []);
+});
+
+test('引擎：卡尔古利山火封路当天，从珀斯坐 Transwa 火车过去也停运（合并 main 后复核）', () => {
+	const kal = loc('kalgoorlie');
+	const day = [...Array(DAYS).keys()].find((d) => !!routeClosed(loc('perth'), kal, 'rail', d));
+	assert.ok(day !== undefined, '扫描范围内卡尔古利有封路的日子');
+	const s = make({ loc: 'perth', clock: day! * 1440 + 9 * 60, cash: 5000 });
+	const rail = travelOptions(s, WA).find((o) => o.to === 'kalgoorlie' && o.mode === 'rail');
+	assert.ok(rail, '有火车选项');
+	assert.equal(rail!.available, false);
+	assert.match(rail!.reason ?? '', /火车停运/);
+});
+
+test('页面：预警行的撤离建议只在玩家能走的去处里挑（合并 main 后复核）', async () => {
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(src, /warningRows\(warningsAt\(s, region\), region, loc, dayOf\(s\.clock\), curArea\(\)\.id, esc, new Set\(travelOptions\(s, region\)\.filter\(\(o\) => o\.available\)\.map\(\(o\) => o\.to\)\)\)/);
+});
+
+test('真实地点打卡：本来就不能在这里干活的，停工那天也照实说缺职业，不说成停工（合并 main 后二次核查）', () => {
+	const types = new Set(VENUE_TYPES.filter((t) => !t.gigRate && t.ops.includes('work')).map((t) => t.id));
+	const { l, day } = find((l, d) => !!workStopped(l, d) && WA.venues.some((v) => v.loc === l.id && types.has(v.type)));
+	const venue = WA.venues.find((v) => v.loc === l.id && types.has(v.type))!;
+	const now = Date.UTC(2026, 10, 22, 2);
+	const s = make({ loc: l.id, clock: day * 1440 + 10 * 60, job: null });
+	const r = venueAction(s, WA, { venue: venue.id, op: 'work', lat: venue.lat, lon: venue.lon, acc: 10 }, now);
+	assert.equal(r.ok, false);
+	assert.match(r.msg, /对应的职业/);
 });

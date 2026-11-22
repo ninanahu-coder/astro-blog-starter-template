@@ -12,13 +12,15 @@ export function warnAgency(areaId: string, hazard: HazardId): { name: string; ur
 }
 
 /** 卡片里的预警行；没有预警时返回空数组 */
-export function warningRows(ws: Warning[], region: Region, loc: GameLocation, day: number, areaId: string, esc: Esc): string[] {
+/** reachable：玩家此刻真能去的地点（见 evacuationTarget），页面从 travelOptions 取 */
+export function warningRows(ws: Warning[], region: Region, loc: GameLocation, day: number, areaId: string, esc: Esc, reachable?: ReadonlySet<string>): string[] {
 	return ws.map((w) => {
 		const h = HAZARDS[w.hazard];
 		const lv = WARN_LEVELS[w.level];
 		const ag = warnAgency(areaId, w.hazard);
-		const go = w.level === 3 && w.hazard !== 'heatwave' && w.hazard !== 'outage' ? evacuationTarget(region, loc, day) : null;
-		const evac = go ? `可以撤到 ${esc(go.name)}。` : '';
+		const evacuate = w.level === 3 && w.hazard !== 'heatwave' && w.hazard !== 'outage';
+		const go = evacuate ? evacuationTarget(region, loc, day, reachable) : null;
+		const evac = go ? `可以撤到 ${esc(go.name)}。` : evacuate ? '现在走不了：留在坚固的建筑里，听从当地指示。' : '';
 		return `<div class="row warn warn-${esc(lv.color)}"><span class="ico" aria-hidden="true">${esc(h.icon)}</span><span class="body">${esc(h.name)} · ${esc(lv.name)}（${esc(lv.en)}）<small>${esc(h.advice[w.level])}${evac}这是游戏里的模拟，不是真实预警；真实情况看 <a href="${esc(ag.url)}" target="_blank" rel="noopener">${esc(ag.name)}</a></small></span></div>`;
 	});
 }

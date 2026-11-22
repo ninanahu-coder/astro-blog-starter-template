@@ -6,7 +6,16 @@
 //   npm run earth:sim -- --days=120 --runs=100
 //   npm run earth:sim -- --out=docs/earth-game/balance-report.md
 //   npm run earth:sim -- --origins     出身对照：每个出身跑同样三种策略（零工 / 咖啡店 / 不干活），都不带特质
+//
+// 平衡调试工具（docs/earth-game/balance-tools.md）。不加下面这些参数时，输出和加之前逐字一致：
+//   --eco                   报告末尾加「经济流水：投放与回收」表
+//   --off=events,coop       关掉这些系统再跑（只改机器人行为，见 systems.ts；--list-systems 列出全部）
+//   --ab=events             同样的种子跑两遍：全开 vs 关掉，输出对比（ab.ts）
+//   --format=json|csv       导出结构化结果（默认 md）；配合 --out 写文件
+//   --only=barista,idle     只跑这些策略
 import { writeFileSync } from 'node:fs';
+import { averageEco, blankEco, parseSystems, recordEco, SYSTEMS, systemOf, type EcoStats } from './systems.ts';
+import { ecoMarkdown, toCsv, toJson, type PlanResult, type SimResult } from './report.ts';
 import { applyAction, applyCoop, type GameAction } from '../../../src/game/core/actions.ts';
 import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
@@ -19,18 +28,50 @@ import { weatherAt } from '../../../src/game/core/weather.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
+import { lbEntry, type LbEntry, type LbStatKey } from '../../../src/game/core/leaderboard.ts';
+import { LB_ANOMALY } from '../../../src/game/data/leaderboard.ts';
+import { canWork, ieltsAt, visaKindNow, visaOptions } from '../../../src/game/core/immigration.ts';
+import { VISA_RULES } from '../../../src/game/data/visas.ts';
 
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
 const DAYS = Number(arg('days', '60'));
 const RUNS = Number(arg('runs', '40'));
 const OUT = arg('out', '');
 const BY_ORIGIN = process.argv.includes('--origins');
+// 平衡调试工具的参数（见文件头）
+const FORMAT = arg('format', 'md');
+const ONLY = arg('only', '').split(',').filter(Boolean);
+if (process.argv.includes('--list-systems')) {
+	for (const x of SYSTEMS) console.log(`${x.id.padEnd(11)} ${x.name}：${x.how}`);
+	process.exit(0);
+}
+if (process.argv.some((a) => a.startsWith('--ab='))) {
+	// A/B 要两次独立的模拟：交给 ab.ts 起两个子进程，本进程不跑
+	await import('./ab.ts');
+	process.exit(0);
+}
+let OFF: Set<string>;
+try {
+	OFF = new Set(parseSystems(arg('off', '')));
+} catch (e) {
+	console.error((e as Error).message);
+	process.exit(2);
+}
+if (!Number.isInteger(DAYS) || DAYS < 1 || !Number.isInteger(RUNS) || RUNS < 1 || !['md', 'json', 'csv'].includes(FORMAT)) {
+	console.error('--days、--runs 要是正整数，--format 只能是 md、json、csv');
+	process.exit(2);
+}
+/** 每个机器人的现金流水和被拦下的次数（不放进 Bot.stats：少改别的分支也在改的地方） */
+const ECO = new WeakMap<object, EcoStats>();
+const ecoOf = (b: object) => ECO.get(b) ?? (ECO.set(b, blankEco()), ECO.get(b)!);
 
 // ---------- 机器人 ----------
 interface Bot {
 	s: PlayerState;
 	rng: () => number;
 	plan: Plan;
+	/** 理财机器人最近一次买入的游戏日 */
+	investDay?: number;
 	stats: {
 		collapses: number;
 		evictions: number;
@@ -49,7 +90,28 @@ interface Bot {
 		coops: number;
 		coopOk: number;
 		coopKinds: Record<string, number>;
+		/** 第 43 批：签证过期（不能工作）的天数、拿到 PR 的游戏日、考雅思次数 */
+		visaExpiredDays: number;
+		prDay?: number;
+		ielts: number;
 	};
+	/** 排行榜（排行榜第一版）：每个成功动作后按服务端同一个函数算榜单记录，看异常值复核线会不会误伤正常玩法 */
+	lb: { e: LbEntry; now: number; max: Record<LbStatKey, number>; holds: number; why: string[] };
+}
+
+/** 模拟里的现实时间：每个成功动作算 10 秒（一小时 360 个动作，比真人快），只用于净资产一小时涨幅检查 */
+const LB_SIM_STEP_MS = 10_000;
+const LB_KEYS: LbStatKey[] = ['worth', 'respect', 'dex', 'places'];
+function trackLb(b: Bot) {
+	const prev = b.lb.e;
+	b.lb.now += LB_SIM_STEP_MS;
+	const e = lbEntry(b.s, b.lb.now, prev, { places: WA.pois.length });
+	for (const k of LB_KEYS) b.lb.max[k] = Math.max(b.lb.max[k], e.stats[k] - prev.stats[k]);
+	if (e.hold && e.hold.at === b.lb.now) {
+		b.lb.holds++;
+		if (b.lb.why.length < 3) b.lb.why.push(e.hold.why);
+	}
+	b.lb.e = e;
 }
 
 const GIG_IDS = ['work-mine', 'work-farm', 'work-cafe', 'busk'] as const;
@@ -100,6 +162,11 @@ interface Plan {
 	 * mateNeeds：搭档的各项需求（100 = 全满）；mateChance：每次想做时有搭档在场的概率
 	 */
 	coop?: { mateNeeds: number; mateChance: number };
+	/**
+	 * 第 25 批（经济设计）：理财。现金超过 keep 时把多出来的买成 asset（每个游戏日最多一次），不买房；
+	 * 现金低于 $300 时卖出 $500 应急。
+	 */
+	invest?: { asset: string; keep: number };
 }
 
 const PLANS: Plan[] = [
@@ -118,6 +185,9 @@ const PLANS: Plan[] = [
 	// 共同事件三种搭档假设（第 10 批审查问题 1）：理想（需求全满、随叫随到）是上限，不是保守估计；另外两种看搭档状态和在场率的影响
 	{ id: 'barista-coop', name: '咖啡店 + 共同事件：理想搭档（需求全满、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 100, mateChance: 1 } },
 	{ id: 'barista-coop-tired', name: '咖啡店 + 共同事件：疲惫搭档（需求 40、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 1 } },
+	{ id: 'barista-savings', name: '咖啡店 + 理财：高息储蓄（不买房）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', invest: { asset: 'savings', keep: 3000 } },
+	{ id: 'barista-index', name: '咖啡店 + 理财：澳股指数基金（不买房）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', invest: { asset: 'asx-index', keep: 3000 } },
+	{ id: 'barista-coin', name: '咖啡店 + 理财：鸸鹋币（不买房）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', invest: { asset: 'emu-coin', keep: 3000 } },
 	{ id: 'barista-coop-sparse', name: '咖啡店 + 共同事件：疲惫搭档，一半时候没人（需求 40、在场 50%）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 0.5 } },
 ];
 
@@ -160,7 +230,7 @@ function blankDiagnostics(): BackpackerDiagnostics {
 
 function actionKey(a: GameAction): string {
 	return a.t === 'activity' ? a.id
-		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' ? `${a.t}-${a.op}`
+		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' || a.t === 'asset' ? `${a.t}-${a.op}`
 			: a.t === 'npc' ? 'npc'
 				: a.t === 'buy' ? `buy-${a.item}`
 					: a.t;
@@ -184,6 +254,8 @@ function recordCollapse(b: Bot, before: PlayerState, after: PlayerState, a: Game
 
 /** 尝试一个动作；成功则更新状态并统计 */
 function tryAct(b: Bot, a: GameAction): boolean {
+	const sys = OFF.size ? systemOf(a) : undefined;
+	if (sys && OFF.has(sys)) return (ecoOf(b).blocked[sys] = (ecoOf(b).blocked[sys] ?? 0) + 1), false;
 	const before = b.s;
 	const r = applyAction(b.s, WA, a);
 	if (!r.ok) {
@@ -191,8 +263,15 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		return false;
 	}
 	b.s = r.state;
+	trackLb(b);
 	const key = actionKey(a);
 	b.stats.flow[key] = (b.stats.flow[key] ?? 0) + (b.s.cash - before.cash);
+	recordEco(ecoOf(b), a.t, key, b.s.cash - before.cash);
+	if (OFF.has('events') && b.s.pending) {
+		// 事件系统关掉：这次动作抽中的事件直接丢掉，不结算选项
+		b.s = { ...b.s, pending: null };
+		ecoOf(b).blocked.events = (ecoOf(b).blocked.events ?? 0) + 1;
+	}
 	if (a.t === 'activity' && (GIG_IDS as readonly string[]).includes(a.id)) {
 		b.stats.diag.gigStarted++;
 		if (r.collapsed) b.stats.diag.gigCollapsed++;
@@ -337,6 +416,7 @@ function stepSafeDrifter(b: Bot) {
 function tryCoop(b: Bot): boolean {
 	const s = b.s;
 	const cfg = b.plan.coop!;
+	if (OFF.has('coop')) return false;
 	const open = coopsAt(s, WA).find((x) => !x.blocked);
 	if (!open) return false;
 	if (cfg.mateChance < 1 && b.rng() >= cfg.mateChance) return false;
@@ -348,14 +428,42 @@ function tryCoop(b: Bot): boolean {
 	const me = r.results[0];
 	if (!me.ok) return false;
 	b.stats.flow.coop = (b.stats.flow.coop ?? 0) + (me.state.cash - s.cash);
+	recordEco(ecoOf(b), 'coop', 'coop', me.state.cash - s.cash);
 	b.stats.coops++;
 	if (r.success) b.stats.coopOk++;
 	b.stats.coopKinds[open.def.id] = (b.stats.coopKinds[open.def.id] ?? 0) + 1;
 	b.s = me.state;
+	trackLb(b);
 	return true;
 }
 
 /** 一步决策：先保命，再上班，再满足需求，最后按策略消磨时间 */
+/**
+ * 第 43 批的签证策略（简单、贪心）：能批的路线按 PR > 491 > 482 > 第二次 485 > 485 的顺序申请（过期了才续读学生签）；
+ * 毕业生签证只差雅思时在城市里考雅思，钱留够申请费 + $300。
+ */
+const VISA_ORDER = ['ens', 'skilled', 'state', 'regionalPr', 'regional', 'sponsored', 'graduate2', 'graduate', 'student'];
+function stepVisa(b: Bot): boolean {
+	const s = b.s;
+	const now = visaKindNow(s);
+	if (now === 'none' || now === 'pr') return false;
+	const opts = visaOptions(s, WA);
+	for (const id of VISA_ORDER) {
+		if (id === 'student' && now !== 'expired') continue;
+		if (id === 'graduate2' && (s.visa.until - dayOf(s.clock)) > 20) continue; // 第一次 485 快到期才续
+		const o = opts.find((x) => x.route.id === id && !x.blocked);
+		if (o && tryAct(b, { t: 'visa', op: 'apply', route: id })) return true;
+	}
+	const grad = opts.find((x) => x.route.id === 'graduate');
+	const wantIelts = s.visa.ielts < VISA_RULES.graduate.minIelts && (grad?.blocked?.includes('雅思') || (s.visa.course && s.visa.course.end - dayOf(s.clock) < 30));
+	const t = wantIelts ? ieltsAt(s, WA) : null;
+	if (t && !t.blocked && s.cash > t.fee + 1300 + 300 && s.needs.energy > 40 && tryAct(b, { t: 'visa', op: 'ielts' })) {
+		b.stats.ielts++;
+		return true;
+	}
+	return false;
+}
+
 function step(b: Bot) {
 	const s = b.s;
 	const plan = b.plan;
@@ -394,6 +502,9 @@ function step(b: Bot) {
 	}
 	if (s.needs.hygiene < 25 && act(b, 'shower')) return;
 
+	// 1.5 签证（第 43 批）：只有留学生出身走签证路线
+	if (!isIdle(plan) && stepVisa(b)) return;
+
 	// 2. 找工作、租房、去上班
 	if (plan.job) {
 		if (!s.job) {
@@ -427,9 +538,18 @@ function step(b: Bot) {
 			const exp = experiencesAt(s, WA).find((o) => o.first && !o.blocked);
 			if (exp && tryAct(b, { t: 'experience', id: exp.exp.id })) return;
 		}
+		// 理财（第 25 批）：现金多出 keep 的部分每天最多买一次；缺钱时卖出应急。理财机器人不买房
+		if (plan.invest) {
+			const day = dayOf(s.clock);
+			if (s.cash < 300 && (s.holdings[plan.invest.asset]?.units ?? 0) > 0 && tryAct(b, { t: 'asset', op: 'sell', id: plan.invest.asset, amount: 500 })) return;
+			if (s.cash > plan.invest.keep + 500 && b.investDay !== day && tryAct(b, { t: 'asset', op: 'buy', id: plan.invest.asset, amount: s.cash - plan.invest.keep })) {
+				b.investDay = day;
+				return;
+			}
+		}
 		// 买房：首付之外还留 $3,000 周转；买了就搬进去
 		const house = propertiesAt(s, WA).find((o) => !o.owned && s.cash >= o.down + 3000);
-		if (house && s.properties.length === 0 && tryAct(b, { t: 'property', op: 'buy', id: house.property.id, loan: s.cash < house.property.price + 3000 })) {
+		if (house && !plan.invest && s.properties.length === 0 && tryAct(b, { t: 'property', op: 'buy', id: house.property.id, loan: s.cash < house.property.price + 3000 })) {
 			tryAct(b, { t: 'property', op: 'movein', id: house.property.id });
 			b.stats.homeDay = dayOf(b.s.clock) + 1;
 			return;
@@ -482,7 +602,8 @@ function runBot(plan: Plan, seed: number): Bot {
 	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: WA.id, spawn: WA.spawn, seed });
 	const b: Bot = {
 		s, plan, rng: mulberry(seed * 7919),
-		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), coops: 0, coopOk: 0, coopKinds: {} },
+		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0 },
+		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
 	let lastDay = dayOf(s.clock);
@@ -498,6 +619,8 @@ function runBot(plan: Plan, seed: number): Bot {
 			lastDay++;
 			b.stats.cashByDay.push(b.s.cash);
 			if (b.s.cash < 20) b.stats.daysBroke++;
+			if (!canWork(b.s)) b.stats.visaExpiredDays++;
+			if (b.stats.prDay === undefined && b.s.visa.kind === 'pr') b.stats.prDay = lastDay;
 		}
 	}
 	// 每个机器人都必须跑满目标天数：卡住的运行会让汇总失真（缺的天按最后一个样本补、分母却按满天数算）
@@ -506,6 +629,8 @@ function runBot(plan: Plan, seed: number): Bot {
 }
 
 // ---------- 汇总 ----------
+if (ONLY.length) for (const list of [PLANS, ORIGIN_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
+const results: PlanResult[] = [];
 const pct = (xs: number[], p: number) => {
 	const v = [...xs].sort((a, b) => a - b);
 	return v[Math.min(v.length - 1, Math.floor(p * v.length))];
@@ -526,6 +651,8 @@ const skillRows: [string, number[]][] = [];
 const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
 const coopRows: string[] = [];
+const lbRows: string[] = [];
+const visaRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
 for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, i + 1));
@@ -553,6 +680,12 @@ for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 		const kindText = Object.entries(kinds).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('，') || '—';
 		coopRows.push(`| ${plan.name} | ${n.toFixed(1)} | ${(ok * 100).toFixed(0)}% | ${money(flow.coop ?? 0)} | ${kindText} |`);
 	}
+	if (plan.origin === 'student') {
+		const kinds: Record<string, number> = {};
+		for (const b of bots) kinds[b.s.visa.kind] = (kinds[b.s.visa.kind] ?? 0) + 1;
+		const prs = bots.map((b) => b.stats.prDay).filter((d): d is number => d !== undefined);
+		visaRows.push(`| ${plan.name} | ${Object.entries(kinds).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${k} ${v}`).join('，')} | ${prs.length} / ${prs.length ? `第 ${pct(prs, 0.5)} 天` : '—'} | ${avg(bots.map((b) => b.stats.visaExpiredDays)).toFixed(1)} | ${avg(bots.map((b) => b.stats.ielts)).toFixed(1)} |`);
+	}
 	if (plan.id === 'drifter' || plan.gig) {
 		const perDay = RUNS * DAYS;
 		const started = bots.reduce((n, b) => n + b.stats.diag.gigStarted, 0);
@@ -579,7 +712,29 @@ for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 		const travel = bots.reduce((n, b) => n + b.stats.diag.collapseTravel, 0) / RUNS;
 		collapseDiagRows.push(`| ${plan.name} | ${beforeText} | 饱食 ${causes[0].toFixed(2)}，精力 ${causes[1].toFixed(2)}，同时 ${causes[2].toFixed(2)}，其他 ${causes[3].toFixed(2)} | ${travel.toFixed(2)} | ${common} |`);
 	}
+	{
+		const mx = (k: LbStatKey) => bots.map((b) => b.lb.max[k]);
+		const flagged = bots.filter((b) => b.lb.holds > 0);
+		const why = flagged.flatMap((b) => b.lb.why).slice(0, 2).join('；') || '—';
+		const endMed = (k: LbStatKey) => pct(bots.map((b) => b.lb.e.stats[k]), 0.5);
+		lbRows.push(`| ${plan.name} | ${money(pct(mx('worth'), 0.99))} / ${money(Math.max(...mx('worth')))} | ${pct(mx('respect'), 0.99)} / ${Math.max(...mx('respect'))} | ${pct(mx('dex'), 0.99)} / ${Math.max(...mx('dex'))} | ${(flagged.length / bots.length * 100).toFixed(0)}% | ${why} | ${money(endMed('worth'))} / ${endMed('respect')} / ${endMed('dex')}‰ |`);
+	}
 	out(`| ${plan.name} | ${money(pct(at(7), 0.5))} | ${money(pct(at(30), 0.5))} | ${money(pct(at(endD), 0.5))} | ${money(pct(at(endD), 0.1))}–${money(pct(at(endD), 0.9))} | ${money(net)} | ${money(pct(bots.map((b) => netWorth(b.s)), 0.5))} | ${(() => { const d = bots.map((b) => b.stats.homeDay).filter((x): x is number => x !== undefined); return d.length > bots.length / 2 ? `第 ${pct(d, 0.5)} 天` : '—'; })()} | ${m.toFixed(0)} | ${coll.toFixed(2)} | ${ev.toFixed(2)} | ${pr.toFixed(2)} | ${promoCol} | ${(broke * 100).toFixed(0)}% |`);
+	// 结构化结果（--format=json / csv、基线、A/B 用）：和上面这一行同一批机器人、同一套口径
+	const eco = averageEco(bots.map((b) => ecoOf(b)), DAYS);
+	const homeDays = bots.map((b) => b.stats.homeDay).filter((x): x is number => x !== undefined);
+	results.push({
+		id: plan.id, name: plan.name,
+		metrics: {
+			cashDay7: pct(at(7), 0.5), cashDay30: pct(at(30), 0.5), cashEnd: pct(at(endD), 0.5), cashEndP10: pct(at(endD), 0.1), cashEndP90: pct(at(endD), 0.9),
+			netPerDay: net, netWorth: pct(bots.map((b) => netWorth(b.s)), 0.5), homeDay: homeDays.length > bots.length / 2 ? pct(homeDays, 0.5) : null, mood: m,
+			collapses: coll, evictions: ev, promotions: pr, promo1Day: nth(0).length ? pct(nth(0), 0.5) : null, promo2Day: nth(1).length ? pct(nth(1), 0.5) : null,
+			brokeShare: broke, events: avg(bots.map((b) => b.stats.events)), coops: avg(bots.map((b) => b.stats.coops)),
+			ecoIn: Object.values(eco.in).reduce((x, y) => x + y, 0), ecoOut: Object.values(eco.out).reduce((x, y) => x + y, 0),
+		},
+		skills: Object.fromEntries(SKILL_KEYS.map((k) => [k, pct(bots.map((b) => b.s.skills[k]), 0.5)])),
+		flow, eco: { in: eco.in, out: eco.out, inDetail: eco.inDetail, outDetail: eco.outDetail }, blocked: eco.blocked,
+	});
 }
 out();
 out('## 第 ' + DAYS + ' 天的能力值（中位）');
@@ -614,11 +769,29 @@ out('| 策略 | 参加次数/人 | 成功率 | 每人每天净现金 | 各种类
 out('| --- | --- | --- | --- | --- |');
 for (const row of coopRows) out(row);
 out();
+out('## 排行榜（排行榜第一版）');
+out();
+out(`每个成功动作后用服务端同一个函数（core/leaderboard.ts 的 lbEntry）算榜单记录。看的是：正常玩法下单个动作最多能涨多少、会不会碰到异常值复核线（data/leaderboard.ts 的 LB_ANOMALY：净资产 ${money(LB_ANOMALY.worthPerRev)}/动作、${money(LB_ANOMALY.worthPerHour)}/小时，声望 ${LB_ANOMALY.respectPerRev}/动作，图鉴 ${LB_ANOMALY.dexPerRev}‰/动作，打卡 ${LB_ANOMALY.placesPerRev}/动作，均待平衡）。现实时间按每个动作 ${LB_SIM_STEP_MS / 1000} 秒算。机器人不用真实定位，打卡一列恒为 0，没有列出；比赛积分只在服务端记，这里不模拟。`);
+out();
+out('| 策略 | 单个动作最大涨幅：净资产（p99 / 最大） | 声望（p99 / 最大） | 图鉴‰（p99 / 最大） | 触发复核的机器人 | 触发原因（举例） | 期末净资产 / 声望 / 图鉴（中位） |');
+out('| --- | --- | --- | --- | --- | --- | --- |');
+for (const row of lbRows) out(row);
+out();
+out('## 签证路线（第 43 批，只有留学生出身）');
+out();
+out('机器人按 stepVisa 的贪心顺序申请（见上面的注释）。过期天数 = 当天结束时签证已过期、不能工作的天数。数值全部待平衡。');
+out();
+out('| 策略 | 期末签证（人数） | 拿到 PR（人 / 中位天数） | 过期天数/人 | 雅思次数/人 |');
+out('| --- | --- | --- | --- | --- |');
+for (const row of visaRows) out(row);
+out();
 out('诊断口径：零工“完成”不含途中晕倒且拿不到工资的动作；未开工只统计现金已低于各策略触发线、但因生存门槛或当前地点/时段无法开工的决策。晕倒原因按动作开始状态和该动作耗时回算；“其他”包括事件受伤。当前四种零工都不受天气关闭，因此天气项应为 0。');
 out();
 out('说明：日均净收入 = (期末现金 − 开局现金) / 天数；破产天数 = 当天结束时现金低于 $20 的天数。');
 
-const text = lines.join('\n') + '\n';
+if (OFF.size) out(`\n**本次关掉的系统：${[...OFF].join('，')}**（只改机器人行为，见 docs/earth-game/balance-tools.md）`);
+const result: SimResult = { days: DAYS, runs: RUNS, origins: BY_ORIGIN, off: [...OFF] as SimResult['off'], plans: results };
+const text = FORMAT === 'json' ? toJson([result]) : FORMAT === 'csv' ? toCsv([result]) : lines.join('\n') + '\n' + (process.argv.includes('--eco') ? '\n' + ecoMarkdown(result) : '');
 process.stdout.write(text);
 if (OUT) {
 	writeFileSync(OUT, text);

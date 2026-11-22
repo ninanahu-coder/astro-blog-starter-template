@@ -115,7 +115,8 @@ export function routeClosed(from: GameLocation, to: GameLocation, mode: string, 
 			const h = HAZARDS[w.hazard];
 			if (!reaches(w, h[key])) continue;
 			if (end === 'from' && h.inboundOnly) continue;
-			const what = mode === 'air' ? '航班停飞' : mode === 'track' ? '土路封闭' : '公路封闭';
+			// 合并 main 后：公交、火车、步行（main 的 transitOptions）也按陆路封闭处理，提示按交通方式写
+			const what = mode === 'air' ? '航班停飞' : mode === 'track' ? '土路封闭' : mode === 'rail' ? '火车停运' : mode === 'transit' ? '公交停运' : mode === 'walk' ? '道路封闭' : '公路封闭';
 			return `${loc.name}${h.name}${WARN_LEVELS[w.level].name}，${what}`;
 		}
 	}
@@ -146,13 +147,25 @@ export function outageBlocksCook(state: PlayerState, loc: GameLocation, day: num
 	return (state.inventory[KIT_ITEM] ?? 0) > 0 ? undefined : '停电了，电炉用不了（应急包里有炉头）';
 }
 
-/** 撤离去处：从这里今天还能走的路线里，挑没有「注意并行动」以上预警、最近的地点；没有返回 null */
-export function evacuationTarget(region: Region, loc: GameLocation, day: number): GameLocation | null {
+/**
+ * 撤离去处：从这里今天还能走的路线里，挑没有「注意并行动」以上预警、最近的地点；没有返回 null。
+ * reachable：这名玩家此刻真能去的地点（调用方从 travelOptions 里取可用的，已经算了封路、车、驾照、天气、钱和公交）。
+ * 传了就只在这些地点里挑，不会建议一条走不了的路（合并 main 后复核）；不传按路线表和封路判断
+ */
+export function evacuationTarget(region: Region, loc: GameLocation, day: number, reachable?: ReadonlySet<string>): GameLocation | null {
 	let best: { to: GameLocation; km: number } | null = null;
-	for (const r of region.routes) {
-		const toId = r.a === loc.id ? r.b : r.b === loc.id ? r.a : null;
-		const to = toId ? region.locations.find((l) => l.id === toId) : undefined;
-		if (!to || routeClosed(loc, to, r.mode, day)) continue;
+	const ids = reachable
+		? [...reachable]
+		: region.routes
+				.filter((r) => r.a === loc.id || r.b === loc.id)
+				.filter((r) => {
+					const to = region.locations.find((l) => l.id === (r.a === loc.id ? r.b : r.a));
+					return !!to && !routeClosed(loc, to, r.mode, day);
+				})
+				.map((r) => (r.a === loc.id ? r.b : r.a));
+	for (const toId of ids) {
+		const to = toId && toId !== loc.id ? region.locations.find((l) => l.id === toId) : undefined;
+		if (!to) continue;
 		if (warningsOn(to, day).some((w) => w.level >= 2)) continue;
 		const km = Math.hypot(to.lat - loc.lat, (to.lon - loc.lon) * Math.cos((loc.lat * Math.PI) / 180));
 		if (!best || km < best.km || (km === best.km && to.id < best.to.id)) best = { to, km };
@@ -186,7 +199,8 @@ export const CLAIMABLE: readonly HazardId[] = ['cyclone', 'bushfire', 'flood'];
  */
 export function incidentsFor(state: PlayerState, region: Region, fromDay: number, toDay: number, vehicleLoc: string = state.loc): DisasterIncident[] {
 	const out: DisasterIncident[] = [];
-	const span = Math.max(0, Math.min(toDay - fromDay, 366)); // 一次最多查一年
+	if (!(toDay >= fromDay)) return out; // 区间反了（同一天重复结算）：没有，不能把明天算进来（合并 main 后复核）
+	const span = Math.min(toDay - fromDay, 366); // 一次最多查一年
 	const places = new Map<string, ('home' | 'vehicle')[]>();
 	if (state.home) places.set(state.home.loc, ['home']);
 	if (state.vehicle && state.vehicle !== 'none') places.set(vehicleLoc, [...(places.get(vehicleLoc) ?? []), 'vehicle']);
