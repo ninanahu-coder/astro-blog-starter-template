@@ -1,7 +1,8 @@
 // 做饭分支：食材、保质期、食谱解锁、烹饪技能、请客、外卖、存档清洗、界面转义。
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { applyAction, parseAction } from '../../src/game/core/actions.ts';
+import { applyAction, parseAction, type GameAction } from '../../src/game/core/actions.ts';
+import { actionCats } from '../../src/game/core/tally.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
 	buyGroceries, cookBlocked, cookGain, cookQuality, cookRecipe, deliveryBlocked, freshPantry, getRecipe, groceriesAt, hostBatches, hostBlocked, hostDinner, hostGuests, kitchenLevel, orderDelivery, pantryCount, recipeKnown, takeFromPantry,
@@ -16,6 +17,9 @@ import { WA } from '../../src/game/data/wa.ts';
 import { queueable } from '../../src/game/ui/queue.ts';
 import { groceryHtml, kitchenHtml } from '../../src/game/ui/kitchen.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
+import { planFor } from '../../src/game/core/npc-behavior.ts';
+import { isFading } from '../../src/game/core/relations.ts';
+import { WISHES } from '../../src/game/data/wishes.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
 const make = (over: Partial<PlayerState> = {}): PlayerState => ({
@@ -204,7 +208,7 @@ test('请客：请常住这里的朋友，按人数做几锅；涨社交和关�
 });
 
 test('叫外卖：在城镇的住处、营业时间，贵但不用厨房', () => {
-	const s = hungry(rentHome(make({ cash: 500, clock: at(12) }), WA, 'room').state);
+	const s = hungry(rentHome(make({ cash: 2000, clock: at(12) }), WA, 'room').state); // 合并 main 后：租房还要交押金，起始现金调高
 	assert.equal(deliveryBlocked(s, WA), undefined, '没有炊具也能叫');
 	const r = orderDelivery(s, WA);
 	assert.ok(r.ok, r.msg);
@@ -269,3 +273,55 @@ test('界面：厨房和超市片段里的文字都经过 esc()', () => {
 	assert.ok(g.includes('<small>«超市 7:00–22:00 营业»</small>'), '不能买的原因经过 esc');
 	assert.ok(g.includes('«豆腐»'));
 });
+
+// ---------- 合并 main 后复核补的 ----------
+test('请客：今天请假（休假 / 病假）的朋友不来，关系不涨（合并 main 后复核）', () => {
+	const mia = NPCS.find((n) => n.id === 'mia')!;
+	let day = 0;
+	while (day < 400 && !planFor(mia, at(18, day)).away) day++;
+	assert.ok(day < 400, '一年里米娅总有请假的日子');
+	let s = kitchen('cookset', { clock: at(18, day) });
+	s = hungry(withPantry(withRel(s, 'mia', 40), { veg: 4, dairy: 4, staple: 4 }));
+	assert.deepEqual(hostGuests(s).map((n) => n.id), [], '请假的米娅不来');
+	const r = hostDinner(s, WA, 'tomato-egg');
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.relations.mia.score, 40);
+	// 前一天没请假就照常来
+	const before = { ...s, clock: at(18, day - 1) };
+	assert.ok(!planFor(mia, before.clock).away);
+	assert.deepEqual(hostGuests(before).map((n) => n.id), ['mia']);
+});
+
+test('请客算见过面：很久没联系、关系在变淡的朋友吃完饭就不再变淡；记录读档后还在（合并 main 后复核）', () => {
+	let s = kitchen('cookset', { clock: at(18, 40) });
+	s = hungry(withPantry(withRel(s, 'mia', 40), { veg: 4, dairy: 4, staple: 4 }));
+	s = { ...s, relations: { ...s.relations, mia: { ...s.relations.mia, last: { chat: 10 } } } };
+	assert.ok(!planFor(NPCS.find((n) => n.id === 'mia')!, s.clock).away, '第 40 天米娅没请假');
+	assert.ok(isFading(s.relations.mia, 40), '30 天没联系在变淡');
+	const r = hostDinner(s, WA, 'tomato-egg');
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.relations.mia.last.host, 40);
+	assert.equal(isFading(r.state.relations.mia, 40), false);
+	const a = sanitizeState(JSON.parse(JSON.stringify(r.state)))!;
+	assert.equal(a.relations.mia.last.host, 40, '读档保留');
+	assert.deepEqual(sanitizeState(JSON.parse(JSON.stringify(a)))!.relations.mia, a.relations.mia, '幂等');
+	assert.equal(s.relations.mia.last.host, undefined, '不改入参');
+});
+
+test('买食材路上晕倒：钱花了，食材也在柜子里（合并 main 后复核）', () => {
+	const s = make({ cash: 500, clock: at(10), health: 0.2, needs: { hunger: 0, energy: 0, hygiene: 50, fun: 50, social: 50 } as never });
+	const id = groceriesAt(s, WA).find((o) => !o.blocked)!.item.id;
+	const r = buyGroceries(s, WA, id, 4);
+	assert.ok(r.collapsed, '路上晕倒');
+	assert.equal(pantryCount(r.state)[id], 4);
+});
+
+test('心愿「想在家做顿饭」：请客也算（合并 main 后复核）', () => {
+	assert.deepEqual(WISHES.find((w) => w.id === 'cook')!.done, { t: 'home', ops: ['cook', 'host'] });
+});
+
+test('生涯统计：在家做饭、请客、叫外卖、买食材记「吃喝购物」，租房、睡觉还记「住房」（合并 main 后）', () => {
+	for (const a of [{ t: 'home', op: 'cook' }, { t: 'home', op: 'cook', recipe: 'hotpot' }, { t: 'home', op: 'host', recipe: 'hotpot' }, { t: 'home', op: 'delivery' }, { t: 'grocery', id: 'veg', n: 1 }] as GameAction[]) assert.deepEqual(actionCats(a), ['shop', 'shop'], JSON.stringify(a));
+	for (const a of [{ t: 'home', op: 'rent', home: 'room' }, { t: 'home', op: 'sleep' }, { t: 'home', op: 'relax' }] as GameAction[]) assert.deepEqual(actionCats(a), ['housing', 'housing'], JSON.stringify(a));
+});
+

@@ -16,7 +16,7 @@ const needsLabel = (r: RecipeDef, esc: Esc) =>
 
 /** 住处卡里的厨房：随手做、叫外卖两个按钮，下面折叠食材柜和食谱 */
 export function kitchenHtml(s: PlayerState, region: Region, esc: Esc): string {
-	const quick = cookBlocked(s, 'quick');
+	const quick = cookBlocked(s, 'quick', region);
 	const delivery = deliveryBlocked(s, region);
 	const lv = kitchenLevel(s);
 	const rows = freshPantry(s.cooking.pantry, s.clock).rows.slice().sort((a, b) => a.exp - b.exp);
@@ -33,7 +33,7 @@ export function kitchenHtml(s: PlayerState, region: Region, esc: Esc): string {
 		const q = cookQuality(s, r);
 		const made = s.cooking.made[r.id] ?? 0;
 		return `<div class="row" style="margin-top:8px"><span class="ico">${r.icon}</span><span class="body">${esc(r.name)}${made ? ` · 做过 ${made} 次` : ''}<small>${needsLabel(r, esc)} · ${r.minutes} 分钟 · 饱食约 +${Math.round(r.hunger * q)}${r.serves > 1 ? ` · 一锅够 ${r.serves} 人` : ''}</small></span>
-			<span class="inline">${btn(`data-cook="${r.id}"`, '做', cookBlocked(s, r.id), esc)}${btn(`data-host="${r.id}"`, `请客${hostBatches(s, r) > 1 ? `（${hostBatches(s, r)} 锅）` : ''}`, hostBlocked(s, r.id), esc)}</span></div>`;
+			<span class="inline">${btn(`data-cook="${r.id}"`, '做', cookBlocked(s, r.id, region), esc)}${btn(`data-host="${r.id}"`, `请客${hostBatches(s, r) > 1 ? `（${hostBatches(s, r)} 锅）` : ''}`, hostBlocked(s, r.id, region), esc)}</span></div>`;
 	}).join('');
 	return `<div class="inline" style="margin-top:8px">${btn('data-home="cook"', `随手做一顿 $${getRecipe('quick')?.cash ?? 0}`, quick, esc)}${btn('data-home="delivery"', `叫外卖 $${deliveryPrice(s)}`, delivery, esc)}</div>
 		${quick || delivery ? `<p style="margin-top:4px">${esc([...new Set([quick, delivery].filter(Boolean))].join('；'))}</p>` : ''}

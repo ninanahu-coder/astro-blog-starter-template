@@ -7,6 +7,8 @@ import { NPCS } from '../data/npcs.ts';
 import { costMult, furnitureSets } from './attributes.ts';
 import { applyEffect, clone, collapsedResult, fail, getFurniture, getLocation, getRelation, log } from './engine.ts';
 import { moodletGainMult } from './formulas.ts';
+import { outageBlocksCook } from './disasters.ts';
+import { planFor } from './npc-behavior.ts';
 import { dayOf, isOpen } from './time.ts';
 import type { ActionResult, Effect, IngredientDef, NpcDef, PantryRow, PlayerState, RecipeDef, Region } from './types.ts';
 
@@ -102,11 +104,12 @@ export function buyGroceries(prev: PlayerState, region: Region, id: string, n: n
 	const state = clone(prev);
 	tossSpoiled(state);
 	const exp = (dayOf(state.clock) + offer.item.days + 1) * 1440;
-	if (applyEffect(state, { cash: -cost, minutes: GROCER_MINUTES }, region)) return collapsedResult(state);
+	// 先把食材放进柜子再过时间（和 buyItem 一样）：路上晕倒，买到的东西还在（合并 main 后复核）
 	const row = state.cooking.pantry.find((r) => r.id === id && r.exp === exp);
 	if (row) row.n += k;
 	else if (state.cooking.pantry.length < PANTRY_ROWS) state.cooking.pantry.push({ id, n: k, exp });
 	else return fail(prev, '食材柜太乱了，先用掉一些。');
+	if (applyEffect(state, { cash: -cost, minutes: GROCER_MINUTES }, region)) return collapsedResult(state);
 	const msg = `${offer.item.icon} 买了 ${k} 份${offer.item.name}，$${cost}，${offer.item.days} 天内用掉。`;
 	log(state, msg);
 	return { ok: true, state, msg };
@@ -156,20 +159,23 @@ function missing(s: PlayerState, r: RecipeDef, batches: number): string | undefi
 	return lack.length ? `还缺${lack.join('、')}` : undefined;
 }
 
-/** 在家能不能做这道菜；batches 是做几锅（请客时多于 1） */
-function recipeBlocked(s: PlayerState, r: RecipeDef, batches = 1): string | undefined {
+/** 在家能不能做这道菜；batches 是做几锅（请客时多于 1）。传了 region 才看停电（和 main 的 homeActionBlocked 一样，见 disasters.md） */
+function recipeBlocked(s: PlayerState, r: RecipeDef, batches = 1, region?: Region): string | undefined {
 	if (!atHome(s)) return '要在住处';
 	const lv = kitchenLevel(s);
 	if (lv < 1) return '需要炊具';
 	if (lv < r.kitchen) return '需要带烤箱的厨房';
+	const where = region ? getLocation(region, s.loc) : undefined;
+	const dark = where ? outageBlocksCook(s, where, dayOf(s.clock)) : undefined;
+	if (dark) return dark;
 	if (!recipeKnown(s, r)) return `还不会（${unlockLabel(r)}）`;
 	if (r.cash && s.cash < r.cash) return `需要 $${r.cash}`;
 	return missing(s, r, batches);
 }
 
-export function cookBlocked(s: PlayerState, id: string): string | undefined {
+export function cookBlocked(s: PlayerState, id: string, region?: Region): string | undefined {
 	const r = getRecipe(id);
-	return r ? recipeBlocked(s, r) : '没有这道菜。';
+	return r ? recipeBlocked(s, r, 1, region) : '没有这道菜。';
 }
 
 const moodletOf = (r: RecipeDef) => (r.cuisine === 'zh' ? 'taste-of-home' : r.cuisine === 'au' ? 'home-cooked' : 'well-fed');
@@ -199,7 +205,7 @@ export function cookRecipe(prev: PlayerState, region: Region, id = 'quick'): Act
 	const r = getRecipe(id);
 	if (!r) return fail(prev, '没有这道菜。');
 	// 能不能做只看没过期的食材，所以先判断、做不了就什么都不改
-	const why = recipeBlocked(prev, r);
+	const why = recipeBlocked(prev, r, 1, region);
 	if (why) return fail(prev, why);
 	const state = clone(prev);
 	const spoiled = tossSpoiled(state);
@@ -217,10 +223,10 @@ export function cookRecipe(prev: PlayerState, region: Region, id = 'quick'): Act
 }
 
 // ---------- 请客 ----------
-/** 能请来的朋友：常住住处所在地、关系到「朋友」，按关系从高到低，最多 maxGuests 位 */
+/** 能请来的朋友：常住住处所在地、关系到「朋友」、今天没请假（休假 / 病假），按关系从高到低，最多 maxGuests 位。白天在别处上班不影响，下班过来吃饭 */
 export function hostGuests(s: PlayerState): NpcDef[] {
 	if (!s.home) return [];
-	return NPCS.filter((n) => n.loc === s.home!.loc && getRelation(s, n.id).score >= HOSTING.friendAt)
+	return NPCS.filter((n) => n.loc === s.home!.loc && !planFor(n, s.clock).away && getRelation(s, n.id).score >= HOSTING.friendAt)
 		.sort((a, b) => getRelation(s, b.id).score - getRelation(s, a.id).score)
 		.slice(0, HOSTING.maxGuests);
 }
@@ -231,14 +237,14 @@ export function hostBatches(s: PlayerState, r: RecipeDef): number {
 	return Math.ceil(people / Math.max(1, r.serves));
 }
 
-export function hostBlocked(s: PlayerState, id: string): string | undefined {
+export function hostBlocked(s: PlayerState, id: string, region?: Region): string | undefined {
 	const r = getRecipe(id);
 	if (!r) return '没有这道菜。';
 	if (r.cuisine === 'basic') return '请客要照食谱做菜';
 	if (s.cooking.hostDay === dayOf(s.clock)) return '今天已经请过客了';
 	if (!isOpen(HOSTING.hours, s.clock)) return `饭点才请客（${HOSTING.hours[0]}:00–${HOSTING.hours[1]}:00）`;
 	if (s.needs.energy < HOSTING.minEnergy) return '太累了';
-	return recipeBlocked(s, r, hostBatches(s, r));
+	return recipeBlocked(s, r, hostBatches(s, r), region);
 }
 
 /** 请客：做够一桌人吃的量，涨社交、娱乐、声望；来的朋友关系上涨（摆齐「待客之家」更多） */
@@ -246,7 +252,7 @@ export function hostDinner(prev: PlayerState, region: Region, id: string): Actio
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	const r = getRecipe(id);
 	if (!r) return fail(prev, '没有这道菜。');
-	const why = hostBlocked(prev, id);
+	const why = hostBlocked(prev, id, region);
 	if (why) return fail(prev, why);
 	const state = clone(prev);
 	const spoiled = tossSpoiled(state);
@@ -261,6 +267,7 @@ export function hostDinner(prev: PlayerState, region: Region, id: string): Actio
 	for (const n of guests) {
 		const rel = structuredClone(getRelation(state, n.id));
 		rel.score = Math.min(100, rel.score + gain);
+		rel.last.host = dayOf(state.clock); // 来吃过饭也算见过面，关系不会因为「好久没联系」变淡（合并 main 后复核）
 		state.relations[n.id] = rel;
 	}
 	const meal = mealEffect(state, r, q);

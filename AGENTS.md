@@ -19,6 +19,7 @@
 - `npm run earth:fetch-venues` —— 从 OpenStreetMap 采集真实地点到 `tools/earth/openclaw/inbox/`
 - `npm run earth:venues -- --dry-run` —— 校验真实地点数据（餐馆、健身房……，见 `docs/earth-game/real-places.md`）
 - `npm run earth:sim` —— 数值平衡模拟（改了工资、房租、衰减、成长等数值后跑一遍，对比 `docs/earth-game/balance-report.md`）
+- `npm run earth:sim -- --ab=events --format=csv` —— 关掉某个系统做 A/B、导出；`npm run earth:tuning` —— 列出所有「待平衡」数值；`npm run earth:baseline` —— 和回归基线比，改了数值用 `-- --update` 重写基线并一起提交；`npm run earth:gm` —— 本地沙盒存档的 GM 命令（`npm run dev` 时另有 `/earth/gm` 页，生产构建里没有）。说明见 `docs/earth-game/balance-tools.md`
 
 ## 代码约定
 
