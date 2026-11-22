@@ -50,10 +50,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *     未压缩 626,730 → 635,977，上限 629,400 → 639,000。
  *   - 健康和看病：病种和就医数据、发病和病程规则（core/health.ts）、今天页健康卡，gzip 202,910 → 206,915（+4.0KB），上限 203,900 → 207,900；
  *     未压缩 635,977 → 646,621，上限 639,000 → 649,500。
+ *   - 生涯统计：记账（core/tally.ts）、里程碑数据、「我 · 生涯」样式（生涯页本身按需加载），gzip 206,915 → 209,857（+2.9KB），上限 207,900 → 210,800；
+ *     未压缩 646,621 → 654,024，上限 649,500 → 656,800。
  */
-export const FIRST_SCREEN_MAX = 649_500;
+export const FIRST_SCREEN_MAX = 656_800;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 207_900;
+export const FIRST_SCREEN_GZIP_MAX = 210_800;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');

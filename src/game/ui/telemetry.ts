@@ -17,7 +17,7 @@ export const ERR_PER_SESSION = 3;
 export const PERF_PER_SESSION = 5;
 
 const TABS = ['place', 'near', 'go', 'grow', 'me', 'social'];
-const METABS = ['overview', 'assets', 'people', 'log', 'news', 'sync'];
+const METABS = ['overview', 'career', 'assets', 'people', 'log', 'news', 'sync'];
 const ERRORS = ['js', 'promise', 'net', 'api4xx', 'api5xx', 'ws'];
 const PERF = ['load', 'api'];
 /** 今天页「在这里」打开了哪一组（体验改造 P1）：只记组名 */

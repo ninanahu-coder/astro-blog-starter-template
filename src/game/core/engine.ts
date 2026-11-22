@@ -39,6 +39,7 @@ import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { checkScore, costMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
 import { CAPS, clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
+import { tallyCash } from './tally.ts';
 import { fixProblem, roundFix } from './fix.ts';
 import { applyLawOutcome, lawWeekly, licenceBanned, noteDrink, serveCommunity } from './law.ts';
 import { COMMUNITY_SERVICE } from '../data/law.ts';
@@ -115,6 +116,7 @@ export const COLLAPSE_BILL = { base: 100, share: 0.1, max: 500 };
 function collapse(state: PlayerState, region: Region) {
 	const bill = Math.min(state.cash, Math.round(Math.min(COLLAPSE_BILL.max, COLLAPSE_BILL.base + state.cash * COLLAPSE_BILL.share)));
 	state.cash -= bill;
+	tallyCash(state, 'daily', -bill); // 生涯统计：晕倒住院的医药费记「日常」（合并 main 后复核）
 	state.health = 50;
 	for (const k of NEED_KEYS) state.needs[k] = Math.max(state.needs[k], 50);
 	state.loc = nearestHospital(state, region);
@@ -1190,6 +1192,7 @@ const bondNote = (n: number) => (n ? `，押金退回 $${n}` : '');
 function weeklyTick(state: PlayerState, region: Region) {
 	while (dayOf(state.clock) >= state.nextWeek) {
 		state.nextWeek += 7;
+		const c0 = state.cash; // 生涯统计：周结算的钱按住房、车辆分开记，不算到触发它的动作头上
 		if (state.home && !state.home.owned && !homeUsable(state)) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
@@ -1214,6 +1217,8 @@ function weeklyTick(state: PlayerState, region: Region) {
 			}
 		}
 		settleProperties(state, region);
+		tallyCash(state, 'housing', state.cash - c0);
+		const c1 = state.cash;
 		const v = getVehicle(state.vehicle);
 		if (v?.weekly) {
 			if (state.cash >= v.weekly) {
@@ -1224,7 +1229,10 @@ function weeklyTick(state: PlayerState, region: Region) {
 				log(state, `没钱续${v.name}的保险，无保险上路被记了一笔。`);
 			}
 		}
+		tallyCash(state, 'vehicle', state.cash - c1);
+		const c2 = state.cash;
 		for (const line of lawWeekly(state)) log(state, line);
+		tallyCash(state, 'other', state.cash - c2); // 生涯统计：自动扣的罚款（合并 main 后）
 	}
 }
 

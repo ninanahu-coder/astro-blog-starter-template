@@ -4,6 +4,7 @@
 // - 不在买卖双方都在线时成交的钱和东西，一律进「邮箱」（Mail），本人下次操作时领取；结算本身不碰对方存档。
 // - 没有「直接转钱」：钱只作为某件物品的价款流动，价款限定在商店价的 PRICE_MIN–PRICE_MAX 倍。
 // - 所有数值都「待平衡」。
+import { finishTally } from './tally.ts';
 import { getItem } from './attributes.ts';
 import { capState, nextRev } from './character.ts';
 import { clone, log, pruneMoodlets } from './engine.ts';
@@ -188,6 +189,12 @@ export function quotaAdd(q: Quota, cash: number, pair: string | null, lotId: str
 }
 
 /** 规则改动存档后的统一收尾：版本号加一、清过期心情、钳制数值 */
+/** 生涯统计记账：玩家之间的买卖、出价、领钱都算「人情往来」（career-stats.md §2.2；合并 main 后复核） */
+function booked(prev: PlayerState, next: PlayerState): PlayerState {
+	finishTally(prev, next, ['social', 'social']);
+	return next;
+}
+
 function fin(s: PlayerState, prev: PlayerState): PlayerState {
 	pruneMoodlets(s);
 	return capState({ ...s, rev: nextRev(prev.rev) });
@@ -242,7 +249,7 @@ export function createLot(state: PlayerState, input: ListInput, ctx: { lotId: st
 		id: ctx.lotId, kind: input.kind, seller: state.id, sellerHash: ctx.hash, sellerName: state.name, sellerAvatar: state.avatar,
 		item: item.id, price: input.price, bid: 0, bidder: null, bidderHash: '', at: ctx.now, endsAt: ctx.now + hours * HOUR, extends: 0,
 	};
-	return { state: fin(s, state), lot, fee };
+	return { state: booked(state, fin(s, state)), lot, fee };
 }
 
 /** 买方的通用检查 */
@@ -269,7 +276,7 @@ export function buyLot(buyer: PlayerState, lot: Lot, ctx: { now: number; mailId:
 	log(s, `${item.icon} 在交易所花 $${lot.price} 买下${lot.sellerName}寄卖的${item.name}。`);
 	const mail: Mail = { id: ctx.mailId, cash: lot.price - fee, item: null, n: 0, text: `${item.icon} ${item.name}以 $${lot.price} 卖出，扣佣金 $${fee}`, at: ctx.now };
 	const entry: LedgerEntry = { tx: ctx.tx, at: ctx.now, kind: 'buy', item: lot.item, n: 1, price: lot.price, fee, seller: lot.sellerHash, buyer: ctx.buyerHash, flags: priceFlags(lot.item, lot.price) };
-	return { buyer: fin(s, buyer), mail, fee, entry };
+	return { buyer: booked(buyer, fin(s, buyer)), mail, fee, entry };
 }
 
 /** 下一口至少出多少 */
@@ -302,7 +309,7 @@ export function bidLot(bidder: PlayerState, lot: Lot, amount: number, ctx: { now
 	log(s, `${item.icon} 给${lot.sellerName}拍卖的${item.name}出价 $${amount}（钱先由交易所保管）。`);
 	const snipe = lot.endsAt - ctx.now <= EXCHANGE.snipeMin * 60_000 && lot.extends < EXCHANGE.maxExtends;
 	const next: Lot = { ...lot, bid: amount, bidder: bidder.id, bidderHash: ctx.bidderHash, endsAt: snipe ? lot.endsAt + EXCHANGE.snipeMin * 60_000 : lot.endsAt, extends: lot.extends + (snipe ? 1 : 0) };
-	return { bidder: fin(s, bidder), lot: next, refund };
+	return { bidder: booked(bidder, fin(s, bidder)), lot: next, refund };
 }
 
 /**
@@ -337,7 +344,7 @@ export function cancelLot(state: PlayerState, lot: Lot, ctx: { now: number; mail
 	if (roomFor(s, lot.item) >= 1) s.inventory[lot.item] = (s.inventory[lot.item] ?? 0) + 1;
 	else mail = { id: ctx.mailId, cash: 0, item: lot.item, n: 1, text: `${item?.icon ?? ''} 撤回的${item?.name ?? lot.item}（背包满了先放这里）`, at: ctx.now };
 	log(s, `${item?.icon ?? ''} 撤回了交易所里的${item?.name ?? lot.item}。`);
-	return { state: fin(s, state), mail };
+	return { state: booked(state, fin(s, state)), mail };
 }
 
 /** 往邮箱里加一封；超过上限时把最旧的两封里的现金合到一封（物品不合并，宁可超出上限也不丢东西） */
@@ -374,7 +381,7 @@ export function claimMail(state: PlayerState, box: Mail[]): { state: PlayerState
 	if (cash === 0 && items === 0) return '背包满了，东西先留在邮箱里。';
 	s.cash += cash;
 	log(s, `📬 从交易所邮箱领了${cash ? ` $${cash}` : ''}${cash && items ? ' 和' : ''}${items ? ` ${items} 件东西` : ''}。`);
-	return { state: fin(s, state), left, cash, items };
+	return { state: booked(state, fin(s, state)), left, cash, items };
 }
 
 // ---------- 面交换物 ----------
@@ -501,7 +508,7 @@ export function resolveSwap(a: PlayerState, b: PlayerState, give: SwapSide, want
 		tx: ctx.tx, at: ctx.now, kind: 'swap', item: first.item, n: goods.items.reduce((n, x) => n + x.n, 0) || first.n, price: cash, fee,
 		seller: sellerIsB ? ctx.bHash : ctx.aHash, buyer: sellerIsB ? ctx.aHash : ctx.bHash, flags,
 	};
-	return { a: fin(sa, a), b: fin(sb, b), fee, entry };
+	return { a: booked(a, fin(sa, a)), b: booked(b, fin(sb, b)), fee, entry };
 }
 
 /** 发给客户端的拍品：不带真实 id；告诉是不是自己的、自己是不是最高出价 */

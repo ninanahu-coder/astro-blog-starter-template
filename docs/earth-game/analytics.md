@@ -54,7 +54,7 @@
 | --- | --- | --- | --- |
 | `session` | 无 | 页面脚本启动 | 每次打开页面一次 |
 | `tab` | `place` `near` `go` `grow` `me` `social` | 点底部标签 | 每会话每页一次（算「多少会话用过」） |
-| `metab` | `overview` `assets` `people` `log` `news` `sync` | 「我」页的分页 | 同上 |
+| `metab` | `overview` `career` `assets` `people` `log` `news` `sync` | 「我」页的分页 | 同上 |
 | `err` | `js` `promise` `net` `api4xx` `api5xx` `ws` | `window` 的 `error`/`unhandledrejection`、存档请求断网或 5xx、在线频道 `onerror` | 每种每会话最多 3 次 |
 | `perf` | `load`（首屏脚本跑完的 `performance.now()`）、`api`（存档请求往返） | 启动末尾；每次存档请求 | 25% 的会话才报；每种每会话最多 5 次；服务端分 5 档：<1s、<2s、<4s、<8s、≥8s，不存毫秒 |
 

@@ -12,6 +12,7 @@ export const ZH_HANS = {
 	'tab.social.online': '这里有 {n} 位玩家在线',
 	// 「我」页分栏
 	'me.overview': '概况',
+	'me.career': '生涯',
 	'me.assets': '资产',
 	'me.people': '关系',
 	'me.log': '日志',

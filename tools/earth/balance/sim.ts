@@ -27,6 +27,7 @@ import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { weatherAt } from '../../../src/game/core/weather.ts';
 import { currentIllness } from '../../../src/game/core/health.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
+import { careerSummary, earnedOf, spentOf } from '../../../src/game/core/tally.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
 import { lbEntry, type LbEntry, type LbStatKey } from '../../../src/game/core/leaderboard.ts';
@@ -673,6 +674,7 @@ const skillRows: [string, number[]][] = [];
 const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
 const coopRows: string[] = [];
+const careerRows: string[] = [];
 const healthRows: string[] = [];
 const lbRows: string[] = [];
 const visaRows: string[] = [];
@@ -695,6 +697,15 @@ for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	for (const b of bots) for (const [k, v] of Object.entries(b.stats.flow)) flow[k] = (flow[k] ?? 0) + v / RUNS / DAYS;
 	const top = Object.entries(flow).filter(([, v]) => Math.abs(v) >= 1).sort((x, y) => y[1] - x[1]);
 	flows.push(`| ${plan.name} | ${top.filter(([, v]) => v > 0).map(([k, v]) => `${k} +${Math.round(v)}`).join('，') || '—'} | ${top.filter(([, v]) => v < 0).reverse().map(([k, v]) => `${k} ${Math.round(v)}`).join('，') || '—'} |`);
+	// 生涯统计（career-stats.md）：玩家在「我 · 生涯」看到的累计数；对账 = 收入 − 支出 与现金变化的最大差额，应为 0
+	{
+		const cs = bots.map((b) => careerSummary(b.s));
+		const outs: Record<string, number> = {};
+		for (const c of cs) for (const o of c.outs) outs[o.label] = (outs[o.label] ?? 0) + o.amt / RUNS;
+		const topOut = Object.entries(outs).sort((x, y) => y[1] - x[1]).slice(0, 3).map(([k, v]) => `${k} ${money(v)}`).join('，') || '—';
+		const gap = Math.max(...bots.map((b) => Math.abs(earnedOf(b.s.tally) - spentOf(b.s.tally) - (Math.round(b.s.cash) - Math.round(b.stats.cashByDay[0])))));
+		careerRows.push(`| ${plan.name} | ${Math.round(avg(cs.map((c) => c.km)))} | ${avg(cs.map((c) => c.places)).toFixed(1)} | ${money(avg(cs.map((c) => c.earned)))} | ${money(avg(cs.map((c) => c.spent)))} | ${topOut} | ${avg(cs.map((c) => c.timeline.length)).toFixed(1)} | ${money(gap)} |`);
+	}
 	healthRows.push(`| ${plan.name} | ${avg(bots.map((b) => b.stats.ill)).toFixed(2)} | ${avg(bots.map((b) => b.stats.sickMin / 1440)).toFixed(1)} | ${money(-(flow.care ?? 0) * DAYS)} |`);
 	if (plan.coop) {
 		const n = avg(bots.map((b) => b.stats.coops));
@@ -772,6 +783,14 @@ out();
 out('| 策略 | 收入 | 支出（从大到小） |');
 out('| --- | --- | --- |');
 for (const f of flows) out(f);
+out();
+out(`## 生涯统计（「我 · 生涯」，每人 ${DAYS} 天累计的平均）`);
+out();
+out('只记账，不影响数值和随机数。对账一栏是「收入 − 支出」和现金变化的最大差额，应为 $0。');
+out();
+out('| 策略 | 公里 | 地点 | 收入 | 支出 | 支出大头 | 里程碑 | 对账 |');
+out('| --- | --- | --- | --- | --- | --- | --- | --- |');
+for (const r of careerRows) out(r);
 out();
 out('## 背包客生存诊断');
 out();

@@ -9,6 +9,7 @@ export const ZH_HANT: Record<StrKey, string> = {
 	'tab.me': '我',
 	'tab.social.online': '這裡有 {n} 位玩家在線',
 	'me.overview': '概況',
+	'me.career': '生涯',
 	'me.assets': '資產',
 	'me.people': '關係',
 	'me.log': '日誌',

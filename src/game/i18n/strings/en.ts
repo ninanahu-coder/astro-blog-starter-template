@@ -9,6 +9,7 @@ export const EN: Record<StrKey, string> = {
 	'tab.me': 'Me',
 	'tab.social.online': 'Players online here: {n}',
 	'me.overview': 'Overview',
+	'me.career': 'Career',
 	'me.assets': 'Assets',
 	'me.people': 'People',
 	'me.log': 'Log',
