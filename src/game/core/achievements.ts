@@ -1,10 +1,10 @@
-// 成就：由当前存档现算的里程碑，不进存档、不发奖励，所以不影响数值平衡。
+// 成就：由当前存档现算的里程碑。第 28 批起达成后可以领一次奖励（core/quests.ts 的 claimAchievement，服务端结算）。
 // 纯函数：不读时钟、不用随机数。
 import { level } from './attributes.ts';
 import { getCareer, netWorth, placeFacts } from './engine.ts';
 import type { PlayerState, Region } from './types.ts';
 import { EXPERIENCES } from '../data/experiences.ts';
-import { ACHIEVEMENTS } from '../data/achievements.ts';
+import { ACH_DEFAULT_REWARD, ACHIEVEMENTS } from '../data/achievements.ts';
 import { COOP_EVENTS } from '../data/coop.ts';
 import { SKILL_KEYS } from './types.ts';
 
@@ -18,6 +18,14 @@ export interface AchievementDef {
 	metric: AchievementMetric;
 	/** 目标值；'all-*' 表示「全部」，按区域和数据现算 */
 	goal: number | 'all-places' | 'all-experiences' | 'all-coops' | 'all-festivals';
+	/** 领取奖励；不写按 ACH_DEFAULT_REWARD。title: true 另得一个和成就同名的称号（待平衡） */
+	reward?: AchievementReward;
+}
+
+export interface AchievementReward {
+	cash?: number;
+	respect?: number;
+	title?: boolean;
 }
 
 export interface AchievementStatus {
@@ -25,7 +33,10 @@ export interface AchievementStatus {
 	cur: number; // 当前值（不超过目标）
 	goal: number;
 	done: boolean;
+	claimed: boolean; // 奖励领过了（领过以后条件丢了也算已领）
 }
+
+export const achReward = (def: AchievementDef): AchievementReward => def.reward ?? ACH_DEFAULT_REWARD;
 
 export const FRIEND_SCORE = 30; // 关系档「朋友」
 export const BESTIE_SCORE = 90; // 关系档「挚友」
@@ -71,7 +82,7 @@ export function achievements(state: PlayerState, region: Region, defs: Achieveme
 	return defs.map((def) => {
 		const goal = Math.max(1, goalOf(def, region));
 		const cur = Math.min(goal, achievementMetric(state, region, def.metric));
-		return { def, cur, goal, done: cur >= goal };
+		return { def, cur, goal, done: cur >= goal, claimed: (state.achClaimed ?? []).includes(def.id) };
 	});
 }
 

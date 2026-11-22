@@ -6,7 +6,10 @@ import { createCharacter, ORIGINS, sanitizeState } from '../../src/game/core/cha
 import { activitiesAt, applyEffect, careAt, shiftBlocked } from '../../src/game/core/engine.ts';
 import { careOutcome, coverOf, currentIllness, illnessBlock, illnessRisk, illnessTick, injure, loadOfActivity, pickIllness, startIllness } from '../../src/game/core/health.ts';
 import { weatherOn } from '../../src/game/core/weather.ts';
-import { getVenueType, opOutcome } from '../../src/game/core/venues.ts';
+import { getVenueType, opOutcome, venueAction } from '../../src/game/core/venues.ts';
+import { coopsAt } from '../../src/game/core/coop.ts';
+import { VENUE_TYPES } from '../../src/game/data/venues.ts';
+import { EVENTS } from '../../src/game/data/events.ts';
 import { ACTIVITIES } from '../../src/game/data/activities.ts';
 import { CARE, CONDITIONS, COVER_BY_ORIGIN, COVERS, ED_WAIT, HEALTH, REAL_FEES, RX_PRICE } from '../../src/game/data/health.ts';
 import { MOODLETS } from '../../src/game/data/moodlets.ts';
@@ -303,4 +306,97 @@ test('存档清洗：旧档缺字段为 null；坏值、未知病、已过期清
 	assert.deepEqual(CANON(live).illness, live.illness);
 	assert.equal(createCharacter({ id: 'n', name: 'n', avatar: '🧑', origin: 'student', region: 'wa', spawn: WA.spawn, seed: 1 }).illness, null);
 	assert.equal(currentIllness({ ...live, clock: live.illness!.until }), null);
+});
+
+// ---------- 合并 main 后复核补的 ----------
+test('医疗保障跟签证走：学生签证 OSHC、永居 Medicare（处方药按 PBS 封顶）、485/482/过期自费；没有签证记录的出身按出身（合并 main 后复核）', () => {
+	const withVisa = (kind: string, until = 9999) => {
+		const s = make({ clock: at(10, 2) }, 'student');
+		return { ...s, visa: { ...s.visa, kind, until } } as PlayerState;
+	};
+	assert.equal(coverOf(withVisa('student')).id, 'oshc');
+	assert.equal(coverOf(withVisa('pr', -1)).id, 'medicare');
+	for (const k of ['graduate', 'graduate2', 'sponsored', 'regional']) assert.equal(coverOf(withVisa(k)).id, 'none', k);
+	assert.equal(coverOf(withVisa('student', 1)).id, 'none', '学生签证过期');
+	assert.equal(coverOf(make({}, 'fifo')).id, COVER_BY_ORIGIN.fifo);
+	assert.equal(coverOf(make({}, 'backpacker')).id, COVER_BY_ORIGIN.backpacker);
+	// 永居后拿处方药：按 PBS 封顶
+	const pr = { ...withVisa('pr', -1), illness: { id: 'flu', since: at(9, 2), until: at(9, 6), care: ['gp'], rx: true } } as PlayerState;
+	const out = careOutcome(pr, 'pharmacy');
+	assert.ok(out.cost <= 25, `永居处方药 $${out.cost}`);
+});
+
+test('共同事件：生病时有收入或剧烈的不能参加，轻松的照常（合并 main 后复核）', () => {
+	const s = sick('flu', { clock: at(12, 2), loc: 'perth' });
+	const list = coopsAt(s, WA);
+	const busk = list.find((x) => x.def.id === 'busk-band');
+	assert.ok(busk?.blocked, '街头合奏有收入：生病不能去');
+	const bbq = list.find((x) => x.def.id === 'community-bbq');
+	if (bbq) assert.ok(!bbq.blocked || !/病|流感/.test(bbq.blocked), '社区烧烤不算干活');
+});
+
+test('真实地点打卡：生病打不了上班卡，已经打的卡照样能打下班卡（合并 main 后复核）', () => {
+	const venue = WA.venues.find((v) => VENUE_TYPES.find((t) => t.id === v.type && t.gigRate && t.ops.includes('work')))!;
+	const now = Date.UTC(2026, 10, 22, 2);
+	const s = sick('flu', { loc: venue.loc, clock: at(10, 2) });
+	const req = { venue: venue.id, op: 'work' as const, lat: venue.lat, lon: venue.lon, acc: 10 };
+	const r = venueAction(s, WA, req, now);
+	assert.equal(r.ok, false);
+	assert.equal(r.msg, illnessBlock(s, ['work']));
+	const clocked = { ...s, clockIn: { venue: venue.id, at: now - 3 * 3_600_000 } } as PlayerState;
+	const out = venueAction(clocked, WA, req, now);
+	assert.notEqual(out.msg, illnessBlock(s, ['work']), '下班卡不受生病影响');
+});
+
+test('效果可以直接指定病：热浪事件「硬顶着」失败记中暑，不记扭伤（合并 main 后复核）', () => {
+	const s = structuredClone(make({ clock: at(13, 2) }));
+	applyEffect(s, { health: -15, needs: { energy: -25 }, illness: 'heat' }, WA);
+	assert.equal(currentIllness(s)?.def.id, 'heat');
+	const ev = EVENTS.flatMap((e) => e.choices ?? []).flatMap((c) => [c.ok, c.fail]).find((o) => o?.text?.includes('中暑'));
+	assert.equal(ev?.fx?.illness, 'heat', '事件数据写的是中暑');
+	// 已经在生病：不覆盖
+	const s2 = sick('flu');
+	applyEffect(s2, { health: -15, illness: 'heat' }, WA);
+	assert.equal(currentIllness(s2)?.def.id, 'flu');
+});
+
+test('看病：候诊跨午夜换了一场新病，这次就医不算在新病上（合并 main 后复核）', () => {
+	// 没病时去急诊、半夜开始生病：新病的就诊记录是空的
+	let found = false;
+	for (let d = 0; d < 200 && !found; d++) {
+		const s = make({ clock: at(22, d), health: 60, loc: WA.locations.find((l) => careAt({ ...make(), loc: l.id, clock: at(22, d) } as PlayerState, WA).some((c) => c.care.id === 'ed' && !c.blocked))?.id ?? WA.spawn, cash: 5000 });
+		const r = applyAction(s, WA, { t: 'care', kind: 'ed' } as never);
+		if (!r.ok) continue;
+		const ill = currentIllness(r.state);
+		if (ill && ill.ill.since > s.clock) {
+			found = true;
+			assert.deepEqual(ill.ill.care, [], '新病没有就诊记录');
+		}
+	}
+	assert.ok(found, '扫描范围内找到候诊时半夜发病的情况');
+});
+
+test('病程按午夜切段：半夜新得的病从那个午夜起就掉精力；午夜时还没好的病挡住当晚发病（合并 main 后复核）', () => {
+	let checked = false;
+	for (let d = 1; d < 400 && !checked; d++) {
+		const s = structuredClone(make({ clock: at(22, d) }));
+		s.needs.energy = 80;
+		const t0 = s.clock;
+		s.clock = at(6, d + 1);
+		illnessTick(s, t0, () => 0);
+		const cur = currentIllness(s);
+		if (!cur || cur.ill.since !== (d + 1) * 1440) continue;
+		checked = true;
+		const want = 80 - (cur.def.energyPerHour * 6 * 60) / 60;
+		assert.ok(Math.abs(s.needs.energy - Math.max(0, want)) < 0.01, `半夜得的${cur.def.name}：精力 ${s.needs.energy} 应为 ${want}`);
+	}
+	assert.ok(checked, '扫描范围内找到半夜发病的一天');
+	// 午夜还没好（凌晨 1 点才好）的病：当晚不再掷新病，好了也不和新病重叠
+	const s = structuredClone(make({ clock: at(23, 5) }));
+	s.illness = { id: 'cold', since: at(23, 3), until: at(1, 6), care: [], rx: false };
+	const t0 = s.clock;
+	s.clock = at(2, 6);
+	const logs = illnessTick(s, t0, () => 0);
+	assert.equal(s.illness, null, '凌晨 1 点好了');
+	assert.ok(!logs.some((x) => x.includes('病了') || x.includes('中了暑气')), '当晚没有新病');
 });

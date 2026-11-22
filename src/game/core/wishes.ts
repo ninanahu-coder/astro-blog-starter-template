@@ -29,6 +29,8 @@ export function refreshWishes(state: PlayerState): boolean {
 	return true;
 }
 
+const fishCount = (s: PlayerState) => Object.values(s.fish).reduce((a, b) => a + b, 0);
+
 /** 这个动作是否满足某个心愿 */
 export function wishMatches(w: WishDef, a: GameAction, before: PlayerState, after: PlayerState): boolean {
 	if (a.t === 'venue') {
@@ -39,7 +41,7 @@ export function wishMatches(w: WishDef, a: GameAction, before: PlayerState, afte
 	const d = w.done;
 	switch (d.t) {
 		case 'activity': return a.t === 'activity' && d.ids.includes(a.id);
-		case 'npc': return a.t === 'npc' && d.acts.includes(a.act);
+		case 'npc': return a.t === 'npc' && d.acts.includes(a.act) && (!d.npc || a.npc === d.npc);
 		case 'job': return a.t === 'job' && a.op === 'work';
 		case 'home': return a.t === 'home' && d.ops.includes(a.op);
 		case 'course': return a.t === 'course';
@@ -48,6 +50,7 @@ export function wishMatches(w: WishDef, a: GameAction, before: PlayerState, afte
 		case 'travel': return (a.t === 'travel' || a.t === 'gps') && after.loc !== before.loc;
 		case 'newplace': return Object.keys(after.visited).length > Object.keys(before.visited).length;
 		case 'photo': return after.photos.length > before.photos.length;
+		case 'fish': return a.t === 'fish' && fishCount(after) > fishCount(before);
 	}
 }
 

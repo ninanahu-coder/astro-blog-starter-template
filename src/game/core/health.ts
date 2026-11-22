@@ -6,6 +6,8 @@
 //   2. applyEffect()：受伤后 injure()——一次掉健康太多记为扭伤；
 //   3. 活动 / 上班 / 真实地点训练的可行性检查：illnessBlock()。
 // 就医动作 seekCare() 在 engine.ts，结算前用这里的 careOutcome() 算钱和效果。
+import type { CoverId } from '../data/health.ts';
+import { visaKindNow } from './visa.ts';
 import { CARE, CONDITIONS, COVER_BY_ORIGIN, COVERS, ED_WAIT, HEALTH, REAL_FEES, RX_PRICE, type CareDef, type CareKind, type ConditionDef, type CoverDef, type Load } from '../data/health.ts';
 import { MOODLETS } from '../data/moodlets.ts';
 import { dateOf } from './time.ts';
@@ -17,9 +19,14 @@ export type Illness = NonNullable<PlayerState['illness']>;
 export const getCondition = (id: string): ConditionDef | undefined => CONDITIONS.find((c) => c.id === id);
 export const getCare = (id: string): CareDef | undefined => CARE.find((c) => c.id === id);
 
-/** 玩家的医疗保障（按出身，见 COVER_BY_ORIGIN） */
+/**
+ * 玩家的医疗保障。有签证记录（留学生出身）时按签证现在的状态：学生签证 → OSHC，永居 → Medicare，
+ * 485、482、491 和过期 → 自费（这些签证真实要求自己买的海外访客保险 OVHC 还没做，见 health.md §3.2，待核实）。
+ * 没有签证记录的出身（本地人、背包客等）按 COVER_BY_ORIGIN。合并 main 的签证路线后复核
+ */
 export function coverOf(state: PlayerState): CoverDef {
-	const id = COVER_BY_ORIGIN[state.origin] ?? 'none';
+	const vk = state.visa && state.visa.kind !== 'none' ? visaKindNow(state) : null;
+	const id: CoverId = vk === 'pr' ? 'medicare' : vk === 'student' ? 'oshc' : vk ? 'none' : (COVER_BY_ORIGIN[state.origin] ?? 'none');
 	return COVERS.find((c) => c.id === id)!;
 }
 
@@ -116,29 +123,41 @@ export function illnessTick(state: PlayerState, t0: number, rand: () => number):
 	const logs: string[] = [];
 	const t1 = state.clock;
 	if (t1 <= t0) return logs;
-	const cur = state.illness ? getCondition(state.illness.id) : undefined;
-	if (state.illness && cur) {
-		const from = Math.max(t0, state.illness.since);
-		const span = Math.max(0, Math.min(t1, state.illness.until) - from);
-		if (span > 0) {
-			state.needs.energy = clamp100(state.needs.energy - (cur.energyPerHour * span) / 60);
-			if (state.health > HEALTH.illFloor) state.health = Math.max(HEALTH.illFloor, state.health - (cur.healthPerDay * span) / 1440);
+	// 按午夜切段（合并 main 后复核）：半夜新得的病，从那个午夜起就开始掉精力和健康；
+	// 午夜时还没好的病挡住当晚的发病判定，好了之后才清掉，不会和新病重叠
+	const drainAndExpire = (from: number, to: number) => {
+		const ill = state.illness;
+		if (!ill) return;
+		const def = getCondition(ill.id);
+		if (!def) {
+			state.illness = null; // 未知的病 id（数据删了）：直接清掉
+			return;
 		}
-		if (state.illness.until <= t1) {
-			logs.push(`${cur.icon} ${cur.name}好了。`);
+		const span = Math.max(0, Math.min(to, ill.until) - Math.max(from, ill.since));
+		if (span > 0) {
+			state.needs.energy = clamp100(state.needs.energy - (def.energyPerHour * span) / 60);
+			if (state.health > HEALTH.illFloor) state.health = Math.max(HEALTH.illFloor, state.health - (def.healthPerDay * span) / 1440);
+		}
+		if (ill.until <= to) {
+			logs.push(`${def.icon} ${def.name}好了。`);
 			state.illness = null;
 			setSickMoodlet(state);
 		}
-	} else if (state.illness) state.illness = null; // 未知的病 id（数据删了）：直接清掉
+	};
+	let cursor = t0;
 	// 跨过的午夜：第一个 > t0 的午夜到 t1
 	for (let mid = (Math.floor(t0 / 1440) + 1) * 1440; mid <= t1; mid += 1440) {
-		if (state.illness && state.illness.until > mid) continue;
+		const activeAtMid = !!state.illness && state.illness.until > mid;
+		drainAndExpire(cursor, mid);
+		cursor = mid;
+		if (activeAtMid && state.illness) continue;
 		const id = pickIllness(illnessRisk(state, mid / 1440), rand());
 		if (!id) continue;
 		startIllness(state, id, mid);
 		const def = getCondition(id)!;
 		logs.push(`${def.icon} 你${id === 'heat' ? '中了暑气，得了' : '病了：'}${def.name}。${def.desc}`);
 	}
+	drainAndExpire(cursor, t1);
 	return logs;
 }
 

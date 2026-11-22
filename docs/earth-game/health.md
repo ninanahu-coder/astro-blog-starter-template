@@ -1,6 +1,6 @@
 # 健康、疾病和看病（第 1 版）
 
-分支 `claude/earth-health`，changelog v43。本文分三部分：**现状**（合并前 main 已有的）、**本版已落地**（这个分支加的）、**提议**（没做，留给后续）。
+分支 `claude/earth-health`，从 main `4f9c9e5` 开；2026-11-22 合并 main `31df3e7`，changelog 改为 v75。合并时做的事见 §8。本文分三部分：**现状**（合并前 main 已有的）、**本版已落地**（这个分支加的）、**提议**（没做，留给后续）。
 
 所有标「待平衡」的数值都是第 1 版初始值，Claude 不下平衡结论，等 Codex 跑平衡分析后再定（AGENTS.md）。
 真实的医疗规定只写查得到出处的；查不到原文的标「待核实」，游戏里按保守的方式处理，不当真实规定用。
@@ -24,10 +24,10 @@
 
 没有的：疾病、病程、医疗保障（Medicare / OSHC）、天气或饮食导致的生病、病中的活动限制。
 
-### 1.1 未合并的相关分支
+### 1.1 相关分支（合并时已并入 main）
 
 - **`claude/earth-activity-attrs`**（`core/vitals.ts`）：把 `advance()` 里的需求衰减和掉血换成 `passTime()`——掉血只算见底之后的分钟、饱食和精力都 ≥ 50 时健康每小时 +0.25、睡着时饿得慢。
-  **和本分支的关系**：本分支只在 `advance()` 加了一行 `illnessTick(...)`（在掉血之后、`weeklyTick` 之前），合并时保留两边：先 `passTime()`，再 `illnessTick()`。
+  **已合并**：`advance()` 现在先 `passTime()`，再 `illnessTick()`。
   `vitals.ts` 的自然回血和本分支的「生病每天掉健康」叠加，生病时净变化 = 自然回血 − 病的掉血；两个数都待平衡。
 - **`claude/earth-weather`**：新增天气 `cold`（寒潮），天气改按气象站气候抽取。本分支的天气加成表 `HEALTH.weather` 只写了 main 现有的 `rain`、`storm`、`hot`；
   合并后建议给 `cold` 加感冒、流感的加成（见 §4 提议）。`weatherOn()` 签名没变，本分支不用改。
@@ -78,8 +78,8 @@ illness: { id: string; since: number; until: number; care: string[]; rx: boolean
 - **下海** `sea`：数据里 `exposed: 'sea'` 的活动；
 - **上班** `work`：带收入的活动（零工）和职业班次。
 
-拦截的地方：普通活动（`blockedReason`，列表里直接显示原因）、职业上班（`shiftBlocked`）、真实地点的训练 / 跑步 / 游泳（`opOutcome`）。
-**真实地点的打卡上班不拦**：下班卡必须能打，否则会卡住工资。
+拦截的地方：普通活动（`blockedReason`，列表里直接显示原因）、职业上班（`shiftBlocked`）、真实地点的训练 / 跑步 / 游泳（`opOutcome`）、真实地点打上班卡（`workBlocked`）、共同事件（`coopBlocked`：有收入的算干活，体力消耗大的算剧烈运动）。
+**真实地点已经打了的上班卡照样能打下班卡**，不会卡住工资（合并 main 后复核：原来连上班卡都不拦，生病还能去真实地点打卡挣钱，和游戏内上班不一致）。
 
 ### 2.5 看病：新动作 `{ t: 'care', kind: 'gp' | 'pharmacy' | 'ed' }`
 
@@ -130,7 +130,8 @@ illness: { id: string; since: number; until: number; care: string[]; rx: boolean
 | OSHC 对公立医院急诊 | 免费（`publicEd: true`） | 保险公司条款普遍覆盖公立医院，未核到 Deed：待核实 |
 | 救护车费 | 没做 | Medicare 不报救护车。西澳 St John 2025-26 急救出车费只在第三方页面看到（约 $1,253），没核到官方费率表 |
 | 背包客的签证和保险 | 自费 | 游戏设定：按打工度假、来自没有对等医疗协议的国家处理；没有写「打工度假签证必须买保险」之类的规定 |
-| 出身 → 保障 | 矿区轮班工、冲浪手设定为本地居民（Medicare） | 出身数据里没有签证身份，这是游戏设定，**请用户确认** |
+| 出身 → 保障 | 矿区轮班工、冲浪手设定为本地居民（Medicare） | 这些出身没有签证记录，这是游戏设定，**请用户确认** |
+| 签证 → 保障（合并 main 的签证路线后） | 持学生签证 → OSHC；永居 → Medicare；485、482、491、签证过期 → 自费 | OSHC 是学生签证的条件（8501），换了签证就不再适用。485、482 真实要求买海外访客保险（OVHC），保障条款没核到，第 1 版先按自费，**待核实**，要不要加 OVHC 交用户定 |
 
 ### 3.3 纯游戏数值（全部待平衡）
 
@@ -142,10 +143,10 @@ illness: { id: string; since: number; until: number; care: string[]; rx: boolean
 
 1. **bulk billing 诊所**：2025-11-01 起 bulk billing 激励扩大到所有 Medicare 患者。可以让一部分诊所（按地点确定性抽）bulk bill，自付 $0；没 Medicare 的人照付标价。
 2. **合并现有看病**：活动 `clinic` 和真实地点 `heal` 改成走 `careOutcome('gp')`，按保障算钱、能缩短病程。会改变现有数值和模拟结果，等平衡分析。
-3. **寒潮**（等 `earth-weather` 合并）：`HEALTH.weather.cold = { cold: 0.015, flu: 0.004 }`。
+3. **寒潮**（前提已在 main：天气已有 `cold`，尚未做）：`HEALTH.weather.cold = { cold: 0.015, flu: 0.004 }`。
 4. **热浪 + vitals**（等 `earth-activity-attrs` 合并）：生病期间 `vitals.ts` 的自然回血减半；病中睡觉（`asleep`）病程额外缩短。
 5. **救护车**：健康归零被送医时，按保障加救护车费（核实 St John WA、SA Ambulance 的官方费率后再做）；Medicare 不报，可以做「救护车保险」物品。
-6. **药房做成商店**（等 `earth-shop-items` 合并）：药房作为 `StoreType`，卖非处方药、口服补液盐、防晒霜；处方药仍走 `care`。
+6. **药房做成商店**（前提已在 main：`StoreType` 已有 `pharmacy`，尚未做）：药房作为 `StoreType`，卖非处方药、口服补液盐、防晒霜；处方药仍走 `care`。
 7. **病假工资**：有职业的人请病假时，按职业是否正式工给带薪病假（澳洲正式工有带薪病假，临时工没有；需要核实 Fair Work 规定后再做）。
 8. **OSHC 细节**：拿到 Deed 原文后，按条款改 OSHC 的药品和急诊赔付。
 9. **心理健康**：长期心情低（例如连续 7 天 < 30）触发「情绪低落」，可去 GP 做心理健康计划（Medicare 有对应项目，需核实）。
@@ -195,7 +196,7 @@ illness: { id: string; since: number; until: number; care: string[]; rx: boolean
 
 ---
 
-## 7. 合并时注意
+## 7. 合并时注意（历史记录，已在 §8 完成）
 
 - `engine.ts`：`advance()` 加了 `const t0` 和一行 `illnessTick`；`applyEffect()` 健康那段多两行；`blockedReason()`、`shiftBlocked()` 各一处；文件末尾加了 `careAt()`、`seekCare()`；import 两行。
   `earth-activity-attrs` 改了 `advance()` 的同一段，合并时保留 `passTime()`，在它后面放 `illnessTick`（需要 `t0` = 流逝前的时钟）。
@@ -206,4 +207,30 @@ illness: { id: string; since: number; until: number; care: string[]; rx: boolean
 - `data/moodlets.ts`：加 `sick-mild`、`sick-bad`。
 - `earth.astro`：import 两行、`careAt` 加进 engine 的 import、新函数 `healthCard()`、今天页加一行 `${healthCard(s)}`、点击选择器加 `[data-care]`、点击处理加一个分支、帮助加一条。
 - `sim.ts`：新增 `careStep()`（有病就在所在地点就医）、健康统计和报告里的「健康与看病」表。
-- `changelog.ts`：v43。
+- `changelog.ts`：v43（合并后改为 v75）。
+
+## 8. 合并 main（2026-11-22，`31df3e7`）时做的
+
+- **冲突**（7 个文件）：
+  - `engine.ts`：`advance()` 先 main 的 `passTime()` 再 `illnessTick()`；`shiftBlocked()` 先看生病，再看灾害停工、学生签证工时；`blockedReason()` 先看生病，再看签证零工工时。
+  - `actions.ts`、`character.ts`、`types.ts`：两边新加的动作和存档字段都留（`illness` 和 main 的 `visa`、`onboard` 并列）。
+  - `earth.astro`：健康卡放在 main 的结果条前面；点击名单加 `[data-care]`。
+  - `sim.ts`：健康统计和 main 的签证、排行榜统计都留。
+  - 更新日志改为 v75。
+- **复核修正**（3 个角度，每条都做了反驳核查，确认 11 条，去重后 8 项，全部已处理）：
+  - **医疗保障跟签证走**：原来只按出身，留学生拿到永居还按 OSHC（处方药不按 PBS 封顶），签证过期还能报销。现在 `coverOf()` 有签证记录时按签证现在的状态（见 §3.2）。
+  - **生病还能去真实地点打卡、参加有收入的共同事件**：现在都拦，已打的卡照样能打下班卡。
+  - **热浪事件的「中暑」被记成扭伤**：效果加了可选字段 `illness`，直接记那种病；这个事件改记中暑。
+  - **候诊跨午夜换了新病，就医记录算到新病上**：现在只算在就诊前那场病上。
+  - **病程按午夜切段**：半夜新得的病，原来那一段时间不掉精力；午夜时还没好的病，原来可能被先清掉、当晚又掷出新病。
+  - 文档：本节、§1.1、§2.4、§3.2、§4；`features.md` 加条目；更新日志写准保障。
+- **复核驳回的**：体验、NPC 专属互动、事件选项在生病时照常（第 1 版覆盖范围）；`cold` 天气还没有发病加成（列在 §4 提议）。
+- **测试**：新加 6 条；故意改坏 10 处，全部抓到。
+- **首屏**：gzip 202,910 → 206,915（+4.0KB），上限按「每个分支按需上调」调到 207,900；未压缩 635,977 → 646,621，上限 649,500。
+- **测试**：963 个，连跑 3 遍全过；`tsc`、`npm run check` 通过。
+- **模拟**（180 天 × 100 次，对比 main `31df3e7`；平衡结论交 Codex）：
+  - 期末净资产：咖啡店上班族 $25,147 → $23,498（−6.6%）、酒保 $27,375 → $25,679（−6.2%）、矿工 $76,173 → $73,148（−4.0%）、救生员 $35,098 → $34,034（−3.0%）、农场工 $21,567 → $20,426（−5.3%）。
+  - 农场工被收房或断供 0.29 → 0.54 次/人，晕倒 0 → 0.05 次/人；打零工背包客晕倒 6.22 → 8.23 次/人。
+  - 每人 180 天生病 3–6 次、5–13 天，就医自付 $200–$500（对照组几乎不看病）。
+  - 60 天回归基线有变化（新增 `eco.out.care`，现金和心情下降），已更新 `baseline.json`。
+
