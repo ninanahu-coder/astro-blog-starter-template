@@ -2,6 +2,7 @@
 // 纯函数：现实时间 now（毫秒）由服务端传入，客户端无法伪造；坐标来自手机定位，可以伪造，所以做了精度、距离和速度三道检查。
 import { careerPayMult } from './world.ts';
 import { canWork, VISA_EXPIRED_MSG } from './visa.ts';
+import { workStopped } from './disasters.ts';
 import { noteDrink } from './law.ts';
 import { realDayOf } from './daily.ts';
 import { addMoodlet, applyEffect, certBonus, clone, collapsedResult, fail, getCareer, getLocation, log, pickVenueEvent, startEvent, tryPromote } from './engine.ts';
@@ -114,7 +115,7 @@ export function venuesNear(state: PlayerState, region: Region, lat: number, lon:
 		if (distM > maxM) continue;
 		const ops = type.ops.map((id) => {
 			const op = getVenueOp(id)!;
-			if (id === 'work') return { op, outcome: null, ...workPreview(state, type, venue, now) };
+			if (id === 'work') return { op, outcome: null, ...workPreview(state, region, type, venue, now) };
 			const outcome = opOutcome(state, id, type, venue);
 			return { op, outcome, blocked: cooldownLeft(state, op, now) ?? outcome?.blocked };
 		});
@@ -148,25 +149,29 @@ export function clockStale(state: PlayerState, now: number): boolean {
  * 身份没了的卡 → 只清卡（voids）；没有卡或这里自己的有效卡 → 照常；别处的有效卡 → 这里上得了班就换卡（renews），上不了就禁用；
  * 过期的卡 → 这里上不了班就只作废旧卡（voids），上得了就作废旧卡并打新卡（renews）
  */
-function workPreview(state: PlayerState, type: VenueTypeDef, venue: Venue, now: number): Pick<NearbyOp, 'blocked' | 'voids' | 'renews'> {
+function workPreview(state: PlayerState, region: Region, type: VenueTypeDef, venue: Venue, now: number): Pick<NearbyOp, 'blocked' | 'voids' | 'renews'> {
 	if (cardDead(state, type, venue)) return { voids: DEAD_CARD };
 	const ci = state.clockIn;
 	const stale = clockStale(state, now);
 	// 没有卡，或是这里自己的、还没过期的卡：照常打上班卡 / 下班卡
 	if (!ci || (ci.venue === venue.id && !stale)) {
 		const short = ci ? clockOutTooSoon(ci, now) : undefined;
-		return { blocked: short ?? workBlocked(state, type, venue, now) };
+		return { blocked: short ?? workBlocked(state, region, type, venue, now) };
 	}
 	// 手里有一张别处的卡或过期的卡：在这里打卡会让它作废
-	const why = workBlocked({ ...state, clockIn: null }, type, venue, now);
+	const why = workBlocked({ ...state, clockIn: null }, region, type, venue, now);
 	if (!stale) return why ? { blocked: why } : { renews: '还有一张别处的上班卡没打下班卡：在这里打卡会让它作废、不计薪' };
 	return why ? { voids: `${why}，打不了新卡` } : { renews: '上一张卡太久没打下班卡，不计薪；这里会打一张新的上班卡' };
 }
 
-function workBlocked(state: PlayerState, type: VenueTypeDef, venue: Venue, now: number): string | undefined {
+function workBlocked(state: PlayerState, region: Region, type: VenueTypeDef, venue: Venue, now: number): string | undefined {
 	if (state.clockIn?.venue === venue.id) return undefined; // 可以打下班卡
 	if (!canWork(state)) return VISA_EXPIRED_MSG;
 	if (!workTerms(state, type, venue)) return '这里需要在你的工作地点有对应的职业才能上班';
+	// 自然灾害（第 43 批，合并 main 后复核）：这个地点今天紧急警告停工，真实打卡也不能打上班卡（和游戏内上班 shiftBlocked 一致）
+	const where = getLocation(region, venue.loc);
+	const stop = where ? workStopped(where, dayOf(state.clock)) : undefined;
+	if (stop) return stop;
 	const today = realDayOf(now);
 	if (state.realWork.day === today && state.realWork.min >= FIX_RULES.dayMaxMin) return `今天已经计满 ${FIX_RULES.dayMaxMin / 60} 小时`;
 	return undefined;
@@ -243,7 +248,7 @@ function work(prev: PlayerState, region: Region, venue: Venue, type: VenueTypeDe
 		return { ok: true, state, msg: `${DEAD_CARD}。` };
 	}
 	if (!ci || ci.venue !== venue.id || stale) {
-		const why = workBlocked({ ...state, clockIn: null }, type, venue, now);
+		const why = workBlocked({ ...state, clockIn: null }, region, type, venue, now);
 		if (why) {
 			if (!stale) return fail(prev, why);
 			// 过期的卡不管能不能开始新的一班都作废

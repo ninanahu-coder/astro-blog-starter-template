@@ -102,13 +102,13 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 	for (const id of Object.keys(s.inventory)) if (s.inventory[id] > 0 && ITEMS.find((i) => i.id === id)?.use) c.push({ t: 'use', item: id });
 	for (const id of Object.keys(s.inventory)) if (!sellItemBlocked(s, getLocation(WA, s.loc), ITEMS.find((i) => i.id === id))) c.push({ t: 'sell', item: id });
 	for (const x of careersAt(s, WA)) if (!x.blocked) c.push({ t: 'job', op: 'apply', career: x.career.id });
-	if (s.job && !shiftBlocked(s)) c.push({ t: 'job', op: 'work' }, { t: 'job', op: 'work' }, { t: 'job', op: 'work' });
+	if (s.job && !shiftBlocked(s, WA)) c.push({ t: 'job', op: 'work' }, { t: 'job', op: 'work' }, { t: 'job', op: 'work' });
 	if (s.job && s.loc !== s.job.loc) for (const o of travelOptions(s, WA)) if (o.available && o.to === s.job.loc) c.push({ t: 'travel', to: o.to, mode: o.mode });
 	for (const x of homesAt(s, WA)) if (!x.blocked) c.push({ t: 'home', op: 'rent', home: x.home.id });
 	if (s.home && s.home.loc === s.loc) {
 		c.push({ t: 'home', op: 'sleep' });
 		// 在家有炊具、娱乐设备的时间往往很短（随机动作会很快卖掉家具），多放几次让它们常被选中
-		for (const op of ['cook', 'relax'] as const) if (!homeActionBlocked(s, op)) c.push({ t: 'home', op }, { t: 'home', op }, { t: 'home', op });
+		for (const op of ['cook', 'relax'] as const) if (!homeActionBlocked(s, op, WA)) c.push({ t: 'home', op }, { t: 'home', op }, { t: 'home', op });
 	}
 	if (s.home) for (const x of furnitureAt(s)) {
 		if (x.owned) c.push({ t: 'furniture', op: 'sell', slot: x.item.slot });

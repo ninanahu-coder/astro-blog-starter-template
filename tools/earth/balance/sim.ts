@@ -487,7 +487,7 @@ function step(b: Bot) {
 	if (s.cash < 60 && s.needs.hunger < 80 && (act(b, 'charity-meal') || act(b, 'charity-dinner'))) return;
 	if (s.health < 35 && (act(b, 'clinic') || (s.inventory.firstaid && tryAct(b, { t: 'use', item: 'firstaid' })))) return;
 	if (s.needs.hunger < 35) {
-		if (!homeActionBlocked(s, 'cook') && tryAct(b, { t: 'home', op: 'cook' })) return;
+		if (!homeActionBlocked(s, 'cook', WA) && tryAct(b, { t: 'home', op: 'cook' })) return;
 		if (act(b, 'eat')) return;
 		if (s.inventory.snack && tryAct(b, { t: 'use', item: 'snack' })) return;
 		if (s.inventory.water && tryAct(b, { t: 'use', item: 'water' })) return;
@@ -515,7 +515,7 @@ function step(b: Bot) {
 			}
 		} else if (s.loc !== s.job.loc) {
 			if (headTo(b, s.job.loc)) return; // 被送去外地医院等情况：先回工作地点
-		} else if (dayOf(s.clock) % 7 !== 6 && !shiftBlocked(s) && tryAct(b, { t: 'job', op: 'work' })) return; // 每周休一天
+		} else if (dayOf(s.clock) % 7 !== 6 && !shiftBlocked(s, WA) && tryAct(b, { t: 'job', op: 'work' })) return; // 每周休一天
 	}
 	if (plan.home && !s.home && s.cash > 400) {
 		const want = plan.job?.loc ?? WA.spawn;

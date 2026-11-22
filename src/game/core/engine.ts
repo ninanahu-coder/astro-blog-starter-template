@@ -1,5 +1,6 @@
 // 游戏规则引擎：纯函数、确定性（随机数来自存档里的 seed），前后端与测试共用。
 // 所有动作返回新的 PlayerState，不修改入参。
+import { activityClosed, outageBlocksCook, routeClosed, workStopped } from './disasters.ts';
 import { unit, weatherAt, weatherOn } from './weather.ts';
 import { ANIMALS, DEX_GROUPS, type AnimalDef } from '../data/wildlife.ts';
 import { FISH, FISHING, type FishDef } from '../data/fish.ts';
@@ -231,7 +232,16 @@ export function travelOptions(state: PlayerState, region: Region): TravelOption[
 		out.push(withRouteFare(state, here.id, priceRoute(state, r, here, to)));
 	}
 	out.push(...transitOptions(state, region)); // 第 32 批：公交、区域火车、步行
-	return out.sort((x, y) => x.km - y.km);
+	return closeRoutes(out, here, region, dayOf(state.clock)).sort((x, y) => x.km - y.km);
+}
+
+/** 第 43 批：灾害封路、停飞（core/disasters.ts）。封了的线路照样列出，标成走不了并写原因 */
+function closeRoutes(opts: TravelOption[], here: GameLocation, region: Region, day: number): TravelOption[] {
+	return opts.map((o) => {
+		const to = getLocation(region, o.to);
+		const why = o.available && to ? routeClosed(here, to, o.mode, day) : undefined;
+		return why ? { ...o, available: false, reason: why } : o;
+	});
 }
 
 function priceRoute(state: PlayerState, r: Route, from: GameLocation, to: GameLocation): TravelOption {
@@ -603,7 +613,7 @@ export function activitiesAt(state: PlayerState, region: Region): { act: Activit
 	const loc = getLocation(region, state.loc);
 	if (!loc) return [];
 	const today = weatherAt(state).id;
-	return ACTIVITIES.filter((a) => activityAvailableAt(a, loc) && (!a.weather || a.weather.includes(today))).map((act) => ({ act, blocked: blockedReason(state, act) }));
+	return ACTIVITIES.filter((a) => activityAvailableAt(a, loc) && (!a.weather || a.weather.includes(today))).map((act) => ({ act, blocked: blockedReason(state, act) ?? activityClosed(loc, dayOf(state.clock), act.id) }));
 }
 
 function blockedReason(state: PlayerState, act: Activity): string | undefined {
@@ -638,7 +648,7 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	const act = ACTIVITIES.find((a) => a.id === activityId);
 	if (!loc || !act || !activityAvailableAt(act, loc)) return fail(prev, '这里做不了这件事。');
 	if (act.weather && !act.weather.includes(weatherAt(prev).id)) return fail(prev, '今天的天气做不了这件事。');
-	const blocked = blockedReason(prev, act);
+	const blocked = blockedReason(prev, act) ?? activityClosed(loc, dayOf(prev.clock), act.id);
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);
 	if (applyEffect(state, bodyScaled(prev, { ...scaledFx(prev, act), minutes: act.minutes }), region)) return collapsedResult(state);
@@ -1041,8 +1051,8 @@ export function careerPay(state: PlayerState, careerId: string, level: number): 
 	return lv ? Math.round(lv.pay * (1 + certBonus(state, careerId)) * careerPayMult(careerId, dayOf(state.clock))) : 0; // 世界事件：矿业景气
 }
 
-/** 当前工作能否上班；可以返回 undefined */
-export function shiftBlocked(state: PlayerState): string | undefined {
+/** 当前工作能否上班；可以返回 undefined。传了 region 时还看工作地点今天是否因灾害停工（第 43 批） */
+export function shiftBlocked(state: PlayerState, region?: Region): string | undefined {
 	const job = state.job;
 	if (!job) return '你还没有工作';
 	const c = getCareer(job.career)!;
@@ -1050,7 +1060,8 @@ export function shiftBlocked(state: PlayerState): string | undefined {
 	if (job.lastDay === dayOf(state.clock)) return '今天已经上过班了';
 	if (!isOpen(c.start, state.clock)) return `上班时间 ${hoursLabel(c.start)} 开始`;
 	if (state.needs.energy < 20) return '太累了，先休息';
-	return visaBlocked(state, c.minutes);
+	const where = region && getLocation(region, job.loc);
+	return (where ? workStopped(where, dayOf(state.clock)) : undefined) ?? visaBlocked(state, c.minutes);
 }
 
 /** 下一级的升职条件，已经是最高级时返回 null */
@@ -1106,7 +1117,7 @@ export function quitJob(prev: PlayerState): ActionResult {
  */
 export function workShift(prev: PlayerState, region: Region): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
-	const why = shiftBlocked(prev);
+	const why = shiftBlocked(prev, region);
 	if (why) return fail(prev, why);
 	const state = clone(prev);
 	const job = state.job!;
@@ -1649,16 +1660,18 @@ export function sellFurniture(prev: PlayerState, slot: string): ActionResult {
 }
 
 /** 在家做饭 / 放松不能做的原因 */
-export function homeActionBlocked(state: PlayerState, op: 'cook' | 'relax'): string | undefined {
+/** 传了 region 时，做饭还看住处今天是否停电（第 43 批） */
+export function homeActionBlocked(state: PlayerState, op: 'cook' | 'relax', region?: Region): string | undefined {
 	if (!atHome(state)) return '要在住处';
 	if (!homeHas(state, op)) return op === 'cook' ? '需要炊具' : '需要娱乐设备';
 	if (op === 'cook' && state.cash < HOME_COOK.cost) return `需要 $${HOME_COOK.cost}`;
-	return undefined;
+	const where = op === 'cook' && region ? getLocation(region, state.loc) : undefined;
+	return where ? outageBlocksCook(state, where, dayOf(state.clock)) : undefined;
 }
 
 export function cookAtHome(prev: PlayerState, region: Region): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
-	const why = homeActionBlocked(prev, 'cook');
+	const why = homeActionBlocked(prev, 'cook', region);
 	if (why) return fail(prev, why);
 	const state = clone(prev);
 	if (applyEffect(state, { cash: -HOME_COOK.cost, minutes: HOME_COOK.minutes, needs: { hunger: HOME_COOK.hunger, fun: 3 }, moodlet: 'well-fed' }, region)) return collapsedResult(state);
