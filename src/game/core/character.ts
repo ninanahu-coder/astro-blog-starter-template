@@ -21,6 +21,7 @@ import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { realDayOf } from './daily.ts';
+import { cleanIllness } from './health.ts';
 import { cleanOnboard, freshOnboard } from './onboard.ts';
 // 只用到地点和打卡点，不需要真实地点数据：用首屏版区域，页面不必为此加载 wa.venues.json
 import { cleanLaw, emptyLaw } from './law.ts';
@@ -195,6 +196,7 @@ export function createCharacter(opts: {
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
+		illness: null,
 		visa: newVisa(origin.id, Math.floor(START_CLOCK / 1440)),
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		onboard: freshOnboard(),
@@ -303,6 +305,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		job: cleanJob(r.job, knownLocs),
 		// 旧存档没有这个字段：用当前工作的 lastDay 补上
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
+		illness: cleanIllness(r.illness, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		visa: cleanVisa(r.visa, ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), new Set(CAREERS.map((c) => c.id))),
 		...cleanEstate(r, knownLocs),
 		holdings: (() => {

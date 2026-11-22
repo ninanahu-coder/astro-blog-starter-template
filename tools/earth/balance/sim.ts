@@ -21,10 +21,11 @@ import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter, ORIGINS } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { weatherAt } from '../../../src/game/core/weather.ts';
+import { currentIllness } from '../../../src/game/core/health.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
@@ -86,6 +87,9 @@ interface Bot {
 		promoDays: number[];
 		homeDay?: number;
 		diag: BackpackerDiagnostics;
+		/** 健康系统第 1 版：生病次数、生病的天数、就医花的钱 */
+		ill: number;
+		sickMin: number;
 		/** 第 46 轮：参加共同事件的次数、成功次数、按种类计数 */
 		coops: number;
 		coopOk: number;
@@ -285,6 +289,7 @@ function tryAct(b: Bot, a: GameAction): boolean {
 	for (const j of b.s.journal) {
 		if (j.t <= before.clock) continue;
 		if (j.text.includes('晕倒')) b.stats.collapses++;
+		if (/你病了|中了暑气|扭伤了/.test(j.text)) b.stats.ill++;
 		if (j.text.includes('收回') || j.text.includes('强制卖出')) b.stats.evictions++;
 	}
 	if (b.s.job && before.job && b.s.job.career === before.job.career && b.s.job.level > before.job.level) {
@@ -293,6 +298,20 @@ function tryAct(b: Bot, a: GameAction): boolean {
 	}
 	if (a.t === 'job' && a.op === 'work') b.stats.shifts++;
 	return true;
+}
+
+/**
+ * 健康系统第 1 版：有病就在所在地点就医（不为看病专门出行）。
+ * 重症先急诊；开了处方就去药房取药；其余先 GP 再药房。付不起或这里没有就跳过。
+ */
+function careStep(b: Bot): boolean {
+	const cur = currentIllness(b.s);
+	if (!cur) return false;
+	const here = careAt(b.s, WA).filter((x) => !x.blocked);
+	const has = (k: string) => here.some((x) => x.care.id === k);
+	const order = cur.def.severity >= 3 ? ['ed', 'gp', 'pharmacy'] : cur.ill.rx ? ['pharmacy', 'gp'] : ['gp', 'pharmacy'];
+	for (const k of order) if (has(k) && !cur.ill.care.includes(k) && tryAct(b, { t: 'care', kind: k as 'gp' | 'pharmacy' | 'ed' })) return true;
+	return cur.ill.rx && !cur.ill.care.includes('rx') && has('pharmacy') && tryAct(b, { t: 'care', kind: 'pharmacy' });
 }
 
 const can = (b: Bot, id: string) => activitiesAt(b.s, WA).some((x) => x.act.id === id && !x.blocked);
@@ -476,6 +495,7 @@ function step(b: Bot) {
 		if (pick < 0 || !tryAct(b, { t: 'event', choice: pick })) throw new Error(`机器人卡在事件 ${ev.id}（${plan.id}，第 ${dayOf(s.clock)} 天）`);
 		return;
 	}
+	if (careStep(b)) return;
 	if (plan.gig) {
 		stepSafeDrifter(b);
 		return;
@@ -602,7 +622,7 @@ function runBot(plan: Plan, seed: number): Bot {
 	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: WA.id, spawn: WA.spawn, seed });
 	const b: Bot = {
 		s, plan, rng: mulberry(seed * 7919),
-		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0 },
+		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0 },
 		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
@@ -610,7 +630,9 @@ function runBot(plan: Plan, seed: number): Bot {
 	let i = 0;
 	for (; i < 50000 && b.s.clock < end; i++) {
 		const before = b.s.clock;
+		const sickAt = currentIllness(b.s) ? b.s.illness!.until : 0;
 		step(b);
+		if (sickAt) b.stats.sickMin += Math.max(0, Math.min(b.s.clock, sickAt) - before);
 		if (b.s.clock === before && !getPendingEvent(b.s)) act(b, 'rest'); // 防止原地打转
 		b.stats.moodSum += mood(b.s);
 		b.stats.moodN++;
@@ -651,6 +673,7 @@ const skillRows: [string, number[]][] = [];
 const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
 const coopRows: string[] = [];
+const healthRows: string[] = [];
 const lbRows: string[] = [];
 const visaRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
@@ -672,6 +695,7 @@ for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	for (const b of bots) for (const [k, v] of Object.entries(b.stats.flow)) flow[k] = (flow[k] ?? 0) + v / RUNS / DAYS;
 	const top = Object.entries(flow).filter(([, v]) => Math.abs(v) >= 1).sort((x, y) => y[1] - x[1]);
 	flows.push(`| ${plan.name} | ${top.filter(([, v]) => v > 0).map(([k, v]) => `${k} +${Math.round(v)}`).join('，') || '—'} | ${top.filter(([, v]) => v < 0).reverse().map(([k, v]) => `${k} ${Math.round(v)}`).join('，') || '—'} |`);
+	healthRows.push(`| ${plan.name} | ${avg(bots.map((b) => b.stats.ill)).toFixed(2)} | ${avg(bots.map((b) => b.stats.sickMin / 1440)).toFixed(1)} | ${money(-(flow.care ?? 0) * DAYS)} |`);
 	if (plan.coop) {
 		const n = avg(bots.map((b) => b.stats.coops));
 		const ok = bots.reduce((x, b) => x + b.stats.coopOk, 0) / Math.max(1, bots.reduce((x, b) => x + b.stats.coops, 0));
@@ -760,6 +784,14 @@ out();
 out('| 策略 | 晕倒前健康 / 饱食 / 精力（中位） | 回算的见底原因（次/人） | 出行途中晕倒/人 | 常见触发动作（次/人） |');
 out('| --- | --- | --- | --- | --- |');
 for (const row of collapseDiagRows) out(row);
+out();
+out('## 健康与看病（健康系统第 1 版）');
+out();
+out('机器人有病就在所在地点就医（重症先急诊；有处方先取药；其余先 GP 再药房），不为看病专门出行。生病次数含受伤记的扭伤。数值全部待平衡，见 docs/earth-game/health.md。');
+out();
+out('| 策略 | 生病次数/人 | 生病天数/人 | 就医自付/人（全程） |');
+out('| --- | --- | --- | --- |');
+for (const row of healthRows) out(row);
 out();
 out('## 共同事件（第 46 轮）');
 out();

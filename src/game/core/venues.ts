@@ -15,6 +15,8 @@ import { fixProblem, roundFix } from './fix.ts';
 export { fixProblem } from './fix.ts';
 import { dayOf } from './time.ts';
 import { FIX_RULES, VENUE_OPS, VENUE_TYPES, type VenueOpDef } from '../data/venues.ts';
+import { illnessBlock } from './health.ts';
+import type { Load } from '../data/health.ts';
 import type { ActionResult, PlayerState, Region, SkillKey, Venue, VenueOp, VenueTypeDef } from './types.ts';
 
 /** 实地到岗的时薪加成（第六轮平衡：1.15 → 1.05） */
@@ -65,6 +67,15 @@ function settleTerms(state: PlayerState, type: VenueTypeDef, venue: Venue, ci: N
 
 /** 除上班外，各动作的结算预览 */
 export function opOutcome(state: PlayerState, op: VenueOp, type: VenueTypeDef, venue: Venue): OpOutcome | null {
+	const out = baseOutcome(state, op, type, venue);
+	const sick = out && !out.blocked ? illnessBlock(state, VENUE_LOAD[op] ?? []) : undefined; // 生病时练不了、跑不了、游不了（core/health.ts）
+	return sick ? { ...out!, blocked: sick } : out;
+}
+
+/** 真实地点动作的负荷（生病时按这个拦）；上班不拦：下班卡要能打 */
+const VENUE_LOAD: Partial<Record<VenueOp, Load[]>> = { train: ['heavy'], run: ['heavy'], swim: ['heavy', 'sea'] };
+
+function baseOutcome(state: PlayerState, op: VenueOp, type: VenueTypeDef, venue: Venue): OpOutcome | null {
 	const tier = venue.tier ?? type.tier;
 	switch (op) {
 		case 'meal': return mealOutcome(state, type, tier);
@@ -168,6 +179,9 @@ function workBlocked(state: PlayerState, region: Region, type: VenueTypeDef, ven
 	if (state.clockIn?.venue === venue.id) return undefined; // 可以打下班卡
 	if (!canWork(state)) return VISA_EXPIRED_MSG;
 	if (!workTerms(state, type, venue)) return '这里需要在你的工作地点有对应的职业才能上班';
+	// 生病不能打上班卡，和游戏内上班一致；已经打的卡上面已经放行，下班卡照样能打（合并 main 后复核）
+	const sick = illnessBlock(state, ['work']);
+	if (sick) return sick;
 	// 自然灾害（第 43 批，合并 main 后复核）：这个地点今天紧急警告停工，真实打卡也不能打上班卡（和游戏内上班 shiftBlocked 一致）
 	const where = getLocation(region, venue.loc);
 	const stop = where ? workStopped(where, dayOf(state.clock)) : undefined;

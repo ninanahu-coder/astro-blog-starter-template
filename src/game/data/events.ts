@@ -245,7 +245,7 @@ export const EVENTS: GameEvent[] = [
 		text: '下车的一瞬间像打开了烤箱门，路面上的热气在抖。',
 		choices: [
 			{ label: '找个阴凉地方等太阳下去', ok: { text: '你在加油站的雨棚下坐到了傍晚。', fx: { minutes: 180, needs: { fun: -5 } } } },
-			{ label: '硬顶着继续', check: { skill: 'stamina', dc: 50 }, ok: { text: '你喝光了水，但撑下来了。', fx: { needs: { energy: -15, hygiene: -15 }, skills: { stamina: 2, survival: 1 } } }, fail: { text: '你有点中暑，头晕得厉害。', fx: { health: -15, needs: { energy: -25 } } } },
+			{ label: '硬顶着继续', check: { skill: 'stamina', dc: 50 }, ok: { text: '你喝光了水，但撑下来了。', fx: { needs: { energy: -15, hygiene: -15 }, skills: { stamina: 2, survival: 1 } } }, fail: { text: '你有点中暑，头晕得厉害。', fx: { health: -15, needs: { energy: -25 }, illness: 'heat' } } },
 		],
 	},
 	{

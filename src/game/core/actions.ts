@@ -1,7 +1,7 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	applyJob, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, sellItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
+	applyJob, seekCare, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, cookAtHome, relaxAtHome, sellFurniture, buyItem, sellItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, goFishing, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { refreshWishes, settleWishes } from './wishes.ts';
 import { settleStory } from './story.ts';
@@ -20,6 +20,7 @@ import { studyProgram } from './education.ts';
 import { buyAsset, sellAsset } from './invest.ts';
 import { marketView } from './market.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { CARE, type CareKind } from '../data/health.ts';
 import { applyOnboard, parseOnboardOp, settleOnboard, type OnboardOp } from './onboard.ts';
 import { claimLive, LIVE_ID_RE } from './live.ts';
 import { blockPlayer, unblockPlayer } from './safety.ts';
@@ -67,7 +68,8 @@ export type GameAction =
 	| { t: 'trail'; lat: number; lon: number; acc: number }
 	| ({ t: 'onboard' } & OnboardOp)
 	| { t: 'visa'; op: 'apply'; route: string }
-	| { t: 'visa'; op: 'ielts' };
+	| { t: 'visa'; op: 'ielts' }
+	| { t: 'care'; kind: CareKind }; // 看病（健康系统第 1 版）
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air', 'transit', 'rail', 'walk'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond'];
@@ -99,6 +101,8 @@ export function parseAction(raw: unknown): GameAction | null {
 			if (!str(a.npc) || !NPC_ACTS.includes(a.act as NpcAction)) return null;
 			if (a.item === undefined) return { t: 'npc', npc: a.npc, act: a.act as NpcAction };
 			return a.act === 'gift' && str(a.item) ? { t: 'npc', npc: a.npc, act: 'gift', item: a.item } : null;
+		case 'care':
+			return CARE.some((c) => c.id === a.kind) ? { t: 'care', kind: a.kind as CareKind } : null;
 		case 'venue':
 			return str(a.venue) && VENUE_OPS.some((o) => o.id === a.op) && finite(a.lat) && finite(a.lon) && finite(a.acc) && Math.abs(a.lat) <= 90 && Math.abs(a.lon) <= 180 && a.acc >= 0 && a.acc <= 10000
 				? { t: 'venue', venue: a.venue, op: a.op as VenueOp, lat: a.lat, lon: a.lon, acc: a.acc }
@@ -215,6 +219,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'claim': r = claimAchievement(state, region, a.id); break;
 		case 'title': r = wearTitle(state, a.id); break;
 		case 'visa': r = a.op === 'ielts' ? takeIelts(state, region) : applyVisa(state, region, a.route); break;
+		case 'care': r = seekCare(state, region, a.kind); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
