@@ -257,6 +257,7 @@ test('删除账号：要确认；删掉存档、动作编号、榜单、哈希�
 	ra.state.inventory = { snack: 2 };
 	w.data.set('save:' + A.id, ra);
 	const hA = await hashOf(A.id);
+	for (const c of [A, B]) assert.ok((await w.call({ action: 'boardpref', ...c, pref: { on: true } })).data.ok, '上榜要本人同意（排行榜第一版）');
 	assert.ok((await w.call({ action: 'act', ...A, rev: ra.state.rev, act: { t: 'activity', id: 'rest' }, op: 'deleteop000001' })).data.ok);
 	assert.ok((await w.call({ action: 'notes', op: 'post', ...A, text: '要删的' })).data.ok);
 	assert.ok((await w.call({ action: 'notes', op: 'post', ...B, text: '留着的' })).data.ok);
@@ -265,7 +266,8 @@ test('删除账号：要确认；删掉存档、动作编号、榜单、哈希�
 	assert.equal((await w.call({ action: 'delete', id: A.id, key: 'x'.repeat(24), confirm: 'delete' })).status, 403, '码不对不删');
 	const del = await w.call({ action: 'delete', ...A, confirm: 'delete' });
 	assert.ok(del.data.ok, del.data.msg);
-	for (const k of ['save:' + A.id, 'ops:' + A.id, 'rank:' + hA, 'h:' + hA, 'notecd:' + hA]) assert.ok(!w.data.has(k), `${k} 已删`);
+	for (const k of ['save:' + A.id, 'ops:' + A.id, 'rank:' + hA, 'h:' + hA, 'notecd:' + hA, 'lbp:' + hA]) assert.ok(!w.data.has(k), `${k} 已删`);
+	assert.ok(![...w.data.keys()].some((k) => k.startsWith('lbs:') && k.endsWith(':' + hA)), '赛季记录已删');
 	const leftovers = [...w.data.entries()].filter(([k]) => k.startsWith('notes:')).flatMap(([, v]) => v as any[]);
 	assert.ok(!leftovers.some((n) => n.author === hA), '留言删了');
 	assert.ok(leftovers.some((n) => n.text === '留着的'), '别人的留言还在');

@@ -10,6 +10,7 @@ import {
 	actionCats, arrivalDays, careerSummary, cleanTally, earnedOf, finishTally, peopleOf, placesOf, rollPeriods, spentOf, START_DAY, TALLY_CATS, weekIdx, yearIdx,
 } from '../../src/game/core/tally.ts';
 import { goalOfWeek } from '../../src/game/core/weekly.ts';
+import { claimMail } from '../../src/game/core/exchange.ts';
 import { cardData, cardSvg, careerHtml, int } from '../../src/game/ui/career.ts';
 import { MILESTONES } from '../../src/game/data/milestones.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
@@ -18,10 +19,11 @@ import { WA } from '../../src/game/data/wa.ts';
 import { WORLD_BASE } from '../../src/game/data/areas-base.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
 
-const make = (over: Partial<PlayerState> = {}): PlayerState => ({
-	...createCharacter({ id: 'career-player', name: '阿生', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 7 }),
-	...over,
-});
+const make = (over: Partial<PlayerState> = {}): PlayerState => {
+	const s = { ...createCharacter({ id: 'career-player', name: '阿生', avatar: '🧑', origin: 'backpacker', region: 'wa', spawn: WA.spawn, seed: 7 }), ...over };
+	// 测试直接给了现金：记账锚点跟着设成这个数（等于「已经有这么多钱、之前都记过账」），不然第一步会把差额补记成「其他」
+	return over.cash !== undefined && !over.tally ? { ...s, tally: { ...s.tally, cash: Math.round(over.cash) } } : s;
+};
 const locs = new Set(WA.locations.map((l) => l.id));
 const sane = (raw: unknown) => sanitizeState(raw, locs, { fallbackLoc: WA.spawn })!;
 
@@ -375,4 +377,94 @@ test('finishTally 只改新存档：旧存档和它共用的统计对象不被�
 	finishTally(prev, next, ['work', 'work']);
 	assert.equal(JSON.stringify(prev), before);
 	assert.equal(next.tally.in.work, 50);
+});
+
+// ---------- 合并 main 后复核补的 ----------
+const balanced = (x: PlayerState, cash0: number) => earnedOf(x.tally) - spentOf(x.tally) === Math.round(x.cash) - cash0;
+
+test('交易所领邮箱的钱记「人情往来」；收入 − 支出仍等于现金变化（合并 main 后复核）', () => {
+	const s = make();
+	const cash0 = s.cash;
+	const r = claimMail(s, [{ id: 'm1', cash: 500, item: null, n: 0, text: '卖出', at: 1 }]);
+	assert.equal(typeof r, 'object');
+	if (typeof r === 'string') return;
+	assert.equal(r.state.tally.in.social, 500);
+	assert.ok(balanced(r.state, cash0));
+	assert.equal(r.state.tally.cash, Math.round(r.state.cash), '记账后锚点跟上现金');
+	assert.equal(s.tally.in.social, undefined, '不改入参');
+});
+
+test('两次记账之间别处改了现金（服务端、别的部署）：下一步补记到「其他」，对账不断（合并 main 后复核）', () => {
+	const s = make();
+	const cash0 = s.cash;
+	const moved = { ...s, cash: s.cash + 777 }; // 没经过记账的现金变化
+	const r = applyAction(moved, WA, { t: 'activity', id: activitiesAt(moved, WA).find((x) => !x.blocked)!.act.id });
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.tally.in.other, 777);
+	assert.ok(balanced(r.state, cash0));
+	// 读档清洗：锚点保留，幂等
+	const a = sane(JSON.parse(JSON.stringify(r.state)));
+	assert.equal(a.tally.cash, r.state.tally.cash);
+	assert.deepEqual(sane(JSON.parse(JSON.stringify(a))).tally, a.tally);
+	// 没有锚点的统计（迁移前写的）：从现在的现金开始，不补以前的差额
+	const { cash: _c, ...noAnchor } = r.state.tally;
+	assert.equal(sane({ ...JSON.parse(JSON.stringify(r.state)), tally: noAnchor }).tally.cash, Math.round(r.state.cash));
+});
+
+test('主线章节的奖励记「奖励」，路费照样记「出行」（合并 main 后复核）', () => {
+	// 第一章只差「去弗里曼特尔」：坐车过去，章节完成发 $50
+	const other = WA.locations.find((l) => l.id !== WA.spawn && l.id !== 'fremantle')!.id;
+	const s = make({ cash: 1000, story: { ch: 0, done: { meal: 1, chat: 2, buy: 1 } }, visited: { [WA.spawn]: 1, [other]: 1 } } as never);
+	const opt = travelOptions(s, WA).find((o) => o.to === 'fremantle' && o.available)!;
+	assert.ok(opt, '从出生点能去弗里曼特尔');
+	const r = applyAction(s, WA, { t: 'travel', to: 'fremantle', mode: opt.mode });
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.story.ch, 1, '第一章完成');
+	assert.equal(r.state.tally.in.reward, 50, '章节奖励记「奖励」');
+	assert.ok((r.state.tally.out.transport ?? 0) >= opt.cost, '路费照样记「出行」，没被奖励抵掉');
+	assert.ok(balanced(r.state, 1000));
+});
+
+test('晕倒的医药费记「日常」，不算到这次出行头上（合并 main 后复核）', () => {
+	const s = make({ cash: 2000, health: 1, needs: { hunger: 0, energy: 0, hygiene: 50, fun: 50, social: 50 } as never });
+	const opt = travelOptions(s, WA).find((o) => o.available && o.minutes >= 120)!;
+	const r = applyAction(s, WA, { t: 'travel', to: opt.to, mode: opt.mode });
+	assert.ok(r.collapsed, '路上晕倒');
+	assert.ok((r.state.tally.out.daily ?? 0) >= 100, '医药费在「日常」');
+	assert.ok((r.state.tally.out.transport ?? 0) <= opt.cost, '出行里只有路费');
+	assert.ok(balanced(r.state, 2000));
+});
+
+test('周结算自动扣的罚款记「其他」，不算到触发它的动作头上（合并 main 后复核）', () => {
+	const s = make({ cash: 1000, law: { hist: [], ban: 0, owed: 120, cs: 0, csDue: -1, record: 0, drank: -1 } } as never);
+	const t = { ...s, clock: s.nextWeek * 1440 - 30 };
+	const opt = activitiesAt(t, WA).find((x) => !x.blocked && x.act.minutes >= 60)!;
+	const r = applyAction(t, WA, { t: 'activity', id: opt.act.id });
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.law.owed, 0, '周结算扣了罚款');
+	assert.equal(r.state.tally.out.other, 120);
+	assert.ok(balanced(r.state, 1000));
+});
+
+test('main 新加的动作都有类别（合并 main 后复核）', () => {
+	const want: [GameAction, string][] = [
+		[{ t: 'sell', item: 'x' } as never, 'shop'], [{ t: 'study' } as never, 'study'], [{ t: 'care', kind: 'gp' } as never, 'daily'], [{ t: 'pet', op: 'feed' } as never, 'daily'],
+		[{ t: 'trail' } as never, 'fun'], [{ t: 'claim', id: 'x' } as never, 'reward'], [{ t: 'live', id: 'x' } as never, 'reward'], [{ t: 'onboard' } as never, 'reward'],
+		[{ t: 'asset', op: 'buy', id: 'x', amount: 1 } as never, 'other'], [{ t: 'visa', op: 'ielts' } as never, 'other'],
+	];
+	for (const [a, cat] of want) assert.deepEqual(actionCats(a), [cat, cat], a.t);
+});
+
+test('读档清洗：还没补记的差额（锚点和现金不一样）保留下来，下次照样补记（合并 main 后复核）', () => {
+	const s = make({ cash: 900 });
+	const raw = JSON.parse(JSON.stringify({ ...s, tally: { ...s.tally, cash: 800 } }));
+	assert.equal(sane(raw).tally.cash, 800);
+});
+
+test('页面和统计：「生涯」标签进统计白名单；系统分享被拒时退回下载（合并 main 后复核）', async () => {
+	const { STAT_EVENTS } = await import('../../src/game/ui/telemetry.ts');
+	assert.ok(STAT_EVENTS.metab!.includes('career'));
+	const { readFileSync } = await import('node:fs');
+	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(src, /try \{ await nav\.share\(\{ files: \[file\], title: '地球人生' \}\); return; \} catch \(e\) \{ if \(\(e as Error\)\?\.name === 'AbortError'\) return; \} \}/);
 });

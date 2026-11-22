@@ -34,12 +34,12 @@ const sum = (m: Partial<Record<TallyCat, number>>) => TALLY_CATS.reduce((a, k) =
 export const earnedOf = (t: Pick<Tally, 'in'>) => sum(t.in);
 export const spentOf = (t: Pick<Tally, 'out'>) => sum(t.out);
 
-export function newTally(s: Pick<PlayerState, 'clock' | 'visited' | 'relations' | 'met'>, pre = false): Tally {
+export function newTally(s: Pick<PlayerState, 'clock' | 'visited' | 'relations' | 'met'> & { cash?: number }, pre = false): Tally {
 	const day = dayOf(s.clock);
 	const places = placesOf(s);
 	const people = peopleOf(s);
 	const snap = (i: number): TallySnap => ({ i, earned: 0, out: {}, km: 0, places, people });
-	return { from: day, km: 0, in: {}, out: {}, ms: {}, pre, wk: snap(weekIdx(day)), yr: snap(yearIdx(day)), lastWk: null, lastYr: null };
+	return { from: day, km: 0, in: {}, out: {}, ms: {}, pre, wk: snap(weekIdx(day)), yr: snap(yearIdx(day)), lastWk: null, lastYr: null, ...(typeof s.cash === 'number' ? { cash: Math.round(s.cash) } : {}) };
 }
 
 /** 深拷贝（finishTally 原地改 next.tally 之前用：claimDaily 之类按 {...prev} 浅拷贝的新存档和旧存档共用同一个对象） */
@@ -81,6 +81,18 @@ export function actionCats(a: GameAction): [TallyCat, TallyCat] {
 		case 'experience': return ['fun', 'fun'];
 		case 'venue':
 			return a.op === 'work' ? ['work', 'work'] : a.op === 'meal' || a.op === 'drink' || a.op === 'groceries' ? ['shop', 'shop'] : a.op === 'study' ? ['study', 'study'] : ['daily', 'daily'];
+		// 合并 main 后新加的动作（第 25–43 批）
+		case 'sell': return ['shop', 'shop']; // 卖二手物品
+		case 'study': return ['study', 'study']; // 学历课程
+		case 'care':
+		case 'pet': return ['daily', 'daily']; // 看病、养宠物的日常开销
+		case 'trail': return ['fun', 'fun'];
+		case 'claim':
+		case 'live':
+		case 'onboard': return ['reward', 'reward']; // 成就奖励、现实活动、新手引导的奖励
+		case 'asset': // 理财买卖：钱换成了资产，不是花掉，放「其他」
+		case 'visa': // 签证申请费、雅思报名费
+		case 'title':
 		default: return ['other', 'other'];
 	}
 }
@@ -144,8 +156,17 @@ export function finishTally(prev: PlayerState, next: PlayerState, cats: [TallyCa
 	const p = prev.tally;
 	const engineNet = p ? (earnedOf(t) - earnedOf(p)) - (spentOf(t) - spentOf(p)) : 0;
 	const rest = Math.round(next.cash) - Math.round(prev.cash) - engineNet;
+	// 上次记账之后、这一步之前在别处变了的现金：补记到「其他」（服务端交易所、别的部署上的动作；合并 main 后复核）。
+	// 锚点存在 prev 的统计里（next 的统计在这一步可能已被引擎记过账），算完这一步的净额之后再补，不影响上面的分类
+	const anchor = p?.cash ?? t.cash;
+	if (typeof anchor === 'number') {
+		const gap = Math.round(prev.cash) - anchor;
+		if (gap > 0) add(t.in, 'other', gap);
+		else if (gap < 0) add(t.out, 'other', -gap);
+	}
 	if (rest > 0) add(t.in, cats[0], rest);
 	else if (rest < 0) add(t.out, cats[1], -rest);
+	t.cash = Math.round(next.cash);
 	if (km > 0) t.km = Math.min(TALLY_MAX, t.km + Math.round(km));
 	if (t.pre) {
 		for (const m of reachedMilestones(prev)) t.ms[m.id] = -1;
@@ -173,7 +194,7 @@ const catMap = (v: unknown, cap: (k: TallyCat) => number = () => TALLY_MAX) => {
 const MS_IDS = new Set(MILESTONES.map((m) => m.id));
 
 /** 存档里认得的计数现状，用来给旧存档建统计、给快照设上限 */
-export interface TallyCtx { clock: number; places: number; people: number }
+export interface TallyCtx { clock: number; places: number; people: number; cash?: number }
 
 /**
  * 校验生涯统计：旧存档没有这个字段时从现在开始统计（pre=true，之前就满足的里程碑下次结算记成「统计前」）；
@@ -183,7 +204,7 @@ export function cleanTally(raw: unknown, ctx: TallyCtx): Tally {
 	const day = Math.floor(ctx.clock / 1440);
 	const fresh = () => {
 		const snap = (i: number): TallySnap => ({ i, earned: 0, out: {}, km: 0, places: ctx.places, people: ctx.people });
-		return { from: day, km: 0, in: {}, out: {}, ms: {}, pre: true, wk: snap(weekIdx(day)), yr: snap(yearIdx(day)), lastWk: null, lastYr: null } satisfies Tally;
+		return { from: day, km: 0, in: {}, out: {}, ms: {}, pre: true, wk: snap(weekIdx(day)), yr: snap(yearIdx(day)), lastWk: null, lastYr: null, ...(typeof ctx.cash === 'number' ? { cash: Math.round(ctx.cash) } : {}) } satisfies Tally;
 	};
 	if (!isObj(raw)) return fresh();
 	const inMap = catMap(own(raw, 'in'));
@@ -227,6 +248,8 @@ export function cleanTally(raw: unknown, ctx: TallyCtx): Tally {
 		wk, yr,
 		lastWk: card(own(raw, 'lastWk'), wk.i),
 		lastYr: card(own(raw, 'lastYr'), yr.i),
+		// 锚点：存档里有就留（钳在现金上限内），没有就从现在的现金开始（之前的差额不补，和「从迁移日开始统计」一致）
+		...(typeof own(raw, 'cash') === 'number' && Number.isFinite(own(raw, 'cash')) ? { cash: int(own(raw, 'cash'), 0, 1e9, 0) } : typeof ctx.cash === 'number' ? { cash: Math.round(ctx.cash) } : {}),
 	};
 }
 

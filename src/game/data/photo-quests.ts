@@ -18,7 +18,7 @@ export const PHOTO_MINUTES = 20;
 /** 整条任务链拍完的额外声望（待平衡） */
 export const PHOTO_CHAIN_BONUS = 5;
 
-const CLEAR = ['sunny', 'cloudy', 'hot'];
+const CLEAR = ['sunny', 'cloudy', 'hot', 'cold'];
 
 export const PHOTO_QUESTS: PhotoQuest[] = [
 	{ id: 'swan-dusk', title: '天鹅河的黄昏', hint: '傍晚去珀斯，拍天鹅河上的晚霞。', loc: 'perth', periods: ['dusk'], cash: 30, respect: 2 },
