@@ -41,6 +41,7 @@ src/game/
   core/geo.ts         距离、地图投影、真实坐标 → 游戏地点
   core/formulas.ts    派生属性（体质、吸引力、状态系数……）与真实地点动作的公式
   core/venues.ts      真实地点：附近列表、定位检查、吃饭/训练/打卡上班等结算
+  core/cooking.ts     做饭：买食材、保质期、食谱、烹饪技能、请客、外卖（设计见 cooking.md）
   core/board.ts       旧版净资产排行榜的记录格式（rank:<h> 仍兼容它）
   core/leaderboard.ts 排行榜与赛季：五个维度、同意上榜、异常值复核、赛季结算（见 leaderboard.md）
   data/leaderboard.ts 排行榜与赛季的数值（赛季长度、复核线、比赛积分、奖励档位，均待平衡）

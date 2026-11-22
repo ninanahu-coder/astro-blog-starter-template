@@ -125,7 +125,7 @@ export type NpcAction = 'chat' | 'gift' | 'help' | 'perk' | 'favor' | 'bond' | '
 
 export interface Relation {
 	score: number; // −100..100
-	last: Partial<Record<NpcAction, number>>; // 每种互动最近一次的游戏日
+	last: Partial<Record<NpcAction | 'host', number>>; // 每种互动最近一次的游戏日；host = 来家里吃饭（做饭，不是互动动作）
 	seen: number[]; // 已触发过的剧情门槛
 	known: string[]; // 已经知道 TA 反应的物品 id（送过一次就知道）
 	bond?: number; // 结为知己的游戏日（第 29 批）；没结或已解除时没有这个键
@@ -232,7 +232,51 @@ export interface FurnitureDef {
 	comfort?: number; // 住处心情加成
 	sleep?: Effect; // 回家睡觉的额外恢复
 	unlock?: 'cook' | 'relax';
+	kitchen?: number; // 厨房设备等级：1 炉灶、2 烤箱（做饭分支，见 data/cooking.ts）
 	desc: string;
+}
+
+// ---------- 做饭（见 data/cooking.ts、core/cooking.ts） ----------
+export interface IngredientDef {
+	id: string;
+	name: string;
+	icon: string;
+	price: number; // 一份的价钱
+	days: number; // 保质期（游戏日）
+	store: 'super' | 'asian'; // 超市 / 亚洲超市
+	desc: string;
+}
+
+export interface RecipeDef {
+	id: string;
+	name: string;
+	icon: string;
+	cuisine: 'basic' | 'zh' | 'au';
+	ingredients: Record<string, number>; // 食材 id -> 份数（一锅）
+	cash?: number; // 不用食材、直接花钱
+	minutes: number;
+	kitchen: number; // 要求的厨房设备等级
+	serves: number; // 一锅够几个人
+	hunger: number;
+	fun: number;
+	health: number;
+	xp: number; // 烹饪技能的基础成长
+	unlock?: { skill: number } | { npc: string; at: number }; // 不写：一开始就会
+	desc: string;
+}
+
+/** 一批食材：同一天买的同一种合在一起，exp 是过期的游戏分钟 */
+export interface PantryRow {
+	id: string;
+	n: number;
+	exp: number;
+}
+
+export interface Cooking {
+	xp: number; // 烹饪技能 0–100
+	made: Record<string, number>; // 食谱 id -> 做过几次
+	pantry: PantryRow[];
+	hostDay: number; // 最近一次请客的游戏日，−1 表示没请过
 }
 
 export interface FurnitureSetDef {
@@ -702,6 +746,7 @@ export interface PlayerState {
 	illness: { id: string; since: number; until: number; care: string[]; rx: boolean } | null; // 正在生的病或伤（data/health.ts 的 id）：游戏时钟的起止分钟、这次已做过的就医（gp/pharmacy/ed/rx）、GP 是否开了处方；见 docs/earth-game/health.md
 	visa: VisaState; // 签证路线（第 43 批，docs/earth-game/visa.md）；非留学生出身 kind 为 'none'
 	journal: JournalEntry[];
+	cooking: Cooking; // 做饭：烹饪技能、做过的菜、食材柜、请客冷却（做饭分支）
 	/** 新手引导（v36）：已解开的功能、已关掉的提示和里程碑、最近一次回流（现实日、离开天数、看过没有）、是否关掉全部引导。见 core/onboard.ts */
 	onboard: { feats: string[]; tips: string[]; back: { day: number; gap: number; seen: boolean } | null; off: boolean };
 	seed: number;

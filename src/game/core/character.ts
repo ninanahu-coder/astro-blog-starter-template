@@ -1,5 +1,6 @@
 // 角色创建与存档校验。初始属性参考开放世界动作游戏的“能力条”思路：
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
+import { cleanCooking, newCooking } from './cooking-save.ts';
 import { migrateSave } from './save.ts';
 import { cleanTally, newTally } from './tally.ts';
 import { cleanVisa, newVisa } from './visa-save.ts';
@@ -201,6 +202,7 @@ export function createCharacter(opts: {
 		illness: null,
 		visa: newVisa(origin.id, Math.floor(START_CLOCK / 1440)),
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
+		cooking: newCooking(),
 		onboard: freshOnboard(),
 		seed: opts.seed >>> 0,
 		rev: 0,
@@ -455,6 +457,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		pending: r.pending && EVENTS.some((e) => e.id === r.pending.eventId) ? { eventId: r.pending.eventId as string } : null,
 		evMem: cleanEvMem(r.evMem, EVENTS, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		...cleanReal(r, opts.now),
+		cooking: cleanCooking(r.cooking, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		tally: cleanTally(r.tally, tallyCtx(r, visited)),
 		trails: cleanTrails(r.trails, opts.now),
 		journal,
@@ -647,7 +650,7 @@ function cleanRelations(raw: unknown): Record<string, Relation> {
 		const r = (raw as Record<string, any>)[npc.id];
 		if (!r || typeof r !== 'object') continue;
 		const last: Relation['last'] = {};
-		for (const k of ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond'] as const) {
+		for (const k of ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond', 'host'] as const) {
 			const d = r.last?.[k];
 			if (typeof d === 'number' && Number.isFinite(d) && d >= 0) last[k] = Math.floor(d);
 		}

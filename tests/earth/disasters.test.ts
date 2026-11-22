@@ -5,7 +5,8 @@ import { createCharacter } from '../../src/game/core/character.ts';
 import {
 	bushfireLevel, CLAIMABLE, cycloneLevel, evacuationTarget, floodLevel, heatwaveLevel, hotRun, incidentsFor, monthOfDay, routeClosed, warningsOn, workStopped, type Warning,
 } from '../../src/game/core/disasters.ts';
-import { activitiesAt, buyFurniture, cookAtHome, homeActionBlocked, performActivity, rentHome, shiftBlocked, travel, travelOptions, workShift } from '../../src/game/core/engine.ts';
+import { activitiesAt, buyFurniture, homeActionBlocked, performActivity, rentHome, shiftBlocked, travel, travelOptions, workShift } from '../../src/game/core/engine.ts';
+import { cookAtHome, cookBlocked, hostBlocked } from '../../src/game/core/cooking.ts';
 import { fireDanger, isCoastal } from '../../src/game/core/sky.ts';
 import { weatherOn } from '../../src/game/core/weather.ts';
 import type { GameLocation, PlayerState, Region } from '../../src/game/core/types.ts';
@@ -183,6 +184,9 @@ test('停电：在家做不了饭，带应急包就能做', () => {
 	assert.match(homeActionBlocked(s, 'cook', WA)!, /停电/);
 	assert.equal(homeActionBlocked(s, 'cook'), undefined, '不传 region 不看停电');
 	assert.equal(cookAtHome(s, WA).ok, false);
+	assert.match(cookBlocked(s, 'tomato-egg', WA)!, /停电/, '照食谱做菜也看停电（合并 main 后复核）');
+	assert.match(hostBlocked({ ...s, clock: day * 1440 + 18 * 60 }, 'tomato-egg', WA) ?? '', /停电/, '请客也看停电');
+	assert.doesNotMatch(cookBlocked(s, 'tomato-egg') ?? '', /停电/, '不传 region 不看停电');
 	const kit = { ...s, inventory: { ...s.inventory, [KIT_ITEM]: 1 } };
 	assert.equal(homeActionBlocked(kit, 'cook', WA), undefined);
 	assert.equal(cookAtHome(kit, WA).ok, true);

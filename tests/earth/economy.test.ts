@@ -138,9 +138,10 @@ test('动作协议与存档校验', () => {
 // ---------- 阶段 B：家具、在家活动、每周结算 ----------
 import { homeComfort, mood, weeklyCosts } from '../../src/game/core/attributes.ts';
 import {
-	buyFurniture, cookAtHome, firstRent, furnitureAt, furnitureValue, homeActionBlocked, leaveHome, relaxAtHome, rentHome,
+	buyFurniture, firstRent, furnitureAt, furnitureValue, homeActionBlocked, leaveHome, relaxAtHome, rentHome,
 	sellFurniture, sleepHome,
 } from '../../src/game/core/engine.ts';
+import { cookAtHome } from '../../src/game/core/cooking.ts';
 import { FURNITURE, FURNITURE_SLOTS } from '../../src/game/data/furniture.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
 

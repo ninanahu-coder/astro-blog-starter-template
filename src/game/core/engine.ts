@@ -1682,15 +1682,7 @@ export function homeActionBlocked(state: PlayerState, op: 'cook' | 'relax', regi
 	return where ? outageBlocksCook(state, where, dayOf(state.clock)) : undefined;
 }
 
-export function cookAtHome(prev: PlayerState, region: Region): ActionResult {
-	if (prev.pending) return fail(prev, '先处理眼前的事件。');
-	const why = homeActionBlocked(prev, 'cook', region);
-	if (why) return fail(prev, why);
-	const state = clone(prev);
-	if (applyEffect(state, { cash: -HOME_COOK.cost, minutes: HOME_COOK.minutes, needs: { hunger: HOME_COOK.hunger, fun: 3 }, moodlet: 'well-fed' }, region)) return collapsedResult(state);
-	log(state, '在家做了顿饭。');
-	return { ok: true, state, msg: '🍳 在家吃了顿饭。' };
-}
+// 在家做饭搬到了 core/cooking.ts（cookRecipe；cookAtHome 是随手做一顿的旧入口）
 
 export function relaxAtHome(prev: PlayerState, region: Region): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');

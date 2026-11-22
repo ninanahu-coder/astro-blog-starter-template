@@ -52,10 +52,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *     未压缩 635,977 → 646,621，上限 639,000 → 649,500。
  *   - 生涯统计：记账（core/tally.ts）、里程碑数据、「我 · 生涯」样式（生涯页本身按需加载），gzip 206,915 → 209,857（+2.9KB），上限 207,900 → 210,800；
  *     未压缩 646,621 → 654,024，上限 649,500 → 656,800。
+ *   - 做饭：食材和食谱数据（data/cooking.ts）、做饭规则（core/cooking.ts）、住处厨房和超市卡（ui/kitchen.ts），gzip 209,857 → 214,893（+5.0KB），上限 210,800 → 215,900；
+ *     未压缩 654,024 → 668,516，上限 656,800 → 671,300。
  */
-export const FIRST_SCREEN_MAX = 656_800;
+export const FIRST_SCREEN_MAX = 671_300;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 210_800;
+export const FIRST_SCREEN_GZIP_MAX = 215_900;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');

@@ -70,7 +70,8 @@ export function actionCats(a: GameAction): [TallyCat, TallyCat] {
 		case 'use': return ['shop', 'shop'];
 		case 'npc': return ['social', 'social'];
 		case 'job': return ['work', 'work'];
-		case 'home':
+		case 'home': return a.op === 'cook' || a.op === 'host' || a.op === 'delivery' ? ['shop', 'shop'] : ['housing', 'housing']; // 在家做饭、请客、叫外卖算吃喝
+		case 'grocery': return ['shop', 'shop']; // 买食材
 		case 'furniture':
 		case 'property': return ['housing', 'housing'];
 		case 'vehicle': return ['vehicle', 'vehicle'];
