@@ -261,3 +261,17 @@ test('心情影响聊天：开场是 TA 的招呼，心情差时聊得投机的�
 	assert.ok(rate(great!) > rate(low!) + 0.1, '心情好更容易聊得投机');
 	assert.equal(chatDc({ level: 'low' } as never), 45 + NPC_MOOD.chatDc.low);
 });
+
+// ---------- 合并 main 后复核补的 ----------
+test('数据：看家里天气的日程（没写 weatherAt）不能排在去别处的安排前面，不然家里下雨会顶掉外地的安排（合并 main 后复核）', () => {
+	// 有意的例外：天气本身就决定去不去——杰克去罗特尼斯岛外海、汤姆开船带游客去卡尔巴里要从家里出海，艾拉要坐渡轮过海，家里风暴就去不成
+	const ALLOW = new Set(['jack', 'tom', 'ayla']);
+	for (const npc of NPCS) {
+		const slots = npc.schedule ?? [];
+		slots.forEach((slot, i) => {
+			if (!slot.weather || slot.weatherAt || slot.loc !== npc.loc || ALLOW.has(npc.id)) return;
+			const later = slots.slice(i + 1).filter((x) => !x.weather && x.loc !== npc.loc);
+			assert.deepEqual(later.map((x) => x.loc), [], `${npc.id} 的天气日程（${slot.note}）排在去别处的安排前面`);
+		});
+	}
+});

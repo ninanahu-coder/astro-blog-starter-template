@@ -63,8 +63,8 @@ export const NPCS: NpcDef[] = [
 		bio: '浪好的日子从不接电话。',
 		schedule: [
 			{ festival: 'surf-pro', loc: 'margaret-river', hours: [5, 20], note: '大师赛期间整天泡在浪点' },
-			{ weather: ['storm'], loc: 'margaret-river', hours: [10, 15], note: '风暴天浪太乱不下水，在店里修板' },
 			{ seasons: ['winter'], weekdays: [0, 1], loc: 'bunbury', hours: [9, 17], note: '冬天周一、周二去班伯里上泳池课' },
+			{ weather: ['storm'], loc: 'margaret-river', hours: [10, 15], note: '风暴天浪太乱不下水，在店里修板' },
 		],
 		gifts: { love: ['surfboard'], like: ['snack', 'coffee'], dislike: ['jerrycan'] },
 		stories: [
@@ -110,8 +110,8 @@ export const NPCS: NpcDef[] = [
 		id: 'sam', name: '萨姆', role: '潜水向导', loc: 'exmouth', hours: [7, 16],
 		bio: '和鲸鲨游泳的次数比和人吃饭还多。',
 		schedule: [
-			{ weather: ['storm'], loc: 'exmouth', hours: [9, 13], note: '风暴天潜水船停航，在店里检查装备' },
 			{ seasons: ['summer'], weekdays: [4, 5, 6], loc: 'monkey-mia', hours: [8, 15], note: '夏天周末去猴子米亚帮忙' },
+			{ weather: ['storm'], loc: 'exmouth', hours: [9, 13], note: '风暴天潜水船停航，在店里检查装备' },
 		],
 		gifts: { love: ['snack'], like: ['water', 'firstaid'], dislike: ['jerrycan'] },
 		stories: [
@@ -186,8 +186,8 @@ export const NPCS: NpcDef[] = [
 		id: 'ruby', name: '鲁比', role: '峡谷向导', loc: 'karijini', hours: [6, 16],
 		bio: '在峡谷里长大，知道哪块石头雨后会滑。',
 		schedule: [
-			{ weather: ['storm'], loc: 'karijini', hours: [9, 13], note: '暴雨峡谷封闭，只在游客中心值半天班' },
 			{ seasons: ['summer'], loc: 'port-hedland', hours: [9, 17], note: '夏天太热不带团，去黑德兰港的办公室排班' },
+			{ weather: ['storm'], loc: 'karijini', hours: [9, 13], note: '暴雨峡谷封闭，只在游客中心值半天班' },
 		],
 		gifts: { love: ['water'], like: ['firstaid', 'flynet'], dislike: ['coffee'] },
 		stories: [
@@ -202,8 +202,8 @@ export const NPCS: NpcDef[] = [
 		id: 'rosa', name: '罗莎', role: '海豚中心志愿者', loc: 'bunbury', hours: [8, 16],
 		bio: '退休前是中学生物老师，现在每天在海边数海豚。',
 		schedule: [
-			{ weather: ['storm'], loc: 'bunbury', hours: [10, 14], note: '风暴天海豚中心只开半天' },
 			{ weekdays: [6], loc: 'margaret-river', hours: [10, 15], note: '周日去玛格丽特河看外孙' },
+			{ weather: ['storm'], loc: 'bunbury', hours: [10, 14], note: '风暴天海豚中心只开半天' },
 		],
 		gifts: { love: ['snack'], like: ['coffee', 'water'], dislike: ['jerrycan'] },
 		stories: [
@@ -218,8 +218,8 @@ export const NPCS: NpcDef[] = [
 		id: 'mack', name: '麦克', role: '芒果农场主', loc: 'kununurra', hours: [5, 14],
 		bio: '靠一条灌渠种出了半个镇子的芒果。',
 		schedule: [
-			{ weather: ['hot'], loc: 'kununurra', hours: [5, 10], note: '太热，只干早上凉快那会儿' },
 			{ seasons: ['winter'], weekdays: [5], loc: 'broome', hours: [9, 16], note: '冬天周六去布鲁姆集市卖芒果' },
+			{ weather: ['hot'], loc: 'kununurra', hours: [5, 10], note: '太热，只干早上凉快那会儿' },
 		],
 		gifts: { love: ['coffee'], like: ['water', 'firstaid'], dislike: ['surfboard'] },
 		stories: [
