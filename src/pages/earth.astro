@@ -840,6 +840,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { petOffers, petStatus, petTravelBlocked } from '../game/core/pets.ts';
 			import { PET, PET_RULES } from '../game/data/pets.ts';
 			import { FISH, FISHING } from '../game/data/fish.ts';
+			import { collections, fishRuleAt, hobbiesHere, hobbyStatus, licenceAt, rarityCounts, ruleLabel } from '../game/core/hobbies.ts';
+			import { COLLECTION_REWARD, HOBBIES, RARITY } from '../game/data/hobbies.ts';
+			const RARITY_NAME = Object.fromEntries(Object.entries(RARITY).map(([k, v]) => [k, `${v.icon}${v.name}`])) as Record<string, string>;
 			import { PHOTO_MINUTES, PHOTO_QUESTS } from '../game/data/photo-quests.ts';
 			import { STORY } from '../game/data/story.ts';
 			import { storyProgress } from '../game/core/story.ts';
@@ -2531,8 +2534,16 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const photoQuestHtml = pq ? `<div class="card">${cover('photo:' + pq.quest.id)}<h3>📷 摄影任务 ${pq.index + 1}/${PHOTO_QUESTS.length}：${esc(pq.quest.title)}</h3><p>${esc(pq.quest.hint)}</p>
 					<div class="row" style="margin-top:8px"><span class="body">拍下来<small>${esc(pq.blocked ?? `${PHOTO_MINUTES} 分钟 · $${pq.quest.cash}、声望 +${pq.quest.respect}`)}</small></span><button data-photo ${pq.blocked ? 'disabled' : ''}>拍照</button></div></div>` : '';
 				const spot = fishingAt(s, region);
-				const fishHtml = spot ? `<div class="card"><h3>🎣 钓鱼</h3><p>${spot.fish.length ? `现在能钓到：${spot.fish.map((f) => `${s.fish[f.id] ? f.icon + esc(f.name) : '？？？'}`).join('、')}。` : '这个时候这里钓不到鱼，换个时段或季节再来。'}钓到的当场卖给鱼铺。</p>
+				const lic = licenceAt(loc.id);
+				const fishHtml = spot ? `<div class="card"><h3>🎣 钓鱼 <span class="muted">${hobbyStatus(s, 'fishing').level} 级</span></h3><p>${spot.fish.length ? `现在能钓到：${spot.fish.map((f) => `${s.fish[f.id] ? f.icon + esc(f.name) : '？？？'}`).join('、')}。` : '这个时候这里钓不到鱼，换个时段或季节再来。'}合规定的当场卖给鱼铺，不够尺寸、超过数量或禁捕的放生。</p>
+					${spot.fish.some((f) => s.fish[f.id]) ? `<p class="muted">${spot.fish.filter((f) => s.fish[f.id]).map((f) => `${esc(f.name)}：${esc(ruleLabel(fishRuleAt(f.id, loc.id)))}${s.hobby.day === dayOf(s.clock) && s.hobby.bag[f.id] ? `（今天已带走 ${s.hobby.bag[f.id]}）` : ''}`).join('；')}</p>` : ''}
+					${lic ? `<p class="muted">${esc(lic.text)} <a class="muted" href="${esc(lic.src)}" target="_blank" rel="noopener">来源</a></p>` : ''}
 					<div class="row" style="margin-top:8px"><span class="body">钓一会儿<small>${esc(spot.blocked ?? `${FISHING.minutes} 分钟 · 生存能力越高越不容易空手`)}</small></span><button data-fish ${spot.blocked ? 'disabled' : ''}>去钓</button></div></div>` : '';
+				const hobbyOpts = hobbiesHere(s, region);
+				const hobbyHtml = hobbyOpts.length ? `<div class="card"><h3>爱好</h3>${hobbyOpts.map(({ hobby, label, blocked }) => {
+					const st = hobbyStatus(s, hobby.id);
+					return `<div class="row" style="margin-top:8px"><span class="ico" aria-hidden="true">${hobby.icon}</span><span class="body">${esc(hobby.name)} · ${esc(label)}<small>${esc(blocked ?? `${st.level} 级${st.name} · ${hobby.minutes} 分钟`)}</small></span><button data-hobby="${hobby.id}" ${blocked ? 'disabled' : ''}>去做</button></div>`;
+				}).join('')}</div>` : '';
 				// 宠物（v31）：有宠物显示状态和照顾按钮；在城市里没宠物时显示能领养的
 				const ps = petStatus(s, region);
 				const PET_OP_LABEL: Record<string, string> = { feed: '喂食', play: '陪它玩', walk: '遛狗', vet: '体检', pickup: '接回来', rehome: '送回救助站' };
@@ -2597,7 +2608,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					['work', 'briefcase-business', '工作', workHtml, workHere ? `${esc(career!.name)} · ${shiftWhy ? '现在不能上班' : '可以上班'}` : `${offers.length} 个职位在招`],
 					['home', 'house', '住处', homeHtml, homeHere ? `你的${esc(homeHere.name)}` : `${rentals.length} 处可租`],
 					['people', 'users', '这里的人', peopleHtml, people.length ? `${people.length} 位在这里${favorHere ? ' · 有人托你帮忙' : ''}` : '现在没人在'],
-					['fun', 'ticket', '体验和爱好', expHtml + sportsCard(s, region, esc) + (on('hobby') ? photoQuestHtml + fishHtml + skyCard(s) : ''), [exps.length ? `${exps.length} 项体验` : '', sportSoon ? `${sportSoon} 场比赛快到了` : '', on('hobby') && pq ? '摄影任务' : '', on('hobby') && spot ? '能钓鱼' : ''].filter(Boolean).join(' · ') || '看看星空'],
+					['fun', 'ticket', '体验和爱好', expHtml + sportsCard(s, region, esc) + (on('hobby') ? photoQuestHtml + fishHtml + hobbyHtml + skyCard(s) : ''), [exps.length ? `${exps.length} 项体验` : '', sportSoon ? `${sportSoon} 场比赛快到了` : '', on('hobby') && pq ? '摄影任务' : '', on('hobby') && spot ? '能钓鱼' : '', on('hobby') && hobbyOpts.length ? `${hobbyOpts.length} 个爱好` : ''].filter(Boolean).join(' · ') || '看看星空'],
 					['study', 'graduation-cap', '学习', on('study') ? courseHtml + certHtml + studyHtml : '', [courses.length ? `${courses.length} 门课` : '', certs.length ? `${certs.length} 个证书` : '', programs.length ? `${programs.length} 个学历` : ''].filter(Boolean).join(' · ')],
 					['garage', 'car', '车和房产', (on('garage') ? dealerHtml + garageHtml : '') + (on('estate') ? propHtml : ''), [on('garage') && dealer.length ? '车行' : '', on('garage') && garage ? '修车厂' : '', on('estate') && props.some((x) => !x.owned) ? `${props.filter((x) => !x.owned).length} 套房出售` : '', on('estate') && props.some((x) => x.owned) ? '你的房产' : ''].filter(Boolean).join(' · ')],
 					['pet', 'paw-print', '宠物', petHtml, ps ? `${ps.def.icon} ${esc(ps.pet.name)}${petNotes(ps) ? ' · ' + esc(petNotes(ps)) : ''}` : '领养或买一只'],
@@ -2818,7 +2829,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc([({ sea: '海洋', land: '陆地', bird: '飞鸟' } as Record<string, string>)[a.group], animalHint(a)].filter(Boolean).join(' · '))}</small></span><span class="sr">（还没见过）</span></div>`).join('')}</div>
 					<details style="margin-top:8px"><summary><b>看动物的规矩</b></summary>${WILDLIFE_RULES.map((r) => `<p style="margin-top:6px">${esc(r.text)} <a class="muted" href="${esc(r.source)}" target="_blank" rel="noopener">来源</a></p>`).join('')}</details></div>`;
 				const fishHtml2 = `<div class="card"><h3>鱼获 ${Object.keys(s.fish).length}/${FISH.length}</h3><div class="ach-grid">${FISH.map((f) => s.fish[f.id]
-					? `<div class="ach done">${cgi['fish:' + f.id] ? `<img class="ach-img" src="${esc(cgi['fish:' + f.id])}" alt="" loading="lazy" width="40" height="40" />` : `<span class="ach-ico" aria-hidden="true">${f.icon}</span>`}<span><b>${esc(f.name)} ×${s.fish[f.id]}</b><small>${esc(f.desc)}</small></span></div>`
+					? `<div class="ach done">${cgi['fish:' + f.id] ? `<img class="ach-img" src="${esc(cgi['fish:' + f.id])}" alt="" loading="lazy" width="40" height="40" />` : `<span class="ach-ico" aria-hidden="true">${f.icon}</span>`}<span><b>${esc(f.name)} ×${s.fish[f.id]}</b><small>${s.hobby.best[f.id] ? `最大 ${s.hobby.best[f.id]} cm · ` : ''}${esc(f.desc)}</small></span></div>`
 					: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>还没钓到</small></span></div>`).join('')}</div></div>`;
 				// 见闻录：一次性的专属事件，见过的显示标题，没见过的只提示在哪
 				const onceEvents = EVENTS.filter((e) => e.once && !e.venueTypes);
@@ -2828,7 +2839,20 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const storyHtml = `<div class="card"><h3>见闻录 ${seenOnce}/${onceEvents.length}</h3><p>只会遇到一次的事。没见过的只告诉你在哪。</p><div class="ach-grid">${onceEvents.map((e) => s.seen.includes(e.id)
 					? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${e.icon}</span><span><b>${esc(e.title)}</b><small>${esc(where(e))}</small></span></div>`
 					: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>？？？</b><small>${esc(where(e))}</small></span><span class="sr">（还没遇到）</span></div>`).join('')}</div></div>`;
+				// 爱好和收集册（docs/earth-game/hobbies.md）
+				const hobbyLv = `<div class="card"><h3>爱好</h3>${HOBBIES.map((h) => { const st = hobbyStatus(s, h.id); return `<div class="mood-row"><span>${h.icon} ${esc(h.name)} · ${st.level} 级${esc(st.name)}</span><b>${st.next === null ? '满级' : `还差 ${st.next}`}</b></div>`; }).join('')}<p class="muted" style="margin-top:6px">同一天反复做同一件事，乐趣会递减；同好在场时一起做，加好感和社交。</p></div>`;
+				const cols = collections(s, region);
+				const colHtml = `<div class="card"><h3>收集册</h3><p class="muted">${COLLECTION_REWARD.half.respect > 0 ? `收到一半声望 +${COLLECTION_REWARD.half.respect}，收齐 +${COLLECTION_REWARD.full.respect}（野生动物和天气相册按原来的规则）。` : ''}</p>${cols.map((c) => {
+					const rc = rarityCounts(c);
+					const marks = c.reward ? ['half', 'full'].filter((k) => s.hobby.got.includes(`${c.id}:${k}`)).map((k) => (k === 'half' ? '½✅' : '🏆')).join(' ') : '';
+					const grid = ['birds', 'works', 'plants', 'crafts', 'songs'].includes(c.id) ? `<div class="ach-grid">${c.entries.map((e) => e.got
+						? `<div class="ach done"><span class="ach-ico" aria-hidden="true">${e.icon}</span><span><b>${esc(e.name)}</b><small>${esc([e.rarity ? RARITY_NAME[e.rarity] : '', e.detail ?? ''].filter(Boolean).join(' · '))}</small></span></div>`
+						: `<div class="ach"><span class="ach-ico" aria-hidden="true">❔</span><span><b>${c.id === 'works' ? esc(e.name) : '？？？'}</b><small>${esc([e.rarity ? RARITY_NAME[e.rarity] : '', e.detail ?? (c.id === 'works' ? '还没有佳作' : '')].filter(Boolean).join(' · '))}</small></span><span class="sr">（还没收到）</span></div>`).join('')}</div>` : '';
+					return `<details style="margin-top:8px"><summary><b>${c.icon} ${esc(c.name)} ${c.got}/${c.total}</b> ${marks}${rc.length ? ` <span class="muted">${rc.map((r) => `${r.icon}${r.got}/${r.total}`).join(' ')}</span>` : ''}</summary>${grid}</details>`;
+				}).join('')}</div>`;
 				const card = {
+					hobby: hobbyLv,
+					collect: colHtml,
 					visa: visaCardHtml(s, region, esc), // 签证（第 43 批）：非留学生出身为空串
 					story: storyHtml,
 					dex: dexHtml,
@@ -2884,7 +2908,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					// 人生等级：声望到下一级的进度；满级不画进度条
 					const pct = lv.next !== null ? Math.min(100, Math.round(s.respect / lv.next * 100)) : 100;
 					const lvHtml = `<div class="card grow-head"><span class="lv-badge" aria-hidden="true">${lv.lv}</span><span class="name"><b>Lv${lv.lv} ${esc(lv.title)}</b><span>声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next} · 离下一级还差 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ' · 已到最高级'}</span>${lv.next !== null ? `<span class="bar" role="img" aria-label="升级进度 ${pct}%"><i style="width:${pct}%"></i></span>` : ''}</span></div>`;
-					return banner('banner:grow') + lvHtml + ['quests', 'daily', 'ach', 'titles', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
+					return banner('banner:grow') + lvHtml + ['quests', 'daily', 'ach', 'titles', 'hobby', 'collect', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
 				}
 				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'visa', 'skills', 'derived'], assets: ['assets', 'invest', 'life', 'ins', 'bag', 'world'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
@@ -3476,7 +3500,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			});
 			document.addEventListener('click', (e) => {
 				gestured = true;
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
 				// 打开了环境音或音乐、但还没出过声：第一次点页面任何地方时解锁音频（浏览器的自动播放限制）
 				if (!audio && (prefs.ambience || prefs.music)) { try { ensureAudio(); } catch {} syncScene(); }
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
@@ -3552,6 +3576,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				else if (d.claim) act({ t: 'claim', id: d.claim }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.wear !== undefined) act({ t: 'title', id: d.wear }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if ('photo' in d) act({ t: 'photo' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if ('hobby' in d) act({ t: 'hobby', id: d.hobby as never }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.pet) {
 					let a: GameAction;
 					if (d.pet === 'adopt') {

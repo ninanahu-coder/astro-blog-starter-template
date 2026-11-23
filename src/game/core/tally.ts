@@ -88,6 +88,7 @@ export function actionCats(a: GameAction): [TallyCat, TallyCat] {
 		case 'care':
 		case 'pet': return ['daily', 'daily']; // 看病、养宠物的日常开销
 		case 'trail':
+		case 'hobby': // 爱好：种子、手工材料（爱好与收集）
 		case 'sport': return ['fun', 'fun']; // 运动：报名费、俱乐部会费、取消退费（第 43 批）
 		case 'claim':
 		case 'live':

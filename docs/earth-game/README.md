@@ -49,6 +49,9 @@ src/game/
   core/weather.ts     天气：由地点和游戏日确定（人人一样），风暴天取消海上的活动
   core/sky.ts         天象：气温、日出日落（含南澳夏令时）、潮汐、山火季、紫外线，只做显示
   core/disasters.ts   自然灾害（第 43 批）：山火、洪水封路、气旋、热浪、停电的预警（AWS 三级），封路、户外关闭、停工、停电做饭；保险理赔接口（见 disasters.md，保险还没接）
+  core/hobbies.ts     爱好与收集：摄影、钓鱼（从 engine.ts 搬来，加了尺寸和规定）、观鸟、园艺、手工、乐器，收集册（见 hobbies.md）
+  data/hobbies.ts     爱好、鸟、植物、手工、曲目的数据（待平衡）
+  data/fish-rules.ts  西澳、南澳的钓鱼规定（最小尺寸、每天数量、禁捕）和来源
   core/sports.ts      运动和比赛（第 43 批）：准备度、赛程、报名、比赛检定、俱乐部、取消规则（见 sports.md）
   data/sports.ts      运动、比赛（参照真实赛事，带来源）、俱乐部和数值（待平衡）
   ui/sports-card.ts   「在这里 · 体验和爱好」里的运动卡
@@ -74,7 +77,7 @@ tools/earth/comfyui/  提示词生成、工作流模板、远程出图脚本
 tests/earth/          引擎与数据自洽性测试
 ```
 
-按功能整理的总览（每个功能给玩家什么、规则要点、现状和待定）见 [features.md](features.md)。人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。给开发者和 Codex 的平衡调试工具（系统开关 A/B、CSV / JSON 导出、经济投放与回收、待平衡数值面板、回归基线、仅开发环境的 GM 沙盒）见 [balance-tools.md](balance-tools.md)。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)，房产与车辆的细化设计和真实价格参照见 [home-and-vehicle.md](home-and-vehicle.md)。收入侧（工资、零工、收租）、货币投放与回收、职业成长曲线、现实物价参照，以及金融资产（储蓄、指数基金、金条、虚拟币）见 [economy-design.md](economy-design.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。NPC 的日程、休假和病假、移动、心情和对话规则见 [npc-behavior.md](npc-behavior.md)。天气和季节（各地气候、BOM 气象站数据、天气怎么抽、对玩法的影响和提议）见 [weather-seasons.md](weather-seasons.md)。宠物系统和野生动物（v31）见 [pets-wildlife.md](pets-wildlife.md)。社交与 NPC 关系系统（关系变淡、NPC 托你帮小忙、玩家之间的好友和防骚扰提议）见 [social-system.md](social-system.md)。玩家互动（屏蔽、举报、隐私规则）和跟真实日历同步的节日、公众假期（第 24 批）见 [live-social.md](live-social.md)。任务和成就（主线、支线、每日每周、收集、成就领奖、称号）见 [quests-design.md](quests-design.md)。线上数据统计（留存、新手漏斗、功能使用、经济流水、报错与性能；只存按天汇总的计数，玩家可关闭）见 [analytics.md](analytics.md)。广告与商业化的设计方案（已定先做商户赞助，按固定月费 + 每次核销收费；另有外观内购、红线、合规和支付渠道比较）见 [monetization.md](monetization.md)。「我 · 生涯」页的统计口径、存档字段和分享卡见 [career-stats.md](career-stats.md)。
+按功能整理的总览（每个功能给玩家什么、规则要点、现状和待定）见 [features.md](features.md)。人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。给开发者和 Codex 的平衡调试工具（系统开关 A/B、CSV / JSON 导出、经济投放与回收、待平衡数值面板、回归基线、仅开发环境的 GM 沙盒）见 [balance-tools.md](balance-tools.md)。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)，房产与车辆的细化设计和真实价格参照见 [home-and-vehicle.md](home-and-vehicle.md)。收入侧（工资、零工、收租）、货币投放与回收、职业成长曲线、现实物价参照，以及金融资产（储蓄、指数基金、金条、虚拟币）见 [economy-design.md](economy-design.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。NPC 的日程、休假和病假、移动、心情和对话规则见 [npc-behavior.md](npc-behavior.md)。天气和季节（各地气候、BOM 气象站数据、天气怎么抽、对玩法的影响和提议）见 [weather-seasons.md](weather-seasons.md)。宠物系统和野生动物（v31）见 [pets-wildlife.md](pets-wildlife.md)。社交与 NPC 关系系统（关系变淡、NPC 托你帮小忙、玩家之间的好友和防骚扰提议）见 [social-system.md](social-system.md)。玩家互动（屏蔽、举报、隐私规则）和跟真实日历同步的节日、公众假期（第 24 批）见 [live-social.md](live-social.md)。任务和成就（主线、支线、每日每周、收集、成就领奖、称号）见 [quests-design.md](quests-design.md)。线上数据统计（留存、新手漏斗、功能使用、经济流水、报错与性能；只存按天汇总的计数，玩家可关闭）见 [analytics.md](analytics.md)。广告与商业化的设计方案（已定先做商户赞助，按固定月费 + 每次核销收费；另有外观内购、红线、合规和支付渠道比较）见 [monetization.md](monetization.md)。「我 · 生涯」页的统计口径、存档字段和分享卡见 [career-stats.md](career-stats.md)。爱好（摄影、钓鱼、观鸟、园艺、手工、乐器）、钓鱼规定和收集册见 [hobbies.md](hobbies.md)。
 
 设计原则：
 

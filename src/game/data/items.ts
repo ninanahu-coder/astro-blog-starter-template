@@ -21,6 +21,7 @@ export const ITEMS: ItemDef[] = [
 	{ id: 'drybag', name: '防水袋', icon: '🎒', price: 22, max: 1, shop: { tags: ['beach', 'reef'] }, passive: { swimming: 3 }, weather: ['rain', 'cloudy'], cat: 'gear', stores: ['surf', 'outdoor'], desc: '阴雨天下水也不怕东西湿：游泳检定 +3。' },
 	{ id: 'electrolyte', name: '电解质冲剂', icon: '🥤', price: 4, max: 6, shop: { kinds: [...TOWNS, 'outback'] }, use: { needs: { energy: 12, hunger: 3 } }, cat: 'consumable', stores: ['pharmacy', 'supermarket'], desc: '热天出汗多，冲一包补回来。' },
 	{ id: 'rod', name: '鱼竿', icon: '🎣', price: 40, max: 1, shop: { kinds: ['port', 'coast', 'town'], tags: ['beach'] }, passive: { survival: 2 }, cat: 'gear', stores: ['tackle'], desc: '带着它就能在海边、码头和河边钓鱼；等鱼上钩练耐心，生存检定 +2（数值待平衡）。' },
+	{ id: 'ukulele', name: '尤克里里', icon: '🪕', price: 90, max: 1, shop: { kinds: ['city'], tags: ['market'] }, passive: { charisma: 2 }, cat: 'gear', stores: ['music'], desc: '小小四根弦，有了它就能练「乐器」爱好；会弹两首，魅力检定 +2（数值待平衡）。' },
 	// 第 43 批：物资准备。停电时在家还能用炉头做饭（core/disasters.ts）；价格待平衡
 	{ id: 'emergency-kit', name: '应急包', icon: '🔦', price: 60, max: 1, shop: { kinds: ['city', 'town', 'mining'] }, passive: { survival: 2 }, cat: 'gear', stores: ['hardware', 'outdoor'], desc: '手电、电池、收音机、卡式炉和几天的干粮：停电时在家也能做饭，生存检定 +2。' },
 	{ id: 'surfboard', name: '冲浪板', icon: '🏄', price: 350, max: 1, shop: { tags: ['surf', 'beach'] }, passive: { swimming: 5, stamina: 3 }, cat: 'gear', stores: ['surf'], desc: '游泳检定 +5、体能检定 +3。' },

@@ -1519,7 +1519,7 @@ test('界面：新手引导（v36）——新角色先藏钓鱼等卡片并写�
 			placeAll = el('panel').innerHTML;
 		},
 	});
-	assert.match(place, /<div class="later"><p><b>之后会出现<\/b>钓鱼、摄影任务和星空（到第 2 天或去过第二个地方）/);
+	assert.match(place, /<div class="later"><p><b>之后会出现<\/b>爱好（钓鱼、摄影、观鸟……）和星空（到第 2 天或去过第二个地方）/);
 	assert.doesNotMatch(place, /<h3>🎣 钓鱼/);
 	assert.match(go, /<section class="slip" aria-labelledby="slip-go">/);
 	assert.match(go, /data-ob-tip="go" aria-label="关掉提示「出行：路费和时间出发前就写着」，以后不再出现">知道了/);

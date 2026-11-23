@@ -23,7 +23,7 @@ export interface FeatureDef {
  * 条件都很宽：第 2、3 天自动出现，提前做到相关的事也会提前出现。
  */
 export const FEATURES: FeatureDef[] = [
-	{ id: 'hobby', name: '钓鱼、摄影任务和星空', where: '今天页「在这里 · 体验和爱好」里', when: (s) => gameDay(s) >= 2 || places(s) >= 2, hint: '到第 2 天或去过第二个地方' },
+	{ id: 'hobby', name: '爱好（钓鱼、摄影、观鸟……）和星空', where: '今天页「在这里 · 体验和爱好」里', when: (s) => gameDay(s) >= 2 || places(s) >= 2, hint: '到第 2 天或去过第二个地方' },
 	{ id: 'study', name: '课程和职业证书', where: '今天页「在这里 · 学习」里，有课的地方才显示', when: (s) => gameDay(s) >= 2 || !!s.job || s.certs.length > 0, hint: '找到工作或到第 2 天' },
 	{ id: 'garage', name: '车行和修车厂', where: '今天页「在这里 · 车和房产」里，有车行的城镇才显示', when: (s) => gameDay(s) >= 2 || s.vehicle !== 'none' || places(s) >= 2, hint: '到第 2 天或去过第二个地方' },
 	{ id: 'estate', name: '买房和房产', where: '今天页「在这里 · 车和房产」里，有房出售的地方才显示', when: (s) => gameDay(s) >= 3 || !!s.home || s.properties.length > 0, hint: '租到住处或到第 3 天' },
