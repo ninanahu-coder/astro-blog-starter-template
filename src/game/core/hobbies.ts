@@ -5,6 +5,7 @@ import { addMoodlet, applyEffect, clone, collapsedResult, fail, fishingAt, getLo
 import { checkScore } from './attributes.ts';
 import { dateOf, dayOf, period } from './time.ts';
 import { unit, weatherAt } from './weather.ts';
+import { activityClosed } from './disasters.ts';
 import { NEED_KEYS } from './types.ts';
 import type { ActionResult, GameLocation, HobbyState, Needs, PlayerState, Region } from './types.ts';
 import { FISH, FISHING, type FishDef } from '../data/fish.ts';
@@ -96,7 +97,9 @@ function session(state: PlayerState, region: Region, id: HobbyId, o: SessionOpts
 	if (n === 0) addMoodlet(state, HOBBY.moodlet);
 	for (const p of pals) {
 		const rel = structuredClone(getRelation(state, p));
-		rel.score = Math.max(-100, Math.min(100, rel.score + HOBBY.palGain));
+		// 好感每位同好每天只涨一次，和聊天、送礼、帮忙「每天一次」同一条规矩（合并 main 后复核：原来反复拍照能无限刷好感）
+		if (rel.last.hobby !== day) rel.score = Math.max(-100, Math.min(100, rel.score + HOBBY.palGain));
+		rel.last = { ...rel.last, hobby: day }; // 一起做爱好算见过面：关系不会因为「好久没联系」变淡（合并 main 后）
 		state.relations[p] = rel;
 	}
 	return { collapsed: false, pals, levelUp: after > before ? after : null };
@@ -243,7 +246,9 @@ export function birdingAt(state: PlayerState, region: Region): { birds: BirdDef[
 	const season = dateOf(state.clock).season;
 	const p = period(state.clock).id;
 	const birds = BIRDS.filter((b) => birdHere(b, loc) && (!b.seasons || b.seasons.includes(season)) && (!b.periods || b.periods.includes(p)));
-	const blocked = state.pending ? '先处理眼前的事件' : weatherAt(state).id === 'storm' ? '风暴天鸟都躲起来了' : !birds.length ? '这个时候这里看不到鸟' : undefined;
+	// 合并 main 后：自然灾害让户外活动暂停时（山火、气旋、热浪、洪水预警，见 core/disasters.ts）也不能观鸟
+	const closed = activityClosed(loc, dayOf(state.clock), 'birding');
+	const blocked = state.pending ? '先处理眼前的事件' : closed ?? (weatherAt(state).id === 'storm' ? '风暴天鸟都躲起来了' : !birds.length ? '这个时候这里看不到鸟' : undefined);
 	return { birds, blocked };
 }
 

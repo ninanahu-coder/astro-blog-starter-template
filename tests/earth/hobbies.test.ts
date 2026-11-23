@@ -17,6 +17,11 @@ import { PHOTO_QUESTS } from '../../src/game/data/photo-quests.ts';
 import { WA, WORLD } from '../../src/game/data/wa.ts';
 import { areaOf } from '../../src/game/data/areas-base.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
+import { activityClosed } from '../../src/game/core/disasters.ts';
+import { HAZARDS } from '../../src/game/data/disasters.ts';
+import { actionCats } from '../../src/game/core/tally.ts';
+import { isFading } from '../../src/game/core/relations.ts';
+import { RELATION_DECAY } from '../../src/game/data/relations.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
 const make = (over: Partial<PlayerState> = {}, seed = 3): PlayerState => ({
@@ -420,4 +425,81 @@ test('存档：旧存档没有 hobby 给空的；坏值清洗；只留认识的 
 	const full = sanitizeState({ ...make(), hobby: dirty }, LOCS, opts)!;
 	assert.deepEqual(sanitizeState(full, LOCS, opts), full, '整份存档幂等');
 	assert.ok(JSON.stringify(cleanHobby({ ...emptyHobby(), works: Object.fromEntries([...LOCS].map((l) => [l, 100])), birds: BIRDS.map((b) => b.id), best: Object.fromEntries(FISH.map((f) => [f.id, 99.9])) })).length < 4096, '字段在 4 KB 以内');
+});
+
+// ---------- 合并 main 后：和野生动物、灾害、生涯统计、关系变淡的接法 ----------
+test('观鸟包含图鉴里所有的鸟（同 id 同名），看见一起记进图鉴（合并 main 后）', () => {
+	for (const a of ANIMALS.filter((x) => x.group === 'bird')) {
+		const b = BIRDS.find((x) => x.id === a.id);
+		assert.ok(b, `图鉴里的鸟 ${a.id} 不在观鸟列表`);
+		assert.equal(b!.name, a.name, a.id);
+	}
+});
+
+test('自然灾害让户外活动暂停时不能观鸟，和徒步同进退（合并 main 后）', () => {
+	for (const h of Object.values(HAZARDS)) {
+		const out = (h as { outdoor?: string[] }).outdoor;
+		if (out?.includes('hike')) assert.ok(out.includes('birding'), h.id);
+	}
+	// 找一个能观鸟、当天徒步被灾害关掉的地点和日子
+	for (const loc of WORLD.locations) {
+		for (let d = 0; d < 3650; d++) {
+			const why = activityClosed(loc, d, 'hike');
+			if (!why) continue;
+			const s = make({ loc: loc.id, clock: at(10, d) });
+			const spot = birdingAt(s, WORLD);
+			if (!spot) break;
+			assert.equal(spot.blocked, why);
+			const r = applyAction(s, WORLD, { t: 'hobby', id: 'birding' });
+			assert.equal(r.ok, false);
+			return;
+		}
+	}
+	assert.fail('十年里没有一处能观鸟的地方碰上灾害');
+});
+
+test('生涯统计：爱好的花费记「玩乐」（合并 main 后）', () => {
+	assert.deepEqual(actionCats({ t: 'hobby', id: 'garden' }), ['fun', 'fun']);
+	assert.deepEqual(actionCats({ t: 'fish' }), ['fun', 'fun']);
+});
+
+test('和同好一起做爱好算见过面：关系不因「好久没联系」变淡，读档保留（合并 main 后）', () => {
+	const hobby = HOBBIES.find((h) => h.pals.length && h.id !== 'fishing' && h.id !== 'garden' && h.id !== 'craft')!;
+	const pal = NPCS.find((n) => n.id === hobby.pals[0])!;
+	// 找同好在场的时刻（在同好的地点逐小时找）
+	let s: PlayerState | null = null;
+	for (let t = 0; t < 60 * 24 && !s; t++) {
+		for (const loc of WORLD.locations) {
+			if (!npcPresent(pal, loc.id, t * 60)) continue;
+			const c = make({ loc: loc.id, clock: t * 60, inventory: { [INSTRUMENT]: 1 } });
+			if (hobbiesHere(c, WORLD).some((o) => o.hobby.id === hobby.id && !o.blocked)) { s = c; break; }
+		}
+	}
+	assert.ok(s, `找不到和 ${pal.id} 一起做 ${hobby.id} 的时刻`);
+	// 很久以前聊过、关系还不错：不做爱好的话到期会变淡
+	const d0 = Math.floor(s!.clock / 1440);
+	const old = { score: 50, last: { chat: d0 - 20 }, seen: [] } as unknown as PlayerState['relations'][string];
+	const withRel = { ...s!, relations: { [pal.id]: old } };
+	const d1 = d0;
+	assert.equal(isFading(old, d1 + RELATION_DECAY.grace), true, '前提：没再联系会变淡');
+	const r = applyAction(withRel, WORLD, { t: 'hobby', id: hobby.id as never });
+	assert.ok(r.ok, r.msg);
+	const rel = r.state.relations[pal.id];
+	assert.equal(rel.last.hobby, d1);
+	assert.equal(rel.score, 50 + HOBBY.palGain);
+	assert.equal(isFading(rel, d1 + RELATION_DECAY.grace), false, '一起做爱好算见过面');
+	assert.equal(sanitizeState(r.state)!.relations[pal.id].last.hobby, d1, '读档保留');
+	// 同一天再做一次：好感不再涨（每天一次），但照样记见面
+	const again = applyAction({ ...r.state, needs: { hunger: 90, energy: 90, hygiene: 90, fun: 50, social: 50 } }, WORLD, { t: 'hobby', id: hobby.id as never });
+	assert.ok(npcPresent(pal, r.state.loc, r.state.clock), '前提：第二次开始时同好还在');
+	assert.ok(again.ok, again.msg);
+	assert.equal(again.state.relations[pal.id].score, 50 + HOBBY.palGain, '同一天第二次不再涨好感');
+});
+
+test('页面：成长页有「爱好」「收集册」卡，鱼获卡写最大尺寸（合并 main 后）', async () => {
+	const { readFileSync } = await import('node:fs');
+	const page = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(page, /\['quests', 'daily', 'ach', 'titles', 'hobby', 'collect', /, '成长页卡片顺序：任务、成就、称号之后是爱好和收集册');
+	assert.match(page, /hobby: hobbyLv,\n\t*collect: colHtml,/);
+	assert.match(page, /\$\{s\.hobby\.best\[f\.id\] \? `最大 \$\{s\.hobby\.best\[f\.id\]\} cm · ` : ''\}\$\{esc\(f\.desc\)\}/, '鱼获卡写最大尺寸');
 });

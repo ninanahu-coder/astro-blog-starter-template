@@ -72,6 +72,9 @@ export const BIRDS: BirdDef[] = [
 	{ id: 'silver-gull', name: '银鸥', icon: '🐦', desc: '海边抢薯条的老面孔。', where: { tags: ['beach'], kinds: ['port', 'coast'] }, weight: 30 },
 	{ id: 'galah', name: '粉红凤头鹦鹉', icon: '🦜', desc: '粉红胸脯，在路边草地上蹦。', where: { kinds: ['town', 'outback', 'mining', 'city'] }, weight: 25 },
 	{ id: 'twenty-eight-parrot', name: '环颈鹦鹉', icon: '🦜', desc: '本地人叫它「二十八」，学的是它的叫声。', where: { locs: ['perth', 'fremantle', 'bunbury', 'margaret-river', 'albany', 'kalgoorlie'] }, weight: 18 },
+	// 合并 main 后：宠物与野生动物分支给图鉴加的两种鸟，同 id 同名，观鸟看见时一起记进图鉴（权重待平衡）
+	{ id: 'magpie', name: '澳洲喜鹊', icon: '🐦‍⬛', desc: '黑白相间，歌声好听。春天护巢时会俯冲路人，戴帽子绕开走。', where: { kinds: ['city', 'town'] }, weight: 22 },
+	{ id: 'kookaburra', name: '笑翠鸟', icon: '🐦', desc: '清晨傍晚放声「大笑」。在西澳是从东部引进的。', where: { locs: ['perth', 'margaret-river', 'pemberton', 'adelaide', 'hahndorf'] }, periods: ['dawn', 'dusk'], weight: 10 },
 	{ id: 'black-swan', name: '黑天鹅', icon: '🦢', desc: '西澳的州鸟，天鹅河因它得名。', where: { locs: ['perth', 'bunbury', 'mandurah', 'adelaide'] }, weight: 18 },
 	{ id: 'pelican', name: '澳洲鹈鹕', icon: '🐦', desc: '在码头边等渔民扔鱼。', where: { locs: ['fremantle', 'bunbury', 'monkey-mia', 'kalbarri', 'mandurah', 'kangaroo-island', 'glenelg'] }, weight: 15 },
 	{ id: 'splendid-fairy-wren', name: '辉蓝细尾鹩莺', icon: '🐦', desc: '雄鸟繁殖季浑身宝蓝，在灌木丛里一跳一跳。', where: { locs: ['perth', 'margaret-river', 'albany', 'esperance', 'kalbarri'] }, seasons: ['spring', 'summer'], weight: 10 },
