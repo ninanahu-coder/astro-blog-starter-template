@@ -26,6 +26,8 @@ import { studyProgram } from './education.ts';
 import { buyAsset, sellAsset } from './invest.ts';
 import { marketView } from './market.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { mindAction, settleMind } from './mind.ts';
+import { MIND_ACTS, type MindOp } from '../data/mind.ts';
 import { clubSession, enterRace, joinClub, noteTraining, quitClub, runRace } from './sports.ts';
 import { CARE, type CareKind } from '../data/health.ts';
 import { applyOnboard, parseOnboardOp, settleOnboard, type OnboardOp } from './onboard.ts';
@@ -83,7 +85,8 @@ export type GameAction =
 	| { t: 'care'; kind: CareKind } // 看病（健康系统第 1 版）
 	| { t: 'insure'; id: string } // 买 / 续保险（第 43 批）
 	| { t: 'sport'; op: 'enter' | 'race' | 'join'; id: string }
-	| { t: 'sport'; op: 'club' | 'quit' }; // 运动和比赛（第 43 批）
+	| { t: 'sport'; op: 'club' | 'quit' } // 运动和比赛（第 43 批）
+	| { t: 'mind'; op: MindOp }; // 主动调节心情：给家里打视频、找人聊聊（第 43 批）
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air', 'transit', 'rail', 'walk'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond'];
@@ -178,6 +181,8 @@ export function parseAction(raw: unknown): GameAction | null {
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
 			if (a.op === 'repay') return finite(a.amount) && a.amount > 0 && a.amount <= 1e9 ? { t: 'property', op: 'repay', id: a.id, amount: Math.floor(a.amount) } : null;
 			return a.op === 'sell' || a.op === 'movein' || a.op === 'rentout' ? { t: 'property', op: a.op, id: a.id } : null;
+		case 'mind':
+			return typeof a.op === 'string' && Object.hasOwn(MIND_ACTS, a.op) ? { t: 'mind', op: a.op as MindOp } : null;
 		case 'onboard': {
 			const o = parseOnboardOp(a);
 			return o ? { t: 'onboard', ...o } : null;
@@ -262,6 +267,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 				: a.op === 'club' ? clubSession(state, region)
 				: quitClub(state);
 			break;
+		case 'mind': r = mindAction(state, region, a.op); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
@@ -287,6 +293,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 			noteTraining(r.state, a); // 日常运动记一次训练（跑步、游泳、健身……，见 core/sports.ts）
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
+		settleMind(r.state, dayOf(state.clock)); // 跨过午夜：结算孤独、思乡、压力和低落天数（同一天什么也不做）
 		const visaNote = settleVisa(state, r.state); // 签证：记经验、毕业、到期提醒和过期（第 43 批）
 		if (visaNote) msg += ` ${visaNote}`;
 	}
@@ -308,6 +315,7 @@ export function applyCoop(def: CoopDef, region: Region, members: CoopMember[]): 
 		// 共同事件不算任何心愿，但跨过午夜时要换成新一天的心愿（同一天时 refreshWishes 什么也不做）
 		refreshWishes(x.state);
 		pruneMoodlets(x.state);
+		settleMind(x.state, dayOf(members[i].state.clock));
 		const out = capState({ ...settleDecay(x.state, dayOf(members[i].state.clock), dayOf(x.state.clock)), rev: nextRev(members[i].state.rev) });
 		rollDay(out);
 		finishTally(members[i].state, out, ['social', 'social']);

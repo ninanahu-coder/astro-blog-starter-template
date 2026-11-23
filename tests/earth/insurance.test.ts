@@ -213,7 +213,7 @@ test('买保险：扣保费、写保单、记日志、不改入参；有事件�
 	assert.equal(r.state.cash, 5000 - comp.premium);
 	assert.deepEqual(r.state.cover['car-comp'], cov(D + comp.wait, D + comp.wait + comp.days));
 	assert.equal(r.state.clock, s.clock, '网上办，不花时间');
-	assert.match(r.state.journal.at(-1)!.text, /买了车辆全险/);
+	assert.ok(r.state.journal.some((j) => /买了车辆全险/.test(j.text)), '记日志'); // 合并心情分支后：测试把时钟直接拨到第 10 天，这一步会顺带结算前几天的心事，日志最后一条不一定是保险
 	const again = applyAction(r.state, WA, { t: 'insure', id: 'car-comp' });
 	assert.ok(again.ok);
 	assert.equal(again.state.cover['car-comp'].until, D + comp.wait + comp.days * 2);

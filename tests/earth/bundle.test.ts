@@ -60,10 +60,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *     gzip 218,125 → 226,455（+8.3KB），上限 219,200 → 227,500；未压缩 679,227 → 705,247，上限 682,300 → 708,300。
  *   - 爱好与收集：六个爱好和收集册（core/hobbies.ts、data/hobbies.ts）、钓鱼规定表（data/fish-rules.ts）、爱好卡、成长页的爱好和收集册卡，
  *     gzip 226,455 → 234,134（+7.7KB），上限 227,500 → 235,200；未压缩 705,247 → 730,787，上限 708,300 → 733,800。
+ *   - 心情与心理健康：三种心事的规则和数据（core/mind.ts、data/mind.ts）、心情卡里的心事和求助渠道，gzip 234,134 → 237,032（+2.9KB），上限 235,200 → 238,100；
+ *     未压缩 730,787 → 739,160，上限 733,800 → 742,200。
  */
-export const FIRST_SCREEN_MAX = 733_800;
+export const FIRST_SCREEN_MAX = 742_200;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 235_200;
+export const FIRST_SCREEN_GZIP_MAX = 238_100;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
