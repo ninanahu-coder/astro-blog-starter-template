@@ -93,7 +93,7 @@ export function getLocation(region: Region, id: string): GameLocation | undefine
  * 时间流逝：需求衰减、饥饿伤害、健康自然恢复、麻烦值冷却（见 vitals.ts），再做跨周结算。返回途中是否晕倒。
  * gains 是本动作的收获（工资等）：没晕倒才入账，而且在跨周结算之前，所以这一班的工资能付刚到期的房租房贷。
  */
-function advance(state: PlayerState, minutes: number, region: Region, gains?: () => void, asleep = false): boolean {
+export function advance(state: PlayerState, minutes: number, region: Region, gains?: () => void, asleep = false): boolean {
 	if (minutes <= 0) {
 		gains?.();
 		return false;
@@ -1254,7 +1254,7 @@ function homeUsable(state: PlayerState): boolean {
 }
 
 /** 住在房车营地时，换成或卖成不能睡人的车会没地方睡：先退营地。返回原因，没问题返回 undefined */
-function campBlocks(state: PlayerState, nextVehicle: string): string | undefined {
+export function campBlocks(state: PlayerState, nextVehicle: string): string | undefined {
 	return state.home && !state.home.owned && getHome(state.home.type)?.vehicleSleep && !canSleepIn(nextVehicle) ? '你住在房车营地，没了能睡人的车就没地方睡；先退掉营地' : undefined;
 }
 
@@ -1779,7 +1779,7 @@ export function doExperience(prev: PlayerState, region: Region, id: string): Act
 // ---------- 家具与在家活动 ----------
 export const getFurniture = (id: string): FurnitureDef | undefined => FURNITURE.find((f) => f.id === id);
 
-const atHome = (state: PlayerState) => !!state.home && state.home.loc === state.loc;
+export const atHome = (state: PlayerState) => !!state.home && state.home.loc === state.loc;
 const homeHas = (state: PlayerState, unlock: 'cook' | 'relax') =>
 	!!state.home && Object.values(state.home.furniture).some((id) => getFurniture(id)?.unlock === unlock);
 

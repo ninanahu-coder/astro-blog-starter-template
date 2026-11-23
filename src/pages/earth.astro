@@ -853,6 +853,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import type { OnboardPage } from '../game/data/onboard.ts';
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { fmtHalf } from '../game/ui/numfmt.ts';
+			import { swapCard } from '../game/ui/secondhand.ts';
+			import { swapBoard } from '../game/core/secondhand.ts';
+			import type { SwapKind } from '../game/data/secondhand.ts';
 			import { sportsCard } from '../game/ui/sports-card.ts';
 			import { racesSoon } from '../game/core/sports.ts';
 			import { defaultAmount, investCard } from '../game/ui/invest.ts';
@@ -2626,7 +2629,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const sportSoon = racesSoon(s, region).filter((o) => !o.done).length; // 运动和比赛（第 43 批）：抽屉摘要里写快到的比赛
 				const groups: [string, LucideName, string, string, string][] = [
 					['do', 'sparkles', '做事', doHtml, `现在能做 ${openActs.length + (vanHtml ? 1 : 0)} 项${laterActs.length ? ` · 稍后 ${laterActs.length} 项` : ''}`],
-					['shop', 'shopping-bag', '买东西', groceryHtml(s, region, esc) + shopHtml, [groceriesAt(s, region).length ? '食材' : '', shop.length ? `${shop.length} 件${shop.some((x) => x.markdown) ? ' · 有打折' : ''}` : ''].filter(Boolean).join(' · ')],
+					['shop', 'shopping-bag', '买东西', groceryHtml(s, region, esc) + shopHtml + (on('garage') ? swapCard(s, region) : ''), [groceriesAt(s, region).length ? '食材' : '', on('garage') && swapBoard(s, region) ? '换手墙' : '', shop.length ? `${shop.length} 件${shop.some((x) => x.markdown) ? ' · 有打折' : ''}` : ''].filter(Boolean).join(' · ')],
 					['work', 'briefcase-business', '工作', workHtml, workHere ? `${esc(career!.name)} · ${shiftWhy ? '现在不能上班' : '可以上班'}` : `${offers.length} 个职位在招`],
 					['home', 'house', '住处', homeHtml, [homeHere ? `你的${esc(homeHere.name)}` : rentals.length ? `${rentals.length} 处可租` : '', s.rental.claim ? `押金扣款待处理 $${s.rental.claim.amount}` : ''].filter(Boolean).join(' · ')],
 					['people', 'users', '这里的人', peopleHtml, people.length ? `${people.length} 位在这里${favorHere ? ' · 有人托你帮忙' : ''}` : '现在没人在'],
@@ -3422,6 +3425,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const focusKey = same && ae && typeof modal.contains === 'function' && modal.contains(ae) ? Object.entries(ae.dataset ?? {}).map(([k, v]) => `[data-${k.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase())}="${CSS.escape(String(v))}"]`).join('') : '';
 					const prevClip = q('video.loc-clip') as HTMLVideoElement | null;
 					// 展开的折叠卡（运动和比赛、步行路线……）按顺序记下，重画后放回去；只补「展开」，模板里本来展开的照旧（合并运动分支后复核）
+					const haggleOn = same && !!(q('#swap-haggle') as HTMLInputElement | null)?.checked; // 换手墙的砍价勾选框：重画后照旧勾着（合并 main 后复核）
 					const openDetails = same && typeof modal.querySelectorAll === 'function' ? [...modal.querySelectorAll<HTMLDetailsElement>('.drawer-body details')].map((d) => d.open) : [];
 					paint(modal, `<div class="sheet drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
 						<div class="drawer-head"><h2 id="drawer-title">${lu(g.icon as LucideName, 'drawer-ico')} ${g.title}</h2><button class="drawer-x" data-drawer-close aria-label="关闭${g.title}">关闭</button></div>
@@ -3431,6 +3435,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					if (!same) q('.drawer-x')?.focus();
 					else {
 						if (openDetails.length) modal.querySelectorAll<HTMLDetailsElement>('.drawer-body details').forEach((d, i) => { if (openDetails[i]) d.open = true; });
+						if (haggleOn) { const h = q('#swap-haggle') as HTMLInputElement | null; if (h) h.checked = true; }
 						const sh = q('.sheet.drawer');
 						if (sh) sh.scrollTop = prevTop;
 						const f = focusKey ? q(focusKey) : null;
@@ -3541,7 +3546,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			});
 			document.addEventListener('click', (e) => {
 				gestured = true;
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-mind],[data-rental],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-mind],[data-rental],[data-wall],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
 				// 打开了环境音或音乐、但还没出过声：第一次点页面任何地方时解锁音频（浏览器的自动播放限制）
 				if (!audio && (prefs.ambience || prefs.music)) { try { ensureAudio(); } catch {} syncScene(); }
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
@@ -3662,6 +3667,15 @@ const cardLines = guilloche(400, 260, 14, 9);
 						if (d.prop === 'movein' && state.home && !confirm('搬进去会退掉现在的住处，家具半价折现。确定？')) return;
 						a = { t: 'property', op: d.prop as 'sell' | 'movein' | 'rentout', id };
 					}
+					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
+				else if (d.wall) {
+					// 邻里换手墙（二手市场）；属性叫 data-wall，不和 main 面交换物的 data-swap 撞（合并 main 后复核）
+					const a: GameAction = d.wall === 'buy'
+						? { t: 'swap', op: 'buy', id: d.wallId!, ref: d.wallRef!, how: d.wallHow === 'prepay' ? 'prepay' : 'pickup', haggle: !!document.querySelector<HTMLInputElement>('#swap-haggle')?.checked }
+						: { t: 'swap', op: 'sell', kind: d.wallKind as SwapKind, ref: d.wallRef!, buyer: Number(d.wallBuyer), verify: d.wallVerify === '1' };
+					if (a.t === 'swap' && a.op === 'buy' && a.how === 'prepay' && !confirm('没见到东西先转账：如果对方是骗子，钱就拿不回来了。确定？')) return;
+					if (a.t === 'swap' && a.op === 'sell' && !a.verify && !confirm('不等钱到账就交货：如果对方是假付款，东西就拿不回来了。确定？')) return;
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.rental) {

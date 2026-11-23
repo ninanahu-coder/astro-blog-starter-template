@@ -49,6 +49,7 @@ import { cleanEvMem, emptyMemory } from './event-rules.ts';
 import { validTraits } from './attributes.ts';
 import { cleanRental, emptyRental } from './rental.ts';
 import { WEATHERS } from '../data/weather.ts';
+import { SWAP } from '../data/secondhand.ts';
 import { BIRDS, CRAFTS, HOBBY, HOBBY_IDS, PLANTS } from '../data/hobbies.ts';
 import { CLUBS, RACES, SPORT_IDS, SPORT_RULES } from '../data/sports.ts';
 import { cleanCover } from './insurance.ts';
@@ -189,6 +190,7 @@ export function createCharacter(opts: {
 		workLog: { f: 0, min: 0 },
 		coopDays: {},
 		trades: { day: 0, out: 0, in: 0 },
+		swap: { day: 0, done: [], sold: 0, dodged: 0, lost: 0 },
 		met: {},
 		live: [],
 		blocked: {},
@@ -424,6 +426,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			const km = Math.floor(num(r.car?.km, 0, CAR_KM_MAX, 0));
 			return { km, since: Math.min(km, Math.floor(num(r.car?.since, 0, CAR_KM_MAX, 0))) };
 		})(),
+		swap: cleanSwap(r.swap, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		trades: {
 			day: Math.floor(num(r.trades?.day, 0, 1e7, 0)),
 			out: Math.floor(num(r.trades?.out, 0, 1000, 0)),
@@ -765,6 +768,31 @@ export function formatClock(clock: number): string {
 	const day = Math.floor(clock / 1440) + 1;
 	const m = Math.floor(clock % 1440);
 	return `第${day}天 ${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
+const SWAP_DONE_ID = /^[a-z0-9-]{1,60}$/;
+
+/**
+ * 清洗二手市场（换手墙）记录：旧存档缺字段给默认值；任何输入都不抛异常；钳范围；幂等。
+ * 游戏日晚于存档时钟的是坏数据，当天记录清零；早于今天的原样保留（动作结算时 swapToday() 会换新，这样动作的结果本身就是规范形式）。
+ */
+export function cleanSwap(raw: unknown, clock: number): PlayerState['swap'] {
+	const r = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+	const int = (k: string, max: number) => {
+		const v = Object.hasOwn(r, k) ? r[k] : 0;
+		return typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(0, Math.floor(v))) : 0;
+	};
+	const today = dayOf(clock);
+	const day = int('day', 1e7);
+	const ok = day <= today;
+	const list = ok && Object.hasOwn(r, 'done') && Array.isArray(r.done) ? r.done : [];
+	return {
+		day: ok ? day : today,
+		done: [...new Set(list.filter((x): x is string => typeof x === 'string' && SWAP_DONE_ID.test(x)))].slice(-SWAP.doneMax),
+		sold: ok ? int('sold', SWAP.sellDaily) : 0,
+		dodged: int('dodged', 1e6),
+		lost: int('lost', 1e6),
+	};
 }
 
 export const emptyHobby = (): HobbyState => ({ xp: {}, day: -1, today: {}, bag: {}, best: {}, birds: [], works: {}, plants: [], bed: null, made: [], got: [] });

@@ -52,6 +52,9 @@ src/game/
   core/hobbies.ts     爱好与收集：摄影、钓鱼（从 engine.ts 搬来，加了尺寸和规定）、观鸟、园艺、手工、乐器，收集册（见 hobbies.md）
   data/hobbies.ts     爱好、鸟、植物、手工、曲目的数据（待平衡）
   data/fish-rules.ts  西澳、南澳的钓鱼规定（最小尺寸、每天数量、禁捕）和来源
+  core/secondhand.ts  二手市场「邻里换手墙」：挂单、买家、砍价、假付款和预付诈骗、搬家季（见 secondhand.md）
+  data/secondhand.ts  换手墙的货品、骗局、季节和数值（待平衡）
+  ui/secondhand.ts    「在这里 · 买东西」里的换手墙卡
   core/sports.ts      运动和比赛（第 43 批）：准备度、赛程、报名、比赛检定、俱乐部、取消规则（见 sports.md）
   data/sports.ts      运动、比赛（参照真实赛事，带来源）、俱乐部和数值（待平衡）
   ui/sports-card.ts   「在这里 · 体验和爱好」里的运动卡

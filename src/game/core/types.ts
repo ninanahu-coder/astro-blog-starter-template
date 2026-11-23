@@ -791,6 +791,7 @@ export interface PlayerState {
 	workLog: { f: number; min: number }; // 签证工时：第几个两周（游戏日 / 14）、这两周已上班的分钟（职业班次 + 零工）
 	coopDays: Record<string, number>; // 共同事件 id -> 最近一次参加的游戏日（每种每 COOP_COOLDOWN_DAYS 天一次）
 	trades: { day: number; out: number; in: number }; // 玩家之间交易：这个现实日已送出 / 收下的次数
+	swap: { day: number; done: string[]; sold: number; dodged: number; lost: number }; // 二手市场（换手墙）：哪个游戏日、当天处理过的挂单 id、当天卖出次数；累计识破 / 被骗次数
 	weekly: { week: number; n: number; claimed: boolean }; // 全服周目标：哪一周、我出了几份力、领没领
 	achClaimed: string[]; // 已领过奖励的成就 id（领过就记下，之后成就条件丢了也不收回、不重复发）
 	side: { done: string[]; cur: Record<string, Record<string, number>> }; // 支线：已完成的支线 id；进行中的支线各目标进度

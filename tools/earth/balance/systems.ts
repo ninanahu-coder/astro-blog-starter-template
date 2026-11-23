@@ -1,5 +1,6 @@
 // 模拟器的系统开关和经济流水（平衡调试工具，docs/earth-game/balance-tools.md §2）。
 // 单独成文件、sim.ts 里只插几行调用：很多分支都在改 sim.ts，改动越少越好合并。
+import { SWAP_GOODS } from '../../../src/game/data/secondhand.ts';
 import type { GameAction } from '../../../src/game/core/actions.ts';
 
 /** 和 sim.ts 的 GIG_IDS 相同（tests/earth/balance-tools.test.ts 核对） */
@@ -35,6 +36,11 @@ export function systemOf(a: GameAction): SystemId | undefined {
 		case 'vehicle': return 'vehicle';
 		case 'npc': return 'social';
 		case 'buy': return 'shop';
+		case 'swap': { // 邻里换手墙（合并 main 后）：只管买；按买的东西归到家具、车、商店
+			if (a.op !== 'buy') return undefined;
+			const kind = SWAP_GOODS.find((g) => g.ref === a.ref)?.kind;
+			return kind === 'furniture' ? 'furniture' : kind === 'vehicle' ? 'vehicle' : 'shop';
+		}
 		case 'home': return a.op === 'rent' ? 'rent' : undefined;
 		case 'rental': return 'rent'; // 租房市场：看房、租约操作也算租房（合并 main 后复核）
 		case 'visa': return 'visa';

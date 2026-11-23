@@ -84,7 +84,8 @@ export function actionCats(a: GameAction): [TallyCat, TallyCat] {
 		case 'venue':
 			return a.op === 'work' ? ['work', 'work'] : a.op === 'meal' || a.op === 'drink' || a.op === 'groceries' ? ['shop', 'shop'] : a.op === 'study' ? ['study', 'study'] : ['daily', 'daily'];
 		// 合并 main 后新加的动作（第 25–43 批）
-		case 'sell': return ['shop', 'shop']; // 卖二手物品
+		case 'sell': // 卖二手物品
+		case 'swap': return ['shop', 'shop']; // 二手市场「邻里换手墙」的买卖（含被骗的钱，合并 main 后）
 		case 'study': return ['study', 'study']; // 学历课程
 		case 'care':
 		case 'pet': return ['daily', 'daily']; // 看病、养宠物的日常开销

@@ -64,10 +64,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *     未压缩 730,787 → 739,160，上限 733,800 → 742,200。
  *   - 租房市场：看房申请、租约、涨租、维修、押金纠纷、骗租（core/rental.ts、data/rental.ts）和住处卡的租约部分，gzip 237,032 → 241,044（+4.0KB），上限 238,100 → 242,100；
  *     未压缩 739,160 → 749,742，上限 742,200 → 752,800。
+ *   - 二手市场「邻里换手墙」：挂单、买家、骗局规则和数据（core/secondhand.ts、data/secondhand.ts）、「买东西」里的换手墙卡（ui/secondhand.ts），gzip 241,044 → 245,782（+4.7KB），上限 242,100 → 246,800；
+ *     未压缩 749,742 → 764,132，上限 752,800 → 767,200。
  */
-export const FIRST_SCREEN_MAX = 752_800;
+export const FIRST_SCREEN_MAX = 767_200;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 242_100;
+export const FIRST_SCREEN_GZIP_MAX = 246_800;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');

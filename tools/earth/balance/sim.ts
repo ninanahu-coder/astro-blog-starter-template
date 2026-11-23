@@ -13,6 +13,7 @@
 //   --ab=events             同样的种子跑两遍：全开 vs 关掉，输出对比（ab.ts）
 //   --format=json|csv       导出结构化结果（默认 md）；配合 --out 写文件
 //   --only=barista,idle     只跑这些策略
+//   npm run earth:sim -- --swap        二手市场对照：咖啡店策略 × 买家具不走 / 走换手墙看货 / 走换手墙先转账
 import { writeFileSync } from 'node:fs';
 import { averageEco, blankEco, parseSystems, recordEco, SYSTEMS, systemOf, type EcoStats } from './systems.ts';
 import { ecoMarkdown, toCsv, toJson, type PlanResult, type SimResult } from './report.ts';
@@ -33,6 +34,8 @@ import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import { careerSummary, earnedOf, spentOf } from '../../../src/game/core/tally.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
+import { FURNITURE } from '../../../src/game/data/furniture.ts';
+import { buyBlocked, newPrice, swapBoard } from '../../../src/game/core/secondhand.ts';
 import { clubSessionBlocked, formOf, getClub, racesSoon } from '../../../src/game/core/sports.ts';
 import { lbEntry, type LbEntry, type LbStatKey } from '../../../src/game/core/leaderboard.ts';
 import { LB_ANOMALY } from '../../../src/game/data/leaderboard.ts';
@@ -44,6 +47,7 @@ const DAYS = Number(arg('days', '60'));
 const RUNS = Number(arg('runs', '40'));
 const OUT = arg('out', '');
 const BY_ORIGIN = process.argv.includes('--origins');
+const BY_SWAP = process.argv.includes('--swap');
 // 平衡调试工具的参数（见文件头）
 const FORMAT = arg('format', 'md');
 const ONLY = arg('only', '').split(',').filter(Boolean);
@@ -99,6 +103,8 @@ interface Bot {
 		coops: number;
 		coopOk: number;
 		coopKinds: Record<string, number>;
+		/** 二手市场对照：在换手墙成功下单的次数 */
+		swapBuys: number;
 		/** 第 43 批：签证过期（不能工作）的天数、拿到 PR 的游戏日、考雅思次数 */
 		visaExpiredDays: number;
 		prDay?: number;
@@ -171,6 +177,8 @@ interface Plan {
 	 * mateNeeds：搭档的各项需求（100 = 全满）；mateChance：每次想做时有搭档在场的概率
 	 */
 	coop?: { mateNeeds: number; mateChance: number };
+	/** 二手市场对照：买家具先看换手墙。pickup＝上门看货 + 砍价；prepay＝一律先转账送货、不砍价（不看红旗） */
+	swap?: 'pickup' | 'prepay';
 	/** 第 43 批：练哪项运动、加入哪个俱乐部；保命、上班之后报名参赛、上训练课、自己练（见 trySport） */
 	sport?: { sport: 'run'; club: string };
 	/**
@@ -206,6 +214,11 @@ const PLANS: Plan[] = [
 
 // 出身对照（初始属性设计，见 docs/earth-game/initial-stats.md）：同一策略、不带特质，只换出身，看起始现金、车和能力的差别。只出报告，不改数值
 /** 对照组：不工作、不消费、不玩。出身对照里的 idle-<出身> 同样处理 */
+const SWAP_PLANS: Plan[] = [
+	{ ...PLANS[0], id: 'swap-none', name: '咖啡店（家具只买新的）' },
+	{ ...PLANS[0], id: 'swap-pickup', name: '咖啡店 + 换手墙：上门看货、砍价', swap: 'pickup' },
+	{ ...PLANS[0], id: 'swap-prepay', name: '咖啡店 + 换手墙：一律先转账', swap: 'prepay' },
+];
 const isIdle = (plan: Plan) => plan.id === 'idle' || plan.id.startsWith('idle-');
 
 const ORIGIN_PLANS: Plan[] = ORIGINS.flatMap((o) => [
@@ -596,6 +609,15 @@ function step(b: Bot) {
 			const course = coursesAt(s, WA).find((o) => lacking.includes(o.course.skill) && !o.blocked);
 			if (course && tryAct(b, { t: 'course', id: course.course.id })) return;
 		}
+		if (atHome && s.cash > 1500 && plan.swap) {
+			// 二手市场对照：同样只买新品价 ≤ $500、空着的槽位，先看换手墙
+			const how = plan.swap;
+			const l = swapBoard(s, WA)?.listings.find((x) => x.good.kind === 'furniture' && newPrice(x.good) <= 500 && !s.home!.furniture[FURNITURE.find((f) => f.id === x.good.ref)!.slot] && !buyBlocked(s, x, how));
+			if (l && tryAct(b, { t: 'swap', op: 'buy', id: l.id, ref: l.good.ref, how, haggle: how === 'pickup' })) {
+				b.stats.swapBuys++;
+				return;
+			}
+		}
 		if (atHome && s.cash > 1500) {
 			const f = furnitureAt(s).find((o) => !o.blocked && !s.home!.furniture[o.item.slot] && o.item.price <= 500);
 			if (f && tryAct(b, { t: 'furniture', op: 'buy', id: f.item.id })) return;
@@ -697,7 +719,7 @@ function runBot(plan: Plan, seed: number): Bot {
 	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: WA.id, spawn: WA.spawn, seed });
 	const b: Bot = {
 		s, plan, rng: mulberry(seed * 7919),
-		stats: { collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0 },
+		stats: { swapBuys: 0, collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0 },
 		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
@@ -754,7 +776,8 @@ const healthRows: string[] = [];
 const lbRows: string[] = [];
 const visaRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
-for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
+const swapRows: string[] = [];
+for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, i + 1));
 	const at = (d: number) => bots.map((b) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)]);
 	const endD = Math.min(DAYS, 60);
@@ -790,6 +813,12 @@ for (const plan of BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 		const kindText = Object.entries(kinds).sort((x, y) => y[1] - x[1]).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('，') || '—';
 		coopRows.push(`| ${plan.name} | ${n.toFixed(1)} | ${(ok * 100).toFixed(0)}% | ${money(flow.coop ?? 0)} | ${kindText} |`);
 	}
+	if (BY_SWAP) {
+		const furn = pct(bots.map((b) => Object.keys(b.s.home?.furniture ?? {}).length), 0.5);
+		const swapFlow = bots.reduce((n, b) => n + (b.stats.flow.swap ?? 0), 0) / RUNS;
+		swapRows.push(`| ${plan.name} | ${avg(bots.map((b) => b.stats.swapBuys)).toFixed(2)} | ${money(Math.abs(swapFlow))} | ${avg(bots.map((b) => b.s.swap.dodged)).toFixed(2)} | ${avg(bots.map((b) => b.s.swap.lost)).toFixed(2)} | ${money(Math.abs(bots.reduce((n, b) => n + (b.stats.flow['furniture-buy'] ?? 0), 0) / RUNS))} | ${furn} |`);
+	}
+
 	if (plan.sport) {
 		// 第 43 批：比赛次数、各档名次、期末准备度、训练课次数
 		const res = bots.flatMap((b) => b.s.sport.results);
@@ -931,6 +960,16 @@ for (const row of visaRows) out(row);
 out();
 out('诊断口径：零工“完成”不含途中晕倒且拿不到工资的动作；未开工只统计现金已低于各策略触发线、但因生存门槛或当前地点/时段无法开工的决策。晕倒原因按动作开始状态和该动作耗时回算；“其他”包括事件受伤。当前四种零工都不受天气关闭，因此天气项应为 0。');
 out();
+if (BY_SWAP) {
+	out('## 二手市场对照（--swap）');
+	out();
+	out('三组都是咖啡店策略，只差买家具时先不先看换手墙（同样只买新品价 ≤ $500 的空槽位）。「下单」含被骗和识破；花费是每人整段时间的合计。');
+	out();
+	out('| 策略 | 换手墙下单/人 | 换手墙花费/人 | 识破骗局/人 | 被骗/人 | 新家具花费/人 | 期末家具件数（中位） |');
+	out('| --- | --- | --- | --- | --- | --- | --- |');
+	for (const row of swapRows) out(row);
+	out();
+}
 out('说明：日均净收入 = (期末现金 − 开局现金) / 天数；破产天数 = 当天结束时现金低于 $20 的天数。');
 
 if (OFF.size) out(`\n**本次关掉的系统：${[...OFF].join('，')}**（只改机器人行为，见 docs/earth-game/balance-tools.md）`);

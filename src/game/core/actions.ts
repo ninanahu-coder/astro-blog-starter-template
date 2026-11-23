@@ -21,6 +21,8 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { buyInsurance } from './insure.ts';
 import { venueAction } from './venues.ts';
+import { buyListing, sellToBuyer } from './secondhand.ts';
+import { SWAP_GOODS, type SwapKind } from '../data/secondhand.ts';
 import { trailStep } from './trails.ts';
 import { studyProgram } from './education.ts';
 import { buyAsset, sellAsset } from './invest.ts';
@@ -88,7 +90,9 @@ export type GameAction =
 	| { t: 'insure'; id: string } // 买 / 续保险（第 43 批）
 	| { t: 'sport'; op: 'enter' | 'race' | 'join'; id: string }
 	| { t: 'sport'; op: 'club' | 'quit' } // 运动和比赛（第 43 批）
-	| { t: 'mind'; op: MindOp }; // 主动调节心情：给家里打视频、找人聊聊（第 43 批）
+	| { t: 'mind'; op: MindOp } // 主动调节心情：给家里打视频、找人聊聊（第 43 批）
+	| { t: 'swap'; op: 'buy'; id: string; ref: string; how: 'pickup' | 'prepay'; haggle: boolean } // 二手市场：买一条挂单（价格、骗局由服务端算）
+	| { t: 'swap'; op: 'sell'; kind: SwapKind; ref: string; buyer: number; verify: boolean }; // 二手市场：卖给第 buyer 个买家；verify＝等钱到账再交货
 
 /** 租房市场：交入住检查报告、报修、续约、接受或申诉押金扣款、骗租广告（转钱 / 核实） */
 export type RentalOp = 'report' | 'repair' | 'renew' | 'accept' | 'dispute' | 'scam-pay' | 'scam-check';
@@ -167,6 +171,11 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'experience':
 		case 'insure':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
+		case 'swap':
+			// 只收形状合法的字段；客户端发来的价格等多余字段一律丢掉
+			if (a.op === 'buy') return str(a.id) && str(a.ref) && (a.how === 'pickup' || a.how === 'prepay') ? { t: 'swap', op: 'buy', id: a.id, ref: a.ref, how: a.how, haggle: a.haggle === true } : null;
+			if (a.op !== 'sell' || !str(a.ref) || !SWAP_GOODS.some((g) => g.kind === a.kind && g.ref === a.ref)) return null;
+			return Number.isInteger(a.buyer) && (a.buyer as number) >= 0 && (a.buyer as number) < 10 ? { t: 'swap', op: 'sell', kind: a.kind as SwapKind, ref: a.ref, buyer: a.buyer as number, verify: a.verify === true } : null;
 		case 'sport':
 			if (a.op === 'enter' || a.op === 'race' || a.op === 'join') return str(a.id) ? { t: 'sport', op: a.op, id: a.id } : null;
 			return a.op === 'club' || a.op === 'quit' ? { t: 'sport', op: a.op } : null;
@@ -286,6 +295,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 				: quitClub(state);
 			break;
 		case 'mind': r = mindAction(state, region, a.op); break;
+		case 'swap': r = a.op === 'buy' ? buyListing(state, region, a.id, a.ref, a.how, a.haggle) : sellToBuyer(state, region, a.kind, a.ref, a.buyer, a.verify); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
