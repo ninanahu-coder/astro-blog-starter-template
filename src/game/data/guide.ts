@@ -23,5 +23,6 @@ export const GUIDE_STEPS: GuideStep[] = [
 	{ id: 'shift', day: 2, title: '上一个班', hint: '到了上班地点、在开工时段里就能上班，拿到的是这一班的工资', tab: 'place', done: (s) => s.workDay >= 0 },
 	{ id: 'home', day: 3, title: '有个落脚的地方', hint: '租个房间或买辆能睡的露营车，每周结算一次房租和保险', tab: 'place', done: (s) => !!s.home || s.properties.length > 0 || !!VEHICLES.find((v) => v.id === s.vehicle)?.sleep },
 	{ id: 'places', day: 3, title: '去过 3 个地方', hint: '出行页的地图上能看到哪些地方还没去过', tab: 'go', done: (s) => count(s.visited) >= 3 },
+	{ id: 'sync', day: 3, title: '记下同步码', hint: '「我 · 设置」里复制同步码或显示二维码；换手机、在电脑上玩都靠它找回存档', tab: 'me', done: (s) => s.onboard.tips.includes('sync-kept') },
 	{ id: 'nearby', day: 3, title: '人在真实的餐馆、公园时打开「出行 · 附近」', hint: '本人到场就能在游戏里吃饭、训练、打卡上班；没在外面可以先跳过', tab: 'near', done: (s) => Object.keys(s.venueCd).length > 0 || !!s.clockIn },
 ];

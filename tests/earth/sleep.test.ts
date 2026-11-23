@@ -1,4 +1,5 @@
 // 第 43 批：时间、作息和睡眠（设计见 docs/earth-game/time-sleep.md）
+import { energyCap } from '../../src/game/core/vitals.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
@@ -165,13 +166,17 @@ test('经引擎：补觉', () => {
 });
 
 test('经引擎：住旅馆、露营、睡车都走睡眠规则', () => {
-	const s = make({ cash: 5000, clock: at(22), needs: { hunger: 90, energy: 5, hygiene: 50, fun: 50, social: 50 } });
+	const s = make({ cash: 5000, clock: at(22), health: 40, needs: { hunger: 90, energy: 5, hygiene: 50, fun: 50, social: 50 } });
 	const motel = performActivity(s, WA, 'sleep-motel');
 	assert.ok(motel.ok);
 	assert.ok(motel.msg.includes('睡眠质量'));
 	assert.equal(motel.state.rest.wake, motel.state.clock);
 	const dayMotel = performActivity({ ...s, clock: at(10) }, WA, 'sleep-motel');
-	assert.ok(dayMotel.state.needs.energy < motel.state.needs.energy, '白天住旅馆回得少');
+	assert.ok(dayMotel.state.health < motel.state.health, '白天住旅馆回的健康少（合并 main 后：精力有上限（约 81–84），住旅馆、回家睡夜里和白天都能睡到上限，睡眠质量的差别体现在健康恢复、心情和睡眠债上）');
+	assert.ok(dayMotel.state.needs.energy <= energyCap(dayMotel.state));
+	// 露营的床差：恢复的精力乘质量后低于上限，看得出睡眠质量
+	const camp = performActivity(s, WA, 'sleep-camp');
+	assert.ok(camp.state.needs.energy < energyCap(camp.state));
 	// 不是睡觉的活动不碰作息
 	const ate = performActivity({ ...s, needs: { ...s.needs, hunger: 20 } }, WA, 'eat');
 	assert.deepEqual(ate.state.rest, s.rest);

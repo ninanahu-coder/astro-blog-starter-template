@@ -1,6 +1,7 @@
 // 运行：npm test（Node ≥ 22.18 原生执行 TypeScript）
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { energyCap } from '../../src/game/core/vitals.ts';
 import { applyAction } from '../../src/game/core/actions.ts';
 import { choiceLabel, netWorth } from '../../src/game/core/engine.ts';
 import { boardEntry, rankBoard } from '../../src/game/core/board.ts';
@@ -11,7 +12,6 @@ import {
 } from '../../src/game/core/engine.ts';
 import { haversineKm, locateInRegion } from '../../src/game/core/geo.ts';
 import { ACTIVITIES } from '../../src/game/data/activities.ts';
-import { sleepQuality } from '../../src/game/core/sleep.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
 import { FULL_AREAS, WA, WORLD } from '../../src/game/data/wa.ts';
 
@@ -75,11 +75,14 @@ test('互动：条件校验与效果', () => {
 	assert.equal(performActivity(s, WA, 'buy-car').ok, false, '钱不够');
 	const r = performActivity({ ...s, needs: { ...s.needs, hunger: 20 } }, WA, 'eat');
 	assert.ok(r.ok && r.state.needs.hunger > 60 && r.state.cash === s.cash - 18);
-	// 第 43 批：一觉恢复的精力乘睡眠质量（旅馆的床、城里的噪音、几点睡）；精力 5 睡 8 小时先衰减到 0，醒来 = 100 × 质量
-	const night = { ...s, clock: 22 * 60, needs: { ...s.needs, energy: 5 } };
+	// 时间和睡眠：一觉恢复的精力乘睡眠质量（旅馆的床、城里的噪音、几点睡），再受精力上限限制
+	const night = { ...s, clock: 22 * 60, health: 40, needs: { ...s.needs, energy: 5 } };
 	const slept = performActivity(night, WA, 'sleep-motel');
-	assert.equal(slept.state.needs.energy, Math.round(100 * sleepQuality(night, WA, { bed: 'motel' }).q * 10) / 10);
-	assert.ok(slept.state.needs.energy >= 85, '夜里住旅馆睡得不差');
+	assert.ok(slept.state.needs.energy <= energyCap(slept.state), '不超过精力上限');
+	assert.ok(slept.state.needs.energy >= 80, '夜里住旅馆睡得不差');
+	const day = performActivity({ ...night, clock: 10 * 60 }, WA, 'sleep-motel');
+	assert.ok(day.state.needs.energy <= slept.state.needs.energy);
+	assert.ok(day.state.health < slept.state.health, '白天睡比夜里睡回的健康少（合并 main 后：精力有上限（约 81–84），住旅馆、回家睡夜里和白天都能睡到上限，睡眠质量的差别体现在健康恢复、心情和睡眠债上）');
 	assert.ok(activitiesAt(s, WA).some((a) => a.act.id === 'gym'));
 });
 
