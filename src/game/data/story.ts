@@ -11,7 +11,14 @@ export type StoryCheck =
 	| { t: 'job' }
 	| { t: 'home' }
 	| { t: 'cash'; n: number }
-	| { t: 'friend'; score: number }; // 至少一位 NPC 好感达到 score
+	| { t: 'friend'; score: number } // 至少一位 NPC 好感达到 score
+	// 以下供支线解锁和支线目标用（第 28 批）
+	| { t: 'npc'; npc: string; score: number } // 指定 NPC 好感达到 score
+	| { t: 'chapter'; n: number } // 主线已写完前 n 章
+	| { t: 'side'; id: string } // 已完成某条支线
+	| { t: 'checkins'; n: number } // 本人到场打卡过 n 个打卡点
+	| { t: 'dex'; n: number } // 图鉴记下 n 种动物
+	| { t: 'fishKinds'; n: number }; // 钓到过 n 种鱼
 
 export interface StoryStep {
 	id: string;
@@ -20,6 +27,7 @@ export interface StoryStep {
 	act?: WishDone;
 	venue?: VenueOp[]; // 在真实地点做这些事也算一次（同心愿）
 	n?: number; // 动作目标要做几次，默认 1
+	at?: string; // 动作目标限定在这个游戏地点做（动作开始时人在这里）；带 at 的目标不接受真实地点
 }
 
 export interface StoryChapter {

@@ -51,6 +51,7 @@ test('气温（第 36 轮）：北边暖、南边凉；夏天比冬天热；内�
 	assert.ok(temps(kal, jul, 'sunny').max < temps(kalCoast, jul, 'sunny').max, '内陆冬天略凉');
 	assert.ok(temps(loc('perth'), jan, 'hot').max > p.max + 3, '炎热天更热');
 	assert.ok(temps(loc('perth'), jan, 'storm').max < p.max, '风暴天凉');
+	assert.ok(temps(loc('kalgoorlie'), jul, 'cold').max < temps(loc('kalgoorlie'), jul, 'sunny').max - 2, '寒冷天更冷（第 30 批）');
 	// 每天有点起伏：一季里不全是同一个数
 	const days = new Set(Array.from({ length: SEASON_DAYS }, (_, d) => temps(loc('perth'), at(SEASON_DAYS + d), 'sunny').max));
 	assert.ok(days.size >= 3);

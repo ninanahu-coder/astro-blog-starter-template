@@ -5,16 +5,23 @@ import { applyAction, parseAction, publicState } from '../../src/game/core/actio
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import { bankCapacity, bankIncome, buyFurnitureBnpl, homeLoanOffer } from '../../src/game/core/bank.ts';
 import {
-	amortized, bankDebt, cardMinPay, cardOffer, carOffer, cashFee, cleanBank, creditScore, emptyBank, HIST_MAX, homeOffer, lenderScore, personalOffer, scoreBand, settleBank, type SettleHooks,
+	amortized, bankDebt, bankWeekly, capacity, cardMinPay, repayDebt, cardOffer, carOffer, cashFee, cleanBank, creditScore, emptyBank, HIST_MAX, homeOffer, lenderScore, personalOffer, scoreBand, settleBank, type SettleHooks,
 } from '../../src/game/core/credit.ts';
-import { netWorth, resaleValue } from '../../src/game/core/engine.ts';
+import { dealerAt, netWorth, resaleValue } from '../../src/game/core/engine.ts';
 import { downPayment, FINANCE } from '../../src/game/core/finance.ts';
+import { sellBlockedSwap } from '../../src/game/core/secondhand.ts';
+import { SWAP_GOODS } from '../../src/game/data/secondhand.ts';
+import { actionCats } from '../../src/game/core/tally.ts';
+import { loanRateMult, rentOn } from '../../src/game/core/world.ts';
+import { featureOf } from '../../src/game/server/stats.ts';
+import { weeklyCosts } from '../../src/game/core/attributes.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
 import { BANK, BNPL_WARNING } from '../../src/game/data/credit.ts';
 import { FURNITURE } from '../../src/game/data/furniture.ts';
 import { PROPERTIES } from '../../src/game/data/properties.ts';
 import { VEHICLES } from '../../src/game/data/vehicles.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { SHOP_SITES, SHOP_TYPES } from '../../src/game/data/business.ts';
 import { bankCardHtml, bnplButton, bnplConfirmText, carLoanButton, homeLoanNote } from '../../src/game/ui/bank.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
@@ -316,8 +323,11 @@ test('车贷：付首付买车；车是抵押物，还清前不能卖或换；�
 	s = deal.state;
 	const loan = s.bank.loans.find((l) => l.kind === 'car')!;
 	assert.equal(s.vehicle, car.id);
-	assert.equal(loan.bal, car.price - Math.ceil(car.price * 0.1));
-	assert.equal(s.cash, 3000 - Math.ceil(car.price * 0.1));
+	// 合并 main 后：车款含过户印花税（dealerAt 的 net），首付按含税车款的 10%
+	const net = dealerAt(worker({ cash: 3000, clock: at(10) }), WA).find((o) => o.vehicle.id === car.id)!.net;
+	assert.ok(net > car.price, '车款含印花税');
+	assert.equal(loan.bal, net - Math.ceil(net * 0.1));
+	assert.equal(s.cash, 3000 - Math.ceil(net * 0.1));
 	assert.equal(loan.vehicle, car.id);
 	assert.match(applyAction(s, WA, { t: 'vehicle', op: 'sell' }).msg, /车贷/);
 	assert.match(applyAction(s, WA, { t: 'vehicle', op: 'buy', id: 'camper' }).msg, /车贷/);
@@ -370,6 +380,7 @@ test('房贷（经动作）：要开户；批了加贷款保险、记申请；�
 	ok(r);
 	const offer = homeLoanOffer(s, flat.id) as { lmi: number };
 	assert.equal(r.state.properties[0].loan, flat.price - downPayment(flat) + offer.lmi);
+	assert.ok(r.msg.includes(`贷款共 $${r.state.properties[0].loan}，`), '提示按并进贷款保险之后的贷款额说（合并 main 时复核）');
 	assert.equal(r.state.bank.hist.enq.length, 1);
 	const lowJob = make({ cash: 20000, clock: at(10), job: { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } });
 	lowJob.bank.open = true;
@@ -531,3 +542,119 @@ test('存档清洗：旧存档没有 bank 是未开户；有房贷的旧存档�
 	assert.deepEqual(cleanBank({ open: false, card: { limit: 500, bal: 0 } }, 0, false, VEH, FURN), emptyBank(), '没开户的不留信用产品');
 	assert.deepEqual(publicState(c).bank, c.bank, '银行数据不是秘密，客户端要显示');
 });
+
+// ---------- 合并 main 后（世界经济、印花税和里程、二手市场、生涯统计） ----------
+test('合并 main：房贷审批按今天的利率指数测算，和实际扣的利息一致', () => {
+	let day = -1;
+	for (let d = 0; d < 3000 && day < 0; d++) if (Math.abs(loanRateMult(d) - 1) > 0.05) day = d;
+	assert.ok(day >= 0, '找得到利率明显偏离中枢的一天');
+	const s = worker({ clock: at(10, day), job: JOB(2) });
+	const o = homeLoanOffer(s, flat.id);
+	const want = homeOffer(s.bank, day, bankCapacity(s, true), flat.price, downPayment(flat), Math.round(flat.price * FINANCE.weeklyPrincipal), FINANCE.weeklyRate * loanRateMult(day));
+	const flatRate = homeOffer(s.bank, day, bankCapacity(s, true), flat.price, downPayment(flat), Math.round(flat.price * FINANCE.weeklyPrincipal), FINANCE.weeklyRate);
+	assert.deepEqual(o, want);
+	if ('test' in want && 'test' in flatRate) assert.notEqual(want.test, flatRate.test, '利率指数确实改变了测算还款');
+});
+
+test('合并 main：邻里换手墙卖车也要先还清车贷', () => {
+	const s = applyAction(worker({ cash: 3000 }), WA, { t: 'bank', op: 'carloan', id: car.id }).state;
+	const good = SWAP_GOODS.find((g) => g.kind === 'vehicle' && g.ref === car.id)!;
+	assert.match(sellBlockedSwap(s, good) ?? '', /车贷/);
+	const paid = { ...s, bank: { ...s.bank, loans: [] } };
+	assert.doesNotMatch(sellBlockedSwap(paid, good) ?? '', /车贷/);
+});
+
+test('合并 main：收车按里程折旧后的残值拍卖', () => {
+	const s = worker({ cash: 3000 });
+	let t = applyAction(s, WA, { t: 'bank', op: 'carloan', id: car.id }).state;
+	t = { ...t, cash: 0, job: null, car: { km: 60000, since: 0 } };
+	const got = Math.round(resaleValue(car.id, 60000) * BANK.repossessShare);
+	assert.ok(got < Math.round(resaleValue(car.id) * BANK.repossessShare), '开得多的车更不值钱');
+	t = passTo(t, 7 * BANK.repossessMissed + 1);
+	assert.equal(t.vehicle, 'none');
+	assert.ok(t.journal.some((j) => j.text.includes(`拍卖抵了 $${got}`)));
+});
+
+test('合并 main：生涯统计——车贷算车、先买后付算住房、其他银行动作和周结算扣的还款算「其他」', () => {
+	assert.deepEqual(actionCats({ t: 'bank', op: 'carloan', id: car.id }), ['vehicle', 'vehicle']);
+	assert.deepEqual(actionCats({ t: 'bank', op: 'bnpl', id: 'mattress', ack: true }), ['housing', 'housing']);
+	assert.deepEqual(actionCats({ t: 'bank', op: 'loan', amount: 500 }), ['other', 'other']);
+	const s = worker({ cash: 3000 });
+	s.bank.loans.push({ kind: 'personal', bal: 500, pay: 60, rate: 0.003, missed: 0 });
+	const before = s.tally!.out.other ?? 0;
+	const t = passTo(s, 8);
+	assert.ok((t.tally!.out.other ?? 0) - before >= 60, '周结算自动扣的贷款还款记「其他」');
+});
+
+test('合并 main：还款能力里的出租收入按租金指数实收；使用统计按银行动作分开记', () => {
+	let day = -1;
+	for (let d = 0; d < 3000 && day < 0; d++) if (Math.abs(rentOn(flat.rentIncome, d) - flat.rentIncome) >= 5) day = d;
+	assert.ok(day >= 0, '找得到租金指数明显偏离的一天');
+	const s = worker({ clock: at(10, day), properties: [{ id: flat.id, loan: 0, rented: true, missed: 0 } as PlayerState['properties'][number]] });
+	const commit = weeklyCosts(s).total + bankWeekly(s.bank) + Math.round((s.bank.card?.limit ?? 0) * BANK.cardCommit);
+	assert.equal(bankCapacity(s), capacity(bankIncome(s), rentOn(flat.rentIncome, day), commit));
+	assert.notEqual(bankCapacity(s), capacity(bankIncome(s), flat.rentIncome, commit), '和不按指数的结果不同（测试本身有区分力）');
+	for (const op of ['open', 'card', 'draw', 'loan', 'carloan', 'bnpl', 'repay'] as const) assert.equal(featureOf({ t: 'bank', op } as never), `bank.${op}`);
+});
+
+// ---------- 合并 main 时复核修正 ----------
+test('复核：手动少还不能清零拖欠次数；补上几期减几次，补齐才清零', () => {
+	const b = emptyBank();
+	b.open = true;
+	b.loans.push({ kind: 'car', bal: 3000, pay: 60, rate: 0.002, missed: 3, vehicle: car.id });
+	assert.equal(repayDebt(b, 'car', 1, 1000), 1);
+	assert.equal(b.loans[0].missed, 3, '还 $1 不算补上');
+	repayDebt(b, 'car', 60, 1000);
+	assert.equal(b.loans[0].missed, 2, '补上一期少算一次');
+	repayDebt(b, 'car', 120, 1000);
+	assert.equal(b.loans[0].missed, 0, '补齐才清零');
+	b.card = { limit: 1500, bal: 1000, missed: 2 };
+	repayDebt(b, 'card', 1, 1000);
+	assert.equal(b.card.missed, 2);
+	repayDebt(b, 'card', cardMinPay(999) * 2, 5000);
+	assert.equal(b.card.missed, 0);
+	// 每周还 $1 的老办法：照样走到收车
+	const c = emptyBank();
+	c.open = true;
+	c.loans.push({ kind: 'car', bal: 3000, pay: 60, rate: 0.002, missed: 0, vehicle: car.id });
+	let taken = '';
+	for (let w = 1; w <= BANK.repossessMissed; w++) {
+		settleBank(c, 0, hooks(w * 7, { repossess: (v) => { taken = v; return 100; } }));
+		if (c.loans[0]?.vehicle) repayDebt(c, 'car', 1, 1);
+	}
+	assert.equal(taken, car.id, '每周只还 $1 躲不过收车');
+});
+
+test('复核：收车拍卖款超过欠款时，多出的退给玩家', () => {
+	const b = emptyBank();
+	b.open = true;
+	b.loans.push({ kind: 'car', bal: 500, pay: 60, rate: 0, missed: BANK.repossessMissed - 1, vehicle: car.id });
+	const h = hooks(70, { repossess: () => 2000 });
+	const cash = settleBank(b, 0, h);
+	assert.equal(b.loans.length, 0, '还清了');
+	assert.ok(cash > 1400 && cash <= 1500, `多出的退回现金：${cash}`);
+	assert.ok(h.logs.some((x) => x.includes('退给了你')));
+});
+
+test('复核：还款能力算上自己店每周的固定开销和欠税分期；车贷按钮在已有车贷时禁用；房产卡的贷款额含贷款保险', () => {
+	const s = worker();
+	const base = bankCapacity(s);
+	const taxed = worker();
+	taxed.tax = { ...taxed.tax, debt: 400 };
+	assert.ok(bankCapacity(taxed) < base, '欠税分期算开销');
+	const shopped = worker();
+	shopped.biz = { ...shopped.biz!, shop: { type: SHOP_TYPES[0].id, site: SHOP_SITES[0].id, day: 0, last: 0, stock: 0, staff: 1, tend: -1, rep: 50, debt: 0, bond: 0, hist: [] } };
+	assert.ok(bankCapacity(shopped) < base, '店的房租和工资算开销');
+	const held = worker({ cash: 3000 });
+	held.bank.loans.push({ kind: 'car', bal: 500, pay: 60, rate: 0, missed: 0 });
+	assert.match(carLoanButton(held, car.id, 4000, (x) => String(x)), /disabled title="已有一笔车贷/);
+	const rich = worker({ job: JOB(2), cash: 50000 });
+	const note = homeLoanNote(rich, 'kal-cottage');
+	const offer = homeLoanOffer(rich, 'kal-cottage');
+	assert.ok('loan' in offer, '有工作、现金够的人能批小屋');
+	if ('loan' in offer) {
+		assert.equal(note.loan, offer.loan);
+		assert.ok(offer.lmi > 0 && note.loan! > offer.loan - offer.lmi);
+	}
+});
+

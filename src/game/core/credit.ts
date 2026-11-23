@@ -280,8 +280,10 @@ export function settleBank(b: BankState, cash: number, h: SettleHooks): number {
 		if (l.kind === 'car' && l.vehicle && l.missed >= BANK.repossessMissed) {
 			const got = h.repossess(l.vehicle);
 			delete l.vehicle;
+			const back = Math.max(0, got - l.bal); // 拍卖款超过欠款的部分退给你
+			cash += back;
 			l.bal = Math.max(0, l.bal - got);
-			log(`车贷违约通知期满，银行收走了车，拍卖抵了 $${got}${l.bal ? `，还欠 $${l.bal}` : ''}。`);
+			log(`车贷违约通知期满，银行收走了车，拍卖抵了 $${got}${l.bal ? `，还欠 $${l.bal}` : ''}${back ? `，多出的 $${back} 退给了你` : ''}。`);
 			if (!l.bal) {
 				b.loans = b.loans.filter((x) => x !== l);
 				continue;
@@ -342,17 +344,19 @@ export function settleBank(b: BankState, cash: number, h: SettleHooks): number {
 
 /** 还款：把现金还进一种欠款，不超过欠款和现金。返回实还金额；kind 不存在返回 0 */
 export function repayDebt(b: BankState, kind: DebtKind, amount: number, cash: number): number {
-	const target: { bal: number; missed: number; def?: true } | undefined = kind === 'card' ? b.card ?? undefined : b.loans.find((l) => l.kind === kind);
+	const target: { bal: number; missed: number; def?: true; pay?: number } | undefined = kind === 'card' ? b.card ?? undefined : b.loans.find((l) => l.kind === kind);
 	if (!target || target.bal <= 0) return 0;
 	const pay = Math.floor(Math.min(amount, target.bal, cash));
 	if (!(pay > 0)) return 0;
+	// 每一期该还多少（信用卡按还款前的最低还款，贷款按每周固定还款）：补上几整期，欠款次数就减几次
+	const unit = Math.max(1, kind === 'card' ? cardMinPay(target.bal) : Math.min(target.pay ?? target.bal, target.bal));
 	target.bal -= pay;
 	if (target.bal <= 0) {
 		target.bal = 0;
 		target.missed = 0;
 		delete target.def;
 		if (kind !== 'card') b.loans = b.loans.filter((l) => l !== target);
-	} else if (target.missed) target.missed = 0; // 补上了欠款：不再算拖欠（已记的逾期、违约记录不撤销）
+	} else if (target.missed) target.missed = Math.max(0, target.missed - Math.floor(pay / unit)); // 补上了几期就少算几次拖欠，补齐才清零（已记的逾期、违约记录不撤销）
 	return pay;
 }
 

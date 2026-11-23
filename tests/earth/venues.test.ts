@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { withholding } from '../../src/game/core/tax.ts';
 import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
@@ -152,7 +153,8 @@ test('附近地点：按距离排序，标出能做的事和原因', () => {
 
 test('真实上班：打卡、至少 15 分钟、按时长计薪、每天封顶', () => {
 	const cafe = find('t-cafe');
-	const s = make();
+	const s0 = make();
+	const s = { ...s0, tax: { ...s0.tax, tfn: 0 } }; // 有 TFN：按正常税率预扣
 	const inn = venueAction(s, R, { op: 'work', ...at(cafe) }, T0);
 	assert.ok(inn.ok && inn.state.clockIn?.venue === 't-cafe');
 	assert.equal(inn.state.cash, s.cash, '打上班卡不发钱');
@@ -160,6 +162,12 @@ test('真实上班：打卡、至少 15 分钟、按时长计薪、每天封顶'
 	const out = venueAction(inn.state, R, { op: 'work', ...at(cafe) }, T0 + 120 * MIN);
 	assert.ok(out.ok, out.msg);
 	assert.ok(out.state.cash > s.cash + 30 && out.state.cash < s.cash + 80, `两小时零工 ${out.state.cash - s.cash}`);
+	const tb = out.state.tax.book;
+	assert.ok(tb.wages > 0 && tb.withheld === withholding(inn.state, tb.wages), `工资按规则预扣并记账 ${JSON.stringify(tb)}`);
+	assert.equal(out.state.cash, s.cash + tb.wages - tb.withheld, '到手 = 工资 − 预扣');
+	// 没有 TFN：按最高税率预扣（见 core/tax.ts）
+	const noTfn = venueAction({ ...inn.state, tax: { ...inn.state.tax, tfn: -1 } }, R, { op: 'work', ...at(cafe) }, T0 + 120 * MIN);
+	assert.ok(noTfn.state.tax.book.withheld > 0 && noTfn.state.cash === s.cash + noTfn.state.tax.book.wages - noTfn.state.tax.book.withheld, '没 TFN 也照扣');
 	assert.equal(out.state.clockIn, null);
 	assert.equal(out.state.realWork.min, 120);
 	assert.equal(out.state.clock, s.clock + 120, '游戏时间按真实时长流逝');

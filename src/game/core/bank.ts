@@ -5,8 +5,11 @@ import { BANK, type DebtKind } from '../data/credit.ts';
 import { weeklyCosts } from './attributes.ts';
 import { addEnquiry, bankWeekly, bnplBlocked, bnplSplit, capacity, cardOffer, carOffer, cashFee, homeOffer, newBnpl, newLoan, personalOffer, repayDebt } from './credit.ts';
 import { buyFurniture, buyProperty, buyVehicle, careerPay, clone, dealerAt, fail, furnitureAt, getProperty, log, propertiesAt } from './engine.ts';
-import { downPayment, FINANCE } from './finance.ts';
+import { downPayment, FINANCE, loanPayment } from './finance.ts';
 import { dayOf } from './time.ts';
+import { loanRateMult, rentOn } from './world.ts';
+import { shopDailyCost } from './business.ts';
+import { TAX_GAME } from '../data/tax.ts';
 import type { ActionResult, PlayerState, Region } from './types.ts';
 
 const today = (s: PlayerState) => dayOf(s.clock);
@@ -17,7 +20,7 @@ export function bankIncome(s: PlayerState): number {
 }
 
 /** 出租中的房产每周租金合计 */
-const rentIncome = (s: PlayerState) => s.properties.reduce((sum, p) => sum + (p.rented ? (getProperty(p.id)?.rentIncome ?? 0) : 0), 0);
+const rentIncome = (s: PlayerState) => s.properties.reduce((sum, p) => sum + (p.rented ? rentOn(getProperty(p.id)?.rentIncome ?? 0, today(s)) : 0), 0); // 按租金指数实收（合并 main 后）
 
 /**
  * 每周还款能力（审批用）。dropRent：买房自住时现在的房租会停，不算进已有开销。
@@ -25,7 +28,10 @@ const rentIncome = (s: PlayerState) => s.properties.reduce((sum, p) => sum + (p.
  */
 export function bankCapacity(s: PlayerState, dropRent = false): number {
 	const wc = weeklyCosts(s);
-	const commitments = wc.total - (dropRent ? wc.rent : 0) + bankWeekly(s.bank) + Math.round((s.bank.card?.limit ?? 0) * BANK.cardCommit);
+	// 合并 main 后：自己开的店每周的固定开销、欠 ATO 的税每周分期也算已有开销（复核）
+	const shop = s.biz?.shop ? shopDailyCost(s.biz.shop).total * 7 : 0;
+	const taxPlan = s.tax?.debt ? Math.min(s.tax.debt, Math.max(TAX_GAME.planMin, Math.ceil(s.tax.debt * TAX_GAME.planShare))) : 0;
+	const commitments = wc.total - (dropRent ? wc.rent : 0) + bankWeekly(s.bank) + Math.round((s.bank.card?.limit ?? 0) * BANK.cardCommit) + shop + taxPlan;
 	return capacity(bankIncome(s), rentIncome(s), commitments);
 }
 
@@ -111,7 +117,7 @@ export function carLoanBlocks(s: PlayerState): string | undefined {
 export function homeLoanOffer(s: PlayerState, id: string) {
 	const def = getProperty(id);
 	if (!def) return { blocked: '没有这套房。' } as const;
-	return homeOffer(s.bank, today(s), bankCapacity(s, true), def.price, downPayment(def), Math.round(def.price * FINANCE.weeklyPrincipal), FINANCE.weeklyRate);
+	return homeOffer(s.bank, today(s), bankCapacity(s, true), def.price, downPayment(def), Math.round(def.price * FINANCE.weeklyPrincipal), FINANCE.weeklyRate * loanRateMult(today(s))); // 按今天的利率指数测算，和实际扣的利息一致（合并 main 后）
 }
 
 /** 按揭买房：先过审批，再走原来的买房流程；首付不足 20% 的加贷款保险，并进贷款 */
@@ -128,8 +134,10 @@ export function buyPropertyWithLoan(prev: PlayerState, region: Region, id: strin
 	addEnquiry(state.bank, today(prev));
 	const mine = state.properties.find((p) => p.id === id);
 	if (mine && offer.lmi) mine.loan = Math.min(listed.property.price, mine.loan + offer.lmi);
-	const msg = offer.lmi ? `${r.msg} 首付不到 20%，贷款保险 $${offer.lmi} 并进了贷款。` : r.msg;
-	if (offer.lmi) log(state, `首付不到 20%，贷款保险 $${offer.lmi} 并进了贷款。`);
+	// 贷款保险并进贷款后，贷款额和每周还款都按并进之后的说（复核：原来只写并进之前的数）
+	const lmiNote = offer.lmi && mine ? `首付不到 20%，贷款保险 $${offer.lmi} 并进了贷款，贷款共 $${mine.loan}，每周还款约 $${loanPayment(listed.property, mine.loan, loanRateMult(today(state)))}。` : '';
+	const msg = lmiNote ? `${r.msg} ${lmiNote}` : r.msg;
+	if (lmiNote) log(state, lmiNote);
 	return { ...r, state, msg };
 }
 

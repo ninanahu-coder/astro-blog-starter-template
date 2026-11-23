@@ -64,11 +64,11 @@ export function bankCardHtml(s: PlayerState, esc: Esc): string {
 }
 
 /** 房产卡片上「贷款买」的审批说明；能批返回说明文字，批不了返回原因（都是纯文本，调用方 esc） */
-export function homeLoanNote(s: PlayerState, id: string): { ok: boolean; text: string } {
+export function homeLoanNote(s: PlayerState, id: string): { ok: boolean; text: string; loan?: number } {
 	if (!s.bank.open) return { ok: false, text: '按揭要先在「我 · 资产」开银行账户。' };
 	const o = homeLoanOffer(s, id);
 	if ('blocked' in o) return { ok: false, text: `房贷不批：${o.blocked}` };
-	return { ok: true, text: `房贷可批 $${o.loan.toLocaleString()}${o.lmi ? `（含首付不足 20% 的贷款保险 $${o.lmi}）` : ''}；按利率上浮 3 个百分点测算每周 $${o.test}。` };
+	return { ok: true, loan: o.loan, text: `房贷可批 $${o.loan.toLocaleString()}${o.lmi ? `（含首付不足 20% 的贷款保险 $${o.lmi}）` : ''}；按利率上浮 3 个百分点测算每周 $${o.test}。` };
 }
 
 /** 车行每辆车的「车贷」按钮（没开户、批不了就不显示或禁用） */
