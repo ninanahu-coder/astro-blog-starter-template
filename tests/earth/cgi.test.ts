@@ -117,7 +117,9 @@ test('界面配图（页面模板）：各行小图、横幅、空状态插图�
 	has(/style="margin-top:8px">\$\{thumb\('career:' \+ career!\.id\)\}<span class="body">/, '当前工作小图');
 	has(/style="margin-top:8px">\$\{thumb\('career:' \+ c\.id\)\}<span class="body">/, '招聘行小图');
 	has(/\$\{thumb\('home:' \+ homeHere\.id\)\}<span class="body">你的\$\{esc\(homeHere\.name\)\}<small>[^\n]*s\.home!\.bond/, '自己住处小图和押金');
-	has(/\$\{thumb\('home:' \+ home\.id\)\}<span class="body">[^\n]*\$\{bondFor\(home\) \? ` \+ 押金/, '可租住处小图和押金');
+	// 合并租房市场后：房源行由 offerHtml 拼（看房 / 申请按钮），押金写在上一行算好的 info 里
+	has(/\$\{thumb\('home:' \+ home\.id\)\}<span class="body">\$\{esc\(home\.name\)\} · \$\$\{rentOn\(home\.rentWeek, dayOf\(s\.clock\)\)\}\/周<small>\$\{esc\(info\)\}/, '可租住处小图');
+	has(/const info = blocked \?\? `[^\n]*\$\{bondFor\(home\) \? ` \+ 押金/, '可租住处押金');
 	has(/\$\{thumb\('cert:' \+ cert\.id\)\}<span class="body">/, '证书行小图');
 	has(/\$\{thumb\('veh:' \+ vehicle\.id, `<span class="ico">\$\{vehicle\.icon\}<\/span>`\)\}<span class="body">[^\n]*\$\{duty \? ` 过户印花税/, '车行小图（没图退回 emoji）和印花税');
 	has(/\$\{estate \|\| emptyArt\('empty:estate'\) \+ '<p>还没有房产/, '没有房产的插图');

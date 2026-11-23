@@ -6,7 +6,7 @@ import { test } from 'node:test';
 import { applyAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
-	bondFor, buyProperty, buyVehicle, dealerAt, homesAt, leaveHome, moveIntoProperty, moveInCost, netWorth, rentHome, resaleValue, sellVehicle, travel, travelOptions,
+	bondFor, buyProperty, buyVehicle, dealerAt, homesAt, leaveHome, moveIntoProperty, moveInCost, netWorth, rentHome as signLease, resaleValue, sellVehicle, travel, travelOptions,
 } from '../../src/game/core/engine.ts';
 import { vehicleDuty } from '../../src/game/core/finance.ts';
 import { dayOf } from '../../src/game/core/time.ts';
@@ -16,6 +16,13 @@ import { DEPRECIATION, VEHICLES } from '../../src/game/data/vehicles.ts';
 import { WEATHERS } from '../../src/game/data/weather.ts';
 import { WA, WORLD } from '../../src/game/data/wa.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
+
+/** 这里只测押金本身：把签约时种子定的「入住时原有损坏」（租房市场 rental 批次）清零，退房时房东没有可扣的；扣损坏的规则见 rental.test.ts */
+const rentHome = (...a: Parameters<typeof signLease>) => {
+	const r = signLease(...a);
+	if (r.state.rental.lease) r.state.rental.lease.prior = 0;
+	return r;
+};
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
 const make = (over: Partial<PlayerState> = {}): PlayerState => ({

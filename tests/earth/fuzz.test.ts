@@ -6,8 +6,10 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction, type GameAction } from '../../src/game/core/actions.ts';
 import { CAPS, createCharacter, ORIGINS, sanitizeState } from '../../src/game/core/character.ts';
-import { activitiesAt, careersAt, certsAt, fishingAt, photoQuestNow, coursesAt, garageAt, dealerAt, experiencesAt, furnitureAt, getPendingEvent, homeActionBlocked, homesAt, npcsAt, propertiesAt, shiftBlocked, shopAt, travelOptions } from '../../src/game/core/engine.ts';
+import { activitiesAt, careersAt, certsAt, fishingAt, photoQuestNow, coursesAt, garageAt, dealerAt, experiencesAt, furnitureAt, getPendingEvent, homeActionBlocked, homesAt, leaseBlocked, scamHere, npcsAt, propertiesAt, shiftBlocked, shopAt, travelOptions } from '../../src/game/core/engine.ts';
 import { NEED_KEYS, SKILL_KEYS, type PlayerState } from '../../src/game/core/types.ts';
+import { needsLease, viewedOk } from '../../src/game/core/rental.ts';
+import { dayOf } from '../../src/game/core/time.ts';
 import { ACTIVITIES } from '../../src/game/data/activities.ts';
 import { CAREERS } from '../../src/game/data/careers.ts';
 import { COURSES } from '../../src/game/data/courses.ts';
@@ -63,7 +65,12 @@ function randomAction(s: PlayerState, r: () => number, now: number): GameAction 
 	if (roll < 0.55) return { t: 'buy', item: pick(ITEMS).id };
 	if (roll < 0.58) return r() < 0.7 ? { t: 'use', item: pick(ITEMS).id } : { t: 'sell', item: pick(ITEMS).id };
 	if (roll < 0.63) return r() < 0.5 ? { t: 'job', op: 'apply', career: pick(CAREERS).id } : { t: 'job', op: pick(['work', 'work', 'quit'] as const) };
-	if (roll < 0.69) return r() < 0.3 ? { t: 'home', op: 'rent', home: pick(HOMES).id } : { t: 'home', op: pick(['sleep', 'sleep', 'cook', 'relax', 'leave'] as const) };
+	if (roll < 0.69) {
+		const x = r();
+		if (x < 0.15) return { t: 'home', op: 'rent', home: pick(HOMES).id, ...(r() < 0.5 ? { term: pick(['fixed', 'periodic'] as const) } : {}) };
+		if (x < 0.3) return r() < 0.5 ? { t: 'rental', op: 'inspect', home: pick(HOMES).id } : { t: 'rental', op: pick(['report', 'repair', 'renew', 'accept', 'dispute', 'scam-pay', 'scam-check'] as const) };
+		return { t: 'home', op: pick(['sleep', 'sleep', 'cook', 'relax', 'leave'] as const) };
+	}
 	if (roll < 0.72) return r() < 0.7 ? { t: 'furniture', op: 'buy', id: pick(FURNITURE).id } : { t: 'furniture', op: 'sell', slot: pick(Object.keys(FURNITURE_SLOTS)) };
 	if (roll < 0.75) return r() < 0.6 ? { t: 'vehicle', op: 'buy', id: pick(VEHICLES).id } : { t: 'vehicle', op: pick(['sell', 'sleep'] as const) };
 	if (roll < 0.8) {
@@ -104,7 +111,17 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 	for (const x of careersAt(s, WA)) if (!x.blocked) c.push({ t: 'job', op: 'apply', career: x.career.id });
 	if (s.job && !shiftBlocked(s, WA)) c.push({ t: 'job', op: 'work' }, { t: 'job', op: 'work' }, { t: 'job', op: 'work' });
 	if (s.job && s.loc !== s.job.loc) for (const o of travelOptions(s, WA)) if (o.available && o.to === s.job.loc) c.push({ t: 'travel', to: o.to, mode: o.mode });
-	for (const x of homesAt(s, WA)) if (!x.blocked) c.push({ t: 'home', op: 'rent', home: x.home.id });
+	// 租房市场：要签租约的房先看房再申请；租约操作、押金扣款、骗租广告能做就放进候选
+	for (const x of homesAt(s, WA)) {
+		if (x.blocked) continue;
+		// 找房要看房、申请两步（还可能被拒），多放几次，免得住处相关的动作（做饭、家具）很少走到
+		const a: GameAction = needsLease(x.home) && !viewedOk(s.rental, s.loc, x.home.id, dayOf(s.clock)) ? { t: 'rental', op: 'inspect', home: x.home.id } : { t: 'home', op: 'rent', home: x.home.id, term: r() < 0.5 ? 'fixed' : 'periodic' };
+		if (!s.home) c.push(a, a);
+		c.push(a);
+	}
+	for (const op of ['report', 'repair', 'renew'] as const) if (!leaseBlocked(s, op)) c.push({ t: 'rental', op });
+	if (s.rental.claim) c.push({ t: 'rental', op: r() < 0.5 ? 'accept' : 'dispute' });
+	if (scamHere(s, WA)) c.push({ t: 'rental', op: r() < 0.2 ? 'scam-pay' : 'scam-check' });
 	if (s.home && s.home.loc === s.loc) {
 		c.push({ t: 'home', op: 'sleep' });
 		// 在家有炊具、娱乐设备的时间往往很短（随机动作会很快卖掉家具），多放几次让它们常被选中
@@ -115,7 +132,8 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 		else if (!x.blocked) c.push({ t: 'furniture', op: 'buy', id: x.item.id });
 	}
 	const dealer = dealerAt(s, WA);
-	for (const x of dealer) if (!x.blocked) c.push({ t: 'vehicle', op: 'buy', id: x.vehicle.id });
+	// 合并租房市场后：找房的候选多了（看房、申请各放几次），买车被稀释得很少走到，卖车就更走不到；没车时买车多放一次
+	for (const x of dealer) if (!x.blocked) c.push(...(s.vehicle === 'none' ? [{ t: 'vehicle', op: 'buy', id: x.vehicle.id } as GameAction, { t: 'vehicle', op: 'buy', id: x.vehicle.id } as GameAction] : [{ t: 'vehicle', op: 'buy', id: x.vehicle.id } as GameAction]));
 	// 车行开着门（有可买的车不是因为营业时间被拦）才去卖车
 	if (s.vehicle !== 'none' && dealer.length && isOpen(DEALER_HOURS, s.clock)) c.push({ t: 'vehicle', op: 'sell' }, { t: 'vehicle', op: 'sell' });
 	if (VEHICLES.find((v) => v.id === s.vehicle)?.sleep) c.push({ t: 'vehicle', op: 'sleep' });
@@ -126,7 +144,7 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 	for (const o of s.properties) {
 		c.push({ t: 'property', op: 'rentout', id: o.id }, { t: 'property', op: 'movein', id: o.id });
 		if (o.loan > 0 && s.cash > 0) c.push({ t: 'property', op: 'repay', id: o.id, amount: Math.max(1, Math.floor(Math.min(s.cash, o.loan) * r())) });
-		if (r() < 0.2) c.push({ t: 'property', op: 'sell', id: o.id });
+		if (r() < 0.35) c.push({ t: 'property', op: 'sell', id: o.id }); // 合并租房市场后候选变多，0.2 时卖房一次都走不到
 	}
 	for (const x of coursesAt(s, WA)) if (!x.blocked) c.push({ t: 'course', id: x.course.id });
 	for (const x of certsAt(s, WA)) if (!x.blocked) c.push({ t: 'cert', id: x.cert.id });

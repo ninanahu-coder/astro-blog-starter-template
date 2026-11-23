@@ -23,6 +23,8 @@ import type { NpcFavor } from '../data/npc-favors.ts';
 import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../data/careers.ts';
 import { BOND_WEEKS, HOMES } from '../data/housing.ts';
 import { areaOf } from '../data/areas-base.ts';
+import { ODDS, RENTAL, RENTAL_BODIES, SCAM_TIP } from '../data/rental.ts';
+import { applicantsFor, applyOdds, claimOutcome, endLease, leaseMatches, moveOutSplit, needsLease, oddsLabel, rejectReason, rejectedToday, renew, renewBlocked, rentalTick, rentalWeek, rentDue, scamAd, startLease, viewedOk, type OddsInput, type ScamAd } from './rental.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { careerPayMult, fuelMult, hiringFrozen, loanRateMult, rentOn, type FareKind } from './world.ts';
 import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, saleProceeds, vehicleDuty, weeklyInterest, weeklyPrincipal } from './finance.ts';
@@ -1162,48 +1164,65 @@ export function bondFor(home: HomeDef): number {
 	return Math.round(home.rentWeek * (home.bondWeeks ?? BOND_WEEKS));
 }
 
-/** 离开住处：家具半价折现，押金退回（arrears：先从押金里扣的欠租）。返回家具折现，退回的押金写进 refund */
-function vacate(state: PlayerState, arrears = 0, refund?: { bond: number }): number {
+/** 搬走时押金结算的明细（vacate 填写） */
+interface MoveOut { bond: number; fee?: number; held?: number; notes?: string[] }
+
+/**
+ * 离开住处：家具半价折现，押金结算（arrears：先从押金里扣的欠租）。返回家具折现，退回的押金等写进 refund。
+ * 租房市场（rental.ts）：固定期内提前走先扣违约金；房东按损坏申请扣的押金留在托管机构等玩家处理；租约结束，记退租记录。
+ */
+function vacate(state: PlayerState, arrears = 0, refund?: MoveOut, evicted = false): number {
 	const got = furnitureValue(state);
-	const bond = Math.max(0, (state.home?.bond ?? 0) - arrears);
-	state.cash += got + bond;
-	if (refund) refund.bond = bond;
+	const day = dayOf(state.clock);
+	const split = moveOutSplit(state, day, arrears, evicted);
+	const ended = leaseMatches(state) ? endLease(state, day, split.refund + split.held, evicted) : { held: 0, notes: [] as string[] };
+	state.rental.lease = null;
+	state.cash = Math.max(0, state.cash + got + split.refund - split.extra);
+	if (refund) Object.assign(refund, { bond: split.refund, fee: split.fee, held: ended.held, notes: ended.notes });
 	state.home = null;
 	return got;
 }
 
-/** 日志里的押金一句 */
-const bondNote = (n: number) => (n ? `，押金退回 $${n}` : '');
+/** 日志里的押金一句（含违约金、扣款） */
+/** 押金结算的说明，接在一句话后面；附注自带句号，去掉最后一个（调用方会再加「。」；合并 main 后复核：原来会出现「。。」） */
+const bondNote = (n: number | MoveOut) => {
+	const o = typeof n === 'number' ? { bond: n } : n;
+	return `${o.fee ? `，提前解约违约金 $${o.fee}` : ''}${o.bond ? `，押金退回 $${o.bond}` : ''}${o.notes?.length ? `。${o.notes.join('').replace(/。$/, '')}` : ''}`;
+};
 
 /**
  * 每周结算：时间每跨过一个结算日执行一次。
  * 1. 房租（住自有房不交）：付不起则被收房  2. 房产：租金收入、维修、物业费、还款、断供  3. 车辆保险：付不起则记麻烦值
  */
 function weeklyTick(state: PlayerState, region: Region) {
+	// 租约：对不上住处的丢掉（住处没了、换成自有房）；按日期的变化（报告过期、修好、涨租生效、转周期）每次推进都查
+	if (state.rental.lease && !leaseMatches(state)) state.rental.lease = null;
+	for (const line of rentalTick(state, dayOf(state.clock))) log(state, line);
 	while (dayOf(state.clock) >= state.nextWeek) {
 		state.nextWeek += 7;
 		const c0 = state.cash; // 生涯统计：周结算的钱按住房、车辆分开记，不算到触发它的动作头上
 		if (state.home && !state.home.owned && !homeUsable(state)) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
-			const back = { bond: 0 };
+			const back: MoveOut = { bond: 0 };
 			const got = vacate(state, 0, back);
-			log(state, `周结算：没有能睡人的车，退掉了${place}的${def.name}${got ? `，家具折现 $${got}` : ''}${bondNote(back.bond)}。`);
+			log(state, `周结算：没有能睡人的车，退掉了${place}的${def.name}${got ? `，家具折现 $${got}` : ''}${bondNote(back)}。`);
 		}
 		if (state.home && !state.home.owned) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
-			const rent = rentOn(def.rentWeek, state.nextWeek - 7); // 世界事件：租金指数，按正在结算的这个结算日算
+			const rent = rentDue(state, def, state.nextWeek - 7); // 有租约按租约房租；没有按租金指数（世界事件），按正在结算的这个结算日算
 			if (state.cash >= rent) {
 				state.cash -= rent;
 				log(state, `周结算：支付${place}${def.name}房租 $${rent}。`);
+				for (const line of rentalWeek(state, dayOf(state.clock))) log(state, line);
 			} else {
 				// 押金先抵这周房租，剩下的退回
 				const kept = Math.min(state.home.bond ?? 0, rent);
-				const back = { bond: 0 };
-				const got = vacate(state, kept, back);
+				const back: MoveOut = { bond: 0 };
+				const got = vacate(state, kept, back, true);
 				addMoodlet(state, 'evicted');
-				log(state, `付不起${place}${def.name}的房租，房东收回了房子${kept ? `，押金扣了 $${kept} 抵房租` : ''}${got ? `，家具折现 $${got}` : ''}${bondNote(back.bond)}。`);
+				log(state, `付不起${place}${def.name}的房租，房东收回了房子${kept ? `，押金扣了 $${kept} 抵房租` : ''}${got ? `，家具折现 $${got}` : ''}${bondNote(back)}。`);
 			}
 		}
 		settleProperties(state, region);
@@ -1245,9 +1264,10 @@ export function firstRent(state: PlayerState, home: HomeDef): number {
 	return Math.round((rentOn(home.rentWeek, dayOf(state.clock)) * days) / 7);
 }
 
-/** 租下要先付的钱 = 首期租金 + 押金 − 旧住处退回的押金（换房时旧押金在付款前退回） */
+/** 租下要先付的钱 = 首期租金 + 押金 − 旧住处马上能退回的押金（换房时旧押金在付款前退回；扣掉违约金和房东申请扣的部分，违约金超出押金的要另付） */
 export function moveInCost(state: PlayerState, home: HomeDef): number {
-	return firstRent(state, home) + bondFor(home) - (state.home && !state.home.owned ? (state.home.bond ?? 0) : 0);
+	const out = moveOutSplit(state, dayOf(state.clock));
+	return firstRent(state, home) + bondFor(home) - out.refund + out.extra;
 }
 
 export interface HomeOffer {
@@ -1263,12 +1283,16 @@ export function homesAt(state: PlayerState, region: Region): HomeOffer[] {
 		blocked: state.home?.type === home.id && state.home.loc === loc.id && !state.home.owned ? '你正住在这里'
 			: home.vehicleSleep && !canSleepIn(state.vehicle) ? '要有能睡人的车（比如露营车）才能住营地'
 			: state.pet && !homeAllowsPet(home.id, state.pet.kind) ? `这里不许养${getPetKind(state.pet.kind)?.name ?? '宠物'}`
-			: state.cash < moveInCost(state, home) ? `首期租金 $${firstRent(state, home)}${bondFor(home) ? ` + 押金 $${bondFor(home)}` : ''}` : undefined,
+			: state.cash < moveInCost(state, home) ? `首期租金 $${firstRent(state, home)}${bondFor(home) ? ` + 押金 $${bondFor(home)}` : ''}`
+			: rejectedToday(state.rental, loc.id, home.id, dayOf(state.clock)) ? '今天这套房的申请被拒了，明天再试' : undefined,
 	}));
 }
 
-/** 租房：先付到下一个结算日的房租；之前的住处直接退掉（已付租金不退，家具半价折现） */
-export function rentHome(prev: PlayerState, region: Region, homeId: string): ActionResult {
+/**
+ * 签约入住（申请通过后，或直接租房车营地）：先付到下一个结算日的房租和押金；之前的住处退掉（已付租金不退，家具半价折现）。
+ * 不查看房和申请——那是 applyForHome 的事；测试可以直接调用它跳过找房。term：固定期限 / 周期租约，营地没有租约。
+ */
+export function rentHome(prev: PlayerState, region: Region, homeId: string, term: LeaseTerm = 'periodic'): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	const offer = homesAt(prev, region).find((o) => o.home.id === homeId);
 	if (!offer) return fail(prev, '这里租不到。');
@@ -1276,13 +1300,18 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string): Act
 	const state = clone(prev);
 	const due = firstRent(state, offer.home);
 	const bond = bondFor(offer.home);
-	const back = { bond: 0 };
+	const back: MoveOut = { bond: 0 };
 	const sold = vacate(state, 0, back);
 	state.cash -= due + bond;
 	state.home = { type: homeId, loc: state.loc, furniture: {}, ...(bond ? { bond } : {}) };
+	const lease = needsLease(offer.home) ? startLease(state.seed, offer.home, state.loc, dayOf(state.clock), term) : null;
+	state.rental.lease = lease;
+	state.rental.viewed = null;
 	addMoodlet(state, 'new-home');
 	if (advance(state, 60, region)) return collapsedResult(state);
-	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}${bond ? `、押金 $${bond}（搬走时退）` : ''}，眼下每周 $${rentOn(offer.home.rentWeek, dayOf(prev.clock))}（随租金行情变）${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；旧住处押金退回 $${back.bond}` : ''}。`;
+	const body = getAreaBody(prev.loc);
+	const leaseNote = lease ? `；${lease.end ? `固定期限 ${RENTAL.fixedDays} 天` : '周期租约'}，押金交给${body.bond}托管，${RENTAL.reportDays} 天内记得交回入住检查报告` : '';
+	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}${bond ? `、押金 $${bond}（搬走时退）` : ''}，${lease ? `之后每周 $${lease.rent}（按签约时的行情定，租约里涨租另行通知）` : `眼下每周 $${rentOn(offer.home.rentWeek, dayOf(prev.clock))}（随租金行情变）`}${leaseNote}${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；旧住处押金退回 $${back.bond}` : ''}${back.fee ? `；旧租约违约金 $${back.fee}` : ''}${back.notes?.length ? `。${back.notes.join('')}` : '。'}`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1292,9 +1321,150 @@ export function leaveHome(prev: PlayerState): ActionResult {
 	if (!prev.home) return fail(prev, '你没有住处。');
 	const state = clone(prev);
 	const own = !!state.home!.owned;
-	const back = { bond: 0 };
+	const back: MoveOut = { bond: 0 };
 	const got = vacate(state, 0, back);
-	const msg = `${own ? '搬出了自己的房子' : '退掉了租的房子'}${got ? `，家具折现 $${got}` : ''}${bondNote(back.bond)}。`;
+	const msg = `${own ? '搬出了自己的房子' : '退掉了租的房子'}${got ? `，家具折现 $${got}` : ''}${bondNote(back)}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+// ---------- 租房市场（rental 批次，规则见 core/rental.ts、docs/earth-game/rental.md） ----------
+export type LeaseTerm = 'fixed' | 'periodic';
+
+/** 这个地点所在区域的押金托管机构、争议机构 */
+export const getAreaBody = (locId: string) => RENTAL_BODIES[areaOf(locId)?.id ?? 'wa'] ?? RENTAL_BODIES.wa;
+
+/** 估算周收入：有工作按每班工资 × 每周班数 */
+export const weeklyIncome = (state: PlayerState) => (state.job ? careerPay(state, state.job.career, state.job.level) * ODDS.shiftsPerWeek : 0);
+
+/** 申请这套房的成功率输入（看过房才有竞争人数） */
+export function oddsInput(state: PlayerState, home: HomeDef): OddsInput {
+	const day = dayOf(state.clock);
+	const v = viewedOk(state.rental, state.loc, home.id, day) ? state.rental.viewed! : null;
+	return { rent: rentOn(home.rentWeek, dayOf(state.clock)), income: weeklyIncome(state), cash: state.cash, refs: state.rental.refs, marks: state.rental.marks, applicants: v?.n ?? ODDS.crowdFree };
+}
+
+/** 看房：花时间，记下这次来了几组人；7 天内可以申请 */
+export function inspectHome(prev: PlayerState, region: Region, homeId: string): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const offer = homesAt(prev, region).find((o) => o.home.id === homeId);
+	if (!offer) return fail(prev, '这里没有这种房源。');
+	if (!needsLease(offer.home)) return fail(prev, '营地不用看房，直接租。');
+	if (prev.home?.type === homeId && prev.home.loc === prev.loc && !prev.home.owned) return fail(prev, '你正住在这里。');
+	const state = clone(prev);
+	const day = dayOf(state.clock);
+	// 按存档里不会变的行情种子（marketSeed，只在服务端）定：同一天同一套房反复看，来的人数一样，不能靠做别的事推进随机种子重抽（合并 main 后复核）
+	const n = applicantsFor(state.marketSeed, areaOf(state.loc)?.id ?? 'wa', state.loc, homeId, day);
+	state.rental.viewed = { loc: state.loc, home: homeId, day, n };
+	if (advance(state, RENTAL.inspectMin, region)) return collapsedResult(state);
+	const msg = `看了${offer.home.name}：这次来了 ${n} 组人。你的申请${oddsLabel(applyOdds(oddsInput(state, offer.home)))}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+/** 递申请：营地直接租；其他房型要先看房，按成功率掷种子，通过就签约（rentHome），被拒今天不能再申请这套 */
+export function applyForHome(prev: PlayerState, region: Region, homeId: string, term: LeaseTerm = 'fixed'): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const offer = homesAt(prev, region).find((o) => o.home.id === homeId);
+	if (!offer) return fail(prev, '这里租不到。');
+	if (offer.blocked) return fail(prev, offer.blocked);
+	if (!needsLease(offer.home)) return rentHome(prev, region, homeId);
+	const day = dayOf(prev.clock);
+	if (!viewedOk(prev.rental, prev.loc, homeId, day)) return fail(prev, '先看房再申请。不能看房的房子不要付钱。');
+	const state = clone(prev);
+	const input = oddsInput(state, offer.home);
+	if (roll(state) < applyOdds(input)) {
+		const r = rentHome(state, region, homeId, term);
+		return r.ok ? { ...r, msg: `申请通过！${r.msg}` } : r;
+	}
+	const rj = state.rental.rejected;
+	state.rental.rejected = rj && rj.loc === state.loc && rj.day === day ? { ...rj, homes: rj.homes.includes(homeId) ? rj.homes : [...rj.homes, homeId] } : { loc: state.loc, day, homes: [homeId] }; // 同一天被拒的每套都记下，换一套再试也挡不住重抽（合并 main 后复核）
+	if (advance(state, RENTAL.applyMin, region)) return collapsedResult(state);
+	const msg = `${offer.home.name}的申请没通过：${rejectReason(input)}。明天可以再试，或者换一套。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+/** 现在能做的租约操作，不能做时返回原因 */
+export function leaseBlocked(state: PlayerState, op: 'report' | 'repair' | 'renew'): string | undefined {
+	const l = leaseMatches(state) ? state.rental.lease! : null;
+	if (!l) return '你没有租约';
+	if (op === 'report') return l.report === 1 ? '已经交过了' : l.report === -1 ? '过了交回期限' : state.loc !== l.loc ? '要在住处填写' : undefined;
+	if (op === 'repair') return !l.fault ? '没有要修的' : l.fault.asked >= 0 ? '已经报修，等房东来修' : undefined;
+	return renewBlocked(state, dayOf(state.clock));
+}
+
+/** 填写入住检查报告 / 书面报修 / 续约 */
+export function leaseAction(prev: PlayerState, region: Region, op: 'report' | 'repair' | 'renew'): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const why = leaseBlocked(prev, op);
+	if (why) return fail(prev, `${why}。`);
+	const state = clone(prev);
+	const l = state.rental.lease!;
+	const day = dayOf(state.clock);
+	let msg: string;
+	let minutes: number;
+	if (op === 'report') {
+		l.report = 1;
+		minutes = RENTAL.reportMin;
+		msg = '逐个房间拍照、记下原有的划痕和污渍，入住检查报告交回给了房东。退房时原有的损坏不算你的。';
+	} else if (op === 'repair') {
+		l.fault!.asked = day;
+		minutes = RENTAL.repairMin;
+		msg = `书面报修：${l.fault!.name}。房东会在 ${l.fault!.urgent ? RENTAL.urgentFixDays : RENTAL.minorFixDays} 天内修好。`;
+	} else {
+		const rent = renew(l, day);
+		minutes = RENTAL.checkMin;
+		msg = `续约了：新的固定期到第 ${l.end + 1} 天，${rent === l.rent ? `房租不变（每周 $${l.rent}）` : `新合同房租每周 $${l.rent} → $${rent}（距上次涨租满一年）`}。`;
+	}
+	if (advance(state, minutes, region)) return collapsedResult(state);
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+/** 处理退房时房东申请扣的押金：接受，或申诉（有入住检查报告时要回原有损坏那部分） */
+export function settleBondClaim(prev: PlayerState, region: Region, dispute: boolean): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const c = prev.rental.claim;
+	if (!c) return fail(prev, '没有待处理的押金扣款。');
+	const state = clone(prev);
+	const back = claimOutcome(c, dispute);
+	state.cash += back;
+	state.rental.claim = null;
+	if (dispute && advance(state, RENTAL.disputeMin, region)) return collapsedResult(state);
+	const body = getAreaBody(state.loc);
+	const msg = !dispute ? `同意了房东扣押金 $${c.amount}。`
+		: back ? `向${body.dispute}申诉：入住检查报告证明有些损坏入住时就有，退回 $${back}，其余 $${c.amount - back} 归房东。`
+		: `向${body.dispute}申诉：没有入住检查报告作证，维持房东扣 $${c.amount}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
+}
+
+/** 这里今天的骗租广告（处理过的不再显示） */
+export function scamHere(state: PlayerState, region: Region): ScamAd | undefined {
+	const loc = getLocation(region, state.loc);
+	const day = dayOf(state.clock);
+	if (!loc || state.rental.scam === day) return undefined;
+	return scamAd(loc, day, HOMES.filter((h) => matches(h.where, loc)));
+}
+
+/** 骗租广告：先转钱（钱没了）或核实（识破） */
+export function handleScam(prev: PlayerState, region: Region, pay: boolean): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	const ad = scamHere(prev, region);
+	if (!ad) return fail(prev, '那条广告已经不见了。');
+	const state = clone(prev);
+	state.rental.scam = dayOf(state.clock);
+	let msg: string;
+	if (pay) {
+		const lost = Math.min(state.cash, ad.ask);
+		state.cash -= lost;
+		addMoodlet(state, 'scammed');
+		msg = `转了 $${lost} 给「房东」，之后对方再也联系不上——是骗局。${SCAM_TIP}`;
+	} else {
+		if (advance(state, RENTAL.checkMin, region)) return collapsedResult(state);
+		msg = `要求先看房，对方说人在国外、坚持先转钱；上网一查，照片是从别的房源盗来的。识破了骗局。${SCAM_TIP}`;
+	}
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1816,7 +1986,7 @@ export function moveIntoProperty(prev: PlayerState, id: string): ActionResult {
 	if (!def || !ownedProperty(prev, id)) return fail(prev, '你没有这套房。');
 	if (prev.home?.owned === id) return fail(prev, '你已经住在这里。');
 	const state = clone(prev);
-	const back = { bond: 0 };
+	const back: MoveOut = { bond: 0 };
 	const sold = vacate(state, 0, back);
 	const mine = ownedProperty(state, id)!;
 	mine.rented = false;
@@ -1825,7 +1995,7 @@ export function moveIntoProperty(prev: PlayerState, id: string): ActionResult {
 	// 「搬了新家」每套房只给一次：搬出再搬回不花钱也不花时间，不能拿来反复刷
 	if (!mine.lived) addMoodlet(state, 'new-home');
 	mine.lived = true;
-	const msg = `搬进了自己的${def.name}，以后不用交房租了${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；租房押金退回 $${back.bond}` : ''}。`;
+	const msg = `搬进了自己的${def.name}，以后不用交房租了${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；租房押金退回 $${back.bond}` : ''}${back.fee ? `；提前解约违约金 $${back.fee}` : ''}${back.notes?.length ? `。${back.notes.join('')}` : '。'}`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }

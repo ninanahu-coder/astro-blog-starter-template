@@ -1,7 +1,7 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	travelOptions, applyJob, seekCare, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, relaxAtHome, sellFurniture, buyItem, sellItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, rentHome, resolveEvent, sleepHome, travel, useItem, workShift,
+	travelOptions, applyJob, seekCare, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, relaxAtHome, sellFurniture, buyItem, sellItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, applyForHome, inspectHome, leaseAction, settleBondClaim, handleScam, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { buyGroceries, cookRecipe, hostDinner, orderDelivery } from './cooking.ts';
 import { GROCER_BATCH_MAX } from '../data/cooking.ts';
@@ -51,11 +51,13 @@ export type GameAction =
 	| { t: 'npc'; npc: string; act: NpcAction; item?: string }
 	| { t: 'job'; op: 'apply'; career: string }
 	| { t: 'job'; op: 'work' | 'quit' }
-	| { t: 'home'; op: 'rent'; home: string }
+	| { t: 'home'; op: 'rent'; home: string; term?: 'fixed' | 'periodic' } // 递申请（营地直接租）；term 不写为固定期限
 	| { t: 'home'; op: 'sleep' | 'leave' | 'relax' | 'delivery' }
 	| { t: 'home'; op: 'cook'; recipe?: string } // 不带 recipe：随手做一顿（旧客户端）
 	| { t: 'home'; op: 'host'; recipe: string }
 	| { t: 'grocery'; id: string; n: number }
+	| { t: 'rental'; op: 'inspect'; home: string } // 租房市场：看房
+	| { t: 'rental'; op: RentalOp }
 	| { t: 'furniture'; op: 'buy'; id: string }
 	| { t: 'furniture'; op: 'sell'; slot: string }
 	| { t: 'property'; op: 'buy'; id: string; loan: boolean }
@@ -87,6 +89,10 @@ export type GameAction =
 	| { t: 'sport'; op: 'enter' | 'race' | 'join'; id: string }
 	| { t: 'sport'; op: 'club' | 'quit' } // 运动和比赛（第 43 批）
 	| { t: 'mind'; op: MindOp }; // 主动调节心情：给家里打视频、找人聊聊（第 43 批）
+
+/** 租房市场：交入住检查报告、报修、续约、接受或申诉押金扣款、骗租广告（转钱 / 核实） */
+export type RentalOp = 'report' | 'repair' | 'renew' | 'accept' | 'dispute' | 'scam-pay' | 'scam-check';
+const RENTAL_OPS: RentalOp[] = ['report', 'repair', 'renew', 'accept', 'dispute', 'scam-pay', 'scam-check'];
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air', 'transit', 'rail', 'walk'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond'];
@@ -132,12 +138,18 @@ export function parseAction(raw: unknown): GameAction | null {
 			if (a.op === 'apply') return str(a.career) ? { t: 'job', op: 'apply', career: a.career } : null;
 			return a.op === 'work' || a.op === 'quit' ? { t: 'job', op: a.op } : null;
 		case 'home':
-			if (a.op === 'rent') return str(a.home) ? { t: 'home', op: 'rent', home: a.home } : null;
+			if (a.op === 'rent') {
+				if (!str(a.home) || (a.term !== undefined && a.term !== 'fixed' && a.term !== 'periodic')) return null;
+				return a.term ? { t: 'home', op: 'rent', home: a.home, term: a.term } : { t: 'home', op: 'rent', home: a.home };
+			}
 			if (a.op === 'cook') return a.recipe === undefined ? { t: 'home', op: 'cook' } : str(a.recipe) ? { t: 'home', op: 'cook', recipe: a.recipe } : null;
 			if (a.op === 'host') return str(a.recipe) ? { t: 'home', op: 'host', recipe: a.recipe } : null;
 			return a.op === 'sleep' || a.op === 'leave' || a.op === 'relax' || a.op === 'delivery' ? { t: 'home', op: a.op } : null;
 		case 'grocery':
 			return str(a.id) && Number.isInteger(a.n) && (a.n as number) >= 1 && (a.n as number) <= GROCER_BATCH_MAX ? { t: 'grocery', id: a.id, n: a.n as number } : null;
+		case 'rental':
+			if (a.op === 'inspect') return str(a.home) ? { t: 'rental', op: 'inspect', home: a.home } : null;
+			return RENTAL_OPS.includes(a.op as RentalOp) ? { t: 'rental', op: a.op as RentalOp } : null;
 		case 'furniture':
 			if (a.op === 'buy') return str(a.id) ? { t: 'furniture', op: 'buy', id: a.id } : null;
 			return a.op === 'sell' && str(a.slot) ? { t: 'furniture', op: 'sell', slot: a.slot } : null;
@@ -219,7 +231,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'npc': r = interactNpc(state, region, a.npc, a.act, a.item); break;
 		case 'job': r = a.op === 'apply' ? applyJob(state, region, a.career) : a.op === 'work' ? workShift(state, region) : quitJob(state); break;
 		case 'home':
-			r = a.op === 'rent' ? rentHome(state, region, a.home)
+			r = a.op === 'rent' ? applyForHome(state, region, a.home, a.term)
 				: a.op === 'sleep' ? sleepHome(state, region)
 				: a.op === 'cook' ? cookRecipe(state, region, a.recipe)
 				: a.op === 'host' ? hostDinner(state, region, a.recipe)
@@ -228,6 +240,12 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 				: leaveHome(state);
 			break;
 		case 'grocery': r = buyGroceries(state, region, a.id, a.n); break;
+		case 'rental':
+			r = a.op === 'inspect' ? inspectHome(state, region, a.home)
+				: a.op === 'accept' || a.op === 'dispute' ? settleBondClaim(state, region, a.op === 'dispute')
+				: a.op === 'scam-pay' || a.op === 'scam-check' ? handleScam(state, region, a.op === 'scam-pay')
+				: leaseAction(state, region, a.op);
+			break;
 		case 'furniture': r = a.op === 'buy' ? buyFurniture(state, region, a.id) : sellFurniture(state, a.slot); break;
 		case 'vehicle': r = a.op === 'buy' ? buyVehicle(state, region, a.id) : a.op === 'sell' ? sellVehicle(state, region) : a.op === 'service' ? serviceVehicle(state, region) : sleepInVehicle(state, region); break;
 		case 'property':

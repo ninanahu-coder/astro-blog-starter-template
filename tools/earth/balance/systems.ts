@@ -36,6 +36,7 @@ export function systemOf(a: GameAction): SystemId | undefined {
 		case 'npc': return 'social';
 		case 'buy': return 'shop';
 		case 'home': return a.op === 'rent' ? 'rent' : undefined;
+		case 'rental': return 'rent'; // 租房市场：看房、租约操作也算租房（合并 main 后复核）
 		case 'visa': return 'visa';
 		case 'activity':
 			if ((GIGS as readonly string[]).includes(a.id)) return 'gigs';

@@ -73,6 +73,7 @@ export function actionCats(a: GameAction): [TallyCat, TallyCat] {
 		case 'home': return a.op === 'cook' || a.op === 'host' || a.op === 'delivery' ? ['shop', 'shop'] : ['housing', 'housing']; // 在家做饭、请客、叫外卖算吃喝
 		case 'grocery': return ['shop', 'shop']; // 买食材
 		case 'furniture':
+		case 'rental': // 租房市场：骗租被骗的钱、押金扣款（合并 main 后）
 		case 'property': return ['housing', 'housing'];
 		case 'vehicle': return ['vehicle', 'vehicle'];
 		case 'course':

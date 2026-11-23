@@ -76,7 +76,7 @@
 | 路费 | `1 + 燃油份额 × (油价/190 − 1)`；份额：自驾、土路 0.5，长途巴士、机票 0.3，渡轮 0.2（只用于没有真实票价的渡轮线路，现在没有这种线路） | 1 | 自驾 ±9%，巴士/机票 ±5% | `engine.ts` `priceRoute()` 最后一行，和 `costMult` 相乘。按真实票价的线路（`withRouteFare`、`transitOptions`）不乘 |
 | 矿业公司工资 | `1 + 0.5 × (景气/100 − 1)`，只对 `MINING_CAREERS = ['miner']` | 1 | ±10% | `engine.ts` `careerPay()`（界面、上班结算都走它） |
 | 矿业招工 | 景气 < 88 时，`careersAt()` 里矿业公司显示「矿业降温，矿上暂停招新人」；**已在职的照常上班** | 招 | 一个周期里约 20% 的时间冻结 | `engine.ts` `careersAt()` |
-| 房租 | `round(标价 × 租金指数/100)` | 标价 | ±6% | 周结算（按**正在结算的那个结算日**的指数）、`firstRent()`（按今天）、`weeklyCosts()` 和住处卡（按下一个结算日 `settleDay()`，和结算扣的一致）、租房提示。**押金不跟**，见 §11 |
+| 房租 | `round(标价 × 租金指数/100)` | 标价 | ±6% | 周结算（按**正在结算的那个结算日**的指数）、`firstRent()`（按今天）、`weeklyCosts()` 和住处卡（按下一个结算日 `settleDay()`，和结算扣的一致）、租房提示。**押金不跟**，见 §11；租房市场合并后：签了租约的按签约那天的指数价定死，之后只按租约涨（见 rental.md §13） |
 | 出租收入 | 同上 | 标价 | ±6% | `settleProperties()`、挂牌提示 |
 | 房贷利息 | `weeklyInterest(贷款, (现金利率 + 2) / (4 + 2))` | ×1 | ×0.79 – ×1.21 | `settleProperties()`、`weeklyCosts()`、买房提示；`finance.ts` 的 `weeklyInterest / loanPayment / propertyDue` 加了可选参数 `rateMult`，不传为 1，旧调用不变 |
 | 房价 | 只出新闻和展示，**不影响买卖价** | — | — | 见 §6 |

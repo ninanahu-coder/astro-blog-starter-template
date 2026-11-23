@@ -55,6 +55,7 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'lonely', name: '有点孤单', icon: '🌧️', value: -5, hours: 24 },
 	{ id: 'homesick', name: '想家', icon: '🌙', value: -5, hours: 24 },
 	{ id: 'stressed', name: '压力有点大', icon: '😣', value: -5, hours: 24 },
+	{ id: 'scammed', name: '被骗租了', icon: '🪤', value: -10, hours: 48 }, // 租房市场（待平衡）
 ];
 
 /** 存档里最多保留的状态数 */

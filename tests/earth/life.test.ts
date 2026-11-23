@@ -103,8 +103,13 @@ test('动作协议支持职业与住房', () => {
 	assert.deepEqual(parseAction({ t: 'home', op: 'sleep', home: 'x' }), { t: 'home', op: 'sleep' });
 	assert.equal(parseAction({ t: 'job', op: 'promote' }), null);
 	assert.equal(parseAction({ t: 'home', op: 'rent' }), null);
-	const r = applyAction(make({ clock: at(9), cash: 500 }), WA, { t: 'home', op: 'rent', home: 'room' });
-	assert.ok(r.ok && r.state.rev === 1);
+	// 租房市场（rental 批次）：要先看房再申请；申请通过或被拒都算成功的动作
+	const s = make({ clock: at(9), cash: 500 });
+	assert.equal(applyAction(s, WA, { t: 'home', op: 'rent', home: 'room' }).ok, false, '没看房不能申请');
+	const seen = applyAction(s, WA, { t: 'rental', op: 'inspect', home: 'room' });
+	assert.ok(seen.ok && seen.state.rev === 1, seen.msg);
+	const r = applyAction(seen.state, WA, { t: 'home', op: 'rent', home: 'room' });
+	assert.ok(r.ok && r.state.rev === 2, r.msg);
 });
 
 test('上过班后辞职再应聘：当天不能再上一班，第二天可以', () => {

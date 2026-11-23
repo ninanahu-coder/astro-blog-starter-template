@@ -281,7 +281,8 @@ test('结算前的开销估算按下一个结算日的行情：换期那周提�
 test('页面：自己住处的周租、已有房产的租金收入和还款按下一个结算日显示（合并 main 后复核）', async () => {
 	const { readFileSync } = await import('node:fs');
 	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
-	assert.match(src, /每周 \$\$\{rentOn\(homeHere\.rentWeek, settleDay\(s\)\)\}/, '住处卡');
+	// 合并租房市场后：有租约按租约房租，没有按租金指数，都在 rentDue 里（结算日口径不变）
+	assert.match(src, /每周 \$\$\{rentDue\(s, homeHere, settleDay\(s\)\)\}/, '住处卡');
 	assert.match(src, /出租中 \+\$\$\{rentOn\(pr\.rentIncome, settleDay\(s\)\)\}/, '已有房产的租金');
 	assert.match(src, /每周还 \$\$\{loanPayment\(pr, op\.loan, loanRateMult\(settleDay\(s\)\)\)\}/, '已有房产的还款');
 });

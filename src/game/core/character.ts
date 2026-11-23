@@ -47,6 +47,7 @@ import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
 import { cleanEvMem, emptyMemory } from './event-rules.ts';
 import { validTraits } from './attributes.ts';
+import { cleanRental, emptyRental } from './rental.ts';
 import { WEATHERS } from '../data/weather.ts';
 import { BIRDS, CRAFTS, HOBBY, HOBBY_IDS, PLANTS } from '../data/hobbies.ts';
 import { CLUBS, RACES, SPORT_IDS, SPORT_RULES } from '../data/sports.ts';
@@ -169,6 +170,7 @@ export function createCharacter(opts: {
 		relations: {},
 		job: null,
 		home: null,
+		rental: emptyRental(),
 		properties: [],
 		holdings: {},
 		marketSeed: deriveMarketSeed(opts.seed >>> 0),
@@ -320,6 +322,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		illness: cleanIllness(r.illness, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		visa: cleanVisa(r.visa, ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), new Set(CAREERS.map((c) => c.id))),
 		...cleanEstate(r, knownLocs),
+		rental: cleanRental(r.rental, cleanEstate(r, knownLocs).home, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), knownLocs),
 		cover: cleanCover(r.cover, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440)),
 		holdings: (() => {
 			const out: Record<string, { units: number; cost: number }> = {};
