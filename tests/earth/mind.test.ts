@@ -181,3 +181,47 @@ test('存档：新角色有初始值；旧存档缺字段从今天起算；坏�
 	}
 	assert.deepEqual(cleanMind({ day: 12.7, low: 3.9 }, at(9, 30)), { day: 12, low: 3 });
 });
+
+// ---------- 合并 main 后：main 新加的好心情也能化解心事 ----------
+test('main 新加的好心情按 mood.md 的建议化解心事：知己、说心里话、家乡的味道、请客、宠物、运动、爱好（合并 main 后）', () => {
+	const want: Record<string, string[]> = {
+		confidant: ['lonely', 'homesick'], 'heart-to-heart': ['lonely', 'homesick'], 'taste-of-home': ['homesick'], hosted: ['lonely'],
+		'pet-cuddle': ['lonely', 'stressed'], 'dog-walk': ['stressed'], 'new-pet': ['lonely'], 'race-podium': ['stressed'], 'race-finish': ['stressed'], 'hobby-flow': ['stressed'],
+	};
+	for (const [id, rel] of Object.entries(want)) assert.deepEqual(MOODLETS.find((m) => m.id === id)?.relieves, rel, id);
+	// 拿到「家乡的味道」时顺带清掉想家
+	const s = calm();
+	addMoodlet(s, 'homesick');
+	assert.ok(ids(s).includes('homesick'));
+	addMoodlet(s, 'taste-of-home');
+	assert.ok(!ids(s).includes('homesick'), '家乡的味道化解想家');
+	for (const m of MOODLETS) for (const r of m.relieves ?? []) assert.ok(MIND_SIGNALS.some((d) => d.moodlet === r), `${m.id} 缓解的 ${r} 不是心事`);
+});
+
+test('页面：派生属性里身体的「紧绷」和心事的「压力」分开叫（合并 main 后）', async () => {
+	const { readFileSync } = await import('node:fs');
+	const page = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(page, /<p>身心紧绷 \$\{Math\.round\(stress\(s\) \* 100\)\}%/);
+	assert.doesNotMatch(page, /<p>压力 \$\{Math\.round\(stress/);
+	assert.match(page, /\[data-hobby\],\[data-mind\],/, '点击名单有 data-mind');
+});
+
+test('存档在没有心事的部署上走过一段再回来：低落天数只算这次跨过的日子（合并 main 后复核）', () => {
+	// mind.day 停在第 2 天，回来时已经第 12 天；这次动作从第 12 天走到第 13 天
+	const s = calm({ clock: at(1, 13), mind: { day: 2, low: 1 }, needs: { hunger: 0, energy: 0, hygiene: 0, fun: 0, social: 0 } });
+	settleMind(s, 12);
+	assert.equal(s.mind.day, 13);
+	assert.equal(s.mind.low, 2, '只加这次跨过的 1 天，不是 11 天');
+	// 不传 fromDay 时照旧按存档记号算（单元测试和旧调用）
+	const t = calm({ clock: at(1, 13), mind: { day: 2, low: 1 }, needs: { hunger: 0, energy: 0, hygiene: 0, fun: 0, social: 0 } });
+	settleMind(t);
+	assert.equal(t.mind.low, 12);
+});
+
+test('经 applyAction：存档的心事记号落后很多天时，低落天数只加这次跨过的一天（合并 main 后复核）', () => {
+	const s = calm({ clock: at(23, 12) + 50, mind: { day: 2, low: 1 }, needs: { hunger: 0, energy: 0, hygiene: 0, fun: 0, social: 0 } });
+	const r = applyAction(s, WA, { t: 'mind', op: 'call' });
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.mind.day, 13, '跨过了午夜');
+	assert.equal(r.state.mind.low, 2);
+});

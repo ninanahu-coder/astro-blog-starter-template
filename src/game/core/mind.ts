@@ -79,10 +79,12 @@ export function mindSignals(state: PlayerState): MindSignal[] {
  * 每日结算（原地修改）：动作结束时调用，同一个游戏日只结算一次。
  * 一个动作跨好几天（住院、长途）时只结算一次，低落天数按跨过的天数累计。返回这次触发的心事。
  */
-export function settleMind(state: PlayerState): MindKey[] {
+export function settleMind(state: PlayerState, fromDay?: number): MindKey[] {
 	const today = dayOf(state.clock);
 	if (today <= state.mind.day) return [];
-	const days = today - state.mind.day;
+	// 低落天数只算这次动作真正跨过的日子（fromDay = 动作开始那天）：存档在没有心事的部署上走过一段再回来，
+	// 那段日子没人判过，不能一下子记成「连续 N 天低落」（合并 main 后复核，和 settleDecay 同一个口径）
+	const days = today - Math.max(state.mind.day, fromDay ?? state.mind.day);
 	const m = mood(state);
 	const low = m < MIND.low ? Math.min(MIND.lowCap, state.mind.low + days) : 0;
 	state.mind = { day: today, low };
