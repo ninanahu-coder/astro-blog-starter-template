@@ -28,6 +28,7 @@ import { studyProgram } from './education.ts';
 import { buyAsset, sellAsset } from './invest.ts';
 import { marketView } from './market.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { closeShop, doGig, getLicense, hireStaff, openShop, restockShop, settleBiz, tendShop } from './business.ts';
 import { mindAction, settleMind } from './mind.ts';
 import { MIND_ACTS, type MindOp } from '../data/mind.ts';
 import { clubSession, enterRace, joinClub, noteTraining, quitClub, runRace } from './sports.ts';
@@ -92,7 +93,11 @@ export type GameAction =
 	| { t: 'sport'; op: 'club' | 'quit' } // 运动和比赛（第 43 批）
 	| { t: 'mind'; op: MindOp } // 主动调节心情：给家里打视频、找人聊聊（第 43 批）
 	| { t: 'swap'; op: 'buy'; id: string; ref: string; how: 'pickup' | 'prepay'; haggle: boolean } // 二手市场：买一条挂单（价格、骗局由服务端算）
-	| { t: 'swap'; op: 'sell'; kind: SwapKind; ref: string; buyer: number; verify: boolean }; // 二手市场：卖给第 buyer 个买家；verify＝等钱到账再交货
+	| { t: 'swap'; op: 'sell'; kind: SwapKind; ref: string; buyer: number; verify: boolean } // 二手市场：卖给第 buyer 个买家；verify＝等钱到账再交货
+	| { t: 'biz'; op: 'gig' | 'license'; id: string }
+	| { t: 'biz'; op: 'open'; shop: string; site: string }
+	| { t: 'biz'; op: 'restock'; qty: number }
+	| { t: 'biz'; op: 'hire' | 'fire' | 'tend' | 'close' }; // 副业与小生意（第 43 批）
 
 /** 租房市场：交入住检查报告、报修、续约、接受或申诉押金扣款、骗租广告（转钱 / 核实） */
 export type RentalOp = 'report' | 'repair' | 'renew' | 'accept' | 'dispute' | 'scam-pay' | 'scam-check';
@@ -202,6 +207,11 @@ export function parseAction(raw: unknown): GameAction | null {
 			if (a.op === 'buy') return { t: 'property', op: 'buy', id: a.id, loan: a.loan === true };
 			if (a.op === 'repay') return finite(a.amount) && a.amount > 0 && a.amount <= 1e9 ? { t: 'property', op: 'repay', id: a.id, amount: Math.floor(a.amount) } : null;
 			return a.op === 'sell' || a.op === 'movein' || a.op === 'rentout' ? { t: 'property', op: a.op, id: a.id } : null;
+		case 'biz':
+			if (a.op === 'gig' || a.op === 'license') return str(a.id) ? { t: 'biz', op: a.op, id: a.id } : null;
+			if (a.op === 'open') return str(a.shop) && str(a.site) ? { t: 'biz', op: 'open', shop: a.shop, site: a.site } : null;
+			if (a.op === 'restock') return Number.isInteger(a.qty) && (a.qty as number) >= 1 && (a.qty as number) <= 1000 ? { t: 'biz', op: 'restock', qty: a.qty as number } : null;
+			return a.op === 'hire' || a.op === 'fire' || a.op === 'tend' || a.op === 'close' ? { t: 'biz', op: a.op } : null;
 		case 'mind':
 			return typeof a.op === 'string' && Object.hasOwn(MIND_ACTS, a.op) ? { t: 'mind', op: a.op as MindOp } : null;
 		case 'onboard': {
@@ -296,6 +306,15 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 			break;
 		case 'mind': r = mindAction(state, region, a.op); break;
 		case 'swap': r = a.op === 'buy' ? buyListing(state, region, a.id, a.ref, a.how, a.haggle) : sellToBuyer(state, region, a.kind, a.ref, a.buyer, a.verify); break;
+		case 'biz':
+			r = a.op === 'gig' ? doGig(state, region, a.id)
+				: a.op === 'license' ? getLicense(state, region, a.id)
+				: a.op === 'open' ? openShop(state, region, a.shop, a.site)
+				: a.op === 'restock' ? restockShop(state, region, a.qty)
+				: a.op === 'tend' ? tendShop(state, region)
+				: a.op === 'close' ? closeShop(state, region)
+				: hireStaff(state, region, a.op);
+			break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
@@ -321,6 +340,13 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 			noteTraining(r.state, a); // 日常运动记一次训练（跑步、游泳、健身……，见 core/sports.ts）
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
+		// 自己的店结算到昨天（没有店时什么也不做、不消耗随机数）；结算出的钱单独记成「工作与零工」，不算到这次动作头上（合并 main 后）
+		const bizCash = r.state.cash;
+		msg += settleBiz(r.state, region);
+		if (r.state.tally && r.state.cash !== bizCash) {
+			r.state.tally = copyTally(r.state.tally);
+			tallyCash(r.state, 'work', r.state.cash - bizCash);
+		}
 		settleMind(r.state, dayOf(state.clock)); // 跨过午夜：结算孤独、思乡、压力和低落天数（同一天什么也不做）
 		const visaNote = settleVisa(state, r.state); // 签证：记经验、毕业、到期提醒和过期（第 43 批）
 		if (visaNote) msg += ` ${visaNote}`;

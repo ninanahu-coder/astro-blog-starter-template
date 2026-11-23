@@ -158,6 +158,7 @@ export const visaCapped = (state) => state.visa.kind === 'student' && inSession(
 
 - 每个动作结算后（`applyAction` 收尾，`settleVisa`）：上了一天清单职业的班就记经验；课程到期当天毕业；到期前 7 天提醒一次；过了到期日改为 `expired`。
 - 过期判定不等结算：`visaKindNow` 按当前游戏日算，所以过期后的第一个动作就会被拦。
+- 副业与小生意合并后：副业和自己看店也算工作——签证过期不能做，学生签证在读期间算进 48 小时（`core/business.ts` `workRules`）。
 - 过期后不能：应聘、上班（`job` 的 apply / work）、雇佣性质的零工（`work-cafe`、`work-mine`、`work-farm`）、真实地点打卡上班（`venue` 的 work）。街头表演、捡瓶子之类照常。
 - 过期后的出路：重新申请学生签证（续读硕士，$2,400）。现实中逾期滞留会被遣返并可能被禁止入境，界面和日志都写明了。
 - 共同事件、玩家交易不走 `applyAction`，不在那里结算签证；下一个普通动作会补上（经验只看 `workDay`，不会漏记）。

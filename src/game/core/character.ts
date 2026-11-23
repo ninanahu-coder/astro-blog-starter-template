@@ -2,6 +2,7 @@
 // 体能/力量/驾驶/游泳/魅力/生存/街头，全部通过实际行为成长。
 import { cleanCooking, newCooking } from './cooking-save.ts';
 import { migrateSave } from './save.ts';
+import { cleanBiz, emptyBiz } from './business-save.ts';
 import { cleanTally, newTally } from './tally.ts';
 import { cleanVisa, newVisa } from './visa-save.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
@@ -213,6 +214,7 @@ export function createCharacter(opts: {
 		illness: null,
 		visa: newVisa(origin.id, Math.floor(START_CLOCK / 1440)),
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
+		biz: emptyBiz(),
 		sport: emptySport(),
 		cooking: newCooking(),
 		onboard: freshOnboard(),
@@ -478,6 +480,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		tally: cleanTally(r.tally, tallyCtx(r, visited)),
 		trails: cleanTrails(r.trails, opts.now),
 		journal,
+		biz: cleanBiz(r.biz, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		sport: cleanSport(r.sport, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		onboard: cleanOnboard(r.onboard, opts.now === undefined ? undefined : realDayOf(opts.now)),
 		seed: num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0,

@@ -814,12 +814,36 @@ export interface PlayerState {
 	illness: { id: string; since: number; until: number; care: string[]; rx: boolean } | null; // 正在生的病或伤（data/health.ts 的 id）：游戏时钟的起止分钟、这次已做过的就医（gp/pharmacy/ed/rx）、GP 是否开了处方；见 docs/earth-game/health.md
 	visa: VisaState; // 签证路线（第 43 批，docs/earth-game/visa.md）；非留学生出身 kind 为 'none'
 	journal: JournalEntry[];
+	biz: Business; // 副业与小生意：证照、副业冷却、营业额账本、店铺（见 core/business.ts）
 	sport: SportState; // 运动和比赛（docs/earth-game/sports.md）
 	cooking: Cooking; // 做饭：烹饪技能、做过的菜、食材柜、请客冷却（做饭分支）
 	/** 新手引导（v36）：已解开的功能、已关掉的提示和里程碑、最近一次回流（现实日、离开天数、看过没有）、是否关掉全部引导。见 core/onboard.ts */
 	onboard: { feats: string[]; tips: string[]; back: { day: number; gap: number; seen: boolean } | null; off: boolean };
 	seed: number;
 	rev: number; // 存档版本号，云同步用
+}
+
+/** 自己开的店（第 1 版每人最多一家）。日期都是游戏日 */
+export interface ShopState {
+	type: string; // data/business.ts 的 SHOP_TYPES
+	site: string; // SHOP_SITES
+	day: number; // 开业那天
+	last: number; // 已经结算到哪一天（含）
+	stock: number; // 库存（单）
+	staff: number; // 店员人数 0–SHOP_RULES.maxStaff
+	tend: number; // 你自己看店的那天，−1 为没有
+	rep: number; // 口碑 0–100
+	debt: number; // 欠款（付不起的租金、工资），≥0
+	bond: number; // 押金
+	hist: { d: number; sold: number; net: number }[]; // 最近几天的账
+}
+
+export interface Business {
+	lic: Record<string, number>; // 证照 id -> 办下来的游戏日
+	gigs: Record<string, number>; // 副业 id -> 最近一次做的游戏日（每种每天一次）
+	gst: boolean; // 已登记 GST
+	book: { y: number; gross: number; net: number }; // 本游戏年的生意账：第几年、营业额、净收入（给税务系统用）
+	shop: ShopState | null;
 }
 
 /** 一场比赛的成绩 */

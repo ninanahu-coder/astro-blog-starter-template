@@ -861,6 +861,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { defaultAmount, investCard } from '../game/ui/invest.ts';
 			import { holdingsValue } from '../game/core/market.ts';
 			import { setHtml } from '../game/ui/dom.ts';
+			import { bizCard } from '../game/ui/business.ts';
+			import { gigsAt } from '../game/core/business.ts';
 			import { lbAskHtml, lbAskPref, lbCardHtml, parseLbPref, type LbData, type LbDimId } from '../game/ui/board.ts';
 			import { worldCard } from '../game/ui/world.ts';
 			import { loanRateMult, rentOn } from '../game/core/world.ts';
@@ -2630,7 +2632,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const groups: [string, LucideName, string, string, string][] = [
 					['do', 'sparkles', '做事', doHtml, `现在能做 ${openActs.length + (vanHtml ? 1 : 0)} 项${laterActs.length ? ` · 稍后 ${laterActs.length} 项` : ''}`],
 					['shop', 'shopping-bag', '买东西', groceryHtml(s, region, esc) + shopHtml + (on('garage') ? swapCard(s, region) : ''), [groceriesAt(s, region).length ? '食材' : '', on('garage') && swapBoard(s, region) ? '换手墙' : '', shop.length ? `${shop.length} 件${shop.some((x) => x.markdown) ? ' · 有打折' : ''}` : ''].filter(Boolean).join(' · ')],
-					['work', 'briefcase-business', '工作', workHtml, workHere ? `${esc(career!.name)} · ${shiftWhy ? '现在不能上班' : '可以上班'}` : `${offers.length} 个职位在招`],
+					['work', 'briefcase-business', '工作', workHtml + bizCard(s, region, esc), [workHere ? `${esc(career!.name)} · ${shiftWhy ? '现在不能上班' : '可以上班'}` : offers.length ? `${offers.length} 个职位在招` : '', gigsAt(s, region).length ? `${gigsAt(s, region).length} 份副业` : '', s.biz.shop ? `你的店${s.biz.shop.debt ? ` · 欠款 $${s.biz.shop.debt}` : ''}` : ''].filter(Boolean).join(' · ')],
 					['home', 'house', '住处', homeHtml, [homeHere ? `你的${esc(homeHere.name)}` : rentals.length ? `${rentals.length} 处可租` : '', s.rental.claim ? `押金扣款待处理 $${s.rental.claim.amount}` : ''].filter(Boolean).join(' · ')],
 					['people', 'users', '这里的人', peopleHtml, people.length ? `${people.length} 位在这里${favorHere ? ' · 有人托你帮忙' : ''}` : '现在没人在'],
 					['fun', 'ticket', '体验和爱好', expHtml + sportsCard(s, region, esc) + (on('hobby') ? photoQuestHtml + fishHtml + hobbyHtml + skyCard(s) : ''), [exps.length ? `${exps.length} 项体验` : '', sportSoon ? `${sportSoon} 场比赛快到了` : '', on('hobby') && pq ? '摄影任务' : '', on('hobby') && spot ? '能钓鱼' : '', on('hobby') && hobbyOpts.length ? `${hobbyOpts.length} 个爱好` : ''].filter(Boolean).join(' · ') || '看看星空'],
@@ -3546,7 +3548,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			});
 			document.addEventListener('click', (e) => {
 				gestured = true;
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-mind],[data-rental],[data-wall],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-mind],[data-rental],[data-wall],[data-biz],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
 				// 打开了环境音或音乐、但还没出过声：第一次点页面任何地方时解锁音频（浏览器的自动播放限制）
 				if (!audio && (prefs.ambience || prefs.music)) { try { ensureAudio(); } catch {} syncScene(); }
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
@@ -3610,6 +3612,15 @@ const cardLines = guilloche(400, 260, 14, 9);
 				else if (d.veh) {
 					if (d.veh === 'sell' && !confirm('确定把车卖掉？')) return;
 					const a: GameAction = d.veh === 'buy' ? { t: 'vehicle', op: 'buy', id: d.vehId! } : { t: 'vehicle', op: d.veh as 'sell' | 'sleep' | 'service' };
+					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
+				else if (d.biz) {
+					// 副业与生意（ui/business.ts 的按钮）：只转发形状，合不合规则由服务端 parseAction + 引擎判断
+					if (d.biz === 'close' && !confirm('确定关店？装修费不退，押金扣掉欠款后退回，库存半价清货。')) return;
+					const a = (d.biz === 'gig' || d.biz === 'license' ? { t: 'biz', op: d.biz, id: d.bizId ?? '' }
+						: d.biz === 'open' ? { t: 'biz', op: 'open', shop: d.bizShop ?? '', site: d.bizSite ?? '' }
+						: d.biz === 'restock' ? { t: 'biz', op: 'restock', qty: Number(d.bizQty) }
+						: { t: 'biz', op: d.biz }) as GameAction;
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.sport) {
