@@ -4,8 +4,9 @@
 import { HOMES } from '../data/housing.ts';
 import { FLAT_EVENTS, FLAT_RULES, FLATMATES, type FlatChoice, type FlatEventDef, type FlatmateDef } from '../data/flatmates.ts';
 import { dayOf } from './time.ts';
+import { rentDue } from './rental.ts';
 import { unit } from './weather.ts';
-import type { Flatmate, Flatshare, PlayerState } from './types.ts';
+import type { Flatmate, Flatshare, Home, PlayerState } from './types.ts';
 
 export const emptyFlatshare = (): Flatshare => ({ mates: [], clean: FLAT_RULES.cleanStart, ev: null, chore: -1, sublet: false });
 export const getFlatmate = (id: string): FlatmateDef | undefined => FLATMATES.find((m) => m.id === id);
@@ -26,31 +27,55 @@ export function flatBeds(state: PlayerState): number {
 	return FLAT_RULES.beds[state.home.type] ?? 1;
 }
 
-/** 合租房间这类「自带室友」的房型：你只是租客，不能挑人、不能请人搬走，房租固定 */
+/** 合租房间这类「自带室友」的房型：你只是租客，不能挑人、不能请人搬走，房租不分摊（按租约或租金行情付整份） */
 export function flatAuto(state: PlayerState): number {
 	if (!state.home || state.home.owned) return 0;
 	return FLAT_RULES.autoMates[state.home.type] ?? 0;
 }
 
-/** 现在真正住在一起的室友（住处不支持合租时为空） */
+/** 现在真正住在一起的室友（住处不支持合租时为空；不超过空床数） */
 export function activeMates(state: PlayerState): Flatmate[] {
-	return flatBeds(state) > 1 ? state.flatshare.mates : [];
+	const beds = flatBeds(state);
+	return beds > 1 ? state.flatshare.mates.slice(0, beds - 1) : [];
 }
 
-/** 你这周的那份房租（含分摊的水电网）。二房东有室友时：（房租 + 水电网）÷ 人数；其他情况就是整份房租 */
-export function rentShare(state: PlayerState): number {
+/** 住处的标识（房型@地点）：室友记录跟着它走 */
+export const homeKey = (home: Pick<Home, 'type' | 'loc'>) => `${home.type}@${home.loc}`;
+
+/** 正在算的那个结算日（和 attributes.ts 的 settleDay 一样；这里不 import attributes，避免循环引用） */
+const settleOn = (state: PlayerState) => Math.max(dayOf(state.clock), state.nextWeek);
+
+/**
+ * 你这周的那份房租（含分摊的水电网）。二房东有室友时：（房租 + 水电网）÷ 人数；其他情况就是整份房租。
+ * full：这周的整份房租。合并 main 后由调用方按租约房租或租金指数算好传进来（attributes.ts 的 weeklyCosts、engine.ts 的周结算）；不传按房型标价
+ */
+export function rentShare(state: PlayerState, full?: number): number {
 	if (!state.home || state.home.owned) return 0;
-	const rent = HOMES.find((h) => h.id === state.home!.type)?.rentWeek ?? 0;
+	const def = HOMES.find((h) => h.id === state.home!.type);
+	// 不传 full 时按 main 的租房规则现算（租约房租、已通知的涨租、租金指数），界面和消息里的数和结算扣的一致（合并 main 时复核）
+	const rent = full ?? (def ? rentDue(state, def, settleOn(state)) : 0);
 	const mates = activeMates(state).length;
 	if (flatAuto(state) || mates === 0) return rent;
 	return Math.round((rent + (FLAT_RULES.billsWeek[state.home.type] ?? 0)) / (mates + 1));
 }
 
 /** 转租时每周收回的钱 */
-export const subletIncome = (state: PlayerState) => (state.flatshare.sublet && state.home && !state.home.owned ? Math.round(rentShare(state) * FLAT_RULES.subletRate) : 0);
+/** 到 weekEnd 这个结算日为止，这一周转租了几天（0–7） */
+export function subletDays(state: PlayerState, weekEnd = settleOn(state)): number {
+	if (!state.flatshare.sublet) return 0;
+	const from = Math.max(state.flatshare.subFrom ?? weekEnd, weekEnd - 7);
+	return Math.max(0, Math.min(7, weekEnd - from));
+}
+
+/**
+ * 转租时这个结算日收回的钱：你那份房租 × 收回比例 × 这周实际转租的天数 ÷ 7。
+ * 按天折算：结算前一刻才转租、结算后马上收回，只算 0 天（合并 main 时复核：原来按结算那一刻的开关算整周，可以每周只付一成房租）
+ */
+export const subletIncome = (state: PlayerState, full?: number, weekEnd?: number) =>
+	state.flatshare.sublet && state.home && !state.home.owned ? Math.round((rentShare(state, full) * FLAT_RULES.subletRate * subletDays(state, weekEnd)) / 7) : 0;
 
 /** 结算日实际要掏的钱 = 你那份 − 转租收入 */
-export const flatRentDue = (state: PlayerState) => rentShare(state) - subletIncome(state);
+export const flatRentDue = (state: PlayerState, full?: number, weekEnd?: number) => rentShare(state, full) - subletIncome(state, full, weekEnd);
 
 /** 某个结算日之前那一周轮到谁值日：'me' 或室友 id。weekEnd 默认是下一个结算日（也就是「这周」） */
 export function dutyFor(state: PlayerState, weekEnd = state.nextWeek): string {
@@ -249,12 +274,16 @@ export function flatChoiceBlocked(state: PlayerState, c: FlatChoice): string | u
 }
 
 /** 存档清洗：旧存档没有这个字段给默认值；室友只留已知人设、去重、限数量；数值钳到范围；事件要对得上室友。幂等 */
-export function cleanFlatshare(raw: unknown): Flatshare {
+export function cleanFlatshare(raw: unknown, home?: Home | null, day = Number.MAX_SAFE_INTEGER): Flatshare {
 	const out = emptyFlatshare();
 	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+	// 没有住处、住自有房，或记录的住处对不上现在的住处：室友和转租都不算数（合并 main 时复核）
+	if (home !== undefined && (!home || home.owned)) return out;
+	const rawHome = Object.prototype.hasOwnProperty.call(raw, 'home') ? (raw as Record<string, unknown>).home : undefined;
+	if (home && typeof rawHome === 'string' && rawHome !== homeKey(home)) return out;
 	// 只读自有键：原型链上的 mates、ev 之类不算
 	const r: Record<string, unknown> = {};
-	for (const k of ['mates', 'clean', 'ev', 'chore', 'sublet']) if (Object.prototype.hasOwnProperty.call(raw, k)) r[k] = (raw as Record<string, unknown>)[k];
+	for (const k of ['mates', 'clean', 'ev', 'chore', 'sublet', 'subFrom']) if (Object.prototype.hasOwnProperty.call(raw, k)) r[k] = (raw as Record<string, unknown>)[k];
 	const int = (v: unknown, lo: number, hi: number, d: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : d);
 	if (Array.isArray(r.mates)) {
 		for (const m of r.mates.slice(0, 20)) {
@@ -273,5 +302,8 @@ export function cleanFlatshare(raw: unknown): Flatshare {
 	}
 	out.chore = int(r.chore, -1, 1e7, -1);
 	out.sublet = r.sublet === true;
+	// 转租起始日：不晚于今天；旧存档没有就从今天算（不补算过去的转租收入）
+	if (out.sublet) out.subFrom = int(r.subFrom, 0, Math.min(1e7, day), Math.min(1e7, day));
+	if (home) out.home = homeKey(home);
 	return out;
 }

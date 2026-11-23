@@ -223,7 +223,12 @@ test('动作协议与存档校验', () => {
 	assert.deepEqual(parseAction({ t: 'property', op: 'repay', id: 'perth-apartment', amount: 99.9 }), { t: 'property', op: 'repay', id: 'perth-apartment', amount: 99 });
 	assert.equal(parseAction({ t: 'property', op: 'repay', id: 'perth-apartment', amount: -1 }), null);
 	assert.equal(parseAction({ t: 'property', op: 'seize', id: 'perth-apartment' }), null);
-	assert.ok(applyAction(make({ cash: 20000, clock: at(10) }), WA, { t: 'property', op: 'buy', id: flat.id, loan: true }).ok);
+	// 按揭买房要先开户、有收入（banking.md）；全款不受影响
+	const noBank = applyAction(make({ cash: 20000, clock: at(10) }), WA, { t: 'property', op: 'buy', id: flat.id, loan: true });
+	assert.ok(!noBank.ok && noBank.msg.includes('开'), noBank.msg);
+	const worker = make({ cash: 20000, clock: at(10), job: { career: 'barista', loc: 'perth', level: 2, shifts: 0, good: 0, lastDay: -1 } });
+	worker.bank.open = true;
+	assert.ok(applyAction(worker, WA, { t: 'property', op: 'buy', id: flat.id, loan: true }).ok);
 
 	const base = make();
 	const dirty = {

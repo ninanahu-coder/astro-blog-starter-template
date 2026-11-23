@@ -91,6 +91,8 @@ export function sceneSvg(s: SceneInput): string {
 	// 雨
 	if (wet) for (let i = 0; i < (s.weather === 'storm' ? 34 : 18); i++) out.push(`<rect x="${(i * 53) % 390}" y="${(i * 97) % 200}" width="1.6" height="12" fill="#dfe7f0" opacity="0.8" transform="rotate(14 ${(i * 53) % 390} ${(i * 97) % 200})"/>`);
 	if (s.weather === 'storm') out.push(r(0, 0, 390, 220, 'rgba(15,22,34,0.18)'));
+	// 寒冷：地上一层白霜、整幅偏冷色（第 30 批）
+	if (s.weather === 'cold') out.push(r(0, water ? 186 : 160, 390, 6, 'rgba(238,244,251,0.75)'), r(0, 0, 390, 220, 'rgba(170,200,235,0.14)'));
 	return `<svg class="scene-art" viewBox="0 0 390 220" preserveAspectRatio="xMidYMax slice" aria-hidden="true" focusable="false">${out.join('')}</svg>`;
 }
 

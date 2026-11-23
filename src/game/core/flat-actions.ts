@@ -77,6 +77,8 @@ export function resolveFlatEvent(prev: PlayerState, region: Region, choice: numb
 	if (!ev || !def) return fail(prev, '没有要处理的室友的事。');
 	const c = def.choices[choice];
 	if (!c) return fail(prev, '没有这个选项。');
+	// 室友的事要回到住处处理（合并 main 时复核：原来在哪都能处理，出门在外也能吃室友做的饭）
+	if (!atHome(prev) || prev.flatshare.sublet) return fail(prev, '回到住处才能处理室友的事。');
 	const why = flatChoiceBlocked(prev, c);
 	if (why) return fail(prev, why);
 	const state = clone(prev);
@@ -111,9 +113,12 @@ export function setSublet(prev: PlayerState, region: Region, on: boolean): Actio
 	if (why) return fail(prev, why);
 	const state = clone(prev);
 	state.flatshare.sublet = on;
-	if (on) state.flatshare.ev = null;
+	if (on) {
+		state.flatshare.ev = null;
+		state.flatshare.subFrom = dayOf(state.clock);
+	} else delete state.flatshare.subFrom;
 	const place = getLocation(region, state.home!.loc)?.name ?? '';
-	const msg = on ? `把${place}的房间短期转租出去了，每周能收回 $${Math.round(rentShare(state) * FLAT_RULES.subletRate)}。` : `收回了${place}的房间，可以回去住了。`;
+	const msg = on ? `把${place}的房间短期转租出去了，转租整周能收回 $${Math.round(rentShare(state) * FLAT_RULES.subletRate)}（按实际转租的天数折算）。` : `收回了${place}的房间，可以回去住了。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }

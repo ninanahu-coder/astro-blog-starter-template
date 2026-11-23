@@ -27,7 +27,7 @@ export function flatHtml(s: PlayerState, esc: Esc): string {
 	const mates = activeMates(s);
 	const parts: string[] = [];
 	const share = rentShare(s);
-	parts.push(`<p style="margin-top:8px" class="muted">${flatAuto(s) ? '合租房间：室友由房东安排，房租固定' : `可住 ${flatBeds(s)} 人，有室友时房租和水电网（$${FLAT_RULES.billsWeek[s.home.type] ?? 0}/周）按人头分`} · 你这周那份 $${share}${f.sublet ? `，转租收回 $${subletIncome(s)}` : ''}</p>`);
+	parts.push(`<p style="margin-top:8px" class="muted">${flatAuto(s) ? '合租房间：室友由房东安排，房租整份付（按租约或租金行情）' : `可住 ${flatBeds(s)} 人，有室友时房租和水电网（$${FLAT_RULES.billsWeek[s.home.type] ?? 0}/周）按人头分`} · 你这周那份 $${share}${f.sublet ? `，转租收回 $${subletIncome(s)}` : ''}</p>`);
 	if (mates.length) {
 		const duty = dutyFor(s);
 		const dutyName = duty === 'me' ? '你' : getFlatmate(duty)?.name ?? '室友';

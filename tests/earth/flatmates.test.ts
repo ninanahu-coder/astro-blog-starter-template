@@ -2,6 +2,13 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
+import { rentHome } from '../../src/game/core/engine.ts';
+import { cookBlocked, deliveryBlocked } from '../../src/game/core/cooking.ts';
+import { resolveFlatEvent } from '../../src/game/core/flat-actions.ts';
+import { homeKey, subletDays, subletIncome } from '../../src/game/core/flatmates.ts';
+import { RECIPES } from '../../src/game/data/cooking.ts';
+import { actionCats } from '../../src/game/core/tally.ts';
+import { featureOf } from '../../src/game/server/stats.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import { weeklyCosts, homeComfort } from '../../src/game/core/attributes.ts';
 import { activeMates, afterSleepFlat, cleanFlatshare, dutyFor, eligibleEvents, emptyFlatshare, flatCandidates, flatRentDue, rentShare, settleFlatWeek } from '../../src/game/core/flatmates.ts';
@@ -24,9 +31,15 @@ const run = (s: PlayerState, a: GameAction) => {
 	return r.state;
 };
 const noHooks = { log: () => {}, mood: () => {} };
+/** 合并 main 后：租房市场要先看房、递申请，房东挑人；这里直接签约（引擎的 rentHome），只测室友 */
+const rentAt = (s: PlayerState, home: string) => {
+	const r = rentHome(s, WA, home);
+	assert.ok(r.ok, `租 ${home}：${r.msg}`);
+	return r.state;
+};
 /** 在珀斯租一居室并请第一位候选人住进来 */
 const withMate = (seed = 42) => {
-	let s = run(fresh(seed), { t: 'home', op: 'rent', home: 'flat' });
+	let s = rentAt(fresh(seed), 'flat');
 	const c = flatCandidates(s)[0];
 	s = run(s, { t: 'flat', op: 'invite', mate: c.def.id });
 	return s;
@@ -64,13 +77,13 @@ test('室友数据：id 唯一、性格在 0–2；事件选项至少两个、�
 
 test('合租房间：租下就有两位室友，房租不变；不推进随机种子；同一种子结果相同', () => {
 	const s0 = fresh();
-	const a = run(s0, { t: 'home', op: 'rent', home: 'room' });
+	const a = rentAt(s0, 'room');
 	assert.equal(a.flatshare.mates.length, FLAT_RULES.autoMates.room);
 	assert.equal(new Set(a.flatshare.mates.map((m) => m.id)).size, a.flatshare.mates.length);
-	assert.equal(a.seed, run(fresh(), { t: 'home', op: 'rent', home: 'flat' }).seed, '室友用哈希，不额外推进 seed（和租一居室推进得一样多）');
+	assert.equal(a.seed, rentAt(fresh(), 'flat').seed, '室友用哈希，不额外推进 seed（和租一居室推进得一样多）');
 	assert.equal(weeklyCosts(a).rent, 160);
 	assert.equal(rentShare(a), 160);
-	const b = run(fresh(), { t: 'home', op: 'rent', home: 'room' });
+	const b = rentAt(fresh(), 'room');
 	assert.deepEqual(a.flatshare.mates, b.flatshare.mates);
 	// 不能挑人、不能请人走
 	assert.equal(flatCandidates(a).length, 0);
@@ -90,7 +103,7 @@ test('二房东找室友：房租和水电网按人头分，周结算按分摊�
 	const paid = after.journal.find((j) => j.text.includes('周结算：支付'));
 	assert.ok(paid?.text.includes(`$${share}`), paid?.text);
 	// 隐私：二房东每位室友心情 −1
-	const solo = run(fresh(), { t: 'home', op: 'rent', home: 'flat' });
+	const solo = rentAt(fresh(), 'flat');
 	assert.equal(homeComfort(s), homeComfort(solo) + FLAT_RULES.privacyPerMate);
 });
 
@@ -230,7 +243,7 @@ test('借钱：结算日按几率还；关系太差的室友提出下周搬走�
 	settleFlatWeek(bad, s.nextWeek, noHooks);
 	assert.equal(bad.flatshare.mates[0].out, s.nextWeek + 7);
 	// 合租房间
-	const room = run(fresh(), { t: 'home', op: 'rent', home: 'room' });
+	const room = rentAt(fresh(), 'room');
 	room.flatshare.mates[0].out = 0;
 	room.clock = room.nextWeek * 1440;
 	const gone = room.flatshare.mates[0].id;
@@ -245,7 +258,7 @@ test('借钱：结算日按几率还；关系太差的室友提出下周搬走�
 });
 
 test('转租：在家不能转；出门后转租，结算时收回 90%，不能回去住和做饭；收回后恢复', () => {
-	const home = run(fresh(), { t: 'home', op: 'rent', home: 'flat' });
+	const home = rentAt(fresh(), 'flat');
 	assert.equal(applyAction(home, WA, { t: 'flat', op: 'sublet' }).ok, false);
 	const away = structuredClone(home);
 	away.loc = 'fremantle';
@@ -351,3 +364,109 @@ test('界面：室友区块的插值都经过 esc；按钮和动作协议对得�
 	away.loc = 'fremantle';
 	assert.ok(flatHtml(away, esc).includes('data-flat="sublet"'));
 });
+
+// ---------- 合并 main 后（租房市场、做饭、心事、生涯统计） ----------
+test('合并 main：分摊按租约房租算（含已通知的涨租），周结算扣的和每周开销一致', () => {
+	let s = withMate();
+	const lease = s.rental.lease!;
+	assert.ok(lease, '一居室有租约');
+	s = structuredClone(s);
+	s.rental.lease!.rent = lease.rent + 100; // 租约房租和房型标价不同
+	const bills = FLAT_RULES.billsWeek.flat ?? 0;
+	const want = Math.round((s.rental.lease!.rent + bills) / 2);
+	assert.equal(weeklyCosts(s).rent, want, '每周开销按租约房租分摊');
+	const before = s.cash;
+	const t = run(nearSettle(s), { t: 'flat', op: 'chore' });
+	const paid = t.journal.find((j) => j.text.includes('周结算：支付'));
+	assert.ok(paid?.text.includes(`$${want}`), paid?.text);
+	assert.ok(before - t.cash >= want - 50);
+});
+
+test('合并 main：转租期间不能在家做饭、请客、叫外卖', () => {
+	let s = withMate();
+	s = structuredClone(s);
+	s.flatshare.sublet = true;
+	const r = RECIPES[0];
+	assert.equal(cookBlocked(s, r.id, WA), '房间转租中');
+	assert.equal(deliveryBlocked(s, WA), '房间转租中');
+});
+
+test('合并 main：室友相处融洽能缓解孤单；生涯统计记社交；使用统计按操作分开', () => {
+	const h = MOODLETS.find((m) => m.id === 'flat-harmony')!;
+	assert.deepEqual(h.relieves, ['lonely']);
+	assert.deepEqual(actionCats({ t: 'flat', op: 'resolve', choice: 0 }), ['social', 'social']);
+	for (const op of ['chore', 'sublet', 'unsublet'] as const) assert.equal(featureOf({ t: 'flat', op }), `flat.${op}`);
+	assert.equal(featureOf({ t: 'flat', op: 'invite', mate: 'x' }), 'flat.invite');
+	assert.equal(featureOf({ t: 'flat', op: 'resolve', choice: 1 }), 'flat.resolve');
+});
+
+// ---------- 合并 main 时复核修正 ----------
+test('复核：转租收入按这周实际转租的天数折算；结算前一刻才转租几乎收不回钱', () => {
+	const home = rentAt(fresh(), 'flat');
+	const away = structuredClone(home);
+	away.loc = 'fremantle';
+	// 第 6 天晚上才转租，第 7 天结算：只算 1 天
+	const late = run({ ...away, clock: 6 * 1440 + 20 * 60 }, { t: 'flat', op: 'sublet' });
+	assert.equal(late.flatshare.subFrom, 6);
+	assert.equal(subletDays(late), 1);
+	assert.equal(subletIncome(late), Math.round((320 * FLAT_RULES.subletRate * 1) / 7));
+	// 结算：扣的是按 1 天折算后的房租；结算后起点挪到结算日，下一整周都转租就收回整周
+	const kept = run(nearSettle(late), { t: 'activity', id: 'rest' } as GameAction);
+	const paid = kept.journal.find((j) => j.text.includes('周结算：支付'));
+	assert.ok(paid?.text.includes(`$${320 - Math.round((320 * FLAT_RULES.subletRate) / 7)}`), paid?.text);
+	assert.equal(kept.flatshare.subFrom, 7, '结算后从结算日算起');
+	assert.equal(subletDays(kept), 7);
+	// 收回后再转租：从当天算
+	const again = run(run({ ...kept, clock: 8 * 1440 + 600 }, { t: 'flat', op: 'unsublet' }), { t: 'flat', op: 'sublet' });
+	assert.equal(again.flatshare.subFrom, 8);
+});
+
+test('复核：室友记录跟住处走——对不上现在住处、住自有房或没住处时存档清洗清空；室友不超过空床', () => {
+	const s = withMate();
+	assert.equal(s.flatshare.home, homeKey(s.home!));
+	const raw = JSON.parse(JSON.stringify(s));
+	raw.flatshare.sublet = true;
+	raw.flatshare.home = 'room@perth-other';
+	assert.deepEqual(sanitizeState(raw)!.flatshare.mates, [], '住处对不上：室友不算数');
+	assert.equal(sanitizeState(raw)!.flatshare.sublet, false);
+	const owned = JSON.parse(JSON.stringify(s));
+	owned.flatshare.sublet = true;
+	owned.home = { ...owned.home, owned: 'perth-apartment' };
+	owned.properties = [{ id: 'perth-apartment', loan: 0, rented: false, missed: 0 }];
+	assert.equal(sanitizeState(owned)!.flatshare.sublet, false, '自有房不会卡在转租里');
+	const ok = sanitizeState(JSON.parse(JSON.stringify(s)))!;
+	assert.equal(ok.flatshare.mates.length, 1, '对得上的照常保留');
+	assert.equal(sanitizeState(ok)!.flatshare.home, ok.flatshare.home, '幂等');
+	// 一居室最多 1 位室友：多出来的不算
+	const crowded = structuredClone(s);
+	crowded.flatshare.mates = ['fm-mia', 'fm-dan', 'fm-kenji'].map((id) => ({ id, vibe: 0, since: 0, owes: 0 }));
+	assert.equal(activeMates(crowded).length, 1);
+});
+
+test('复核：室友的事要回住处处理；室友还钱记「社交」；分摊按租约房租显示', () => {
+	const s = withMate();
+	const ev = structuredClone(s);
+	ev.flatshare.ev = { id: FLAT_EVENTS[0].id, mate: ev.flatshare.mates[0].id, day: 0 };
+	const away = { ...ev, loc: 'fremantle' };
+	assert.match(resolveFlatEvent(away, WA, 0).msg, /回到住处/);
+	// 还钱
+	const lend = structuredClone(s);
+	lend.flatshare.mates = [{ id: 'fm-xiaoyu', vibe: 10, since: 0, owes: 30 }];
+	const before = lend.tally!.in.social ?? 0;
+	// 用别的动作触发结算：还的钱不能靠动作本身的分类记进社交。还不还看随机数，换几个结算前的时刻找一次还了的
+	let found = false;
+	for (let back = 10; back <= 300 && !found; back += 10) {
+		const t = structuredClone(lend);
+		t.clock = t.nextWeek * 1440 - back;
+		const after = run(t, { t: 'activity', id: 'rest' } as GameAction);
+		if (!after.journal.some((j) => j.text.includes('还了你 $30'))) continue;
+		found = true;
+		assert.equal((after.tally!.in.social ?? 0) - before, 30);
+	}
+	assert.ok(found, 'fm-xiaoyu 几乎一定还钱');
+	// 不传整份房租时按租约算
+	const leased = structuredClone(s);
+	leased.rental.lease!.rent += 60;
+	assert.equal(rentShare(leased), Math.round((leased.rental.lease!.rent + FLAT_RULES.billsWeek.flat) / 2));
+});
+
