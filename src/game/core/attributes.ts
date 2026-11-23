@@ -8,6 +8,7 @@ import { FURNITURE, FURNITURE_SETS } from '../data/furniture.ts';
 import { VEHICLES } from '../data/vehicles.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { propertyDue } from './finance.ts';
+import { flatComfort, flatRentDue } from './flatmates.ts';
 import { weatherAt } from './weather.ts';
 import { dayOf } from './time.ts';
 import { loanRateMult } from './world.ts';
@@ -43,7 +44,7 @@ export function homeComfort(state: PlayerState): number {
 	const base = HOMES.find((h) => h.id === state.home!.type)?.comfort ?? 0;
 	const extra = Object.values(state.home.furniture).reduce((a, id) => a + (FURNITURE.find((f) => f.id === id)?.comfort ?? 0), 0);
 	// 紧急故障没修好（租房市场，rental.ts）：舒适度打折扣
-	return base + extra + furnitureSets(state).filter((x) => x.done).reduce((a, x) => a + x.set.comfort, 0) - faultComfort(state);
+	return base + extra + furnitureSets(state).filter((x) => x.done).reduce((a, x) => a + x.set.comfort, 0) - faultComfort(state) + flatComfort(state); // 室友：隐私和家里卫生（flatmates.md）
 }
 
 /** 住处的成套家具进度：每套已经摆了几件、凑齐没有（没有住处为空） */
@@ -71,7 +72,7 @@ export const settleDay = (state: PlayerState) => Math.max(dayOf(state.clock), st
 export function weeklyCosts(state: PlayerState): WeeklyCosts {
 	const day = settleDay(state);
 	const def = state.home && !state.home.owned ? HOMES.find((h) => h.id === state.home!.type) : undefined;
-	const rent = def ? rentDue(state, def, day) : 0; // 有租约按租约房租（租房市场），没有按租金指数（世界事件）
+	const rent = def ? flatRentDue(state, rentDue(state, def, day)) : 0; // 有租约按租约房租（租房市场），没有按租金指数（世界事件）；再按合租分摊、扣转租收入（flatmates.md）
 	const vehicle = VEHICLES.find((v) => v.id === state.vehicle)?.weekly ?? 0;
 	const property = state.properties.reduce((sum, p) => {
 		const def = PROPERTIES.find((d) => d.id === p.id);

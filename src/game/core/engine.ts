@@ -58,6 +58,7 @@ import { modeNeeds, transitOptions, WALK_STAMINA_PER_KM, withRouteFare } from '.
 import { holdingsValue } from './market.ts';
 import { bodyScaled, gainNeed, passTime } from './vitals.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
+import { activeMates, afterSleepFlat, emptyFlatshare, fillAutoMates, flatRentDue, homeKey, settleFlatWeek } from './flatmates.ts';
 import { activityIncome, hasAbn, hobbyIncome, recordBiz, recordRent, recordRentCost, recordWage, taxTick, wageSplit } from './tax.ts';
 import { dailyFull, eventReady, memoryOn, needMet, noteResolved, noteTriggered, pickChain, weightedPick, weightOf, type EventSource } from './event-rules.ts';
 import type {
@@ -1194,6 +1195,7 @@ function vacate(state: PlayerState, arrears = 0, refund?: MoveOut, evicted = fal
 	state.cash = Math.max(0, state.cash + got + split.refund - split.extra);
 	if (refund) Object.assign(refund, { bond: split.refund, fee: split.fee, held: ended.held, notes: ended.notes });
 	state.home = null;
+	state.flatshare = emptyFlatshare(); // 室友留在原处（二房东的租约由室友接手），和你无关了
 	return got;
 }
 
@@ -1213,8 +1215,9 @@ function weeklyTick(state: PlayerState, region: Region) {
 	if (state.rental.lease && !leaseMatches(state)) state.rental.lease = null;
 	for (const line of rentalTick(state, dayOf(state.clock))) log(state, line);
 	while (dayOf(state.clock) >= state.nextWeek) {
+		const weekEnd = state.nextWeek;
 		state.nextWeek += 7;
-		const c0 = state.cash; // 生涯统计：周结算的钱按住房、车辆分开记，不算到触发它的动作头上
+		let c0 = state.cash; // 生涯统计：周结算的钱按住房、车辆分开记，不算到触发它的动作头上
 		if (state.home && !state.home.owned && !homeUsable(state)) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
@@ -1225,10 +1228,11 @@ function weeklyTick(state: PlayerState, region: Region) {
 		if (state.home && !state.home.owned) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
-			const rent = rentDue(state, def, state.nextWeek - 7); // 有租约按租约房租；没有按租金指数（世界事件），按正在结算的这个结算日算
+			const full = rentDue(state, def, state.nextWeek - 7); // 有租约按租约房租；没有按租金指数（世界事件），按正在结算的这个结算日算
+			const rent = flatRentDue(state, full, weekEnd); // 合租分摊、转租收入（按这周实际转租的天数折算，flatmates.md）
 			if (state.cash >= rent) {
 				state.cash -= rent;
-				log(state, `周结算：支付${place}${def.name}房租 $${rent}。`);
+				log(state, `周结算：支付${place}${def.name}房租 $${rent}${rent !== full ? '（合租分摊或转租后）' : ''}。`);
 				for (const line of rentalWeek(state, dayOf(state.clock))) log(state, line);
 			} else {
 				// 押金先抵这周房租，剩下的退回
@@ -1239,6 +1243,12 @@ function weeklyTick(state: PlayerState, region: Region) {
 				log(state, `付不起${place}${def.name}的房租，房东收回了房子${kept ? `，押金扣了 $${kept} 抵房租` : ''}${got ? `，家具折现 $${got}` : ''}${bondNote(back)}。`);
 			}
 		}
+		if (state.home && !state.home.owned && state.flatshare.sublet) state.flatshare.subFrom = weekEnd; // 下一周的转租从这个结算日算起
+		const cf = state.cash;
+		if (state.home) settleFlatWeek(state, weekEnd, { log: (t) => log(state, t), mood: (id) => addMoodlet(state, id) });
+		const flatCash = state.cash - cf;
+		tallyCash(state, 'social', flatCash); // 生涯统计：室友还的钱记「社交」，和借出去时一致（合并 main 时复核）
+		c0 += flatCash;
 		const before = state.properties.map((p) => ({ id: p.id, loan: p.loan }));
 		settleProperties(state, region);
 		tallyCash(state, 'housing', state.cash - c0);
@@ -1328,11 +1338,13 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string, term
 	const lease = needsLease(offer.home) ? startLease(state.seed, offer.home, state.loc, dayOf(state.clock), term) : null;
 	state.rental.lease = lease;
 	state.rental.viewed = null;
+	state.flatshare.home = homeKey(state.home);
+	const mates = fillAutoMates(state, 'rent'); // 合租房间自带室友
 	addMoodlet(state, 'new-home');
 	if (advance(state, 60, region)) return collapsedResult(state);
 	const body = getAreaBody(prev.loc);
 	const leaseNote = lease ? `；${lease.end ? `固定期限 ${RENTAL.fixedDays} 天` : '周期租约'}，押金交给${body.bond}托管，${RENTAL.reportDays} 天内记得交回入住检查报告` : '';
-	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}${bond ? `、押金 $${bond}（搬走时退）` : ''}，${lease ? `之后每周 $${lease.rent}（按签约时的行情定，租约里涨租另行通知）` : `眼下每周 $${rentOn(offer.home.rentWeek, dayOf(prev.clock))}（随租金行情变）`}${leaseNote}${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；旧住处押金退回 $${back.bond}` : ''}${back.fee ? `；旧租约违约金 $${back.fee}` : ''}${back.notes?.length ? `。${back.notes.join('')}` : '。'}`;
+	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}${bond ? `、押金 $${bond}（搬走时退）` : ''}，${lease ? `之后每周 $${lease.rent}（按签约时的行情定，租约里涨租另行通知）` : `眼下每周 $${rentOn(offer.home.rentWeek, dayOf(prev.clock))}（随租金行情变）`}${leaseNote}${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；旧住处押金退回 $${back.bond}` : ''}${back.fee ? `；旧租约违约金 $${back.fee}` : ''}${back.notes?.length ? `。${back.notes.join('')}` : '。'}${mates.length ? `室友：${mates.join('、')}。` : ''}`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1497,6 +1509,7 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	if (prev.home.loc !== prev.loc) return fail(prev, '要回到住处才能睡。');
 	const def = getHome(prev.home.type)!;
 	if (!homeUsable(prev)) return fail(prev, '没有能睡人的车，营地住不了。');
+	if (prev.flatshare.sublet) return fail(prev, '房间转租出去了，先收回来才能住。');
 	const state = clone(prev);
 	// 睡这一觉用的是入睡时的住处：睡到一半跨过结算日，住处可能因为欠租或断供被收走（state.home 变成 null）
 	const furniture = Object.values(prev.home.furniture);
@@ -1507,6 +1520,8 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 		if (extra && applyEffect(state, extra, region)) return collapsedResult(state);
 	}
 	if (cosy) addMoodlet(state, 'great-sleep');
+	// 室友：社交恢复、家里太乱、相处融洽、室友事件。睡到一半住处没了（state.home 为 null）就不算
+	if (state.home && activeMates(state).length) afterSleepFlat(state, { log: (t) => log(state, t), mood: (id) => addMoodlet(state, id) });
 	log(state, `在${def.name}睡了一觉。`);
 	return { ok: true, state, msg: state.home ? '睡了个好觉。' : '睡了一觉，醒来时住处已经没了（详见日志）。' };
 }
@@ -1857,6 +1872,7 @@ export function sellFurniture(prev: PlayerState, slot: string): ActionResult {
 /** 传了 region 时，做饭还看住处今天是否停电（第 43 批） */
 export function homeActionBlocked(state: PlayerState, op: 'cook' | 'relax', region?: Region): string | undefined {
 	if (!atHome(state)) return '要在住处';
+	if (state.flatshare.sublet) return '房间转租中';
 	if (!homeHas(state, op)) return op === 'cook' ? '需要炊具' : '需要娱乐设备';
 	if (op === 'cook' && state.cash < HOME_COOK.cost) return `需要 $${HOME_COOK.cost}`;
 	const where = op === 'cook' && region ? getLocation(region, state.loc) : undefined;

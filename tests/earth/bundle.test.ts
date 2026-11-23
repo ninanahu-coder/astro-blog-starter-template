@@ -74,10 +74,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *     gzip 254,586 → 258,311（+3.7KB），上限 255,600 → 259,400；未压缩 789,048 → 800,433，上限 792,100 → 803,500。
  *   - 银行、信用分和贷款：信用分、审批、每周结算（core/credit.ts、core/bank.ts、data/credit.ts）、「我 · 资产」的银行卡和车行、房产、家具上的贷款按钮（ui/bank.ts），
  *     gzip 258,311 → 264,165（+5.9KB），上限 259,400 → 265,100；未压缩 800,433 → 817,949，上限 803,500 → 820,700。
+ *   - 室友与合租：室友人设、事件和规则（core/flatmates.ts、core/flat-actions.ts、data/flatmates.ts）、住处卡里的室友区块（ui/flatmates.ts），
+ *     gzip 264,165 → 269,284（+5.1KB），上限 265,100 → 270,200；未压缩 817,949 → 833,263，上限 820,700 → 835,500。
  */
-export const FIRST_SCREEN_MAX = 820_700;
+export const FIRST_SCREEN_MAX = 835_500;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 265_100;
+export const FIRST_SCREEN_GZIP_MAX = 270_200;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');

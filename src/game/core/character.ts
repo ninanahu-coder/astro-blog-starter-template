@@ -26,6 +26,7 @@ import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { cleanBank, emptyBank } from './credit.ts';
 import { realDayOf } from './daily.ts';
+import { cleanFlatshare, emptyFlatshare } from './flatmates.ts';
 import { cleanIllness } from './health.ts';
 import { cleanOnboard, freshOnboard } from './onboard.ts';
 // 只用到地点和打卡点，不需要真实地点数据：用首屏版区域，页面不必为此加载 wa.venues.json
@@ -177,6 +178,7 @@ export function createCharacter(opts: {
 		home: null,
 		rental: emptyRental(),
 		properties: [],
+		flatshare: emptyFlatshare(),
 		bank: emptyBank(),
 		holdings: {},
 		marketSeed: deriveMarketSeed(opts.seed >>> 0),
@@ -333,6 +335,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		illness: cleanIllness(r.illness, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		visa: cleanVisa(r.visa, ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), new Set(CAREERS.map((c) => c.id))),
 		...cleanEstate(r, knownLocs),
+		flatshare: cleanFlatshare(r.flatshare, cleanEstate(r, knownLocs).home, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440)), // 对不上现在住处的室友记录清空（合并 main 时复核）
 		bank: cleanBank(r.bank, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), Array.isArray(r.properties) && r.properties.some((p: any) => p && typeof p.loan === 'number' && p.loan > 0), new Set(VEHICLES.map((v) => v.id)), new Set(FURNITURE.map((f) => f.id))),
 		tax: cleanTax(r.tax, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		rental: cleanRental(r.rental, cleanEstate(r, knownLocs).home, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), knownLocs),

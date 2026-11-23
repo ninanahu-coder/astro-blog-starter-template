@@ -30,6 +30,7 @@ import { studyProgram } from './education.ts';
 import { buyAsset, sellAsset } from './invest.ts';
 import { marketView } from './market.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { askFlatmateOut, doChore, inviteFlatmate, resolveFlatEvent, setSublet } from './flat-actions.ts';
 import { DEBT_KINDS, type DebtKind } from '../data/credit.ts';
 import { applyCard, buyFurnitureBnpl, buyPropertyWithLoan, buyVehicleWithLoan, carLoanBlocks, cashAdvance, openAccount, personalLoan, repayBank } from './bank.ts';
 import { fail } from './engine.ts';
@@ -70,6 +71,9 @@ export type GameAction =
 	| { t: 'grocery'; id: string; n: number }
 	| { t: 'rental'; op: 'inspect'; home: string } // 租房市场：看房
 	| { t: 'rental'; op: RentalOp }
+	| { t: 'flat'; op: 'chore' | 'sublet' | 'unsublet' }
+	| { t: 'flat'; op: 'invite' | 'askout'; mate: string }
+	| { t: 'flat'; op: 'resolve'; choice: number }
 	| { t: 'furniture'; op: 'buy'; id: string }
 	| { t: 'furniture'; op: 'sell'; slot: string }
 	| { t: 'property'; op: 'buy'; id: string; loan: boolean }
@@ -174,6 +178,10 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'rental':
 			if (a.op === 'inspect') return str(a.home) ? { t: 'rental', op: 'inspect', home: a.home } : null;
 			return RENTAL_OPS.includes(a.op as RentalOp) ? { t: 'rental', op: a.op as RentalOp } : null;
+		case 'flat':
+			if (a.op === 'invite' || a.op === 'askout') return str(a.mate) ? { t: 'flat', op: a.op, mate: a.mate } : null;
+			if (a.op === 'resolve') return Number.isInteger(a.choice) && (a.choice as number) >= 0 && (a.choice as number) < 10 ? { t: 'flat', op: 'resolve', choice: a.choice as number } : null;
+			return a.op === 'chore' || a.op === 'sublet' || a.op === 'unsublet' ? { t: 'flat', op: a.op } : null;
 		case 'furniture':
 			if (a.op === 'buy') return str(a.id) ? { t: 'furniture', op: 'buy', id: a.id } : null;
 			return a.op === 'sell' && str(a.slot) ? { t: 'furniture', op: 'sell', slot: a.slot } : null;
@@ -292,6 +300,13 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 				: a.op === 'accept' || a.op === 'dispute' ? settleBondClaim(state, region, a.op === 'dispute')
 				: a.op === 'scam-pay' || a.op === 'scam-check' ? handleScam(state, region, a.op === 'scam-pay')
 				: leaseAction(state, region, a.op);
+			break;
+		case 'flat':
+			r = a.op === 'chore' ? doChore(state, region)
+				: a.op === 'invite' ? inviteFlatmate(state, region, a.mate)
+				: a.op === 'askout' ? askFlatmateOut(state, a.mate)
+				: a.op === 'resolve' ? resolveFlatEvent(state, region, a.choice)
+				: setSublet(state, region, a.op === 'sublet');
 			break;
 		case 'furniture': r = a.op === 'buy' ? buyFurniture(state, region, a.id) : sellFurniture(state, a.slot); break;
 		case 'vehicle': {

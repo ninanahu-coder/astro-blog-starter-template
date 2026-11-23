@@ -162,6 +162,7 @@ function missing(s: PlayerState, r: RecipeDef, batches: number): string | undefi
 /** 在家能不能做这道菜；batches 是做几锅（请客时多于 1）。传了 region 才看停电（和 main 的 homeActionBlocked 一样，见 disasters.md） */
 function recipeBlocked(s: PlayerState, r: RecipeDef, batches = 1, region?: Region): string | undefined {
 	if (!atHome(s)) return '要在住处';
+	if (s.flatshare.sublet) return '房间转租中'; // 室友与合租：转租期间房间给了别人（合并 main 后）
 	const lv = kitchenLevel(s);
 	if (lv < 1) return '需要炊具';
 	if (lv < r.kitchen) return '需要带烤箱的厨房';
@@ -290,6 +291,7 @@ export const deliveryPrice = (s: PlayerState) => Math.round(DELIVERY.cost * cost
 
 export function deliveryBlocked(s: PlayerState, region: Region): string | undefined {
 	if (!atHome(s)) return '要在住处';
+	if (s.flatshare.sublet) return '房间转租中';
 	const kind = getLocation(region, s.loc)?.kind;
 	if (!kind || !DELIVERY.kinds.includes(kind)) return '这里没有外卖送';
 	if (!isOpen(DELIVERY.hours, s.clock)) return `外卖 ${DELIVERY.hours[0]}:00–${DELIVERY.hours[1]}:00`;
