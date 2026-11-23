@@ -10,6 +10,12 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		v: 92, date: '2026-11-24', title: '志愿声望调整', items: [
+			'每次做志愿加的声望统一改为 0.5（原来 1.5–3）。',
+			'志愿推荐信在应聘、升职的声望要求上每封抵 2（原来抵 5），最多仍是 2 封。',
+		],
+	},
+	{
 		v: 91, date: '2026-11-23', title: '落地清单', items: [
 			'今天页「在这里」多了「落地清单」：手机卡、交通卡（西澳 SmartRider / 南澳 metroCARD）、登记地址、换本地驾照（先递材料考理论，几天后约路考）。',
 			'银行户、TFN 直接看「我 · 资产」的银行和税务，点「办理」就在那边办。',

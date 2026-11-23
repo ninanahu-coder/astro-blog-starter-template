@@ -126,7 +126,7 @@ test('推荐信：同一项做满 refShifts 次给一封，不重发；在职位
 	assert.equal(refRespect({ volunteer: withShifts({}, ['food-bank']) }), VOL_RULES.refRespect);
 	assert.equal(refRespect({ volunteer: withShifts({}, ['food-bank', 'beach-cleanup', 'cn-assoc']) }), VOL_RULES.refMax * VOL_RULES.refRespect);
 
-	// 咖啡店升店长要声望 25：声望 20 + 一封推荐信（5）够了，19 不够
+	// 咖啡店升店长要声望 25：声望 23 + 一封推荐信（第十轮平衡后抵 2）够了，22 不够
 	const job = { career: 'barista', loc: 'perth', level: 1, shifts: 99, good: 99, lastDay: -1 };
 	const skilled = (respect: number, refs: string[]) => {
 		const p = make({ respect, job, volunteer: withShifts({}, refs) });
@@ -134,8 +134,8 @@ test('推荐信：同一项做满 refShifts 次给一封，不重发；在职位
 		return p;
 	};
 	assert.match(promotionStatus(skilled(24, []))!.blocked ?? '', /声望需达到 25/);
-	assert.equal(promotionStatus(skilled(20, ['food-bank']))!.blocked, undefined);
-	assert.match(promotionStatus(skilled(19, ['food-bank']))!.blocked ?? '', /声望需达到 25/);
+	assert.equal(promotionStatus(skilled(25 - VOL_RULES.refRespect, ['food-bank']))!.blocked, undefined);
+	assert.match(promotionStatus(skilled(24 - VOL_RULES.refRespect, ['food-bank']))!.blocked ?? '', /声望需达到 25/);
 });
 
 test('一起做志愿的 NPC 在场：关系 +npcGain；不在场不加', () => {
