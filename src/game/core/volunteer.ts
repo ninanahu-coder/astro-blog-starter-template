@@ -4,6 +4,8 @@ import { areaOf } from '../data/areas-base.ts';
 import { NPCS } from '../data/npcs.ts';
 import { addMoodlet, applyEffect, clone, collapsedResult, fail, festivalsNow, getLocation, getRelation, log, npcPresent, unlockStories } from './engine.ts';
 import { volTier } from './respect.ts';
+import { illnessBlock, loadOfEffect } from './health.ts';
+import { activityClosed } from './disasters.ts';
 import { realDayOf } from './daily.ts';
 import { dayOf, hoursLabel, isOpen } from './time.ts';
 import type { ActionResult, GameLocation, PlayerState, Region } from './types.ts';
@@ -34,7 +36,7 @@ const doneToday = (state: PlayerState): string[] => (state.volunteer.day === day
 /** 这个现实日已经做了几次（跨现实日就是 0） */
 const doneRealToday = (state: PlayerState, now: number): number => (state.volunteer.real.day === realDayOf(now) ? state.volunteer.real.n : 0);
 
-function blockedReason(state: PlayerState, gig: VolunteerGig, now: number): string | undefined {
+function blockedReason(state: PlayerState, gig: VolunteerGig, now: number, loc?: GameLocation): string | undefined {
 	const today = doneToday(state);
 	if (doneRealToday(state, now) >= VOL_RULES.realDayMax) return `今天（现实里）已经做了 ${VOL_RULES.realDayMax} 次志愿，明天再来`;
 	if (today.includes(gig.id)) return '今天已经做过这项了';
@@ -43,7 +45,10 @@ function blockedReason(state: PlayerState, gig: VolunteerGig, now: number): stri
 	const tier = volTier(state);
 	if (gig.minTier && tier.lv < gig.minTier) return `社区信誉要到第 ${gig.minTier + 1} 档（再做 ${Math.max(0, (VOL_TIERS[gig.minTier]?.at ?? 0) - tier.shifts)} 次别的志愿）`;
 	if (state.needs.energy < VOL_RULES.minEnergy) return '太累了，先歇一歇';
-	return undefined;
+	// 合并 main 后：生病时做不了算剧烈的志愿（搬货、在户外忙一上午）；灾害让户外活动暂停时，户外的志愿也停
+	const sick = illnessBlock(state, loadOfEffect(gig.fx));
+	if (sick) return sick;
+	return loc ? activityClosed(loc, dayOf(state.clock), gig.id) : undefined;
 }
 
 /** 这个地点现在列出的志愿活动（不能做的带原因）。now 是现实时间戳（毫秒），算现实日上限用 */
@@ -55,7 +60,7 @@ export function volunteerAt(state: PlayerState, region: Region, now: number): Vo
 		org: orgOf(gig, loc.id),
 		count: state.volunteer.n[gig.id] ?? 0,
 		letter: state.volunteer.refs.includes(gig.id),
-		blocked: blockedReason(state, gig, now),
+		blocked: blockedReason(state, gig, now, loc),
 	}));
 }
 
@@ -69,7 +74,7 @@ export function doVolunteer(prev: PlayerState, region: Region, id: string, now: 
 	const loc = getLocation(region, prev.loc);
 	const gig = VOLUNTEER_GIGS.find((g) => g.id === id);
 	if (!loc || !gig || !gigAt(gig, loc, prev.clock)) return fail(prev, '这里现在没有这项志愿活动。');
-	const blocked = blockedReason(prev, gig, now);
+	const blocked = blockedReason(prev, gig, now, loc);
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);
 	const day = dayOf(state.clock);
@@ -91,6 +96,7 @@ export function doVolunteer(prev: PlayerState, region: Region, id: string, now: 
 	for (const npc of npcsHere) {
 		const rel = structuredClone(getRelation(state, npc!.id));
 		rel.score = Math.min(100, rel.score + VOL_RULES.npcGain);
+		rel.last = { ...rel.last, vol: day }; // 一起做志愿算见过面，关系不会因为「好久没联系」变淡（合并 main 后）
 		state.relations[npc!.id] = rel;
 		msg += ` ${npc!.name}也在，和你一起忙完（关系 +${VOL_RULES.npcGain}）。`;
 		const stories = unlockStories(state, region, npc!, rel);

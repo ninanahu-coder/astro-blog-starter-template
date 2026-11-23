@@ -18,7 +18,7 @@ export const WISHES: WishDef[] = [
 	{ id: 'learn', text: '想学点新东西', done: { t: 'course' }, venue: ['study'] },
 	{ id: 'somewhere-new', text: '想去个没去过的地方', done: { t: 'newplace' } },
 	{ id: 'treat', text: '想体验点特别的', done: { t: 'experience' } },
-	{ id: 'cook', text: '想在家做顿饭', needs: 'home', done: { t: 'home', ops: ['cook'] } },
+	{ id: 'cook', text: '想在家做顿饭', needs: 'home', done: { t: 'home', ops: ['cook', 'host'] } },
 	{ id: 'stay-in', text: '想在家待一会儿', needs: 'home', done: { t: 'home', ops: ['relax', 'sleep'] } },
 	{ id: 'shopping', text: '想买点东西', done: { t: 'buy' }, venue: ['groceries'] },
 	{ id: 'road-trip', text: '想出趟门', done: { t: 'travel' } },

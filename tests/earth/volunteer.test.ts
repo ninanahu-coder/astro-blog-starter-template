@@ -13,6 +13,8 @@ import { WA, WORLD } from '../../src/game/data/wa.ts';
 import { realDayOf } from '../../src/game/core/daily.ts';
 import { inSpan } from '../../src/game/core/time.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
+import { activityClosed } from '../../src/game/core/disasters.ts';
+import { HAZARDS } from '../../src/game/data/disasters.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
 /** 现实时间（服务端传入）；REAL_DAY 是它的现实日 */
@@ -257,4 +259,54 @@ test('存档清洗：现实日记录', () => {
 	const st = sanitizeState({ ...make(), volunteer: { ...emptyVolunteer(), real: { day: REAL_DAY + 9, n: VOL_RULES.realDayMax } } }, undefined, { now: NOW })!;
 	assert.deepEqual(st.volunteer.real, { day: REAL_DAY, n: VOL_RULES.realDayMax }, '改存档把日子写到未来也绕不过今天的上限');
 	assert.deepEqual(sanitizeState(st, undefined, { now: NOW }), st, '幂等');
+});
+
+// ---------- 合并 main 后：生病、灾害、一起做志愿的 NPC ----------
+test('生病时做不了剧烈的志愿；灾害让户外活动暂停时户外志愿也停（合并 main 后）', () => {
+	const s = make({ loc: 'perth', clock: at(10, 2) });
+	const food = volunteerAt(s, WORLD, NOW).find((o) => o.gig.id === 'food-bank')!;
+	assert.ok(food && !food.blocked, food?.blocked);
+	const sick = { ...s, illness: { id: 'flu', since: s.clock, until: s.clock + 3 * 1440, care: [], rx: false } } as PlayerState;
+	assert.match(volunteerAt(sick, WORLD, NOW).find((o) => o.gig.id === 'food-bank')!.blocked!, /流感/);
+	// 找一个有海滩、当天徒步被灾害关掉的地点和日子
+	for (const loc of WORLD.locations.filter((l) => l.tags.includes('beach'))) {
+		for (let d = 0; d < 3650; d++) {
+			const why = activityClosed(loc, d, 'hike');
+			if (!why) continue;
+			const x = make({ loc: loc.id, clock: at(8, d) });
+			const o = volunteerAt(x, WORLD, NOW).find((v) => v.gig.id === 'beach-cleanup');
+			if (!o) break;
+			assert.equal(o.blocked, why);
+			return;
+		}
+	}
+	assert.fail('十年里没有海滩碰上让户外活动暂停的灾害');
+});
+
+test('和 NPC 一起做志愿算见过面，读档保留（合并 main 后）', () => {
+	const gig = VOLUNTEER_GIGS.find((g) => g.npcs?.length)!;
+	const npc = NPCS.find((n) => n.id === gig.npcs![0])!;
+	for (let t = 0; t < 7 * 24; t++) {
+		const clock = t * 60;
+		for (const loc of WORLD.locations) {
+			if (!npcPresent(npc, loc.id, clock)) continue;
+			const s = make({ loc: loc.id, clock });
+			const o = volunteerAt(s, WORLD, NOW).find((v) => v.gig.id === gig.id && !v.blocked);
+			if (!o) continue;
+			const r = doVolunteer(s, WORLD, gig.id, NOW);
+			assert.ok(r.ok, r.msg);
+			const day = Math.floor(clock / 1440);
+			assert.equal(r.state.relations[npc.id].last.vol, day);
+			assert.equal(sanitizeState(r.state)!.relations[npc.id].last.vol, day, '读档保留');
+			return;
+		}
+	}
+	assert.fail(`找不到和 ${npc.id} 一起做 ${gig.id} 的时刻`);
+});
+
+test('灾害的户外关闭清单：有徒步的地方都有户外志愿（合并 main 后）', () => {
+	for (const h of Object.values(HAZARDS)) {
+		const out = (h as { outdoor?: string[] }).outdoor;
+		if (out?.includes('hike')) for (const id of ['beach-cleanup', 'wildlife-rescue', 'sausage-sizzle', 'festival-helper']) assert.ok(out.includes(id), `${h.id} 关徒步却不关 ${id}`);
+	}
 });

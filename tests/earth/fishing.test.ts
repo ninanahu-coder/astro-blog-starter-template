@@ -3,11 +3,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
-import { fishingAt, goFishing } from '../../src/game/core/engine.ts';
+import { fishingAt } from '../../src/game/core/engine.ts';
+import { goFishing } from '../../src/game/core/hobbies.ts';
 import { weatherOn } from '../../src/game/core/weather.ts';
 import { FISH, FISHING } from '../../src/game/data/fish.ts';
 import { ITEMS } from '../../src/game/data/items.ts';
-import { WA } from '../../src/game/data/wa.ts';
+import { WA, WORLD } from '../../src/game/data/wa.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
@@ -29,8 +30,8 @@ test('鱼种数据：id 唯一、价格权重为正、每种鱼至少有一个�
 	assert.equal(new Set(FISH.map((f) => f.id)).size, FISH.length);
 	for (const f of FISH) {
 		assert.ok(f.price > 0 && f.weight > 0, f.id);
-		for (const l of f.where.locs ?? []) assert.ok(WA.locations.some((x) => x.id === l), `${f.id} 的地点 ${l}`);
-		assert.ok(WA.locations.some((l) => f.where.locs?.includes(l.id) || f.where.kinds?.includes(l.kind) || f.where.tags?.some((t) => l.tags.includes(t))), f.id);
+		for (const l of f.where.locs ?? []) assert.ok(WORLD.locations.some((x) => x.id === l), `${f.id} 的地点 ${l}`);
+		assert.ok(WORLD.locations.some((l) => f.where.locs?.includes(l.id) || f.where.kinds?.includes(l.kind) || f.where.tags?.some((t) => l.tags.includes(t))), f.id);
 	}
 	assert.ok(ITEMS.some((i) => i.id === FISHING.rod));
 });
@@ -64,7 +65,7 @@ test('季节和时段：黑鲷只在清晨傍晚，枪乌贼只在天黑后，�
 	assert.ok(!spring.includes('salmon') && autumn.includes('salmon'));
 });
 
-test('钓一次：花时间和体力；钓到就卖钱、记进鱼获；不改入参；结果可复现', () => {
+test('钓一次：花时间和体力；钓到合规定的就卖钱、都记进鱼获；不改入参；结果可复现', () => {
 	const d = calmDay('fremantle');
 	let caught = 0;
 	let empty = 0;
@@ -80,7 +81,8 @@ test('钓一次：花时间和体力；钓到就卖钱、记进鱼获；不改�
 		if (got.length) {
 			caught++;
 			const f = FISH.find((x) => x.id === got[0])!;
-			assert.equal(r.state.cash, s.cash + f.price);
+			// 合规定的卖钱；不够尺寸、超过数量、禁捕的放生，不卖钱（规定见 data/fish-rules.ts）
+			assert.equal(r.state.cash, s.cash + (/卖给鱼铺/.test(r.msg) ? f.price : 0), r.msg);
 			assert.ok(fishingAt(s, WA)!.fish.includes(f), '只会钓到此刻能钓的鱼');
 		} else {
 			empty++;
