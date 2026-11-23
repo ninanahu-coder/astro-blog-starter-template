@@ -48,7 +48,9 @@ src/game/
   core/achievements.ts 成就：由存档现算的里程碑（不进存档、不发奖励）
   core/weather.ts     天气：由地点和游戏日确定（人人一样），风暴天取消海上的活动
   core/sky.ts         天象：气温、日出日落（含南澳夏令时）、潮汐、山火季、紫外线，只做显示
-  core/disasters.ts   自然灾害（第 43 批）：山火、洪水封路、气旋、热浪、停电的预警（AWS 三级），封路、户外关闭、停工、停电做饭；保险理赔接口（见 disasters.md）
+  core/disasters.ts   自然灾害（第 43 批）：山火、洪水封路、气旋、热浪、停电的预警（AWS 三级），封路、户外关闭、停工、停电做饭；保险理赔接口（见 disasters.md，保险还没接）
+  core/insurance.ts   保险（第 43 批）：保单生效期、保费加价、理赔核算（免赔额、车值封顶）、存档清洗；买保险的动作在 core/insure.ts
+  data/insurance.ts   保险的险种、保费、免赔额和来源（均待平衡，见 insurance.md）
   data/achievements.ts 成就表（选指标和目标值即可加一条）
   data/areas-base.ts  区域注册表：AREAS、跨区域路线、mergeAreas 合成世界
   data/wa-base.ts     西澳首屏版：22 个地点、路线图、海岸线轮廓（不含真实地点）

@@ -17,6 +17,7 @@ import type { ActionResult, CoopDef, NpcAction, PlayerState, Region, TravelMode,
 import { resolveCoop, type CoopMember, type CoopResult } from './coop.ts';
 import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
+import { buyInsurance } from './insure.ts';
 import { venueAction } from './venues.ts';
 import { trailStep } from './trails.ts';
 import { studyProgram } from './education.ts';
@@ -75,7 +76,8 @@ export type GameAction =
 	| ({ t: 'onboard' } & OnboardOp)
 	| { t: 'visa'; op: 'apply'; route: string }
 	| { t: 'visa'; op: 'ielts' }
-	| { t: 'care'; kind: CareKind }; // 看病（健康系统第 1 版）
+	| { t: 'care'; kind: CareKind } // 看病（健康系统第 1 版）
+	| { t: 'insure'; id: string }; // 买 / 续保险（第 43 批）
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air', 'transit', 'rail', 'walk'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond'];
@@ -140,6 +142,7 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'cert':
 		case 'study':
 		case 'experience':
+		case 'insure':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
 		case 'claim':
 			return str(a.id) ? { t: 'claim', id: a.id } : null;
@@ -239,6 +242,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'title': r = wearTitle(state, a.id); break;
 		case 'visa': r = a.op === 'ielts' ? takeIelts(state, region) : applyVisa(state, region, a.route); break;
 		case 'care': r = seekCare(state, region, a.kind); break;
+		case 'insure': r = buyInsurance(state, a.id); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;

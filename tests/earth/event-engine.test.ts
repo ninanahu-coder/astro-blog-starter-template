@@ -233,11 +233,11 @@ test('按权重抽：和第一版之前的累减写法逐个一致', () => {
 });
 
 // ---------- 引擎：向后兼容 ----------
-/** 第一版之前的 pickArrivalEvent 原样搬过来做参照（加上 need/locked 两条新过滤；现有事件都没写）。合并法律分支后，加上它原有的「交通执法事件只在自己开车时出现」 */
+/** 第一版之前的 pickArrivalEvent 原样搬过来做参照（加上 need/locked 两条新过滤；现有事件都没写）。合并法律分支后，加上它原有的「交通执法事件只在自己开车时出现」；合并保险分支后，加上「住处出险事件只在回到自己住处时出现」 */
 function legacyPick(state: PlayerState, loc: GameLocation, mode: TravelMode | null, first: boolean, override: GameEvent | null): GameEvent | null {
 	if (state.heat >= HEAT_CHECK_AT) return EVENTS.find((e) => e.id === 'heat-check') ?? null;
 	const selfDrive = mode === 'road' && !!getVehicle(state.vehicle) && !licenceBanned(state);
-	const pool = EVENTS.filter((e) => e.weight > 0 && !e.locked && needMet(e, state) && eventMatches(e, loc, mode, state.clock) && !(e.once && state.seen.includes(e.id)) && (!e.driving || selfDrive));
+	const pool = EVENTS.filter((e) => e.weight > 0 && !e.locked && needMet(e, state) && eventMatches(e, loc, mode, state.clock) && !(e.once && state.seen.includes(e.id)) && (!e.driving || selfDrive) && (e.exposure !== 'home' || (!!state.home && state.home.loc === loc.id)));
 	const signature = pool.filter((e) => e.once);
 	if (first && signature.length) return signature[Math.floor(roll(state) * signature.length)];
 	if (override) return override;

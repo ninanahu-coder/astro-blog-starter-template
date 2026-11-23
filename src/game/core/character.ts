@@ -47,6 +47,7 @@ import { EVENTS } from '../data/events.ts';
 import { cleanEvMem, emptyMemory } from './event-rules.ts';
 import { validTraits } from './attributes.ts';
 import { WEATHERS } from '../data/weather.ts';
+import { cleanCover } from './insurance.ts';
 import { cleanBlocked } from './safety.ts';
 
 /** 现实活动的到场纪念（第 24 批，见 core/live.ts）：存档最多记多少个、id 的格式 */
@@ -169,6 +170,7 @@ export function createCharacter(opts: {
 		holdings: {},
 		marketSeed: deriveMarketSeed(opts.seed >>> 0),
 		nextWeek: 7,
+		cover: {}, // 保单（第 43 批）：开局没有；看病的保障跟签证走（core/health.ts coverOf）
 		moodlets: [],
 		wishes: [],
 		wishDay: -1,
@@ -312,6 +314,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		illness: cleanIllness(r.illness, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		visa: cleanVisa(r.visa, ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), new Set(CAREERS.map((c) => c.id))),
 		...cleanEstate(r, knownLocs),
+		cover: cleanCover(r.cover, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440)),
 		holdings: (() => {
 			const out: Record<string, { units: number; cost: number }> = {};
 			for (const def of ASSETS) {

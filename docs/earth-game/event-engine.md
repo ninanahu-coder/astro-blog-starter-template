@@ -142,6 +142,7 @@
 - `cooldown`、`unlockDays` > 0，`daily`、`max` 是正整数；`unlockDays` 只能配 `locked`；
 - `need` 的键必须是可比较的数值，`min` 不能大于 `max`；`need.rel` 每项至少写 `min` 或 `max`；
 - 选项：有 `fail` 必须有 `check` 或 `risk`；`check.skill` 是七项能力之一；不能所有选项都下海；
+- 保险（第 43 批，v78）的 `exposure` 只能写 `home`，不能配 `venueTypes`；这种事件只在回到自己住处所在地点时进抽取池（`engine.ts` `atOwnHome()`）。
 - 法律（第 43 批）带来的三个字段：事件 `driving` 只能写 `true`，不能配 `venueTypes`；选项 `risk` 是 0 到 1 之间（不含两端）的几率，必须配 `fail`；结果 `law` 是违章 id 或 `breath`（取值由测试按 `data/law.ts` 另查）；
 - `unlocks` 指向存在的 `locked` 事件；`locked` 事件必须有人解锁；`then` 指向存在的事件且不能绕成圈。
 

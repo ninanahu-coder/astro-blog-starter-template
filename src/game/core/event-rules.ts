@@ -174,6 +174,7 @@ const EVENT_KEYS = new Set([
 	'id', 'title', 'icon', 'text', 'weight', 'choices', 'locs', 'tags', 'kinds', 'arrivedBy', 'venueTypes', 'seasons', 'weather', 'periods', 'hours',
 	'once', 'animal', 'breakdown', 'need', 'cooldown', 'daily', 'max', 'locked', 'unlockDays',
 	'driving', // 法律（第 43 批）：只在自己开车抵达时出现
+	'exposure', // 保险（第 43 批）：'home' 只在回到自己住处时出现
 ]);
 // risk（选项按几率出 fail）、law（结果带法律后果）来自法律（第 43 批，core/law.ts）
 const CHOICE_KEYS = new Set(['label', 'cost', 'check', 'risk', 'exposed', 'ok', 'fail']);
@@ -219,6 +220,8 @@ export function validateEvents(list: readonly GameEvent[]): string[] {
 		if (ev.breakdown && ev.weight !== 0) e('抛锚事件 weight 必须写 0（只在抛锚时抽）');
 		if (ev.driving !== undefined && ev.driving !== true) e('driving 只能写 true');
 		if (ev.driving && ev.venueTypes) e('driving 事件是开车抵达城镇时的事，不能写 venueTypes');
+		if (ev.exposure !== undefined && ev.exposure !== 'home') e('exposure 只能写 home');
+		if (ev.exposure && ev.venueTypes) e('exposure 事件是回到自己住处时的事，不能写 venueTypes');
 		if (ev.once && ev.locked) e('once 和 locked 不能同时写：签名事件首次到访必出，链式事件要解锁才出');
 		if (ev.unlockDays !== undefined && !ev.locked) e('unlockDays 只对 locked 事件有意义');
 		if (ev.cooldown !== undefined && !posNum(ev.cooldown)) e('cooldown（游戏小时）必须 > 0');

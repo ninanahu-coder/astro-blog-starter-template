@@ -153,6 +153,51 @@ export const EVENTS: GameEvent[] = [
 			{ label: '叫拖车去修车厂', cost: 320, ok: { text: '修车厂当天就换好了。', fx: { minutes: 180 } } },
 		],
 	},
+	// 出险事件（保险第一版，权重和金额待平衡）：fx.loss 是可以走保险的损失，有对口保单只付免赔额，见 data/insurance.ts。
+	// 车的意外用法律分支的 driving: true（只在自己开车、驾照没暂停时出现）；exposure 'home' 只在回到自己住处时出现。
+	// 看病的钱走健康系统（data/health.ts 的保障），保险不管医疗（合并 main 后定）
+	{
+		id: 'ins-rear-end', title: '追尾', icon: '💥', arrivedBy: ['road'], driving: true, kinds: ['city', 'town'], weight: 2,
+		text: '进城的车流突然停住，前车一脚急刹。',
+		choices: [
+			{ label: '猛踩刹车', check: { skill: 'driving', dc: 45 }, ok: { text: '离前车保险杠只差一拳，心还在狂跳。', fx: { needs: { fun: -5 }, skills: { driving: 2 } } }, fail: { text: '“砰”的一声撞了上去。人没大事，两辆车都要修，责任在你。交换了驾照和保险信息。', fx: { minutes: 60, health: -5, loss: [{ kind: 'collision', amount: 1800 }, { kind: 'tpp', amount: 2500 }], skills: { driving: 1 } } } },
+		],
+	},
+	{
+		id: 'ins-car-breakin', title: '车窗被砸', icon: '🪟', arrivedBy: ['road'], driving: true, kinds: ['city'], periods: ['night'], weight: 2,
+		text: '停好车去买了点东西，回来时驾驶座的车窗碎了一地，放在座位上的包也不见了。',
+		choices: [
+			{ label: '报警，再打保险公司电话', ok: { text: '警察给了一个报案号，理赔要用。玻璃店明早才开门。', fx: { minutes: 90, needs: { fun: -10 }, loss: [{ kind: 'car-theft', amount: 700 }] } } },
+		],
+	},
+	{
+		id: 'ins-hail', title: '冰雹', icon: '🧊', arrivedBy: ['road'], driving: true, weather: ['storm'], weight: 3,
+		text: '天一下黑了，鸡蛋大的冰雹砸在车顶上噼啪作响。',
+		choices: [
+			{ label: '找个有顶的停车场躲进去', check: { skill: 'driving', dc: 40 }, ok: { text: '赶在最大的那阵之前钻进了商场停车楼。', fx: { minutes: 30 } }, fail: { text: '没找到地方，引擎盖和车顶被砸出了一片坑。', fx: { minutes: 30, needs: { fun: -10 }, loss: [{ kind: 'car-storm', amount: 1500 }] } } },
+		],
+	},
+	{
+		id: 'ins-burglary', title: '家里被撬了', icon: '🚪', exposure: 'home', weight: 1,
+		text: '门锁被撬坏了，屋里翻得乱七八糟，笔记本电脑和耳机都没了。',
+		choices: [
+			{ label: '报警，拍照留证', ok: { text: '警察来做了笔录。换锁、补东西，这周都过得不安心。', fx: { minutes: 120, needs: { fun: -15 }, loss: [{ kind: 'contents-theft', amount: 1200 }] } } },
+		],
+	},
+	{
+		id: 'ins-roof-leak', title: '屋顶漏水', icon: '🌧️', exposure: 'home', weather: ['storm'], weight: 4,
+		text: '风暴把屋顶的瓦掀开了一块，雨水正往屋里灌。',
+		choices: [
+			{ label: '把东西搬到干的地方', check: { skill: 'strength', dc: 40 }, ok: { text: '床垫和电器都抢出来了，只湿了几本书。', fx: { minutes: 60, needs: { energy: -10 } } }, fail: { text: '搬得不够快，床垫和电脑都泡了水。', fx: { minutes: 60, needs: { energy: -15, fun: -10 }, loss: [{ kind: 'contents-storm', amount: 900 }] } } },
+		],
+	},
+	{
+		id: 'ins-lost-bag', title: '行李没出来', icon: '🧳', arrivedBy: ['air'], weight: 2,
+		text: '传送带转了一圈又一圈，你的箱子始终没出来。',
+		choices: [
+			{ label: '去行李柜台登记', ok: { text: '航空公司说找到了会送过来。等了两天，箱子还是丢了，只能自己买一套换洗的。', fx: { minutes: 60, needs: { fun: -10 }, loss: [{ kind: 'luggage', amount: 600 }] } } },
+		],
+	},
 	{
 		id: 'roo-dusk', animal: 'grey-kangaroo', title: '黄昏的袋鼠', icon: '🌅', arrivedBy: ['road', 'track'], weight: 3,
 		text: '夕阳正对着挡风玻璃，一只袋鼠突然跳上公路。',

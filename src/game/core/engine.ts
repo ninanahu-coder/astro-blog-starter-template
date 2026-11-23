@@ -45,6 +45,7 @@ import { applyLawOutcome, lawWeekly, licenceBanned, noteDrink, serveCommunity } 
 import { COMMUNITY_SERVICE } from '../data/law.ts';
 import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
+import { settleLoss } from './insurance.ts';
 import { applyCare, careAvailableAt, careOutcome, currentIllness, getCare, getCondition, illnessBlock, illnessTick, injure, loadOfActivity, loadOfEffect, startIllness, type CareOutcome } from './health.ts';
 import { CARE, type CareKind } from '../data/health.ts';
 import { modeNeeds, transitOptions, WALK_STAMINA_PER_KM, withRouteFare } from './transport.ts';
@@ -165,6 +166,7 @@ export function applyEffect(state: PlayerState, fx: Effect, region: Region): boo
 	if (fx.cash && fx.cash < 0) state.cash = Math.max(0, Math.round(state.cash + fx.cash));
 	if (fx.respect && fx.respect < 0) state.respect = Math.max(0, state.respect + fx.respect);
 	if (fx.heat && fx.heat > 0) state.heat = clamp100(state.heat + fx.heat * heatMult(state));
+	if (fx.loss) for (const l of fx.loss) log(state, settleLoss(state, l, dayOf(state.clock), resaleValue(state.vehicle, state.car.km)).text); // 出险：有保险只付免赔额；自己车的损失最多赔到按里程折旧后的车值（合并 main 后复核）
 	addItems(state, fx.items, -1);
 	if (fx.skills) {
 		for (const k of SKILL_KEYS) {
@@ -521,6 +523,11 @@ export function eventMatches(ev: GameEvent, loc: GameLocation, mode: TravelMode 
 	);
 }
 
+/** 住处出险事件（exposure: 'home'，保险第 43 批）只在回到自己住处所在地点时出现；没写的事件不受限 */
+export function atOwnHome(ev: GameEvent, state: PlayerState, loc: GameLocation): boolean {
+	return ev.exposure !== 'home' || (!!state.home && state.home.loc === loc.id);
+}
+
 /** 这个事件此刻能不能进池：weight（链式事件不看）、once、属性关系条件、冷却和次数（见 core/event-rules.ts） */
 function drawable(state: PlayerState, e: GameEvent): boolean {
 	return (e.locked || e.weight > 0) && !(e.once && state.seen.includes(e.id)) && needMet(e, state) && eventReady(e, state.evMem, state.clock);
@@ -536,7 +543,7 @@ export function pickArrivalEvent(state: PlayerState, loc: GameLocation, mode: Tr
 	// 交通执法事件（driving: true，第 43 批）只在自己开车时出现；驾照暂停时开不了车。
 	// 出行时传进来出发那一刻的判断（drove）：停驾在路上到期时，坐大巴来的人不会被当成自己开车
 	const selfDrive = drove ?? (mode === 'road' && !!getVehicle(state.vehicle) && !licenceBanned(state));
-	const pool = EVENTS.filter((e) => eventMatches(e, loc, mode, state.clock) && drawable(state, e) && (!e.driving || selfDrive));
+	const pool = EVENTS.filter((e) => eventMatches(e, loc, mode, state.clock) && drawable(state, e) && (!e.driving || selfDrive) && atOwnHome(e, state, loc));
 	// 首次到访：有签名事件就必出（这趟的抛锚让给它）
 	const signature = pool.filter((e) => e.once);
 	if (first && signature.length) return { ev: signature[Math.floor(roll(state) * signature.length)], src: 'signature' };

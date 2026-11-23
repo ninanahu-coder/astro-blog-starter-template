@@ -91,6 +91,10 @@ export function actionCats(a: GameAction): [TallyCat, TallyCat] {
 		case 'claim':
 		case 'live':
 		case 'onboard': return ['reward', 'reward']; // 成就奖励、现实活动、新手引导的奖励
+		case 'insure': { // 保费：车险算车，租客险算住房，旅行险算出行（第 43 批）
+			const c: TallyCat = a.id === 'contents' ? 'housing' : a.id === 'travel' ? 'transport' : 'vehicle';
+			return [c, c];
+		}
 		case 'asset': // 理财买卖：钱换成了资产，不是花掉，放「其他」
 		case 'visa': // 签证申请费、雅思报名费
 		case 'title':

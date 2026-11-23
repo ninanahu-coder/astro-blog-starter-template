@@ -32,6 +32,15 @@ export interface Effect {
 	illness?: string;
 	/** 这段时间在睡觉：饱食、娱乐、社交掉得慢，精力不降，恢复的精力乘恢复系数（见 core/vitals.ts） */
 	asleep?: boolean;
+	/** 可以走保险的损失（车祸、失窃、风暴……）：有对口保单时只付免赔额，没有就全额自付（见 core/insurance.ts） */
+	loss?: Loss[];
+}
+
+/** 保险能赔的损失种类 */
+export type LossKind = 'collision' | 'tpp' | 'car-theft' | 'car-storm' | 'contents-theft' | 'contents-storm' | 'luggage';
+export interface Loss {
+	kind: LossKind;
+	amount: number; // 损失金额（元）
 }
 
 export interface MoodletDef {
@@ -603,6 +612,8 @@ export interface GameEvent {
 	venueTypes?: string[];
 	once?: boolean; // 每个角色只触发一次（地标签名事件）
 	animal?: string; // 事件里见到的动物：抽到这个事件就记进野生动物图鉴
+	/** 只在回到自己的住处时出现（保险的住处出险事件） */
+	exposure?: 'home';
 	driving?: boolean; // 只在自己开车（有车且驾照没暂停）抵达时出现：路检、测速、停车
 	breakdown?: boolean; // 抛锚事件：不进普通抽取（weight 写 0），只在该保养的车自驾抵达时按几率抽
 	weight: number;
@@ -620,6 +631,13 @@ export interface GameEvent {
 	/** 链式事件解锁后这么多游戏日内没出现就作废；不写不过期 */
 	unlockDays?: number;
 	choices: EventChoice[];
+}
+
+/** 一张保单：从 from 日起生效，到 until 日（不含）止；claims 是最近的理赔日（游戏日，最多 CLAIMS_MAX 条） */
+export interface Cover {
+	from: number;
+	until: number;
+	claims: number[];
 }
 
 export interface JournalEntry {
@@ -713,6 +731,7 @@ export interface PlayerState {
 	quotes?: Record<string, number[]>; // 只在发给客户端的副本里有（publicState 填）：每种资产最近几天的价格，客户端没有行情种子，靠它显示行情
 	marketSeed: number; // 行情种子：创建时由服务端随机种子派生，不发给客户端（publicState 清零），否则能推算未来价格
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
+	cover: Record<string, Cover>; // 保单：保单 id（data/insurance.ts）-> 生效期和理赔记录
 	moodlets: Moodlet[]; // 带时限的心情状态
 	wishes: string[]; // 今天还没完成的心愿 id
 	wishDay: number; // 这批心愿是哪个游戏日生成的，−1 表示还没生成

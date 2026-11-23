@@ -27,7 +27,7 @@
 | 寒潮、按公园管理规则整片关闭国家公园 | `weather-seasons.md` §4 | 【提议】 |
 | 风暴天土路封闭、渡轮停航、公路耗时 ×1.25；抛锚几率随天气 | `engine.ts` `priceRoute()` 的 `wx.road`（原 `claude/earth-home-vehicle`） | 【现状】（已合并） |
 | 公交、区域火车、步行（`TravelMode` 加 `transit`/`rail`/`walk`） | `core/transport.ts` `transitOptions()`（原 `claude/earth-transport`） | 【现状】（已合并） |
-| 保险 | 分支 `claude/earth-insurance`（开工中，还没有提交） | 不在 main |
+| 保险 | `core/insurance.ts`（v78 合并） | 有保单和理赔，但**还没接**下面 §6 的灾害接口（2026-11-23 用户定：这次先不接，以后单独一批） |
 
 ## 2. 真实预警体系（来源）
 
@@ -130,7 +130,7 @@ CLAIMABLE = ['cyclone', 'bushfire', 'flood']
 | `claude/earth-home-vehicle` | 风暴封土路、停渡轮写在 `priceRoute()` 里 | 不冲突：本批在 `travelOptions()` 返回处包一层，已经不可用的线路不覆盖原因 |
 | `claude/earth-transport` | `travelOptions()` 循环里包了 `withRouteFare`，末尾追加 `transitOptions` | **会有小冲突**：两边都改了 `travelOptions` 的最后一行。合并时保留对方的追加，再把整体传给 `closeRoutes()`。`transit`/`rail`/`walk` 在 `routeClosed()` 里按公路处理（不是 air、track、ferry 的都算公路） |
 | `claude/earth-shop-items` | 可能也在 `ITEMS` 末尾加物品 | 本批的应急包插在 `surfboard` 前，冲突的话两边都留 |
-| `claude/earth-insurance` | 理赔 | 用 §6 的接口，不要在保险里另算灾害 |
+| `claude/earth-insurance`（v78 已合并） | 理赔 | 用 §6 的接口，不要在保险里另算灾害；合并时没接，见 insurance.md §10 |
 | `claude/earth-world-events`、`claude/earth-event-engine` | 如果也做「山火新闻」之类 | 建议直接读 `warningsOn()`，不要另起一套 |
 | `tests/earth/bundle.test.ts` | 首屏体积 | 本批新增约 10KB 源码（data + core + ui），见验收时的实测 |
 
