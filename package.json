@@ -42,7 +42,10 @@
 		"earth:fetch-venues": "node tools/earth/openclaw/fetch-venues.mjs",
 		"earth:cgi": "node tools/earth/comfyui/generate.mjs",
 		"earth:cgi:gpti": "node tools/earth/comfyui/generate-gpti.mjs",
-		"earth:sim": "node tools/earth/balance/sim.ts"
+		"earth:sim": "node tools/earth/balance/sim.ts",
+		"earth:tuning": "node tools/earth/balance/tuning.ts",
+		"earth:baseline": "node tools/earth/balance/baseline.ts",
+		"earth:gm": "node tools/earth/gm/gm.ts"
 	},
 	"type": "module"
 }

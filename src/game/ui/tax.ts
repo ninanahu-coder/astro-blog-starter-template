@@ -1,7 +1,7 @@
 // 「我 · 资产」里的税务卡片：身份、TFN / ABN、本财年账目和估算、待申报的上一财年、欠税。
 // 纯函数，只拼 HTML；按钮带 data-tax，点击由 earth.astro 发 { t: 'tax', op }。所有插值都经过调用方传入的 esc()。
 import { TAX_GAME } from '../data/tax.ts';
-import { assess, fyOf, RESIDENCY_LABEL, returnPreview, taxStatus, tfnState } from '../core/tax.ts';
+import { assess, fyOf, hasAbn, RESIDENCY_LABEL, returnPreview, taxStatusOf, tfnState } from '../core/tax.ts';
 import { dayOf, YEAR_DAYS } from '../core/time.ts';
 import type { PlayerState } from '../core/types.ts';
 
@@ -13,15 +13,15 @@ const dueText = (due: number) => (due < 0 ? `退税 ${money(-due)}` : due > 0 ? 
 export function taxCard(s: PlayerState, esc: (v: unknown) => string): string {
 	const t = s.tax;
 	const day = dayOf(s.clock);
-	const st = taxStatus(s.origin);
+	const st = taxStatusOf(s);
 	const tfn = tfnState(t, day);
 	const rows: string[] = [];
 	rows.push(`<p>身份：${esc(RESIDENCY_LABEL[st.residency])}${st.medicareExempt ? '（不交 Medicare 税）' : ''}</p>`);
 
 	if (tfn === 'none') rows.push(`<p>⚠️ 还没有税号（TFN）：雇主会按最高税率预扣工资（${st.residency === 'resident' ? '47%' : '45%'}），也没法报税退回。</p><div class="inline"><button data-tax="tfn">申请 TFN（网上办，免费）</button></div>`);
 	else if (tfn === 'waiting') rows.push(`<p>TFN 办理中，还要 ${esc(t.tfn - day)} 天。等号码期间按正常税率预扣。</p>`);
-	else rows.push(`<p>TFN ✓${t.abn ? ' · ABN ✓（个体户）' : ''}</p>`);
-	if (tfn === 'ok' && !t.abn) rows.push(`<div class="inline"><button data-tax="abn">注册 ABN</button></div><p style="margin-top:4px"><small>有 ABN 后街头表演算生意收入：多挣 ${esc(Math.round(TAX_GAME.abnBonus * 100))}%，报税时交税。</small></p>`);
+	else rows.push(`<p>TFN ✓${hasAbn(s) ? ' · ABN ✓（个体户）' : ''}</p>`);
+	if (tfn === 'ok' && !hasAbn(s)) rows.push(`<div class="inline"><button data-tax="abn">注册 ABN</button></div><p style="margin-top:4px"><small>有 ABN 后街头表演算生意收入：多挣 ${esc(Math.round(TAX_GAME.abnBonus * 100))}%，报税时交税。</small></p>`);
 
 	// 本财年
 	const b = t.book;

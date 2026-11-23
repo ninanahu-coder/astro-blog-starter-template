@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic a vast outback lake landscape at sunset, still blue water dotted with islands, red sandstone ranges, and swollen-trunked boab trees on rocky slopes in the foreground, with the the lake, the islands, the ranges, the boab trees and the composition shown in <Picture 1> preserved. From the first frame the lake surface ripples softly and the sunset reflections shimmer. The camera pushes in with small amplitude at slow speed toward the lake and the red ranges and comes to rest on a slightly tighter wide shot of the islands and the red ranges in the final second. Pink clouds drift slowly across the sky, warm light glows on the cliffs, and the grasses and wildflowers in the foreground sway lightly, and the boab trees, the ranges and the islands stay still.
+
+overall_soundscape: A warm evening breeze over open water and distant birds; soft ripple of water against rocks.
+
+non_diegetic_music: N/A

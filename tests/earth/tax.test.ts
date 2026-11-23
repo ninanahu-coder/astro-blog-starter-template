@@ -5,13 +5,18 @@ import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, ORIGINS, sanitizeState } from '../../src/game/core/character.ts';
 import { applyAbn, applyTfn, lodgeReturn } from '../../src/game/core/tax-actions.ts';
 import { assess, cleanTax, emptyBook, latePenalty, lodgeWindow, returnPreview, taxStatus, taxTick, withholding } from '../../src/game/core/tax.ts';
-import { YEAR_DAYS } from '../../src/game/core/time.ts';
+import { dayOf, YEAR_DAYS } from '../../src/game/core/time.ts';
 import { ACTIVITY_INCOME, NO_TFN_RATE, ORIGIN_TAX, TAX_BANDS, TAX_GAME } from '../../src/game/data/tax.ts';
 import { ACTIVITIES } from '../../src/game/data/activities.ts';
 import { getProperty } from '../../src/game/core/engine.ts';
 import { taxCard } from '../../src/game/ui/tax.ts';
 import { WA } from '../../src/game/data/wa.ts';
 import type { PlayerState, TaxBook } from '../../src/game/core/types.ts';
+import { coverOf } from '../../src/game/core/health.ts';
+import { rentOn } from '../../src/game/core/world.ts';
+import { hasAbn, taxStatusOf } from '../../src/game/core/tax.ts';
+import { recordBiz as bizBook } from '../../src/game/core/business.ts';
+import { actionCats } from '../../src/game/core/tally.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
 const make = (origin = 'student', over: Partial<PlayerState> = {}): PlayerState => ({
@@ -122,13 +127,13 @@ test('出租：租金和可抵扣费用（物业费、利息、维修）在周�
 	for (let seed = 1; seed <= 8; seed++) {
 		const x = applyAction({ ...s, seed }, WA, { t: 'activity', id: 'rest' }).state;
 		const vacant = x.journal.some((j) => j.text.includes('空置'));
-		assert.equal(x.tax.book.rent, vacant ? 0 : def.rentIncome, '租金收入（空置那周没有）');
+		assert.equal(x.tax.book.rent, vacant ? 0 : rentOn(def.rentIncome, 6), '租金收入按实收（租金指数，合并 main 后；空置那周没有）');
 		if (!vacant) paid++;
 	}
 	assert.ok(paid > 0, '几个种子里总有收到租金的');
 	assert.ok(b.rentCost >= def.weekly + 50, `物业费 + 利息：${b.rentCost}`);
 	const own = applyAction({ ...s, properties: [{ id: def.id, loan: 50000, rented: false, missed: 0 }] }, WA, { t: 'activity', id: 'rest' });
-	assert.deepEqual(own.state.tax.book, emptyBook(), '自住的费用不能抵税');
+	assert.deepEqual({ ...own.state.tax.book, wk: undefined, mx: undefined }, { ...emptyBook(), wk: undefined, mx: undefined }, '自住的费用不能抵税（周结算记的 Medicare 保障周数不算账目）');
 });
 
 test('财年结转：跨进新一年时账目转成待申报，没有收入的年份不用报', () => {
@@ -282,4 +287,86 @@ test('界面卡片：按状态出按钮；插值都经过 esc', () => {
 	assert.match(html, /«第 1 财年待申报»|«1»/, '数字经过 esc');
 	assert.match(taxCard({ ...ok, tax: { ...ok.tax, tfn: -1 } }, esc), /data-tax="lodge" disabled/);
 	assert.match(taxCard({ ...ok, tax: { ...ok.tax, debt: 300 } }, esc), /欠税/);
+});
+
+// ---------- 合并 main 后：签证保障、ABN 共用、副业收入、生涯统计 ----------
+test('Medicare 税免不免跟着签证带的保障走：学生签证 OSHC 免，拿到永居有 Medicare 就要交（合并 main 后）', () => {
+	const st = make('student');
+	assert.equal(coverOf(st).id, 'oshc');
+	assert.equal(taxStatusOf(st).medicareExempt, true);
+	const pr = { ...st, visa: { ...st.visa, kind: 'pr' as const } } as PlayerState;
+	assert.equal(coverOf(pr).id, 'medicare');
+	assert.equal(taxStatusOf(pr).medicareExempt, false);
+	const income = 60000 * sc;
+	assert.ok(assess(book({ wages: income }), taxStatusOf(pr)).tax > assess(book({ wages: income }), taxStatusOf(st)).tax, '永居多交 Medicare 税');
+	assert.equal(taxStatusOf(make('fifo')).medicareExempt, false);
+});
+
+test('ABN 两边是同一个：税务卡注册的副业能用，副业里办的税务卡也认；办 ABN 都要先有 TFN（合并 main 后）', () => {
+	const s = withTfn(make('student', { clock: at(10, 5) }));
+	const viaTax = applyAbn(s);
+	assert.ok(viaTax.ok, viaTax.msg);
+	assert.equal(typeof viaTax.state.biz.lic.abn, 'number', '税务卡注册后副业的 ABN 也有了');
+	const viaBiz = applyAction(s, WA, { t: 'biz', op: 'license', id: 'abn' });
+	assert.ok(viaBiz.ok, viaBiz.msg);
+	assert.equal(viaBiz.state.tax.abn, true, '副业里办的税务卡也认');
+	assert.ok(hasAbn(viaBiz.state));
+	assert.equal(applyAbn(viaBiz.state).ok, false, '不会重复注册');
+	const noTfn = applyAction(make('student', { clock: at(10, 5) }), WA, { t: 'biz', op: 'license', id: 'abn' });
+	assert.equal(noTfn.ok, false);
+	assert.match(noTfn.msg, /TFN/);
+});
+
+test('副业和自己店的净额记进个体户收入：本年带符号累计，亏损不丢、算税时不低于 0（合并 main 后）', () => {
+	const s = withTfn(make('student', { clock: at(12, 1) }));
+	const x = structuredClone(s);
+	bizBook(x, 1, 300, 200);
+	assert.equal(x.tax.book.biz, 200);
+	bizBook(x, 1, 0, -500);
+	assert.equal(x.tax.book.biz, -300, '本年净额带符号累计');
+	assert.equal(assess(x.tax.book, taxStatusOf(x)).taxable, x.tax.book.wages, '生意全年亏了按 0 计，不抵工资');
+	// 先亏后赚：开店装修的亏损照样能扣（合并 main 后复核：原来每笔钳到 0，先发生的亏损被丢掉）
+	const y = structuredClone(s);
+	for (const net of [-8000, 3000, 3000]) bizBook(y, 1, 0, net);
+	assert.equal(y.tax.book.biz, -2000);
+	assert.equal(assess(y.tax.book, taxStatusOf(y)).taxable, 0);
+	assert.deepEqual(actionCats({ t: 'tax', op: 'lodge' }), ['other', 'other']);
+});
+
+test('Medicare 税按这一年里免税的周数比例算，不按报税那天的身份（合并 main 后复核）', () => {
+	const st = taxStatusOf(make('fifo'));
+	const income = 60000 * sc;
+	const full = assess(book({ wages: income, wk: 16, mx: 0 }), st).medicare;
+	assert.ok(full > 0);
+	assert.equal(assess(book({ wages: income, wk: 16, mx: 16 }), st).medicare, 0, '全年免');
+	near(assess(book({ wages: income, wk: 16, mx: 8 }), st).medicare, Math.round(full / 2), '一半周数免');
+	// 拿到永居（有了 Medicare）之后报上一年的税：上一年都是学生签证，照样全免
+	const student = withTfn(make('student', { clock: at(10, 5) }));
+	let s = student;
+	for (let w = 0; w < 30; w++) { s = { ...s, clock: s.clock + 7 * 1440, nextWeek: dayOf(s.clock) + 7 }; taxTick(s); }
+	assert.ok((s.tax.book.wk ?? 0) > 0 || (s.tax.ret?.wk ?? 0) > 0, '周结算记了保障周数');
+	const ret = s.tax.ret ?? { fy: 1, ...s.tax.book };
+	const pr = { ...s, visa: { ...s.visa, kind: 'pr' as const }, tax: { ...s.tax, ret: { ...ret, wages: income } } } as PlayerState;
+	assert.equal(returnPreview(pr)!.assess.medicare, 0, '当年没有 Medicare，就算报税时已经永居也不交');
+});
+
+test('复核修正补测：租金按指数实收记账；只有副业里办的 ABN（老存档）也算有 ABN；生意亏损不抵工资（合并 main 后）', () => {
+	// 找一个租金指数不是 1 的结算日
+	let day = 6;
+	while (rentOn(1000, day) === 1000 && day < 2000) day += 7;
+	assert.ok(rentOn(1000, day) !== 1000, '前提：指数会变');
+	const def = getProperty('perth-apartment')!;
+	const s = withTfn(make('fifo', { clock: at(23, day), cash: 50000, nextWeek: day + 1, properties: [{ id: def.id, loan: 50000, rented: true, missed: 0 }] }));
+	for (let seed = 1; seed <= 8; seed++) {
+		const x = applyAction({ ...s, seed }, WA, { t: 'activity', id: 'rest' }).state;
+		if (x.journal.some((j) => j.text.includes('空置'))) continue;
+		assert.equal(x.tax.book.rent, rentOn(def.rentIncome, day));
+		break;
+	}
+	const old = withTfn(make('student'));
+	const bizOnly = { ...old, tax: { ...old.tax, abn: false }, biz: { ...old.biz, lic: { ...old.biz.lic, abn: 0 } } };
+	assert.equal(hasAbn(bizOnly), true);
+	assert.equal(applyAbn(bizOnly).ok, false, '不会再注册一个');
+	const loss = book({ wages: 5000, biz: -3000 });
+	assert.equal(assess(loss, taxStatusOf(old)).taxable, 5000, '生意亏损不抵工资');
 });

@@ -1,7 +1,7 @@
 // 税务动作：申请 TFN、注册 ABN、报税。规则在 tax.ts（不引用引擎，存档清洗也要用它）。
 import { TAX_GAME } from '../data/tax.ts';
 import { clone, fail, log } from './engine.ts';
-import { settle, tfnState } from './tax.ts';
+import { hasAbn, settle, tfnState } from './tax.ts';
 import { dayOf } from './time.ts';
 import type { ActionResult, PlayerState } from './types.ts';
 
@@ -19,10 +19,11 @@ export function applyTfn(prev: PlayerState): ActionResult {
 /** 注册 ABN（个体户）：要先有 TFN。之后街头表演算生意收入 */
 export function applyAbn(prev: PlayerState): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
-	if (prev.tax.abn) return fail(prev, '你已经有 ABN 了。');
+	if (hasAbn(prev)) return fail(prev, '你已经有 ABN 了。');
 	if (tfnState(prev.tax, dayOf(prev.clock)) !== 'ok') return fail(prev, '注册 ABN 要先有 TFN。');
 	const state = clone(prev);
 	state.tax.abn = true;
+	if (state.biz && state.biz.lic.abn === undefined) state.biz.lic.abn = dayOf(state.clock); // 和副业与小生意的 ABN 是同一个（合并 main 后）
 	const msg = `注册了 ABN，成了个体户：街头表演能接商演，收入多 ${Math.round(TAX_GAME.abnBonus * 100)}%，但要在报税时交税。`;
 	log(state, msg);
 	return { ok: true, state, msg };

@@ -3,6 +3,7 @@
 import { ACTIVITY_INCOME, LITO, MEDICARE, NO_TFN_RATE, ORIGIN_TAX, TAX_BANDS, TAX_GAME, type IncomeKind, type Residency, type TaxBand } from '../data/tax.ts';
 import { dateOf, dayOf, YEAR_DAYS } from './time.ts';
 import type { PlayerState, TaxBook, TaxState } from './types.ts';
+import { coverOf } from './health.ts';
 
 // ---------- 身份 ----------
 export interface TaxStatus {
@@ -11,6 +12,18 @@ export interface TaxStatus {
 }
 
 export const taxStatus = (origin: string): TaxStatus => ORIGIN_TAX[origin] ?? { residency: 'resident', medicareExempt: false };
+
+/**
+ * 这个角色现在的税务身份（合并 main 后）：居民身份照出身定；Medicare 税免不免跟着签证带的医疗保障走——
+ * 不享受 Medicare 的临时居民（持学生签证用 OSHC、毕业签和工作签自费）凭 Medicare Entitlement Statement 全免，拿到永居有了 Medicare 就要交
+ */
+export function taxStatusOf(state: PlayerState): TaxStatus {
+	const base = taxStatus(state.origin);
+	return { ...base, medicareExempt: coverOf(state).id !== 'medicare' };
+}
+
+/** 有没有 ABN：税务卡上注册的，或者副业与小生意里办的（两边是同一个号码，合并 main 后） */
+export const hasAbn = (state: PlayerState) => state.tax.abn || state.biz?.lic.abn !== undefined;
 
 export const RESIDENCY_LABEL: Record<Residency, string> = { resident: '税务居民', whm: '打工度假（WHM）', foreign: '外国税务居民' };
 
@@ -59,10 +72,12 @@ export interface Assessment {
 
 /** 一年的应纳税额。出租亏损可以抵工资等其他收入（负扣税，ATO：negative gearing） */
 export function assess(book: TaxBook, st: TaxStatus): Assessment {
-	const taxable = Math.max(0, Math.round(book.wages + book.biz + book.rent - book.rentCost));
+	// 生意全年亏了按 0 计，不抵工资（接近 ATO 对非商业亏损的处理）；出租亏损照旧可以抵（负扣税）
+	const taxable = Math.max(0, Math.round(book.wages + Math.max(0, book.biz) + book.rent - book.rentCost));
 	const gross = bandTax(taxable, TAX_BANDS[st.residency]);
 	const offset = st.residency === 'resident' ? Math.min(gross, lito(taxable)) : 0;
-	const medicare = medicareLevy(taxable, st);
+	// Medicare 税：这一年记过几周的保障（wk 周里 mx 周不享受 Medicare、免税）就按比例算，和 ATO 按天数部分免除一样；没有记录（预扣时临时算）按眼下的身份
+	const medicare = (book.wk ?? 0) > 0 ? medicareLevy(taxable, { ...st, medicareExempt: false }) * (1 - Math.min(book.wk!, book.mx ?? 0) / book.wk!) : medicareLevy(taxable, st);
 	return { taxable, gross: Math.round(gross), offset: Math.round(offset), medicare: Math.round(medicare), tax: Math.max(0, Math.round(gross - offset + medicare)) };
 }
 
@@ -79,7 +94,7 @@ export function tfnState(tax: TaxState, day: number): 'none' | 'waiting' | 'ok' 
  */
 export function withholding(state: PlayerState, gross: number): number {
 	if (gross <= 0) return 0;
-	const st = taxStatus(state.origin);
+	const st = taxStatusOf(state);
 	if (tfnState(state.tax, dayOf(state.clock)) === 'none') return Math.round(gross * NO_TFN_RATE[st.residency]);
 	const days = TAX_GAME.payDaysPerYear;
 	const yearTax = assess({ wages: gross * days, withheld: 0, biz: 0, rent: 0, rentCost: 0 }, st).tax;
@@ -100,7 +115,8 @@ export function recordWage(state: PlayerState, gross: number, withheld: number) 
 	state.tax.book.withheld = cap(state.tax.book.withheld + withheld);
 }
 export function recordBiz(state: PlayerState, amount: number) {
-	state.tax.book.biz = cap(state.tax.book.biz + amount);
+	// 个体户收入按本年净额带符号累计（开店装修、进货这些先发生的亏损也能扣），算税时才按不低于 0 计（assess）。合并 main 后复核：原来每笔都钳到 0，先亏后赚的亏损被丢掉
+	state.tax.book.biz = Math.max(-TAX_GAME.debtMax, cap(state.tax.book.biz + Math.round(amount)));
 }
 export function recordRent(state: PlayerState, income: number) {
 	state.tax.book.rent = cap(state.tax.book.rent + income);
@@ -112,7 +128,7 @@ export function recordRentCost(state: PlayerState, cost: number) {
 
 /** 街头表演这类爱好收入：有 ABN 时按生意收入记账并上浮 abnBonus；没 ABN 不计税，原样返回 */
 export function hobbyIncome(state: PlayerState, cash: number): number {
-	if (!state.tax.abn || cash <= 0) return cash;
+	if (!hasAbn(state) || cash <= 0) return cash;
 	return Math.round(cash * (1 + TAX_GAME.abnBonus));
 }
 
@@ -150,7 +166,7 @@ export function returnPreview(state: PlayerState): ReturnPreview | null {
 	const ret = state.tax.ret;
 	if (!ret) return null;
 	const day = dayOf(state.clock);
-	const a = assess(ret, taxStatus(state.origin));
+	const a = assess(ret, taxStatusOf(state));
 	const due = a.tax - ret.withheld;
 	const end = lodgeWindow(ret.fy).end;
 	return { fy: ret.fy, assess: a, withheld: ret.withheld, due, penalty: latePenalty(ret.fy, day, due), late: day >= end, daysLeft: Math.max(0, end - day) };
@@ -186,6 +202,11 @@ export function taxTick(state: PlayerState): string[] {
 	const out: string[] = [];
 	const fyNow = fyOf(dayOf(state.clock));
 	const t = state.tax;
+	// 这一周的 Medicare 保障记进本年账目（报税时按比例算 Medicare 税，不按报税那天的身份算整年；合并 main 后复核）
+	if (fyNow === t.fy) {
+		t.book.wk = (t.book.wk ?? 0) + 1;
+		if (taxStatusOf(state).medicareExempt) t.book.mx = (t.book.mx ?? 0) + 1;
+	}
 	if (fyNow > t.fy) {
 		if (t.ret) out.push(settle(state, true));
 		if (!bookEmpty(t.book)) {
@@ -213,9 +234,13 @@ function cleanBook(raw: any): TaxBook {
 	return {
 		wages: n(r.wages, 0, TAX_GAME.debtMax, 0),
 		withheld: n(r.withheld, 0, TAX_GAME.debtMax, 0),
-		biz: n(r.biz, 0, TAX_GAME.debtMax, 0),
+		biz: n(r.biz, -TAX_GAME.debtMax, TAX_GAME.debtMax, 0),
 		rent: n(r.rent, 0, TAX_GAME.debtMax, 0),
 		rentCost: n(r.rentCost, 0, TAX_GAME.debtMax, 0),
+		...(() => {
+			const wk = n(r.wk, 0, 1000, 0);
+			return wk ? { wk, mx: n(r.mx, 0, wk, 0) } : {};
+		})(),
 	};
 }
 
