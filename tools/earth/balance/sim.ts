@@ -38,6 +38,7 @@ import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import { careerSummary, earnedOf, spentOf } from '../../../src/game/core/tally.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
+import { paperChecklist } from '../../../src/game/core/paperwork.ts';
 import { volunteerAt } from '../../../src/game/core/volunteer.ts';
 import { volShifts, volTier } from '../../../src/game/core/respect.ts';
 import { level } from '../../../src/game/core/attributes.ts';
@@ -665,6 +666,13 @@ function step(b: Bot) {
 
 	// 2.5 副业与小生意（只有带 side / shop 的策略）
 	if ((plan.side || plan.shop) && stepBiz(b)) return;
+
+	// 2.5 手续（第 43 批）：有收入打算的机器人顺路把落地清单上当场能办的办掉（不专门跑路、不换驾照）；
+	// 合并 main 后：开户、申请 TFN 走 main 的银行和税务；关掉「房产」系统时不经清单开户（和直接开户一样归房产）
+	if (plan.spend !== false && !isIdle(plan) && s.needs.energy >= 40) {
+		const row = paperChecklist(s, WA).find((x) => !x.blocked && !x.paper.id.startsWith('licence'));
+		if (row && tryAct(b, { t: 'paper', id: row.paper.id })) return;
+	}
 
 	// 3. 花钱（阶段 A）：升职卡在能力上就上课；钱多就体验、买车
 	if (plan.spend !== false && !isIdle(plan)) {

@@ -22,6 +22,7 @@ import { claimWeekly } from './weekly.ts';
 import { buyInsurance } from './insure.ts';
 import { venueAction } from './venues.ts';
 import { doVolunteer } from './volunteer.ts';
+import { doPaper, paperGate } from './paperwork.ts';
 import { takeTrip } from './trips.ts';
 import { applyAbn, applyTfn, lodgeReturn } from './tax-actions.ts';
 import { buyListing, sellToBuyer } from './secondhand.ts';
@@ -118,6 +119,7 @@ export type GameAction =
 	| { t: 'biz'; op: 'restock'; qty: number }
 	| { t: 'biz'; op: 'hire' | 'fire' | 'tend' | 'close' } // 副业与小生意（第 43 批）
 	| { t: 'volunteer'; id: string } // 志愿者（第 43 批）
+	| { t: 'paper'; id: string } // 证件和办事（落地清单，core/paperwork.ts）
 	| { t: 'trip'; dest: string; days: number }; // 离开地图的旅行（跨州、回国），见 core/trips.ts
 
 /** 租房市场：交入住检查报告、报修、续约、接受或申诉押金扣款、骗租广告（转钱 / 核实） */
@@ -199,6 +201,7 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'cert':
 		case 'study':
 		case 'experience':
+		case 'paper':
 		case 'volunteer':
 		case 'insure':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
@@ -274,6 +277,9 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 	}
 	const noVisa = visaWorkBlocked(state, a); // 签证过期不能工作（第 43 批）
 	if (noVisa) return { ok: false, state, msg: noVisa };
+	// 证件和办事：手续没办好的动作在这里拦下（合并 main 后只拦考重型卡车驾照，见 core/paperwork.ts paperGate）
+	const gate = paperGate(state, a);
+	if (gate) return { ok: false, state, msg: gate };
 	let r: ActionResult;
 	switch (a.t) {
 		case 'travel': {
@@ -380,6 +386,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 			break;
 		case 'tax': r = a.op === 'tfn' ? applyTfn(state) : a.op === 'abn' ? applyAbn(state) : lodgeReturn(state); break;
 		case 'volunteer': r = doVolunteer(state, region, a.id, now); break;
+		case 'paper': r = doPaper(state, region, a.id); break;
 		case 'trip': r = takeTrip(state, region, a.dest, a.days); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存

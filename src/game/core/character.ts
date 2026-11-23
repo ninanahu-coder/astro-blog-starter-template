@@ -51,6 +51,7 @@ import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
 import { cleanEvMem, emptyMemory } from './event-rules.ts';
 import { validTraits } from './attributes.ts';
+import { cleanPapers } from './paper-clean.ts';
 import { cleanTax, newTaxState } from './tax.ts';
 import { cleanRental, emptyRental } from './rental.ts';
 import { WEATHERS } from '../data/weather.ts';
@@ -196,6 +197,7 @@ export function createCharacter(opts: {
 		certs: [],
 		study: {},
 		workLog: { f: 0, min: 0 },
+		papers: {},
 		coopDays: {},
 		trades: { day: 0, out: 0, in: 0 },
 		swap: { day: 0, done: [], sold: 0, dodged: 0, lost: 0 },
@@ -413,6 +415,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 			return out;
 		})(),
 		workLog: { f: Math.floor(num(r.workLog?.f, 0, 1e6, 0)), min: Math.floor(num(r.workLog?.min, 0, 1e6, 0)) },
+		papers: cleanPapers(r.papers, knownLocs),
 		photoQuest: Math.floor(num(r.photoQuest, 0, PHOTO_QUESTS.length, 0)),
 		story: (() => {
 			const ch = Math.floor(num(r.story?.ch, 0, STORY.length, 0));

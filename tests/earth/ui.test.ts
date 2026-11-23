@@ -1852,6 +1852,39 @@ test('界面：留言列表拉取失败（限流、同步码失效、断网）�
 	assert.ok(notes >= 1 && notes <= 3, `留言列表请求了 ${notes} 次`);
 });
 
+test('界面：落地清单（合并 main 后在「在这里」的抽屉里）——进度、现实流程和来源；点「办理」真的办好；开户直接在 main 的银行办', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'paper-card-a', '办事甲');
+	let place = '', before = '', after = '', bank = '';
+	await openWithHash('', a, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			place = el('panel').innerHTML;
+			await click({ drawer: 'papers' });
+			before = el('modal').innerHTML;
+			await click({ paper: 'phone' });
+			await click({ tab: 'place' });
+			await click({ drawer: 'papers' });
+			after = el('modal').innerHTML;
+			await click({ paper: 'bank' });
+			await click({ tab: 'place' });
+			await click({ drawer: 'papers' });
+			bank = el('modal').innerHTML;
+		},
+	});
+	assert.match(place, /data-drawer="papers"[^>]*>[\s\S]*?落地清单[\s\S]*?\d+\/\d+ 办好/, '抽屉摘要写进度');
+	assert.match(before, /🛂 落地清单<\/h3> <span class="muted">\d+\/\d+<\/span>/);
+	assert.match(before, /以官方为准：<a href="https:\/\/www\.acma\.gov\.au\/id-checks-prepaid-mobiles" target="_blank" rel="noopener">/);
+	assert.match(before, /data-paper="phone" >办理/);
+	assert.match(before, /data-paper="bank" >办理/, '开户不再要先办手机卡（main 的银行在手机上就能开）');
+	assert.match(before, /点「办理」就在「我 · 资产」的银行办/);
+	assert.match(after, /✅ 📱 办手机卡<small>已办好/);
+	assert.match(bank, /✅ 🏦 开银行户<small>已办好（「我 · 资产」的银行）/);
+	assert.match(before, /<b>在哪办：<\/b>「我 · 资产」的银行（点「办理」就在那边办，不花时间）/, '链接到 main 的行不写清单自己的地点和时间');
+	assert.doesNotMatch(before, /有银行网点的城镇/);
+	assert.deepEqual(a11yIssues(before), []);
+});
+
 test('界面：跨州旅行和回国探亲（第 43 批）——珀斯机场列出航线、票价出处、行李和请假提示；点了以后离开几天再回来', async () => {
 	const { data, world } = makeWorld();
 	const a = await makeChar(world, 'trip-ui-a', '旅行甲');
@@ -2202,5 +2235,24 @@ test('界面：跨州旅行（合并 main 后）——带着没寄养的宠物�
 	});
 	assert.match(list, /data-trip="sydney" data-days="3" disabled/);
 	assert.match(list, /豆豆不能随你坐飞机，先寄养/);
+});
+
+test('界面：落地清单（合并 main 后）——签证不带医保的角色，医保那一行只写说明、没有「办理」按钮', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'paper-card-bp', '背包');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.origin = 'backpacker';
+	rec.state.visa = { ...rec.state.visa, kind: 'none', until: -1 };
+	data.set('save:' + a.cred.id, rec);
+	let html = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			await click({ drawer: 'papers' });
+			html = el('modal').innerHTML;
+		},
+	});
+	assert.match(html, /ℹ️ 💳 登记 Medicare<small>你的签证不带 Medicare，看病全额自付/);
+	assert.doesNotMatch(html, /data-paper="medicare"/);
 });
 

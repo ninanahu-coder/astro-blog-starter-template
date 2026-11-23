@@ -80,10 +80,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *     gzip 269,284 → 271,552（+2.3KB），上限 270,200 → 272,600；未压缩 833,263 → 838,705，上限 835,500 → 840,900。
  *   - 跨州旅行和回国探亲：目的地、真实航线票价和出处、行李、回来的事件（core/trips.ts、data/trips.ts、data/trip-events.ts）、出行页的旅行和自驾游卡片，
  *     gzip 271,552 → 276,440（+4.9KB），上限 272,600 → 277,500；未压缩 838,705 → 853,524，上限 840,900 → 856,600。
+ *   - 证件和办事「落地清单」：办事项数据、现实流程摘要和官方来源（data/paperwork.ts）、规则（core/paperwork.ts、core/paper-clean.ts）、「在这里」的清单抽屉，
+ *     gzip 276,440 → 282,814（+6.4KB），上限 277,500 → 283,900；未压缩 853,524 → 875,048，上限 856,600 → 878,100。
  */
-export const FIRST_SCREEN_MAX = 856_600;
+export const FIRST_SCREEN_MAX = 878_100;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 277_500;
+export const FIRST_SCREEN_GZIP_MAX = 283_900;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');

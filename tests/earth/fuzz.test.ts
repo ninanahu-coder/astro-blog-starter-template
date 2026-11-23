@@ -33,6 +33,8 @@ import { PROGRAMS } from '../../src/game/data/education.ts';
 import { isOpen } from '../../src/game/core/time.ts';
 import { VENUE_OPS, VENUE_TYPES } from '../../src/game/data/venues.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { paperChecklist, paperGate } from '../../src/game/core/paperwork.ts';
+import { PAPERS } from '../../src/game/data/paperwork.ts';
 import { bankCapacity, homeLoanOffer } from '../../src/game/core/bank.ts';
 import { bnplBlocked, cardOffer, creditScore, personalOffer } from '../../src/game/core/credit.ts';
 import { DEBT_KINDS } from '../../src/game/data/credit.ts';
@@ -103,6 +105,7 @@ function randomAction(s: PlayerState, r: () => number, now: number): GameAction 
 	}
 	if (roll < 0.815) return { t: 'course', id: pick(COURSES).id };
 	if (roll < 0.83) return r() < 0.5 ? { t: 'cert', id: pick(CERTS).id } : { t: 'vehicle', op: 'service' };
+	if (roll < 0.84) return { t: 'paper', id: pick(PAPERS).id };
 	if (roll < 0.86) return r() < 0.7 ? { t: 'experience', id: pick(EXPERIENCES).id } : r() < 0.5 ? { t: 'fish' } : { t: 'photo' };
 	if (roll < 0.95 && WA.venues.length) {
 		// 真实地点：大多站在店门口，偶尔离得很远或精度很差
@@ -180,7 +183,8 @@ function smartAction(s: PlayerState, r: () => number, now: number): GameAction {
 		if (r() < 0.35) c.push({ t: 'property', op: 'sell', id: o.id }); // 合并租房市场后候选变多，0.2 时卖房一次都走不到
 	}
 	for (const x of coursesAt(s, WA)) if (!x.blocked) c.push({ t: 'course', id: x.course.id });
-	for (const x of certsAt(s, WA)) if (!x.blocked) c.push({ t: 'cert', id: x.cert.id });
+	for (const x of certsAt(s, WA)) if (!x.blocked && !paperGate(s, { t: 'cert', id: x.cert.id })) c.push({ t: 'cert', id: x.cert.id });
+	for (const x of paperChecklist(s, WA)) if (!x.blocked) c.push({ t: 'paper', id: x.paper.id }); // 落地清单
 	// 有车又在修车厂的时候很少（随机动作常把车卖掉），多放几次；物品表一变随机序列就变，只放一次时覆盖率靠运气
 	if (garageAt(s, WA) && !garageAt(s, WA)!.blocked) c.push({ t: 'vehicle', op: 'service' }, { t: 'vehicle', op: 'service' }, { t: 'vehicle', op: 'service' });
 	if (photoQuestNow(s, WA) && !photoQuestNow(s, WA)!.blocked) c.push({ t: 'photo' });
@@ -307,7 +311,7 @@ test('随机动作序列：不抛异常、不改入参、数值在范围内、�
 	}
 	// 主要动作的成功路径都要真的走到过，不然这个测试只在测「失败路径」
 	const MUST = ['travel', 'activity', 'event', 'gps', 'buy', 'use', 'sell', 'npc', 'job:apply', 'job:work', 'job:quit', 'home:rent', 'home:sleep', 'home:cook', 'home:relax',
-		'furniture:buy', 'furniture:sell', 'vehicle:buy', 'vehicle:sell', 'property:buy', 'property:rentout', 'property:movein', 'property:repay', 'property:sell', 'course', 'cert', 'vehicle:service', 'fish', 'experience', 'venue:meal', 'venue:work', 'swap:buy', 'swap:sell', 'bank:open', 'bank:card', 'bank:draw', 'bank:repay', 'bank:bnpl'];
+		'furniture:buy', 'furniture:sell', 'vehicle:buy', 'vehicle:sell', 'property:buy', 'property:rentout', 'property:movein', 'property:repay', 'property:sell', 'course', 'cert', 'paper', 'vehicle:service', 'fish', 'experience', 'venue:meal', 'venue:work', 'swap:buy', 'swap:sell', 'bank:open', 'bank:card', 'bank:draw', 'bank:repay', 'bank:bnpl'];
 	const missing = MUST.filter((k) => !stats[k]?.ok);
 	assert.deepEqual(missing, [], `这些动作一次都没成功过：${missing.join('、')}；统计 ${JSON.stringify(stats)}`);
 	assert.ok(ok > RUNS * 120 * 0.3, `成功的动作太少：${ok}`);
