@@ -48,6 +48,7 @@ import { COOP_EVENTS } from '../data/coop.ts';
 import { EVENTS } from '../data/events.ts';
 import { cleanEvMem, emptyMemory } from './event-rules.ts';
 import { validTraits } from './attributes.ts';
+import { cleanTax, newTaxState } from './tax.ts';
 import { cleanRental, emptyRental } from './rental.ts';
 import { WEATHERS } from '../data/weather.ts';
 import { SWAP } from '../data/secondhand.ts';
@@ -209,6 +210,7 @@ export function createCharacter(opts: {
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
+		tax: newTaxState(START_CLOCK),
 		hobby: emptyHobby(),
 		tally: newTally({ clock: START_CLOCK, visited: { [opts.spawn]: 1 }, relations: {}, met: {}, cash: origin.cash }),
 		illness: null,
@@ -326,6 +328,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		illness: cleanIllness(r.illness, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		visa: cleanVisa(r.visa, ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), new Set(CAREERS.map((c) => c.id))),
 		...cleanEstate(r, knownLocs),
+		tax: cleanTax(r.tax, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		rental: cleanRental(r.rental, cleanEstate(r, knownLocs).home, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), knownLocs),
 		cover: cleanCover(r.cover, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440)),
 		holdings: (() => {

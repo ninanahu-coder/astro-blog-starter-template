@@ -25,6 +25,7 @@ import {
 	activitiesAt, careAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
+import { assess, taxStatus, tfnState } from '../../../src/game/core/tax.ts';
 import { cookBlocked, groceriesAt, hostBlocked, kitchenLevel, pantryTotal, recipeKnown } from '../../../src/game/core/cooking.ts';
 import { RECIPES } from '../../../src/game/data/cooking.ts';
 import { viewedOk } from '../../../src/game/core/rental.ts';
@@ -105,6 +106,8 @@ interface Bot {
 		coops: number;
 		coopOk: number;
 		coopKinds: Record<string, number>;
+		/** 税务分支：第一次报税的结果（应纳税、已预扣、退补、第几天报的） */
+		taxReturn?: { tax: number; withheld: number; due: number; day: number };
 		/** 副业与小生意（docs/earth-game/side-business.md）：副业次数、开店那天、倒闭次数、店铺结算净额 */
 		biz: { gigs: Record<string, number>; openDay?: number; bankrupt: number; shopNet: number };
 		/** 二手市场对照：在换手墙成功下单的次数 */
@@ -343,7 +346,19 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		b.stats.promoDays.push(dayOf(b.s.clock) + 1);
 	}
 	if (a.t === 'job' && a.op === 'work') b.stats.shifts++;
+	if (a.t === 'tax' && a.op === 'lodge' && before.tax.ret && !b.stats.taxReturn) {
+		const ret = before.tax.ret;
+		b.stats.taxReturn = { tax: assess(ret, taxStatus(before.origin)).tax, withheld: ret.withheld, due: b.s.tax.last?.due ?? 0, day: dayOf(b.s.clock) + 1 };
+	}
 	return true;
+}
+
+/** 税务杂事（税务分支）：开局网上申请 TFN；有待申报的税表、TFN 也到了就报税。都不花游戏时间 */
+function taxChore(b: Bot): boolean {
+	const t = b.s.tax;
+	if (t.tfn < 0) return tryAct(b, { t: 'tax', op: 'tfn' });
+	if (t.ret && tfnState(t, dayOf(b.s.clock)) === 'ok') return tryAct(b, { t: 'tax', op: 'lodge' });
+	return false;
 }
 
 /**
@@ -562,6 +577,7 @@ function step(b: Bot) {
 		return;
 	}
 	if (careStep(b)) return;
+	if (!isIdle(plan) && taxChore(b)) return;
 	if (plan.gig) {
 		stepSafeDrifter(b);
 		return;
@@ -833,6 +849,7 @@ const skillRows: [string, number[]][] = [];
 const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
 const coopRows: string[] = [];
+const taxRows: string[] = [];
 const bizRows: string[] = [];
 const sportRows: string[] = [];
 const careerRows: string[] = [];
@@ -859,6 +876,12 @@ for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	for (const b of bots) for (const [k, v] of Object.entries(b.stats.flow)) flow[k] = (flow[k] ?? 0) + v / RUNS / DAYS;
 	const top = Object.entries(flow).filter(([, v]) => Math.abs(v) >= 1).sort((x, y) => y[1] - x[1]);
 	flows.push(`| ${plan.name} | ${top.filter(([, v]) => v > 0).map(([k, v]) => `${k} +${Math.round(v)}`).join('，') || '—'} | ${top.filter(([, v]) => v < 0).reverse().map(([k, v]) => `${k} ${Math.round(v)}`).join('，') || '—'} |`);
+	{
+		const withheld = bots.map((b) => (b.stats.taxReturn?.withheld ?? 0) + (b.s.tax.ret?.withheld ?? 0) + b.s.tax.book.withheld);
+		const rets = bots.map((b) => b.stats.taxReturn).filter((x) => x !== undefined);
+		const med = (f: (r: NonNullable<Bot['stats']['taxReturn']>) => number) => (rets.length ? money(pct(rets.map(f), 0.5)) : '—');
+		taxRows.push(`| ${plan.name} | ${money(avg(withheld))} | ${rets.length}/${bots.length} | ${med((r) => r.withheld)} | ${med((r) => r.tax)} | ${med((r) => r.due)} | ${rets.length ? `第 ${pct(rets.map((r) => r.day), 0.5)} 天` : '—'} | ${money(avg(bots.map((b) => b.s.tax.debt)))} |`);
+	}
 	if (plan.side || plan.shop) {
 		const gigText = Object.entries(bots.reduce((acc, b) => { for (const [k, v] of Object.entries(b.stats.biz.gigs)) acc[k] = (acc[k] ?? 0) + v / RUNS; return acc; }, {} as Record<string, number>)).map(([k, v]) => `${k} ${v.toFixed(1)}`).join('，') || '—';
 		const opened = bots.map((b) => b.stats.biz.openDay).filter((d): d is number => d !== undefined);
@@ -1004,6 +1027,13 @@ out('| 策略 | 参加次数/人 | 成功率 | 每人每天净现金 | 各种类
 out('| --- | --- | --- | --- | --- |');
 for (const row of coopRows) out(row);
 out();
+out('## 税务（税务分支）');
+out();
+out('机器人（对照组除外）开局网上申请 TFN，有待申报的税表就报。第 1 财年 = 第 1–112 天，报税期第 113–140 天。退补列负数为退税。规则见 docs/earth-game/tax.md。');
+out();
+out('| 策略 | 期末累计预扣/人 | 报过税的人 | 第 1 财年已预扣（中位） | 应纳税（中位） | 退(−)/补(+)（中位） | 报税日（中位） | 期末欠税/人 |');
+out('| --- | --- | --- | --- | --- | --- | --- | --- |');
+for (const row of taxRows) out(row);
 if (bizRows.length) {
 	out('## 副业与小生意');
 	out();

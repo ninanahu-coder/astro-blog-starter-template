@@ -853,6 +853,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import type { OnboardPage } from '../game/data/onboard.ts';
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { fmtHalf } from '../game/ui/numfmt.ts';
+			import { taxCard } from '../game/ui/tax.ts';
 			import { swapCard } from '../game/ui/secondhand.ts';
 			import { swapBoard } from '../game/core/secondhand.ts';
 			import type { SwapKind } from '../game/data/secondhand.ts';
@@ -2932,7 +2933,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 							<p style="margin-top:8px">明天接着来能领 $${tomorrow.cash}${tomorrow.full ? `（满 ${DAILY.cap} 天大礼，含额外 $${DAILY.bonus}）` : ''}。断一天从头算（$${DAILY.base} 起）。</p></div>`;
 					})(),
 					world: worldCard(dayOf(s.clock)), // 世界事件（第 43 批）
-					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id, s.car.km).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}${holdingsValue(s) ? ` · 理财 $${holdingsValue(s).toLocaleString()}` : ''}</p>${estate || emptyArt('empty:estate') + '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>`,
+					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id, s.car.km).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}${holdingsValue(s) ? ` · 理财 $${holdingsValue(s).toLocaleString()}` : ''}</p>${estate || emptyArt('empty:estate') + '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>${taxCard(s, esc)}`,
 					invest: investCard(s),
 					album: `<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>`,
 					life: `<div class="card"><h3>工作与住处</h3>${life}</div>`,
@@ -3548,7 +3549,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			});
 			document.addEventListener('click', (e) => {
 				gestured = true;
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-mind],[data-rental],[data-wall],[data-biz],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-mind],[data-rental],[data-wall],[data-biz],[data-tax],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
 				// 打开了环境音或音乐、但还没出过声：第一次点页面任何地方时解锁音频（浏览器的自动播放限制）
 				if (!audio && (prefs.ambience || prefs.music)) { try { ensureAudio(); } catch {} syncScene(); }
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
@@ -3679,6 +3680,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 						a = { t: 'property', op: d.prop as 'sell' | 'movein' | 'rentout', id };
 					}
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
+				else if (d.tax) {
+					const op = (['tfn', 'abn', 'lodge'] as const).find((x) => x === d.tax);
+					if (!op) return;
+					if (op === 'abn' && !confirm('注册 ABN 后，街头表演算个体户生意收入：挣得更多，但报税时要交税。确定？')) return;
+					act({ t: 'tax', op }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.wall) {
 					// 邻里换手墙（二手市场）；属性叫 data-wall，不和 main 面交换物的 data-swap 撞（合并 main 后复核）

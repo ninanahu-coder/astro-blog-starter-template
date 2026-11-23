@@ -68,10 +68,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *     未压缩 749,742 → 764,132，上限 752,800 → 767,200。
  *   - 副业与小生意：证照、五种副业、开店规则和数据（core/business.ts、data/business.ts、core/business-save.ts）、「工作」抽屉里的生意卡（ui/business.ts），
  *     gzip 245,782 → 251,705（+5.9KB），上限 246,800 → 252,800；未压缩 764,132 → 781,478，上限 767,200 → 784,500。
+ *   - 税务：税率、LITO、Medicare 税和 ATO 来源（data/tax.ts）、预扣和报税规则（core/tax.ts、core/tax-actions.ts）、「我 · 资产」里的税务卡（ui/tax.ts），
+ *     gzip 251,705 → 254,586（+2.9KB），上限 252,800 → 255,600；未压缩 781,478 → 789,048，上限 784,500 → 792,100。
  */
-export const FIRST_SCREEN_MAX = 784_500;
+export const FIRST_SCREEN_MAX = 792_100;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 252_800;
+export const FIRST_SCREEN_GZIP_MAX = 255_600;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');

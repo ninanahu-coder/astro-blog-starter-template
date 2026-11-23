@@ -14,6 +14,7 @@ import { haversineKm } from './geo.ts';
 import { fixProblem, roundFix } from './fix.ts';
 export { fixProblem } from './fix.ts';
 import { dayOf } from './time.ts';
+import { recordWage, wageSplit } from './tax.ts';
 import { FIX_RULES, VENUE_OPS, VENUE_TYPES, type VenueOpDef } from '../data/venues.ts';
 import { illnessBlock } from './health.ts';
 import type { Load } from '../data/health.ts';
@@ -293,8 +294,10 @@ function work(prev: PlayerState, region: Region, venue: Venue, type: VenueTypeDe
 	const hours = minutes / 60;
 	state.realWork.min += minutes;
 	// 途中晕倒：工资不发、不算班次、不抽事件
-	if (applyEffect(state, { minutes, cash: w.pay, needs: { energy: -w.energy, fun: -Math.round(hours * 2), social: Math.round(hours * 3) } }, region)) return collapsedResult(state);
-	let msg = `在${venue.name}上班 ${Math.round(hours * 10) / 10} 小时，收入 $${w.pay}（${w.notes.join('，')}）。`;
+	const split = wageSplit(state, w.pay);
+	if (applyEffect(state, { minutes, cash: split.net, needs: { energy: -w.energy, fun: -Math.round(hours * 2), social: Math.round(hours * 3) } }, region)) return collapsedResult(state);
+	recordWage(state, w.pay, split.withheld);
+	let msg = `在${venue.name}上班 ${Math.round(hours * 10) / 10} 小时，收入 $${w.pay}（${w.notes.join('，')}）${split.withheld ? `，预扣税 $${split.withheld}，到手 $${split.net}` : ''}。`;
 	const job = state.job;
 	const c = job ? getCareer(job.career) : undefined;
 	if (terms.career && job && c && minutes >= c.minutes / 2 && job.lastDay !== dayOf(prev.clock)) {

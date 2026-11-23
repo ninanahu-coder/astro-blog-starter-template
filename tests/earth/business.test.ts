@@ -20,12 +20,14 @@ import { dayOf } from '../../src/game/core/time.ts';
 const R = WORLD;
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
 const full = { hunger: 95, energy: 95, hygiene: 95, fun: 95, social: 95 };
-const make = (over: Partial<PlayerState> = {}, seed = 7): PlayerState => ({
-	...createCharacter({ id: 'biz-player', name: '店', avatar: '🧑', origin: 'student', region: 'wa', spawn: 'perth', seed }),
-	needs: { ...full },
+const make = (over: Partial<PlayerState> = {}, seed = 7): PlayerState => {
+	const c = createCharacter({ id: 'biz-player', name: '店', avatar: '🧑', origin: 'student', region: 'wa', spawn: 'perth', seed });
+	// 合并税务后：办 ABN 要先有税号（TFN），测试角色默认已经有
+	return { ...c, tax: { ...c.tax, tfn: 0 }, needs: { ...full },
 	cash: 50_000,
 	...over,
-});
+	};
+};
 const withLic = (s: PlayerState, ids: string[], day = 0): PlayerState => ({ ...s, biz: { ...s.biz, lic: { ...s.biz.lic, ...Object.fromEntries(ids.map((i) => [i, day])) } } });
 const shopOf = (s: PlayerState): ShopState => s.biz.shop!;
 
@@ -422,10 +424,14 @@ test('服务端：biz 动作走 parseAction + 引擎结算，格式不对返回 
 	assert.equal(bad.status, 400);
 	const forged = await call({ action: 'act', ...cred, rev: created.data.state.rev, act: { t: 'biz', op: 'open', shop: 'milk-tea', site: 'northbridge' } });
 	assert.equal(forged.data.ok, false, '没证照、没钱开不了店');
-	const abn = await call({ action: 'act', ...cred, rev: forged.data.state.rev, act: { t: 'biz', op: 'license', id: 'abn' } });
-	assert.ok(abn.data.ok, abn.data.msg);
-	assert.equal(typeof abn.data.state.biz.lic.abn, 'number');
-	assert.equal(data.get('save:' + cred.id).state.biz.lic.abn, abn.data.state.biz.lic.abn, '落盘');
+	// 合并税务后：新角色还没有税号，办 ABN 被拦；不需要 TFN 的证照（西澳 WWC）照常能办、落盘
+	const noTfn = await call({ action: 'act', ...cred, rev: forged.data.state.rev, act: { t: 'biz', op: 'license', id: 'abn' } });
+	assert.equal(noTfn.data.ok, false);
+	assert.match(noTfn.data.msg, /TFN/);
+	const wwc = await call({ action: 'act', ...cred, rev: noTfn.data.state.rev, act: { t: 'biz', op: 'license', id: 'wwc-wa' } });
+	assert.ok(wwc.data.ok, wwc.data.msg);
+	assert.equal(typeof wwc.data.state.biz.lic['wwc-wa'], 'number');
+	assert.equal(data.get('save:' + cred.id).state.biz.lic['wwc-wa'], wwc.data.state.biz.lic['wwc-wa'], '落盘');
 });
 
 // ---------- 合并 main 后：副业和看店是工作（签证、生病、灾害、记账） ----------

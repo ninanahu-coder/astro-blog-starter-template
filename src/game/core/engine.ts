@@ -55,6 +55,7 @@ import { modeNeeds, transitOptions, WALK_STAMINA_PER_KM, withRouteFare } from '.
 import { holdingsValue } from './market.ts';
 import { bodyScaled, gainNeed, passTime } from './vitals.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
+import { activityIncome, hasAbn, hobbyIncome, recordBiz, recordRent, recordRentCost, recordWage, taxTick, wageSplit } from './tax.ts';
 import { dailyFull, eventReady, memoryOn, needMet, noteResolved, noteTriggered, pickChain, weightedPick, weightOf, type EventSource } from './event-rules.ts';
 import type {
 	ActionResult, Activity, CareerDef, CareerLevel, CertDef, Effect, GameEvent, GiftReaction, GameLocation, HomeDef, ItemDef, NpcAction, SkillKey, VehicleDef, CourseDef, ExperienceDef, FestivalDef, FurnitureDef, OwnedProperty, PropertyDef, NpcDef, PlayerState, Region, Relation, Route, TravelMode, Where,
@@ -661,7 +662,14 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	const blocked = blockedReason(prev, act) ?? activityClosed(loc, dayOf(prev.clock), act.id);
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);
-	if (applyEffect(state, bodyScaled(prev, { ...scaledFx(prev, act), minutes: act.minutes }), region)) return collapsedResult(state);
+	const fx = scaledFx(prev, act);
+	// 税务：临时工工资先预扣；有 ABN 时街头表演按生意收入算（见 core/tax.ts）
+	const kind = fx.cash && fx.cash > 0 ? activityIncome(act.id) : 'none';
+	const gross = kind === 'hobby' ? hobbyIncome(state, fx.cash!) : fx.cash ?? 0;
+	const pay = kind === 'wage' ? wageSplit(state, gross) : { net: gross, withheld: 0 };
+	if (applyEffect(state, bodyScaled(prev, { ...fx, cash: kind === 'none' ? fx.cash : pay.net, minutes: act.minutes }), region)) return collapsedResult(state);
+	if (kind === 'wage') recordWage(state, gross, pay.withheld);
+	else if (kind === 'hobby' && hasAbn(state)) recordBiz(state, gross);
 	if (VISA_GIGS.includes(act.id)) logWork(state, act.minutes, prev.clock);
 	noteDrink(state, act.id);
 	if (act.id === COMMUNITY_SERVICE.activity) {
@@ -669,8 +677,8 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 		log(state, `在${loc.name}做了 ${act.minutes / 60} 小时社区服务，${left ? `还差 ${left} 小时` : '全部做完了'}。`);
 		return { ok: true, state, msg: `${act.icon} ${left ? `社区服务还差 ${left} 小时` : '社区服务全部做完了'}` };
 	}
-	log(state, `在${loc.name}${act.name}。`);
-	return { ok: true, state, msg: `${act.icon} ${act.name}完成。` };
+	log(state, `在${loc.name}${act.name}${pay.withheld ? `（工资 $${gross}，预扣税 $${pay.withheld}）` : ''}。`);
+	return { ok: true, state, msg: `${act.icon} ${act.name}完成。${pay.withheld ? `工资 $${gross}，预扣税 $${pay.withheld}，到手 $${pay.net}。` : ''}` };
 }
 
 // ---------- 真实定位打卡 ----------
@@ -1124,12 +1132,14 @@ export function workShift(prev: PlayerState, region: Region): ActionResult {
 	const lv = c.levels[job.level];
 	const good = checkScore(state, c.skill).total + roll(state) * 60 >= SHIFT_DC[Math.min(job.level, SHIFT_DC.length - 1)];
 	const pay = Math.round(careerPay(state, job.career, job.level) * (good ? 1 + GOOD_BONUS : 1));
+	const w = wageSplit(state, pay);
 	job.lastDay = state.workDay = dayOf(state.clock);
-	if (applyEffect(state, bodyScaled(prev, { ...c.shift, minutes: c.minutes, cash: pay }), region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
+	if (applyEffect(state, bodyScaled(prev, { ...c.shift, minutes: c.minutes, cash: w.net }), region)) return collapsedResult(state); // 没上完的班不发工资、不计班次
+	recordWage(state, pay, w.withheld);
 	logWork(state, c.minutes, prev.clock);
 	job.shifts++;
 	if (good) job.good++;
-	const msg = `${lv.title}上班 ${Math.round(c.minutes / 60)} 小时，收入 $${pay}${good ? '（表现出色，有奖金）' : ''}。` + tryPromote(state);
+	const msg = `${lv.title}上班 ${Math.round(c.minutes / 60)} 小时，收入 $${pay}${good ? '（表现出色，有奖金）' : ''}${w.withheld ? `，预扣税 $${w.withheld}，到手 $${w.net}` : ''}。` + tryPromote(state);
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1242,6 +1252,9 @@ function weeklyTick(state: PlayerState, region: Region) {
 		const c2 = state.cash;
 		for (const line of lawWeekly(state)) log(state, line);
 		tallyCash(state, 'other', state.cash - c2); // 生涯统计：自动扣的罚款（合并 main 后）
+		const c3 = state.cash;
+		for (const m of taxTick(state)) log(state, m);
+		tallyCash(state, 'other', state.cash - c3); // 生涯统计：自动扣的分期欠税（税务合并 main 后）
 	}
 }
 
@@ -1882,12 +1895,14 @@ function settleProperties(state: PlayerState, region: Region) {
 			else {
 				const income = rentOn(def.rentIncome, day); // 世界事件：租金指数
 				state.cash += income;
+				recordRent(state, income); // 税务：按实收的租金记账
 				log(state, `周结算：${def.name}租金收入 $${income}。`);
 			}
 			if (roll(state) < FINANCE.repairChance) {
 				const [lo, hi] = repairRange(def);
 				const cost = Math.min(state.cash, Math.round(lo + roll(state) * (hi - lo)));
 				state.cash -= cost;
+				recordRentCost(state, cost);
 				log(state, `${def.name}的租客报修，花了 $${cost}。`);
 			}
 		}
@@ -1896,6 +1911,7 @@ function settleProperties(state: PlayerState, region: Region) {
 		const due = def.weekly + (p.loan > 0 ? interest + principal : 0);
 		if (state.cash >= due) {
 			state.cash -= due;
+			if (p.rented) recordRentCost(state, def.weekly + (p.loan > 0 ? interest : 0)); // 出租期间的物业费和利息可抵扣，本金不行
 			p.loan -= principal;
 			p.missed = 0;
 			log(state, `周结算：${def.name}物业费 $${def.weekly}${interest + principal ? `，还款 $${interest + principal}（剩余贷款 $${p.loan}）` : ''}。`);

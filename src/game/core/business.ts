@@ -15,6 +15,7 @@ import { weatherAt } from './weather.ts';
 import { logWork, visaBlocked } from './visa.ts';
 import { illnessBlock } from './health.ts';
 import { copyTally, tallyCash } from './tally.ts';
+import { recordBiz as taxBiz, tfnState } from './tax.ts';
 import { workStopped } from './disasters.ts';
 import { clamp100 } from './character.ts';
 import type { ActionResult, Effect, GameLocation, PlayerState, Region, ShopState, Where } from './types.ts';
@@ -69,6 +70,7 @@ export function licenseOffers(state: PlayerState): LicenseOffer[] {
 		const blocked = valid
 			? '已有，还在有效期内'
 			: state.pending ? '先处理眼前的事件'
+				: lic.id === 'abn' && tfnState(state.tax, today(state)) !== 'ok' ? '要先有税号（TFN），在「我 · 资产」的税务卡里申请'
 				: missing ? `先办${getLicenseDef(missing)?.name ?? missing}`
 					: state.cash < lic.fee ? `需要 $${lic.fee}` : undefined;
 		return { lic, valid, expires: licenseExpires(state, lic.id), blocked };
@@ -85,6 +87,7 @@ export function getLicense(prev: PlayerState, region: Region, id: string): Actio
 	if (state.cash < offer.lic.fee) return fail(prev, `需要 $${offer.lic.fee}`);
 	state.cash -= offer.lic.fee;
 	state.biz.lic[id] = today(state);
+	if (id === 'abn') state.tax.abn = true; // 和税务卡上的 ABN 是同一个（合并 main 后）
 	const msg = `${offer.lic.icon} 办好了${offer.lic.name}${offer.lic.fee ? `，交了 $${offer.lic.fee}` : '，不收费'}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
@@ -98,6 +101,7 @@ export function gstDue(state: PlayerState, gross: number, cost: number): number 
 
 /** 记一笔生意账（原地修改）：跨游戏年先清零；营业额到门槛自动登记 GST。返回要追加的提示 */
 export function recordBiz(state: PlayerState, day: number, gross: number, net: number): string {
+	taxBiz(state, net); // 报税：生意的净额算个体户收入（合并 main 后）
 	const y = dateOf(day * 1440).year;
 	if (state.biz.book.y !== y) state.biz.book = { y, gross: 0, net: 0 };
 	state.biz.book.gross = Math.min(1e9, state.biz.book.gross + Math.max(0, Math.round(gross)));
