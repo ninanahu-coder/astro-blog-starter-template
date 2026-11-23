@@ -1,5 +1,9 @@
 // 二手市场「邻里换手墙」：数据自洽、不能套利、看货 / 先转账 / 砍价 / 假付款、搬家季、协议校验、存档清洗、界面转义
+import { actionCats } from '../../src/game/core/tally.ts';
+import { featureOf } from '../../src/game/server/stats.ts';
+import { resaleValue } from '../../src/game/core/engine.ts';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { cleanSwap, createCharacter, sanitizeState } from '../../src/game/core/character.ts';
@@ -221,9 +225,10 @@ test('卖东西：没红旗的买家一定付钱；等到账再交货永远不�
 });
 
 test('卖车按里程打折，有下限', () => {
-	assert.equal(kmFactor(0), 1);
-	assert.ok(kmFactor(100_000) < kmFactor(10_000));
-	assert.equal(kmFactor(5_000_000), SWAP.kmFloor);
+	assert.equal(kmFactor(0, 'car'), 1);
+	assert.ok(kmFactor(100_000, 'car') < kmFactor(10_000, 'car'));
+	// 合并 main 后：和车行回收同一条折旧线，换手墙出价 ÷ 车行回收价不随里程变
+	for (const km of [0, 50_000, 200_000, 5_000_000]) assert.ok(Math.abs(kmFactor(km, 'car') - resaleValue('car', km) / resaleValue('car', 0)) < 0.002, `${km}`);
 	const base = mk({ vehicle: 'car', car: { km: 0, since: 0 } });
 	const fresh = sellOffers(base, WA, 'vehicle', 'car')!.offers;
 	const old = sellOffers({ ...base, car: { km: 200_000, since: 0 } }, WA, 'vehicle', 'car')!.offers;
@@ -296,8 +301,36 @@ test('存档清洗：旧存档缺字段给默认；坏值不抛异常；未来�
 test('界面：地名、物品名等插值都转义；没有换手墙的地方不出卡片', () => {
 	const evil = { ...WA, locations: WA.locations.map((l) => (l.id === 'perth' || l.id === 'fremantle' ? { ...l, name: '<img src=x onerror=alert(1)>' } : l)) };
 	const html = swapCard(mk({ inventory: { surfboard: 1 } }), evil);
-	assert.ok(html.includes('data-swap="buy"') && html.includes('data-swap="sell"'));
+	assert.ok(html.includes('data-wall="buy"') && html.includes('data-wall="sell"'));
 	assert.ok(!html.includes('<img'), '地名没转义');
 	assert.ok(html.includes('&lt;img'));
 	assert.equal(swapCard(mk({ loc: 'pinnacles' }), WA), '');
+});
+
+test('生涯统计和统计：换手墙的买卖记「吃喝购物」，统计按买 / 卖分（合并 main 后）', () => {
+	assert.deepEqual(actionCats({ t: 'swap', op: 'buy', id: 'x', ref: 'x', how: 'pickup', haggle: false }), ['shop', 'shop']);
+	assert.deepEqual(actionCats({ t: 'swap', op: 'sell', kind: 'item', ref: 'rod', buyer: 0, verify: true }), ['shop', 'shop']);
+	assert.equal(featureOf({ t: 'swap', op: 'buy', id: 'x', ref: 'x', how: 'pickup', haggle: false }), 'swap.buy');
+	assert.equal(featureOf({ t: 'swap', op: 'sell', kind: 'item', ref: 'rod', buyer: 0, verify: true }), 'swap.sell');
+});
+
+test('页面：换手墙卡在「买东西」抽屉里，点击名单有 data-wall（合并 main 后）', async () => {
+	const { readFileSync } = await import('node:fs');
+	const page = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	// 跟车行一起在第 2 天出现（新手引导的 garage），能直接买卖车
+	assert.match(page, /'买东西', groceryHtml\(s, region, esc\) \+ shopHtml \+ \(on\('garage'\) \? swapCard\(s, region\) : ''\)/);
+	// 点击属性叫 data-wall，不和 main 面交换物的 data-swap 撞（合并 main 后复核：原来换手墙的分支在前，把面交的 give / want / send 全截走了）
+	assert.match(page, /\[data-rental\],\[data-wall\],/);
+	assert.match(page, /else if \(d\.wall\) \{/);
+	assert.doesNotMatch(page, /else if \(d\.swap\) \{/);
+	assert.match(page, /else if \(d\.swap && swapPick\) \{/, '面交换物的分支还在');
+	const html = swapCard({ ...createCharacter({ id: 'w', name: 'w', avatar: '🧑', origin: 'student', region: 'wa', spawn: 'perth', seed: 1 }), clock: 600 }, WA);
+	assert.ok(html.includes('data-wall="buy"') && !html.includes('data-swap'), '换手墙卡片用 data-wall');
+	// 同一个抽屉重画时砍价勾选框照旧
+	assert.match(page, /if \(haggleOn\) \{ const h = q\('#swap-haggle'\)/);
+});
+
+test('买车的消息不会写成「二手二手轿车」（合并 main 后复核）', () => {
+	const src = readFileSync(new URL('../../src/game/core/secondhand.ts', import.meta.url), 'utf8');
+	assert.doesNotMatch(src, /`[^`]*二手\$\{l\.name\}/);
 });

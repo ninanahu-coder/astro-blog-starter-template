@@ -7,7 +7,7 @@ import { getItem } from './attributes.ts';
 import { dayOf, hoursLabel, inSpan, isOpen } from './time.ts';
 import type { ActionResult, PlayerState, Region } from './types.ts';
 import { FURNITURE_RESALE } from '../data/furniture.ts';
-import { SERVICE_KM } from '../data/vehicles.ts';
+import { DEPRECIATION, SERVICE_KM } from '../data/vehicles.ts';
 import { BUYER_FLAGS, LISTING_FLAGS, SWAP, SWAP_GOODS, SWAP_NORMAL, SWAP_SEASONS, SWAP_TIPS, type SwapFlag, type SwapGood, type SwapKind, type SwapSeason } from '../data/secondhand.ts';
 
 export type SwapHow = 'pickup' | 'prepay';
@@ -51,8 +51,16 @@ export function exitRatio(good: Pick<SwapGood, 'kind' | 'ref'>): number {
 /** 二手标价下限：新品价 × e × floorOver，向上取整 */
 export const floorPrice = (good: Pick<SwapGood, 'kind' | 'ref'>) => Math.ceil(newPrice(good) * exitRatio(good) * SWAP.floorOver);
 
-/** 车的成色系数：按里程打折，有下限；其他东西为 1 */
-export const kmFactor = (km: number) => Math.max(SWAP.kmFloor, 1 - Math.max(0, km) / SWAP.kmScale);
+/**
+ * 车的成色系数：和车行回收、净资产用同一条按里程折旧的线（main 的 DEPRECIATION，见 engine.ts resaleValue）——
+ * 系数 = 这个里程的回收比例 ÷ 新车的回收比例；合并 main 后复核：原来自己一条线（最低 0.6），跑很多公里的车在换手墙比车行贵得多
+ */
+export const kmFactor = (km: number, id: string) => {
+	const v = getVehicle(id);
+	if (!v || v.resale <= 0) return 1;
+	const share = Math.max(Math.min(v.resale, DEPRECIATION.floor), v.resale - Math.max(0, km) * DEPRECIATION.perKm);
+	return share / v.resale;
+};
 
 export function goodName(good: Pick<SwapGood, 'kind' | 'ref'>): { name: string; icon: string } {
 	if (good.kind === 'item') {
@@ -259,7 +267,7 @@ export function buyListing(prev: PlayerState, region: Region, id: string, ref: s
 		} else {
 			state.cash -= price + fee;
 			const extra = grant(state, l);
-			msg = `${l.icon} ${note}上门看过货，$${price}${fee ? ` 加搬运 $${fee}` : ''} 买下了二手${l.name}${extra}。`;
+			msg = `${l.icon} ${note}上门看过货，$${price}${fee ? ` 加搬运 $${fee}` : ''} 买下了${l.name.startsWith('二手') ? '' : '二手'}${l.name}${extra}。`;
 			log(state, msg);
 		}
 	} else {
@@ -271,7 +279,7 @@ export function buyListing(prev: PlayerState, region: Region, id: string, ref: s
 			log(state, `${msg}（${SWAP_TIPS.prepay}）`);
 		} else {
 			const extra = grant(state, l);
-			msg = `${l.icon} ${note}先转账 $${price}${fee ? `、运费 $${fee}` : ''}，二手${l.name}送到了${extra}。`;
+			msg = `${l.icon} ${note}先转账 $${price}${fee ? `、运费 $${fee}` : ''}，${l.name.startsWith('二手') ? '' : '二手'}${l.name}送到了${extra}。`;
 			log(state, msg);
 		}
 	}
@@ -313,7 +321,7 @@ export function sellOffers(state: PlayerState, region: Region, kind: SwapKind, r
 	const season = swapSeason(state.clock);
 	const sw = swapToday(state);
 	const r = keyRng(`${loc.id}|${sw.day}|sell|${sw.sold}|${kind}|${ref}`);
-	const cond = kind === 'vehicle' ? kmFactor(state.car.km) : 1;
+	const cond = kind === 'vehicle' ? kmFactor(state.car.km, ref) : 1;
 	const base = newPrice(good) * exitRatio(good) * season.sell * cond;
 	const n = season.sell < 1 ? SWAP.buyers - 1 : SWAP.buyers;
 	const offers: SwapOffer[] = [];

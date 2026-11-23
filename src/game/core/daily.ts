@@ -1,5 +1,6 @@
 // 每日奖励：按现实日期计。现实日期由服务端算好传进来，这里保持纯函数。
 import { CAPS, JOURNAL_MAX, nextRev } from './character.ts';
+import { finishTally } from './tally.ts';
 import type { PlayerState } from './types.ts';
 
 export const DAILY = {
@@ -42,5 +43,6 @@ export function claimDaily(prev: PlayerState, realDay: number): DailyClaim | nul
 		journal: [...prev.journal, { t: prev.clock, text: msg + '。' }].slice(-JOURNAL_MAX),
 		rev: nextRev(prev.rev),
 	};
+	finishTally(prev, state, ['reward', 'reward']); // 生涯统计：奖励算收入
 	return { state, cash, streak, msg };
 }

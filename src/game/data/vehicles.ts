@@ -13,6 +13,12 @@ export const VEHICLES: VehicleDef[] = [
 	},
 ];
 
+/**
+ * 第 26 批（待平衡）：转手价随里程下降。回收比例 = max(floor, resale − 公里数 × perKm)，
+ * 即每开 1 万公里少 2 个百分点，最低剩原价的 30%。没有真实来源，是游戏设定。
+ */
+export const DEPRECIATION = { perKm: 0.02 / 10000, floor: 0.3 };
+
 export const DEALER_TAG = 'dealer';
 export const DEALER_HOURS: [number, number] = [9, 17];
 

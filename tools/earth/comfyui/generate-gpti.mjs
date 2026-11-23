@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // 用 GPT image 2（gpt-image-2-skill，走 Codex 账号）生成 CGI 素材：提示词和 ComfyUI 版共用 prompts.mjs。
-// 原图（1536×1024 PNG）放 tools/earth/comfyui/.raw/（不进仓库），网页用的压成 960 宽 WebP 写进 public/earth/cgi/，并更新 manifest.json。
+// 原图（默认 1536×1024 PNG，NPC 头像 1024×1024）放 tools/earth/comfyui/.raw/（不进仓库），网页用的压成 960 宽 WebP（头像 256 宽） 写进 public/earth/cgi/，并更新 manifest.json。
 //
 //   npm run earth:cgi:gpti -- --only=perth,event:whale-shark
 //
@@ -54,11 +54,19 @@ async function one(job) {
 		return 'skip';
 	}
 	if (!existsSync(raw) || flag('force')) {
-		const { stdout } = await run('node', [cli, '--json', '--provider', 'codex', 'images', 'generate', '-m', model, '--prompt', job.prompt, '--out', raw, '--format', 'png', '--size', '1536x1024', '--quality', 'high'], { maxBuffer: 16 << 20, timeout: 15 * 60_000 });
+		const { stdout } = await run('node', [cli, '--json', '--provider', 'codex', 'images', 'generate', '-m', model, '--prompt', job.prompt, '--out', raw, '--format', 'png', '--size', job.size ?? '1536x1024', '--quality', 'high'], { maxBuffer: 16 << 20, timeout: 15 * 60_000 });
 		const res = JSON.parse(stdout);
 		if (res.ok === false || !existsSync(raw)) throw new Error(JSON.stringify(res.error ?? res).slice(0, 300));
 	}
-	await run('cwebp', ['-quiet', '-q', '75', '-resize', '960', '0', '-metadata', 'none', raw, '-o', dest]);
+	// Codex 通道不严格按 --size 出图（要 1024×1024 实际给过 1312×1199）：方形任务按 PNG 头里的宽高居中裁成正方形
+	const crop = [];
+	const [w, h] = (job.size ?? '').split('x').map(Number);
+	if (w && w === h) {
+		const png = readFileSync(raw);
+		const W = png.readUInt32BE(16), H = png.readUInt32BE(20), side = Math.min(W, H);
+		crop.push('-crop', String((W - side) >> 1), String((H - side) >> 1), String(side), String(side));
+	}
+	await run('cwebp', ['-quiet', '-q', '75', ...crop, '-resize', String(job.width ?? 960), '0', '-metadata', 'none', raw, '-o', dest]);
 	manifest.images[job.key] = `/earth/cgi/${job.webp}`;
 	save(); // 每张落盘一次，中断可续跑
 	return 'done';

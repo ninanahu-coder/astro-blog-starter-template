@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { energyCap } from '../../src/game/core/vitals.ts';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { mood } from '../../src/game/core/attributes.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
@@ -75,12 +76,12 @@ test('租房：首周租金、按周扣租、付不起被收回', () => {
 	assert.ok(homesAt(s, WA).some((o) => o.home.id === 'beach'), '珀斯有海滩，可租海景小屋');
 	const r = rentHome(s, WA, 'room');
 	assert.ok(r.ok);
-	assert.equal(r.state.cash, 840);
+	assert.equal(r.state.cash, 840 - 320, '首周 $160 + 押金 2 周 $320（第 26 批）');
 	assert.equal(r.state.nextWeek, 7);
 	// 第 8 天睡一觉：自动扣第二周
 	const later = performActivity({ ...r.state, clock: at(20, 6) }, WA, 'sleep-camp').state;
 	assert.equal(later.nextWeek, 14);
-	assert.equal(later.cash, 840 - 160 - 25, '房租 + 轿车保险');
+	assert.equal(later.cash, 520 - 160 - 25, '房租 + 轿车保险');
 	// 没钱：被收回
 	const broke = performActivity({ ...r.state, cash: 10, clock: at(20, 6) }, WA, 'sleep-camp').state;
 	assert.equal(broke.home, null);
@@ -92,7 +93,7 @@ test('回家睡觉与住房心情加成', () => {
 	const tired = { ...s, needs: { hunger: 80, energy: 5, hygiene: 10, fun: 40, social: 60 } };
 	const r = sleepHome(tired, WA);
 	assert.ok(r.ok);
-	assert.equal(r.state.needs.energy, 100);
+	assert.equal(r.state.needs.energy, energyCap(r.state), '睡醒精力回到精力上限');
 	assert.equal(sleepHome({ ...tired, loc: 'fremantle' }, WA).ok, false, '不在住处');
 	assert.equal(mood(s) - mood({ ...s, home: null }), 10, '海景小屋 +10 心情');
 });
@@ -102,8 +103,13 @@ test('动作协议支持职业与住房', () => {
 	assert.deepEqual(parseAction({ t: 'home', op: 'sleep', home: 'x' }), { t: 'home', op: 'sleep' });
 	assert.equal(parseAction({ t: 'job', op: 'promote' }), null);
 	assert.equal(parseAction({ t: 'home', op: 'rent' }), null);
-	const r = applyAction(make({ clock: at(9), cash: 500 }), WA, { t: 'home', op: 'rent', home: 'room' });
-	assert.ok(r.ok && r.state.rev === 1);
+	// 租房市场（rental 批次）：要先看房再申请；申请通过或被拒都算成功的动作
+	const s = make({ clock: at(9), cash: 500 });
+	assert.equal(applyAction(s, WA, { t: 'home', op: 'rent', home: 'room' }).ok, false, '没看房不能申请');
+	const seen = applyAction(s, WA, { t: 'rental', op: 'inspect', home: 'room' });
+	assert.ok(seen.ok && seen.state.rev === 1, seen.msg);
+	const r = applyAction(seen.state, WA, { t: 'home', op: 'rent', home: 'room' });
+	assert.ok(r.ok && r.state.rev === 2, r.msg);
 });
 
 test('上过班后辞职再应聘：当天不能再上一班，第二天可以', () => {

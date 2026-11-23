@@ -74,9 +74,7 @@ export const SWAP = {
 	/** 等钱真正到账 / 当面收现金再交货，和看截图就交货的耗时 */
 	verifyMinutes: 30,
 	quickMinutes: 5,
-	/** 车按里程打折：系数 = max(kmFloor, 1 − 公里数 / kmScale)；挂单车的里程在 kmLo–kmHi 之间 */
-	kmScale: 500_000,
-	kmFloor: 0.6,
+	/** 挂单车的里程在 kmLo–kmHi 之间；车按里程打折用 main 的折旧线（data/vehicles.ts DEPRECIATION，见 core/secondhand.ts kmFactor） */
 	kmLo: 20_000,
 	kmHi: 220_000,
 	/** 存档里「今天处理过的挂单」最多记几条 */

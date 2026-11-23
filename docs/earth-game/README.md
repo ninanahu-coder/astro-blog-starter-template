@@ -17,7 +17,7 @@
 | 逻辑 + 前端 | **Claude Code** | 类型、规则引擎、Durable Object、`/earth` 页面、测试；按 Codex 的分析报告实施调参 | `src/game/`、`src/pages/earth.astro`、`tests/earth/` | 不手写大批量数据、不生成图片、不自己下平衡分析结论 |
 | 数据采集 | **OpenClaw** | 按任务书采集 POI、地点和节日的真实资料（OSM / Wikidata） | `tools/earth/openclaw/inbox/*.json` → `src/game/data/wa.pois.json` | 不改代码；只交 JSON |
 | 检查与分析 | **Codex** | 审 PR（规则正确性、安全、数据许可）；跑数值模拟并写平衡分析；分析 OpenClaw 的数据。任务书 [codex-tasks.md](codex-tasks.md) | PR 审查评论；`docs/earth-game/balance.md` 的分析小节 | 不写逻辑和前端；调参只提建议 |
-| CGI 素材 | **GPT image 2**（备选远程 ComfyUI） | 35 个地点主视觉、84 个事件插图 | `public/earth/cgi/*.webp` + `manifest.json` | 不参与逻辑；缺图时前端自动用占位图 |
+| CGI 素材 | **GPT image 2**（备选远程 ComfyUI） | 35 个地点主视觉、84 个事件插图、17 个 NPC 头像 | `public/earth/cgi/*.webp` + `manifest.json` | 不参与逻辑；缺图时前端自动用占位图 |
 
 四者之间只通过**仓库里的文件**交接，互不依赖对方在线：
 
@@ -41,10 +41,25 @@ src/game/
   core/geo.ts         距离、地图投影、真实坐标 → 游戏地点
   core/formulas.ts    派生属性（体质、吸引力、状态系数……）与真实地点动作的公式
   core/venues.ts      真实地点：附近列表、定位检查、吃饭/训练/打卡上班等结算
-  core/board.ts       净资产排行榜：榜单记录与排名
+  core/cooking.ts     做饭：买食材、保质期、食谱、烹饪技能、请客、外卖（设计见 cooking.md）
+  core/board.ts       旧版净资产排行榜的记录格式（rank:<h> 仍兼容它）
+  core/leaderboard.ts 排行榜与赛季：五个维度、同意上榜、异常值复核、赛季结算（见 leaderboard.md）
+  data/leaderboard.ts 排行榜与赛季的数值（赛季长度、复核线、比赛积分、奖励档位，均待平衡）
   core/achievements.ts 成就：由存档现算的里程碑（不进存档、不发奖励）
   core/weather.ts     天气：由地点和游戏日确定（人人一样），风暴天取消海上的活动
   core/sky.ts         天象：气温、日出日落（含南澳夏令时）、潮汐、山火季、紫外线，只做显示
+  core/disasters.ts   自然灾害（第 43 批）：山火、洪水封路、气旋、热浪、停电的预警（AWS 三级），封路、户外关闭、停工、停电做饭；保险理赔接口（见 disasters.md，保险还没接）
+  core/hobbies.ts     爱好与收集：摄影、钓鱼（从 engine.ts 搬来，加了尺寸和规定）、观鸟、园艺、手工、乐器，收集册（见 hobbies.md）
+  data/hobbies.ts     爱好、鸟、植物、手工、曲目的数据（待平衡）
+  data/fish-rules.ts  西澳、南澳的钓鱼规定（最小尺寸、每天数量、禁捕）和来源
+  core/secondhand.ts  二手市场「邻里换手墙」：挂单、买家、砍价、假付款和预付诈骗、搬家季（见 secondhand.md）
+  data/secondhand.ts  换手墙的货品、骗局、季节和数值（待平衡）
+  ui/secondhand.ts    「在这里 · 买东西」里的换手墙卡
+  core/sports.ts      运动和比赛（第 43 批）：准备度、赛程、报名、比赛检定、俱乐部、取消规则（见 sports.md）
+  data/sports.ts      运动、比赛（参照真实赛事，带来源）、俱乐部和数值（待平衡）
+  ui/sports-card.ts   「在这里 · 体验和爱好」里的运动卡
+  core/insurance.ts   保险（第 43 批）：保单生效期、保费加价、理赔核算（免赔额、车值封顶）、存档清洗；买保险的动作在 core/insure.ts
+  data/insurance.ts   保险的险种、保费、免赔额和来源（均待平衡，见 insurance.md）
   data/achievements.ts 成就表（选指标和目标值即可加一条）
   data/areas-base.ts  区域注册表：AREAS、跨区域路线、mergeAreas 合成世界
   data/wa-base.ts     西澳首屏版：22 个地点、路线图、海岸线轮廓（不含真实地点）
@@ -65,7 +80,7 @@ tools/earth/comfyui/  提示词生成、工作流模板、远程出图脚本
 tests/earth/          引擎与数据自洽性测试
 ```
 
-按功能整理的总览（每个功能给玩家什么、规则要点、现状和待定）见 [features.md](features.md)。人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。
+按功能整理的总览（每个功能给玩家什么、规则要点、现状和待定）见 [features.md](features.md)。人物属性、派生数值公式和基本元素的完整说明见 [core-design.md](core-design.md)。数值平衡模拟的方法和结论见 [balance.md](balance.md)（`npm run earth:sim`）。给开发者和 Codex 的平衡调试工具（系统开关 A/B、CSV / JSON 导出、经济投放与回收、待平衡数值面板、回归基线、仅开发环境的 GM 沙盒）见 [balance-tools.md](balance-tools.md)。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)，房产与车辆的细化设计和真实价格参照见 [home-and-vehicle.md](home-and-vehicle.md)。收入侧（工资、零工、收租）、货币投放与回收、职业成长曲线、现实物价参照，以及金融资产（储蓄、指数基金、金条、虚拟币）见 [economy-design.md](economy-design.md)。真实地点（人到真实的餐馆、健身房、公园就能在游戏里做事）和派生属性公式见 [real-places.md](real-places.md)。NPC 的日程、休假和病假、移动、心情和对话规则见 [npc-behavior.md](npc-behavior.md)。天气和季节（各地气候、BOM 气象站数据、天气怎么抽、对玩法的影响和提议）见 [weather-seasons.md](weather-seasons.md)。宠物系统和野生动物（v31）见 [pets-wildlife.md](pets-wildlife.md)。社交与 NPC 关系系统（关系变淡、NPC 托你帮小忙、玩家之间的好友和防骚扰提议）见 [social-system.md](social-system.md)。玩家互动（屏蔽、举报、隐私规则）和跟真实日历同步的节日、公众假期（第 24 批）见 [live-social.md](live-social.md)。任务和成就（主线、支线、每日每周、收集、成就领奖、称号）见 [quests-design.md](quests-design.md)。线上数据统计（留存、新手漏斗、功能使用、经济流水、报错与性能；只存按天汇总的计数，玩家可关闭）见 [analytics.md](analytics.md)。广告与商业化的设计方案（已定先做商户赞助，按固定月费 + 每次核销收费；另有外观内购、红线、合规和支付渠道比较）见 [monetization.md](monetization.md)。「我 · 生涯」页的统计口径、存档字段和分享卡见 [career-stats.md](career-stats.md)。爱好（摄影、钓鱼、观鸟、园艺、手工、乐器）、钓鱼规定和收集册见 [hobbies.md](hobbies.md)。心情、心情状态和孤独 / 思乡 / 压力（含现实求助渠道）见 [mood.md](mood.md)。消费与资产系统的方案（待确认）见 [economy-plan.md](economy-plan.md)，房产与车辆的细化设计和真实价格参照见 [home-and-vehicle.md](home-and-vehicle.md)，租房市场（看房申请、租约、涨租、维修、押金纠纷、骗租）见 [rental.md](rental.md)。
 
 设计原则：
 
@@ -81,7 +96,7 @@ tests/earth/          引擎与数据自洽性测试
 | --- | --- | --- |
 | 生活需求（0–100，随时间下降） | 饱食、精力、清洁、娱乐、社交 | 饱食或精力归零会持续掉健康 |
 | 能力（0–100，越用越高；目前不会退步） | 体能、力量、驾驶、游泳、魅力、生存、街头 | 影响事件检定、行车速度、可做的互动 |
-| 状态 | 现金、健康、声望、麻烦值、座驾 | 麻烦值 ≥ 60 会被盘查；健康归零会在最近的医院醒来，付医药费 $100 + 现金的 10%（最多 $500） |
+| 状态 | 现金、健康、声望、麻烦值、座驾 | 麻烦值 ≥ 60 会被盘查；健康归零会在最近的医院醒来，付医药费 $100 + 现金的 10%（最多 $500）；会生病和受伤，可看 GP、药房、急诊，按 Medicare / OSHC / 自费付钱（[health.md](health.md)，数值待平衡） |
 
 四种出身（背包客 / 矿区轮班工 / 留学生 / 冲浪手）决定起始现金、座驾和能力侧重。各出身的定位、设定理由、新出身候选和特质搭配见 [initial-stats.md](initial-stats.md)（数值待平衡）。
 
@@ -95,9 +110,11 @@ tests/earth/          引擎与数据自洽性测试
 
 公路（无车坐巴士、有车自驾并涨驾驶）、越野土路（需四驱）、渡轮、航班。时间流逝会带动需求衰减，所以长途前要吃饱睡好。
 
+第 32 批加了市内公交（Transperth、Adelaide Metro）、区域火车（Transwa）、步行，渡轮改按真实票价；设计、票价出处和提议见 [transport-design.md](transport-design.md)。
+
 ### 天气、相册与成就
 
-- **天气**（`core/weather.ts`）：每个地点每个游戏日一种，由「地点 + 日期」哈希确定，所有玩家看到的一样，可以预报（地点卡显示明天的天气）。冬季风暴最多。风暴天下海、浮潜、冲浪、出海都做不了——普通互动、事件选项、NPC 专属互动里标了 `exposed: 'sea'` 的都受影响；海滩上会多出「看风暴」。下雨天城镇、港口、海岸、公园和海岛有专门的小事件；不下雨的夜里内陆和公园可以「看星星」。
+- **天气**（`core/weather.ts`）：每个地点每个游戏日一种，由「地点 + 日期」哈希确定，所有玩家看到的一样，可以预报（地点卡显示明天的天气）。冬季风暴最多。风暴天下海、浮潜、冲浪、出海都做不了——普通互动、事件选项、NPC 专属互动里标了 `exposed: 'sea'` 的都受影响；海滩上会多出「看风暴」。自然灾害（第 43 批）按天气和火险推出预警，会封路、关户外活动、停工，设计见 [disasters.md](disasters.md)。下雨天城镇、港口、海岸、公园和海岛有专门的小事件；不下雨的夜里内陆和公园可以「看星星」。
 - **昼夜**：按游戏时刻分清晨（5–8）、白天、傍晚（17–20）、夜晚四个时段。顶栏底色、地图夜色和星星跟着当地真实的日出日落走（第 37 轮，见「天象」），不跟这四个时段；两者不一致时顶栏时段名后面补一句实际天色，例如冬天 18:30「傍晚（天已经黑了）」。有的事件只在某个时段抵达时出现（清晨港口的渔船、傍晚海滩的日落、天黑后公路上的袋鼠、珀斯的河边夜景）；海滩清晨可以「看日出」。
 - **天气相册**（存档字段 `photos`）：抵达一个地点时按当天天气收一张照片（地点 × 天气，35 个地点共 175 张），只是收藏，不发奖励。
 - **成就**（`core/achievements.ts`）：由存档现算的里程碑（19 个），不进存档、不发奖励。
@@ -144,7 +161,7 @@ tests/earth/          引擎与数据自洽性测试
 - 服务器返回的存档隐去了随机数种子，客户端无法预知检定结果。
 - 本机 `localStorage` 只缓存最近一次的服务器存档用于显示；联网时一律以服务器为准，改缓存没有作用。
 - 断网时可以查看，但不能行动；创建角色也需要联网。
-- `board` 返回全服净资产前 20 名和自己的名次（只读）。榜单记录在每次存档落盘时由服务端顺带更新，只含名字、头像、净资产和游戏天数。
+- `board` 返回排行榜前 20 名和自己的名次（只读），可选 `dim`（身家/打卡/图鉴/声望/比赛）、`scope`（本赛季/总榜）、`board`（全服/地区/好友）；不带参数等于旧版的全服身家总榜。**只有本人同意（`boardpref`）的玩家出现在榜上**，可匿名。改版前建的旧角色读档时 `get` 带 `lbAsk: true`，页面弹一次问要不要上榜。榜单记录在每次存档落盘时由服务端从权威存档算出，涨得异常的挂起复核。详见 [leaderboard.md](leaderboard.md)。
 - **共同事件**（`coop`，`op: list / open / join / leave / start`）：同一地点的玩家组队做一件事（海滩清洁、街头合奏、帮人推车、救搁浅的海豚、码头钓鱼比赛、峡谷互助徒步、社区烧烤、帮人搬家）。要凑钱的（社区烧烤每人 $8）钱不够不能参加。每人选一个分工，用自己那项能力；团队分 = 每人（检定分 + 随机 0–60）的平均值 + 每多一人 +6，达到难度就成功，所有人拿同一个结果。
   - 每种共同事件每人每 5 个游戏日只能做一次（`COOP_COOLDOWN_DAYS`，存档字段 `coopDays` 记最近一次的游戏日，成败、晕倒都算做过），防止反复刷声望；成功的声望都是 0.5（平衡分析第九轮：原来每天一次、声望 1–6，同一地点几种叠着做，收入和升职都太快）。
   - 队伍（大厅）只存在存档实例的内存里：5 分钟没开始自动解散，结果保留 3 分钟给队友拉取（这两个时限按服务器真实时间算；正在结算的队伍不会被过期清掉）。对外只给名字、头像、分工和地点，不发存档 id。自己所在的队伍走开以后仍然列出（标「已走开」），可以退出。
@@ -175,7 +192,7 @@ npm run earth:pois                # 校验并合并进 wa.pois.json
 
 ## 7. CGI 素材（GPT image 2 / 远程 ComfyUI）
 
-当前的 119 张图（35 个地点主视觉 + 84 张事件插图，每个事件一张）由 GPT image 2 生成（2026-11-19）：
+当前的 238 张图由 GPT image 2 生成：35 个地点主视觉 + 84 张事件插图 + 17 张 NPC 头像（2026-11-19），以及 102 张界面配图（2026-11-20，体验、摄影任务、节日、车辆、房产、住处、职业、课程、证书、鱼获、页头横幅、空状态；设计清单见 [`cg-screens.md`](cg-screens.md)）：
 
 ```bash
 npm run earth:cgi:gpti -- --dry-run                  # 只看提示词
@@ -186,7 +203,9 @@ npm run earth:cgi:gpti -- --only=perth,event:whale-shark --force
 - 1536×1024 原图放 `tools/earth/comfyui/.raw/`（不进仓库），网页用的压成 960 宽 WebP（每张约 100KB）。
 - 地点图按 `prompts.mjs` 的 `LOC_SCENE` 一句标志性风景来画；游戏标签（机场、医院、健身房……）不进提示词，试画时它们被照字面画进去，画面又挤又乱。
 - 画面是 AI 生成的示意图，不是实拍；不画可辨认的人：事件里有人的画面一律写背影、剪影或只露手，警察不画徽章和字。
-- 新增事件要在 `EVENT_SCENE` 补一句画面描述再跑脚本，否则 `cgi.test.ts` 会报「没有插图」。南澳事件的地名自动写成 South Australia；店铺通用事件两州都会触发，写「普通澳洲郊区、不要地标」，只写 Australia 时画出了悉尼歌剧院和乌鲁鲁。
+- 界面配图分两种尺寸：行内缩略图和图鉴格子用方形任务（`size: 1024x1024`，`width: 256`，原图按实际宽高居中裁正方形，每张约 10–20KB），封面、横幅和空状态用宽图（960 或 640 宽）。键名带类别前缀（`exp:` `photo:` `fest:` `veh:` `prop:` `home:` `career:` `course:` `cert:` `fish:` `banner:` `empty:`），页面用 `thumb()` `cover()` `banner()` `emptyArt()` 读图，没图时退回原来的 emoji 方块或不占位。新增这些数据时在 `prompts.mjs` 对应的 `*_SCENE` 表补一句画面，否则 `cgi.test.ts` 会报「没有图」。
+- NPC 头像按 `NPC_LOOK` 写年龄、职业、穿着和常驻地点背景，不写族裔（由纪按角色设定写日裔澳洲人）；提示词固定带「虚构原创角色、不像任何真人或名人」。方形 1024 原图，压成 256 宽，页面里 56px 显示；没有图时退回按 id 画的 SVG 立绘。
+- 新增事件或 NPC 要在 `EVENT_SCENE` / `NPC_LOOK` 补一句画面描述再跑脚本，否则 `cgi.test.ts` 会报「没有插图」或「没有头像」。南澳事件的地名自动写成 South Australia；店铺通用事件两州都会触发，写「普通澳洲郊区、不要地标」，只写 Australia 时画出了悉尼歌剧院和乌鲁鲁。
 
 远程 ComfyUI 版（原有脚本，暂时没有可用的 SDXL 模型）：
 
@@ -202,11 +221,17 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 - 脚本逐张落盘并更新 `manifest.json`，中断可续跑；已存在的图默认跳过。
 - ComfyUI 本身没有鉴权，**不要把 8188 端口直接暴露到公网**：走 VPN / SSH 隧道，或放在带令牌的反向代理后面（`COMFYUI_TOKEN`）。
 
+AIGC 短片和 NPC 语音（第 1 轮试点，远程 H3 + MiniMax TTS）另见 [aigc-media.md](aigc-media.md)：独立清单 `public/earth/media/manifest.json`，不和 CGI 清单混。
+
 ## 8. 审查（Codex）
 
 审查规则写在仓库根的 [`AGENTS.md`](../../AGENTS.md)。在 Codex 里为本仓库开启 GitHub 代码审查后，PR 上评论 `@codex review` 即可触发。
 
 威胁模型、安全问题清单（含严重性、复现条件、修复状态）和限流参数见 [`security-review.md`](security-review.md)（v40）。限流工具在 `src/game/server/ratelimit.ts`，静态页安全响应头在 `public/_headers`。
+
+玩家之间的交易所、拍卖、面交（托管、并发、防重放、防刷和 RMT 红线）见 [`player-trade.md`](player-trade.md)（v69）。
+留学生的签证路线（学生签、485、雇主担保、技术移民打分、偏远地区，以官方为准、游戏简化）见 [`visa.md`](visa.md)（v70）。
+全服共享的宏观指标（利率、油价、矿业景气、房价、租金、汇率）和游戏内新闻见 [`world-events.md`](world-events.md)（v71），模拟见 [`world-events-sim.md`](world-events-sim.md)。
 
 ## 9. 路线图
 
@@ -221,10 +246,10 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 
 下一步的待办（按建议顺序，详见 [summary-50.md](summary-50.md)）：
 
-1. **待平衡的数值**交给 Codex 平衡分析：南澳事件、NPC、地下屋、南澳房产；第 46 轮报告里的共同事件叠做、酒保和农场工收入差（[balance.md](balance.md)）。
+1. **待平衡的数值**交给 Codex 平衡分析：南澳事件、NPC、地下屋、南澳房产；第 46 轮报告里的共同事件叠做、酒保和农场工收入差（[balance.md](balance.md)）；第 23 批的健康自然恢复、麻烦值冷却和需求 / 能力 / 奖罚提议（[activity-attributes.md](activity-attributes.md)）。
 2. **南澳真实地点和打卡点**由 OpenClaw 采集（OSM）。
 3. **全服周目标**的数值和领奖资格要用户定。
-4. **印度洋—太平洋号火车**：要新的出行方式和价格。
+4. **印度洋—太平洋号火车**：真实班次和票价已查（[transport-design.md](transport-design.md) §3），还要先做「车上包吃包住」的机制。
 5. **真机检查**：手机上实际玩一遍，看场景画面、字号、地图。
 
 ## 10. 已知限制（第一阶段）
@@ -242,3 +267,8 @@ npm run earth:cgi -- --only=perth,event:whale-shark --force
 - 第 20 批（2026-11-20）把开场换成「护照封皮 + 登机牌 + 入境卡」。方向和取舍记在 `.impeccable/surfaces/src-pages-earth-astro.md`，产品事实在根目录 `PRODUCT.md`。
 - 标题字体 `public/earth/fonts/terra-serif.woff2` 是 Noto Serif SC（SIL Open Font License 1.1）的子集，只含开场用到的约 60 个字形，13KB，取自 Google Fonts 并自托管。开场要加新的衬线字时，需要重新取子集。
 - 入境卡只是游戏里的风格化卡片，不用任何政府徽章或真实证件样式。
+
+## 9. 新手引导（v36）
+
+- 进入游戏后的引导：渐进出现的卡片、第一次进页的便签、回流卡片、新手指南第 3 天的「记下同步码」。设计、现状与提议见 [onboarding-design.md](onboarding-design.md)。
+- 进度存在存档的 `onboard` 字段，由服务端动作 `{ t: 'onboard' }` 写入；没有这个字段的老存档当作全部解开。
