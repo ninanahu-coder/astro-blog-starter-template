@@ -49,6 +49,9 @@ src/game/
   core/weather.ts     天气：由地点和游戏日确定（人人一样），风暴天取消海上的活动
   core/sky.ts         天象：气温、日出日落（含南澳夏令时）、潮汐、山火季、紫外线，只做显示
   core/disasters.ts   自然灾害（第 43 批）：山火、洪水封路、气旋、热浪、停电的预警（AWS 三级），封路、户外关闭、停工、停电做饭；保险理赔接口（见 disasters.md，保险还没接）
+  core/sports.ts      运动和比赛（第 43 批）：准备度、赛程、报名、比赛检定、俱乐部、取消规则（见 sports.md）
+  data/sports.ts      运动、比赛（参照真实赛事，带来源）、俱乐部和数值（待平衡）
+  ui/sports-card.ts   「在这里 · 体验和爱好」里的运动卡
   core/insurance.ts   保险（第 43 批）：保单生效期、保费加价、理赔核算（免赔额、车值封顶）、存档清洗；买保险的动作在 core/insure.ts
   data/insurance.ts   保险的险种、保费、免赔额和来源（均待平衡，见 insurance.md）
   data/achievements.ts 成就表（选指标和目标值即可加一条）

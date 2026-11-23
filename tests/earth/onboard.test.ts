@@ -250,7 +250,7 @@ test('页面模板（v36，合并 main 时这些行两边都改过）：渐进�
 	const { readFileSync } = await import('node:fs');
 	const src = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
 	// 体验改造 P1 起各组卡片收进「在这里」的抽屉，渐进出现仍然包住同样的几组
-	assert.match(src, /expHtml \+ \(on\('hobby'\) \? photoQuestHtml \+ fishHtml \+ skyCard\(s\) : ''\)/, '星空跟钓鱼、摄影同一组');
+	assert.match(src, /expHtml \+ sportsCard\(s, region, esc\) \+ \(on\('hobby'\) \? photoQuestHtml \+ fishHtml \+ skyCard\(s\) : ''\)/, '星空跟钓鱼、摄影同一组');
 	assert.match(src, /on\('study'\) \? courseHtml \+ certHtml \+ studyHtml : ''/, '学历课程跟课程、证书同一组');
 	assert.match(src, /\(on\('garage'\) \? dealerHtml \+ garageHtml : ''\) \+ \(on\('estate'\) \? propHtml : ''\)/, '车行和房产各自受渐进出现控制');
 	assert.match(src, /<button data-ob-guide aria-pressed="\$\{!state!\.onboard\.off\}">/, '设置里的引导开关');

@@ -20,7 +20,8 @@ test('模板里没有用行内样式写小于 12px 的字', () => {
 test('复核修正：抽屉里的地点短片也接上播放；同一个抽屉重画时放回滚动位置和焦点', () => {
 	assert.match(PAGE, /querySelectorAll<HTMLVideoElement>\('#panel video\.loc-clip, #modal \.drawer video\.loc-clip'\)/);
 	assert.match(PAGE, /if \(sh\) sh\.scrollTop = prevTop;/);
-	assert.match(PAGE, /if \(f && !f\.hasAttribute\('disabled'\)\) f\.focus\(\{ preventScroll: true \}\);/);
+	assert.match(PAGE, /if \(f && !f\.hasAttribute\('disabled'\)(?: && !f\.closest\('details:not\(\[open\]\)'\))?\) f\.focus\(\{ preventScroll: true \}\);/); // 合并运动分支后：焦点不落到合上的折叠卡里
+	assert.match(PAGE, /if \(openDetails\.length\) modal\.querySelectorAll<HTMLDetailsElement>\('\.drawer-body details'\)\.forEach\(\(d, i\) => \{ if \(openDetails\[i\]\) d\.open = true; \}\);/, '同一个抽屉重画时展开的折叠卡保持展开');
 	assert.match(PAGE, /wireClips\(prevClip\);\n\t*return;\n\t*\}/, '抽屉画完接上短片');
 });
 

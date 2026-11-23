@@ -24,6 +24,7 @@ import { studyProgram } from './education.ts';
 import { buyAsset, sellAsset } from './invest.ts';
 import { marketView } from './market.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { clubSession, enterRace, joinClub, noteTraining, quitClub, runRace } from './sports.ts';
 import { CARE, type CareKind } from '../data/health.ts';
 import { applyOnboard, parseOnboardOp, settleOnboard, type OnboardOp } from './onboard.ts';
 import { claimLive, LIVE_ID_RE } from './live.ts';
@@ -77,7 +78,9 @@ export type GameAction =
 	| { t: 'visa'; op: 'apply'; route: string }
 	| { t: 'visa'; op: 'ielts' }
 	| { t: 'care'; kind: CareKind } // 看病（健康系统第 1 版）
-	| { t: 'insure'; id: string }; // 买 / 续保险（第 43 批）
+	| { t: 'insure'; id: string } // 买 / 续保险（第 43 批）
+	| { t: 'sport'; op: 'enter' | 'race' | 'join'; id: string }
+	| { t: 'sport'; op: 'club' | 'quit' }; // 运动和比赛（第 43 批）
 
 const MODES: TravelMode[] = ['road', 'track', 'ferry', 'air', 'transit', 'rail', 'walk'];
 const NPC_ACTS: NpcAction[] = ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond'];
@@ -144,6 +147,9 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'experience':
 		case 'insure':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
+		case 'sport':
+			if (a.op === 'enter' || a.op === 'race' || a.op === 'join') return str(a.id) ? { t: 'sport', op: a.op, id: a.id } : null;
+			return a.op === 'club' || a.op === 'quit' ? { t: 'sport', op: a.op } : null;
 		case 'claim':
 			return str(a.id) ? { t: 'claim', id: a.id } : null;
 		case 'title':
@@ -243,6 +249,13 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'visa': r = a.op === 'ielts' ? takeIelts(state, region) : applyVisa(state, region, a.route); break;
 		case 'care': r = seekCare(state, region, a.kind); break;
 		case 'insure': r = buyInsurance(state, a.id); break;
+		case 'sport':
+			r = a.op === 'enter' ? enterRace(state, region, a.id)
+				: a.op === 'race' ? runRace(state, region, a.id)
+				: a.op === 'join' ? joinClub(state, a.id)
+				: a.op === 'club' ? clubSession(state, region)
+				: quitClub(state);
+			break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;
@@ -265,6 +278,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 				r.state.tally = copyTally(r.state.tally); // r.state 可能和旧存档共用 tally 对象，先拷一份再记
 				tallyCash(r.state, 'reward', r.state.cash - cashBefore);
 			}
+			noteTraining(r.state, a); // 日常运动记一次训练（跑步、游泳、健身……，见 core/sports.ts）
 		} else refreshWishes(r.state); // 跨日晕倒也要换成新一天的心愿
 		pruneMoodlets(r.state);
 		const visaNote = settleVisa(state, r.state); // 签证：记经验、毕业、到期提醒和过期（第 43 批）

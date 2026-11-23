@@ -78,7 +78,7 @@ illness: { id: string; since: number; until: number; care: string[]; rx: boolean
 - **下海** `sea`：数据里 `exposed: 'sea'` 的活动；
 - **上班** `work`：带收入的活动（零工）和职业班次。
 
-拦截的地方：普通活动（`blockedReason`，列表里直接显示原因）、职业上班（`shiftBlocked`）、真实地点的训练 / 跑步 / 游泳（`opOutcome`）、真实地点打上班卡（`workBlocked`）、共同事件（`coopBlocked`：有收入的算干活，体力消耗大的算剧烈运动）。
+拦截的地方：普通活动（`blockedReason`，列表里直接显示原因）、比赛和俱乐部训练课（运动分支合并后，`sports.ts` 的 `raceProblem`、`clubSessionBlocked`）、职业上班（`shiftBlocked`）、真实地点的训练 / 跑步 / 游泳（`opOutcome`）、真实地点打上班卡（`workBlocked`）、共同事件（`coopBlocked`：有收入的算干活，体力消耗大的算剧烈运动）。
 **真实地点已经打了的上班卡照样能打下班卡**，不会卡住工资（合并 main 后复核：原来连上班卡都不拦，生病还能去真实地点打卡挣钱，和游戏内上班不一致）。
 
 ### 2.5 看病：新动作 `{ t: 'care', kind: 'gp' | 'pharmacy' | 'ed' }`
