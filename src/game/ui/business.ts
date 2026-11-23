@@ -23,7 +23,7 @@ export function bizCard(s: PlayerState, region: Region, esc: (s: unknown) => str
 	let shopHtml = '';
 	if (sum) {
 		const { shop, type, site, daily, recentNet, recentSold, closeAt } = sum;
-		const can = shopActions(s);
+		const can = shopActions(s, region);
 		const lot = restockLot(shop.stock, type.maxStock);
 		shopHtml = `<div style="margin-top:10px"><p><b>${type.icon} 我的${esc(type.name)} · ${esc(site.name)}</b></p>
 			<p class="muted" style="margin-top:4px">库存 ${shop.stock}/${type.maxStock} · 店员 ${shop.staff} 人 · 口碑 ${Math.round(shop.rep)}/100 · 每天固定开销 ${money(daily.total)}（租金 ${money(daily.rent)}${daily.wages ? `、工资养老金保险 ${money(daily.wages + daily.superPay + daily.comp)}` : ''}）</p>

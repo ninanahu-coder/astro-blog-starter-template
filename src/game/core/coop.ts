@@ -1,5 +1,6 @@
 // 共同事件的规则（纯函数）：哪里能做、谁现在不能参加、团队检定和每个人的结算。
 // 服务端负责凑人（大厅）和调用这里；客户端只用 coopsAt / coopBlocked 显示。
+import { illnessBlock, loadOfEffect } from './health.ts';
 import { checkScore } from './attributes.ts';
 import { applyEffect, clone, collapsedResult, getLocation, log, roll } from './engine.ts';
 import { dayOf, hoursLabel, isOpen } from './time.ts';
@@ -38,6 +39,9 @@ export const coopCostLabel = (def: CoopDef): string => (coopCost(def) ? ` · 每
 /** 这个人现在能不能参加（发起、加入、开始时都要检查）；能参加返回 undefined */
 export function coopBlocked(state: PlayerState, region: Region, def: CoopDef): string | undefined {
 	if (state.pending) return '先处理眼前的事件。';
+	// 生病（健康系统第 1 版）：有收入的算干活，体力消耗大的算剧烈运动，和普通活动同一套判断（合并 main 后复核）
+	const sick = illnessBlock(state, [...loadOfEffect(def.ok.fx), ...loadOfEffect(def.fail.fx)]);
+	if (sick) return sick;
 	const wait = coopWaitDays(state, def);
 	if (wait) return wait === COOP_COOLDOWN_DAYS ? `今天已经做过这件事，${wait} 天后再来。` : `${COOP_COOLDOWN_DAYS} 天内做过这件事，${wait} 天后再来。`;
 	const cost = coopCost(def);

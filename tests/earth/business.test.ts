@@ -12,6 +12,10 @@ import { areaOf } from '../../src/game/data/areas-base.ts';
 import { WORLD } from '../../src/game/data/wa.ts';
 import { EarthWorld } from '../../src/game/server/world.ts';
 import type { PlayerState, ShopState } from '../../src/game/core/types.ts';
+import { actionCats } from '../../src/game/core/tally.ts';
+import { fortnightOf, visaCapped, workedMinutes } from '../../src/game/core/visa.ts';
+import { PROGRAMS, VISA } from '../../src/game/data/education.ts';
+import { dayOf } from '../../src/game/core/time.ts';
 
 const R = WORLD;
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
@@ -422,4 +426,68 @@ test('服务端：biz 动作走 parseAction + 引擎结算，格式不对返回 
 	assert.ok(abn.data.ok, abn.data.msg);
 	assert.equal(typeof abn.data.state.biz.lic.abn, 'number');
 	assert.equal(data.get('save:' + cred.id).state.biz.lic.abn, abn.data.state.biz.lic.abn, '落盘');
+});
+
+// ---------- 合并 main 后：副业和看店是工作（签证、生病、灾害、记账） ----------
+test('副业是工作：签证过期不能做；生病不能做；做了算进签证工时；钱记「工作与零工」（合并 main 后）', () => {
+	const base = withLic(make({ clock: at(12, 1) }), ['abn']);
+	const ok = gigsAt(base, R).find((o) => o.gig.id === 'delivery')!;
+	assert.ok(ok && !ok.blocked, ok?.blocked);
+	// 签证过期
+	const expired = { ...base, visa: { ...base.visa, kind: 'expired' as const } } as PlayerState;
+	assert.match(gigsAt(expired, R).find((o) => o.gig.id === 'delivery')!.blocked!, /签证/);
+	// 生病（不能上班的病）
+	const sick = { ...base, illness: { id: 'flu', since: base.clock, until: base.clock + 3 * 1440, care: [], rx: false } } as PlayerState;
+	assert.match(gigsAt(sick, R).find((o) => o.gig.id === 'delivery')!.blocked!, /流感/);
+	// 做完记签证工时
+	const r = applyAction(base, R, { t: 'biz', op: 'gig', id: 'delivery' });
+	assert.ok(r.ok, r.msg);
+	assert.equal(workedMinutes(r.state) - workedMinutes(base), GIGS.find((g) => g.id === 'delivery')!.minutes);
+	assert.deepEqual(actionCats({ t: 'biz', op: 'gig', id: 'delivery' }), ['work', 'work']);
+	// 工时用完：学期中的学生签证每两周 48 小时
+	const prog = PROGRAMS.find((p) => p.sessions > 1)!;
+	const capped = { ...base, study: { ...base.study, [prog.id]: { n: 1, day: dayOf(base.clock) } }, workLog: { f: fortnightOf(base.clock), min: VISA.capHours * 60 } } as PlayerState;
+	assert.ok(visaCapped(capped), '前提：学期中的学生签证');
+	assert.match(gigsAt(capped, R).find((o) => o.gig.id === 'delivery')!.blocked!, /48 小时/);
+});
+
+test('店铺每天结算的钱记「工作与零工」，不算到触发结算的动作头上（合并 main 后）', () => {
+	const site = SHOP_SITES.find((x) => x.loc === 'perth')!;
+	const type = SHOP_TYPES.find((t) => !t.food)!;
+	let s = withLic(make({ clock: at(10, 1) }), ['abn', 'bizname']);
+	s = applyAction(s, R, { t: 'biz', op: 'open', shop: type.id, site: site.id }).state;
+	assert.ok(s.biz.shop, '开了店');
+	s = applyAction(s, R, { t: 'biz', op: 'restock', qty: 20 }).state;
+	s = applyAction(s, R, { t: 'biz', op: 'tend' }).state;
+	const before = s;
+	// 第二天随便做点别的（出行），店的账结算到昨天
+	const next = { ...s, clock: at(9, dayOf(s.clock) + 1) };
+	const r = applyAction(next, R, { t: 'mind', op: 'call' });
+	assert.ok(r.ok, r.msg);
+	const workIn = (r.state.tally.in.work ?? 0) - (before.tally.in.work ?? 0);
+	const workOut = (r.state.tally.out.work ?? 0) - (before.tally.out.work ?? 0);
+	assert.equal(workIn - workOut, r.state.cash - next.cash, '这一步现金的变化全是店的账，记在「工作与零工」');
+});
+
+test('店里操作先结算时，结算的钱单独记「工作与零工」，和进货的钱分开（合并 main 后复核）', () => {
+	const site = SHOP_SITES.find((x) => x.loc === 'perth')!;
+	const type = SHOP_TYPES.find((t) => !t.food)!;
+	let s = withLic(make({ clock: at(10, 1) }), ['abn', 'bizname']);
+	s = applyAction(s, R, { t: 'biz', op: 'open', shop: type.id, site: site.id }).state;
+	s = applyAction(s, R, { t: 'biz', op: 'restock', qty: 30 }).state;
+	s = applyAction(s, R, { t: 'biz', op: 'tend' }).state;
+	const next = { ...s, clock: at(10, dayOf(s.clock) + 3) };
+	// 同一段结算，分别由进货和一个无关动作触发：「工作与零工」的收入一样
+	const viaRestock = applyAction(next, R, { t: 'biz', op: 'restock', qty: 5 });
+	const viaOther = applyAction(next, R, { t: 'mind', op: 'call' });
+	assert.ok(viaRestock.ok && viaOther.ok);
+	const inOf = (x: PlayerState) => (x.tally.in.work ?? 0) - (next.tally.in.work ?? 0);
+	assert.equal(inOf(viaRestock.state), inOf(viaOther.state), '结算收入不被进货的花费抵掉');
+});
+
+test('页面：生意卡在「工作」抽屉里，摘要算上副业和自己的店（合并 main 后）', async () => {
+	const { readFileSync } = await import('node:fs');
+	const page = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
+	assert.match(page, /'工作', workHtml \+ bizCard\(s, region, esc\),/);
+	assert.match(page, /gigsAt\(s, region\)\.length \? `\$\{gigsAt\(s, region\)\.length\} 份副业`/);
 });

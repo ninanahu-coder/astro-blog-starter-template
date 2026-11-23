@@ -12,6 +12,10 @@ import { areaOf } from '../data/areas-base.ts';
 import { applyEffect, clone, collapsedResult, fail, getLocation, log, roll } from './engine.ts';
 import { dateOf, dayOf, hoursLabel, isOpen, weekdayOf } from './time.ts';
 import { weatherAt } from './weather.ts';
+import { logWork, visaBlocked } from './visa.ts';
+import { illnessBlock } from './health.ts';
+import { copyTally, tallyCash } from './tally.ts';
+import { workStopped } from './disasters.ts';
 import { clamp100 } from './character.ts';
 import type { ActionResult, Effect, GameLocation, PlayerState, Region, ShopState, Where } from './types.ts';
 
@@ -121,7 +125,15 @@ function gigMult(state: PlayerState, gig: GigDef): number {
 	return k;
 }
 
-function gigBlocked(state: PlayerState, gig: GigDef): string | undefined {
+/**
+ * 副业、看店都是有报酬的工作（合并 main 后）：签证过期不能做；学生签证在读期间算进每两周 48 小时；
+ * 生病不能上班的病也不能做；灾害让这里停工时也不做
+ */
+export function workRules(state: PlayerState, loc: GameLocation | undefined, minutes: number): string | undefined {
+	return visaBlocked(state, minutes) ?? illnessBlock(state, ['work']) ?? (loc ? workStopped(loc, today(state)) : undefined);
+}
+
+function gigBlocked(state: PlayerState, gig: GigDef, loc?: GameLocation): string | undefined {
 	if (state.pending) return '先处理眼前的事件';
 	if (state.biz.gigs[gig.id] === today(state)) return '今天已经做过了';
 	if (gig.days && !gig.days.includes(weekdayOf(state.clock))) return '只在周末';
@@ -133,6 +145,8 @@ function gigBlocked(state: PlayerState, gig: GigDef): string | undefined {
 	}
 	if (gig.portfolio && state.photoQuest < gig.portfolio) return `要先完成 ${gig.portfolio} 个摄影任务当作品集（现在 ${state.photoQuest} 个）`;
 	if (state.needs.energy < 25) return '太累了，先休息';
+	const work = workRules(state, loc, gig.minutes);
+	if (work) return work;
 	if (state.cash < gig.cost) return `要先垫 $${gig.cost}`;
 	return undefined;
 }
@@ -143,7 +157,7 @@ export function gigsAt(state: PlayerState, region: Region): GigOffer[] {
 	if (!loc) return [];
 	return GIGS.filter((g) => whereMatch(g.where, loc)).map((gig) => {
 		const k = gigMult(state, gig);
-		return { gig, range: [Math.round(gig.base * k * 0.75), Math.round(gig.base * k * 1.25)] as [number, number], blocked: gigBlocked(state, gig) };
+		return { gig, range: [Math.round(gig.base * k * 0.75), Math.round(gig.base * k * 1.25)] as [number, number], blocked: gigBlocked(state, gig, loc) };
 	});
 }
 
@@ -164,6 +178,7 @@ export function doGig(prev: PlayerState, region: Region, id: string): ActionResu
 	state.cash -= gig.cost; // blocked 已检查过付得起
 	const fx: Effect = { minutes: gig.minutes, cash: gross - gst, needs: gig.needs, skills: { [gig.skill]: gig.growth }, respect: good ? gig.respect : 0 };
 	if (applyEffect(state, fx, region)) return collapsedResult(state);
+	logWork(state, gig.minutes, prev.clock); // 算进签证工时（合并 main 后）
 	const extra = recordBiz(state, day, gross, gross - gst - gig.cost);
 	const parts = [lost ? `${gig.icon} ${gig.name}：货出了意外，$${gig.cost} 货款收不回来。` : `${gig.icon} ${gig.name} ${Math.round(gig.minutes / 60)} 小时，收入 $${gross}${gig.cost ? `（成本 $${gig.cost}）` : ''}${gst ? `，GST $${gst}` : ''}。`];
 	if (good && gig.respect) parts.push(`客人很满意，声望 +${gig.respect}。`);
@@ -224,7 +239,7 @@ function shopHere(state: PlayerState): string | undefined {
 }
 
 /** 店里能做什么、为什么不能做 */
-export function shopActions(state: PlayerState): { restock?: string; hire?: string; fire?: string; tend?: string } {
+export function shopActions(state: PlayerState, region?: Region): { restock?: string; hire?: string; fire?: string; tend?: string } {
 	const shop = state.biz.shop;
 	if (!shop) {
 		const no = '你还没有店';
@@ -238,7 +253,9 @@ export function shopActions(state: PlayerState): { restock?: string; hire?: stri
 		fire: here ?? (shop.staff <= 0 ? '没有店员' : undefined),
 		tend: here ?? (shop.tend === today(state) ? '今天已经看过店了'
 			: !isOpen(SHOP_RULES.tendHours, state.clock) ? `${hoursLabel(SHOP_RULES.tendHours)} 开门时才能看店`
-				: state.needs.energy < 25 ? '太累了，先休息' : undefined),
+				: state.needs.energy < 25 ? '太累了，先休息'
+					// 合并 main 后：看店是工作，签证、生病、灾害停工照样拦（传了区域才查，界面和模拟都传）
+					: region ? workRules(state, getLocation(region, state.loc), SHOP_RULES.tendMinutes) : undefined),
 	};
 }
 
@@ -305,11 +322,12 @@ export function hireStaff(prev: PlayerState, region: Region, op: 'hire' | 'fire'
 /** 自己看一天店：今天多一份人手、不付自己工资；花 6 小时 */
 export function tendShop(prev: PlayerState, region: Region): ActionResult {
 	const pre = settled(prev, region);
-	const why = shopActions(pre.state).tend;
+	const why = shopActions(pre.state, region).tend;
 	if (why) return fail(prev, why);
 	const state = pre.state === prev ? clone(prev) : pre.state;
 	state.biz.shop!.tend = today(state);
 	if (applyEffect(state, { minutes: SHOP_RULES.tendMinutes, needs: { energy: -20, social: 12 }, skills: { charisma: 0.6, street: 0.3 } }, region)) return collapsedResult(state);
+	logWork(state, SHOP_RULES.tendMinutes, pre.state.clock); // 自己看店也算工作（合并 main 后）
 	const type = getShopType(state.biz.shop!.type)!;
 	const msg = `${pre.msg}${type.icon} 在店里忙了 ${SHOP_RULES.tendMinutes / 60} 小时，今天的账明天结。`;
 	log(state, `在自己的${type.name}看了一天店。`);
@@ -340,7 +358,13 @@ export function closeShop(prev: PlayerState, region: Region): ActionResult {
 function settled(prev: PlayerState, region: Region): { state: PlayerState; msg: string } {
 	if (!prev.biz.shop || prev.biz.shop.last >= today(prev) - 1) return { state: prev, msg: '' };
 	const state = clone(prev);
+	const before = state.cash;
 	const msg = settleBiz(state, region);
+	// 结算出的钱单独记账（和 applyAction 里的一致），不和这次进货、雇人、关店的钱混成一笔净额（合并 main 后复核）
+	if (state.tally && state.cash !== before) {
+		state.tally = copyTally(state.tally);
+		tallyCash(state, 'work', state.cash - before);
+	}
 	return { state, msg: msg ? msg.trim() + ' ' : '' };
 }
 

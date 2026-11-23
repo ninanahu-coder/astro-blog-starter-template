@@ -6,8 +6,16 @@ export const HOMES: HomeDef[] = [
 	{ id: 'flat', name: '一居室公寓', rentWeek: 320, comfort: 5, where: { kinds: ['city', 'port', 'town', 'coast'] }, desc: '自己的厨房和浴室，安静。' },
 	{ id: 'beach', name: '海景小屋', rentWeek: 650, comfort: 10, where: { tags: ['beach'] }, desc: '推开门就是大海。' },
 	// 第 14 轮新增（租金、舒适度待平衡）
-	{ id: 'campground', name: '房车营地', rentWeek: 90, comfort: 2, vehicleSleep: true, where: { kinds: ['coast', 'park', 'outback', 'town'] }, desc: '一块带电桩的车位，公共淋浴和烧烤台；人睡在自己车里。' },
+	{ id: 'campground', name: '房车营地', rentWeek: 90, comfort: 2, vehicleSleep: true, bondWeeks: 0, where: { kinds: ['coast', 'park', 'outback', 'town'] }, desc: '一块带电桩的车位，公共淋浴和烧烤台；人睡在自己车里。' },
 	{ id: 'seaview', name: '海景公寓', rentWeek: 480, comfort: 7, where: { tags: ['beach'] }, desc: '高层阳台看海，楼下就是咖啡街。' },
 	// 第 45 轮（南澳）：库伯佩迪的地下屋，只在有 opal 标签的地点。租金介于合租房间和房车营地之间；舒适度平衡分析第九轮 4 → 1（落在合租 0 和营地 2 之间，推算）
 	{ id: 'dugout', name: '地下屋', rentWeek: 140, comfort: 1, where: { tags: ['opal'] }, desc: '凿进砂岩里的房子，外面四十度时屋里二十几度。' },
 ];
+
+/**
+ * 第 26 批：租房押金（bond）= 周租 × BOND_WEEKS，搬走时全退；付不起房租被收房时先从押金里扣一周房租，剩下的退回。
+ * 真实规则：西澳、南澳（周租 ≤ $800）押金上限都是 4 周房租（来源见 docs/earth-game/home-and-vehicle.md）。
+ * 游戏里取 2 周（待平衡）：背包客开局 $600，按 4 周连合租房间（$640 押金 + 首期）都租不起。
+ * 房车营地不是租约，单条数据用 bondWeeks: 0 免押金。
+ */
+export const BOND_WEEKS = 2;

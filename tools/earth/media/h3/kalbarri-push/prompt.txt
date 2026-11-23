@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic a dramatic red sandstone gorge landscape at sunset, a natural rock arch framing a winding river far below, layered red cliffs and scattered shrubs, with the the rock arch, the river, the cliffs and the composition shown in <Picture 1> preserved. From the first frame the river glints as it winds through the gorge and warm light shifts across the layered rock. The camera pushes in with small amplitude at slow speed toward the view through the rock arch and comes to rest on a slightly tighter wide shot of the river framed by the arch in the final second. Clouds drift slowly across the sky beyond the arch, and the shrubs and the eucalyptus branches at the left sway lightly in a warm breeze, and the rock arch and the cliffs stay still.
+
+overall_soundscape: A warm wind across open rock and faint distant birds; soft rustle of dry shrubs.
+
+non_diegetic_music: N/A
