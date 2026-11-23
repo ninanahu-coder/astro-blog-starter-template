@@ -862,6 +862,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { defaultAmount, investCard } from '../game/ui/invest.ts';
 			import { holdingsValue } from '../game/core/market.ts';
 			import { setHtml } from '../game/ui/dom.ts';
+			import { bankCardHtml, bnplButton, bnplConfirmText, carLoanButton, homeLoanNote } from '../game/ui/bank.ts';
+			import { carLoanBlocks } from '../game/core/bank.ts';
+			import { bankDebt } from '../game/core/credit.ts';
 			import { bizCard } from '../game/ui/business.ts';
 			import { gigsAt } from '../game/core/business.ts';
 			import { lbAskHtml, lbAskPref, lbCardHtml, parseLbPref, type LbData, type LbDimId } from '../game/ui/board.ts';
@@ -891,7 +894,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { SERVICE_KM } from '../game/data/vehicles.ts';
 			import { insuranceCard } from '../game/ui/insurance.ts';
 			import { AREAS, EXPERIENCES } from '../game/data/experiences.ts';
-			import { FURNITURE_SLOTS } from '../game/data/furniture.ts';
+			import { FURNITURE, FURNITURE_SLOTS } from '../game/data/furniture.ts';
 			import { groceryHtml, kitchenHtml } from '../game/ui/kitchen.ts';
 			import { groceriesAt } from '../game/core/cooking.ts';
 			import { FINANCE, loanPayment, saleProceeds, weeksToPayOff } from '../game/core/finance.ts';
@@ -2551,7 +2554,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					${relaxWhy ? `<p style="margin-top:4px">${esc(relaxWhy)}</p>` : ''}
 					${kitchenHtml(s, region, esc)}
 					<details style="margin-top:8px"><summary class="muted">添置家具（已有 ${Object.keys(s.home!.furniture).length}/${Object.keys(FURNITURE_SLOTS).length} 类，折现值 $${furnitureValue(s)}）</summary>
-					${furnitureAt(s).map(({ item, owned, net, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${owned ? '✅ ' : ''}${esc(FURNITURE_SLOTS[item.slot])} · ${esc(item.name)}<small>${esc(item.desc)}${!owned && net !== item.price ? ` 换购价 $${net}` : ''}</small></span>${owned ? `<button data-furn="sell" data-slot="${item.slot}">卖</button>` : `<button data-furn="buy" data-furn-id="${item.id}" ${blocked ? 'disabled' : ''}>$${item.price}</button>`}</div>`).join('')}
+					${furnitureAt(s).map(({ item, owned, net, blocked }) => `<div class="row" style="margin-top:8px"><span class="body">${owned ? '✅ ' : ''}${esc(FURNITURE_SLOTS[item.slot])} · ${esc(item.name)}<small>${esc(item.desc)}${!owned && net !== item.price ? ` 换购价 $${net}` : ''}</small></span>${owned ? `<button data-furn="sell" data-slot="${item.slot}">卖</button>` : `<button data-furn="buy" data-furn-id="${item.id}" ${blocked ? 'disabled' : ''}>$${item.price}</button>${bnplButton(s, item.id, net, esc)}`}</div>`).join('')}
 					<p style="margin-top:8px" class="muted">成套摆放有额外心情：${furnitureSets(s).map(({ set, have, done }) => `${done ? '✅ ' : ''}${esc(set.name)}（${set.items.map((id) => esc(getFurniture(id)?.name ?? id)).join(' + ')}，${have}/${set.items.length}，心情 +${set.comfort}）`).join('；')}</p></details>` : ''}
 					${claimHtml}${rentals.filter((o) => !(homeHere && o.home.id === s.home!.type)).map(offerHtml).join('')}${scamHtml}
 					${rentals.some((o) => needsLease(o.home)) ? `<p style="margin-top:8px" class="muted">${esc(`租房先看房，再递申请；房东从申请人里挑。${SCAM_TIP}`)}</p>` : ''}</div>` : '';
@@ -2606,15 +2609,16 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const courses = coursesAt(s, region);
 				const courseHtml = courses.length ? `<div class="card"><h3>课程</h3>${courses.map(({ course, price, blocked }) => `
 					<div class="row" style="margin-top:8px">${thumb('course:' + course.id)}<span class="body">${esc(course.name)} · $${price}<small>${esc(blocked ?? `${SKILL_META[course.skill].name}（现在 ${Math.floor(s.skills[course.skill])}）· ${Math.round(course.minutes / 60 * 10) / 10} 小时 · ${course.desc}`)}</small></span><button data-course="${course.id}" ${blocked ? 'disabled' : ''}>上课</button></div>`).join('')}</div>` : '';
-				const dealer = dealerAt(s, region);
+				const carHeld = carLoanBlocks(s); // 车是车贷的抵押物：换车、卖车都要先还清（服务端同样拦）
+				const dealer = dealerAt(s, region).map((o) => (carHeld && o.blocked === undefined ? { ...o, blocked: carHeld } : o));
 				const props = propertiesAt(s, region);
-				const propHtml = props.length ? `<div class="card"><h3>房产</h3>${props.map(({ property: pr, owned, down, blockedCash, blockedLoan }) => `
+				const propHtml = props.length ? `<div class="card"><h3>房产</h3>${props.map(({ property: pr, owned, down, blockedCash, blockedLoan: cashLoan }) => { const note = homeLoanNote(s, pr.id); const blockedLoan = cashLoan ?? (note.ok ? undefined : note.text); const lent = note.loan ?? pr.price - down; return `
 					<div style="margin-top:10px"><div class="row">${thumb('prop:' + pr.id)}<span class="body">${owned ? '🔑 ' : ''}${esc(pr.name)} · $${pr.price.toLocaleString()}<small>${esc(pr.desc)} 物业费 $${pr.weekly}/周，出租 $${rentOn(pr.rentIncome, dayOf(s.clock))}/周。</small></span></div>
 					${owned ? '<p style="margin-top:4px">已是你的房产，在「角色」页管理。</p>' : `<div class="inline" style="margin-top:6px"><button data-prop="buy" data-prop-id="${pr.id}" ${blockedCash ? 'disabled' : ''}>全款买</button><button data-prop="buyloan" data-prop-id="${pr.id}" ${blockedLoan ? 'disabled' : ''}>贷款买（首付 $${down.toLocaleString()}）</button></div>
-					<p style="margin-top:4px">${esc(blockedLoan ?? `贷款 $${(pr.price - down).toLocaleString()}，每周还约 $${loanPayment(pr, pr.price - down, loanRateMult(dayOf(s.clock)))}，约 ${weeksToPayOff(pr, pr.price - down)} 周还清。`)}</p>`}</div>`).join('')}</div>` : '';
+					<p style="margin-top:4px">${esc(blockedLoan ?? `贷款 $${lent.toLocaleString()}，每周还约 $${loanPayment(pr, lent, loanRateMult(dayOf(s.clock)))}，约 ${weeksToPayOff(pr, lent)} 周还清。${note.text}`)}</p>`}</div>`; }).join('')}</div>` : '';
 				const dealerHtml = dealer.length ? `<div class="card"><h3>车行</h3>${myVeh ? `<p>你的${esc(myVeh.name)}可折抵 $${resaleValue(myVeh.id, s.car.km)}</p>` : ''}${dealer.map(({ vehicle, duty, net, blocked }) => `
-					<div class="row" style="margin-top:8px">${thumb('veh:' + vehicle.id, `<span class="ico">${vehicle.icon}</span>`)}<span class="body">${esc(vehicle.name)} · $${vehicle.price.toLocaleString()}<small>${esc(blocked ?? `${vehicle.desc}${duty ? ` 过户印花税 $${duty.toLocaleString()}。` : ''}${myVeh ? ` 折抵后付 $${net.toLocaleString()}` : ''}`)}</small></span><button data-veh="buy" data-veh-id="${vehicle.id}" ${blocked ? 'disabled' : ''}>${myVeh ? '换' : '买'}</button></div>`).join('')}
-					${myVeh ? (() => { const why = sellBlocked(s); return `<div class="inline" style="margin-top:8px"><button data-veh="sell" ${why ? 'disabled' : ''}>卖掉${esc(myVeh.name)}（$${resaleValue(myVeh.id, s.car.km)}）</button></div>${why && !why.includes('营业') ? `<p style="margin-top:4px">${esc(why)}</p>` : ''}`; })() : ''}</div>` : '';
+					<div class="row" style="margin-top:8px">${thumb('veh:' + vehicle.id, `<span class="ico">${vehicle.icon}</span>`)}<span class="body">${esc(vehicle.name)} · $${vehicle.price.toLocaleString()}<small>${esc(blocked ?? `${vehicle.desc}${duty ? ` 过户印花税 $${duty.toLocaleString()}。` : ''}${myVeh ? ` 折抵后付 $${net.toLocaleString()}` : ''}`)}</small></span><button data-veh="buy" data-veh-id="${vehicle.id}" ${blocked ? 'disabled' : ''}>${myVeh ? '换' : '买'}</button>${!blocked || blocked.startsWith('还差') ? carLoanButton(s, vehicle.id, net, esc) : ''}</div>`).join('')}
+					${myVeh ? (() => { const why = carHeld ?? sellBlocked(s); return `<div class="inline" style="margin-top:8px"><button data-veh="sell" ${why ? 'disabled' : ''}>卖掉${esc(myVeh.name)}（$${resaleValue(myVeh.id, s.car.km)}）</button></div>${why && !why.includes('营业') ? `<p style="margin-top:4px">${esc(why)}</p>` : ''}`; })() : ''}</div>` : '';
 				const garage = garageAt(s, region);
 				const garageHtml = garage ? `<div class="card"><h3>修车厂</h3><div class="row" style="margin-top:8px">${thumb('veh:' + myVeh!.id)}<span class="body">给${esc(myVeh!.name)}做保养 · $${garage.price}<small>${esc(garage.blocked ?? `离上次保养 ${s.car.since.toLocaleString()} 公里；超过 ${SERVICE_KM.toLocaleString()} 公里后路上可能抛锚`)}</small></span><button data-veh="service" ${garage.blocked ? 'disabled' : ''}>保养</button></div></div>` : '';
 				const vanHtml = myVeh?.sleep ? `<button class="row" data-veh="sleep">${thumb('veh:' + myVeh.id, `<span class="ico">${myVeh.icon}</span>`)}<span class="body">在${esc(myVeh.name)}里睡一觉<small>免费，开到哪睡到哪</small></span></button>` : '';
@@ -2949,8 +2953,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 							<p style="margin-top:8px">明天接着来能领 $${tomorrow.cash}${tomorrow.full ? `（满 ${DAILY.cap} 天大礼，含额外 $${DAILY.bonus}）` : ''}。断一天从头算（$${DAILY.base} 起）。</p></div>`;
 					})(),
 					world: worldCard(dayOf(s.clock)), // 世界事件（第 43 批）
-					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id, s.car.km).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}${holdingsValue(s) ? ` · 理财 $${holdingsValue(s).toLocaleString()}` : ''}</p>${estate || emptyArt('empty:estate') + '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>${taxCard(s, esc)}`,
+					assets: `<div class="card"><h3>资产 · 净值 $${netWorth(s).toLocaleString()}</h3><p>现金 $${s.cash.toLocaleString()}${vdef ? ` · ${esc(vdef.name)} $${resaleValue(vdef.id, s.car.km).toLocaleString()}` : ''}${furnitureValue(s) ? ` · 家具 $${furnitureValue(s)}` : ''}${holdingsValue(s) ? ` · 理财 $${holdingsValue(s).toLocaleString()}` : ''}${bankDebt(s.bank) ? ` · 欠银行 −$${bankDebt(s.bank).toLocaleString()}` : ''}</p>${estate || emptyArt('empty:estate') + '<p>还没有房产。在卡尔古利、珀斯、弗里曼特尔、玛格丽特河可以买房。</p>'}</div>${taxCard(s, esc)}`,
 					invest: investCard(s),
+					bank: bankCardHtml(s, esc), // 银行、信用分和贷款（banking.md）
 					album: `<div class="card"><h3>收藏册 ${s.collected.length}/${EXPERIENCES.length}</h3>${titles.length ? `<div class="tags">${titles.map((t) => `<span class="tag">🏅 ${esc(t)}</span>`).join('')}</div>` : '<p>在各地体验收费项目，集齐一个片区可获得称号。</p>'}${album}</div>`,
 					life: `<div class="card"><h3>工作与住处</h3>${life}</div>`,
 					ins: insuranceCard(s, !!vdef, esc),
@@ -2973,7 +2978,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const lvHtml = `<div class="card grow-head"><span class="lv-badge" aria-hidden="true">${lv.lv}</span><span class="name"><b>Lv${lv.lv} ${esc(lv.title)}</b><span>声望 ${fmtHalf(s.respect)}${lv.next !== null ? ` / ${lv.next} · 离下一级还差 ${fmtHalf(Math.max(0, lv.next - s.respect))}` : ' · 已到最高级'}</span>${lv.next !== null ? `<span class="bar" role="img" aria-label="升级进度 ${pct}%"><i style="width:${pct}%"></i></span>` : ''}</span></div>`;
 					return banner('banner:grow') + lvHtml + ['quests', 'daily', 'ach', 'titles', 'hobby', 'collect', 'album', 'photo', 'dex', 'fish', 'story', 'trail'].map((k) => card[k as keyof typeof card]).join('');
 				}
-				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'visa', 'skills', 'derived'], assets: ['assets', 'invest', 'life', 'ins', 'bag', 'world'], people: ['rels'] };
+				const sections: Record<string, string[]> = { overview: ['mood', 'me', 'visa', 'skills', 'derived'], assets: ['assets', 'invest', 'bank', 'life', 'ins', 'bag', 'world'], people: ['rels'] };
 				const head = `<div class="card me-head"><span class="avatar">${s.avatar}</span><span class="name"><b>${esc(s.name)}</b><span>${esc(origin.name)}${s.traits.length ? ' · ' + s.traits.map((id) => esc(getTrait(id)?.name ?? '')).join(' · ') : ''} · 第 ${dayOf(s.clock) + 1} 天</span></span></div>`;
 				// 「更新」页（第 48 轮）：打开时记下已读；没看过的批次在标签上标「新」
 				void loadNews();
@@ -3565,7 +3570,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			});
 			document.addEventListener('click', (e) => {
 				gestured = true;
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-mind],[data-rental],[data-wall],[data-biz],[data-tax],[data-vol],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-mind],[data-rental],[data-wall],[data-biz],[data-tax],[data-bank],[data-vol],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
 				// 打开了环境音或音乐、但还没出过声：第一次点页面任何地方时解锁音频（浏览器的自动播放限制）
 				if (!audio && (prefs.ambience || prefs.music)) { try { ensureAudio(); } catch {} syncScene(); }
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
@@ -3697,6 +3702,21 @@ const cardLines = guilloche(400, 260, 14, 9);
 						a = { t: 'property', op: d.prop as 'sell' | 'movein' | 'rentout', id };
 					}
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
+				else if (d.bank) {
+					// 银行：金额只是请求，额度、利率、能不能批都由服务端按规则算（banking.md）
+					let a: GameAction | null = null;
+					const ask = (q: string, def: number) => { const n = Math.floor(Number(prompt(q, String(def)))); return n >= 1 ? n : 0; };
+					if (d.bank === 'open' || d.bank === 'card') a = { t: 'bank', op: d.bank };
+					else if (d.bank === 'draw') { const n = ask('取现多少？（手续费 3%，当天起计息）', 100); if (n) a = { t: 'bank', op: 'draw', amount: n }; }
+					else if (d.bank === 'loan') { const n = ask('借多少？（$300–$5000，52 周还清）', 1000); if (n && confirm(`申请个人贷款 $${n}？每次申请都会记一次查询，信用分会小幅下降。`)) a = { t: 'bank', op: 'loan', amount: n }; }
+					else if (d.bank === 'repay' && (d.bankKind === 'card' || d.bankKind === 'personal' || d.bankKind === 'car')) { const n = ask('还多少？', Math.min(state.cash, 1000)); if (n) a = { t: 'bank', op: 'repay', kind: d.bankKind, amount: n }; }
+					else if (d.bank === 'carloan' && d.bankId) { if (confirm('用车贷买这辆车？车是贷款的抵押物，还清前不能卖或换；连续欠款会被收车。')) a = { t: 'bank', op: 'carloan', id: d.bankId }; }
+					else if (d.bank === 'bnpl' && d.bankId) {
+						const name = FURNITURE.find((f) => f.id === d.bankId)?.name ?? '家具';
+						if (confirm(bnplConfirmText(name, Number(d.bankFirst), Number(d.bankAmt)))) a = { t: 'bank', op: 'bnpl', id: d.bankId, ack: true };
+					}
+					if (a) act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.tax) {
 					const op = (['tfn', 'abn', 'lodge'] as const).find((x) => x === d.tax);

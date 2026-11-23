@@ -30,6 +30,12 @@ import { studyProgram } from './education.ts';
 import { buyAsset, sellAsset } from './invest.ts';
 import { marketView } from './market.ts';
 import { VENUE_OPS } from '../data/venues.ts';
+import { DEBT_KINDS, type DebtKind } from '../data/credit.ts';
+import { applyCard, buyFurnitureBnpl, buyPropertyWithLoan, buyVehicleWithLoan, carLoanBlocks, cashAdvance, openAccount, personalLoan, repayBank } from './bank.ts';
+import { fail } from './engine.ts';
+
+/** 银行动作金额的上限（远高于任何产品额度，只防坏输入） */
+const BANK_AMOUNT_MAX = 1e6;
 import { closeShop, doGig, getLicense, hireStaff, openShop, restockShop, settleBiz, tendShop } from './business.ts';
 import { mindAction, settleMind } from './mind.ts';
 import { MIND_ACTS, type MindOp } from '../data/mind.ts';
@@ -69,6 +75,11 @@ export type GameAction =
 	| { t: 'property'; op: 'buy'; id: string; loan: boolean }
 	| { t: 'property'; op: 'sell' | 'movein' | 'rentout'; id: string }
 	| { t: 'property'; op: 'repay'; id: string; amount: number }
+	| { t: 'bank'; op: 'open' | 'card' }
+	| { t: 'bank'; op: 'draw' | 'loan'; amount: number }
+	| { t: 'bank'; op: 'carloan'; id: string }
+	| { t: 'bank'; op: 'bnpl'; id: string; ack: true } // ack：玩家确认看过风险提示，不带就不受理
+	| { t: 'bank'; op: 'repay'; kind: DebtKind; amount: number }
 	| { t: 'vehicle'; op: 'buy'; id: string }
 	| { t: 'vehicle'; op: 'sell' | 'sleep' | 'service' }
 	| { t: 'course'; id: string }
@@ -181,6 +192,16 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'volunteer':
 		case 'insure':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
+		case 'bank': {
+			// 金额：正整数、有上限；利率、额度、期数都不收客户端的，由服务端按规则算
+			const amount = finite(a.amount) && a.amount >= 1 && a.amount <= BANK_AMOUNT_MAX ? Math.floor(a.amount) : null;
+			if (a.op === 'open' || a.op === 'card') return { t: 'bank', op: a.op };
+			if (a.op === 'draw' || a.op === 'loan') return amount ? { t: 'bank', op: a.op, amount } : null;
+			if (a.op === 'carloan') return str(a.id) ? { t: 'bank', op: 'carloan', id: a.id } : null;
+			if (a.op === 'bnpl') return str(a.id) && a.ack === true ? { t: 'bank', op: 'bnpl', id: a.id, ack: true } : null;
+			if (a.op === 'repay') return amount && DEBT_KINDS.includes(a.kind as DebtKind) ? { t: 'bank', op: 'repay', kind: a.kind as DebtKind, amount } : null;
+			return null;
+		}
 		case 'swap':
 			// 只收形状合法的字段；客户端发来的价格等多余字段一律丢掉
 			if (a.op === 'buy') return str(a.id) && str(a.ref) && (a.how === 'pickup' || a.how === 'prepay') ? { t: 'swap', op: 'buy', id: a.id, ref: a.ref, how: a.how, haggle: a.haggle === true } : null;
@@ -273,9 +294,24 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 				: leaseAction(state, region, a.op);
 			break;
 		case 'furniture': r = a.op === 'buy' ? buyFurniture(state, region, a.id) : sellFurniture(state, a.slot); break;
-		case 'vehicle': r = a.op === 'buy' ? buyVehicle(state, region, a.id) : a.op === 'sell' ? sellVehicle(state, region) : a.op === 'service' ? serviceVehicle(state, region) : sleepInVehicle(state, region); break;
+		case 'vehicle': {
+			// 有车贷时，车是抵押物：卖车、换车（旧车折抵）都要先还清
+			const held = a.op === 'buy' || a.op === 'sell' ? carLoanBlocks(state) : undefined;
+			r = held ? fail(state, held) : a.op === 'buy' ? buyVehicle(state, region, a.id) : a.op === 'sell' ? sellVehicle(state, region) : a.op === 'service' ? serviceVehicle(state, region) : sleepInVehicle(state, region);
+			break;
+		}
+		case 'bank':
+			r = a.op === 'open' ? openAccount(state)
+				: a.op === 'card' ? applyCard(state)
+				: a.op === 'draw' ? cashAdvance(state, a.amount)
+				: a.op === 'loan' ? personalLoan(state, a.amount)
+				: a.op === 'carloan' ? (carLoanBlocks(state) ? fail(state, carLoanBlocks(state)!) : buyVehicleWithLoan(state, region, a.id))
+				: a.op === 'bnpl' ? buyFurnitureBnpl(state, region, a.id, a.ack)
+				: a.op === 'repay' ? repayBank(state, a.kind, a.amount)
+				: fail(state, '未知的银行操作。');
+			break;
 		case 'property':
-			r = a.op === 'buy' ? buyProperty(state, region, a.id, a.loan)
+			r = a.op === 'buy' ? (a.loan ? buyPropertyWithLoan(state, region, a.id) : buyProperty(state, region, a.id, false))
 				: a.op === 'sell' ? sellProperty(state, a.id)
 				: a.op === 'movein' ? moveIntoProperty(state, a.id)
 				: a.op === 'repay' ? repayLoan(state, a.id, a.amount)

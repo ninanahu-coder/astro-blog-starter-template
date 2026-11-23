@@ -44,6 +44,7 @@ export function systemOf(a: GameAction): SystemId | undefined {
 		case 'home': return a.op === 'rent' ? 'rent' : undefined;
 		case 'rental': return 'rent'; // 租房市场：看房、租约操作也算租房（合并 main 后复核）
 		case 'visa': return 'visa';
+		case 'bank': return a.op === 'carloan' ? 'vehicle' : a.op === 'bnpl' ? 'furniture' : a.op === 'open' ? 'property' : undefined; // 银行（合并 main 后）：模拟器只为买房开户
 		case 'activity':
 			if ((GIGS as readonly string[]).includes(a.id)) return 'gigs';
 			if (a.id === 'charity-meal' || a.id === 'charity-dinner') return 'charity';

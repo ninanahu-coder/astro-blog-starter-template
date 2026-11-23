@@ -244,6 +244,42 @@ export interface OwnedProperty {
 	lived?: boolean; // 自己搬进去住过：「搬了新家」每套房只给一次
 }
 
+/** 银行里的一笔贷款（个人贷款或车贷）。金额都是整数美元，利率是每周利率 */
+export interface BankLoan {
+	kind: 'personal' | 'car';
+	bal: number; // 剩余欠款
+	pay: number; // 每周固定还款（等额本息，审批时定下）
+	rate: number; // 每周利率
+	missed: number; // 连续欠款周数
+	vehicle?: string; // 车贷：抵押的那辆车；被收车后去掉
+	def?: true; // 已记违约（催收中）
+}
+
+/** 一笔先买后付：每期金额、还剩几期 */
+export interface BnplPlan {
+	item: string; // 买的东西（家具 id），只用来显示
+	amt: number;
+	left: number;
+	missed: number;
+	fees: number; // 这笔已收的逾期费合计（有上限）
+	owe: number; // 还没付的逾期费，随下一期一起扣
+	def?: true;
+}
+
+/** 银行账户、信用产品和信用记录。日期都是游戏日 */
+export interface BankState {
+	open: boolean; // 开了户（带借记卡）
+	card: { limit: number; bal: number; missed: number; def?: true } | null;
+	loans: BankLoan[]; // 每种最多一笔
+	bnpl: BnplPlan[];
+	hist: {
+		since: number; // 第一次有信用记录的游戏日，−1 表示没有记录
+		ok: number; // 按时还款的结算周数（有上限）
+		late: number[]; // 逾期记录的日期
+		def: number[]; // 违约记录的日期
+		enq: number[]; // 信用申请的日期
+	};
+}
 /** 金融资产（第 25 批）：储蓄、指数基金、金条、虚拟币。价格按玩家私有的行情种子逐日生成，见 core/market.ts */
 export interface AssetDef {
 	id: string;
@@ -807,6 +843,7 @@ export interface PlayerState {
 	holdings: Record<string, Holding>; // 资产 id -> 持仓（第 25 批）
 	quotes?: Record<string, number[]>; // 只在发给客户端的副本里有（publicState 填）：每种资产最近几天的价格，客户端没有行情种子，靠它显示行情
 	marketSeed: number; // 行情种子：创建时由服务端随机种子派生，不发给客户端（publicState 清零），否则能推算未来价格
+	bank: BankState; // 银行、信用卡、贷款、先买后付和信用记录（banking.md）
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
 	cover: Record<string, Cover>; // 保单：保单 id（data/insurance.ts）-> 生效期和理赔记录
 	moodlets: Moodlet[]; // 带时限的心情状态

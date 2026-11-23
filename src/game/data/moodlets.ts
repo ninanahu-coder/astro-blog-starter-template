@@ -56,6 +56,7 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'homesick', name: '想家', icon: '🌙', value: -5, hours: 24 },
 	{ id: 'stressed', name: '压力有点大', icon: '😣', value: -5, hours: 24 },
 	{ id: 'scammed', name: '被骗租了', icon: '🪤', value: -10, hours: 48 }, // 租房市场（待平衡）
+	{ id: 'debt-collection', name: '被催收', icon: '📞', value: -6, hours: 168 }, // 银行欠款违约后每周刷新（banking.md，待平衡）
 ];
 
 /** 存档里最多保留的状态数 */

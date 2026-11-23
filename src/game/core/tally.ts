@@ -100,6 +100,10 @@ export function actionCats(a: GameAction): [TallyCat, TallyCat] {
 			const c: TallyCat = a.id === 'contents' ? 'housing' : a.id === 'travel' ? 'transport' : 'vehicle';
 			return [c, c];
 		}
+		case 'bank': { // 银行：车贷的首付和印花税算车，先买后付买家具算住房；开户、取现、贷款、还款是借钱还钱，放「其他」（银行合并 main 后）
+			const c: TallyCat = a.op === 'carloan' ? 'vehicle' : a.op === 'bnpl' ? 'housing' : 'other';
+			return [c, c];
+		}
 		case 'tax': // 报税：退税、补税、逾期罚款（税务合并 main 后）
 		case 'asset': // 理财买卖：钱换成了资产，不是花掉，放「其他」
 		case 'visa': // 签证申请费、雅思报名费

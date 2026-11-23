@@ -2,6 +2,7 @@
 // 挂单和买家出价由「地点 + 游戏日」的公开哈希生成，客户端和服务端算出来一样；
 // 骗局是真是假、砍价成不成在结算时用 state.seed 掷骰（seed 不发给客户端），所以客户端只能看红旗，猜不到结果。
 // 结算只在服务端经 applyAction() 发生；价格、骗局、运费全部由服务端重算，客户端发来的只有「选哪条、怎么买」。
+import { carLoanBlocks } from './bank.ts';
 import { advance, atHome, campBlocks, clone, collapsedResult, fail, getFurniture, getLocation, getVehicle, growSkill, log, roll } from './engine.ts';
 import { getItem } from './attributes.ts';
 import { dayOf, hoursLabel, inSpan, isOpen } from './time.ts';
@@ -309,7 +310,7 @@ export function sellBlockedSwap(state: PlayerState, good: SwapGood): string | un
 	if (!swapOwned(state).includes(good)) return '你没有这件东西。';
 	if (swapToday(state).sold >= SWAP.sellDaily) return `今天已经卖了 ${SWAP.sellDaily} 次，明天再挂。`;
 	if (good.kind === 'furniture' && !atHome(state)) return '买家要上门搬，得在住处才能卖家具。';
-	if (good.kind === 'vehicle') return campBlocks(state, 'none');
+	if (good.kind === 'vehicle') return carLoanBlocks(state) ?? campBlocks(state, 'none'); // 车贷的抵押车不能卖（银行合并 main 后）
 	return undefined;
 }
 
