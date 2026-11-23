@@ -57,43 +57,43 @@ export const VOLUNTEER_GIGS: VolunteerGig[] = [
 	{
 		id: 'beach-cleanup', name: '海滩清洁', icon: '🧹', tags: ['beach'], hours: [7, 11], minutes: 120,
 		fx: { needs: { energy: -14, social: 10, fun: 8 }, skills: { stamina: 0.5, survival: 0.3 } },
-		respect: 2, orgs: { wa: 'tangaroa-blue' }, npcs: ['linda', 'sam'],
+		respect: 0.5, orgs: { wa: 'tangaroa-blue' }, npcs: ['linda', 'sam'],
 		desc: '早上沿着沙滩捡塑料瓶盖和渔线，分类记数。',
 	},
 	{
 		id: 'food-bank', name: '食物银行分拣', icon: '📦', kinds: ['city'], hours: [9, 15], minutes: 180,
 		fx: { needs: { energy: -20, social: 15 }, skills: { strength: 0.6 } },
-		respect: 2, orgs: { wa: 'foodbank-wa', sa: 'foodbank-sa' },
+		respect: 0.5, orgs: { wa: 'foodbank-wa', sa: 'foodbank-sa' },
 		desc: '在仓库里把捐来的食物分拣、装箱，送给慈善机构。',
 	},
 	{
 		id: 'sausage-sizzle', name: '社区香肠摊', icon: '🌭', tags: ['market'], kinds: ['town'], hours: [9, 14], minutes: 120,
 		fx: { needs: { hunger: 15, social: 20, energy: -10 }, skills: { charisma: 0.5 } },
-		respect: 1.5, orgs: {},
+		respect: 0.5, orgs: {},
 		desc: '给本地球队或学校的募捐香肠摊站一班，翻香肠、收零钱。',
 	},
 	{
 		id: 'festival-helper', name: '节日志愿者', icon: '🎪', festival: true, hours: [10, 22], minutes: 180,
 		fx: { needs: { social: 20, fun: 15, energy: -18 }, skills: { charisma: 0.5 } },
-		respect: 3, orgs: {},
+		respect: 0.5, orgs: {},
 		desc: '节日期间帮忙指路、搬桌椅、维持排队。',
 	},
 	{
 		id: 'wildlife-rescue', name: '动物救助', icon: '🦘', locs: ['perth', 'adelaide', 'bunbury', 'kangaroo-island'], tags: ['dolphin'], hours: [8, 16], minutes: 180, minTier: 1,
 		fx: { needs: { energy: -18, social: 8, fun: 15 }, skills: { survival: 0.6 } },
-		respect: 3, orgs: { wa: 'native-arc', sa: 'fauna-rescue-sa' }, npcs: ['rosa', 'ayla'],
+		respect: 0.5, orgs: { wa: 'native-arc', sa: 'fauna-rescue-sa' }, npcs: ['rosa', 'ayla'],
 		desc: '在救助站给受伤的袋鼠、鸟喂食、清理笼舍。要先有社区信誉，站里才放心让你上手。',
 	},
 	{
 		id: 'elder-visit', name: '陪伴老人', icon: '🫖', kinds: ['city', 'town'], hours: [10, 17], minutes: 120, minTier: 1,
 		fx: { needs: { social: 25, fun: 5, energy: -8 }, skills: { charisma: 0.6 } },
-		respect: 2, orgs: { wa: 'chung-wah', sa: 'cws-sa' },
+		respect: 0.5, orgs: { wa: 'chung-wah', sa: 'cws-sa' },
 		desc: '去探访独居或住养老院的老人，陪着聊天、读报、打麻将。现实中通常要先办无犯罪记录证明。',
 	},
 	{
 		id: 'cn-assoc', name: '华人社团活动帮忙', icon: '🏮', locs: ['perth', 'adelaide'], hours: [10, 20], minutes: 150,
 		fx: { needs: { social: 25, fun: 10, energy: -12 }, skills: { charisma: 0.4 } },
-		respect: 2, orgs: { wa: 'chung-wah' },
+		respect: 0.5, orgs: { wa: 'chung-wah' },
 		desc: '社团办中文学校开放日、舞龙排练或游园会，缺人摆摊、接待新来的同学。',
 	},
 ];
@@ -105,7 +105,7 @@ export const VOL_RULES = {
 	minEnergy: 20, // 精力低于这个不让去
 	npcGain: 3, // 一起做志愿的 NPC 关系 +3
 	refShifts: 6, // 同一种志愿做满几次可以拿到推荐信
-	refRespect: 5, // 每封推荐信在应聘、升职的声望门槛上抵几点
+	refRespect: 2, // 每封推荐信在应聘、升职的声望门槛上抵几点
 	refMax: 2, // 最多算几封
 } as const;
 
