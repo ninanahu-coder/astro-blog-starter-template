@@ -67,6 +67,8 @@ export interface AwayPreview {
 	weeklyDue: number;
 	/** 有工作而且请假超过上限：回来就没工作了 */
 	loseJob: boolean;
+	/** 有工作时今年还能请几天可保留工作的假（不带薪）；没工作为 Infinity */
+	leaveLeft: number;
 	/** 付完机票、补买行李以后的现金够不够这几次结算 */
 	short: boolean;
 	returnClock: number;
@@ -78,9 +80,11 @@ export function awayPreview(state: PlayerState, days: number, upfront: number): 
 	const settlements = Math.max(0, Math.floor((dayOf(returnClock) - state.nextWeek) / 7) + 1);
 	// 合并 main 时复核：周结算还会扣银行的还款（信用卡最低还款、贷款、先买后付）、欠税的分期，第一次结算还会补交欠的罚款
 	const taxPlan = state.tax?.debt ? Math.min(state.tax.debt, Math.max(TAX_GAME.planMin, Math.ceil(state.tax.debt * TAX_GAME.planShare))) : 0;
-	const perWeek = weeklyCosts(state).total + (state.bank ? bankWeekly(state.bank) : 0) + taxPlan;
-	const weeklyDue = perWeek * settlements + (settlements ? state.law?.owed ?? 0 : 0);
-	return { days, settlements, weeklyDue, loseJob: leaveLeft(state) < days, short: state.cash - upfront < weeklyDue, returnClock };
+	const wc = weeklyCosts(state);
+	const perWeek = wc.total + (state.bank ? bankWeekly(state.bank) : 0) + taxPlan;
+	// 签约预收的房租只抵第一次结算，之后几次按整周（第十轮平衡）
+	const weeklyDue = perWeek * settlements + wc.ahead * Math.max(0, settlements - 1) + (settlements ? state.law?.owed ?? 0 : 0);
+	return { days, settlements, weeklyDue, loseJob: leaveLeft(state) < days, leaveLeft: leaveLeft(state), short: state.cash - upfront < weeklyDue, returnClock };
 }
 
 export interface TripOption {
@@ -111,7 +115,7 @@ export function tripOptions(state: PlayerState): TripOption[] {
 	return out;
 }
 
-/** 今年（游戏一年 YEAR_DAYS 天）还能请几天假：老板能等的天数按年累计（合并 main 时复核：原来每趟单算，连着走几趟 7 天永远不丢工作） */
+/** 今年（游戏一年 YEAR_DAYS 天）还能请几天可保留工作的假（不带薪）：老板能等的天数按年累计（合并 main 时复核：原来每趟单算，连着走几趟 7 天永远不丢工作） */
 export function leaveLeft(state: PlayerState): number {
 	if (!state.job) return Infinity;
 	const y = Math.floor(dayOf(state.clock) / YEAR_DAYS);
@@ -168,7 +172,7 @@ export function takeTrip(prev: PlayerState, region: Region, destId: string, days
 	const debtBefore = debtNow(prev);
 	state.cash -= opt.price + opt.packing;
 	log(state, `从${here}出发去${dest.name}，机票 $${opt.price}${opt.packing ? `，在当地补买没带的东西 $${opt.packing}` : ''}，要离开 ${days} 天。`);
-	let lostJob = false;
+	let lostJob = false, keptLeft = -1;
 	if (state.job && days > leaveLeft(state)) {
 		state.job = null;
 		lostJob = true;
@@ -176,6 +180,7 @@ export function takeTrip(prev: PlayerState, region: Region, destId: string, days
 		const y = Math.floor(dayOf(state.clock) / YEAR_DAYS);
 		const used = state.job.leave && state.job.leave.y === y ? state.job.leave.d : 0;
 		state.job.leave = { y, d: used + days };
+		keptLeft = Math.max(0, JOB_LEAVE_DAYS - used - days);
 	}
 	// 合并 main 时复核：一天一天往前走——每天先结算自己店里的生意，再过这一天（跨过结算日就交房租、还贷款、报税）。
 	// 原来一次跳过整段，房租和还款都先扣、店里的收入最后才进账；涨租、财年交界也按回来那天算
@@ -186,7 +191,8 @@ export function takeTrip(prev: PlayerState, region: Region, destId: string, days
 	}
 	const bizLast = settleBiz(state, region).trim(); // 回来那天的前一天也结算掉
 	if (bizLast) log(state, bizLast);
-	if (lostJob) log(state, `今年请的假超过了老板能等的 ${JOB_LEAVE_DAYS} 天，工作没了。`);
+	if (lostJob) log(state, `今年可保留工作的请假（不带薪）累计超过 ${JOB_LEAVE_DAYS} 天，老板另外找了人，工作没了。`);
+	else if (keptLeft >= 0 && state.job) log(state, `请假 ${days} 天，工作保留；这几天不上班没有工资，今年可保留工作的请假还剩 ${keptLeft} 天。`);
 	for (const k of NEED_KEYS) state.needs[k] = RETURN_NEEDS[dest.kind][k];
 	// 合并时间和睡眠后：在外面每晚都睡了觉——醒来时间从回到机场算起，欠的觉每晚按普通一觉还一部分（见 time-sleep.md §2.4）
 	const perNight = (SLEEP.fullMinutes / 60) * TRIP_SLEEP_Q * SLEEP.repayPerHour;

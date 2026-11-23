@@ -50,7 +50,7 @@ import { clubSessionBlocked, formOf, getClub, racesSoon } from '../../../src/gam
 import { lbEntry, type LbEntry, type LbStatKey } from '../../../src/game/core/leaderboard.ts';
 import { LB_ANOMALY } from '../../../src/game/data/leaderboard.ts';
 import { canWork, ieltsAt, visaKindNow, visaOptions } from '../../../src/game/core/immigration.ts';
-import { VISA_RULES } from '../../../src/game/data/visas.ts';
+import { VISA_ROUTES, VISA_RULES } from '../../../src/game/data/visas.ts';
 
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
 const DAYS = Number(arg('days', '60'));
@@ -573,7 +573,7 @@ function stepVisa(b: Bot): boolean {
 	const grad = opts.find((x) => x.route.id === 'graduate');
 	const wantIelts = s.visa.ielts < VISA_RULES.graduate.minIelts && (grad?.blocked?.includes('雅思') || (s.visa.course && s.visa.course.end - dayOf(s.clock) < 30));
 	const t = wantIelts ? ieltsAt(s, WA) : null;
-	if (t && !t.blocked && s.cash > t.fee + 1300 + 300 && s.needs.energy > 40 && tryAct(b, { t: 'visa', op: 'ielts' })) {
+	if (t && !t.blocked && s.cash > t.fee + (VISA_ROUTES.find((r) => r.id === 'graduate')?.fee ?? 0) + 300 && s.needs.energy > 40 && tryAct(b, { t: 'visa', op: 'ielts' })) {
 		b.stats.ielts++;
 		return true;
 	}
