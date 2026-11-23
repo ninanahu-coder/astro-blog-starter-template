@@ -1,5 +1,7 @@
 # 租房市场
 
+> **2026-11-23 合并 main `8483b5b`**，更新日志改为 v82；home-vehicle 已经在 main，下文「依赖」的说法是合并前的。合并时做的见 §13（租金指数、复核修正、模拟）。
+
 > 分支 `claude/earth-rental`。**依赖 `claude/earth-home-vehicle`**：押金（`home.bond`、`bondFor()`、`moveInCost()`）是那个分支实现的，本分支把它合并进来再往上加，没有另写一套押金。合并顺序：home-vehicle 先合（或一起合）。
 >
 > 每条标注：**【现状】** = main 或 home-vehicle 已有；**【本批】** = 本分支实现；**【提议】** = 只写设计，没实现。
@@ -181,7 +183,7 @@ rental: {
 
 `cleanRental()`：缺字段给默认；租约必须对上 `state.home`（同房型、同地点、不是自有、不是营地），对不上就丢掉租约；房租钳在挂牌价的 0.5–3 倍；日期不晚于存档时钟；扣款不超过 $100,000。旧存档有租房没有租约：补一个周期租约，房租按挂牌价、起租日和上次涨租日按今天、报告按「已交」（不追溯惩罚）。
 
-## 10. 和其他分支
+## 10. 和其他分支（合并前写的；表里的分支后来都在 main，合并时的处理见 §13）
 
 | 分支 | 关系 |
 | --- | --- |
@@ -192,7 +194,7 @@ rental: {
 | `social-npc`、`live-social` | 没有交集 |
 | `analytics` | 可以加「申请被拒」「被骗」计数（未加） |
 
-## 11. 模拟结果（本批）
+## 11. 模拟结果（本批，合并前；合并后对 main `8483b5b` 的结果见 §13）
 
 `npm run earth:sim -- --days=180 --runs=100`，之前 = a6953d9（main + home-vehicle 押金），之后 = 本分支。原始报告 [rental-sim.md](rental-sim.md)。只记变化，不下平衡结论（交 Codex）。
 
@@ -262,3 +264,27 @@ rental: {
 - [SA6] sa.gov.au「Lease agreements」<https://www.sa.gov.au/topics/housing/renting-and-letting/renting-privately/start-of-tenancy/Lease-agreements>
 - [SA7] Law Handbook SA「Landlord terminating」<https://lawhandbook.sa.gov.au/ch23s01s07s01.php>；CBS「Tenancy reforms for landlords and agents」<https://www.cbs.sa.gov.au/sections/renting/renting/tenancy-reforms-for-landlords-and-agents>
 - [SC1] Scamwatch「Buying and selling scams」租房段落 <https://www.scamwatch.gov.au/types-of-scams/buying-and-selling-scams>
+
+## 13. 合并 main（2026-11-23，`8483b5b`）时做的
+
+- **冲突**（9 个文件）：`README.md`、`actions.ts`（main 的做饭、请客、外卖、买食材和本分支的租约条款、租房市场操作并在一起）、`character.ts`、`engine.ts`、`moodlets.ts`、`earth.astro`、`economy.test.ts`、`sim.ts`、更新日志（改为 v82）。分支自带的旧 home-vehicle 更新日志条目（v26）和 main 的 v47 重复，删掉了。
+- **租金指数（main 的世界事件）和租约**：
+  - 签约时租约房租 = 当天的指数价 `rentOn(挂牌价, 当天)`，之后只按租约规则变（涨租、续约），不再跟着指数天天变；旧存档补租约也按当天指数价。
+  - 没有租约的（房车营地）照 main 按指数价。`rentDue(state, def, day)` 一处算，周结算、每周开销（`weeklyCosts`，心事的「房租压力」也用它）、住处卡都用它；已通知、在那天之前生效的涨租按新房租。
+  - 申请成功率里「房租占收入」按当天指数价算。
+- **页面**：住处卡用 main 的样子（缩略图、厨房、放松），加上本分支的租约、押金扣款、骗租广告和房源行（看房 / 申请两种租约）；抽屉摘要在只有押金扣款时也写出来；点击名单加 `[data-rental]`。
+- **接上**：生涯统计里租房市场的钱（被骗的钱）记「住房」；统计白名单加了看房、报修等子操作；A/B 开关「不租房」也关掉看房和租约操作。
+- **复核修正**（3 个角度，每条都做了反驳核查；确认 14 条，去重后 9 项，全部已处理）：
+  - **同一天反复看房能重抽人数**：人数原来按会变的随机种子算，做点别的再看一次人数就变了。现在按存档里不会变的行情种子（`marketSeed`，只在服务端）定。
+  - **被拒只挡一套**：换另一套申请再回来就能当天重抽。现在当天在这个地点被拒的每套都记下（`rejected.homes`，旧存档的形状读档时转换）。
+  - **过期的看房读档后又能用**：清洗时把过期的日子钳回有效期了。现在过期的直接丢掉。
+  - **预告的涨租没进每周开销和住处卡**：见上。
+  - **申请成功率按挂牌价算房租**：见上。
+  - **押金扣款的说明出现「。。」**、**扣款卡片在交过报告但房子本来没损坏时说「你没交报告」**：都已改。
+  - **更新日志重复的 home-vehicle 条目**、**住处抽屉摘要**、文档：见上和下。
+- **测试**：`rental.test.ts` 27 条（新加 4 条）；`fuzz.test.ts` 的候选权重微调（找房候选多了以后买车、卖房几乎走不到）；`rental.test.ts` 的「一路走完」在热浪关掉露营的日子改回家睡；页面断言跟着新的房源行和 `rentDue` 改。故意改坏 13 处，全部抓到。
+- **模拟**（180 天 × 100 次，对比 main `8483b5b`，平衡交 Codex）：
+  - 期末净资产普遍少 1%–6%（咖啡店 $23,390 → $23,263，救生员 $34,655 → $33,630，农场工 $22,132 → $20,800）；
+  - 救生员「被收房或断供」0.03 → 0.36 次/人：被拒后隔天再申请，有时在一周快结束时才签约，首期只付了一两天，几天后整周房租付不起（是机器人的找房节奏，不是规则算错；真人玩家也会遇到这个风险）；农场工 0.55 → 0.66。
+  - 60 天回归基线已更新。
+- **首屏**：gzip 237,032 → 241,044 字节（+4.0KB），上限调到 242,100；未压缩上限 752,800。

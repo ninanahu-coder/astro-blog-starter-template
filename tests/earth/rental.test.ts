@@ -1,4 +1,5 @@
 // 租房市场（rental 批次）：看房、申请、租约、涨租、维修、退房押金结算、骗租、存档清洗。规则见 docs/earth-game/rental.md
+import { rentOn } from '../../src/game/core/world.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
@@ -14,6 +15,10 @@ import { dayOf } from '../../src/game/core/time.ts';
 import type { Lease, PlayerState } from '../../src/game/core/types.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
 import { MARKET, ODDS, RENTAL } from '../../src/game/data/rental.ts';
+import { rentDue } from '../../src/game/core/rental.ts';
+import { weeklyCosts } from '../../src/game/core/attributes.ts';
+import { actionCats } from '../../src/game/core/tally.ts';
+import { featureOf } from '../../src/game/server/stats.ts';
 import { WA, WORLD } from '../../src/game/data/wa.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
@@ -86,7 +91,10 @@ test('看房：花 30 分钟，记下人数；营地不用看房', () => {
 	const r = inspectHome(s, WA, 'room');
 	assert.ok(r.ok, r.msg);
 	assert.equal(r.state.clock, s.clock + RENTAL.inspectMin);
-	assert.deepEqual(r.state.rental.viewed, { loc: 'perth', home: 'room', day: 0, n: applicantsFor(41, 'wa', 'perth', 'room', 0) });
+	assert.deepEqual(r.state.rental.viewed, { loc: 'perth', home: 'room', day: 0, n: applicantsFor(s.marketSeed, 'wa', 'perth', 'room', 0) });
+	// 合并 main 后复核：人数按不会变的行情种子定，推进了随机种子再看一次，人数不变（不能重抽）
+	const again = inspectHome({ ...r.state, seed: r.state.seed + 12345, clock: s.clock }, WA, 'room');
+	assert.equal(again.state.rental.viewed!.n, r.state.rental.viewed!.n);
 	assert.match(r.msg, /组人/);
 	assert.equal(s.rental.viewed, null, '入参没被改');
 	assert.equal(inspectHome(s, WA, 'campground').ok, false);
@@ -110,7 +118,7 @@ test('申请：没看房不能申请；看房 7 天后过期；通过就签约�
 	assert.ok(pass && fail, '有通过也有被拒');
 	assert.equal(pass!.rental.lease!.end, pass!.rental.lease!.start + RENTAL.fixedDays, '选了固定期限');
 	assert.equal(pass!.rental.viewed, null, '签约后看房记录清掉');
-	assert.deepEqual(fail!.rental.rejected, { loc: 'perth', home: 'room', day: 0 });
+	assert.deepEqual(fail!.rental.rejected, { loc: 'perth', day: 0, homes: ['room'] });
 	assert.match(homesAt(fail!, WA).find((o) => o.home.id === 'room')!.blocked!, /被拒/);
 	assert.ok(!homesAt(fail!, WA).find((o) => o.home.id === 'flat')!.blocked, '别的房还能申请');
 	assert.ok(!homesAt({ ...fail!, clock: at(9, 1) }, WA).find((o) => o.home.id === 'room')!.blocked, '第二天可以再试');
@@ -429,7 +437,8 @@ test('存档清洗：旧存档没有 rental 给默认；在租房的补周期租
 	assert.deepEqual(sanitizeState({ ...fresh, rental: undefined }, locs)!.rental, emptyRental());
 	const s = housed();
 	const legacy = sanitizeState({ ...s, rental: undefined, clock: at(9, 30) }, locs)!;
-	assert.deepEqual(legacy.rental.lease, { home: 'room', loc: 'perth', start: 30, end: 0, rent: 160, lastRise: 30, rise: null, report: 1, prior: 0, wear: 0, fault: null });
+	// 合并 main 后：补的租约按当天的租金指数定价（世界事件）
+	assert.deepEqual(legacy.rental.lease, { home: 'room', loc: 'perth', start: 30, end: 0, rent: rentOn(160, 30), lastRise: 30, rise: null, report: 1, prior: 0, wear: 0, fault: null });
 	assert.deepEqual(sanitizeState(legacy, locs), legacy, '幂等');
 	const evil = {
 		lease: { home: 'room', loc: 'perth', start: -5, end: 1e9, rent: 1e9, lastRise: 'x', rise: { at: 1e9, to: 1 }, report: 7, prior: 500, wear: -1, fault: { urgent: 'yes', name: '<script>', since: 0, asked: 0 } },
@@ -473,7 +482,9 @@ test('一路走完：看房 → 申请 → 交报告 → 坏东西报修 → 涨
 	let notices = 0;
 	for (let d = 0; d < 600 && s.home; d++) {
 		s = { ...s, cash: 20000, needs: { ...s.needs, hunger: 100, energy: 100, hygiene: 100, fun: 100, social: 100 }, health: 100 };
-		s = applyAction(s, WA, { t: 'activity', id: 'sleep-camp' }).state;
+		const camp = applyAction(s, WA, { t: 'activity', id: 'sleep-camp' });
+		// 合并 main 后：热浪等灾害预警会关掉露营（core/disasters.ts），那天改回家睡，时间照样往前走
+		s = camp.ok ? camp.state : applyAction(s, WA, { t: 'home', op: 'sleep' }).state;
 		if (s.pending) s = applyAction(s, WA, { t: 'event', choice: 0 }).state;
 		if (s.rental.lease?.fault && s.rental.lease.fault.asked < 0) s = applyAction(s, WA, { t: 'rental', op: 'repair' }).state;
 		if (s.rental.lease?.rise) notices++;
@@ -485,4 +496,55 @@ test('一路走完：看房 → 申请 → 交报告 → 坏东西报修 → 涨
 	const left = applyAction(s, WA, { t: 'home', op: 'leave' }).state;
 	assert.equal(left.rental.refs, 1);
 	assert.equal(left.rental.lease, null);
+});
+
+// ---------- 合并 main 后：租金指数、每周开销、记账、统计、句号 ----------
+test('租约房租按签约那天的租金指数定价，之后只按租约规则变；没有租约的按当天指数（合并 main 后）', () => {
+	// 找一个租金指数明显不是 1 的日子
+	let day = 0;
+	while (day < 2000 && rentOn(160, day) === 160) day++;
+	assert.ok(day < 2000, '前提：指数会变');
+	const s = housed({ clock: at(9, day) }, 'room', 'fixed');
+	assert.equal(s.rental.lease!.rent, rentOn(home('room').rentWeek, day), '签约时的行情价');
+	const later = { ...s, clock: at(9, day + 30) };
+	assert.equal(rentDue(later, home('room')), s.rental.lease!.rent, '固定期内不随指数变');
+	assert.equal(weeklyCosts(later).rent, s.rental.lease!.rent, '每周开销（心事里的房租压力也用它）按租约房租');
+	const bare = { ...later, rental: { ...later.rental, lease: null } };
+	assert.equal(rentDue(bare, home('room'), day + 30), rentOn(home('room').rentWeek, day + 30), '没有租约按指数');
+});
+
+test('生涯统计和统计：租房市场的钱记「住房」；看房、报修等动作按子操作统计（合并 main 后）', () => {
+	assert.deepEqual(actionCats({ t: 'rental', op: 'scam-pay' }), ['housing', 'housing']);
+	for (const op of ['inspect', 'report', 'repair', 'renew', 'accept', 'dispute', 'scam-pay', 'scam-check'] as const) {
+		const a = op === 'inspect' ? { t: 'rental' as const, op, home: 'room' } : { t: 'rental' as const, op };
+		assert.equal(featureOf(a), `rental.${op}`);
+	}
+});
+
+test('被收房、退租时押金扣款的说明不会出现「。。」（合并 main 后复核）', () => {
+	const s = housed({}, 'room', 'periodic', 30);
+	const r = leaveHome({ ...s, clock: s.clock + 20 * 1440 });
+	assert.ok(r.ok, r.msg);
+	assert.match(r.msg, /等你接受或申诉/);
+	assert.doesNotMatch(r.msg, /。。/);
+});
+
+test('复核修正：同一天被拒的每套都记下；旧形状读档转换；过期看房读档不复活；预告的涨租进每周开销；成功率按行情价（合并 main 后）', () => {
+	// 被拒记录的旧形状 { loc, home, day } 转成 homes
+	const s = make({ clock: at(9, 3) });
+	const old = sanitizeState({ ...s, rental: { ...s.rental, rejected: { loc: 'perth', home: 'room', day: 3 } } } as never, locs)!;
+	assert.deepEqual(old.rental.rejected, { loc: 'perth', day: 3, homes: ['room'] });
+	assert.deepEqual(sanitizeState(old, locs)!.rental.rejected, old.rental.rejected, '幂等');
+	// 两套都被拒过：两套都挡
+	const two = { ...s, rental: { ...s.rental, rejected: { loc: 'perth', day: 3, homes: ['room', 'flat'] } } };
+	for (const id of ['room', 'flat']) if (homesAt(two, WA).some((o) => o.home.id === id)) assert.match(homesAt(two, WA).find((o) => o.home.id === id)!.blocked ?? '', /被拒/, id);
+	// 过期的看房读档后丢掉
+	const stale = sanitizeState({ ...s, clock: at(9, 40), rental: { ...s.rental, viewed: { loc: 'perth', home: 'room', day: 40 - RENTAL.viewDays - 5, n: 3 } } }, locs)!;
+	assert.equal(stale.rental.viewed, null);
+	// 预告的涨租在结算日前生效：每周开销按新房租
+	const h = housed({}, 'room', 'periodic');
+	const l = h.rental.lease!;
+	const rising = { ...h, rental: { ...h.rental, lease: { ...l, rise: { at: h.nextWeek - 1, to: l.rent + 30 } } } };
+	assert.equal(weeklyCosts(rising).rent, l.rent + 30);
+	assert.equal(rentDue(rising, home('room'), dayOf(rising.clock)), dayOf(rising.clock) >= h.nextWeek - 1 ? l.rent + 30 : l.rent, '还没到生效日按原房租');
 });

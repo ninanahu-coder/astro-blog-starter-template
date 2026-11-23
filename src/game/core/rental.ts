@@ -5,6 +5,7 @@ import type { HomeDef, Lease, PlayerState, RentalState } from './types.ts';
 import { BOND_WEEKS, HOMES } from '../data/housing.ts';
 import { BOND_LAW, FAULTS, MARKET, ODDS, RENTAL, SCAM_KINDS } from '../data/rental.ts';
 import { unit } from './weather.ts';
+import { rentOn } from './world.ts';
 
 export const emptyRental = (): RentalState => ({ lease: null, refs: 0, marks: 0, viewed: null, rejected: null, claim: null, scam: -1 });
 
@@ -68,7 +69,7 @@ export const viewedOk = (r: RentalState, loc: string, home: string, day: number)
 
 /** 今天在这里被这套房拒过 */
 export const rejectedToday = (r: RentalState, loc: string, home: string, day: number) =>
-	!!r.rejected && r.rejected.loc === loc && r.rejected.home === home && r.rejected.day === day;
+	!!r.rejected && r.rejected.loc === loc && r.rejected.day === day && r.rejected.homes.includes(home);
 
 // ---------- 租约 ----------
 
@@ -76,16 +77,20 @@ export const rejectedToday = (r: RentalState, loc: string, home: string, day: nu
 export function startLease(seed: number, home: HomeDef, loc: string, day: number, term: 'fixed' | 'periodic'): Lease {
 	return {
 		home: home.id, loc, start: day, end: term === 'fixed' ? day + RENTAL.fixedDays : 0,
-		rent: home.rentWeek, lastRise: day, rise: null, report: 0,
+		rent: rentOn(home.rentWeek, day), lastRise: day, rise: null, report: 0, // 签约那天的行情价（世界事件的租金指数，合并 main 后）
 		prior: Math.floor(unit(`prior|${seed}|${loc}|${home.id}|${day}`) * (RENTAL.priorMax + 1)),
 		wear: 0, fault: null,
 	};
 }
 
-/** 这周要交的房租：有租约按租约，没有（营地、旧数据）按挂牌价 */
-export function rentDue(state: PlayerState, def: HomeDef): number {
+/**
+ * 这周要交的房租：有租约按租约（签约时的行情价，之后只按租约规则涨）；没有（营地、旧数据）按租金指数（世界事件，合并 main 后）。
+ * day：按哪天的行情算，周结算传正在结算的那个结算日
+ */
+export function rentDue(state: PlayerState, def: HomeDef, day = Math.floor(state.clock / 1440)): number {
 	const l = state.rental.lease;
-	return l && state.home && l.home === state.home.type && l.loc === state.home.loc ? l.rent : def.rentWeek;
+	// 已通知的涨租在那天之前生效：按新房租（每周开销、住处卡和结算扣的一致；合并 main 后复核）
+	return l && state.home && l.home === state.home.type && l.loc === state.home.loc ? (l.rise && day >= l.rise.at ? l.rise.to : l.rent) : rentOn(def.rentWeek, day);
 }
 
 /** 还在固定期内 */
@@ -262,9 +267,9 @@ const int = (v: unknown, lo: number, hi: number, dflt: number) => (typeof v === 
 const idOk = (v: unknown, known?: Set<string>): v is string => typeof v === 'string' && v.length <= 64 && (!known || known.has(v));
 const FAULT_NAMES = new Set<string>([...FAULTS.urgent, ...FAULTS.minor]);
 
-/** 旧存档在租房、没有租约：补一个周期租约，房租按挂牌价，报告算已交（不追溯惩罚） */
+/** 旧存档在租房、没有租约：补一个周期租约，房租按当天行情（租金指数），报告算已交（不追溯惩罚） */
 const legacyLease = (def: HomeDef, loc: string, today: number): Lease => ({
-	home: def.id, loc, start: today, end: 0, rent: def.rentWeek, lastRise: today, rise: null, report: 1, prior: 0, wear: 0, fault: null,
+	home: def.id, loc, start: today, end: 0, rent: rentOn(def.rentWeek, today), lastRise: today, rise: null, report: 1, prior: 0, wear: 0, fault: null,
 });
 
 function cleanLease(raw: unknown, home: { type: string; loc: string; owned?: string } | null, today: number): Lease | null {
@@ -305,13 +310,18 @@ export function cleanRental(raw: unknown, home: { type: string; loc: string; own
 	out.refs = int(own(raw, 'refs'), 0, RENTAL.recordMax, 0);
 	out.marks = int(own(raw, 'marks'), 0, RENTAL.recordMax, 0);
 	const v = own(raw, 'viewed');
-	const vDay = int(own(v, 'day'), today - RENTAL.viewDays + 1, today, -1);
+	// 只留还在有效期里的看房记录；过期或未来的直接丢掉（合并 main 后复核：原来钳进有效期，过期的看房读档后又能用）
+	const rd = own(v, 'day');
+	const vDay = typeof rd === 'number' && Number.isInteger(rd) && rd <= today && today - rd < RENTAL.viewDays ? rd : -1;
 	if (idOk(own(v, 'loc'), knownLocs) && knownHome(own(v, 'home')) && vDay >= 0) {
 		out.viewed = { loc: own(v, 'loc') as string, home: own(v, 'home') as string, day: vDay, n: int(own(v, 'n'), 1, 20, ODDS.crowdFree) };
 	}
 	const j = own(raw, 'rejected');
-	if (idOk(own(j, 'loc'), knownLocs) && knownHome(own(j, 'home')) && own(j, 'day') === today) {
-		out.rejected = { loc: own(j, 'loc') as string, home: own(j, 'home') as string, day: today };
+	if (idOk(own(j, 'loc'), knownLocs) && own(j, 'day') === today) {
+		// 旧形状 { loc, home, day } 转成 homes: [home]
+		const list = Array.isArray(own(j, 'homes')) ? (own(j, 'homes') as unknown[]) : [own(j, 'home')];
+		const homes = [...new Set(list.filter((h): h is string => knownHome(h)))].slice(0, HOMES.length);
+		if (homes.length) out.rejected = { loc: own(j, 'loc') as string, day: today, homes };
 	}
 	const c = own(raw, 'claim');
 	const amount = int(own(c, 'amount'), 0, 100000, 0);

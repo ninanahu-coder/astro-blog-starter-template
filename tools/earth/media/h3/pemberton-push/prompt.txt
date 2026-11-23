@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic a tall old-growth eucalyptus forest in the early morning, pale towering trunks, a lush fern understorey and a small creek, with golden sunbeams slanting through mist, with the the trunks, the ferns, the creek and the composition shown in <Picture 1> preserved. From the first frame golden sunbeams slant through drifting mist and the small creek trickles over stones. The camera pushes in with small amplitude at slow speed toward the tall trunks and the sunbeams and comes to rest on a slightly tighter wide shot of the tall trunks in the final second. Mist drifts slowly between the trunks, the fern fronds sway gently, and leaves high in the canopy flutter in a light breeze, and the tree trunks stay still.
+
+overall_soundscape: A quiet forest morning with birdsong and a trickling creek; soft rustle of fern fronds.
+
+non_diegetic_music: N/A

@@ -18,17 +18,17 @@ export const FINANCE = {
 /** 贷款买房的首付金额 */
 export const downPayment = (def: PropertyDef) => Math.round(def.price * FINANCE.minDown);
 
-/** 本周利息 */
-export const weeklyInterest = (loan: number) => Math.round(loan * FINANCE.weeklyRate);
+/** 本周利息。rateMult：世界事件的利率系数（core/world.ts 的 loanRateMult），不传为 1 */
+export const weeklyInterest = (loan: number, rateMult = 1) => Math.round(loan * FINANCE.weeklyRate * rateMult);
 
 /** 本周应还本金（不超过剩余贷款） */
 export const weeklyPrincipal = (def: PropertyDef, loan: number) => Math.min(loan, Math.round(def.price * FINANCE.weeklyPrincipal));
 
 /** 本周还款额 = 利息 + 本金；没有贷款为 0 */
-export const loanPayment = (def: PropertyDef, loan: number) => (loan > 0 ? weeklyInterest(loan) + weeklyPrincipal(def, loan) : 0);
+export const loanPayment = (def: PropertyDef, loan: number, rateMult = 1) => (loan > 0 ? weeklyInterest(loan, rateMult) + weeklyPrincipal(def, loan) : 0);
 
 /** 一套房每周必须付的钱：物业费 + 还款 */
-export const propertyDue = (def: PropertyDef, owned: OwnedProperty) => def.weekly + loanPayment(def, owned.loan);
+export const propertyDue = (def: PropertyDef, owned: OwnedProperty, rateMult = 1) => def.weekly + loanPayment(def, owned.loan, rateMult);
 
 /** 还清贷款还要多少周（按固定本金估算） */
 export const weeksToPayOff = (def: PropertyDef, loan: number) => Math.ceil(loan / Math.max(1, Math.round(def.price * FINANCE.weeklyPrincipal)));

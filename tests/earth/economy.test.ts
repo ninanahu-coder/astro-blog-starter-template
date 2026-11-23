@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { energyCap } from '../../src/game/core/vitals.ts';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
@@ -137,9 +138,10 @@ test('动作协议与存档校验', () => {
 // ---------- 阶段 B：家具、在家活动、每周结算 ----------
 import { homeComfort, mood, weeklyCosts } from '../../src/game/core/attributes.ts';
 import {
-	buyFurniture, cookAtHome, firstRent, furnitureAt, furnitureValue, homeActionBlocked, leaveHome, relaxAtHome, rentHome as signLease,
+	buyFurniture, firstRent, furnitureAt, furnitureValue, homeActionBlocked, leaveHome, relaxAtHome, rentHome as signLease,
 	sellFurniture, sleepHome,
 } from '../../src/game/core/engine.ts';
+import { cookAtHome } from '../../src/game/core/cooking.ts';
 import { FURNITURE, FURNITURE_SLOTS } from '../../src/game/data/furniture.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
 
@@ -198,7 +200,7 @@ test('家具效果：睡得更好、在家做饭和放松、心情', () => {
 	assert.equal(mood(s) - mood({ ...s, home: { ...s.home!, furniture: {} } }), 5);
 	const hurt = { ...s, health: 40 };
 	const plain = { ...hurt, home: { ...s.home!, furniture: {} } };
-	assert.equal(sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health, 10, '好床垫 +10 健康');
+	assert.equal(Math.round(sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health), 10, '好床垫 +10 健康'); // 第 23 批起睡觉时健康会自然回一点小数，取整比较
 });
 
 test('搬走或被收房：家具半价折现', () => {
@@ -311,7 +313,7 @@ test('跨周结算在动作途中收走住处、房产时，任何动作都不�
 		assert.ok(r.ok, r.msg);
 		assert.equal(r.state.home, null, name);
 		assert.match(r.msg, /住处已经没了/);
-		assert.equal(r.state.needs.energy, 100);
+		assert.equal(r.state.needs.energy, energyCap(r.state), '睡醒精力回到精力上限（第 23 批起上限随体质，不再固定 100）');
 	}
 	assert.ok(applyAction(scenarios['租客付不起房租'], WA, { t: 'home', op: 'sleep' }).state.moodlets.some((m) => m.id === 'great-sleep'));
 });

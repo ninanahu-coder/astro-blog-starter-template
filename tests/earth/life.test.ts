@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { energyCap } from '../../src/game/core/vitals.ts';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { mood } from '../../src/game/core/attributes.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
@@ -92,7 +93,7 @@ test('回家睡觉与住房心情加成', () => {
 	const tired = { ...s, needs: { hunger: 80, energy: 5, hygiene: 10, fun: 40, social: 60 } };
 	const r = sleepHome(tired, WA);
 	assert.ok(r.ok);
-	assert.equal(r.state.needs.energy, 100);
+	assert.equal(r.state.needs.energy, energyCap(r.state), '睡醒精力回到精力上限');
 	assert.equal(sleepHome({ ...tired, loc: 'fremantle' }, WA).ok, false, '不在住处');
 	assert.equal(mood(s) - mood({ ...s, home: null }), 10, '海景小屋 +10 心情');
 });
