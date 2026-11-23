@@ -4,8 +4,10 @@ import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter } from '../../src/game/core/character.ts';
 import { resolveEvent, shopAt } from '../../src/game/core/engine.ts';
-import { awayPreview, fareDemand, packingCost, packingList, planRoadTrip, takeTrip, tripFare, tripOptions } from '../../src/game/core/trips.ts';
-import { dateOf, SEASON_DAYS, SEASONS } from '../../src/game/core/time.ts';
+import { awayPreview, fareDemand, packingCost, packingList, planRoadTrip, takeTrip, tripDaysBlocked, tripFare, tripOptions } from '../../src/game/core/trips.ts';
+import { actionCats } from '../../src/game/core/tally.ts';
+import { MOODLETS } from '../../src/game/data/moodlets.ts';
+import { dateOf, SEASON_DAYS, SEASONS, YEAR_DAYS } from '../../src/game/core/time.ts';
 import { AWAY_DESTS, DOMESTIC_PEAK_RATIO, FARE_SEASONS, JOB_LEAVE_DAYS, PACKING, RETURN_EVENTS, RETURN_NEEDS, ROAD_TRIP_DRIVE_MIN_PER_DAY, TRIP_DAY_MIN, TRIP_DAYS } from '../../src/game/data/trips.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
 import { ITEMS } from '../../src/game/data/items.ts';
@@ -169,10 +171,11 @@ test('离开期间：房租照常扣、预估的结算次数和实际一致；�
 		const pv = awayPreview(s, days, opt.price + opt.packing);
 		const r = takeTrip(s, W, 'sydney', days);
 		assert.ok(r.ok);
-		const paid = r.state.journal.filter((j) => j.text.includes('房租 $160')).length;
-		assert.equal(paid, pv.settlements, `${days} 天`);
-		assert.equal(pv.weeklyDue, 160 * pv.settlements);
-		assert.equal(s.cash - r.state.cash, opt.price + opt.packing + pv.weeklyDue);
+		// 合并 main 后：房租按租金指数（世界经济）浮动，每个结算日不一定一样；按日志里实际扣的数核对
+		const rents = r.state.journal.filter((j) => j.text.includes('周结算：支付')).map((j) => Number(/房租 \$(\d+)/.exec(j.text)![1]));
+		assert.equal(rents.length, pv.settlements, `${days} 天`);
+		assert.ok(Math.abs(pv.weeklyDue - rents.reduce((a, b) => a + b, 0)) <= 20 * pv.settlements, '预估和实际差不多');
+		assert.equal(s.cash - r.state.cash, opt.price + opt.packing + rents.reduce((a, b) => a + b, 0));
 	}
 	const broke = mk({ clock: OFF, cash: 700, vehicle: 'none', inventory: { umbrella: 1, sunhat: 1, firstaid: 1, snack: 1 }, home: { type: 'room', loc: 'perth', furniture: {} }, nextWeek: Math.floor(OFF / 1440) + 1 });
 	const pv = awayPreview(broke, 7, 598);
@@ -186,7 +189,16 @@ test('工作：请假不超过上限保留，超过就丢', () => {
 	const job = { career: 'barista', loc: 'perth', level: 1, shifts: 3, good: 2, lastDay: 1 };
 	const kept = takeTrip(mk({ clock: OFF, job }), W, 'melbourne', 7);
 	assert.ok(kept.ok);
-	assert.deepEqual(kept.state.job, job);
+	const y = Math.floor(Math.floor(OFF / 1440) / YEAR_DAYS);
+	assert.deepEqual(kept.state.job, { ...job, leave: { y, d: 7 } }, '记下今年请了 7 天');
+	// 合并 main 时复核：请假按年累计，连着第二趟 7 天就超过上限
+	assert.ok(awayPreview(kept.state, 3, 0).loseJob === (7 + 3 > JOB_LEAVE_DAYS));
+	const again = takeTrip({ ...kept.state, pending: null, clock: kept.state.clock + 1440 }, W, 'melbourne', 7); // 回来可能带着一个事件，先当处理过了
+	assert.ok(again.ok);
+	assert.equal(again.state.job, null, '今年第二趟 7 天，工作没了');
+	// 下一年重新算
+	const nextYear = mk({ clock: OFF + YEAR_DAYS * 1440, job: { ...job, leave: { y, d: 9 } } });
+	assert.ok(!awayPreview(nextYear, 7, 0).loseJob);
 	assert.ok(7 <= JOB_LEAVE_DAYS);
 	assert.ok(!awayPreview(mk({ job }), 7, 0).loseJob);
 	assert.ok(awayPreview(mk({ job }), 14, 0).loseJob);
@@ -244,3 +256,41 @@ test('自驾游规划：不出州、不坐飞机、不超时长、先去没去�
 	assert.ok(!planRoadTrip(k, W, 5).stops.some((st) => areaOf(st.to)?.id === 'sa'));
 	assert.equal(planRoadTrip(k, W, 5, true).stops[0]?.to, 'ceduna');
 });
+
+// ---------- 合并 main 后（宠物、签证、心事、生涯统计） ----------
+test('合并 main：带着宠物要先寄养，寄养要付到回来那天', () => {
+	const pet: NonNullable<PlayerState['pet']> = { kind: 'dog', name: '豆豆', from: 'shelter', since: 0, bond: 50, fedDay: 0, playDay: -1, walkDay: -1, vetDay: 0, board: null };
+	const s = mk({ clock: OFF, pet });
+	assert.match(tripDaysBlocked(s, 'interstate', 3) ?? '', /寄养/);
+	assert.equal(takeTrip(s, W, 'sydney', 3).ok, false);
+	const day = Math.floor(OFF / 1440);
+	const boarded = mk({ clock: OFF, pet: { ...pet, board: { loc: 'perth', until: day + 2 } } });
+	assert.match(tripDaysBlocked(boarded, 'interstate', 5) ?? '', /续到你回来那天/);
+	const long = mk({ clock: OFF, pet: { ...pet, board: { loc: 'perth', until: day + 10 } } });
+	assert.equal(tripDaysBlocked(long, 'interstate', 5), undefined);
+	assert.ok(takeTrip(long, W, 'sydney', 5).ok);
+});
+
+test('合并 main：签证在回来之前到期或已过期，不能回国（出境后回不来）；跨州不受影响', () => {
+	const s = mk({ clock: OFF });
+	const day = Math.floor(OFF / 1440);
+	const soon = mk({ clock: OFF, visa: { ...s.visa, until: day + 5 } });
+	assert.match(tripDaysBlocked(soon, 'home', 14) ?? '', /回不来/);
+	assert.equal(tripDaysBlocked(soon, 'interstate', 3), undefined);
+	assert.equal(tripDaysBlocked(soon, 'home', 7) ?? '', '签证第 ' + (day + 6) + ' 天到期，在你回来之前，出境后回不来');
+	const gone = mk({ clock: OFF, visa: { ...s.visa, kind: 'expired', until: -1 } });
+	assert.match(tripDaysBlocked(gone, 'home', 7) ?? '', /过期/);
+	const okVisa = mk({ clock: OFF, visa: { ...s.visa, until: day + 400 } });
+	assert.equal(tripDaysBlocked(okVisa, 'home', 21), undefined);
+});
+
+test('合并 main：探亲回来缓解想家和孤单，旅行回来缓解压力；机票记「出行」', () => {
+	const fam = MOODLETS.find((m) => m.id === 'family-time')!;
+	assert.deepEqual(fam.relieves, ['homesick', 'lonely']);
+	assert.deepEqual(MOODLETS.find((m) => m.id === 'trip-glow')!.relieves, ['stressed']);
+	assert.deepEqual(actionCats({ t: 'trip', dest: 'sydney', days: 3 }), ['transport', 'transport']);
+	const r = applyAction(mk({ clock: OFF }), W, { t: 'trip', dest: 'sydney', days: 3 });
+	assert.ok(r.ok, r.msg);
+	assert.ok((r.state.tally!.out.transport ?? 0) > 0);
+});
+

@@ -92,6 +92,7 @@ test('applyCoop：做到跨过午夜时换成新一天的心愿', () => {
 		assert.ok(x.state.clock >= 1440, '确实跨日了');
 		assert.equal(x.state.wishDay, 1);
 		assert.ok(!x.state.wishes.includes('old'));
+		assert.equal(x.state.mind.day, 1, '跨过午夜也结算心事（心情分支合并后）');
 	}
 });
 

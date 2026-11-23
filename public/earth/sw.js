@@ -56,6 +56,8 @@ self.addEventListener('fetch', (event) => {
 	if (req.method !== 'GET') return;
 	const url = new URL(req.url);
 	if (url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+	// AIGC 短片和语音（docs/earth-game/aigc-media.md）：浏览器按 Range 分段拉取，交给浏览器自己处理，不进离线缓存
+	if (url.pathname.startsWith('/earth/media/') && /\.(mp4|webm|mp3)$/.test(url.pathname)) return;
 	// 页面：先联网（拿到最新版本，并在后台按它更新缓存），断网时用上次缓存的页面
 	if (req.mode === 'navigate' && url.pathname.startsWith('/earth')) {
 		event.respondWith((async () => {

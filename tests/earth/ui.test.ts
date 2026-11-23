@@ -121,7 +121,13 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	rec.state.home = { type: 'room', loc: rec.state.loc, furniture: {} };
 	rec.state.cash = 120;
 	rec.state.nextWeek = Math.floor(rec.state.clock / 1440) + 1;
+	// 宠物（v31）：名字是玩家输入，存档里故意带 HTML，页面必须转义。寄养着：后面要坐船上罗特内斯特岛，带着宠物上不了岛
+	rec.state.pet = { kind: 'budgie', name: '<i>啾</i>', from: 'shelter', since: 0, bond: 40, fedDay: 0, playDay: -1, walkDay: -1, vetDay: 0, board: { loc: rec.state.loc, until: Math.floor(rec.state.clock / 1440) + 14 } };
 	data.set('save:' + cred.id, rec);
+	// 装成排行榜改版前建的旧角色：没有上榜设置，读档时要弹一次上榜提示
+	const lbKey = 'lbp:' + [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(cred.id)))].map((b) => b.toString(16).padStart(2, '0')).join('').slice(0, 12);
+	assert.ok(data.has(lbKey), '新角色建好时就有上榜设置');
+	data.delete(lbKey);
 
 	const els = new Map<string, El>();
 	const el = (id: string): El => {
@@ -143,7 +149,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	const winListeners: Record<string, (e: unknown) => void> = {};
 	// 假的 Web Audio：记下建了几个 AudioContext、放了几个音（第 29 轮音效）
 	const audioLog = { ctx: 0, notes: 0, offAt: -1 };
-	class FakeAudio { currentTime = 0; state = 'running'; destination = {}; constructor() { audioLog.ctx++; } createOscillator() { audioLog.notes++; return { type: '', frequency: { value: 0 }, connect() {}, start() {}, stop() {} }; } createGain() { return { gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; } }
+	class FakeAudio { currentTime = 0; state = 'running'; destination = {}; constructor() { audioLog.ctx++; } createOscillator() { audioLog.notes++; return { type: '', frequency: { value: 0 }, connect() {}, start() {}, stop() {} }; } createBuffer(_c: number, n: number) { const d = new Float32Array(n); return { getChannelData: () => d }; } createBufferSource() { return { buffer: null, loop: false, connect() {}, start() { audioLog.notes++; }, stop() {} }; } createGain() { return { gain: { setValueAtTime() {}, setTargetAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {} }; } }
 	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => (winListeners[t] = f), AudioContext: FakeAudio };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', reload() {} };
@@ -182,6 +188,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			await idle();
 		};
 		const panel = () => el('panel').innerHTML;
+		// 体验改造 P1：今天页的分组收进了抽屉，查分组里的内容用这个（今天页 + 各抽屉）
+		const placeAll = () => withDrawers(click, el);
 		// 在线频道的消息：页面攒 150 毫秒合成一次重画（第 35 轮），发完等它画完
 		const wsSay = async (m: unknown) => { lastWs!.onmessage!({ data: JSON.stringify(m) }); await pause(200); };
 		// 改了服务端存档后让页面去同步：等页面缓存的存档版本和服务端一致（最多 2 秒），不靠固定睡眠
@@ -200,6 +208,20 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		for (let i = 0; i < 100 && !(pulled()?.cash === 120 && pulled()?.needs?.hunger === 15); i++) await pause(20);
 		assert.equal(pulled()?.cash, 120, '开局没有拉到服务端存档');
 		await idle();
+		// 旧角色：弹一次上榜提示，背后页面不可点；选「匿名上榜」后关掉并记到服务端
+		for (let i = 0; i < 100 && !el('modal').innerHTML.includes('lbask-title'); i++) await pause(20);
+		assert.match(el('modal').innerHTML, /排行榜要你同意才上榜/);
+		assert.match(el('modal').innerHTML, /不会显示你在哪里/);
+		assert.equal(el('modal').classList.contains('hidden'), false);
+		assert.equal(el('game').inert, true);
+		assert.deepEqual(a11yIssues(el('modal').innerHTML), []);
+		await click({ lbask: 'anon' });
+		for (let i = 0; i < 100 && !data.get(lbKey); i++) await pause(20);
+		assert.equal(el('modal').classList.contains('hidden'), true, '回答后关掉');
+		assert.equal(el('game').inert, false);
+		assert.deepEqual([(data.get(lbKey) as any)?.on, (data.get(lbKey) as any)?.anon], [true, true], '回答记到服务端，换设备也不再问');
+		await pullNow();
+		assert.ok(!el('modal').innerHTML.includes('lbask-title') || el('modal').classList.contains('hidden'), '再读档不再弹');
 		// 开局：游戏页显示、创建页隐藏，五个标签
 		assert.equal(el('create').classList.contains('hidden'), true);
 		assert.equal(el('game').classList.contains('hidden'), false);
@@ -208,6 +230,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.ok(rootClasses.contains('p-day') && !rootClasses.contains('p-night'), '开局 8 点是白天');
 		// 名字里的 HTML 被转义（服务端可能已清洗掉尖括号；无论如何不能原样出现）
 		for (const h of [panel(), el('hud').innerHTML]) assert.ok(!h.includes('<b>阿测</b>'), '名字没有转义');
+		assert.match(panel(), /🦜 /, '今天页有宠物卡片');
+		assert.match(panel(), /寄养到第 \d+ 天/);
+		assert.ok(!panel().includes('<i>啾</i>'), '宠物名字没有转义');
 		assert.match(panel(), /1 天后周结算，钱不够/, '周结算预警');
 		// 新手指南（第 26 轮）：开局只解开第 1 天，标出「现在」这一步；在今天页时第一步不需要「去看看」跳转
 		assert.match(panel(), /新手指南 · 第 1 天/);
@@ -228,7 +253,10 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		const qActs = [...quick.matchAll(/data-act="([^"]+)"/g)].map((m) => m[1]);
 		assert.ok(qActs.length >= 2 && qActs.length <= 4, `快捷动作 ${qActs.length} 个`);
 		assert.equal(new Set(qActs).size, qActs.length, '快捷动作不重复');
-		for (const id of qActs) assert.match(panel(), new RegExp(`class="row" data-act="${id}"`), `${id} 在完整列表里也有`);
+		// 体验改造 P1：完整列表在「做事」抽屉里
+		await click({ drawer: 'do' });
+		for (const id of qActs) assert.match(el('modal').innerHTML, new RegExp(`class="row" data-act="${id}"`), `${id} 在完整列表里也有`);
+		await click({ drawerClose: '' });
 		// 左上人物名牌：等级环，点了去成长页；右上现金和天气
 		assert.match(el('hud').innerHTML, /<button class="lv-plate" data-tab="grow" aria-label="Lv1 新来的，升级进度 \d+%，去成长页">/);
 		assert.match(el('hud').innerHTML, /<div class="scene-right"><span class="chip cash">\$120<\/span>/);
@@ -270,7 +298,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			// 成长页：等级卡在最上面，然后是每日奖励和各种收集
 			if (t === 'grow') {
 				assert.match(el('hud').innerHTML, /<h1>成长<\/h1>/);
-				assert.ok(panel().startsWith('<div class="card grow-head">'), '成长页最上面是等级卡');
+				// 新角色第一次进成长页：最上面是引导便签（v36），便签下面是等级卡
+				assert.match(panel(), /^<section class="slip" aria-labelledby="slip-grow">/);
+				assert.ok(panel().replace(/^<section class="slip"[\s\S]*?<\/section>/, '').startsWith('<div class="card grow-head">'), '成长页最上面是等级卡');
 				// 前面的事件结果有随机，声望可能是 0 或 0.5：按页面上的数核对「还差」和进度条
 				const lvm = panel().match(/<b>Lv1 新来的<\/b><span>声望 ([\d.]+) \/ 10 · 离下一级还差 ([\d.]+)<\/span><span class="bar" role="img" aria-label="升级进度 (\d+)%"><i style="width:(\d+)%">/);
 				assert.ok(lvm, '等级卡格式不对');
@@ -287,6 +317,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 			assert.match(panel(), new RegExp(`data-metab="${mt}" class="on"`), mt);
 			assert.deepEqual(a11yIssues(panel()), [], `我 · ${mt}`);
 			if (mt === 'log') assert.match(panel(), /class="log-day">第 1 天 · 春季第 1 天/, '日志按天分组');
+			// 世界事件（第 43 批）：资产页有世界经济卡，开局第 1 天利率 4.00%、还没有新闻
+			if (mt === 'assets') assert.match(panel(), /<h3>世界经济<\/h3>.*现金利率<\/span><b>4\.00%<\/b>.*最近四周没有大新闻.*不是真实行情/s, '资产页的世界经济卡');
 			if (mt === 'sync') {
 				// 设置（第 28 轮）：字号三档、动画三档、三个提示开关，只存在本机
 				assert.match(panel(), /data-pref="font" data-val="m" class="on" aria-pressed="true"/, '默认标准字号');
@@ -307,16 +339,15 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 				assert.equal(JSON.parse(store.get('earth.prefs.v1')!).recap, false, '存进本机');
 				await click({ pref: 'recap' });
 				await click({ pref: 'font', val: 'm' });
-				// 音效（第 29 轮）：默认关，之前做的事都没出声；打开时放一声试听，关掉后不再出声
+				// 音效：体验改造 P2 起默认开（用户 2026-11-21 定），之前做的事已经出过声；关掉、再打开时试听一声，关掉后不再出声
+				assert.match(panel(), /data-pref="sound" aria-pressed="true">已开启/);
+				assert.equal(audioLog.ctx, 1, '默认开：做事时建了一次音频（只建一次）');
+				assert.ok(audioLog.notes >= 1, '之前做的事出过声');
+				await click({ pref: 'sound' });
 				assert.match(panel(), /data-pref="sound" aria-pressed="false">已关闭/);
-				assert.equal(audioLog.ctx, 0, '默认关：没有建音频');
-				await click({ pref: 'sound' });
-				assert.equal(audioLog.ctx, 1, '打开时才建音频');
-				assert.ok(audioLog.notes >= 1, '打开时试听一声');
-				await click({ pref: 'sound' });
 				const quiet = audioLog.notes;
 				await click({ pref: 'sound' });
-				assert.ok(audioLog.notes > quiet, '再打开又能出声');
+				assert.ok(audioLog.notes > quiet, '再打开又能出声（试听）');
 				await click({ pref: 'sound' });
 				assert.match(panel(), /data-pref="sound" aria-pressed="false">/);
 				audioLog.offAt = audioLog.notes;
@@ -372,8 +403,11 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.match(panel(), /class="tile on" data-dmode="[a-z]+" data-dest="fremantle" aria-pressed="true"/);
 		assert.match(panel(), /路费后剩 \$\d+，1 天后周结算要付 \$160，会不够/);
 		assert.match(panel(), /data-go="fremantle" data-mode="[a-z]+">出发去弗里曼特尔/);
+		// 第 32 批：珀斯—弗里曼特尔多了 Transperth 火车，默认选最便宜的火车，长途巴士是另一个能点的方块（换走法在最后用卡尔古利测）
+		assert.match(panel(), /class="tile on" data-dmode="transit" data-dest="fremantle"/);
 		const alt = panel().match(/class="tile" data-dmode="([a-z]+)" data-dest="fremantle" aria-pressed="false" >/)?.[1];
-		assert.equal(alt, undefined, '这时钱只够走陆路（换走法在最后用卡尔古利测）');
+		assert.equal(alt, 'road');
+		assert.match(panel(), /Transperth 真实票价|今天周日，刷卡免费/, '公交方块写明票价出处');
 		await click({ loc: 'fremantle' });
 		await click({ tab: 'me' });
 		await click({ metab: 'overview' });
@@ -615,8 +649,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ recapClose: String(today - 1) });
 		assert.ok(!panel().includes('昨天回顾'), '点知道了后收起');
 		// 附近页底部有留言板和输入框
-		assert.match(panel(), /📝 留言板/);
-		assert.match(panel(), /id="note-form"[\s\S]*maxlength="60"/);
+		assert.match((await placeAll()), /📝 留言板/);
+		assert.match((await placeAll()), /id="note-form"[\s\S]*maxlength="60"/);
 		// 夜里：根元素换成夜晚，出行页地图上有星星
 		assert.ok(rootClasses.contains('p-night') && !rootClasses.contains('p-day'), '夜里换成夜晚配色');
 		await click({ tab: 'go' });
@@ -644,8 +678,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		data.set('save:' + cred.id, camp);
 		await pullNow();
 		await click({ tab: 'place' });
-		assert.match(panel(), /<button data-veh="sell" disabled>/, '住营地时卖车按钮灰掉');
-		assert.match(panel(), /你住在房车营地/);
+		assert.match((await placeAll()), /<button data-veh="sell" disabled>/, '住营地时卖车按钮灰掉');
+		assert.match((await placeAll()), /你住在房车营地/);
 		// 后台同步比动作晚回来（复现第 27 轮查到的竞态）：同步请求故意慢 150ms，期间做一个动作
 		const fastFetch = g.fetch;
 		g.fetch = async (u: string, o?: RequestInit) => {
@@ -718,9 +752,34 @@ type HashOpts = {
 	hidden?: boolean;
 	/** 在线频道当作已连上：每个新建的连接记进这个数组（连接地址 url、收消息 say、是否被关 closed） */
 	liveWs?: LiveWs[];
+	/** CGI 清单（/earth/cgi/manifest.json 的 images）；不给时清单请求 404，页面全部走没图的样式 */
+	cgi?: Record<string, string>;
+	/** prompt() 的回答（默认 null，等于点了取消）；问过的话记进 seen.prompts */
+	prompt?: string | null;
 	/** 页面启动完、清理之前再做点什么（点按钮、触发联网事件） */
-	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; el: (id: string) => El; show: () => void }) => Promise<void>;
+	after?: (ctx: { click: (d: Record<string, string>) => Promise<void>; win: Record<string, (e: unknown) => void>; doc: Record<string, (e: unknown) => void>; el: (id: string) => El; show: () => void; hide: () => void }) => Promise<void>;
+	/** 页面能用的 AudioContext（不给就是没有 Web Audio 的浏览器） */
+	audio?: unknown;
+	/** AIGC 媒体清单（/earth/media/manifest.json）；不给时 404 */
+	media?: unknown;
+	/** 系统开了省流量（navigator.connection.saveData，体验改造 P3） */
+	saveData?: boolean;
 };
+/**
+ * 体验改造 P1：今天页的分组收进了底部抽屉（做事、买东西、工作、住处、这里的人、体验和爱好……）。
+ * 依次打开今天页上的每个抽屉，把今天页和抽屉里的内容拼在一起，给检查「今天页里有什么」的测试用；最后关上抽屉。
+ */
+async function withDrawers(click: (d: Record<string, string>) => Promise<void>, el: (id: string) => { innerHTML: string }) {
+	const panel = el('panel').innerHTML;
+	let all = panel;
+	for (const m of panel.matchAll(/data-drawer="([a-z]+)"/g)) {
+		await click({ drawer: m[1] });
+		all += '\n' + el('modal').innerHTML;
+		await click({ drawerClose: '' });
+	}
+	return all;
+}
+
 async function openWithHash(hash: string, local: { cred: unknown; state: unknown } | null, world: EarthWorld, confirmAnswer = true, opts: HashOpts = {}) {
 	const els = new Map<string, El>();
 	const el = (id: string): El => {
@@ -737,16 +796,20 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	const docLs: Record<string, (e: unknown) => void> = {};
 	const winLs: Record<string, (e: unknown) => void> = {};
 	const g = globalThis as any;
-	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
-	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[] };
+	const saved = { setTimeout: g.setTimeout as typeof setTimeout, setInterval: g.setInterval, document: g.document, window: g.window, localStorage: g.localStorage, location: g.location, history: g.history, confirm: g.confirm, prompt: g.prompt, fetch: g.fetch, WebSocket: g.WebSocket, navigator: Object.getOwnPropertyDescriptor(g, 'navigator') };
+	const seen = { reloads: 0, replaced: [] as string[], asked: [] as string[], prompts: [] as string[], fetched: [] as string[] };
 	const root = new ClassList();
 	g.document = { getElementById: el, addEventListener: (t: string, f: (e: unknown) => void) => { docLs[t] = f; }, body: { classList: new ClassList() }, documentElement: { classList: root }, hidden: !!opts.hidden };
-	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => { winLs[t] = f; } };
+	g.window = { setTimeout: (f: () => void, ms?: number) => g.setTimeout(f, ms), scrollTo() {}, addEventListener: (t: string, f: (e: unknown) => void) => { winLs[t] = f; }, AudioContext: opts.audio };
 	g.localStorage = { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, String(v)), removeItem: (k: string) => store.delete(k) };
 	g.location = { protocol: 'http:', host: 'game.test', pathname: '/earth/', search: '', hash, reload() { seen.reloads++; } };
 	g.history = { replaceState: (_s: unknown, _t: string, u: string) => { seen.replaced.push(u); g.location.hash = ''; } };
 	g.confirm = (m: string) => { seen.asked.push(m); return confirmAnswer; };
+	g.prompt = (m: string) => { seen.prompts.push(m); return opts.prompt ?? null; };
 	g.fetch = async (u: string, o?: RequestInit) => {
+		seen.fetched.push(String(u));
+		if (String(u) === '/earth/media/manifest.json' && opts.media) return new Response(JSON.stringify(opts.media), { status: 200 });
+		if (String(u) === '/earth/cgi/manifest.json' && opts.cgi) return new Response(JSON.stringify({ images: opts.cgi }), { status: 200 });
 		if (String(u) !== '/api/earth/save') return new Response('{}', { status: 404 });
 		const res = () => world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: o?.body as string }));
 		return (await opts.reply?.(JSON.parse(o?.body as string), res)) ?? res();
@@ -761,7 +824,9 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 	const timers = new Set<ReturnType<typeof setTimeout>>();
 	const realSetTimeout = saved.setTimeout;
 	g.setTimeout = (f: () => void, ms?: number) => { const id = realSetTimeout(f, ms); timers.add(id); return id; };
-	Object.defineProperty(g, 'navigator', { value: { geolocation: null, clipboard: null }, configurable: true });
+	// connection.change：页面注册的「省流量变了」回调，测试里改 saveData 后手动触发
+	const connection = opts.saveData === undefined ? undefined : { saveData: opts.saveData, change: null as null | (() => void), addEventListener(t: string, f: () => void) { if (t === 'change') this.change = f; } };
+	Object.defineProperty(g, 'navigator', { value: { geolocation: null, clipboard: null, ...(connection ? { connection } : {}) }, configurable: true });
 	const dir = mkdtempSync(join(tmpdir(), 'earth-ui-'));
 	try {
 		const file = join(dir, 'page.mjs');
@@ -769,7 +834,7 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 		await import(pathToFileURL(file).href);
 		for (let i = 0; i < 50; i++) await pause(10);
 		const click = async (dataset: Record<string, string>) => { docLs.click({ target: { dataset, disabled: false, classList: { contains: () => false }, closest: fakeClosest } }); await pause(30); };
-		await opts.after?.({ click, win: winLs, el, show: () => { g.document.hidden = false; } });
+		await opts.after?.({ click, win: winLs, doc: docLs, el, show: () => { g.document.hidden = false; }, hide: () => { g.document.hidden = true; } });
 		return { el, store, seen, root };
 	} finally {
 		for (const id of timers) clearTimeout(id);
@@ -782,6 +847,14 @@ async function openWithHash(hash: string, local: { cred: unknown; state: unknown
 }
 
 /** 直接在服务端建一个角色，返回凭证和存档（给「扫码打开」这类测试当本机已有的角色） */
+/** 当成新手引导上线前的老角色（存档里没有 onboard 字段）：所有卡片直接显示，不出引导便签 */
+function asVeteran(data: Map<string, unknown>, c: { cred: { id: string }; state: any }) {
+	const rec = data.get('save:' + c.cred.id) as any;
+	const { onboard: _a, ...cloud } = rec.state;
+	data.set('save:' + c.cred.id, { ...rec, state: cloud });
+	const { onboard: _b, ...local } = c.state;
+	return { ...c, state: local };
+}
 async function makeChar(world: EarthWorld, id: string, name: string) {
 	const cred = { id, key: id[0].repeat(24) };
 	const res = await world.fetch(new Request('https://game.test/api/earth/save', { method: 'POST', body: JSON.stringify({ action: 'create', ...cred, profile: { name, avatar: '🧑', origin: 'backpacker', traits: [] } }) }));
@@ -928,8 +1001,9 @@ test('界面：留言超过每地点上限时页面留下最新的（服务器�
 		},
 		after: async ({ click, el }) => {
 			await click({ tab: 'place' });
-			for (let i = 0; i < 50 && !el('panel').innerHTML.includes('第0新的留言'); i++) await pause(10);
-			html = el('panel').innerHTML;
+			await click({ drawer: 'place' });
+			for (let i = 0; i < 50 && !el('modal').innerHTML.includes('第0新的留言'); i++) await pause(10);
+			html = el('modal').innerHTML;
 		},
 	});
 	assert.ok(html.includes('第0新的留言'), '最新的在');
@@ -938,13 +1012,13 @@ test('界面：留言超过每地点上限时页面留下最新的（服务器�
 });
 
 test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，只做显示）', async () => {
-	const { world } = makeWorld();
-	const a = await makeChar(world, 'sky-card-a', '天象甲');
+	const { data, world } = makeWorld();
+	const a = asVeteran(data, await makeChar(world, 'sky-card-a', '天象甲'));
 	let panel = '', hud = '';
 	await openWithHash('', a, world, true, {
 		after: async ({ click, el }) => {
 			await click({ tab: 'place' });
-			panel = el('panel').innerHTML;
+			panel = await withDrawers(click, el);
 			hud = el('hud').innerHTML;
 		},
 	});
@@ -959,7 +1033,7 @@ test('界面：今天页的「今天的天」卡和顶栏气温（第 8 批，�
 	// 虚拟人生风格：今天页顶栏是当地小场景，地点名牌、需求环、NPC 立绘
 	assert.match(hud, /<div class="scene"><svg class="scene-art"/);
 	// 地点名牌：大字地名，下面一行是时间（第 15 批从顶上的时间胶囊挪进来）
-	assert.match(hud, /<div class="plate"><h1>[^<]+<\/h1><span class="en" lang="en">[^<]+<\/span><small title="[^"]+">[^<]*\d+:\d\d[^<]*<\/small><\/div>/);
+	assert.match(hud, /<div class="plate"><h1>[^<]+<\/h1><span class="en" lang="en" aria-hidden="true">[^<]+<\/span><small title="[^"]+">[^<]*\d+:\d\d[^<]*<\/small><\/div>/);
 	assert.doesNotMatch(hud, /pill-on/, '顶上不再有单独的时间胶囊');
 	assert.match(panel, /<div class="rings">/);
 	assert.equal((panel.match(/class="ring /g) ?? []).length, 6, '六个需求环');
@@ -982,7 +1056,7 @@ test('界面：火险高以上时卡片、顶栏、提示（第 39 轮，只做�
 		after: async ({ click, el }) => {
 			await click({ tab: 'place' });
 			await pause(700);
-			panel = el('panel').innerHTML;
+			panel = await withDrawers(click, el);
 			hud = el('hud').innerHTML;
 			toasts = el('toast').textContent;
 		},
@@ -1068,7 +1142,7 @@ test('界面：虚拟人生风格——最缺的需求变成想法气泡；NPC �
 	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
 		after: async ({ click, el }) => {
 			await click({ tab: 'place' });
-			panel = el('panel').innerHTML;
+			panel = await withDrawers(click, el);
 			hud = el('hud').innerHTML;
 		},
 	});
@@ -1310,7 +1384,11 @@ test('界面：没有存档时显示创建页，选完四步能创建角色并�
 		assert.match(el('c-origins').innerHTML, /ac-opt on" data-origin="fifo"[\s\S]*?\$2500/);
 		const ava = pickIn('c-avatars', 'avatar')[2];
 		await tap({ avatar: ava });
-		assert.equal(el('c-photo').textContent, ava);
+		// 照片栏：证件照按「出身-形象下标」取，emoji 垫在下面做加载失败的后备
+		assert.match(el('c-photo').innerHTML, new RegExp(`<span class="ac-photo-emoji">${ava}</span><img class="ac-photo-img" src="/earth/char/fifo-2\\.webp" alt=""`));
+		await tap({ origin: 'surfer' });
+		assert.match(el('c-photo').innerHTML, /src="\/earth\/char\/surfer-2\.webp"/, '换出身，证件照跟着换');
+		await tap({ origin: 'fifo' });
 		await tap({ trait: pickIn('c-traits', 'trait')[0] });
 		const second = pickIn('c-traits', 'trait').find((t) => !el('c-traits').innerHTML.includes(`trait on" data-trait="${t}"`));
 		await tap({ trait: second! });
@@ -1334,6 +1412,259 @@ test('界面：没有存档时显示创建页，选完四步能创建角色并�
 			if (v === undefined) delete g[k]; else g[k] = v;
 		}
 	}
+});
+
+/** 假的 Web Audio（v37 声音系统）：记录建了几个 AudioContext、起了哪些噪声循环和振荡器、暂停/恢复了几次 */
+function fakeWebAudio() {
+	const log = { ctx: 0, srcStarted: 0, srcStopped: 0, filters: [] as string[], oscs: [] as number[], suspend: 0, resume: 0, gains: [] as number[][] };
+	const param = () => ({ value: 0, setValueAtTime() {}, setTargetAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} });
+	class Ctx {
+		currentTime = 0; sampleRate = 8000; state = 'running'; destination = {};
+		constructor() { log.ctx++; }
+		suspend() { log.suspend++; this.state = 'suspended'; }
+		resume() { log.resume++; this.state = 'running'; }
+		// 每个增益节点记下设过的值（立即设置和平滑过渡都算）；前四个是混音台的总线、音效、环境音、音乐
+		createGain() { const vals: number[] = []; log.gains.push(vals); return { gain: { ...param(), setValueAtTime: (v: number) => { vals.push(v); }, setTargetAtTime: (v: number) => { vals.push(v); } }, connect() {} }; }
+		createOscillator() { const o = { type: '', frequency: { value: 0 }, connect() {}, start() { log.oscs.push(o.frequency.value); }, stop() {} }; return o; }
+		createBuffer(_c: number, len: number) { const d = new Float32Array(len); return { getChannelData: () => d }; }
+		// 只数循环播放的声源（环境音）；提示音（P2 起也用缓冲声源）放完就结束，不算
+		createBufferSource() { const o = { buffer: null, loop: false, connect() {}, start() { if (o.loop) log.srcStarted++; }, stop() { if (o.loop) log.srcStopped++; } }; return o; }
+		createBiquadFilter() { const f = { type: '', frequency: param(), Q: { value: 0 }, connect() { log.filters.push(f.type); } }; return f; }
+	}
+	return { Ctx, log };
+}
+
+test('界面：声音（v37）——打开了环境音和音乐也要等玩家先点一下才出声；切后台暂停、回来恢复；关掉后停；音量存进本机', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'audio-v37', '听声');
+	const { Ctx, log } = fakeWebAudio();
+	const prefs = JSON.stringify({ ambience: true, music: true, sound: false });
+	let afterBoot = -1;
+	const r = await openWithHash('', a, world, true, {
+		audio: Ctx,
+		extra: { 'earth.prefs.v1': prefs },
+		after: async ({ click, doc, hide, show }) => {
+			afterBoot = log.ctx;
+			// 第一次点页面（随便哪里）：这时才建音频，并按地点放环境音和音乐
+			await click({ tab: 'me' });
+			for (let i = 0; i < 20 && log.srcStarted === 0; i++) await pause(10);
+			assert.equal(log.ctx, 1, '点了之后才建音频');
+			assert.ok(log.srcStarted >= 1, '环境音的噪声循环起来了');
+			assert.ok(log.filters.length >= 1, '噪声经过滤波');
+			assert.ok(log.oscs.some((f) => f > 80 && f < 1200), '音乐排了和弦音');
+			await click({ tab: 'place' });
+			assert.equal(log.ctx, 1, '只建一次');
+			// 混音台：音效默认关，音效分轨是 0；打开后马上变成 1（试听的那一声听得见）
+			assert.equal(log.gains[1][0], 0, '音效分轨开始是 0');
+			await click({ pref: 'sound' });
+			assert.equal(log.gains[1].at(-1), 1, '打开音效后音效分轨打开');
+			// 切到后台暂停，回来恢复
+			hide(); doc.visibilitychange({});
+			assert.equal(log.suspend, 1);
+			const resumed = log.resume;
+			show(); doc.visibilitychange({});
+			assert.equal(log.resume, resumed + 1);
+			// 关掉环境音：噪声循环全停
+			await click({ pref: 'ambience' });
+			assert.equal(log.srcStopped, log.srcStarted, '关掉后环境音全停');
+			// 音量换成「轻」，存进本机
+			await click({ pref: 'volume', val: 'low' });
+			await click({ pref: 'volume', val: 'huge' });
+		},
+	});
+	assert.equal(afterBoot, 0, '打开页面时不自动出声（没建 AudioContext）');
+	const saved = JSON.parse(r.store.get('earth.prefs.v1')!);
+	assert.equal(saved.ambience, false);
+	assert.equal(saved.music, true);
+	assert.equal(saved.volume, 'low', '不认识的音量档不改');
+});
+
+test('界面：声音（v37）——设置页有音效、环境音、背景音乐三个开关和音量，并写明不开声音不会错过信息；没有 Web Audio 的浏览器点了也不报错', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'audio-v37b', '无声');
+	let html = '';
+	await openWithHash('', a, world, true, {
+		extra: { 'earth.prefs.v1': JSON.stringify({ ambience: true }) },
+		after: async ({ click, el }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'sync' });
+			html = el('panel').innerHTML;
+			await click({ pref: 'music' });
+		},
+	});
+	for (const k of ['sound', 'ambience', 'music']) assert.match(html, new RegExp(`data-pref="${k}" aria-pressed="(true|false)"`), k);
+	assert.match(html, /data-pref="ambience" aria-pressed="true">已开启/);
+	assert.match(html, /data-pref="volume" data-val="low" class="on" aria-pressed="true"/, '默认最轻一档（P2）');
+	assert.match(html, /不开声音不会错过/);
+	assert.deepEqual(a11yIssues(html), []);
+});
+
+test('界面：新手引导（v36）——新角色先藏钓鱼等卡片并写明何时出现；出行页第一次有便签，关掉后马上消失并记进云端存档；全部显示', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'onboard-ui-a', '引导');
+	let place = '', go = '', goAfter = '', placeAll = '';
+	await openWithHash('', { cred: a.cred, state: a.state }, world, true, {
+		after: async ({ click, el }) => {
+			await pause(60);
+			place = el('panel').innerHTML;
+			await click({ tab: 'go' });
+			go = el('panel').innerHTML;
+			await click({ obTip: 'go' });
+			goAfter = el('panel').innerHTML;
+			await pause(80);
+			await click({ tab: 'place' });
+			await click({ obAll: '' });
+			await pause(80);
+			await click({ tab: 'place' });
+			placeAll = el('panel').innerHTML;
+		},
+	});
+	assert.match(place, /<div class="later"><p><b>之后会出现<\/b>爱好（钓鱼、摄影、观鸟……）和星空（到第 2 天或去过第二个地方）/);
+	assert.doesNotMatch(place, /<h3>🎣 钓鱼/);
+	assert.match(go, /<section class="slip" aria-labelledby="slip-go">/);
+	assert.match(go, /data-ob-tip="go" aria-label="关掉提示「出行：路费和时间出发前就写着」，以后不再出现">知道了/);
+	assert.deepEqual(a11yIssues(go), []);
+	assert.doesNotMatch(goAfter, /class="slip"/, '点了马上消失，不等服务器');
+	const saved = (data.get('save:' + a.cred.id) as any).state.onboard;
+	assert.ok(saved.tips.includes('go'), '记进云端存档');
+	assert.deepEqual(saved.feats.length, 4, '全部显示');
+	assert.doesNotMatch(placeAll, /class="later"/);
+});
+
+test('界面：回流卡片（v36）——离开 6 天后打开，今天页最上面是再入境卡片；点「知道了」后消失并记进存档', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'onboard-ui-b', '回来');
+	const rec = data.get('save:' + a.cred.id) as any;
+	const today = Math.floor((Date.now() + 8 * 3_600_000) / 86_400_000);
+	data.set('save:' + a.cred.id, { ...rec, state: { ...rec.state, daily: { day: today - 6, streak: 5 } } });
+	let first = '', loaded = '', after = '';
+	await openWithHash('', { cred: a.cred, state: a.state }, world, true, {
+		after: async ({ click, el }) => {
+			await pause(80);
+			await click({ tab: 'place' });
+			first = el('panel').innerHTML;
+			await pause(150);
+			loaded = el('panel').innerHTML;
+			await click({ obBack: '' });
+			after = el('panel').innerHTML;
+			await pause(80);
+		},
+	});
+	assert.match(first, /<section class="back-card" aria-labelledby="back-title">/);
+	assert.match(first, /欢迎回来，离开了 6 天/);
+	assert.match(first, /主线停在<\/b>第一章/);
+	// 更新日志按需加载（第 41 批）：下完后今天页自动重画，回流卡片列出离开期间的更新
+	assert.match(loaded, /<b>离开期间更新了 [1-3] 次<\/b>/);
+	assert.ok(first.indexOf('back-card') < first.indexOf('class="rings"'), '在需求卡前面');
+	assert.deepEqual(a11yIssues(first), []);
+	assert.doesNotMatch(after, /back-card/);
+	assert.equal((data.get('save:' + a.cred.id) as any).state.onboard.back.seen, true);
+});
+
+test('界面：断网时关提示（v36）——便签照样马上消失，云端存档不变，留着联网后再交', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'onboard-ui-c', '断网');
+	let after = '';
+	await openWithHash('', { cred: a.cred, state: a.state }, world, true, {
+		reply: async (body) => { if (body?.act?.t === 'onboard') throw new TypeError('offline'); return undefined; },
+		after: async ({ click, el }) => {
+			await pause(60);
+			await click({ tab: 'grow' });
+			assert.match(el('panel').innerHTML, /aria-labelledby="slip-grow"/);
+			await click({ obTip: 'grow' });
+			await pause(40);
+			after = el('panel').innerHTML;
+		},
+	});
+	assert.doesNotMatch(after, /slip-grow/);
+	assert.deepEqual((data.get('save:' + a.cred.id) as any).state.onboard.tips, []);
+});
+
+test('界面：界面配图（第 21 批）——清单里有的键用小图、横幅和空状态插图，地址经过转义；清单里没有的照旧用原来的样式', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'cgi-ui-a', '看配图');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.loc = 'perth';
+	rec.state.cash = 5000;
+	rec.state.inventory = {};
+	rec.state.properties = [];
+	data.set('save:' + a.cred.id, rec);
+	let place = '', growSlip = '', grow = '', assets = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		cgi: { 'exp:swan-cruise': '/earth/cgi/exp.webp?"><b>x', 'banner:grow': '/earth/cgi/banner-grow.webp', 'empty:bag': '/earth/cgi/empty-bag.webp' },
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			place = await withDrawers(click, el);
+			await click({ tab: 'grow' });
+			growSlip = el('panel').innerHTML;
+			await click({ obTip: 'grow' });
+			grow = el('panel').innerHTML;
+			await click({ tab: 'me' });
+			await click({ metab: 'assets' });
+			assets = el('panel').innerHTML;
+		},
+	});
+	assert.match(place, /<img class="thumb" src="\/earth\/cgi\/exp\.webp\?&quot;&gt;&lt;b&gt;x" alt="" loading="lazy" width="48" height="48" \/><span class="body">✨ 天鹅河日落游船/, '体验行左边是小图，地址转义');
+	assert.doesNotMatch(place, /exp\.webp\?"><b>/, '地址里的引号和尖括号不能原样进 HTML');
+	assert.equal((place.match(/class="thumb"/g) ?? []).length, 1, '清单里没有的（工作、住处……）不出小图');
+	// 体验改造 P1：新角色第一次进成长页有新手便签，这时不放装饰横幅；关掉便签后顶上是横幅
+	assert.match(growSlip, /<section class="slip"/);
+	assert.doesNotMatch(growSlip, /class="banner"/, '有新手便签时不放横幅');
+	assert.ok(grow.startsWith('<div class="banner"><img src="/earth/cgi/banner-grow.webp"'), '成长页顶上是横幅');
+	assert.match(assets, /<div class="empty-art"><img src="\/earth\/cgi\/empty-bag\.webp" alt="" loading="lazy" \/><\/div><p>空的。/, '背包空的时候有插图');
+	assert.doesNotMatch(assets, /empty-art"><img src="[^"]*estate/, '清单里没有的空状态不占位');
+	assert.deepEqual(a11yIssues(place), []);
+	assert.deepEqual(a11yIssues(assets), []);
+});
+
+test('界面：「我 · 资产」的理财卡（第 25 批）——行情来自服务端、能买入、净值算上持仓、行情种子不进本机存档', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'invest-ui-a', '理财');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.cash = 2000;
+	let before = '', after = '';
+	const r = await openWithHash('', { cred: a.cred, state: a.state }, world, true, {
+		prompt: '500',
+		after: async ({ click, el }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'assets' });
+			before = el('panel').innerHTML;
+			await click({ asset: 'buy', assetId: 'asx-index' });
+			after = el('panel').innerHTML;
+		},
+	});
+	assert.match(before, /<div class="card invest"><h3>理财<\/h3>/, '没有持仓时标题不带金额');
+	for (const id of ['savings', 'asx-index', 'gold', 'emu-coin']) assert.match(before, new RegExp(`data-asset="buy" data-asset-id="${id}"`), id);
+	assert.match(before, /data-asset="sell" data-asset-id="gold" disabled/, '没有持仓不能卖');
+	assert.match(before, /不能兑换真钱/);
+	assert.deepEqual(a11yIssues(before), []);
+	assert.equal(r.seen.prompts.length, 1, '问了一次金额');
+	const saved = (data.get('save:' + a.cred.id) as any).state;
+	assert.equal(saved.cash, 1500, '服务端扣了 $500');
+	assert.ok(saved.holdings['asx-index'].units > 0, '服务端记下持仓');
+	assert.match(after, /<h3>理财 · 持仓 \$4\d\d<\/h3>/, '买入后卡片显示持仓（扣手续费后不到 $500）');
+	assert.match(after, /data-asset="sell" data-asset-id="asx-index">卖出/, '有持仓可以卖');
+	assert.match(after, / · 理财 \$4\d\d<\/p>/, '资产卡算上理财');
+	const local = JSON.parse(r.store.get('earth.save.v1')!);
+	assert.equal(local.marketSeed, 0, '本机存档没有行情种子');
+	assert.equal(local.seed, 0);
+	assert.equal(local.quotes['asx-index'].length >= 1, true, '本机存档带着服务端算好的行情');
+});
+
+test('界面：理财下单时点取消不发动作；买鸸鹋币要先确认（第 25 批）', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'invest-ui-b', '取消');
+	(data.get('save:' + a.cred.id) as any).state.cash = 2000;
+	const r = await openWithHash('', { cred: a.cred, state: a.state }, world, false, {
+		prompt: '300',
+		after: async ({ click }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'assets' });
+			await click({ asset: 'buy', assetId: 'emu-coin' });
+		},
+	});
+	assert.equal(r.seen.asked.filter((m) => m.includes('鸸鹋币')).length, 1, '买虚拟币前确认');
+	assert.equal((data.get('save:' + a.cred.id) as any).state.cash, 2000, '确认时选了取消，没成交');
 });
 
 // ---------- 存档与多端同步（第 50 批，见 docs/earth-game/save-sync.md） ----------
@@ -1515,7 +1846,8 @@ test('界面：留言列表拉取失败（限流、同步码失效、断网）�
 			await pause(1);
 			return new Response(JSON.stringify({ ok: false, msg: '操作太频繁' }), { status: 429 });
 		},
-		after: async ({ click }) => { await click({ tab: 'place' }); await pause(300); },
+		// 体验改造 P1：留言板在「地点」抽屉里，打开抽屉才拉
+		after: async ({ click }) => { await click({ tab: 'place' }); await click({ drawer: 'place' }); await pause(300); },
 	});
 	assert.ok(notes >= 1 && notes <= 3, `留言列表请求了 ${notes} 次`);
 });
@@ -1551,4 +1883,280 @@ test('界面：跨州旅行和回国探亲（第 43 批）——珀斯机场列�
 	assert.equal(saved.clock, clock0 + 3 * 1440);
 	assert.equal(saved.inventory['souvenir-syd'], 1);
 	assert.equal(saved.loc, 'perth');
+});
+test('界面：体验改造 P1——今天页分三层，第 1 天不超过 6 张卡；商店、做事等收进底部抽屉，抽屉能开能关', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'ux-p1-a', '三层');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.loc = 'perth';
+	rec.state.cash = 500;
+	data.set('save:' + a.cred.id, rec);
+	let place = '', shop = '', shopOpen = false, closed = false, bogus = false, tabClosed = false;
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			place = el('panel').innerHTML;
+			await click({ drawer: 'shop' });
+			shop = el('modal').innerHTML;
+			shopOpen = !el('modal').classList.contains('hidden');
+			await click({ drawerClose: '' });
+			closed = el('modal').classList.contains('hidden');
+			await click({ drawer: 'constructor' });
+			bogus = el('modal').classList.contains('hidden');
+			await click({ drawer: 'do' });
+			await click({ tab: 'go' });
+			tabClosed = el('modal').classList.contains('hidden');
+		},
+	});
+	const cards = (place.match(/class="card[ "]/g) ?? []).length;
+	assert.ok(cards <= 6, `第 1 天今天页 ${cards} 张卡，门槛 6 张`);
+	assert.doesNotMatch(place, /data-buy=/, '商品不摊在今天页上');
+	assert.match(place, /<button class="row here-row" data-drawer="shop" aria-haspopup="dialog">/, '「买东西」是一行摘要');
+	assert.match(place, /data-drawer="do"[^>]*>[\s\S]*?现在能做 \d+ 项/, '「做事」摘要写明现在能做几项');
+	const at = (x: string) => place.indexOf(x);
+	assert.ok(at('<h3>状态</h3>') >= 0 && at('<h3>状态</h3>') < at('class="next"') && at('class="next"') < at('class="card here"') && at('class="card here"') < at('class="later-zone"'), '现在 → 在这里 → 以后');
+	assert.ok(shopOpen, '点摘要行打开抽屉');
+	assert.match(shop, /<div class="sheet drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">/);
+	assert.match(shop, /<h2 id="drawer-title"><svg class="lu drawer-ico" aria-hidden="true" focusable="false"><use href="#lu-shopping-bag"\/><\/svg> 买东西<\/h2>/, '抽屉标题用 Lucide 图标（P2）');
+	assert.match(shop, /data-buy="/, '抽屉里是完整的商品列表');
+	assert.ok(closed, '点「关闭」收起');
+	assert.ok(bogus, '不认识的抽屉名不打开（原型链上的名字也不行）');
+	assert.ok(tabClosed, '切到别的标签时抽屉收起');
+	assert.deepEqual(a11yIssues(place), []);
+	assert.deepEqual(a11yIssues(shop), []);
+});
+
+test('界面：体验改造 P1——做成一件事，变了的需求环飘出变化值、顶栏钱数也飘；在「做事」抽屉里做完自动收起，商店里买完不收', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'ux-p1-b', '反馈');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.loc = 'perth';
+	rec.state.cash = 500;
+	rec.state.needs.hunger = 30;
+	data.set('save:' + a.cred.id, rec);
+	let panel = '', hud = '', doOpen = false, afterAct = false, shopHtml = '', afterBuy = '', buyOpen = false;
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			await click({ drawer: 'do' });
+			doOpen = !el('modal').classList.contains('hidden');
+			await click({ act: 'eat' });
+			await pause(80);
+			panel = el('panel').innerHTML;
+			hud = el('hud').innerHTML;
+			afterAct = el('modal').classList.contains('hidden');
+			await click({ drawer: 'shop' });
+			shopHtml = el('modal').innerHTML;
+			const item = shopHtml.match(/<button class="row" data-buy="([^"]+)" >/)?.[1];
+			assert.ok(item, '商店里有能买的东西');
+			await click({ buy: item! });
+			await pause(80);
+			afterBuy = el('hud').innerHTML;
+			buyOpen = !el('modal').classList.contains('hidden') && el('modal').innerHTML.includes('drawer-title');
+		},
+	});
+	assert.ok(doOpen);
+	assert.match(panel, /<div class="ring [^"]*bump" role="img" aria-label="饱食 \d+，刚才加了 \d+/, '饱食环跳一下，读屏念出变化');
+	assert.match(panel, /<i class="ring-delta up" aria-hidden="true">\+\d+<\/i><b data-from="30">/, '饱食环飘出 +N，数字从 30 滚到新值');
+	assert.match(panel, /<div class="result-strip">/, '状态环下面有「刚才」');
+	assert.match(hud, /<span class="chip cash bump">\$\d+<i class="cash-delta down" aria-hidden="true">−\$\d+<\/i><\/span>/, '花了钱，顶栏钱数飘出 −$N');
+	assert.ok(afterAct, '在「做事」抽屉里做完自动收起，看得到环的变化');
+	assert.match(afterBuy, /class="cash-delta down"/);
+	assert.ok(buyOpen, '商店里买完抽屉留着，可以接着买');
+});
+
+test('界面：体验改造 P1——「地点」抽屉关着时不拉留言板（留言到了要重画，会冲掉刚出现的环和钱数动画），打开才拉', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'ux-p1-c', '留言关');
+	let notes = 0, afterOpen = 0;
+	await openWithHash('', a, world, true, {
+		reply: async (body) => {
+			if (body.action !== 'notes') return undefined;
+			notes++;
+			return new Response(JSON.stringify({ ok: true, notes: [], at: Date.now() }));
+		},
+		after: async ({ click }) => {
+			await click({ tab: 'place' });
+			await pause(200);
+			await click({ tab: 'go' });
+			await click({ tab: 'place' });
+			await pause(200);
+			afterOpen = notes;
+			await click({ drawer: 'place' });
+			await pause(200);
+		},
+	});
+	assert.equal(afterOpen, 0, '「地点」抽屉没打开时一次都不拉');
+	assert.ok(notes >= 1, '打开「地点」抽屉才拉留言');
+});
+
+// 体验改造 P3：画面设置三档（docs/earth-game/ux-p3.md）
+let heroSeq = 0;
+async function heroUnder(prefs: Record<string, unknown> | null, saveData?: boolean) {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'p3-hero-' + ++heroSeq, '画面');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.loc = 'perth';
+	data.set('save:' + a.cred.id, rec);
+	let html = '';
+	const r = await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		extra: prefs ? { 'earth.prefs.v1': JSON.stringify(prefs) } : {},
+		saveData,
+		media: { loc: { perth: { src: '/earth/media/loc/perth.mp4', poster: '/earth/cgi/perth.webp' } }, voice: {} },
+		cgi: { perth: '/earth/cgi/perth.webp', 'banner:grow': '/earth/cgi/banner-grow.webp' },
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			html = await withDrawers(click, el);
+		},
+	});
+	return { html, root: r.root, fetched: r.seen.fetched };
+}
+
+test('界面：画面设置（P3）——标准档放地点短片；省电档只放静态高清图；省流量档放 1 倍小图，不出 <video>（不发视频请求）', async () => {
+	const std = await heroUnder({ visual: 'standard' });
+	assert.match(std.html, /<video class="loc-clip" src="\/earth\/media\/loc\/perth\.mp4"/, '标准档放短片');
+	assert.equal(std.root.contains('calm'), false, '标准档不减少动画');
+
+	const bat = await heroUnder({ visual: 'battery' });
+	assert.doesNotMatch(bat.html, /<video|\/earth\/media\/loc\//, '省电档不出短片');
+	assert.match(bat.html, /<div class="hero has-media"><img src="\/earth\/cgi\/perth\.webp"/, '省电档还是高清图');
+	assert.equal(bat.root.contains('calm'), true, '省电档动画从简');
+
+	const dat = await heroUnder({ visual: 'data' });
+	assert.doesNotMatch(dat.html, /<video|\/earth\/media\/loc\//, '省流量档不出短片');
+	assert.match(dat.html, /<div class="hero has-media"><img src="\/earth\/cgi\/1x\/perth\.webp"/, '省流量档换 1 倍图');
+	assert.doesNotMatch(dat.html, /src="\/earth\/cgi\/(?!1x\/)/, '省流量档页面上没有一张 2 倍图');
+	assert.deepEqual(dat.fetched.filter((u) => /openfreemap|maplibre|\.pbf|\/earth\/media\/loc\//.test(u)), [], '省流量档没有底图、短片请求');
+	assert.ok(dat.fetched.includes('/earth/cgi/manifest.json'), '（对照）请求确实被记下了');
+	assert.equal(dat.root.contains('calm'), true);
+
+	// 动画明确设成「正常」：听玩家的，省电档也不减少动画；但短片照样不放
+	const full = await heroUnder({ visual: 'battery', motion: 'full' });
+	assert.equal(full.root.contains('calm'), false, '动画设成「正常」时不被画面档覆盖');
+	assert.doesNotMatch(full.html, /<video/);
+});
+
+test('界面：画面设置（P3）——默认「跟随系统」：系统开了省流量就按省流量档；没开就按标准档', async () => {
+	const sys = await heroUnder(null, true);
+	assert.match(sys.html, /<img src="\/earth\/cgi\/1x\/perth\.webp"/, '系统省流量 → 1 倍图');
+	assert.doesNotMatch(sys.html, /<video/, '系统省流量 → 不放短片');
+	const plain = await heroUnder(null, false);
+	assert.match(plain.html, /<video class="loc-clip"/, '系统没开省流量 → 标准档');
+	// 玩家手动选了标准档：系统省流量也不改
+	const pinned = await heroUnder({ visual: 'standard' }, true);
+	assert.match(pinned.html, /<video class="loc-clip"/, '手动选的档位优先');
+});
+
+test('界面：画面设置（P3）——设置页四个选项、说明跟着档位换；暂停了的环境音、真实地图在开关旁边写明；不认识的值不改', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'p3-settings', '设置');
+	let before = '', after = '';
+	const r = await openWithHash('', a, world, true, {
+		extra: { 'earth.prefs.v1': JSON.stringify({ ambience: true }) },
+		after: async ({ click, el }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'sync' });
+			before = el('panel').innerHTML;
+			await click({ pref: 'visual', val: 'data' });
+			after = el('panel').innerHTML;
+			await click({ pref: 'visual', val: 'ultra' });
+		},
+	});
+	for (const v of ['auto', 'standard', 'battery', 'data']) assert.match(before, new RegExp(`data-pref="visual" data-val="${v}"`), v);
+	assert.match(before, /data-pref="visual" data-val="auto" class="on" aria-pressed="true">跟随系统/, '默认跟随系统');
+	assert.match(before, /短片自动播放、真实地图、全部动画、高清配图。/, '没有系统信号时按标准档说明');
+	assert.doesNotMatch(before, /档下暂停/, '标准档什么都不暂停');
+	assert.match(after, /data-pref="visual" data-val="data" class="on" aria-pressed="true">省流量/);
+	assert.match(after, /不放短片、不下真实地图/);
+	assert.match(after, /环境音[\s\S]*?（「省流量」档下暂停）[\s\S]*?data-pref="ambience" aria-pressed="true"/, '环境音开关保持打开，旁边写明暂停');
+	assert.match(after, /真实地图<small>[^<]*（「省流量」档下暂停）/, '真实地图写明暂停');
+	assert.equal(JSON.parse(r.store.get('earth.prefs.v1')!).visual, 'data', '存进本机，不认识的值不改');
+	assert.deepEqual(a11yIssues(after), []);
+});
+
+test('界面：画面设置（P3）——省电档不放环境音和音乐，开关不动；换回标准档马上放', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'p3-audio', '省电');
+	const { Ctx, log } = fakeWebAudio();
+	const r = await openWithHash('', a, world, true, {
+		audio: Ctx,
+		extra: { 'earth.prefs.v1': JSON.stringify({ ambience: true, music: true, visual: 'battery' }) },
+		after: async ({ click }) => {
+			await click({ tab: 'me' });
+			for (let i = 0; i < 10; i++) await pause(10);
+			assert.equal(log.srcStarted, 0, '省电档：环境音不放');
+			assert.ok(!log.oscs.some((f) => f > 80 && f < 1200), '省电档：音乐不放');
+			await click({ metab: 'sync' });
+			await click({ pref: 'visual', val: 'standard' });
+			for (let i = 0; i < 20 && log.srcStarted === 0; i++) await pause(10);
+			assert.ok(log.srcStarted >= 1, '换回标准档：环境音开始放');
+		},
+	});
+	const saved = JSON.parse(r.store.get('earth.prefs.v1')!);
+	assert.equal(saved.ambience, true, '画面档不改环境音开关');
+	assert.equal(saved.music, true);
+});
+
+test('界面：画面设置（P3 复核）——玩的时候系统打开省流量：「跟随系统」马上换到省流量档，重画当前页', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'p3-follow', '跟随');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.loc = 'perth';
+	data.set('save:' + a.cred.id, rec);
+	let before = '', after = '', calmAfter = false;
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		saveData: false,
+		media: { loc: { perth: { src: '/earth/media/loc/perth.mp4' } }, voice: {} },
+		cgi: { perth: '/earth/cgi/perth.webp' },
+		after: async ({ click, el }) => {
+			await click({ drawer: 'place' });
+			before = el('modal').innerHTML;
+			const c = (globalThis as any).navigator.connection;
+			assert.equal(typeof c.change, 'function', '页面注册了省流量变化的回调');
+			c.saveData = true;
+			c.change();
+			await pause(30);
+			after = el('modal').innerHTML + el('panel').innerHTML;
+			calmAfter = (globalThis as any).document.documentElement.classList.contains('calm');
+		},
+	});
+	assert.match(before, /<video class="loc-clip"/, '开始是标准档');
+	assert.doesNotMatch(after, /<video/, '换档后不放短片');
+	assert.match(after, /\/earth\/cgi\/1x\/perth\.webp/, '换档后用 1 倍图');
+	assert.equal(calmAfter, true, '换档后动画从简');
+});
+
+test('界面：画面设置（P3 复核）——从标准换到省电：正在放的环境音停下', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'p3-audio-down', '降档');
+	const { Ctx, log } = fakeWebAudio();
+	await openWithHash('', a, world, true, {
+		audio: Ctx,
+		extra: { 'earth.prefs.v1': JSON.stringify({ ambience: true, visual: 'standard' }) },
+		after: async ({ click }) => {
+			await click({ tab: 'me' });
+			for (let i = 0; i < 20 && log.srcStarted === 0; i++) await pause(10);
+			assert.ok(log.srcStarted >= 1, '标准档在放环境音');
+			await click({ metab: 'sync' });
+			await click({ pref: 'visual', val: 'battery' });
+			for (let i = 0; i < 20 && log.srcStopped < log.srcStarted; i++) await pause(10);
+			assert.equal(log.srcStopped, log.srcStarted, '换到省电档后环境音全停');
+		},
+	});
+});
+
+test('界面：画面设置（P3 复核）——跟随系统并且系统开了省流量：说明开头写原因和档名', async () => {
+	const { world } = makeWorld();
+	const a = await makeChar(world, 'p3-why', '原因');
+	let html = '';
+	await openWithHash('', a, world, true, {
+		saveData: true,
+		after: async ({ click, el }) => {
+			await click({ tab: 'me' });
+			await click({ metab: 'sync' });
+			html = el('panel').innerHTML;
+		},
+	});
+	assert.match(html, /data-pref="visual" data-val="auto" class="on" aria-pressed="true">跟随系统/);
+	assert.match(html, /<p class="muted" style="margin-top:4px">系统开了省流量，按「省流量」：不放短片、不下真实地图/, '写明按哪一档、为什么');
 });

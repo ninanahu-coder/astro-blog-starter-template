@@ -2,10 +2,16 @@
 // 设计见 docs/earth-game/travel.md。
 import { AWAY_DESTS, FARE_SEASONS, JETLAG_TZ, JOB_LEAVE_DAYS, PACKING, PACKING_REMINDERS, RETURN_EVENTS, RETURN_NEEDS, ROAD_TRIP_DRIVE_MIN_PER_DAY, TRIP_DAY_MIN, TRIP_DAYS, type AwayDest, type FareSeason, type TripFare, type TripKind } from '../data/trips.ts';
 import { EVENTS } from '../data/events.ts';
-import { addMoodlet, clone, fail, getLocation, log, passTime, roll, travelOptions } from './engine.ts';
+import { addMoodlet, awayTime, clone, fail, getLocation, log, roll, travelOptions } from './engine.ts';
+import { petTravelBlocked } from './pets.ts';
+import { PET } from '../data/pets.ts';
+import { bankWeekly } from './credit.ts';
+import { settleBiz } from './business.ts';
+import { currentIllness } from './health.ts';
+import { TAX_GAME } from '../data/tax.ts';
 import { costMult, getItem, weeklyCosts } from './attributes.ts';
 import { areaOf } from '../data/areas-base.ts';
-import { inSpan, dayOf } from './time.ts';
+import { inSpan, dayOf, YEAR_DAYS } from './time.ts';
 import { NEED_KEYS } from './types.ts';
 import type { ActionResult, PlayerState, Region, TravelMode } from './types.ts';
 
@@ -66,8 +72,11 @@ export interface AwayPreview {
 export function awayPreview(state: PlayerState, days: number, upfront: number): AwayPreview {
 	const returnClock = state.clock + days * TRIP_DAY_MIN;
 	const settlements = Math.max(0, Math.floor((dayOf(returnClock) - state.nextWeek) / 7) + 1);
-	const weeklyDue = weeklyCosts(state).total * settlements;
-	return { days, settlements, weeklyDue, loseJob: !!state.job && days > JOB_LEAVE_DAYS, short: state.cash - upfront < weeklyDue, returnClock };
+	// 合并 main 时复核：周结算还会扣银行的还款（信用卡最低还款、贷款、先买后付）、欠税的分期，第一次结算还会补交欠的罚款
+	const taxPlan = state.tax?.debt ? Math.min(state.tax.debt, Math.max(TAX_GAME.planMin, Math.ceil(state.tax.debt * TAX_GAME.planShare))) : 0;
+	const perWeek = weeklyCosts(state).total + (state.bank ? bankWeekly(state.bank) : 0) + taxPlan;
+	const weeklyDue = perWeek * settlements + (settlements ? state.law?.owed ?? 0 : 0);
+	return { days, settlements, weeklyDue, loseJob: leaveLeft(state) < days, short: state.cash - upfront < weeklyDue, returnClock };
 }
 
 export interface TripOption {
@@ -87,13 +96,41 @@ export function tripOptions(state: PlayerState): TripOption[] {
 		if (!fare) continue;
 		const price = tripFare(state, fare, dest.kind);
 		const packing = packingCost(state, dest.kind);
+		const ill = currentIllness(state);
 		const blocked = state.pending ? '先处理眼前的事件'
 			: state.clockIn ? '还在上班（先打下班卡）'
+			: ill ? `${ill.def.name}还没好，先养病再出远门` // 合并 main 时复核：原来飞走就能躲过生病
 			: state.cash < price + packing ? '现金不够买机票'
 			: undefined;
 		out.push({ dest, fare, price, packing, ...(blocked ? { blocked } : {}) });
 	}
 	return out;
+}
+
+/** 今年（游戏一年 YEAR_DAYS 天）还能请几天假：老板能等的天数按年累计（合并 main 时复核：原来每趟单算，连着走几趟 7 天永远不丢工作） */
+export function leaveLeft(state: PlayerState): number {
+	if (!state.job) return Infinity;
+	const y = Math.floor(dayOf(state.clock) / YEAR_DAYS);
+	const used = state.job.leave && state.job.leave.y === y ? state.job.leave.d : 0;
+	return Math.max(0, JOB_LEAVE_DAYS - used);
+}
+
+/**
+ * 离开 days 天才看得出来的限制（合并 main 后）：
+ * - 宠物（main 的宠物系统）：不能带上飞机；要寄养，而且寄养要付到回来那天；
+ * - 签证（main 的签证路线）：回国再入境要签证有效。签证已过期，或者在回来之前到期，出境后就回不来。永居、没有签证记录的出身不受影响。
+ * 能去返回 undefined
+ */
+export function tripDaysBlocked(state: PlayerState, kind: TripKind, days: number): string | undefined {
+	const back = dayOf(state.clock + days * TRIP_DAY_MIN);
+	const pet = state.pet;
+	if (pet && days > PET.boardMaxDays) return `${pet.name}最多只能寄养 ${PET.boardMaxDays} 天，带着宠物最长离开 ${PET.boardMaxDays} 天`;
+	if (pet && !pet.board) return petTravelBlocked(state, state.loc, 'air');
+	if (pet?.board && pet.board.until < back) return `${pet.name}的寄养只付到第 ${pet.board.until + 1} 天，要续到你回来那天`;
+	const v = state.visa;
+	if (kind === 'home' && v && v.kind === 'expired') return '签证已经过期，出境后回不来';
+	if (kind === 'home' && v && v.until >= 0 && v.until < back) return `签证第 ${v.until + 1} 天到期，在你回来之前，出境后回不来`;
+	return undefined;
 }
 
 /** 回来时按顺序看事件规则，第一个满足条件且掷骰过了的触发 */
@@ -120,17 +157,29 @@ export function takeTrip(prev: PlayerState, region: Region, destId: string, days
 	const opt = tripOptions(prev).find((o) => o.dest.id === destId);
 	if (!opt) return fail(prev, `要先到有直飞${dest.name}航线的机场。`);
 	if (opt.blocked) return fail(prev, `${opt.blocked}。`);
+	const why = tripDaysBlocked(prev, dest.kind, days);
+	if (why) return fail(prev, `${why}。`);
 	const state = clone(prev);
 	const here = getLocation(region, state.loc)?.name ?? '';
 	state.cash -= opt.price + opt.packing;
 	log(state, `从${here}出发去${dest.name}，机票 $${opt.price}${opt.packing ? `，在当地补买没带的东西 $${opt.packing}` : ''}，要离开 ${days} 天。`);
 	let lostJob = false;
-	if (state.job && days > JOB_LEAVE_DAYS) {
+	if (state.job && days > leaveLeft(state)) {
 		state.job = null;
 		lostJob = true;
+	} else if (state.job) {
+		const y = Math.floor(dayOf(state.clock) / YEAR_DAYS);
+		const used = state.job.leave && state.job.leave.y === y ? state.job.leave.d : 0;
+		state.job.leave = { y, d: used + days };
 	}
-	passTime(state, days * TRIP_DAY_MIN, region);
-	if (lostJob) log(state, `请了 ${days} 天假，超过了老板能等的 ${JOB_LEAVE_DAYS} 天，工作没了。`);
+	// 合并 main 时复核：一天一天往前走——每天先结算自己店里的生意，再过这一天（跨过结算日就交房租、还贷款、报税）。
+	// 原来一次跳过整段，房租和还款都先扣、店里的收入最后才进账；涨租、财年交界也按回来那天算
+	for (let i = 0; i < days; i++) {
+		const biz = settleBiz(state, region).trim();
+		if (biz) log(state, biz);
+		awayTime(state, TRIP_DAY_MIN, region);
+	}
+	if (lostJob) log(state, `今年请的假超过了老板能等的 ${JOB_LEAVE_DAYS} 天，工作没了。`);
 	for (const k of NEED_KEYS) state.needs[k] = RETURN_NEEDS[dest.kind][k];
 	addMoodlet(state, dest.kind === 'home' ? 'family-time' : 'trip-glow');
 	if (Math.abs(opt.fare.tz) >= JETLAG_TZ) addMoodlet(state, 'jetlag');
@@ -172,7 +221,7 @@ export function planRoadTrip(state: PlayerState, region: Region, days: number, i
 	const plan: RoadTripPlan = { stops: [], km: 0, minutes: 0, cost: 0 };
 	for (let guard = 0; guard < 50; guard++) {
 		const opts = travelOptions(sim, region).filter((o) =>
-			o.available && o.mode !== 'air' && !used.has(o.to)
+			o.available && (o.mode === 'road' || o.mode === 'track' || o.mode === 'ferry') && !used.has(o.to) && !petTravelBlocked(state, o.to, o.mode)
 			&& (interstate || areaOf(o.to)?.id === homeArea)
 			&& plan.minutes + o.minutes <= budget);
 		if (!opts.length) break;
