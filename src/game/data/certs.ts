@@ -9,5 +9,8 @@ export const CERTS: CertDef[] = [
 	{ id: 'wilderness-first-aid', name: '野外急救证', career: 'guide', price: 300, minutes: 480, payBonus: 0.15, where: { kinds: ['city', 'park'] }, hours: [8, 12], desc: '远离医院时怎么处理骨折、中暑、蛇咬。' },
 	{ id: 'mine-induction', name: '矿山安全入职证', career: 'miner', price: 350, minutes: 480, payBonus: 0.15, where: { kinds: ['mining', 'city'] }, hours: [7, 11], desc: '矿区安全规程、个人防护、紧急撤离。' },
 	{ id: 'hr-licence', name: '重型卡车驾照', career: 'trucker', price: 600, minutes: 480, payBonus: 0.15, where: { kinds: ['city', 'mining'] }, hours: [7, 11], desc: '学会开带拖挂的大货车，能接更远的单。' },
+	// 第 33 批新增：既是入行门槛（careers.ts 的 req.certs），也给对口职业加薪。价格参照现实（出处见 education-career.md 第 2 节）按约 0.8 倍取整，待平衡
+	{ id: 'white-card', name: 'White Card 建筑安全卡', career: 'builder', price: 35, minutes: 450, payBonus: 0.1, where: { kinds: ['city', 'town', 'mining'] }, hours: [7, 9], desc: '工地入场资格（CPCWHS1001）。' },
+	{ id: 'first-aid', name: '急救证（HLTAID011）', career: 'carer', price: 145, minutes: 480, payBonus: 0.1, where: { kinds: ['city', 'town'] }, hours: [8, 10], desc: '心肺复苏、止血，护理业入行门槛。' },
 	{ id: 'tractor-ticket', name: '农机操作证', career: 'farmhand', price: 220, minutes: 360, payBonus: 0.15, where: { kinds: ['outback', 'town'], tags: ['wine'] }, hours: [7, 13], desc: '拖拉机、叉车、喷药机的安全操作。' },
 ];

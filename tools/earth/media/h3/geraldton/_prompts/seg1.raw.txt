@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Photorealistic dramatic seaside landscape at sunset, a red-and-white striped lighthouse on a grassy headland beside a curving path, a turquoise ocean with breaking waves and towering clouds. The camera holds a locked-off static wide shot. Waves roll in from the right and break in white spray against the rocks throughout the shot, the towering clouds drift slowly to the right, and the coastal grasses in the foreground bend in the wind. The lighthouse and the distant buildings stay still. A continuous smooth motion from the first frame to the last frame; the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.
+
+overall_soundscape: Strong surf crashing on rocks and a steady sea wind; spray hissing on the rocks
+
+non_diegetic_music: N/A

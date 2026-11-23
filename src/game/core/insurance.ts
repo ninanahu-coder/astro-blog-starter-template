@@ -1,6 +1,6 @@
 // 保险：保单生效判断、保费、理赔核算、存档清洗。纯函数，只依赖数据表；设计见 docs/earth-game/insurance.md。
 // 改状态的只有 settleLoss（改调用方已经 clone 过的 state，和引擎里的结算函数一样）。
-import { CLAIM_LOADING, CLAIM_WINDOW, CLAIMS_MAX, COVER_AHEAD_MAX, getPolicy, LOSS_LABEL, POLICIES, START_COVER, type PolicyDef } from '../data/insurance.ts';
+import { CLAIM_LOADING, CLAIM_WINDOW, CLAIMS_MAX, COVER_AHEAD_MAX, getPolicy, LOSS_LABEL, POLICIES, type PolicyDef } from '../data/insurance.ts';
 import { VEHICLES } from '../data/vehicles.ts';
 import type { Cover, Loss, PlayerState } from './types.ts';
 
@@ -83,13 +83,6 @@ export function settleLoss(state: PlayerState, loss: Loss, day: number, carValue
 		text = `${what} $${r.youPay}：没有对口的保险，全部自己付。`;
 	}
 	return { ...r, text };
-}
-
-/** 开局自带的保单 */
-export function startCover(originId: string, day: number): Record<string, Cover> {
-	const out: Record<string, Cover> = {};
-	for (const s of START_COVER[originId] ?? []) if (getPolicy(s.id)) out[s.id] = { from: day, until: day + s.days, claims: [] };
-	return out;
 }
 
 /**

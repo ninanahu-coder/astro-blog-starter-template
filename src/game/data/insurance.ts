@@ -48,13 +48,8 @@ export const POLICIES: PolicyDef[] = [
 		source: 'CHOICE：西澳家财险最便宜的平均年保费 $273；免赔额未查',
 	},
 	{
-		id: 'health', name: '健康险（OSHC/OVHC）', icon: '🩺', days: 28, premium: 50, excess: 0, covers: ['medical'], wait: 0,
-		desc: '住院和看急诊的账单由保险付。留学生签证规定在澳期间必须一直有 OSHC。',
-		source: '学生签证条件 8501（Home Affairs）；OSHC 单人年保费约 $600–$800（比价网站，互相有出入）',
-	},
-	{
 		id: 'travel', name: '国内旅行险', icon: '🧳', days: 7, premium: 90, excess: 250, covers: ['luggage'], wait: 0,
-		desc: '一周有效：路上行李被偷、托运丢失由保险赔。不管看病（看病归健康险）。',
+		desc: '一周有效：路上行李被偷、托运丢失由保险赔。不管看病（看病的保障跟签证走，见健康卡）。',
 		source: 'CHOICE：国内旅行险单人 7 天平均 $90（2025-10-31 更新）；免赔额未查',
 	},
 ];
@@ -69,7 +64,6 @@ export const LOSS_LABEL: Record<LossKind, string> = {
 	'car-storm': '车被风暴砸坏',
 	'contents-theft': '住处被盗',
 	'contents-storm': '住处被风暴泡坏',
-	medical: '医药费',
 	luggage: '行李丢失',
 };
 
@@ -83,8 +77,3 @@ export const CLAIM_WINDOW = 365;
 export const CLAIMS_MAX = 10;
 /** 保单到期日最多能续到今天之后多少天（存档上限，也防止一次刷满几年） */
 export const COVER_AHEAD_MAX = 400;
-
-/** 开局自带的保单（出身 id -> 保单和天数）。留学生入境前就要买好覆盖整个签证期的 OSHC，这里先给一年（待平衡） */
-export const START_COVER: Record<string, { id: string; days: number }[]> = {
-	student: [{ id: 'health', days: 365 }],
-};

@@ -7,7 +7,7 @@ import type { GameLocation, Region, Route } from '../core/types.ts';
 const L = (id: string, name: string, en: string, lat: number, lon: number, kind: GameLocation['kind'], tags: string[], radiusKm: number, blurb: string): GameLocation => ({ id, name, en, lat, lon, kind, tags, radiusKm, blurb });
 
 const locations: GameLocation[] = [
-	L('adelaide', '阿德莱德', 'Adelaide', -34.93, 138.6, 'city', ['airport', 'hospital', 'market', 'gym', 'pub'], 25, '南澳首府，城中心按棋盘格规划，四周一圈公园。'),
+	L('adelaide', '阿德莱德', 'Adelaide', -34.93, 138.6, 'city', ['airport', 'hospital', 'market', 'gym', 'pub', 'dealer'], 25, '南澳首府，城中心按棋盘格规划，四周一圈公园。'),
 	L('glenelg', '格莱内尔格', 'Glenelg', -34.98, 138.51, 'coast', ['beach', 'market', 'pub'], 10, '阿德莱德的海滨区，沙滩、码头和有轨电车。'),
 	L('hahndorf', '汉多夫', 'Hahndorf', -35.03, 138.81, 'town', ['pub', 'market'], 10, '阿德莱德山里的德国移民老镇。'),
 	L('barossa', '巴罗萨谷', 'Barossa Valley', -34.52, 138.96, 'town', ['wine', 'market', 'pub'], 15, '以塔南达镇为中心的著名葡萄酒产区。'),

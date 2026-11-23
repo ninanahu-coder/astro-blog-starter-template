@@ -18,10 +18,20 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'experience', name: '难忘的经历', icon: '🌟', value: 10, hours: 48 },
 	{ id: 'new-friend', name: '交了新朋友', icon: '🤝', value: 8, hours: 72 },
 	{ id: 'best-friend', name: '有了一位挚友', icon: '💛', value: 12, hours: 120 },
+	{ id: 'confidant', name: '有了一位知己', icon: '🫶', value: 10, hours: 120 }, // 第 29 批，待平衡
+	{ id: 'heart-to-heart', name: '说了会儿心里话', icon: '🍵', value: 5, hours: 24 }, // 第 29 批，待平衡
 	{ id: 'gift-loved', name: '礼物送到了心坎上', icon: '🎁', value: 4, hours: 8 },
 	{ id: 'warm-moment', name: '被人照顾了一下', icon: '☕', value: 4, hours: 12 },
 	{ id: 'promoted', name: '升职了', icon: '📈', value: 12, hours: 72 },
+	{ id: 'vitamins', name: '吃了维生素', icon: '💊', value: 2, hours: 72, regen: 2 }, // 第 23 批，待平衡
 	{ id: 'new-home', name: '乔迁之喜', icon: '🏡', value: 10, hours: 72 },
+	{ id: 'pet-cuddle', name: '陪宠物玩了一会儿', icon: '🐾', value: 5, hours: 8 }, // v31 宠物，数值待平衡
+	{ id: 'dog-walk', name: '遛完狗神清气爽', icon: '🦮', value: 5, hours: 8 }, // v31 宠物，数值待平衡
+	{ id: 'new-pet', name: '家里多了一位成员', icon: '🏠', value: 10, hours: 72 }, // v31 宠物，数值待平衡
+	// 做饭分支新增（数值待平衡）
+	{ id: 'home-cooked', name: '吃上了自己做的饭', icon: '🍳', value: 5, hours: 8 },
+	{ id: 'taste-of-home', name: '家乡的味道', icon: '🥢', value: 6, hours: 12 },
+	{ id: 'hosted', name: '请朋友吃了顿饭', icon: '🍽️', value: 8, hours: 24 },
 	// 负面
 	{ id: 'rough-night', name: '没睡好', icon: '🥱', value: -2, hours: 8 }, // 第七轮起露营改给 camp-calm；保留定义，旧存档里的状态照常显示到过期
 	{ id: 'camp-calm', name: '星空下醒来', icon: '🌌', value: 10, hours: 24 }, // 露营专属（第七轮平衡：替代「没睡好」，托住穷角色的心情）
@@ -29,6 +39,8 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'sore', name: '肌肉酸痛', icon: '🦵', value: -3, hours: 12 },
 	{ id: 'hurt', name: '受了点伤', icon: '🩹', value: -6, hours: 24 },
 	{ id: 'in-trouble', name: '惹上了麻烦', icon: '😬', value: -6, hours: 24 },
+	{ id: 'sick-mild', name: '身体不太舒服', icon: '🤧', value: -5, hours: 96 }, // 感冒、扭伤（第 1 版健康系统，待平衡）；时长跟病程走，见 core/health.ts
+	{ id: 'sick-bad', name: '病得难受', icon: '🤒', value: -10, hours: 120 }, // 流感、肠胃炎、热衰竭（待平衡）
 	{ id: 'collapsed', name: '刚从医院出来', icon: '🏥', value: -12, hours: 48 },
 	{ id: 'evicted', name: '被赶出了家门', icon: '📦', value: -15, hours: 72 },
 ];
