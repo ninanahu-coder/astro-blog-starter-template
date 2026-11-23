@@ -1,7 +1,7 @@
 // 派生属性：全部由 PlayerState 现算，不落盘，避免存档里出现互相矛盾的冗余字段。
 // 引擎所有涉及特质 / 物品 / 心情的数值都走这里，调参只改这一个文件和 data/。
 import { ITEMS } from '../data/items.ts';
-import { faultComfort, rentDue } from './rental.ts';
+import { faultComfort, paidAhead, rentDue } from './rental.ts';
 import { TRAITS } from '../data/traits.ts';
 import { HOMES } from '../data/housing.ts';
 import { FURNITURE, FURNITURE_SETS } from '../data/furniture.ts';
@@ -62,6 +62,8 @@ export interface WeeklyCosts {
 	vehicle: number;
 	property: number; // 物业费 + 还款
 	total: number;
+	/** 下一次结算用签约预收抵掉的房租（第十轮平衡）；之后的结算不再有，按 rent + ahead 算 */
+	ahead: number;
 }
 
 /** 下一次周结算按哪天的世界行情算：就是下一个结算日（weeklyTick、settleProperties 结算时用的那天）。结算日已过还没结算时取今天 */
@@ -72,13 +74,15 @@ export const settleDay = (state: PlayerState) => Math.max(dayOf(state.clock), st
 export function weeklyCosts(state: PlayerState): WeeklyCosts {
 	const day = settleDay(state);
 	const def = state.home && !state.home.owned ? HOMES.find((h) => h.id === state.home!.type) : undefined;
-	const rent = def ? flatRentDue(state, rentDue(state, def, day)) : 0; // 有租约按租约房租（租房市场），没有按租金指数（世界事件）；再按合租分摊、扣转租收入（flatmates.md）
+	const owed = def ? flatRentDue(state, rentDue(state, def, day)) : 0; // 有租约按租约房租（租房市场），没有按租金指数（世界事件）；再按合租分摊、扣转租收入（flatmates.md）
+	const ahead = Math.min(owed, def ? paidAhead(state) : 0); // 签约预收的这周房租，结算时先抵扣（engine weeklyTick），和实际扣的一致
+	const rent = owed - ahead;
 	const vehicle = VEHICLES.find((v) => v.id === state.vehicle)?.weekly ?? 0;
 	const property = state.properties.reduce((sum, p) => {
 		const def = PROPERTIES.find((d) => d.id === p.id);
 		return sum + (def ? propertyDue(def, p, loanRateMult(day)) : 0); // 世界事件：利率
 	}, 0);
-	return { rent, vehicle, property, total: rent + vehicle + property };
+	return { rent, vehicle, property, total: rent + vehicle + property, ahead };
 }
 
 // ---------- 心情 ----------

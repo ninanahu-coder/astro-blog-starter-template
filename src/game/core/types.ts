@@ -212,6 +212,7 @@ export interface Lease {
 	prior: number; // 入住时原有损坏 0–100
 	wear: number; // 租住期间造成的损坏 0–100
 	fault: { urgent: boolean; name: string; since: number; asked: number } | null; // 没修好的故障；asked 是报修日，−1 没报
+	paidAhead?: number; // 签约时预收的下一整周房租，第一个结算日抵扣后去掉（第十轮平衡：新租约首周不再被突然扣一整周）
 }
 
 /** 租房市场的个人记录（跟人走） */

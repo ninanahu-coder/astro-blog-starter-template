@@ -94,12 +94,18 @@ test('上班：到手 = 工资 − 预扣，税前工资和预扣记进本财年
 });
 
 test('零工与街头表演：临时工预扣；街头表演没 ABN 是爱好不计税，有 ABN 多挣且记生意收入；捡瓶子不是收入', () => {
-	const base = withTfn(make('student', { clock: at(10), needs: { hunger: 95, energy: 95, hygiene: 90, fun: 80, social: 80 } }));
+	// 打工度假从第一块钱起按 15% 预扣（第十轮税档 ×0.46 后，居民单班咖啡店折年低于免税额 + LITO，预扣为 0）
+	const base = withTfn(make('backpacker', { clock: at(10), needs: { hunger: 95, energy: 95, hygiene: 90, fun: 80, social: 80 } }));
 	const cafe = applyAction(base, WA, { t: 'activity', id: 'work-cafe' });
 	assert.ok(cafe.ok, cafe.msg);
 	const gross = ACTIVITIES.find((a) => a.id === 'work-cafe')!.fx.cash!;
 	assert.equal(cafe.state.tax.book.wages, gross);
 	assert.ok(cafe.state.tax.book.withheld > 0, '临时工也预扣');
+	const res = withTfn(make('student', { clock: at(10), needs: { hunger: 95, energy: 95, hygiene: 90, fun: 80, social: 80 } }));
+	const resCafe = applyAction(res, WA, { t: 'activity', id: 'work-cafe' });
+	assert.ok(resCafe.ok, resCafe.msg);
+	assert.equal(resCafe.state.tax.book.withheld, 0, '居民单班低收入折年在免税额内，不预扣');
+	assert.equal(resCafe.state.tax.book.withheld, withholding(res, gross));
 	assert.equal(cafe.state.tax.book.withheld, withholding(base, gross));
 	assert.equal(cafe.state.cash, base.cash + gross - cafe.state.tax.book.withheld);
 
@@ -164,7 +170,7 @@ test('报税：退税入账、补税扣钱，付不起的进分期；要有 TFN�
 	assert.deepEqual(r1.state.tax.last, { fy: 1, due: p.due, penalty: 0 });
 	assert.equal(lodgeReturn(r1.state).ok, false, '报过了不能再报');
 
-	const owe = { ...refund, tax: { ...refund.tax, ret: { fy: 1, ...book({ wages: 9000, withheld: 0 }) } } };
+	const owe = { ...refund, tax: { ...refund.tax, ret: { fy: 1, ...book({ wages: 18000, withheld: 0 }) } } };
 	const due = returnPreview(owe)!.due;
 	const r2 = lodgeReturn({ ...owe, cash: 100 });
 	assert.equal(r2.state.cash, 0);
@@ -188,7 +194,7 @@ test('逾期：报税期过后要补税的按逾期天数罚款（有上限）�
 	assert.equal(latePenalty(1, end + 1000, 500), TAX_GAME.lateMaxUnits * TAX_GAME.lateUnit);
 	assert.equal(latePenalty(1, end + 50, -500), 0, '退税的不罚');
 	assert.equal(latePenalty(1, end + 50, 0), 0);
-	const s = withTfn(make('fifo', { clock: at(10, end + 1), cash: 1e6 }), { fy: 2, ret: { fy: 1, ...book({ wages: 9000 }) } });
+	const s = withTfn(make('fifo', { clock: at(10, end + 1), cash: 1e6 }), { fy: 2, ret: { fy: 1, ...book({ wages: 18000 }) } });
 	const p = returnPreview(s)!;
 	assert.ok(p.late && p.penalty === TAX_GAME.lateUnit);
 	assert.equal(lodgeReturn(s).state.cash, 1e6 - p.due - p.penalty);
@@ -207,7 +213,7 @@ test('一直不报：下一个财年结转时 ATO 默认评税；没有 TFN 多�
 	const paid = structuredClone(mk(0, book({ wages: 1000, withheld: 470 })));
 	taxTick(paid);
 	assert.ok(paid.cash > 1000, '有 TFN 的照样退');
-	const owe = structuredClone(mk(0, book({ wages: 9000 })));
+	const owe = structuredClone(mk(0, book({ wages: 18000 })));
 	const due = returnPreview(owe)!;
 	taxTick(owe);
 	assert.ok(owe.cash <= 1000 - Math.min(1000, due.due), '默认评税补税加罚款');

@@ -86,7 +86,7 @@ test('自住：不交房租，只交物业费；可以添家具、回家睡觉',
 	assert.ok(moved.ok);
 	s = moved.state;
 	assert.deepEqual(s.home, { type: 'flat', loc: 'perth', furniture: {}, owned: flat.id });
-	assert.deepEqual(weeklyCosts(s), { rent: 0, vehicle: 0, property: 36, total: 36 });
+	assert.deepEqual(weeklyCosts(s), { rent: 0, vehicle: 0, property: 36, total: 36, ahead: 0 });
 	assert.equal(moveIntoProperty(s, flat.id).ok, false, '已经住在这里');
 	s = buyFurniture(s, WA, 'mattress').state;
 	assert.ok(sleepHome({ ...s, needs: { ...s.needs, energy: 5 } }, WA).ok);

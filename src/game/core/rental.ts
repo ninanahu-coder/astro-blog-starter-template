@@ -221,6 +221,11 @@ export const leaseMatches = (state: PlayerState) => {
 	return !!l && !!state.home && !state.home.owned && l.home === state.home.type && l.loc === state.home.loc;
 };
 
+/** 现租约里签约时预收、还没抵扣的房租（第十轮平衡：签约预收下一整周，第一个结算日抵扣） */
+export function paidAhead(state: PlayerState): number {
+	return leaseMatches(state) ? state.rental.lease!.paidAhead ?? 0 : 0;
+}
+
 /**
  * 现在搬走，押金怎么分（判断换房钱够不够、实际退房结算共用）。arrears 是先扣的欠租。
  * 违约金先从押金扣，不够的从现金扣（extra）；剩下的押金里，房东按损坏申请扣的 held 留在托管机构，其余 refund 马上退。
@@ -272,7 +277,7 @@ const legacyLease = (def: HomeDef, loc: string, today: number): Lease => ({
 	home: def.id, loc, start: today, end: 0, rent: rentOn(def.rentWeek, today), lastRise: today, rise: null, report: 1, prior: 0, wear: 0, fault: null,
 });
 
-function cleanLease(raw: unknown, home: { type: string; loc: string; owned?: string } | null, today: number): Lease | null {
+function cleanLease(raw: unknown, home: { type: string; loc: string; owned?: string } | null, today: number, lastDue = today - 7): Lease | null {
 	const def = home && !home.owned ? HOMES.find((h) => h.id === home.type) : undefined;
 	if (!home || !def || !needsLease(def)) return null;
 	if (!isObj(raw) || own(raw, 'home') !== home.type || own(raw, 'loc') !== home.loc) return legacyLease(def, home.loc, today);
@@ -287,6 +292,7 @@ function cleanLease(raw: unknown, home: { type: string; loc: string; owned?: str
 	const name = own(f, 'name');
 	const since = int(own(f, 'since'), 0, today, -1);
 	const report = own(raw, 'report');
+	const ahead = start > lastDue ? int(own(raw, 'paidAhead'), 0, rent * 2, 0) : 0; // 只在签约后第一个结算日前有效：签约之后还没结算过（lastDue 是上一个结算日）
 	return {
 		home: def.id, loc: home.loc, start, end: endRaw > start ? endRaw : 0, rent, lastRise,
 		rise: at >= 0 && to > rent ? { at, to } : null, // 不涨的通知没有意义，作废
@@ -296,6 +302,7 @@ function cleanLease(raw: unknown, home: { type: string; loc: string; owned?: str
 		fault: typeof name === 'string' && FAULT_NAMES.has(name) && since >= 0
 			? { urgent: own(f, 'urgent') === true, name, since, asked: int(own(f, 'asked'), -1, today, -1) < since ? -1 : int(own(f, 'asked'), -1, today, -1) }
 			: null,
+		...(ahead ? { paidAhead: ahead } : {}),
 	};
 }
 
@@ -303,9 +310,9 @@ function cleanLease(raw: unknown, home: { type: string; loc: string; owned?: str
  * 清洗存档里的 rental：旧存档没有给默认值；租约必须对上清洗后的住处；记录、日期、金额都钳住。幂等，对任何输入不抛异常。
  * home 是清洗后的 state.home，today 是存档时钟所在的游戏日。
  */
-export function cleanRental(raw: unknown, home: { type: string; loc: string; owned?: string } | null, today: number, knownLocs?: Set<string>): RentalState {
+export function cleanRental(raw: unknown, home: { type: string; loc: string; owned?: string } | null, today: number, knownLocs?: Set<string>, lastDue?: number): RentalState {
 	const out = emptyRental();
-	out.lease = cleanLease(own(raw, 'lease'), home, today);
+	out.lease = cleanLease(own(raw, 'lease'), home, today, lastDue);
 	if (!isObj(raw)) return out;
 	out.refs = int(own(raw, 'refs'), 0, RENTAL.recordMax, 0);
 	out.marks = int(own(raw, 'marks'), 0, RENTAL.recordMax, 0);

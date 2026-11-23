@@ -213,6 +213,11 @@ test('工作：请假不超过上限保留，超过就丢', () => {
 	assert.ok(lost.ok);
 	assert.equal(lost.state.job, null);
 	assert.match(lost.msg, /工作已经没了/);
+	// 第十轮平衡定口径：可保留工作的请假（不带薪）
+	assert.ok(kept.state.journal.some((l) => /请假 7 天，工作保留；这几天不上班没有工资，今年可保留工作的请假还剩 2 天/.test(l.text)), '保留工作时写明不带薪和剩余天数');
+	assert.ok(lost.state.journal.some((l) => /可保留工作的请假（不带薪）累计超过 9 天/.test(l.text)));
+	assert.equal(awayPreview(kept.state, 3, 0).leaveLeft, 2);
+	assert.equal(awayPreview(mk({}), 3, 0).leaveLeft, Infinity, '没工作不限');
 	assert.ok(lost.state.journal.some((j) => j.text.includes('工作没了')));
 });
 

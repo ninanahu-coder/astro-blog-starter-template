@@ -275,6 +275,12 @@ export interface SanitizeOpts {
 	now?: number;
 }
 
+/** 存档里的下一个结算日：旧存档没有 nextWeek 就沿用旧的房租到期日，否则从今天起算一周；钳在今天 ±7 天 */
+function cleanNextWeek(r: any): number {
+	const today = Math.floor(num(r.clock, 0, 1e9, START_CLOCK) / 1440);
+	const raw = typeof r.nextWeek === 'number' ? r.nextWeek : typeof r.home?.paidUntil === 'number' ? r.home.paidUntil : today + 7;
+	return Math.floor(num(raw, today - 7, today + 7, today + 7));
+}
 export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: SanitizeOpts = {}): PlayerState | null {
 	// 先认格式版本：旧版本按迁移表升上来，比这版代码新的尽量读（规范见 save.ts、docs/earth-game/save-sync.md §5）
 	const r0 = migrateSave(raw) as Record<string, any> | null;
@@ -342,7 +348,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		flatshare: cleanFlatshare(r.flatshare, cleanEstate(r, knownLocs).home, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440)), // 对不上现在住处的室友记录清空（合并 main 时复核）
 		bank: cleanBank(r.bank, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), Array.isArray(r.properties) && r.properties.some((p: any) => p && typeof p.loan === 'number' && p.loan > 0), new Set(VEHICLES.map((v) => v.id)), new Set(FURNITURE.map((f) => f.id))),
 		tax: cleanTax(r.tax, num(r.clock, 0, CAPS.clock, START_CLOCK)),
-		rental: cleanRental(r.rental, cleanEstate(r, knownLocs).home, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), knownLocs),
+		rental: cleanRental(r.rental, cleanEstate(r, knownLocs).home, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), knownLocs, cleanNextWeek(r) - 7), // 上一个结算日（和下面存下的 nextWeek 同一个值）：判断签约预收的房租是否已抵扣
 		cover: cleanCover(r.cover, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440)),
 		holdings: (() => {
 			const out: Record<string, { units: number; cost: number }> = {};
@@ -367,12 +373,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		})(),
 		// 旧存档没有行情种子：用服务端的随机种子派生（同样不发给客户端）
 		marketSeed: typeof r.marketSeed === 'number' && Number.isInteger(r.marketSeed) && r.marketSeed >= 0 && r.marketSeed < 2 ** 32 ? r.marketSeed : deriveMarketSeed(num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0),
-		nextWeek: (() => {
-			// 旧存档没有 nextWeek：沿用旧的房租到期日，否则从今天起算一周
-			const today = Math.floor(num(r.clock, 0, 1e9, START_CLOCK) / 1440);
-			const raw = typeof r.nextWeek === 'number' ? r.nextWeek : typeof r.home?.paidUntil === 'number' ? r.home.paidUntil : today + 7;
-			return Math.floor(num(raw, today - 7, today + 7, today + 7));
-		})(),
+		nextWeek: cleanNextWeek(r),
 		moodlets: (() => {
 			// 只保留已知状态；失效时间不能早于现在、也不能超过该状态的最长时长
 			const clock = num(r.clock, 0, 1e9, START_CLOCK);
