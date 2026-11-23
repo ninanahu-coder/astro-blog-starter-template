@@ -18,17 +18,17 @@ export const FINANCE = {
 /** 贷款买房的首付金额 */
 export const downPayment = (def: PropertyDef) => Math.round(def.price * FINANCE.minDown);
 
-/** 本周利息 */
-export const weeklyInterest = (loan: number) => Math.round(loan * FINANCE.weeklyRate);
+/** 本周利息。rateMult：世界事件的利率系数（core/world.ts 的 loanRateMult），不传为 1 */
+export const weeklyInterest = (loan: number, rateMult = 1) => Math.round(loan * FINANCE.weeklyRate * rateMult);
 
 /** 本周应还本金（不超过剩余贷款） */
 export const weeklyPrincipal = (def: PropertyDef, loan: number) => Math.min(loan, Math.round(def.price * FINANCE.weeklyPrincipal));
 
 /** 本周还款额 = 利息 + 本金；没有贷款为 0 */
-export const loanPayment = (def: PropertyDef, loan: number) => (loan > 0 ? weeklyInterest(loan) + weeklyPrincipal(def, loan) : 0);
+export const loanPayment = (def: PropertyDef, loan: number, rateMult = 1) => (loan > 0 ? weeklyInterest(loan, rateMult) + weeklyPrincipal(def, loan) : 0);
 
 /** 一套房每周必须付的钱：物业费 + 还款 */
-export const propertyDue = (def: PropertyDef, owned: OwnedProperty) => def.weekly + loanPayment(def, owned.loan);
+export const propertyDue = (def: PropertyDef, owned: OwnedProperty, rateMult = 1) => def.weekly + loanPayment(def, owned.loan, rateMult);
 
 /** 还清贷款还要多少周（按固定本金估算） */
 export const weeksToPayOff = (def: PropertyDef, loan: number) => Math.ceil(loan / Math.max(1, Math.round(def.price * FINANCE.weeklyPrincipal)));
@@ -49,4 +49,24 @@ export const repairRange = (def: PropertyDef): [number, number] => [Math.round(d
 export function expectedYield(def: PropertyDef): number {
 	const repair = FINANCE.repairChance * ((FINANCE.repairMin + FINANCE.repairMax) / 2) * def.price;
 	return ((def.rentIncome * (1 - FINANCE.vacancy) - def.weekly - repair) * 52) / def.price;
+}
+
+// ---------- 车辆过户印花税（第 26 批） ----------
+/**
+ * 买车时按车价交的印花税，用的是真实公式（来源见 docs/earth-game/home-and-vehicle.md）；在游戏里收不收、按什么价收是游戏设定（待平衡）。
+ * - 西澳 vehicle licence duty（轻型车）：≤ $25,000 按 2.75%；$25,000–$50,000 按 R = 2.75 + (价 − 25,000) / 6,666.66（保留两位小数）%；> $50,000 按 6.5%
+ * - 南澳非商用车：≤ $1,000 每 $100（不足按 $100）$1、最低 $5；≤ $2,000 为 $10 + 超出部分每 $100 $2；≤ $3,000 为 $30 + 每 $100 $3；以上为 $60 + 每 $100 $4
+ * 其他区域按西澳算。结果取整到元。
+ */
+export function vehicleDuty(value: number, area: string): number {
+	const v = Math.max(0, value);
+	if (area === 'sa') {
+		const per100 = (over: number) => Math.ceil(over / 100);
+		if (v <= 1000) return Math.max(5, per100(v));
+		if (v <= 2000) return 10 + 2 * per100(v - 1000);
+		if (v <= 3000) return 30 + 3 * per100(v - 2000);
+		return 60 + 4 * per100(v - 3000);
+	}
+	const rate = v <= 25000 ? 2.75 : v <= 50000 ? Math.round((2.75 + (v - 25000) / 6666.66) * 100) / 100 : 6.5;
+	return Math.round((v * rate) / 100);
 }

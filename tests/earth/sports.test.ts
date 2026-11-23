@@ -14,6 +14,12 @@ import { CLUBS, RACES, SPORT_RULES as R, SPORTS, type RaceDef } from '../../src/
 import { VENUE_OPS } from '../../src/game/data/venues.ts';
 import { WORLD } from '../../src/game/data/wa.ts';
 import { sportsCard } from '../../src/game/ui/sports-card.ts';
+import { cancelReason, clubSessionBlocked, liveEntries, raceCancelled } from '../../src/game/core/sports.ts';
+import { petTravelBlocked } from '../../src/game/core/pets.ts';
+import { activityClosed } from '../../src/game/core/disasters.ts';
+import { HAZARDS } from '../../src/game/data/disasters.ts';
+import { actionCats } from '../../src/game/core/tally.ts';
+import { featureOf } from '../../src/game/server/stats.ts';
 
 const fresh = (origin = 'backpacker', seed = 42, loc = 'perth') =>
 	createCharacter({ id: 'test-player', name: '测试', avatar: '🧑', origin, region: 'wa', spawn: loc, seed });
@@ -435,4 +441,130 @@ test('页面卡片：有比赛时出现、按钮带 data-sport、文字经过 es
 	const farSoon = racesSoon(far, { ...WORLD, locations: WORLD.locations.filter((l) => l.id === 'kununurra') });
 	assert.equal(farSoon.length, 0);
 	assert.equal(sportsCard(far, { ...WORLD, locations: WORLD.locations.filter((l) => l.id === 'kununurra') }, esc), '');
+});
+
+// ---------- 合并 main 后：和健康、自然灾害、生涯统计、统计的接法 ----------
+const sick = (s: PlayerState, id = 'flu'): PlayerState => ({ ...s, illness: { id, since: s.clock, until: s.clock + 3 * 1440 } } as PlayerState);
+
+test('生病时不能比赛、不能上俱乐部训练课（合并 main 后）', () => {
+	const p5 = race('park-5k');
+	let day = 0;
+	while (weekdayOf(day * 1440) !== p5.weekday) day++;
+	const base = { ...at(strong(fresh()), day, 7, 'perth'), needs: { hunger: 90, energy: 90, hygiene: 90, fun: 90, social: 90 } };
+	assert.ok(runRace(base, WORLD, p5.id).ok, '没病能跑');
+	const r = runRace(sick(base), WORLD, p5.id);
+	assert.equal(r.ok, false);
+	assert.match(r.msg, /流感中/);
+	const club = CLUBS.find((c) => c.sport === 'run')!;
+	const member = { ...at(base, day, club.meet[0], club.loc), sport: { ...emptySport(), club: { id: club.id, until: day + 30, last: -1 } } };
+	assert.equal(clubSessionBlocked(member, WORLD), undefined);
+	assert.match(clubSessionBlocked(sick(member), WORLD)!, /流感中/);
+	assert.equal(clubSession(sick(member), WORLD).ok, false);
+});
+
+test('自然灾害让户外活动暂停时：跑步、骑车关；比赛取消（报过名的退费）；训练课停（合并 main 后）', () => {
+	// 收费的年度赛在比赛日都没碰上灾害（40 年内），用每周六的公园 5 公里：找一个举办地当天跑步被灾害关掉的周六
+	const p5 = race('park-5k');
+	let hit: { loc: string; day: number } | null = null;
+	for (let d = 0; d < 3650 && !hit; d++) {
+		if (weekdayOf(d * 1440) !== p5.weekday) continue;
+		for (const l of p5.locs.filter((x) => CLUBS.some((c) => c.sport === 'run' && c.loc === x))) {
+			const loc = WORLD.locations.find((x) => x.id === l)!;
+			if (activityClosed(loc, d, 'jog')) { hit = { loc: l, day: d }; break; }
+		}
+	}
+	assert.ok(hit, '十年里有跑团的举办地总有碰上灾害的周六');
+	const { loc, day } = hit!;
+	const where = WORLD.locations.find((x) => x.id === loc)!;
+	assert.ok(activityClosed(where, day, 'cycle') && activityClosed(where, day, 'hike'), '跑步、骑车和徒步同进退');
+	assert.match(raceCancelled(p5, WORLD, loc, day)!, /户外活动暂停/);
+	const s = { ...at(strong(fresh()), day, p5.start[0], loc), needs: { hunger: 90, energy: 90, hygiene: 90, fun: 90, social: 90 } };
+	const out = runRace(s, WORLD, p5.id);
+	assert.equal(out.ok, false, '免费赛没报名：只提示取消');
+	assert.match(out.msg, /取消了/);
+	const club = CLUBS.find((c) => c.sport === 'run' && c.loc === loc)!;
+	assert.ok(club);
+	assert.match(clubSessionBlocked({ ...at(s, day, club.meet[0], loc), sport: { ...emptySport(), club: { id: club.id, until: day + 30, last: -1 } } }, WORLD)!, /户外活动暂停/);
+	// 不是比赛举办地的灾害不影响
+	const elsewhere = p5.locs.find((l) => !activityClosed(WORLD.locations.find((x) => x.id === l)!, day, 'jog'));
+	if (elsewhere) assert.equal(raceCancelled(p5, WORLD, elsewhere, day), undefined);
+});
+
+test('生涯统计和统计：报名费、会费记「玩乐」；动作名按白名单带子操作（合并 main 后）', () => {
+	assert.deepEqual(actionCats({ t: 'sport', op: 'enter', id: 'x' }), ['fun', 'fun']);
+	assert.deepEqual(actionCats({ t: 'sport', op: 'club' }), ['fun', 'fun']);
+	for (const op of ['enter', 'race', 'join'] as const) assert.equal(featureOf({ t: 'sport', op, id: 'x' }), `sport.${op}`);
+	assert.equal(featureOf({ t: 'sport', op: 'club' }), 'sport.club');
+	assert.equal(featureOf({ t: 'sport', op: 'quit' }), 'sport.quit');
+});
+
+test('已经取消的这一届不能再报名（不再交现场加价的报名费）；参赛时退报名费（合并 main 后复核）', () => {
+	const r = race('jetty-swim');
+	// 找一年比赛日正好风暴的
+	let day = -1;
+	for (let y = 1; y <= 60 && day < 0; y++) if (weatherOn('glenelg', raceDay(r, y)).closesSea) day = raceDay(r, y);
+	assert.ok(day >= 0, '60 年里栈桥赛总有一次碰上风暴');
+	assert.equal(cancelReason(r, WORLD, 'glenelg', day), '风浪太大');
+	const s = { ...at(strong(fresh()), day, r.start[0], 'glenelg'), cash: 500 };
+	const e = enterRace(s, WORLD, r.id);
+	assert.equal(e.ok, false, '取消了的这一届不能报名');
+	assert.match(e.msg, /取消了/);
+	const soon = racesSoon(s, WORLD).find((o) => o.race.id === r.id)!;
+	assert.match(soon.enterBlocked!, /取消了/);
+	assert.match(soon.raceBlocked!, /取消了/);
+	// 前几天报过名的：当天点参赛退原价
+	const key = nextSlot(r, day * 1440).key;
+	const out = runRace({ ...s, sport: { ...emptySport(), entries: [key] } }, WORLD, r.id);
+	assert.ok(out.ok, out.msg);
+	assert.equal(out.state.cash, 500 + r.fee);
+	assert.deepEqual(out.state.sport.entries, []);
+});
+
+test('错过的报名过了比赛日就不再占名额；报下一场时顺手清掉（合并 main 后复核）', () => {
+	const r = race('city-coast-12k');
+	const stale = Array.from({ length: R.entriesMax }, (_, i) => `${r.id}:y${i + 1}`);
+	const day = raceDay(r, R.entriesMax + 1) - 2; // 第 entriesMax + 1 年比赛前两天
+	const s = { ...at(strong(fresh()), day, 10, r.locs[0]), cash: 1000, sport: { ...emptySport(), entries: stale } };
+	assert.deepEqual(liveEntries(s), [], '往年的报名都过期了');
+	const e = enterRace(s, WORLD, r.id);
+	assert.ok(e.ok, e.msg);
+	assert.deepEqual(e.state.sport.entries, [nextSlot(r, s.clock).key], '过期的清掉，只留这一届');
+});
+
+test('终点在宠物不能去的岛上：带着没寄养的宠物不能参赛（合并 main 后复核）', () => {
+	const r = race('channel-swim');
+	assert.equal(r.finish, 'rottnest');
+	const day = raceDay(r, 1);
+	const base = { ...at(strong(fresh()), day, r.start[0], r.locs[0]), needs: { hunger: 90, energy: 90, hygiene: 90, fun: 90, social: 90 }, sport: { ...emptySport(), entries: [nextSlot(r, day * 1440).key] } };
+	const withPet = { ...base, pet: { kind: 'dog', name: '豆豆', from: 'shelter', since: 0, bond: 50, fedDay: day, playDay: -1, walkDay: day, vetDay: 0, board: null } } as PlayerState;
+	assert.ok(petTravelBlocked(withPet, 'rottnest', 'ferry'), '前提：宠物不能上岛');
+	const soon = racesSoon(withPet, WORLD).find((o) => o.race.id === r.id)!;
+	assert.match(soon.raceBlocked!, /罗特尼斯岛/);
+	const out = runRace(withPet, WORLD, r.id);
+	if (!weatherOn(r.locs[0], day).closesSea) {
+		assert.equal(out.ok, false);
+		assert.equal(out.state.loc, r.locs[0]);
+	}
+	assert.equal(racesSoon(base, WORLD).find((o) => o.race.id === r.id)!.raceBlocked?.includes('罗特尼斯岛') ?? false, false, '没宠物照常');
+});
+
+test('灾害的户外关闭清单：有徒步的地方都有跑步、骑车（合并 main 后）', () => {
+	for (const h of Object.values(HAZARDS)) {
+		const out = (h as { outdoor?: string[] }).outdoor;
+		if (out?.includes('hike')) for (const a of ['jog', 'cycle']) assert.ok(out.includes(a), `${h.id} 关徒步却不关 ${a}`);
+	}
+});
+
+test('运动卡摘要只数还没比的（和地点抽屉的摘要一致）', () => {
+	const p5 = race('park-5k');
+	let day = 0;
+	while (weekdayOf(day * 1440) !== p5.weekday) day++;
+	const s0 = at(strong(fresh()), day, 10, 'perth');
+	const key = nextSlot(p5, s0.clock).key;
+	const s = { ...s0, sport: { ...emptySport(), results: [{ race: p5.id, key, medal: 'gold' as const, place: 1, secs: 1200, day }] } };
+	const n = racesSoon(s, WORLD).filter((o) => !o.done).length;
+	const html = sportsCard(s, WORLD, esc);
+	if (n) assert.match(html, new RegExp(`>${n} 场比赛快到了<`));
+	else assert.doesNotMatch(html, /场比赛快到了/);
+	assert.ok(racesSoon(s, WORLD).some((o) => o.done), '前提：今天这一届已经比过');
 });

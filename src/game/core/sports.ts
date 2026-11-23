@@ -2,7 +2,11 @@
 // 动作函数不改入参；随机数只用 roll(state)；所有数值待平衡。
 import { addMoodlet, applyEffect, clone, collapsedResult, fail, getLocation, log, roll } from './engine.ts';
 import { checkScore } from './attributes.ts';
-import { weatherAt } from './weather.ts';
+import { weatherOn } from './weather.ts';
+import { petTravelBlocked } from './pets.ts';
+import { illnessBlock } from './health.ts';
+import { activityClosed } from './disasters.ts';
+import type { Load } from '../data/health.ts';
 import { clamp100, SKILL_META } from './character.ts';
 import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, weekdayOf } from './time.ts';
 import { SKILL_KEYS } from './types.ts';
@@ -119,35 +123,89 @@ export function racesSoon(state: PlayerState, region: Region, within = R.entryDa
 			const entered = state.sport.entries.includes(slot.key);
 			const done = hasRun(state, slot.key);
 			const fee = entryFee(slot.race, slot.startsIn);
-			return { ...slot, entered, done, fee, enterBlocked: enterProblem(state, slot, fee), raceBlocked: raceProblem(state, slot) };
+			return { ...slot, entered, done, fee, enterBlocked: enterProblem(state, region, slot, fee), raceBlocked: raceProblem(state, region, slot) };
 		});
 }
 
-function enterProblem(state: PlayerState, slot: RaceSlot, fee: number): string | undefined {
+function enterProblem(state: PlayerState, region: Region, slot: RaceSlot, fee: number): string | undefined {
 	const { race } = slot;
 	if (race.fee <= 0) return '免费，不用报名，当天到场就能跑';
 	if (hasRun(state, slot.key)) return '这一届已经比过了';
 	if (state.sport.entries.includes(slot.key)) return '已报名';
+	const off = cancelledToday(state, region, slot);
+	if (off) return `今天因为${off}取消了`;
 	if (slot.startsIn > R.entryDays) return `开赛前 ${R.entryDays} 天开放报名`;
 	if (slot.startsIn === 0 && hourOf(state.clock) >= race.start[1]) return '今天已经发令，报名截止了';
 	const req = unmetReq(state, race);
 	if (req) return req;
-	if (state.sport.entries.length >= R.entriesMax) return `最多同时报 ${R.entriesMax} 场`;
+	if (liveEntries(state).length >= R.entriesMax) return `最多同时报 ${R.entriesMax} 场`;
 	if (state.cash < fee) return `报名费 $${fee}，钱不够`;
 	return undefined;
 }
 
-function raceProblem(state: PlayerState, slot: RaceSlot): string | undefined {
+function raceProblem(state: PlayerState, region: Region, slot: RaceSlot): string | undefined {
 	const { race } = slot;
 	if (slot.startsIn > 0) return `${slot.startsIn} 天后开赛`;
 	if (hasRun(state, slot.key)) return '这一届已经比过了';
+	const off = cancelledToday(state, region, slot);
+	if (off) return `今天因为${off}取消了${state.sport.entries.includes(slot.key) ? '，点「参赛」退报名费' : ''}`;
 	if (!race.locs.includes(state.loc)) return `要在${race.locs.length > 1 ? '举办地之一' : '举办地'}才能参赛`;
 	if (race.fee > 0 && !state.sport.entries.includes(slot.key)) return '还没报名';
 	if (!isOpen(race.start, state.clock)) return `发令时间 ${hoursLabel(race.start)}`;
 	const req = unmetReq(state, race);
 	if (req) return req;
 	if (state.needs.energy < race.energy) return `精力不足（要 ${race.energy}）`;
+	// 终点在宠物不能去的地方（比如海峡横渡游到罗特尼斯岛）：带着没寄养的宠物不能参赛，和坐船上岛同一条规矩（合并 main 后复核）
+	if (race.finish) {
+		const pet = petTravelBlocked(state, race.finish, 'ferry');
+		if (pet) return `终点在${race.finish === 'rottnest' ? '罗特尼斯岛' : '保护区'}：${pet}`;
+	}
+	// 合并 main 后：生病时不能比赛（比赛是剧烈运动，海上项目还算下海，见 core/health.ts）
+	return illnessBlock(state, raceLoads(race));
+}
+
+/**
+ * 这一届今天在这个地点取消的原因（合并 main 后复核）：海上项目遇风暴（风浪太大），或自然灾害让这项运动的户外活动暂停。
+ * 报名、参赛、卡片都用这一个判断，免得在已经取消的日子里还能现场报名、交加价的报名费
+ */
+export function cancelReason(race: RaceDef, region: Region, locId: string, day: number): string | undefined {
+	if (race.sea && weatherOn(locId, day).closesSea) return '风浪太大';
+	return raceCancelled(race, region, locId, day);
+}
+
+/** 今天这一届在玩家所在的举办地（不在举办地就看所有举办地）取消了吗 */
+function cancelledToday(state: PlayerState, region: Region, slot: RaceSlot): string | undefined {
+	if (slot.startsIn !== 0) return undefined;
+	const locs = slot.race.locs.includes(state.loc) ? [state.loc] : slot.race.locs;
+	for (const l of locs) {
+		const why = cancelReason(slot.race, region, l, today(state));
+		if (why) return why;
+	}
 	return undefined;
+}
+
+/**
+ * 还有效的报名：只有这场比赛下一届的那条算数（合并 main 后复核）。
+ * 错过的、去不了举办地的、取消时不在场的，过了比赛日就不再占名额
+ */
+export function liveEntries(state: PlayerState): string[] {
+	return state.sport.entries.filter((k) => {
+		const race = RACES.find((r) => k.startsWith(`${r.id}:`));
+		return !!race && nextSlot(race, state.clock).key === k;
+	});
+}
+
+/** 比赛的负荷：都是剧烈运动，海上项目还算下海 */
+const raceLoads = (race: RaceDef): Load[] => (race.sea ? ['heavy', 'sea'] : ['heavy']);
+
+/**
+ * 自然灾害（main 的 core/disasters.ts）让这项运动的户外活动暂停时，这一届比赛取消（合并 main 后）。
+ * 按这项运动对应的第一个日常互动判断（跑步看 jog、游泳看 swim……），和那个互动的关闭规则一致
+ */
+export function raceCancelled(race: RaceDef, region: Region, locId: string, day: number): string | undefined {
+	const loc = getLocation(region, locId);
+	const act = getSport(race.sport)?.acts[0];
+	return loc && act ? activityClosed(loc, day, act) : undefined;
 }
 
 // ---------- 比赛检定 ----------
@@ -227,11 +285,11 @@ export function enterRace(prev: PlayerState, region: Region, id: string): Action
 	if (!race || !race.locs.some((l) => getLocation(region, l))) return fail(prev, '本区域没有这场比赛。');
 	const slot = nextSlot(race, prev.clock);
 	const fee = entryFee(race, slot.startsIn);
-	const why = enterProblem(prev, slot, fee);
+	const why = enterProblem(prev, region, slot, fee);
 	if (why) return fail(prev, why);
 	const state = clone(prev);
 	state.cash -= fee;
-	state.sport.entries = [...state.sport.entries, slot.key];
+	state.sport.entries = [...liveEntries(prev), slot.key]; // 顺手清掉过期的报名
 	const msg = `报名了${race.name}（${slot.startsIn ? `${slot.startsIn} 天后` : '今天'}），报名费 $${fee}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
@@ -243,18 +301,19 @@ export function runRace(prev: PlayerState, region: Region, id: string): ActionRe
 	const race = getRace(id);
 	if (!race) return fail(prev, '没有这场比赛。');
 	const slot = nextSlot(race, prev.clock);
-	if (race.sea && slot.startsIn === 0 && race.locs.includes(prev.loc) && weatherAt(prev).closesSea && !hasRun(prev, slot.key)) {
-		// 风暴天取消：报过名的退报名费（按原价，不管当初是不是现场报名）并去掉报名；没报名（或已经退过）的只提示，不改存档
-		if (!prev.sport.entries.includes(slot.key)) return fail(prev, `${race.name}因为风浪太大取消了。`);
+	const why0 = slot.startsIn === 0 && race.locs.includes(prev.loc) && !hasRun(prev, slot.key) ? cancelReason(race, region, prev.loc, today(prev)) : undefined;
+	if (why0) {
+		// 风暴天（海上项目）或灾害预警（合并 main 后）取消：报过名的退报名费（按原价，不管当初是不是现场报名）并去掉报名；没报名（或已经退过）的只提示，不改存档
+		if (!prev.sport.entries.includes(slot.key)) return fail(prev, `${race.name}因为${why0}取消了。`);
 		const state = clone(prev);
 		const refund = race.fee;
 		state.cash += refund;
 		state.sport.entries = state.sport.entries.filter((k) => k !== slot.key);
-		const msg = `${race.name}因为风浪太大取消了，退回报名费 $${refund}。`;
+		const msg = `${race.name}因为${why0}取消了，退回报名费 $${refund}。`;
 		log(state, msg);
 		return { ok: true, state, msg };
 	}
-	const why = raceProblem(prev, slot);
+	const why = raceProblem(prev, region, slot);
 	if (why) return fail(prev, why);
 	const state = clone(prev);
 	const score = raceScore(prev, race).total + roll(state) * R.raceRoll;
@@ -324,7 +383,7 @@ export function quitClub(prev: PlayerState): ActionResult {
 }
 
 /** 训练课能不能上；能上返回 undefined */
-export function clubSessionBlocked(state: PlayerState): string | undefined {
+export function clubSessionBlocked(state: PlayerState, region?: Region): string | undefined {
 	const c = state.sport.club;
 	const def = c && getClub(c.id);
 	if (!c || !def) return '还没加入俱乐部';
@@ -333,13 +392,18 @@ export function clubSessionBlocked(state: PlayerState): string | undefined {
 	if (!isOpen(def.meet, state.clock)) return `训练课时间 ${hoursLabel(def.meet)}`;
 	if (c.last === today(state)) return '今天已经练过了';
 	if (state.needs.energy < 25) return '精力不足（要 25）';
-	return undefined;
+	// 合并 main 后：生病时不能上训练课；灾害让户外活动暂停时训练课也停（按俱乐部项目对应的日常互动判断）
+	const sick = illnessBlock(state, ['heavy']);
+	if (sick) return sick;
+	const loc = region && getLocation(region, def.loc);
+	const act = getSport(def.sport)?.acts[0];
+	return loc && act ? activityClosed(loc, today(state), act) : undefined;
 }
 
 /** 俱乐部训练课：90 分钟，准备度按 clubFormMult 倍涨，社交 +25，队友说一句话 */
 export function clubSession(prev: PlayerState, region: Region): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
-	const why = clubSessionBlocked(prev);
+	const why = clubSessionBlocked(prev, region);
 	if (why) return fail(prev, why);
 	const def = getClub(prev.sport.club!.id)!;
 	const sport = getSport(def.sport)!;

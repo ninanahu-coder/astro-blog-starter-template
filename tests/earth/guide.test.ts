@@ -61,7 +61,7 @@ test('到了第 2 天解开第 2 组（前面没做完的也留着）；第 1 �
 	assert.ok(['home', 'places', 'nearby'].includes(g.current!));
 });
 
-test('过了第三天、或者九步全做完就不显示', () => {
+test('过了第三天、或者十步全做完就不显示', () => {
 	assert.equal(guideView(make({ clock: 3 * 1440 })), null, '第 4 天 0 点起不显示');
 	assert.ok(guideView(make({ clock: 3 * 1440 - 1 })), '第 3 天 23:59 还显示');
 	const all = make({
@@ -72,8 +72,10 @@ test('过了第三天、或者九步全做完就不显示', () => {
 		workDay: 1,
 		home: { type: 'room', loc: 'perth', furniture: {} } as never,
 		venueCd: { meal: 1 },
+		onboard: { feats: [], tips: ['sync-kept'], back: null, off: false },
 	});
 	assert.equal(guideView(all), null);
+	assert.ok(guideView({ ...all, onboard: { feats: [], tips: [], back: null, off: false } }), '没记下同步码时还差一步');
 });
 
 test('指南只读存档，不改入参', () => {

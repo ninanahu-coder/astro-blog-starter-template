@@ -18,7 +18,7 @@ export function sportsCard(s: PlayerState, region: Region, esc: Esc): string {
 	if (!soon.length && !clubsHere.length && !clubDef && !results.length && !forms.length) return '';
 	const today = dayOf(s.clock);
 	const locName = (id: string) => getLocation(region, id)?.name ?? id;
-	const btn = (op: string, id: string, label: string, blocked?: string) => `<button data-sport="${op}" data-sport-id="${esc(id)}" ${blocked ? 'disabled' : ''}>${esc(label)}</button>`;
+	const btn = (op: string, id: string, label: string, blocked?: string) => `<button data-sport="${op}" data-sport-id="${esc(id)}"${blocked ? ` disabled title="${esc(blocked)}"` : ''}>${esc(label)}</button>`;
 
 	const formHtml = forms.length
 		? `<p>准备度：${forms.map(({ sp, v }) => `${sp.icon} ${esc(sp.name)} ${v}`).join(' · ')}</p>`
@@ -44,7 +44,7 @@ export function sportsCard(s: PlayerState, region: Region, esc: Esc): string {
 	let clubHtml = '';
 	if (clubDef && club) {
 		const left = club.until - today;
-		const why = clubSessionBlocked(s);
+		const why = clubSessionBlocked(s, region);
 		const bonus = clubBonusFor(s, clubDef.sport);
 		clubHtml = `<p style="margin-top:10px">${clubDef.icon} ${esc(clubDef.name)} · ${esc(left > 0 ? `会员还剩 ${left} 天` : '会费已到期')} · 训练课 ${hoursLabel(clubDef.meet)} 在${esc(locName(clubDef.loc))}。队友：${clubDef.mates.map((m) => `${m.icon} ${esc(m.name)}`).join('、')}。${bonus ? esc(`最近练过，同项目比赛 +${bonus}。`) : ''}</p>
 			<div class="inline" style="margin-top:6px">${btn('club', clubDef.id, '上训练课', why)}${clubDef.loc === s.loc ? btn('join', clubDef.id, `续费 $${clubDef.fee}`, s.cash < clubDef.fee ? '钱不够' : undefined) : ''}${btn('quit', clubDef.id, '退出')}</div>${why && left > 0 ? `<p class="muted">${esc(why)}</p>` : ''}`;
@@ -57,8 +57,9 @@ export function sportsCard(s: PlayerState, region: Region, esc: Esc): string {
 	const resHtml = results.length
 		? `<p style="margin-top:10px">最近成绩：${results.map((x) => `${MEDALS[x.medal].icon} ${esc(getRace(x.race)?.name ?? x.race)}${x.secs ? ` ${fmtSecs(x.secs)} 第 ${x.place.toLocaleString()} 名` : ' 未完赛'}`).join('；')}</p>`
 		: '';
+	const upcoming = soon.filter((o) => !o.done).length; // 和地点抽屉的摘要一致：比过的不算
 	const open = soon.some((o) => o.startsIn === 0 && !o.done) ? ' open' : '';
-	return `<details class="card"${open}><summary><h3 style="display:inline">🏅 运动和比赛</h3> <span class="muted">${soon.length ? `${soon.length} 场比赛快到了` : ''}</span></summary>
+	return `<details class="card"${open}><summary><h3 style="display:inline">🏅 运动和比赛</h3> <span class="muted">${upcoming ? `${upcoming} 场比赛快到了` : ''}</span></summary>
 		${formHtml}<p class="muted">歇 ${SPORT_RULES.graceDays} 天后准备度每天掉 ${SPORT_RULES.decayPerDay}；比赛时准备度 × ${SPORT_RULES.formWeight} 加进检定分。数值待平衡。</p>
 		${raceRows}${clubHtml}${resHtml}</details>`;
 }

@@ -1,0 +1,126 @@
+{
+	"note": "AI 生成示意内容（视频：远程 ComfyUI MiniMax H3；语音：MiniMax TTS），不是实拍、不是真人录音。",
+	"loc": {
+		"busselton": {
+			"src": "/earth/media/loc/busselton.mp4",
+			"poster": "/earth/cgi/busselton.webp",
+			"once": true
+		},
+		"exmouth": {
+			"src": "/earth/media/loc/exmouth.mp4",
+			"poster": "/earth/cgi/exmouth.webp",
+			"once": true
+		},
+		"fremantle": {
+			"src": "/earth/media/loc/fremantle.mp4",
+			"poster": "/earth/cgi/fremantle.webp",
+			"once": true
+		},
+		"geraldton": {
+			"src": "/earth/media/loc/geraldton.mp4",
+			"poster": "/earth/cgi/geraldton.webp"
+		},
+		"kalbarri": {
+			"src": "/earth/media/loc/kalbarri.mp4",
+			"poster": "/earth/cgi/kalbarri.webp",
+			"once": true
+		},
+		"karijini": {
+			"src": "/earth/media/loc/karijini.mp4",
+			"poster": "/earth/cgi/karijini.webp"
+		},
+		"kununurra": {
+			"src": "/earth/media/loc/kununurra.mp4",
+			"poster": "/earth/cgi/kununurra.webp"
+		},
+		"margaret-river": {
+			"src": "/earth/media/loc/margaret-river.mp4",
+			"poster": "/earth/cgi/margaret-river.webp",
+			"once": true
+		},
+		"pemberton": {
+			"src": "/earth/media/loc/pemberton.mp4",
+			"poster": "/earth/cgi/pemberton.webp"
+		},
+		"perth": {
+			"src": "/earth/media/loc/perth.mp4",
+			"poster": "/earth/cgi/perth.webp",
+			"once": true
+		},
+		"pinnacles": {
+			"src": "/earth/media/loc/pinnacles.mp4",
+			"poster": "/earth/cgi/pinnacles.webp",
+			"once": true
+		}
+	},
+	"voice": {
+		"ayla": {
+			"src": "/earth/media/voice/ayla.mp3",
+			"text": "小声点，沙滩上那几只海狮正在睡午觉呢。"
+		},
+		"bill": {
+			"src": "/earth/media/voice/bill.mp3",
+			"text": "这个位子我坐了十几年了。来，陪我喝一杯，说说你今天干了啥。"
+		},
+		"dave": {
+			"src": "/earth/media/voice/dave.mp3",
+			"text": "你也睡不着？夜里的矿区公路，安静得只听得见发动机。"
+		},
+		"greta": {
+			"src": "/earth/media/voice/greta.mp3",
+			"text": "欢迎来酒庄。这一桶是我们家第五代的手艺，你闻闻看。"
+		},
+		"harry": {
+			"src": "/earth/media/voice/harry.mp3",
+			"text": "欢迎来到码头博物馆。这座港口的故事，得从一百多年前讲起。"
+		},
+		"jack": {
+			"src": "/earth/media/voice/jack.mp3",
+			"text": "哟，又是你。坐会儿吧，我给你讲讲那条差点把船拖翻的大鱼。"
+		},
+		"kev": {
+			"src": "/earth/media/voice/kev.mp3",
+			"text": "外面热吧？下来坐，地底下一年四季都凉快。"
+		},
+		"leo": {
+			"src": "/earth/media/voice/leo.mp3",
+			"text": "嘿，朋友！今天这组浪真漂亮，板子拿好，咱们下水去。"
+		},
+		"linda": {
+			"src": "/earth/media/voice/linda.mp3",
+			"text": "嗨！路上碰到短尾矮袋鼠可别喂它们，它们自己会找吃的。"
+		},
+		"mack": {
+			"src": "/earth/media/voice/mack.mp3",
+			"text": "尝一个？今早刚摘的芒果，甜得很。"
+		},
+		"mia": {
+			"src": "/earth/media/voice/mia.mp3",
+			"text": "早啊！还是老样子吗？今天的豆子刚烘好，特别香。"
+		},
+		"nan": {
+			"src": "/earth/media/voice/nan.mp3",
+			"text": "来啦，快进屋坐。茶刚泡好，还是热的。"
+		},
+		"rosa": {
+			"src": "/earth/media/voice/rosa.mp3",
+			"text": "你来得正巧，那群海豚又游回来了，我正数着呢。"
+		},
+		"ruby": {
+			"src": "/earth/media/voice/ruby.mp3",
+			"text": "想进峡谷走走？跟紧我，雨后那几块石头特别滑。"
+		},
+		"sam": {
+			"src": "/earth/media/voice/sam.mp3",
+			"text": "早上好！今天风平浪静，运气好的话能碰上鲸鲨。"
+		},
+		"tom": {
+			"src": "/earth/media/voice/tom.mp3",
+			"text": "刚卸完货，今天的龙虾不错。来，长椅上晒会儿太阳。"
+		},
+		"yuki": {
+			"src": "/earth/media/voice/yuki.mp3",
+			"text": "欢迎光临。这颗你对着光看看，真珠的光泽是从里面透出来的。"
+		}
+	}
+}

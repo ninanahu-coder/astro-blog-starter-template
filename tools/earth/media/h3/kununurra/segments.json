@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic outback lake landscape at sunset, still blue water dotted with islands, red sandstone ranges and swollen-trunked boab trees on rocky slopes in the foreground",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "A warm evening breeze over open water and distant birds",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "The lake surface ripples softly and the sunset reflections shimmer, pink clouds drift slowly to the right across the sky, and the grasses and wildflowers in the foreground sway lightly. The boab trees, the ranges and the islands stay still.",
+   "sfx": "soft ripple of water against rocks"
+  }
+ ]
+}
