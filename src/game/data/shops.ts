@@ -13,6 +13,7 @@ export const STORE_TYPES: StoreTypeDef[] = [
 	{ id: 'outdoor', name: '户外露营店', icon: '🏕️', osm: 'shop=outdoor', desc: '睡袋、雨衣、帽子、防蝇网。' },
 	{ id: 'surf', name: '冲浪店', icon: '🏄', osm: 'shop=surf（待核）；shop=sports + sport=surfing（待核）', desc: '冲浪板、防水袋、帽子。' },
 	{ id: 'tackle', name: '渔具店', icon: '🎣', osm: 'shop=fishing', desc: '鱼竿和饵料。' },
+	{ id: 'music', name: '乐器行', icon: '🎸', osm: 'shop=musical_instrument', desc: '尤克里里这类入门乐器（爱好与收集合并后加）。' },
 	{ id: 'florist', name: '花店', icon: '💐', osm: 'shop=florist', desc: '送人的花。超市也有一小架。' },
 	{ id: 'cafe', name: '咖啡馆', icon: '☕', osm: 'amenity=cafe', venue: 'cafe', desc: '外带咖啡。' },
 ];

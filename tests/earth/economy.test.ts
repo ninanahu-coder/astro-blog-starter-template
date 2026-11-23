@@ -138,11 +138,19 @@ test('动作协议与存档校验', () => {
 // ---------- 阶段 B：家具、在家活动、每周结算 ----------
 import { homeComfort, mood, weeklyCosts } from '../../src/game/core/attributes.ts';
 import {
-	buyFurniture, cookAtHome, firstRent, furnitureAt, furnitureValue, homeActionBlocked, leaveHome, relaxAtHome, rentHome,
+	buyFurniture, firstRent, furnitureAt, furnitureValue, homeActionBlocked, leaveHome, relaxAtHome, rentHome as signLease,
 	sellFurniture, sleepHome,
 } from '../../src/game/core/engine.ts';
+import { cookAtHome } from '../../src/game/core/cooking.ts';
 import { FURNITURE, FURNITURE_SLOTS } from '../../src/game/data/furniture.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
+
+/** 这里只测押金本身：把签约时种子定的「入住时原有损坏」（租房市场 rental 批次）清零，退房时房东没有可扣的；扣损坏的规则见 rental.test.ts */
+const rentHome = (...a: Parameters<typeof signLease>) => {
+	const r = signLease(...a);
+	if (r.state.rental.lease) r.state.rental.lease.prior = 0;
+	return r;
+};
 
 const housed = (over: Partial<PlayerState> = {}) => rentHome(make({ cash: 5000, clock: at(9), ...over }), WA, 'room').state;
 
@@ -192,7 +200,9 @@ test('家具效果：睡得更好、在家做饭和放松、心情', () => {
 	assert.equal(mood(s) - mood({ ...s, home: { ...s.home!, furniture: {} } }), 5);
 	const hurt = { ...s, health: 40 };
 	const plain = { ...hurt, home: { ...s.home!, furniture: {} } };
-	assert.equal(Math.round(sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health), 10, '好床垫 +10 健康'); // 第 23 批起睡觉时健康会自然回一点小数，取整比较
+	// 好床垫本身 +10 健康；时间和睡眠合并后床位有家具、舒适度更高，睡眠质量也更高，基础的 15 + 舒适度那部分也多回一点
+	const diff = Math.round(sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health);
+	assert.ok(diff >= 10 && diff <= 13, `好床垫 +10 健康，外加睡得更好（实际 ${diff}）`);
 });
 
 test('搬走或被收房：家具半价折现', () => {
@@ -243,10 +253,11 @@ test('阶段 B 的动作协议与旧存档迁移', () => {
 test('跨周结算前先发这一班的工资：工资够付刚到期的房租就不会被收房', () => {
 	const s = housed({ clock: at(9) });
 	const job = { career: 'barista', loc: s.loc, level: 0, shifts: 0, good: 0, lastDay: -1 };
-	const due = { ...s, job, cash: 50, clock: at(7, 6), nextWeek: 6, needs: { hunger: 90, energy: 90, hygiene: 80, fun: 60, social: 60 } };
+	// 有 TFN（按正常税率预扣，见 core/tax.ts）：$80 + 税后工资（表现好有奖金时预扣也多）≥ 房租 $160
+	const due = { ...s, job, cash: 80, clock: at(7, 6), nextWeek: 6, tax: { ...s.tax, tfn: 0 }, needs: { hunger: 90, energy: 90, hygiene: 80, fun: 60, social: 60 } };
 	const r = applyAction(due, WA, { t: 'job', op: 'work' });
 	assert.ok(r.ok && !r.collapsed, r.msg);
-	assert.ok(r.state.home, '$50 + 工资 ≥ 房租 $160，不该被收房');
+	assert.ok(r.state.home, '$80 + 税后工资（表现好有奖金时预扣也多）≥ 房租 $160，不该被收房');
 	assert.equal(r.state.nextWeek, 13);
 	assert.ok(r.state.cash < 50 + 200, '房租照扣');
 });

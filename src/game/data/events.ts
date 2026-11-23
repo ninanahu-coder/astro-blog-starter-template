@@ -1,8 +1,11 @@
 // 到达地点触发的事件。once=true 的是地标“签名事件”，首次到访优先触发。
 // 新增事件只需往数组里加一条；effects 全部走 engine.applyEffect，无需写逻辑代码。
 import type { GameEvent } from '../core/types.ts';
+import { assertEvents } from '../core/event-rules.ts';
 import { VENUE_EVENTS } from './venue-events.ts';
 import { SA_EVENTS } from './events-sa.ts';
+import { TRAIL_EVENTS } from './trail-events.ts';
+import { TRIP_EVENTS } from './trip-events.ts';
 
 export const EVENTS: GameEvent[] = [
 	{
@@ -151,6 +154,51 @@ export const EVENTS: GameEvent[] = [
 			{ label: '叫拖车去修车厂', cost: 320, ok: { text: '修车厂当天就换好了。', fx: { minutes: 180 } } },
 		],
 	},
+	// 出险事件（保险第一版，权重和金额待平衡）：fx.loss 是可以走保险的损失，有对口保单只付免赔额，见 data/insurance.ts。
+	// 车的意外用法律分支的 driving: true（只在自己开车、驾照没暂停时出现）；exposure 'home' 只在回到自己住处时出现。
+	// 看病的钱走健康系统（data/health.ts 的保障），保险不管医疗（合并 main 后定）
+	{
+		id: 'ins-rear-end', title: '追尾', icon: '💥', arrivedBy: ['road'], driving: true, kinds: ['city', 'town'], weight: 2,
+		text: '进城的车流突然停住，前车一脚急刹。',
+		choices: [
+			{ label: '猛踩刹车', check: { skill: 'driving', dc: 45 }, ok: { text: '离前车保险杠只差一拳，心还在狂跳。', fx: { needs: { fun: -5 }, skills: { driving: 2 } } }, fail: { text: '“砰”的一声撞了上去。人没大事，两辆车都要修，责任在你。交换了驾照和保险信息。', fx: { minutes: 60, health: -5, loss: [{ kind: 'collision', amount: 1800 }, { kind: 'tpp', amount: 2500 }], skills: { driving: 1 } } } },
+		],
+	},
+	{
+		id: 'ins-car-breakin', title: '车窗被砸', icon: '🪟', arrivedBy: ['road'], driving: true, kinds: ['city'], periods: ['night'], weight: 2,
+		text: '停好车去买了点东西，回来时驾驶座的车窗碎了一地，放在座位上的包也不见了。',
+		choices: [
+			{ label: '报警，再打保险公司电话', ok: { text: '警察给了一个报案号，理赔要用。玻璃店明早才开门。', fx: { minutes: 90, needs: { fun: -10 }, loss: [{ kind: 'car-theft', amount: 700 }] } } },
+		],
+	},
+	{
+		id: 'ins-hail', title: '冰雹', icon: '🧊', arrivedBy: ['road'], driving: true, weather: ['storm'], weight: 3,
+		text: '天一下黑了，鸡蛋大的冰雹砸在车顶上噼啪作响。',
+		choices: [
+			{ label: '找个有顶的停车场躲进去', check: { skill: 'driving', dc: 40 }, ok: { text: '赶在最大的那阵之前钻进了商场停车楼。', fx: { minutes: 30 } }, fail: { text: '没找到地方，引擎盖和车顶被砸出了一片坑。', fx: { minutes: 30, needs: { fun: -10 }, loss: [{ kind: 'car-storm', amount: 1500 }] } } },
+		],
+	},
+	{
+		id: 'ins-burglary', title: '家里被撬了', icon: '🚪', exposure: 'home', weight: 1,
+		text: '门锁被撬坏了，屋里翻得乱七八糟，笔记本电脑和耳机都没了。',
+		choices: [
+			{ label: '报警，拍照留证', ok: { text: '警察来做了笔录。换锁、补东西，这周都过得不安心。', fx: { minutes: 120, needs: { fun: -15 }, loss: [{ kind: 'contents-theft', amount: 1200 }] } } },
+		],
+	},
+	{
+		id: 'ins-roof-leak', title: '屋顶漏水', icon: '🌧️', exposure: 'home', weather: ['storm'], weight: 4,
+		text: '风暴把屋顶的瓦掀开了一块，雨水正往屋里灌。',
+		choices: [
+			{ label: '把东西搬到干的地方', check: { skill: 'strength', dc: 40 }, ok: { text: '床垫和电器都抢出来了，只湿了几本书。', fx: { minutes: 60, needs: { energy: -10 } } }, fail: { text: '搬得不够快，床垫和电脑都泡了水。', fx: { minutes: 60, needs: { energy: -15, fun: -10 }, loss: [{ kind: 'contents-storm', amount: 900 }] } } },
+		],
+	},
+	{
+		id: 'ins-lost-bag', title: '行李没出来', icon: '🧳', arrivedBy: ['air'], weight: 2,
+		text: '传送带转了一圈又一圈，你的箱子始终没出来。',
+		choices: [
+			{ label: '去行李柜台登记', ok: { text: '航空公司说找到了会送过来。等了两天，箱子还是丢了，只能自己买一套换洗的。', fx: { minutes: 60, needs: { fun: -10 }, loss: [{ kind: 'luggage', amount: 600 }] } } },
+		],
+	},
 	{
 		id: 'roo-dusk', animal: 'grey-kangaroo', title: '黄昏的袋鼠', icon: '🌅', arrivedBy: ['road', 'track'], weight: 3,
 		text: '夕阳正对着挡风玻璃，一只袋鼠突然跳上公路。',
@@ -159,11 +207,29 @@ export const EVENTS: GameEvent[] = [
 		],
 	},
 	{
-		id: 'rbt', title: '路边临检', icon: '🚓', arrivedBy: ['road'], weight: 3,
+		// 第 43 批：只在自己开车时出现；结果看有没有刚喝过酒（core/law.ts breathTest），拒绝测试走法庭
+		id: 'rbt', title: '路边临检', icon: '🚓', arrivedBy: ['road'], driving: true, weight: 3,
 		text: '警察挥手让你靠边：随机呼气酒精测试。',
 		choices: [
-			{ label: '配合检查', ok: { text: '“祝您旅途愉快。”', fx: { heat: -10 } } },
-			{ label: '找借口搪塞', check: { skill: 'street', dc: 55 }, ok: { text: '他们摆摆手放你走了。', fx: { skills: { street: 2 } } }, fail: { text: '越描越黑，被开了罚单。', fx: { cash: -250, heat: 20 } } },
+			{ label: '配合吹气', ok: { text: '你对着仪器吹了一口气。', fx: { minutes: 5, heat: -10 }, law: 'breath' } },
+			{ label: '拒绝吹气', ok: { text: '拒绝呼气测试本身就违法，你被带回警局做笔录。', fx: { minutes: 90 }, law: 'refuse-test' } },
+		],
+	},
+	{
+		id: 'speed-late', title: '赶时间', icon: '⏱️', arrivedBy: ['road'], driving: true, weight: 2,
+		text: '导航显示你要迟到了，前面这段限速 110。',
+		choices: [
+			{ label: '按限速开', ok: { text: '晚到了十分钟，天没塌下来。', fx: { minutes: 10 } } },
+			// 违法的选项不给好处：没被拍到也只是「没事」
+			{ label: '踩一脚油门', risk: 0.5, ok: { text: '没被拍到，算下来只早到了三分钟，心还怦怦跳。', fx: { needs: { fun: -3 } } }, fail: { text: '路边的测速相机闪了一下。', fx: {}, law: 'speed-mid' } },
+		],
+	},
+	{
+		id: 'parking-limit', title: '限时停车', icon: '🅿️', kinds: ['city', 'town'], arrivedBy: ['road'], driving: true, weight: 2,
+		text: '你把车停进了 2 小时限时位，可事情办得比预想久。',
+		choices: [
+			{ label: '回去挪车', ok: { text: '赶在超时前挪了车。', fx: { minutes: 15 } } },
+			{ label: '再待一会儿', risk: 0.4, ok: { text: '回来时挡风玻璃上什么也没有。', fx: {} }, fail: { text: '雨刷下夹着一张罚单。', fx: {}, law: 'parking' } },
 		],
 	},
 	{
@@ -225,7 +291,7 @@ export const EVENTS: GameEvent[] = [
 		text: '下车的一瞬间像打开了烤箱门，路面上的热气在抖。',
 		choices: [
 			{ label: '找个阴凉地方等太阳下去', ok: { text: '你在加油站的雨棚下坐到了傍晚。', fx: { minutes: 180, needs: { fun: -5 } } } },
-			{ label: '硬顶着继续', check: { skill: 'stamina', dc: 50 }, ok: { text: '你喝光了水，但撑下来了。', fx: { needs: { energy: -15, hygiene: -15 }, skills: { stamina: 2, survival: 1 } } }, fail: { text: '你有点中暑，头晕得厉害。', fx: { health: -15, needs: { energy: -25 } } } },
+			{ label: '硬顶着继续', check: { skill: 'stamina', dc: 50 }, ok: { text: '你喝光了水，但撑下来了。', fx: { needs: { energy: -15, hygiene: -15 }, skills: { stamina: 2, survival: 1 } } }, fail: { text: '你有点中暑，头晕得厉害。', fx: { health: -15, needs: { energy: -25 }, illness: 'heat' } } },
 		],
 	},
 	{
@@ -241,7 +307,8 @@ export const EVENTS: GameEvent[] = [
 		text: '两名警员拦住你：“最近有人反映了一些情况，麻烦配合一下。”',
 		choices: [
 			{ label: '老实配合', ok: { text: '问了半小时话，交了罚款，这事算翻篇了。', fx: { minutes: 30, cash: -200, heat: -50 } } },
-			{ label: '想办法溜走', check: { skill: 'stamina', dc: 60 }, ok: { text: '你拐进小巷甩掉了他们。', fx: { heat: -15, skills: { stamina: 2, street: 2 } } }, fail: { text: '没跑出五十米就被按住了。', fx: { cash: -500, health: -10, heat: -30 } } },
+			// 第 43 批：逃避盘查不再降麻烦值、不涨能力；被拦下走法庭（罚款 + 社区服务 + 定罪记录）
+			{ label: '想办法溜走', risk: 0.7, ok: { text: '你暂时躲开了，可他们记下了你的样子。', fx: { heat: 10 } }, fail: { text: '没走出多远就被拦下了，这下要上法庭。', fx: { minutes: 120, heat: -30 }, law: 'evade' } },
 		],
 	},
 	// ---------- 按时段出现（抵达时的时刻） ----------
@@ -407,6 +474,36 @@ export const EVENTS: GameEvent[] = [
 			{ label: '打个招呼就回房', ok: { text: '有人说明早一起去看日出，你答应了。', fx: { minutes: 5, needs: { social: 6 } } } },
 		],
 	},
+	// 第 32 批：坐公共交通、区域火车、步行抵达时才会抽到（数值待平衡）
+	{
+		id: 'transit-hometown', title: '车厢里的乡音', icon: '🚆', arrivedBy: ['transit'], weight: 3,
+		text: '对面两个学生在用中文吐槽作业截止日，其中一个背包上挂着你家乡的钥匙扣。',
+		choices: [
+			{ label: '用家乡话搭一句', check: { skill: 'charisma', dc: 20 }, ok: { text: '真是同乡。到站前你们互加了好友，约了周末一起去买菜。', fx: { needs: { social: 20, fun: 6 }, skills: { charisma: 1 } } }, fail: { text: '你一开口，他们愣了一下，礼貌地笑了笑就下车了。', fx: { needs: { social: 5 } } } },
+			{ label: '戴上耳机看窗外', ok: { text: '窗外的河面一闪一闪，你小睡了一会儿。', fx: { needs: { energy: 4 } } } },
+		],
+	},
+	{
+		id: 'rail-wheatbelt', title: '窗外的麦田带', icon: '🌾', arrivedBy: ['rail'], weight: 3,
+		text: '火车开出城区，窗外换成一望无际的麦田和盐湖，信号一格一格掉没了。',
+		choices: [
+			{ label: '去餐车买杯热饮（$5）', cost: 5, ok: { text: '捧着热饮看了一路的风景，难得什么也不用想。', fx: { needs: { fun: 12, hunger: 6 } } } },
+			{ label: '靠着窗睡一觉', ok: { text: '醒来已经快到站了，脖子有点酸。', fx: { needs: { energy: 10 } } } },
+		],
+	},
+	{
+		id: 'walk-blister', title: '脚底磨出了泡', icon: '🦶', arrivedBy: ['walk'], weight: 3,
+		text: '走到最后一段，鞋里有个地方一直在磨，每一步都在提醒你。',
+		choices: [
+			{ label: '找个药店买创可贴（$8）', cost: 8, ok: { text: '贴好以后舒服多了，顺手买了瓶水。', fx: { minutes: 15, needs: { energy: 3 } } } },
+			{ label: '咬咬牙走完', check: { skill: 'stamina', dc: 30 }, ok: { text: '到了才发现已经磨破了，不过体力确实练出来了。', fx: { health: -1, skills: { stamina: 1 } } }, fail: { text: '一瘸一拐走到了，今天不想再动了。', fx: { health: -3, needs: { energy: -8 } } } },
+		],
+	},
 	...VENUE_EVENTS,
 	...SA_EVENTS,
+	...TRAIL_EVENTS,
+	...TRIP_EVENTS,
 ];
+
+// 加载时校验：字段拼错、引用不存在的后续事件、链式事件没人解锁……直接报错（写法见 docs/earth-game/event-engine.md §5）
+assertEvents(EVENTS);

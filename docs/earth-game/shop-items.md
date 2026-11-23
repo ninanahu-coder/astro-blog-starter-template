@@ -73,6 +73,7 @@
 | 户外露营店 | `shop=outdoor` | 否 | 防蝇网帽、睡袋、油桶、雨衣、宽檐帽、防水袋 |
 | 冲浪店 | `shop=surf` 或 `shop=sports` + `sport=surfing`（**待核**，OpenClaw 采集前先查 OSM wiki） | 否 | 冲浪板、防水袋、宽檐帽 |
 | 渔具店 | `shop=fishing` | 否 | 鱼竿 |
+| 乐器行 | `shop=musical_instrument` | 否 | 尤克里里（爱好与收集合并后加） |
 | 花店 | `shop=florist` | 否 | 鲜花 |
 | 咖啡馆 | `amenity=cafe` | **是**：西澳 232 家、南澳 141 家（类型 `cafe`） | 外带咖啡 |
 

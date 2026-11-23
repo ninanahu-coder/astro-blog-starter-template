@@ -1,13 +1,17 @@
 // 派生属性：全部由 PlayerState 现算，不落盘，避免存档里出现互相矛盾的冗余字段。
 // 引擎所有涉及特质 / 物品 / 心情的数值都走这里，调参只改这一个文件和 data/。
 import { ITEMS } from '../data/items.ts';
+import { faultComfort, rentDue } from './rental.ts';
 import { TRAITS } from '../data/traits.ts';
 import { HOMES } from '../data/housing.ts';
 import { FURNITURE, FURNITURE_SETS } from '../data/furniture.ts';
 import { VEHICLES } from '../data/vehicles.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { propertyDue } from './finance.ts';
+import { flatComfort, flatRentDue } from './flatmates.ts';
 import { weatherAt } from './weather.ts';
+import { dayOf } from './time.ts';
+import { loanRateMult } from './world.ts';
 import { MOODLETS } from '../data/moodlets.ts';
 import type { MoodletDef } from './types.ts';
 import type { ItemDef, NeedKey, PlayerState, SkillKey, TraitDef, TraitMods } from './types.ts';
@@ -39,7 +43,8 @@ export function homeComfort(state: PlayerState): number {
 	if (!state.home) return 0;
 	const base = HOMES.find((h) => h.id === state.home!.type)?.comfort ?? 0;
 	const extra = Object.values(state.home.furniture).reduce((a, id) => a + (FURNITURE.find((f) => f.id === id)?.comfort ?? 0), 0);
-	return base + extra + furnitureSets(state).filter((x) => x.done).reduce((a, x) => a + x.set.comfort, 0);
+	// 紧急故障没修好（租房市场，rental.ts）：舒适度打折扣
+	return base + extra + furnitureSets(state).filter((x) => x.done).reduce((a, x) => a + x.set.comfort, 0) - faultComfort(state) + flatComfort(state); // 室友：隐私和家里卫生（flatmates.md）
 }
 
 /** 住处的成套家具进度：每套已经摆了几件、凑齐没有（没有住处为空） */
@@ -59,13 +64,19 @@ export interface WeeklyCosts {
 	total: number;
 }
 
-/** 每周固定开销：房租（住自有房时为 0）+ 车辆保险保养 + 房产的物业费与还款。不含租金收入 */
+/** 下一次周结算按哪天的世界行情算：就是下一个结算日（weeklyTick、settleProperties 结算时用的那天）。结算日已过还没结算时取今天 */
+export const settleDay = (state: PlayerState) => Math.max(dayOf(state.clock), state.nextWeek);
+
+/** 每周固定开销：房租（住自有房时为 0）+ 车辆保险保养 + 房产的物业费与还款。不含租金收入。
+ * 房租和房贷按下一个结算日的行情（世界事件），和结算时实际扣的一致：「结算前钱不够」的提示不会在换期那周说错 */
 export function weeklyCosts(state: PlayerState): WeeklyCosts {
-	const rent = state.home && !state.home.owned ? (HOMES.find((h) => h.id === state.home!.type)?.rentWeek ?? 0) : 0;
+	const day = settleDay(state);
+	const def = state.home && !state.home.owned ? HOMES.find((h) => h.id === state.home!.type) : undefined;
+	const rent = def ? flatRentDue(state, rentDue(state, def, day)) : 0; // 有租约按租约房租（租房市场），没有按租金指数（世界事件）；再按合租分摊、扣转租收入（flatmates.md）
 	const vehicle = VEHICLES.find((v) => v.id === state.vehicle)?.weekly ?? 0;
 	const property = state.properties.reduce((sum, p) => {
 		const def = PROPERTIES.find((d) => d.id === p.id);
-		return sum + (def ? propertyDue(def, p) : 0);
+		return sum + (def ? propertyDue(def, p, loanRateMult(day)) : 0); // 世界事件：利率
 	}, 0);
 	return { rent, vehicle, property, total: rent + vehicle + property };
 }

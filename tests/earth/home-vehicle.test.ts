@@ -1,11 +1,12 @@
 // 第 26 批：租房押金、车辆过户印花税、车按里程折旧、天气影响路况。数值都是待平衡的初始值，
 // 印花税公式是真实规则（西澳 Department of Treasury and Finance、南澳 RevenueSA，见 docs/earth-game/home-and-vehicle.md）。
+import { fuelMult } from '../../src/game/core/world.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
-	bondFor, buyProperty, buyVehicle, dealerAt, homesAt, leaveHome, moveIntoProperty, moveInCost, netWorth, rentHome, resaleValue, sellVehicle, travel, travelOptions,
+	bondFor, buyProperty, buyVehicle, dealerAt, homesAt, leaveHome, moveIntoProperty, moveInCost, netWorth, rentHome as signLease, resaleValue, sellVehicle, travel, travelOptions,
 } from '../../src/game/core/engine.ts';
 import { vehicleDuty } from '../../src/game/core/finance.ts';
 import { dayOf } from '../../src/game/core/time.ts';
@@ -15,6 +16,13 @@ import { DEPRECIATION, VEHICLES } from '../../src/game/data/vehicles.ts';
 import { WEATHERS } from '../../src/game/data/weather.ts';
 import { WA, WORLD } from '../../src/game/data/wa.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
+
+/** 这里只测押金本身：把签约时种子定的「入住时原有损坏」（租房市场 rental 批次）清零，退房时房东没有可扣的；扣损坏的规则见 rental.test.ts */
+const rentHome = (...a: Parameters<typeof signLease>) => {
+	const r = signLease(...a);
+	if (r.state.rental.lease) r.state.rental.lease.prior = 0;
+	return r;
+};
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
 const make = (over: Partial<PlayerState> = {}): PlayerState => ({
@@ -208,7 +216,9 @@ test('小雨、风暴天公路更慢（自驾和巴士），钱不变；航班�
 	for (const v of ['car', 'none']) {
 		const a = opt(sunny, v, 'kalgoorlie'), b = opt(rain, v, 'kalgoorlie'), c = opt(storm, v, 'kalgoorlie');
 		assert.ok(b.minutes > a.minutes && c.minutes > b.minutes, `${v}：${a.minutes} < ${b.minutes} < ${c.minutes}`);
-		assert.equal(b.cost, a.cost, `${v} 车费不变`);
+		// 天气不改车费；不同日子油价不同（世界事件），按油价系数折回去比
+		const kind = v === 'none' ? 'bus' : 'road';
+		assert.ok(Math.abs(b.cost - (a.cost / fuelMult(sunny, kind)) * fuelMult(rain, kind)) <= 1, `${v} 车费只随油价变：${a.cost} → ${b.cost}`);
 		const drive = v === 'none' ? a.minutes - 20 : a.minutes;
 		assert.ok(Math.abs((v === 'none' ? b.minutes - 20 : b.minutes) - drive * 1.1) <= 1, `${v} 小雨 ×1.1`);
 		assert.ok(Math.abs((v === 'none' ? c.minutes - 20 : c.minutes) - drive * 1.25) <= 1, `${v} 风暴 ×1.25`);

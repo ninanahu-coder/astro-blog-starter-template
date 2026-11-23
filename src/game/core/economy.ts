@@ -1,8 +1,9 @@
 // 经济系统的公共口径：职业成长曲线、零工（临时工）工资、每周收支估算。纯函数，只读数据和 PlayerState。
 // 设计说明见 docs/earth-game/economy-design.md。标「待平衡」的数值是第 25 批的初始值，等 Codex 跑完平衡分析再定。
+import { rentOn } from './world.ts';
 import { CAREERS } from '../data/careers.ts';
 import { PROPERTIES } from '../data/properties.ts';
-import { weeklyCosts } from './attributes.ts';
+import { weeklyCosts, settleDay } from './attributes.ts';
 import { careerPay } from './engine.ts';
 import { FINANCE } from './finance.ts';
 import type { CareerDef, PlayerState } from './types.ts';
@@ -75,7 +76,7 @@ export interface WeeklyBudget {
 export function weeklyBudget(state: PlayerState): WeeklyBudget {
 	const wages = state.job ? careerPay(state, state.job.career, state.job.level) * ECON.shiftsPerWeek : 0;
 	const rentIncome = Math.round(
-		state.properties.filter((p) => p.rented).reduce((sum, p) => sum + (PROPERTIES.find((d) => d.id === p.id)?.rentIncome ?? 0) * (1 - FINANCE.vacancy), 0),
+		state.properties.filter((p) => p.rented).reduce((sum, p) => sum + rentOn(PROPERTIES.find((d) => d.id === p.id)?.rentIncome ?? 0, settleDay(state)) * (1 - FINANCE.vacancy), 0),
 	);
 	const income = wages + rentIncome;
 	const costs = weeklyCosts(state).total;
