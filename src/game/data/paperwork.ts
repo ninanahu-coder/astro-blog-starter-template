@@ -40,6 +40,11 @@ export interface PaperDef {
 	docs: string[];
 	/** 办成后解锁什么：v1 已生效的写在 now，还没接上的写在 later（见设计文档） */
 	unlocks: { now: string[]; later: string[] };
+	/**
+	 * 合并 main 后（用户 2026-11-23 定）：银行户、TFN、医保这几项 main 已经有自己的系统，清单只显示它们的状态、按钮跳到那边办，
+	 * 不再自己记录：bank 看银行开户（core/bank.ts），tfn 看税务的 TFN（core/tax.ts），cover 看签证带的医保（core/health.ts coverOf）
+	 */
+	linked?: 'bank' | 'tfn' | 'cover';
 	/** 现实流程摘要，以官方为准 */
 	real: { who: string; steps: string; wait: string; sources: PaperSource[] };
 	desc: string;
@@ -47,8 +52,6 @@ export interface PaperDef {
 
 /** 调参常量，待平衡 */
 export const PAPER_RULES = {
-	/** 有 Medicare 或 OSHC 时，看医生（clinic 活动）退回诊费的比例 */
-	clinicRefund: 0.5,
 	/** 存档里最多记多少条办事记录（数据表的条目数远小于它） */
 	max: 32,
 };
@@ -75,9 +78,9 @@ export const PAPERS: PaperDef[] = [
 		desc: '先有个本地号码，后面办什么都要填。',
 	},
 	{
-		id: 'bank', name: '开银行户', icon: '🏦', needs: ['phone'], where: OFFICE, place: '有银行网点的城镇', hours: [9, 16], minutes: 45, fee: 0, waitDays: 0,
+		id: 'bank', name: '开银行户', icon: '🏦', linked: 'bank', needs: [], where: OFFICE, place: '有银行网点的城镇', hours: [9, 16], minutes: 45, fee: 0, waitDays: 0,
 		docs: ['护照', '签证（电子签证即可）', '澳洲手机号'],
-		unlocks: { now: ['贷款买房要先有银行户'], later: ['应聘正式工作（工资打进银行户）'] },
+		unlocks: { now: ['在「我 · 资产」的银行卡片开户；按揭买房、信用卡、贷款、先买后付都要先开户'], later: [] },
 		real: {
 			who: '任何人；银行按反洗钱法规做客户身份识别（KYC）。',
 			steps: '可以先在网上开户，再带护照到分行核实身份；具体能提前多少天开户、要哪些证件，各银行不同。',
@@ -87,7 +90,7 @@ export const PAPERS: PaperDef[] = [
 		desc: '工资、房租、押金都走银行转账。',
 	},
 	{
-		id: 'tfn', name: '申请 TFN（税号）', icon: '🧾', needs: [], where: 'online', place: '网上', minutes: 20, fee: 0, waitDays: 7,
+		id: 'tfn', linked: 'tfn', name: '申请 TFN（税号）', icon: '🧾', needs: [], where: 'online', place: '网上', minutes: 20, fee: 0, waitDays: 7,
 		docs: ['护照', '有工作权限的签证', '澳洲收信地址'],
 		unlocks: { now: ['贷款买房要有 TFN'], later: ['没有 TFN 时雇主按最高税率预扣工资'] },
 		real: {
@@ -126,9 +129,9 @@ export const PAPERS: PaperDef[] = [
 		desc: '阿德莱德公交、火车、电车通用的储值卡。',
 	},
 	{
-		id: 'oshc', name: '领 OSHC 学生医保卡', icon: '🩺', origins: ['student'], needs: [], where: 'online', place: '网上', minutes: 10, fee: 0, waitDays: 0,
+		id: 'oshc', linked: 'cover', name: '领 OSHC 学生医保卡', icon: '🩺', needs: [], where: 'online', place: '网上', minutes: 10, fee: 0, waitDays: 0,
 		docs: ['保单号（办学生签证前已买）', '护照'],
-		unlocks: { now: [`看医生退一部分诊费`], later: ['住院、晕倒送医的账单按保险报销'] },
+		unlocks: { now: ['看病按 OSHC 收费（GP、药房、急诊，见「我」页的健康）'], later: [] },
 		real: {
 			who: '学生签证持有人；签证条件 8501 要求在澳期间一直持有足够的医疗保险（OSHC）。',
 			steps: '办签证前已经向保险公司买好 OSHC，到澳后在保险公司的网站或 App 激活会员、下载电子卡。',
@@ -138,9 +141,9 @@ export const PAPERS: PaperDef[] = [
 		desc: '留学生的医疗保险，看病拿它报销。',
 	},
 	{
-		id: 'medicare', name: '登记 Medicare', icon: '💳', notOrigins: ['student'], needs: ['address'], where: AGENCY, place: 'Services Australia 服务中心（城市和较大的镇）', hours: [9, 16], minutes: 40, fee: 0, waitDays: 0,
+		id: 'medicare', linked: 'cover', name: '登记 Medicare', icon: '💳', needs: [], where: AGENCY, place: 'Services Australia 服务中心（城市和较大的镇）', hours: [9, 16], minutes: 40, fee: 0, waitDays: 0,
 		docs: ['护照', '签证', '居住地址'],
-		unlocks: { now: ['看医生退一部分诊费'], later: ['住院、晕倒送医的账单按 Medicare 报销'] },
+		unlocks: { now: ['看病按 Medicare 收费（GP 多数免费，见「我」页的健康）'], later: [] },
 		real: {
 			who: '澳洲公民、永久居民和部分永居申请人；和澳洲有互惠医疗协议国家的访客视国家而定（中国大陆不在协议里，没资格的人要买海外访客医保）。',
 			steps: '到 Services Australia 服务中心或网上提交 Medicare 登记，带护照和签证。',
@@ -152,7 +155,7 @@ export const PAPERS: PaperDef[] = [
 	{
 		id: 'address', name: '登记 / 变更地址', icon: '🏠', needs: [], needsHome: true, where: 'online', place: '网上', minutes: 15, fee: 0, waitDays: 0,
 		docs: ['租约或水电账单（地址证明）'],
-		unlocks: { now: ['换本地驾照、登记 Medicare 的前置（要地址证明）', '搬家后清单提醒更新'], later: ['逾期没更新的后果（罚款或提醒信）'] },
+		unlocks: { now: ['换本地驾照的前置（要地址证明）', '搬家后清单提醒更新'], later: ['逾期没更新的后果（罚款或提醒信）'] },
 		real: {
 			who: '所有人。留学生：签证条件 8533 要求到澳 7 天内、搬家后 7 天内把住址告诉学校。驾照持有人：WA 要在搬家后 21 天内通知交通部。',
 			steps: '学校在学生系统里改；驾照在 DoT 网上改；银行、ATO、Medicare 各自在网上改。',
@@ -200,8 +203,6 @@ export const PAPERS: PaperDef[] = [
 
 /** 这些动作要先办好对应的事（v1 只接了这几处，其他见设计文档的「提议」） */
 export const PAPER_GATES = {
-	/** 贷款买房 */
-	loan: ['bank', 'tfn'],
 	/** 考这些证书要先有本地驾照 */
 	certs: { 'hr-licence': ['licence'] } as Record<string, string[]>,
 };

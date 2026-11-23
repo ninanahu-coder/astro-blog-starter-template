@@ -4,8 +4,7 @@ import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import { cleanPapers } from '../../src/game/core/paper-clean.ts';
-import { clinicRefund, doPaper, paperBlocked, paperChecklist, paperGate, paperProgress, papersFor, paperStatus, getPaper } from '../../src/game/core/paperwork.ts';
-import { ACTIVITIES } from '../../src/game/data/activities.ts';
+import { doPaper, paperBlocked, paperChecklist, paperGate, paperProgress, papersFor, paperStatus, getPaper } from '../../src/game/core/paperwork.ts';
 import { PAPER_GATES, PAPER_ORDER, PAPER_RULES, PAPERS } from '../../src/game/data/paperwork.ts';
 import { CERTS } from '../../src/game/data/certs.ts';
 import { PROPERTIES } from '../../src/game/data/properties.ts';
@@ -47,12 +46,12 @@ test('数据：id 唯一、都在清单顺序里、前置存在且无环、来�
 			}
 		}
 	}
-	for (const ids of [PAPER_GATES.loan, ...Object.values(PAPER_GATES.certs)]) for (const id of ids) assert.ok(getPaper(id), id);
+	for (const ids of Object.values(PAPER_GATES.certs)) for (const id of ids) assert.ok(getPaper(id), id);
 	for (const id of Object.keys(PAPER_GATES.certs)) assert.ok(CERTS.some((c) => c.id === id), id);
-	assert.ok(PAPER_RULES.clinicRefund > 0 && PAPER_RULES.clinicRefund < 1);
+	assert.ok(PAPER_RULES.max >= PAPERS.length);
 });
 
-test('清单按区域和出身筛：西澳留学生是 SmartRider + OSHC，南澳矿工是 metroCARD + Medicare', () => {
+test('清单按区域和出身筛：西澳留学生是 SmartRider + OSHC，南澳矿工是 metroCARD + Medicare（医保那一行看签证，合并 main 后）', () => {
 	const st = papersFor(make()).map((p) => p.id);
 	assert.ok(st.includes('transit-wa') && st.includes('oshc'));
 	assert.ok(!st.includes('transit-sa') && !st.includes('medicare'));
@@ -61,7 +60,9 @@ test('清单按区域和出身筛：西澳留学生是 SmartRider + OSHC，南�
 	assert.ok(!fifo.includes('transit-wa') && !fifo.includes('oshc'));
 	assert.deepEqual(st, PAPER_ORDER.filter((id) => st.includes(id)), '按清单顺序');
 	assert.match(paperBlocked(make(), WA, getPaper('medicare')!)!, /不用办/);
-	assert.deepEqual(paperProgress(make()), { done: 0, total: st.length });
+	// 留学生签证自带 OSHC：一开始就算办好；不算进要办的总数里的只有「没有医保」那种
+	assert.equal(paperStatus(make(), 'oshc'), 'done');
+	assert.deepEqual(paperProgress(make()), { done: 1, total: st.length });
 });
 
 test('办手机卡：当场办好、收费、花时间；不改入参；同一项不能再办', () => {
@@ -78,32 +79,50 @@ test('办手机卡：当场办好、收费、花时间；不改入参；同一�
 });
 
 test('前置、地点、办公时间、钱、精力、待处理事件都会挡住', () => {
-	assert.match(paperBlocked(make(), WA, getPaper('bank')!)!, /手机卡/);
-	const withPhone = make({ papers: done('phone') });
-	assert.equal(paperBlocked(withPhone, WA, getPaper('bank')!), undefined);
-	assert.match(paperBlocked({ ...withPhone, clock: at(20) }, WA, getPaper('bank')!)!, /办公时间/);
-	assert.match(paperBlocked({ ...withPhone, loc: 'rottnest' }, WA, getPaper('bank')!)!, /要到有银行网点的城镇/);
-	assert.equal(paperBlocked({ ...withPhone, loc: 'kalgoorlie' }, WA, getPaper('bank')!), undefined, '卡尔古利有银行');
+	assert.match(paperBlocked(make(), WA, getPaper('licence-theory')!)!, /登记/);
 	assert.match(paperBlocked(make({ loc: 'bunbury' }), WA, getPaper('transit-wa')!)!, /Transperth 服务范围/);
 	assert.equal(paperBlocked(make({ loc: 'fremantle' }), WA, getPaper('transit-wa')!), undefined);
+	assert.match(paperBlocked(make({ clock: at(23) }), WA, getPaper('transit-wa')!)!, /办公时间/);
 	assert.match(paperBlocked(make({ cash: 0 }), WA, getPaper('phone')!)!, /\$10/);
 	assert.match(paperBlocked(make({ needs: { hunger: 90, energy: 5, hygiene: 90, fun: 90, social: 90 } }), WA, getPaper('phone')!)!, /太累/);
 	assert.equal(doPaper(make({ pending: { eventId: 'x' } }), WA, 'phone').ok, false);
 	assert.equal(doPaper(make(), WA, 'no-such').ok, false);
 });
 
-test('TFN：网上办，在岛上半夜也能递交；要等 7 天，等待中不能再递交，到天数自动办好', () => {
-	const s = make({ loc: 'rottnest', clock: at(23) });
+test('合并 main：银行户、TFN 看 main 的银行和税务——按钮直接在那边办，不另外记录', () => {
+	// 开户：在哪都能办（手机核验），不要手机卡；办完是 main 银行的账户
+	assert.equal(paperStatus(make(), 'bank'), 'todo');
+	assert.equal(paperBlocked(make({ loc: 'rottnest', clock: at(23) }), WA, getPaper('bank')!), undefined);
+	const b = applyAction(make(), WA, { t: 'paper', id: 'bank' });
+	assert.ok(b.ok, b.msg);
+	assert.equal(b.state.bank.open, true);
+	assert.equal(b.state.papers.bank, undefined, '清单不另外记');
+	assert.equal(paperStatus(b.state, 'bank'), 'done');
+	assert.match(paperBlocked(b.state, WA, getPaper('bank')!)!, /已经办好/);
+	const opened = make();
+	opened.bank.open = true;
+	assert.equal(paperStatus(opened, 'bank'), 'done', '在银行卡片开的户，清单上也算');
+	// TFN：走 main 税务的申请，等的天数也按税务
+	const s = make({ loc: 'rottnest', clock: at(23), tax: { ...make().tax, tfn: -1 } });
+	assert.equal(paperStatus(s, 'tfn'), 'todo');
 	const r = doPaper(s, WA, 'tfn');
 	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.papers.tfn, undefined);
 	assert.equal(paperStatus(r.state, 'tfn'), 'waiting');
-	assert.match(paperBlocked(r.state, WA, getPaper('tfn')!)!, /办理中/);
-	const wait = getPaper('tfn')!.waitDays;
-	const ready = r.state.papers.tfn.ready;
-	assert.equal(ready, Math.floor(r.state.clock / 1440) + wait);
-	assert.equal(paperStatus({ ...r.state, clock: ready * 1440 - 1 }, 'tfn'), 'waiting');
-	assert.equal(paperStatus({ ...r.state, clock: ready * 1440 }, 'tfn'), 'done');
+	assert.match(paperBlocked(r.state, WA, getPaper('tfn')!)!, /TFN 在寄来的路上/);
+	assert.equal(paperStatus({ ...r.state, clock: r.state.tax.tfn * 1440 }, 'tfn'), 'done');
 });
+
+test('合并 main：医保那一行看签证带的医保；没有的写明全额自付，不算进要办的项', () => {
+	const bp = make({}, 'backpacker');
+	const ids = papersFor(bp).map((p) => p.id);
+	assert.ok(ids.includes('medicare'));
+	assert.equal(paperStatus(bp, 'medicare'), 'na');
+	assert.match(paperBlocked(bp, WA, getPaper('medicare')!)!, /全额自付/);
+	assert.equal(doPaper(bp, WA, 'medicare').ok, false);
+	assert.equal(paperProgress(bp).total, ids.length - 1, '「没有医保」不算要办的项');
+});
+
 
 test('地址：要先有住处；搬家后变成过期，更新后恢复；过期时换驾照办不了', () => {
 	assert.match(paperBlocked(make(), WA, getPaper('address')!)!, /住处/);
@@ -156,13 +175,9 @@ test('途中晕倒：当没去，不收费、不记办事', () => {
 	assert.ok(r.state.journal.some((j) => j.text.includes('不收费')));
 });
 
-test('门槛：贷款买房要银行户和 TFN（全款不受影响）；重型卡车驾照要本地驾照', () => {
+test('门槛：重型卡车驾照要本地驾照；按揭买房不再由清单拦（main 的银行审批管）', () => {
 	const rich = make({ cash: 200_000, clock: at(10) });
-	const loan = { t: 'property', op: 'buy', id: flat.id, loan: true } as const;
-	assert.match(applyAction(rich, WA, loan).msg, /银行户/);
-	assert.match(applyAction({ ...rich, papers: done('bank') }, WA, loan).msg, /TFN/);
-	assert.match(applyAction({ ...rich, papers: { ...done('bank'), tfn: { at: 0, ready: 99 } } }, WA, loan).msg, /TFN/, 'TFN 还在等也不行');
-	assert.ok(applyAction({ ...rich, papers: done('bank', 'tfn') }, WA, loan).ok);
+	assert.equal(paperGate(rich, { t: 'property', op: 'buy', id: flat.id, loan: true }), undefined);
 	assert.ok(applyAction(rich, WA, { t: 'property', op: 'buy', id: flat.id, loan: false }).ok, '全款不用手续');
 	assert.match(paperGate(rich, { t: 'cert', id: 'hr-licence' })!, /驾照/);
 	assert.equal(paperGate({ ...rich, papers: done('licence') }, { t: 'cert', id: 'hr-licence' }), undefined);
@@ -173,26 +188,6 @@ test('门槛：贷款买房要银行户和 TFN（全款不受影响）；重型�
 	assert.match(r.msg, /驾照/);
 });
 
-test('医保：有 OSHC 或 Medicare 时看医生退一半诊费，没有不退', () => {
-	const fee = -ACTIVITIES.find((a) => a.id === 'clinic')!.fx.cash!;
-	const s = make({ health: 50, clock: at(10) });
-	assert.equal(clinicRefund(s), 0);
-	const plain = applyAction(s, WA, { t: 'activity', id: 'clinic' });
-	assert.ok(plain.ok, plain.msg);
-	const covered = applyAction({ ...s, papers: done('oshc') }, WA, { t: 'activity', id: 'clinic' });
-	assert.ok(covered.ok, covered.msg);
-	const back = Math.round(fee * PAPER_RULES.clinicRefund);
-	assert.equal(covered.state.cash - plain.state.cash, back);
-	assert.match(covered.msg, new RegExp(`报销 \\$${back}`));
-	assert.equal(clinicRefund(make({ papers: done('medicare') }, 'fifo')), back);
-	// 别的活动不退钱
-	const other = ACTIVITIES.find((a) => a.id !== 'clinic' && (a.fx.cash ?? 0) < 0 && !a.tags && !a.kinds && !a.hours && !a.requires?.skill && !a.weather)!;
-	if (other) {
-		const a = applyAction({ ...s, papers: done('oshc') }, WA, { t: 'activity', id: other.id });
-		const b = applyAction(s, WA, { t: 'activity', id: other.id });
-		assert.equal(a.state.cash, b.state.cash, other.id);
-	}
-});
 
 test('协议：paper 动作只认合法 id', () => {
 	assert.deepEqual(parseAction({ t: 'paper', id: 'tfn' }), { t: 'paper', id: 'tfn' });
@@ -218,6 +213,7 @@ test('存档校验：旧存档补 {}；去掉未知 id、坏数字、ready 早�
 	};
 	const clean = cleanPapers(dirty, locs);
 	assert.deepEqual(clean, { phone: { at: 1, ready: 2 }, address: { at: 0, ready: 0 }, licence: { at: 1, ready: 4, fail: true } });
+	assert.deepEqual(cleanPapers({ bank: { at: 0, ready: 0 }, tfn: { at: 0, ready: 3 }, oshc: { at: 0, ready: 0 } }, locs), {}, '合并 main 后银行户、TFN、医保不再由清单记录，旧存档里的丢掉');
 	assert.deepEqual(cleanPapers(clean, locs), clean, '幂等');
 	assert.deepEqual(cleanPapers([1, 2]), {});
 	assert.deepEqual(cleanPapers('x'), {});
@@ -227,13 +223,13 @@ test('存档校验：旧存档补 {}；去掉未知 id、坏数字、ready 早�
 	assert.deepEqual(sanitizeState(s, locs)!.papers, clean);
 });
 
-test('新手清单：按顺序一路办下来（同一天能办的当天办完，TFN 等几天）', () => {
+test('新手清单：按顺序一路办下来（同一天能办的当天办完，TFN 按税务等几天）', () => {
 	const home = { type: 'share', loc: WA.spawn, furniture: {} };
 	let s = make({ home, cash: 5000, skills: { ...make().skills, driving: 80 } });
 	for (let guard = 0; guard < 40; guard++) {
 		const row = paperChecklist(s, WA).find((x) => !x.blocked);
 		if (!row) {
-			if (paperChecklist(s, WA).every((x) => x.status === 'done')) break;
+			if (paperChecklist(s, WA).every((x) => x.status === 'done' || x.status === 'na')) break;
 			s = { ...s, clock: at(10, Math.floor(s.clock / 1440) + 1), needs: { ...s.needs, energy: 90 } }; // 下一天
 			continue;
 		}

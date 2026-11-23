@@ -14,6 +14,7 @@ export function cleanPapers(raw: unknown, knownLocs?: Set<string>): Papers {
 	if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
 	const r = raw as Record<string, unknown>;
 	for (const p of PAPERS) {
+		if (p.linked) continue; // 银行户、TFN、医保看 main 的系统，旧存档里清单自己记的不再保留（合并 main 后）
 		if (!Object.hasOwn(r, p.id)) continue;
 		const x = r[p.id] as Record<string, unknown> | null;
 		if (!x || typeof x !== 'object') continue;

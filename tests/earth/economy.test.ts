@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { energyCap } from '../../src/game/core/vitals.ts';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
@@ -39,10 +40,10 @@ test('车行：买、换、卖；营业时间；钱不够', () => {
 	const r1 = buyVehicle(s, WA, 'car');
 	assert.ok(r1.ok);
 	assert.equal(r1.state.vehicle, 'car');
-	assert.equal(r1.state.cash, 15500);
+	assert.equal(r1.state.cash, 20000 - 4500 - 124, '车价 + 西澳过户印花税 4500 × 2.75% ≈ $124（第 26 批）');
 	const r2 = buyVehicle({ ...r1.state, clock: at(10, 1) }, WA, '4wd');
 	assert.ok(r2.ok, '以旧换新');
-	assert.equal(r2.state.cash, 15500 - (12000 - resaleValue('car')));
+	assert.equal(r2.state.cash, 15376 - (12000 + 330 - resaleValue('car')), '新车价 + 印花税 12000 × 2.75% − 旧车折抵（没开过，不折旧）');
 	const r3 = sellVehicle({ ...r2.state, clock: at(10, 2) }, WA);
 	assert.ok(r3.ok);
 	assert.equal(r3.state.vehicle, 'none');
@@ -137,11 +138,19 @@ test('动作协议与存档校验', () => {
 // ---------- 阶段 B：家具、在家活动、每周结算 ----------
 import { homeComfort, mood, weeklyCosts } from '../../src/game/core/attributes.ts';
 import {
-	buyFurniture, cookAtHome, firstRent, furnitureAt, furnitureValue, homeActionBlocked, leaveHome, relaxAtHome, rentHome,
+	buyFurniture, firstRent, furnitureAt, furnitureValue, homeActionBlocked, leaveHome, relaxAtHome, rentHome as signLease,
 	sellFurniture, sleepHome,
 } from '../../src/game/core/engine.ts';
+import { cookAtHome } from '../../src/game/core/cooking.ts';
 import { FURNITURE, FURNITURE_SLOTS } from '../../src/game/data/furniture.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
+
+/** 这里只测押金本身：把签约时种子定的「入住时原有损坏」（租房市场 rental 批次）清零，退房时房东没有可扣的；扣损坏的规则见 rental.test.ts */
+const rentHome = (...a: Parameters<typeof signLease>) => {
+	const r = signLease(...a);
+	if (r.state.rental.lease) r.state.rental.lease.prior = 0;
+	return r;
+};
 
 const housed = (over: Partial<PlayerState> = {}) => rentHome(make({ cash: 5000, clock: at(9), ...over }), WA, 'room').state;
 
@@ -156,7 +165,7 @@ test('租房首期按到结算日的天数折算', () => {
 	assert.equal(firstRent(make({ clock: at(9) }), room), 160, '第 1 天租：整周');
 	assert.equal(firstRent(make({ clock: at(9, 5) }), room), Math.round((160 * 2) / 7), '第 6 天租：只付 2 天');
 	const r = rentHome(make({ cash: 1000, clock: at(9, 5) }), WA, 'room');
-	assert.equal(r.state.cash, 1000 - 46);
+	assert.equal(r.state.cash, 1000 - 46 - 320, '首期只付 2 天，押金照收 2 周（第 26 批）');
 });
 
 test('家具：要在住处买、同槽位替换半价折旧、可卖', () => {
@@ -191,7 +200,9 @@ test('家具效果：睡得更好、在家做饭和放松、心情', () => {
 	assert.equal(mood(s) - mood({ ...s, home: { ...s.home!, furniture: {} } }), 5);
 	const hurt = { ...s, health: 40 };
 	const plain = { ...hurt, home: { ...s.home!, furniture: {} } };
-	assert.equal(sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health, 10, '好床垫 +10 健康');
+	// 好床垫本身 +10 健康；时间和睡眠合并后床位有家具、舒适度更高，睡眠质量也更高，基础的 15 + 舒适度那部分也多回一点
+	const diff = Math.round(sleepHome(hurt, WA).state.health - sleepHome(plain, WA).state.health);
+	assert.ok(diff >= 10 && diff <= 13, `好床垫 +10 健康，外加睡得更好（实际 ${diff}）`);
 });
 
 test('搬走或被收房：家具半价折现', () => {
@@ -199,11 +210,12 @@ test('搬走或被收房：家具半价折现', () => {
 	s = buyFurniture(s, WA, 'mattress').state;
 	s = buyFurniture(s, WA, 'plants').state;
 	assert.equal(furnitureValue(s), 275);
+	assert.equal(s.home!.bond, 320, '合租房间押金 = 2 周房租（第 26 批）');
 	const left = leaveHome(s);
-	assert.equal(left.state.cash, s.cash + 275);
+	assert.equal(left.state.cash, s.cash + 275 + 320, '家具折现 + 押金全退');
 	const evicted = applyAction({ ...s, cash: 10, clock: at(20, 6) }, WA, { t: 'activity', id: 'sleep-camp' }).state;
 	assert.equal(evicted.home, null);
-	assert.equal(evicted.cash, 10 + 275);
+	assert.equal(evicted.cash, 10 + 275 + 160, '押金先扣一周房租 $160，剩下 $160 退回');
 });
 
 test('每周结算：房租 + 车辆保险；没钱续保记麻烦值', () => {
@@ -241,10 +253,11 @@ test('阶段 B 的动作协议与旧存档迁移', () => {
 test('跨周结算前先发这一班的工资：工资够付刚到期的房租就不会被收房', () => {
 	const s = housed({ clock: at(9) });
 	const job = { career: 'barista', loc: s.loc, level: 0, shifts: 0, good: 0, lastDay: -1 };
-	const due = { ...s, job, cash: 50, clock: at(7, 6), nextWeek: 6, needs: { hunger: 90, energy: 90, hygiene: 80, fun: 60, social: 60 } };
+	// 有 TFN（按正常税率预扣，见 core/tax.ts）：$80 + 税后工资（表现好有奖金时预扣也多）≥ 房租 $160
+	const due = { ...s, job, cash: 80, clock: at(7, 6), nextWeek: 6, tax: { ...s.tax, tfn: 0 }, needs: { hunger: 90, energy: 90, hygiene: 80, fun: 60, social: 60 } };
 	const r = applyAction(due, WA, { t: 'job', op: 'work' });
 	assert.ok(r.ok && !r.collapsed, r.msg);
-	assert.ok(r.state.home, '$50 + 工资 ≥ 房租 $160，不该被收房');
+	assert.ok(r.state.home, '$80 + 税后工资（表现好有奖金时预扣也多）≥ 房租 $160，不该被收房');
 	assert.equal(r.state.nextWeek, 13);
 	assert.ok(r.state.cash < 50 + 200, '房租照扣');
 });
@@ -303,7 +316,7 @@ test('跨周结算在动作途中收走住处、房产时，任何动作都不�
 		assert.ok(r.ok, r.msg);
 		assert.equal(r.state.home, null, name);
 		assert.match(r.msg, /住处已经没了/);
-		assert.equal(r.state.needs.energy, 100);
+		assert.equal(r.state.needs.energy, energyCap(r.state), '睡醒精力回到精力上限（第 23 批起上限随体质，不再固定 100）');
 	}
 	assert.ok(applyAction(scenarios['租客付不起房租'], WA, { t: 'home', op: 'sleep' }).state.moodlets.some((m) => m.id === 'great-sleep'));
 });

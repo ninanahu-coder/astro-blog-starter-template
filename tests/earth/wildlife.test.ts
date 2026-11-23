@@ -6,7 +6,7 @@ import { createCharacter, sanitizeState } from '../../src/game/core/character.ts
 import { animalsAt, dexProgress, getLocation, travel } from '../../src/game/core/engine.ts';
 import { EVENTS } from '../../src/game/data/events.ts';
 import { ANIMALS, DEX_GROUPS } from '../../src/game/data/wildlife.ts';
-import { WA } from '../../src/game/data/wa.ts';
+import { WA, WORLD } from '../../src/game/data/wa.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
 
 const at = (hour: number, day = 0) => day * 1440 + hour * 60;
@@ -24,8 +24,9 @@ test('图鉴数据：id 唯一、分组有效、几率在 0–1、每种动物�
 	for (const a of ANIMALS) {
 		assert.ok(Object.hasOwn(DEX_GROUPS, a.group), a.id);
 		assert.ok(a.chance > 0 && a.chance < 1, a.id);
-		for (const l of a.where.locs ?? []) assert.ok(getLocation(WA, l), `${a.id} 的地点 ${l} 存在`);
-		const somewhere = WA.locations.some((l) => a.where.locs?.includes(l.id) || a.where.kinds?.includes(l.kind) || a.where.tags?.some((t) => l.tags.includes(t)));
+		// v31 起有南澳的动物：按整个世界查
+		for (const l of a.where.locs ?? []) assert.ok(getLocation(WORLD, l), `${a.id} 的地点 ${l} 存在`);
+		const somewhere = WORLD.locations.some((l) => a.where.locs?.includes(l.id) || a.where.kinds?.includes(l.kind) || a.where.tags?.some((t) => l.tags.includes(t)));
 		assert.ok(somewhere, `${a.id} 有地方能遇到`);
 	}
 	for (const g of Object.keys(DEX_GROUPS)) assert.ok(ANIMALS.some((a) => a.group === g), `${g} 组不为空`);
