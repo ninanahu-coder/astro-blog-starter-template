@@ -28,4 +28,9 @@ export const ITEMS: ItemDef[] = [
 	// 第 34 批新增礼物（价格参照现实超市标价，来源见 shop-items.md；效果待平衡）
 	{ id: 'biscuits', name: '巧克力夹心饼干', icon: '🍪', price: 6, max: 3, shop: { kinds: [...TOWNS] }, cat: 'gift', stores: ['supermarket', 'convenience'], use: { needs: { hunger: 12, fun: 4 } }, desc: '一盒拿得出手的伴手礼，自己吃也行。' },
 	{ id: 'flowers', name: '一束鲜花', icon: '💐', price: 15, max: 1, shop: { kinds: ['city', 'town'] }, cat: 'gift', stores: ['florist', 'supermarket'], perish: true, desc: '只能送人。超市晚上 6 点后贴打折贴。' },
+	// 纪念品（第 43 批）：跨州旅行、回国探亲带回来的，商店不卖（shop 为空）。price 只是二手交易的参考价，待平衡
+	{ id: 'souvenir-mel', name: '墨尔本咖啡豆', icon: '☕', price: 20, max: 3, shop: {}, cat: 'gift', stores: ['cafe', 'supermarket'], use: { needs: { energy: 15, fun: 5 } }, desc: '墨尔本带回来的一袋咖啡豆。自己喝，或者送人。' },
+	{ id: 'souvenir-syd', name: '悉尼港明信片', icon: '🖼️', price: 5, max: 3, shop: {}, cat: 'gift', stores: ['convenience'], use: { needs: { fun: 10 } }, desc: '印着港湾大桥的明信片，翻出来看看心情好。' },
+	{ id: 'souvenir-bne', name: '昆士兰夏威夷果', icon: '🥜', price: 15, max: 3, shop: {}, cat: 'gift', stores: ['supermarket'], use: { needs: { hunger: 15, fun: 5 } }, desc: '布里斯班带回来的一袋坚果。' },
+	{ id: 'souvenir-home', name: '家乡零食', icon: '🧧', price: 10, max: 4, shop: {}, cat: 'gift', stores: ['asian-grocer'], use: { needs: { hunger: 20, fun: 10, social: 5 } }, desc: '妈妈塞进箱子的零食，吃一口就想家。' },
 ];

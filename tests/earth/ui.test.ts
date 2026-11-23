@@ -1852,6 +1852,38 @@ test('界面：留言列表拉取失败（限流、同步码失效、断网）�
 	assert.ok(notes >= 1 && notes <= 3, `留言列表请求了 ${notes} 次`);
 });
 
+test('界面：跨州旅行和回国探亲（第 43 批）——珀斯机场列出航线、票价出处、行李和请假提示；点了以后离开几天再回来', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'trip-ui-a', '旅行甲');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.cash = 5000;
+	rec.state.loc = 'perth';
+	rec.state.job = { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 };
+	data.set('save:' + a.cred.id, rec);
+	const clock0 = rec.state.clock;
+	let list = '', saved: any = null;
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'go' });
+			list = el('panel').innerHTML;
+			await click({ trip: 'sydney', days: '3' });
+			for (let i = 0; i < 100 && (data.get('save:' + a.cred.id) as any).state.clock === clock0; i++) await pause(20);
+			saved = (data.get('save:' + a.cred.id) as any).state;
+		},
+	});
+	assert.match(list, /🧳 跨州旅行和回国探亲/);
+	assert.match(list, /data-trip="home-cn" data-days="14"/);
+	assert.match(list, /南航 CZ320 直飞广州/);
+	assert.match(list, /票价出处：Google Flights/);
+	assert.match(list, /飞行约 7 小时 50 分/);
+	assert.match(list, /请假太久，工作会丢/, '14 天超过请假上限');
+	assert.match(list, /工作保留/);
+	assert.match(list, /别忘了：.*护照/);
+	assert.match(list, /🚗 三天自驾游建议/);
+	assert.equal(saved.clock, clock0 + 3 * 1440);
+	assert.equal(saved.inventory['souvenir-syd'], 1);
+	assert.equal(saved.loc, 'perth');
+});
 test('界面：体验改造 P1——今天页分三层，第 1 天不超过 6 张卡；商店、做事等收进底部抽屉，抽屉能开能关', async () => {
 	const { data, world } = makeWorld();
 	const a = await makeChar(world, 'ux-p1-a', '三层');
@@ -2151,5 +2183,24 @@ test('界面：时间和睡眠（合并 main 后）——有工作时今天页�
 	assert.match(home, /data-home="sleep"/);
 	assert.match(home, /心情 \+\d+ · 睡眠质量 \d+%/, '回家睡觉一行写睡眠质量');
 	assert.match(home, /补觉：睡眠质量 \d+%/);
+});
+
+test('界面：跨州旅行（合并 main 后）——带着没寄养的宠物，旅行按钮变灰并写原因', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'trip-ui-pet', '带狗');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.cash = 5000;
+	rec.state.loc = 'perth';
+	rec.state.pet = { kind: 'dog', name: '豆豆', from: 'shelter', since: 0, bond: 50, fedDay: 0, playDay: -1, walkDay: -1, vetDay: 0, board: null };
+	data.set('save:' + a.cred.id, rec);
+	let list = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'go' });
+			list = el('panel').innerHTML;
+		},
+	});
+	assert.match(list, /data-trip="sydney" data-days="3" disabled/);
+	assert.match(list, /豆豆不能随你坐飞机，先寄养/);
 });
 

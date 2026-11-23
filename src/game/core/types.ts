@@ -177,6 +177,7 @@ export interface Job {
 	shifts: number; // 当前等级已上班次
 	good: number; // 当前等级表现好的班次
 	lastDay: number; // 最近一次上班的游戏日，−1 表示还没上过
+	leave?: { y: number; d: number }; // 跨州旅行、回国探亲请的假：第几个游戏年、这一年请了几天（老板能等的天数按年算，见 core/trips.ts）
 }
 
 export interface HomeDef {

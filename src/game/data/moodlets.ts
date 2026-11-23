@@ -41,6 +41,8 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'taste-of-home', name: '家乡的味道', icon: '🥢', value: 6, hours: 12, relieves: ['homesick'] },
 	{ id: 'hosted', name: '请朋友吃了顿饭', icon: '🍽️', value: 8, hours: 24, relieves: ['lonely'] },
 	{ id: 'flat-harmony', name: '室友相处融洽', icon: '🏠', value: 5, hours: 24, relieves: ['lonely'] }, // 室友系统；合并 main 后：和室友处得好能缓解孤单（待平衡）
+	{ id: 'trip-glow', name: '旅行回来', icon: '🧳', value: 8, hours: 48, relieves: ['stressed'] }, // 第 43 批：跨州旅行回来；合并 main 后：出去玩一趟能缓解压力（待平衡）
+	{ id: 'family-time', name: '见到了家人', icon: '🏮', value: 12, hours: 96, relieves: ['homesick', 'lonely'] }, // 第 43 批：回国探亲回来；合并 main 后：见到家人缓解想家和孤单（待平衡）
 	// 负面
 	{ id: 'rough-night', name: '没睡好', icon: '🥱', value: -2, hours: 8 }, // 第七轮起露营改给 camp-calm；时间和睡眠（v89）起睡眠质量低于 0.75 的一觉会挂它（白天睡、城里露营等）
 	{ id: 'camp-calm', name: '星空下醒来', icon: '🌌', value: 10, hours: 24, relieves: ['stressed'] }, // 露营专属（第七轮平衡：替代「没睡好」，托住穷角色的心情）
@@ -63,6 +65,7 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'flat-noisy', name: '被室友吵到了', icon: '🔊', value: -4, hours: 10 },
 	{ id: 'flat-annoyed', name: '有点憋屈', icon: '😤', value: -2, hours: 8 },
 	{ id: 'flat-messy', name: '家里乱糟糟', icon: '🧺', value: -4, hours: 12 },
+	{ id: 'jetlag', name: '倒时差', icon: '🥴', value: -4, hours: 24 }, // 第 43 批：时差 ≥ 2 小时的旅行回来（待平衡）
 ];
 
 /** 存档里最多保留的状态数 */
