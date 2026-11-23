@@ -30,7 +30,7 @@ export function queueable(a: GameAction): boolean {
 		case 'photo':
 			return true;
 		case 'home':
-			return a.op === 'sleep' || a.op === 'cook' || a.op === 'relax';
+			return a.op === 'sleep' || a.op === 'nap' || a.op === 'cook' || a.op === 'relax';
 		case 'job':
 			return a.op === 'work';
 		case 'npc':
@@ -51,7 +51,7 @@ export function actLabel(a: GameAction, n: Names): string {
 		case 'travel': return `去${n.loc(a.to) ?? '别处'}`;
 		case 'fish': return '钓鱼';
 		case 'photo': return '拍照';
-		case 'home': return ({ sleep: '在家睡觉', cook: '在家做饭', relax: '在家休息' } as Record<string, string>)[a.op] ?? '在家';
+		case 'home': return ({ sleep: '在家睡觉', nap: '在家补觉', cook: '在家做饭', relax: '在家休息' } as Record<string, string>)[a.op] ?? '在家';
 		case 'job': return '上班';
 		case 'npc': return `${a.act === 'help' ? '帮' : '找'}${n.npc(a.npc) ?? '熟人'}${a.act === 'help' ? '个忙' : '聊天'}`;
 		default: return '动作';

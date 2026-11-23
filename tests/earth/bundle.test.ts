@@ -76,10 +76,14 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *     gzip 258,311 → 264,165（+5.9KB），上限 259,400 → 265,100；未压缩 800,433 → 817,949，上限 803,500 → 820,700。
  *   - 室友与合租：室友人设、事件和规则（core/flatmates.ts、core/flat-actions.ts、data/flatmates.ts）、住处卡里的室友区块（ui/flatmates.ts），
  *     gzip 264,165 → 269,284（+5.1KB），上限 265,100 → 270,200；未压缩 817,949 → 833,263，上限 820,700 → 835,500。
+ *   - 时间和睡眠：睡眠质量、睡眠债、补觉（core/sleep.ts、data/sleep.ts）、今日日程（core/schedule.ts）和今天页的日程卡，
+ *     gzip 269,284 → 271,552（+2.3KB），上限 270,200 → 272,600；未压缩 833,263 → 838,705，上限 835,500 → 840,900。
+ *   - 跨州旅行和回国探亲：目的地、真实航线票价和出处、行李、回来的事件（core/trips.ts、data/trips.ts、data/trip-events.ts）、出行页的旅行和自驾游卡片，
+ *     gzip 271,552 → 276,440（+4.9KB），上限 272,600 → 277,500；未压缩 838,705 → 853,524，上限 840,900 → 856,600。
  */
-export const FIRST_SCREEN_MAX = 835_500;
+export const FIRST_SCREEN_MAX = 856_600;
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 270_200;
+export const FIRST_SCREEN_GZIP_MAX = 277_500;
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');

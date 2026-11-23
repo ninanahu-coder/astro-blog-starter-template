@@ -75,8 +75,14 @@ test('互动：条件校验与效果', () => {
 	assert.equal(performActivity(s, WA, 'buy-car').ok, false, '钱不够');
 	const r = performActivity({ ...s, needs: { ...s.needs, hunger: 20 } }, WA, 'eat');
 	assert.ok(r.ok && r.state.needs.hunger > 60 && r.state.cash === s.cash - 18);
-	const slept = performActivity({ ...s, needs: { ...s.needs, energy: 5 } }, WA, 'sleep-motel');
-	assert.equal(slept.state.needs.energy, energyCap(slept.state), '睡醒精力回到精力上限');
+	// 时间和睡眠：一觉恢复的精力乘睡眠质量（旅馆的床、城里的噪音、几点睡），再受精力上限限制
+	const night = { ...s, clock: 22 * 60, health: 40, needs: { ...s.needs, energy: 5 } };
+	const slept = performActivity(night, WA, 'sleep-motel');
+	assert.ok(slept.state.needs.energy <= energyCap(slept.state), '不超过精力上限');
+	assert.ok(slept.state.needs.energy >= 80, '夜里住旅馆睡得不差');
+	const day = performActivity({ ...night, clock: 10 * 60 }, WA, 'sleep-motel');
+	assert.ok(day.state.needs.energy <= slept.state.needs.energy);
+	assert.ok(day.state.health < slept.state.health, '白天睡比夜里睡回的健康少（合并 main 后：精力有上限（约 81–84），住旅馆、回家睡夜里和白天都能睡到上限，睡眠质量的差别体现在健康恢复、心情和睡眠债上）');
 	assert.ok(activitiesAt(s, WA).some((a) => a.act.id === 'gym'));
 });
 

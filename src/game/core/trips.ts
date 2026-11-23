@@ -9,6 +9,10 @@ import { bankWeekly } from './credit.ts';
 import { settleBiz } from './business.ts';
 import { currentIllness } from './health.ts';
 import { TAX_GAME } from '../data/tax.ts';
+import { SLEEP } from '../data/sleep.ts';
+/** 旅途中每晚的睡眠质量（按普通夜里一觉算，待平衡） */
+const TRIP_SLEEP_Q = 0.85;
+import { debtNow } from './sleep.ts';
 import { costMult, getItem, weeklyCosts } from './attributes.ts';
 import { areaOf } from '../data/areas-base.ts';
 import { inSpan, dayOf, YEAR_DAYS } from './time.ts';
@@ -161,6 +165,7 @@ export function takeTrip(prev: PlayerState, region: Region, destId: string, days
 	if (why) return fail(prev, `${why}。`);
 	const state = clone(prev);
 	const here = getLocation(region, state.loc)?.name ?? '';
+	const debtBefore = debtNow(prev);
 	state.cash -= opt.price + opt.packing;
 	log(state, `从${here}出发去${dest.name}，机票 $${opt.price}${opt.packing ? `，在当地补买没带的东西 $${opt.packing}` : ''}，要离开 ${days} 天。`);
 	let lostJob = false;
@@ -179,8 +184,13 @@ export function takeTrip(prev: PlayerState, region: Region, destId: string, days
 		if (biz) log(state, biz);
 		awayTime(state, TRIP_DAY_MIN, region);
 	}
+	const bizLast = settleBiz(state, region).trim(); // 回来那天的前一天也结算掉
+	if (bizLast) log(state, bizLast);
 	if (lostJob) log(state, `今年请的假超过了老板能等的 ${JOB_LEAVE_DAYS} 天，工作没了。`);
 	for (const k of NEED_KEYS) state.needs[k] = RETURN_NEEDS[dest.kind][k];
+	// 合并时间和睡眠后：在外面每晚都睡了觉——醒来时间从回到机场算起，欠的觉每晚按普通一觉还一部分（见 time-sleep.md §2.4）
+	const perNight = (SLEEP.fullMinutes / 60) * TRIP_SLEEP_Q * SLEEP.repayPerHour;
+	state.rest = { wake: state.clock, debt: Math.max(0, Math.round((debtBefore - days * perNight) * 10) / 10) };
 	addMoodlet(state, dest.kind === 'home' ? 'family-time' : 'trip-glow');
 	if (Math.abs(opt.fare.tz) >= JETLAG_TZ) addMoodlet(state, 'jetlag');
 	const item = getItem(dest.souvenir.item);

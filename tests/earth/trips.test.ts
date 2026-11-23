@@ -2,10 +2,15 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
-import { createCharacter } from '../../src/game/core/character.ts';
+import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import { resolveEvent, shopAt } from '../../src/game/core/engine.ts';
 import { awayPreview, fareDemand, packingCost, packingList, planRoadTrip, takeTrip, tripDaysBlocked, tripFare, tripOptions } from '../../src/game/core/trips.ts';
 import { actionCats } from '../../src/game/core/tally.ts';
+import { bankWeekly } from '../../src/game/core/credit.ts';
+import { weeklyCosts } from '../../src/game/core/attributes.ts';
+import { SHOP_SITES, SHOP_TYPES } from '../../src/game/data/business.ts';
+import { PET } from '../../src/game/data/pets.ts';
+import { debtNow } from '../../src/game/core/sleep.ts';
 import { MOODLETS } from '../../src/game/data/moodlets.ts';
 import { dateOf, SEASON_DAYS, SEASONS, YEAR_DAYS } from '../../src/game/core/time.ts';
 import { AWAY_DESTS, DOMESTIC_PEAK_RATIO, FARE_SEASONS, JOB_LEAVE_DAYS, PACKING, RETURN_EVENTS, RETURN_NEEDS, ROAD_TRIP_DRIVE_MIN_PER_DAY, TRIP_DAY_MIN, TRIP_DAYS } from '../../src/game/data/trips.ts';
@@ -292,5 +297,62 @@ test('合并 main：探亲回来缓解想家和孤单，旅行回来缓解压力
 	const r = applyAction(mk({ clock: OFF }), W, { t: 'trip', dest: 'sydney', days: 3 });
 	assert.ok(r.ok, r.msg);
 	assert.ok((r.state.tally!.out.transport ?? 0) > 0);
+});
+
+// ---------- 合并 main 时复核修正 ----------
+test('复核：出发前的预估算上银行还款、欠税分期和欠的罚款', () => {
+	const base = mk({ clock: OFF, home: { type: 'room', loc: 'perth', furniture: {} } });
+	const s = structuredClone(base);
+	s.bank.open = true;
+	s.bank.loans.push({ kind: 'personal', bal: 2000, pay: 200, rate: 0, missed: 0 });
+	s.tax = { ...s.tax, debt: 400 };
+	s.law = { ...s.law, owed: 50 };
+	const pv = awayPreview(s, 14, 0);
+	assert.ok(pv.settlements >= 2);
+	const plan = Math.max(20, Math.ceil(400 * 0.25));
+	assert.equal(pv.weeklyDue, (weeklyCosts(s).total + bankWeekly(s.bank) + plan) * pv.settlements + 50);
+	assert.ok(pv.weeklyDue > awayPreview(base, 14, 0).weeklyDue);
+});
+
+test('复核：离开期间一天一天走——自己店里每天的生意在结算日之前进账', () => {
+	const s = mk({ clock: OFF, cash: 2000 });
+	const day = Math.floor(OFF / 1440);
+	s.biz = { ...s.biz, shop: { type: SHOP_TYPES[0].id, site: SHOP_SITES[0].id, day: day - 3, last: day - 1, stock: 500, staff: 1, tend: -1, rep: 60, debt: 0, bond: 0, hist: [] } };
+	const r = takeTrip(s, W, 'sydney', 5);
+	assert.ok(r.ok, r.msg);
+	assert.ok(r.state.biz.shop, '店还在');
+	assert.equal(r.state.biz.shop!.last, day + 5 - 1, '店结算到回来的前一天');
+	assert.ok(r.state.journal.filter((j) => j.text.includes('结算 1 天')).length >= 4, '一天一天结算，不是回来后一次结清');
+});
+
+test('复核：生病时不能出远门；带宠物最长离开寄养上限那么多天', () => {
+	const sick = mk({ clock: OFF, illness: { id: 'flu', since: OFF - 60, until: OFF + 3 * 1440, care: [], rx: false } });
+	const o = tripOptions(sick).find((x) => x.dest.id === 'sydney')!;
+	assert.match(o.blocked ?? '', /养病/);
+	const pet: NonNullable<PlayerState['pet']> = { kind: 'dog', name: '豆豆', from: 'shelter', since: 0, bond: 50, fedDay: 0, playDay: -1, walkDay: -1, vetDay: 0, board: { loc: 'perth', until: Math.floor(OFF / 1440) + 100 } };
+	assert.match(tripDaysBlocked(mk({ clock: OFF, pet }), 'home', PET.boardMaxDays + 7) ?? '', /最多只能寄养/);
+	assert.equal(tripDaysBlocked(mk({ clock: OFF, pet }), 'home', 7), undefined);
+});
+
+test('复核：回来时醒来时间从到达算起，欠的觉每晚还一部分；自驾游只走公路、土路、渡轮', () => {
+	const s = mk({ clock: OFF, rest: { wake: OFF - 30 * 60, debt: 10 } });
+	const r = takeTrip(s, W, 'sydney', 3);
+	assert.ok(r.ok);
+	assert.equal(r.state.rest.wake, r.state.clock);
+	const before = debtNow(s); // 出发前欠的（存着的 10 小时 + 已经熬了 30 小时新欠的，封顶）
+	assert.equal(r.state.rest.debt, Math.max(0, Math.round((before - 3 * 8 * 0.85 * 0.5) * 10) / 10), '3 晚每晚按普通一觉还一部分');
+	assert.ok(r.state.rest.debt < before);
+	const plan = planRoadTrip(mk({ clock: OFF }), W, 3);
+	assert.ok(plan.stops.every((x) => x.mode === 'road' || x.mode === 'track' || x.mode === 'ferry'));
+});
+
+test('复核：存档清洗保留合法的请假记录，坏值丢掉', () => {
+	const job = { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1, leave: { y: 1, d: 7 } };
+	const raw = JSON.parse(JSON.stringify(mk({ job })));
+	assert.deepEqual(sanitizeState(raw)!.job!.leave, { y: 1, d: 7 });
+	raw.job.leave = { y: 'x', d: 7 };
+	assert.equal(sanitizeState(raw)!.job!.leave, undefined);
+	raw.job.leave = { y: 2, d: 9999 };
+	assert.deepEqual(sanitizeState(raw)!.job!.leave, { y: 2, d: 365 });
 });
 

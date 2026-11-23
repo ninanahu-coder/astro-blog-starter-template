@@ -2160,3 +2160,47 @@ test('界面：画面设置（P3 复核）——跟随系统并且系统开了�
 	assert.match(html, /data-pref="visual" data-val="auto" class="on" aria-pressed="true">跟随系统/);
 	assert.match(html, /<p class="muted" style="margin-top:4px">系统开了省流量，按「省流量」：不放短片、不下真实地图/, '写明按哪一档、为什么');
 });
+
+test('界面：时间和睡眠（合并 main 后）——有工作时今天页有今日日程；住处抽屉里回家睡觉、补觉写着睡眠质量', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'sleep-ui-a', '作息');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.loc = 'perth';
+	rec.state.cash = 500;
+	rec.state.job = { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 };
+	rec.state.home = { type: 'room', loc: 'perth', furniture: {} };
+	data.set('save:' + a.cred.id, rec);
+	let place = '', home = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			place = el('panel').innerHTML;
+			await click({ drawer: 'home' });
+			home = el('modal').innerHTML;
+		},
+	});
+	assert.match(place, /🗓️ 今日日程/);
+	assert.match(home, /data-home="sleep"/);
+	assert.match(home, /心情 \+\d+ · 睡眠质量 \d+%/, '回家睡觉一行写睡眠质量');
+	assert.match(home, /补觉：睡眠质量 \d+%/);
+});
+
+test('界面：跨州旅行（合并 main 后）——带着没寄养的宠物，旅行按钮变灰并写原因', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'trip-ui-pet', '带狗');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.cash = 5000;
+	rec.state.loc = 'perth';
+	rec.state.pet = { kind: 'dog', name: '豆豆', from: 'shelter', since: 0, bond: 50, fedDay: 0, playDay: -1, walkDay: -1, vetDay: 0, board: null };
+	data.set('save:' + a.cred.id, rec);
+	let list = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'go' });
+			list = el('panel').innerHTML;
+		},
+	});
+	assert.match(list, /data-trip="sydney" data-days="3" disabled/);
+	assert.match(list, /豆豆不能随你坐飞机，先寄养/);
+});
+
