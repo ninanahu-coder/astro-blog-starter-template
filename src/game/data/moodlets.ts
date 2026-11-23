@@ -40,8 +40,9 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'home-cooked', name: '吃上了自己做的饭', icon: '🍳', value: 5, hours: 8 },
 	{ id: 'taste-of-home', name: '家乡的味道', icon: '🥢', value: 6, hours: 12, relieves: ['homesick'] },
 	{ id: 'hosted', name: '请朋友吃了顿饭', icon: '🍽️', value: 8, hours: 24, relieves: ['lonely'] },
+	{ id: 'flat-harmony', name: '室友相处融洽', icon: '🏠', value: 5, hours: 24, relieves: ['lonely'] }, // 室友系统；合并 main 后：和室友处得好能缓解孤单（待平衡）
 	// 负面
-	{ id: 'rough-night', name: '没睡好', icon: '🥱', value: -2, hours: 8 }, // 第七轮起露营改给 camp-calm；保留定义，旧存档里的状态照常显示到过期
+	{ id: 'rough-night', name: '没睡好', icon: '🥱', value: -2, hours: 8 }, // 第七轮起露营改给 camp-calm；时间和睡眠（v89）起睡眠质量低于 0.75 的一觉会挂它（白天睡、城里露营等）
 	{ id: 'camp-calm', name: '星空下醒来', icon: '🌌', value: 10, hours: 24, relieves: ['stressed'] }, // 露营专属（第七轮平衡：替代「没睡好」，托住穷角色的心情）
 	{ id: 'gift-awkward', name: '送错了礼物', icon: '😅', value: -3, hours: 6 },
 	{ id: 'sore', name: '肌肉酸痛', icon: '🦵', value: -3, hours: 12 },
@@ -58,6 +59,10 @@ export const MOODLETS: MoodletDef[] = [
 	{ id: 'stressed', name: '压力有点大', icon: '😣', value: -5, hours: 24 },
 	{ id: 'scammed', name: '被骗租了', icon: '🪤', value: -10, hours: 48 }, // 租房市场（待平衡）
 	{ id: 'debt-collection', name: '被催收', icon: '📞', value: -6, hours: 168 }, // 银行欠款违约后每周刷新（banking.md，待平衡）
+	// 室友系统（数值待平衡）
+	{ id: 'flat-noisy', name: '被室友吵到了', icon: '🔊', value: -4, hours: 10 },
+	{ id: 'flat-annoyed', name: '有点憋屈', icon: '😤', value: -2, hours: 8 },
+	{ id: 'flat-messy', name: '家里乱糟糟', icon: '🧺', value: -4, hours: 12 },
 ];
 
 /** 存档里最多保留的状态数 */

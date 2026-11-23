@@ -31,6 +31,8 @@ import { cookBlocked, groceriesAt, hostBlocked, kitchenLevel, pantryTotal, recip
 import { RECIPES } from '../../../src/game/data/cooking.ts';
 import { viewedOk } from '../../../src/game/core/rental.ts';
 import { weatherAt } from '../../../src/game/core/weather.ts';
+import { choreDone, dutyFor, flatChoiceBlocked, getFlatEvent } from '../../../src/game/core/flatmates.ts';
+import { choreBlocked } from '../../../src/game/core/flat-actions.ts';
 import { currentIllness } from '../../../src/game/core/health.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import { careerSummary, earnedOf, spentOf } from '../../../src/game/core/tally.ts';
@@ -286,7 +288,7 @@ function blankDiagnostics(): BackpackerDiagnostics {
 function actionKey(a: GameAction): string {
 	if (a.t === 'biz') return a.op === 'gig' ? `biz-${a.id}` : `biz-${a.op}`;
 	return a.t === 'activity' ? a.id
-		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' || a.t === 'asset' || a.t === 'rental' ? `${a.t}-${a.op}`
+		: a.t === 'job' || a.t === 'home' || a.t === 'furniture' || a.t === 'property' || a.t === 'asset' || a.t === 'rental' || a.t === 'flat' ? `${a.t}-${a.op}`
 			: a.t === 'npc' ? 'npc'
 				: a.t === 'buy' ? `buy-${a.item}`
 					: a.t;
@@ -617,6 +619,13 @@ function step(b: Bot) {
 		if (act(b, 'sleep-camp')) return;
 	}
 	if (s.needs.hygiene < 25 && act(b, 'shower')) return;
+	// 室友（docs/earth-game/flatmates.md）：有室友事件就选第一个付得起的选项；轮到自己值日、人在家、精力够就做一次家务
+	if (s.flatshare.ev) {
+		const fe = getFlatEvent(s.flatshare.ev.id);
+		const pick = fe ? fe.choices.findIndex((c) => !flatChoiceBlocked(s, c)) : -1;
+		if (pick >= 0 && tryAct(b, { t: 'flat', op: 'resolve', choice: pick })) return;
+	}
+	if (atHome && dutyFor(s) === 'me' && !choreDone(s) && s.needs.energy > 40 && !choreBlocked(s) && tryAct(b, { t: 'flat', op: 'chore' })) return;
 
 	// 1.5 签证（第 43 批）：只有留学生出身走签证路线
 	if (!isIdle(plan) && stepVisa(b)) return;

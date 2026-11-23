@@ -5,8 +5,9 @@ import { CAREERS } from '../data/careers.ts';
 import { awakeMinutes, debtNow, minutesToLate } from './sleep.ts';
 import { dayOf, hourOf, hoursLabel, isOpen } from './time.ts';
 import type { PlayerState, Region } from './types.ts';
+import { shiftBlocked } from './engine.ts';
 
-export type AgendaStatus = 'done' | 'now' | 'later' | 'missed';
+export type AgendaStatus = 'done' | 'now' | 'later' | 'missed' | 'blocked';
 
 export interface AgendaItem {
 	kind: 'work' | 'sleep';
@@ -42,7 +43,9 @@ export function agenda(state: PlayerState, region: Region): AgendaItem[] {
 	const st = shiftStatus(state);
 	if (job && c && st) {
 		const where = job.loc === state.loc ? undefined : `在${region.locations.find((l) => l.id === job.loc)?.name ?? '别处'}`;
-		items.push({ kind: 'work', icon: '💼', title: `${c.name}上班（${Math.round(c.minutes / 60)} 小时）`, when: `${hoursLabel(c.start)} 开工`, status: st, note: where });
+		// 合并 main 后：开工窗口开着，但生病、灾害停工、签证工时、太累时上不了班（引擎的 shiftBlocked），日程上写原因，不说「现在」
+		const why = st === 'now' && job.loc === state.loc ? shiftBlocked(state, region) : undefined;
+		items.push({ kind: 'work', icon: '💼', title: `${c.name}上班（${Math.round(c.minutes / 60)} 小时）`, when: `${hoursLabel(c.start)} 开工`, status: why ? 'blocked' : st, note: why ?? where });
 	}
 	const awake = awakeMinutes(state);
 	const debt = debtNow(state);
@@ -65,7 +68,7 @@ export function agenda(state: PlayerState, region: Region): AgendaItem[] {
  * - 做完就醒了超过 awakeOkMinutes → 提醒开始熬夜。
  * 没有要提醒的返回 undefined。
  */
-export function timeConflict(state: PlayerState, minutes: number): string | undefined {
+export function timeConflict(state: PlayerState, minutes: number, sleeping = false): string | undefined {
 	if (!(minutes > 0)) return undefined;
 	const out: string[] = [];
 	const job = state.job;
@@ -76,6 +79,6 @@ export function timeConflict(state: PlayerState, minutes: number): string | unde
 		if (state.clock < closeAt && state.clock + minutes >= closeAt) out.push(`做完就过了 ${c.start[1]}:00，赶不上今天${c.name}的班`);
 	}
 	const late = minutesToLate(state);
-	if (late > 0 && minutes >= late) out.push('做完就开始熬夜了');
+	if (!sleeping && late > 0 && minutes >= late) out.push('做完就开始熬夜了'); // 睡觉本身不提熬夜，只提会不会赶不上班
 	return out.length ? out.join('；') : undefined;
 }

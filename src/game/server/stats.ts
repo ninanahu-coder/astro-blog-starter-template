@@ -19,7 +19,7 @@ export const BORN_PREFIX = 'born:';
 /** 新手漏斗的步骤（创建角色另算 'new'）：第一次出行、第一次打工（算过一个班次）、第一次真实打卡（到场定位成功的 POI 打卡或真实地点动作） */
 export type FunnelStep = 'travel' | 'work' | 'real';
 
-const OPS = new Set(['apply', 'work', 'quit', 'rent', 'sleep', 'leave', 'cook', 'host', 'delivery', 'relax', 'buy', 'sell', 'movein', 'rentout', 'repay', 'service', 'enter', 'race', 'join', 'club', 'inspect', 'report', 'repair', 'renew', 'accept', 'dispute', 'scam-pay', 'scam-check', 'open', 'card', 'draw', 'loan', 'carloan', 'bnpl']);
+const OPS = new Set(['apply', 'work', 'quit', 'rent', 'sleep', 'nap', 'leave', 'cook', 'host', 'delivery', 'relax', 'buy', 'sell', 'movein', 'rentout', 'repay', 'service', 'enter', 'race', 'join', 'club', 'inspect', 'report', 'repair', 'renew', 'accept', 'dispute', 'scam-pay', 'scam-check', 'chore', 'sublet', 'unsublet', 'invite', 'askout', 'resolve', 'open', 'card', 'draw', 'loan', 'carloan', 'bnpl']);
 const VENUE_OPS = /^[a-z]{2,16}$/;
 
 /** 动作的功能名：类型加子操作（只认白名单里的子操作，不带任何 id、坐标、金额） */

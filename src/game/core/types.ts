@@ -224,6 +224,25 @@ export interface RentalState {
 	scam: number; // 最近一次处理骗租广告（转了钱或识破）的游戏日，−1 为从未；当天不再显示那条广告
 }
 
+/** 一位 NPC 室友（人设见 data/flatmates.ts） */
+export interface Flatmate {
+	id: string;
+	vibe: number; // 和你的关系 −100–100
+	since: number; // 搬进来的游戏日
+	owes: number; // 欠你的钱（元）
+	out?: number; // 定好在这个游戏日搬走（提前一周通知）
+}
+
+export interface Flatshare {
+	mates: Flatmate[];
+	clean: number; // 家里卫生 0–100
+	ev: { id: string; mate: string; day: number } | null; // 待处理的室友事件（不挡出行，过几天作废）
+	chore: number; // 你最近一次做家务的游戏日，−1 表示没做过
+	sublet: boolean; // 房间转租出去了：你不能回去住，结算日按比例收回房租
+	subFrom?: number; // 转租从哪个游戏日算起（结算后挪到这个结算日）：转租收入按这周实际转租的天数折算（合并 main 时复核）
+	home?: string; // 这些室友属于哪个住处（房型@地点）：存档里对不上现在的住处就清空（跨分支部署时住处可能被别的代码换过）
+}
+
 export interface PropertyDef {
 	id: string;
 	name: string;
@@ -846,6 +865,7 @@ export interface PlayerState {
 	quotes?: Record<string, number[]>; // 只在发给客户端的副本里有（publicState 填）：每种资产最近几天的价格，客户端没有行情种子，靠它显示行情
 	marketSeed: number; // 行情种子：创建时由服务端随机种子派生，不发给客户端（publicState 清零），否则能推算未来价格
 	bank: BankState; // 银行、信用卡、贷款、先买后付和信用记录（banking.md）
+	flatshare: Flatshare; // 室友与合租（见 docs/earth-game/flatmates.md）；没有住处或住自有房时 mates 为空
 	nextWeek: number; // 下一次周结算的游戏日（房租、车辆保险等）
 	cover: Record<string, Cover>; // 保单：保单 id（data/insurance.ts）-> 生效期和理赔记录
 	moodlets: Moodlet[]; // 带时限的心情状态

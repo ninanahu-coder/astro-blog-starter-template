@@ -27,6 +27,7 @@ import { FINANCE } from './finance.ts';
 import { cleanBank, emptyBank } from './credit.ts';
 import { realDayOf } from './daily.ts';
 import { SLEEP } from '../data/sleep.ts';
+import { cleanFlatshare, emptyFlatshare } from './flatmates.ts';
 import { cleanIllness } from './health.ts';
 import { cleanOnboard, freshOnboard } from './onboard.ts';
 // 只用到地点和打卡点，不需要真实地点数据：用首屏版区域，页面不必为此加载 wa.venues.json
@@ -178,6 +179,7 @@ export function createCharacter(opts: {
 		home: null,
 		rental: emptyRental(),
 		properties: [],
+		flatshare: emptyFlatshare(),
 		bank: emptyBank(),
 		holdings: {},
 		marketSeed: deriveMarketSeed(opts.seed >>> 0),
@@ -335,6 +337,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		illness: cleanIllness(r.illness, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		visa: cleanVisa(r.visa, ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), new Set(CAREERS.map((c) => c.id))),
 		...cleanEstate(r, knownLocs),
+		flatshare: cleanFlatshare(r.flatshare, cleanEstate(r, knownLocs).home, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440)), // 对不上现在住处的室友记录清空（合并 main 时复核）
 		bank: cleanBank(r.bank, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), Array.isArray(r.properties) && r.properties.some((p: any) => p && typeof p.loan === 'number' && p.loan > 0), new Set(VEHICLES.map((v) => v.id)), new Set(FURNITURE.map((f) => f.id))),
 		tax: cleanTax(r.tax, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		rental: cleanRental(r.rental, cleanEstate(r, knownLocs).home, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), knownLocs),
@@ -490,7 +493,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		cooking: cleanCooking(r.cooking, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		tally: cleanTally(r.tally, tallyCtx(r, visited)),
 		trails: cleanTrails(r.trails, opts.now),
-		rest: cleanRest(r.rest, num(r.clock, 0, CAPS.clock, START_CLOCK)),
+		rest: cleanRest(r.rest, num(r.clock, 0, CAPS.clock, START_CLOCK), r.journal),
 		journal,
 		biz: cleanBiz(r.biz, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		sport: cleanSport(r.sport, num(r.clock, 0, CAPS.clock, START_CLOCK)),
@@ -638,10 +641,21 @@ function cleanDaily(r: any, now?: number): PlayerState['daily'] {
 	return daily.day > today ? { day: today, streak: 0 } : daily;
 }
 
+/** 日志里表示睡醒的几种说法（回家睡、睡车、旅馆、露营、补觉、出院） */
+const SLEEP_LOG = /睡了一觉|睡了个好觉|住旅馆|露营过夜|补了 .*觉|医院醒来/;
+
 /** 作息（第 43 批）：醒来时间是游戏时钟，不晚于存档的 clock；旧存档没有就按「刚醒、不欠债」 */
-function cleanRest(v: any, clock: number): PlayerState['rest'] {
+function cleanRest(v: any, clock: number, journal?: unknown): PlayerState['rest'] {
 	const o = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
-	const wake = Object.hasOwn(o, 'wake') ? Math.floor(num(o.wake, 0, clock, clock)) : clock;
+	let wake = Object.hasOwn(o, 'wake') ? Math.floor(num(o.wake, 0, clock, clock)) : clock;
+	// 合并 main 时复核：线上会在分支之间切换，别的分支的代码睡了觉不改 rest。日志里有更晚的睡醒记录就从那时算起，免得一回来就记满睡眠债
+	if (Array.isArray(journal)) {
+		for (const j of journal) {
+			const t = j && typeof j === 'object' ? (j as { t?: unknown; text?: unknown }).t : undefined;
+			const text = j && typeof j === 'object' ? (j as { text?: unknown }).text : undefined;
+			if (typeof t === 'number' && Number.isFinite(t) && t > wake && t <= clock && typeof text === 'string' && SLEEP_LOG.test(text)) wake = Math.floor(t);
+		}
+	}
 	const debt = Object.hasOwn(o, 'debt') ? Math.round(num(o.debt, 0, SLEEP.debtMax, 0) * 10) / 10 : 0;
 	return { wake, debt };
 }

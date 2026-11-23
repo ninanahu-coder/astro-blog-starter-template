@@ -68,7 +68,8 @@ export function actionCats(a: GameAction): [TallyCat, TallyCat] {
 		case 'gps': return ['fun', 'fun'];
 		case 'buy':
 		case 'use': return ['shop', 'shop'];
-		case 'npc': return ['social', 'social'];
+		case 'npc':
+		case 'flat': return ['social', 'social']; // 室友：借钱给室友、事件里花的钱（室友合并 main 后）
 		case 'job':
 		case 'biz': return ['work', 'work']; // 副业、开店：证照费、进货、装修都算在「工作与零工」（合并 main 后）
 		case 'home': return a.op === 'cook' || a.op === 'host' || a.op === 'delivery' ? ['shop', 'shop'] : ['housing', 'housing']; // 在家做饭、请客、叫外卖算吃喝

@@ -1,4 +1,6 @@
 // 第 43 批：时间、作息和睡眠（设计见 docs/earth-game/time-sleep.md）
+import { derivedStats } from '../../src/game/core/formulas.ts';
+import { featureOf } from '../../src/game/server/stats.ts';
 import { energyCap } from '../../src/game/core/vitals.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -191,7 +193,10 @@ test('晕倒住院：醒着的时间从出院算起，欠的觉不免', () => {
 	const r = performActivity(s, WA, 'lay-low');
 	assert.ok(r.collapsed);
 	assert.equal(r.state.rest.wake, r.state.clock);
-	assert.equal(r.state.rest.debt, 3);
+	// 合并 main 时复核：入院前熬夜新欠的觉也记上（原来只留存着的 3 小时）。入院那刻醒了 (出院时刻 − 12 小时) 分钟，超过 16 小时的部分记债
+	const awakeH = (r.state.clock - 12 * 60) / 60;
+	assert.equal(r.state.rest.debt, Math.min(SLEEP.debtMax, Math.round((3 + Math.max(0, awakeH - SLEEP.awakeOkMinutes / 60) * SLEEP.debtPerHour) * 10) / 10));
+	assert.ok(r.state.rest.debt > 3);
 });
 
 test('存档清洗：旧存档缺字段、坏值、未来时间、幂等', () => {
@@ -245,3 +250,65 @@ test('冲突提醒：做完会错过开工窗口、开始熬夜；不拦动作',
 	assert.match(timeConflict(evening, 30)!, /熬夜/, '刚好到 16 小时也提醒');
 	assert.equal(timeConflict(make({ clock: at(23.5) }), 10), undefined, '已经在熬了就不再提醒');
 });
+
+// ---------- 合并 main 时复核修正 ----------
+test('复核：开工窗口开着但上不了班（太累、生病、停工）时，日程写原因、不说「现在」', () => {
+	const job = { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 };
+	const ok = make({ loc: 'perth', clock: at(7), job, needs: { hunger: 80, energy: 80, hygiene: 80, fun: 80, social: 80 } });
+	assert.equal(agenda(ok, WA)[0].status, 'now');
+	const tired = make({ loc: 'perth', clock: at(7), job, needs: { hunger: 80, energy: 5, hygiene: 80, fun: 80, social: 80 } });
+	const w = agenda(tired, WA)[0];
+	assert.equal(w.status, 'blocked');
+	assert.match(w.note ?? '', /太累/);
+});
+
+test('复核：睡觉的提醒只说会不会赶不上班，不说「开始熬夜」', () => {
+	const s = make({ clock: at(22), rest: { wake: at(7), debt: 0 } });
+	assert.match(timeConflict(s, 480) ?? '', /熬夜/);
+	assert.equal(timeConflict(s, 480, true), undefined);
+});
+
+test('复核：存档里醒来时间早于日志里最近一次睡醒，按那次算（跨分支部署时别的代码睡过觉）', () => {
+	const base = make({ clock: at(10, 5) });
+	const raw = JSON.parse(JSON.stringify(base));
+	raw.rest = { wake: 0, debt: 0 };
+	raw.journal = [...raw.journal, { t: at(8, 5), text: '在合租房间睡了一觉。' }];
+	const a = sanitizeState(raw)!;
+	assert.equal(a.rest.wake, at(8, 5));
+	assert.deepEqual(sanitizeState(a)!.rest, a.rest, '幂等');
+	raw.journal.push({ t: at(9, 5), text: '买了一瓶水。' });
+	assert.equal(sanitizeState(raw)!.rest.wake, at(8, 5), '别的日志不算');
+	assert.equal(featureOf({ t: 'home', op: 'nap' }), 'home.nap');
+});
+
+test('合并 main：一觉的恢复先乘睡眠质量，再乘体质的恢复系数；睡着时精力不往下掉', () => {
+	// 露营的床差，恢复到不了精力上限，看得出两层叠加
+	const s = make({ clock: at(22), needs: { hunger: 90, energy: 5, hygiene: 50, fun: 50, social: 50 } }, 'backpacker');
+	const q = sleepQuality(s, WA, { bed: 'camp' }).q;
+	const rec = derivedStats(s).recovery;
+	assert.ok(rec > 1, '背包客体质好，恢复系数大于 1');
+	const r = performActivity(s, WA, 'sleep-camp');
+	// 活动效果还会按特质、能力缩放（scaledFx），这里不逐位核对，只看两层都在：睡着时精力不往下掉（否则 8 小时要掉二十多点），恢复按质量打了折
+	const floor = 5 + 70 * q * 0.9;
+	assert.ok(r.state.needs.energy > floor, `醒来精力 ${r.state.needs.energy}，至少 ${floor.toFixed(1)}（睡着时没掉精力）`);
+	assert.ok(r.state.needs.energy < 5 + 70 * rec + 0.1, '恢复按睡眠质量打了折');
+	assert.ok(r.state.needs.energy < energyCap(r.state));
+});
+
+test('合并 main：补觉也算睡着——精力不往下掉，恢复按质量和体质', () => {
+	const s = make({ clock: at(14), loc: 'perth', home: { type: 'room', loc: 'perth', furniture: {} }, needs: { hunger: 90, energy: 20, hygiene: 60, fun: 60, social: 60 } }, 'backpacker');
+	const q = sleepQuality(s, WA, homeSpot(s)).q;
+	const r = napHome(s, WA);
+	assert.ok(r.ok, r.msg);
+	const floor = 20 + SLEEP.napEnergy * q; // 体质恢复系数大于 1，所以至少这么多；要是醒着过这 2 小时，精力还会再掉
+	assert.ok(r.state.needs.energy >= floor, `补觉后精力 ${r.state.needs.energy}，至少 ${floor.toFixed(1)}`);
+});
+
+test('合并 main：房间转租出去时不能回去补觉', () => {
+	const s = make({ clock: at(14), loc: 'perth', home: { type: 'room', loc: 'perth', furniture: {} } });
+	assert.ok(napHome(s, WA).ok);
+	const sub = structuredClone(s);
+	sub.flatshare.sublet = true;
+	assert.match(napHome(sub, WA).msg, /转租/);
+});
+
