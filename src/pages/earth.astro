@@ -904,6 +904,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { MIND_TIPS } from '../game/data/mind.ts';
 			import { NPCS } from '../game/data/npcs.ts';
 			import { NPC_DUOS } from '../game/data/npc-duos.ts';
+			import { volunteerAt } from '../game/core/volunteer.ts';
+			import { refRespect, volTier } from '../game/core/respect.ts';
+			import { VISA_HINT, VOL_RULES } from '../game/data/volunteer.ts';
 			import { NPC_MOOD_ICON, NPC_MOOD_NAME } from '../game/data/npc-behavior.ts';
 			import { npcWhere } from '../game/core/npc-behavior.ts';
 			import { coopBlocked, coopCostLabel, coopsAt } from '../game/core/coop.ts';
@@ -2461,6 +2464,17 @@ const cardLines = guilloche(400, 260, 14, 9);
 				return `<div class="card sky"><h3>今天的天${fireSeason(loc, s.clock) ? ' <span class="chip">山火季</span>' : ''}</h3><p class="muted">游戏里的今天大约是现实中的 ${realDateLabel(realDayOfYear(s.clock))}。下面按纬度、季节和天气估算，不是真实预报。</p><div class="list" style="margin-top:8px">${rows.join('')}</div></div>`;
 			}
 
+			/** 志愿者卡：这里能做的志愿 + 社区信誉、今天次数、推荐信、签证提示（docs/earth-game/volunteer.md） */
+			function volCard(s: PlayerState, vols: ReturnType<typeof volunteerAt>) {
+				const tier = volTier(s);
+				const used = s.volunteer.day === dayOf(s.clock) ? s.volunteer.today.length : 0;
+				const refs = s.volunteer.refs.length;
+				const head = `社区信誉「${esc(tier.name)}」· 做过 ${tier.shifts} 次${tier.next !== null ? `（${tier.next} 次升下一档）` : ''} · 今天 ${used}/${VOL_RULES.dailyMax}${refs ? ` · 推荐信 ${refs} 封（职位声望门槛抵 ${refRespect(s)}）` : ''}`;
+				const rows = vols.map(({ gig, org, count, letter, blocked }) => `
+					<div class="row" style="margin-top:8px"><span class="ico" aria-hidden="true">${esc(gig.icon)}</span><span class="body">${letter ? '✉️ ' : ''}${esc(gig.name)} · 声望 +${esc(String(gig.respect))}<small>${esc(blocked ?? `${gig.desc} ${minutesLabel(gig.minutes)}${count ? `，做过 ${count} 次` : ''}${!letter ? `，满 ${VOL_RULES.refShifts} 次给推荐信` : ''}`)}</small>${org ? `<small>现实里：<a href="${esc(org.source)}" target="_blank" rel="noopener">${esc(org.name)} ${esc(org.en)}</a></small>` : ''}</span><button data-vol="${esc(gig.id)}" ${blocked ? 'disabled' : ''}>去帮忙</button></div>`).join('');
+				return `<div class="card"><h3>志愿者</h3><p>${head}</p>${rows}<details style="margin-top:8px"><summary class="muted">做志愿对签证有用吗？</summary><p style="margin-top:6px">${esc(VISA_HINT.text)} <a class="muted" href="${esc(VISA_HINT.source)}" target="_blank" rel="noopener">来源</a></p></details></div>`;
+			}
+
 			function panelPlace() {
 				const s = state!;
 				const loc = getLocation(region, s.loc)!;
@@ -2545,6 +2559,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const exps = experiencesAt(s, region);
 				const expHtml = exps.length ? `<div class="card"><h3>体验</h3>${exps.map(({ exp, first, blocked }) => `
 					<div class="row" style="margin-top:8px">${thumb('exp:' + exp.id)}<span class="body">${first ? '✨ ' : '✅ '}${esc(exp.name)} · $${exp.price}<small>${esc(blocked ?? (first ? `${exp.desc} 首次：声望 +${exp.respect}，进收藏册` : '已收藏，再来一次只加心情'))}</small></span><button data-exp="${exp.id}" ${blocked ? 'disabled' : ''}>去</button></div>`).join('')}</div>` : '';
+				const vols = volunteerAt(s, region, srvNow()); // 现实日上限按服务端校正过的时间算，和服务端的判断一致（合并 main 后复核）
+				const volHtml = vols.length ? volCard(s, vols) : '';
 				const certs = certsAt(s, region);
 				const certHtml = certs.length ? `<div class="card"><h3>职业证书</h3><p>考到证后，对应职业每个班的工资上涨；证书跟人走，换工作不丢。</p>${certs.map(({ cert, blocked }) => `
 					<div class="row" style="margin-top:8px">${thumb('cert:' + cert.id)}<span class="body">${s.certs.includes(cert.id) ? '✅ ' : ''}${esc(cert.name)} · $${cert.price}<small>${esc(blocked ?? `${getCareer(cert.career)?.name ?? ''}工资 +${Math.round(cert.payBonus * 100)}% · ${Math.round(cert.minutes / 60 * 10) / 10} 小时 · ${cert.desc}`)}</small></span><button data-cert="${cert.id}" ${blocked ? 'disabled' : ''}>报名</button></div>`).join('')}</div>` : '';
@@ -2636,7 +2652,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					['work', 'briefcase-business', '工作', workHtml + bizCard(s, region, esc), [workHere ? `${esc(career!.name)} · ${shiftWhy ? '现在不能上班' : '可以上班'}` : offers.length ? `${offers.length} 个职位在招` : '', gigsAt(s, region).length ? `${gigsAt(s, region).length} 份副业` : '', s.biz.shop ? `你的店${s.biz.shop.debt ? ` · 欠款 $${s.biz.shop.debt}` : ''}` : ''].filter(Boolean).join(' · ')],
 					['home', 'house', '住处', homeHtml, [homeHere ? `你的${esc(homeHere.name)}` : rentals.length ? `${rentals.length} 处可租` : '', s.rental.claim ? `押金扣款待处理 $${s.rental.claim.amount}` : ''].filter(Boolean).join(' · ')],
 					['people', 'users', '这里的人', peopleHtml, people.length ? `${people.length} 位在这里${favorHere ? ' · 有人托你帮忙' : ''}` : '现在没人在'],
-					['fun', 'ticket', '体验和爱好', expHtml + sportsCard(s, region, esc) + (on('hobby') ? photoQuestHtml + fishHtml + hobbyHtml + skyCard(s) : ''), [exps.length ? `${exps.length} 项体验` : '', sportSoon ? `${sportSoon} 场比赛快到了` : '', on('hobby') && pq ? '摄影任务' : '', on('hobby') && spot ? '能钓鱼' : '', on('hobby') && hobbyOpts.length ? `${hobbyOpts.length} 个爱好` : ''].filter(Boolean).join(' · ') || '看看星空'],
+					['fun', 'ticket', '体验和爱好', expHtml + volHtml + sportsCard(s, region, esc) + (on('hobby') ? photoQuestHtml + fishHtml + hobbyHtml + skyCard(s) : ''), [exps.length ? `${exps.length} 项体验` : '', vols.length ? `${vols.length} 项志愿` : '', sportSoon ? `${sportSoon} 场比赛快到了` : '', on('hobby') && pq ? '摄影任务' : '', on('hobby') && spot ? '能钓鱼' : '', on('hobby') && hobbyOpts.length ? `${hobbyOpts.length} 个爱好` : ''].filter(Boolean).join(' · ') || '看看星空'],
 					['study', 'graduation-cap', '学习', on('study') ? courseHtml + certHtml + studyHtml : '', [courses.length ? `${courses.length} 门课` : '', certs.length ? `${certs.length} 个证书` : '', programs.length ? `${programs.length} 个学历` : ''].filter(Boolean).join(' · ')],
 					['garage', 'car', '车和房产', (on('garage') ? dealerHtml + garageHtml : '') + (on('estate') ? propHtml : ''), [on('garage') && dealer.length ? '车行' : '', on('garage') && garage ? '修车厂' : '', on('estate') && props.some((x) => !x.owned) ? `${props.filter((x) => !x.owned).length} 套房出售` : '', on('estate') && props.some((x) => x.owned) ? '你的房产' : ''].filter(Boolean).join(' · ')],
 					['pet', 'paw-print', '宠物', petHtml, ps ? `${ps.def.icon} ${esc(ps.pet.name)}${petNotes(ps) ? ' · ' + esc(petNotes(ps)) : ''}` : '领养或买一只'],
@@ -3549,7 +3565,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			});
 			document.addEventListener('click', (e) => {
 				gestured = true;
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-mind],[data-rental],[data-wall],[data-biz],[data-tax],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-mind],[data-rental],[data-wall],[data-biz],[data-tax],[data-vol],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
 				// 打开了环境音或音乐、但还没出过声：第一次点页面任何地方时解锁音频（浏览器的自动播放限制）
 				if (!audio && (prefs.ambience || prefs.music)) { try { ensureAudio(); } catch {} syncScene(); }
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
@@ -3655,6 +3671,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				else if (d.visa) { if (confirm('确定申请？申请费不退。')) act({ t: 'visa', op: 'apply', route: d.visa }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } }); }
 				else if ('visaIelts' in d) act({ t: 'visa', op: 'ielts' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.cert) act({ t: 'cert', id: d.cert }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.vol) act({ t: 'volunteer', id: d.vol }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.study) act({ t: 'study', id: d.study }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.exp) act({ t: 'experience', id: d.exp }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.job) {

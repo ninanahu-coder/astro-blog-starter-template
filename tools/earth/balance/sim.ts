@@ -4,6 +4,7 @@
 //
 //   npm run earth:sim                 默认 60 天 × 每种策略 40 个种子
 //   npm run earth:sim -- --days=120 --runs=100
+//   npm run earth:sim -- --game-days-per-real-day=5   一个现实日玩 5 个游戏日（看现实日上限的影响）
 //   npm run earth:sim -- --out=docs/earth-game/balance-report.md
 //   npm run earth:sim -- --origins     出身对照：每个出身跑同样三种策略（零工 / 咖啡店 / 不干活），都不带特质
 //
@@ -35,6 +36,9 @@ import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import { careerSummary, earnedOf, spentOf } from '../../../src/game/core/tally.ts';
 import type { PlayerState } from '../../../src/game/core/types.ts';
 import { WA } from '../../../src/game/data/wa.ts';
+import { volunteerAt } from '../../../src/game/core/volunteer.ts';
+import { volShifts, volTier } from '../../../src/game/core/respect.ts';
+import { level } from '../../../src/game/core/attributes.ts';
 import { gigsAt, licenseValid, shopActions, shopOffersAt } from '../../../src/game/core/business.ts';
 import { getShopSite, getShopType } from '../../../src/game/core/business.ts';
 import { FURNITURE } from '../../../src/game/data/furniture.ts';
@@ -50,6 +54,11 @@ const DAYS = Number(arg('days', '60'));
 const RUNS = Number(arg('runs', '40'));
 const OUT = arg('out', '');
 const BY_ORIGIN = process.argv.includes('--origins');
+/** 一个现实日里玩几个游戏日（只影响按现实日算的规则，目前是志愿的现实日上限）。默认 1：每个游戏日都是新的现实日 */
+const GAME_PER_REAL = Math.max(1, Number(arg('game-days-per-real-day', '1')));
+/** 模拟用的现实时间：从固定的珀斯 0 点起，每 GAME_PER_REAL 个游戏日过一个现实日 */
+const REAL0 = Date.UTC(2026, 0, 1) - 8 * 3_600_000;
+const simNow = (clock: number) => REAL0 + Math.floor(dayOf(clock) / GAME_PER_REAL) * 86_400_000;
 const BY_SWAP = process.argv.includes('--swap');
 // 平衡调试工具的参数（见文件头）
 const FORMAT = arg('format', 'md');
@@ -184,6 +193,8 @@ interface Plan {
 	 * mateNeeds：搭档的各项需求（100 = 全满）；mateChance：每次想做时有搭档在场的概率
 	 */
 	coop?: { mateNeeds: number; mateChance: number };
+	/** 志愿者批：保命、上班之后，精力和饱食够就去做这里能做的志愿（每天最多 VOL_RULES.dailyMax 次，引擎限制） */
+	volunteer?: boolean;
 	/** 副业：要办的证照、依次尝试的副业（精力、饱食都不低于 45 时才做） */
 	side?: { licenses: string[]; gigs: string[] };
 	/** 开店：现金到 openAt 时在 site 开 type，雇 staff 个人，库存低于 restockBelow 就补货 */
@@ -208,6 +219,8 @@ const PLANS: Plan[] = [
 		id: 'drifter-safe', name: '保守背包客（无房，少漫游）', origin: 'backpacker', traits: ['loner', 'frugal'], spend: false,
 		gig: { cashTarget: 700, cashReserve: 200, minEnergy: 55, minHunger: 50, preferred: ['work-cafe', 'work-farm', 'busk', 'work-mine'] },
 	},
+	{ id: 'barista-vol', name: '咖啡店 + 有空做志愿（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', volunteer: true },
+	{ id: 'drifter-vol', name: '背包客 + 有空做志愿（无房）', origin: 'backpacker', traits: ['loner', 'frugal'], roam: true, volunteer: true },
 	{ id: 'idle', name: '什么都不干（对照组）', origin: 'backpacker', traits: [] },
 	// 第 46 轮新增（只出报告，不改数值）：第 11 轮的两种新职业、第 1 轮起的共同事件。排在原有策略后面，原有各行结果不变
 	{ id: 'bartender', name: '酒保（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'bartender' }, home: 'room' },
@@ -300,7 +313,7 @@ function tryAct(b: Bot, a: GameAction): boolean {
 	const sys = OFF.size ? systemOf(a) : undefined;
 	if (sys && OFF.has(sys)) return (ecoOf(b).blocked[sys] = (ecoOf(b).blocked[sys] ?? 0) + 1), false;
 	const before = b.s;
-	const r = applyAction(b.s, WA, a);
+	const r = applyAction(b.s, WA, a, simNow(b.s.clock));
 	if (!r.ok) {
 		b.s = r.state;
 		return false;
@@ -696,6 +709,12 @@ function step(b: Bot) {
 	// 3.6 运动（第 43 批）：同样排在保命、上班、租房之后
 	if (plan.sport && s.needs.hunger >= 35 && trySport(b)) return;
 
+	// 3.6 志愿者批：精力、饱食够才去，免得做完志愿饿晕
+	if (plan.volunteer && s.needs.energy >= 45 && s.needs.hunger >= 40) {
+		const v = volunteerAt(s, WA, simNow(s.clock)).find((o) => !o.blocked);
+		if (v && tryAct(b, { t: 'volunteer', id: v.gig.id })) return;
+	}
+
 	// 4. 没有正式工作的人靠零工
 	if (!s.job && !isIdle(plan) && s.cash < 400) {
 		if (tryGigs(b, GIG_IDS)) return;
@@ -849,6 +868,7 @@ const skillRows: [string, number[]][] = [];
 const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
 const coopRows: string[] = [];
+const volRows: string[] = [];
 const taxRows: string[] = [];
 const bizRows: string[] = [];
 const sportRows: string[] = [];
@@ -871,6 +891,11 @@ for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	const nth = (k: number) => bots.map((b) => b.stats.promoDays[k]).filter((d) => d !== undefined);
 	const promoCol = [0, 1].map((k) => (nth(k).length ? `第 ${pct(nth(k), 0.5)} 天` : '—')).join(' / ');
 	summary[plan.id] = { netPerDay: net, collapses: coll, evictions: ev, promotions: pr, brokeShare: broke, mood: m, end: pct(at(endD), 0.5) };
+	{
+		const resp = bots.map((b) => b.s.respect);
+		const shifts = bots.map((b) => volShifts(b.s.volunteer));
+		volRows.push(`| ${plan.name} | ${pct(resp, 0.5).toFixed(1)}（${pct(resp, 0.1).toFixed(1)}–${pct(resp, 0.9).toFixed(1)}） | ${level(pct(resp, 0.5)).title} | ${avg(shifts).toFixed(1)} | ${avg(bots.map((b) => b.s.volunteer.refs.length)).toFixed(1)} | ${volTier({ volunteer: { day: -1, today: [], n: { 'food-bank': pct(shifts, 0.5) }, refs: [], real: { day: -1, n: 0 } } }).name} |`);
+	}
 	skillRows.push([plan.name, (['stamina', 'strength', 'driving', 'swimming', 'charisma', 'survival', 'street'] as const).map((k) => Math.round(pct(bots.map((b) => b.s.skills[k]), 0.5)))]);
 	const flow: Record<string, number> = {};
 	for (const b of bots) for (const [k, v] of Object.entries(b.stats.flow)) flow[k] = (flow[k] ?? 0) + v / RUNS / DAYS;
@@ -1026,6 +1051,14 @@ out();
 out('| 策略 | 参加次数/人 | 成功率 | 每人每天净现金 | 各种类次数/人 |');
 out('| --- | --- | --- | --- | --- |');
 for (const row of coopRows) out(row);
+out();
+out('## 志愿与声望');
+out();
+out('期末声望中位数（10%–90%）、对应的声望等级称号、人均志愿次数和推荐信封数、志愿次数中位数对应的社区信誉档（见 docs/earth-game/volunteer.md）。');
+out();
+out('| 策略 | 期末声望 | 声望等级 | 志愿次数/人 | 推荐信/人 | 社区信誉（中位） |');
+out('| --- | --- | --- | --- | --- | --- |');
+for (const row of volRows) out(row);
 out();
 out('## 税务（税务分支）');
 out();

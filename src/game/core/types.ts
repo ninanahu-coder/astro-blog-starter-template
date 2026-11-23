@@ -138,7 +138,7 @@ export type NpcAction = 'chat' | 'gift' | 'help' | 'perk' | 'favor' | 'bond' | '
 
 export interface Relation {
 	score: number; // −100..100
-	last: Partial<Record<NpcAction | 'host' | 'hobby', number>>; // 每种互动最近一次的游戏日；host = 来家里吃饭（做饭），hobby = 一起做爱好（爱好与收集），都不是互动动作
+	last: Partial<Record<NpcAction | 'host' | 'hobby' | 'vol', number>>; // 每种互动最近一次的游戏日；host = 来家里吃饭（做饭），hobby = 一起做爱好（爱好与收集），都不是互动动作
 	seen: number[]; // 已触发过的剧情门槛
 	known: string[]; // 已经知道 TA 反应的物品 id（送过一次就知道）
 	bond?: number; // 结为知己的游戏日（第 29 批）；没结或已解除时没有这个键
@@ -675,6 +675,15 @@ export interface JournalEntry {
 	text: string;
 }
 
+/** 志愿者记录。day 是 today 对应的游戏日（−1 表示从没做过）；n：志愿 id -> 累计次数；refs：已拿到推荐信的志愿 id */
+export interface VolunteerState {
+	day: number;
+	today: string[];
+	n: Record<string, number>;
+	refs: string[];
+	real: { day: number; n: number }; // 现实日（珀斯时间，realDayOf）和这个现实日做了几次
+}
+
 /** 一个财年的税务账目（游戏金额，都 ≥ 0） */
 export interface TaxBook {
 	wages: number; // 税前工资
@@ -831,6 +840,7 @@ export interface PlayerState {
 	clockIn: { venue: string; at: number; career?: string } | null; // 真实打卡上班：哪个地点、几点打的卡；career 是按哪份职业打的卡，没有就是零工
 	realWork: { day: number; min: number }; // 当天（现实日，珀斯时间）已计薪的真实上班分钟
 	workDay: number; // 最近一次算过班次的游戏日，−1 表示还没上过；跟人走，不随换工作重置
+	volunteer: VolunteerState; // 志愿者：今天做了哪些、各种做过几次、拿到的推荐信（docs/earth-game/volunteer.md）
 	tax: TaxState; // 税务：TFN、ABN、本财年账目、待申报的上一财年、欠税（见 docs/earth-game/tax.md）
 	hobby: HobbyState; // 爱好与收集
 	tally: Tally; // 生涯统计（「我 · 生涯」）：累计收支、公里、里程碑和周期小结，见 career-stats.md

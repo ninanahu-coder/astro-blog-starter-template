@@ -36,7 +36,7 @@ export interface HazardDef {
 }
 
 /** 户外活动（活动 id，见 data/activities.ts）。「野外找吃的」不在里面：没钱时它是兜底的吃饭办法，封了会把人困死 */
-const OUTDOOR = ['hike', 'jog', 'cycle', 'birding', 'sleep-camp', 'stargaze', 'sunrise', 'storm-watch', 'work-farm', 'swim', 'snorkel', 'surf'];
+const OUTDOOR = ['hike', 'jog', 'cycle', 'birding', 'beach-cleanup', 'wildlife-rescue', 'sausage-sizzle', 'festival-helper', 'sleep-camp', 'stargaze', 'sunrise', 'storm-watch', 'work-farm', 'swim', 'snorkel', 'surf'];
 
 export const HAZARDS: Record<HazardId, HazardDef> = {
 	bushfire: {
@@ -58,7 +58,7 @@ export const HAZARDS: Record<HazardId, HazardDef> = {
 			3: '公路被洪水切断，进不来也出不去。待在高处，按当地通知行动，能飞的话坐飞机走。',
 		},
 		closeRoad: 3, closeTrack: 2,
-		closeOutdoor: 3, outdoor: ['hike', 'jog', 'cycle', 'birding', 'sleep-camp', 'stargaze', 'swim', 'snorkel', 'surf'],
+		closeOutdoor: 3, outdoor: ['hike', 'jog', 'cycle', 'birding', 'beach-cleanup', 'wildlife-rescue', 'sausage-sizzle', 'festival-helper', 'sleep-camp', 'stargaze', 'swim', 'snorkel', 'surf'],
 		stopWork: 3,
 	},
 	cyclone: {
@@ -79,7 +79,7 @@ export const HAZARDS: Record<HazardId, HazardDef> = {
 			2: '高温还在持续，内陆更热。户外体力活和徒步暂停，照看身边的老人和小孩。',
 			3: '极端高温。待在凉快的地方，不要在户外干活或长途开车。',
 		},
-		closeOutdoor: 2, outdoor: ['hike', 'jog', 'cycle', 'birding', 'work-farm', 'sleep-camp'],
+		closeOutdoor: 2, outdoor: ['hike', 'jog', 'cycle', 'birding', 'beach-cleanup', 'wildlife-rescue', 'sausage-sizzle', 'festival-helper', 'work-farm', 'sleep-camp'],
 	},
 	outage: {
 		id: 'outage', name: '停电', icon: '🔌',

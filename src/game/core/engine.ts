@@ -48,6 +48,7 @@ import { applyLawOutcome, lawWeekly, licenceBanned, noteDrink, serveCommunity } 
 import { COMMUNITY_SERVICE } from '../data/law.ts';
 import { GPS_FIX_RULES } from '../data/venues.ts';
 import { efficiency, moodletGainMult } from './formulas.ts';
+import { refRespect } from './respect.ts';
 import { settleLoss } from './insurance.ts';
 import { applyCare, careAvailableAt, careOutcome, currentIllness, getCare, getCondition, illnessBlock, illnessTick, injure, loadOfActivity, loadOfEffect, startIllness, type CareOutcome } from './health.ts';
 import { CARE, type CareKind } from '../data/health.ts';
@@ -900,7 +901,7 @@ export function npcsAt(state: PlayerState, region: Region): NpcAvailability[] {
 }
 
 /** 关系变化后，触发所有新达到门槛的剧情（可能一次跨过好几档）。原地修改 */
-function unlockStories(state: PlayerState, region: Region, npc: NpcDef, rel: Relation): string[] {
+export function unlockStories(state: PlayerState, region: Region, npc: NpcDef, rel: Relation): string[] {
 	const out: string[] = [];
 	for (const st of npc.stories) {
 		if (rel.score < st.at || rel.seen.includes(st.at)) continue;
@@ -1020,7 +1021,8 @@ export const matches = (w: Where, loc: GameLocation) => !!(w.kinds?.includes(loc
 
 /** 是否满足某个职业等级的要求；不满足时返回原因 */
 function unmet(state: PlayerState, lv: CareerLevel): string | undefined {
-	if (lv.req?.respect && state.respect < lv.req.respect) return `声望需达到 ${lv.req.respect}`;
+	// 推荐信（志愿者）在声望门槛上抵一部分：refRespect 见 core/respect.ts
+	if (lv.req?.respect && state.respect + refRespect(state) < lv.req.respect) return `声望需达到 ${lv.req.respect}`;
 	const miss = lv.req?.certs?.find((id) => !state.certs.includes(id));
 	if (miss) return `需要${credentialName(miss)}`;
 	for (const k of SKILL_KEYS) {

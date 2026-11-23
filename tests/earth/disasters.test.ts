@@ -1,4 +1,5 @@
 // 第 43 批：自然灾害（core/disasters.ts、data/disasters.ts、ui/disasters.ts）
+import { VOLUNTEER_GIGS } from '../../src/game/data/volunteer.ts';
 import { HOBBY_IDS } from '../../src/game/data/hobbies.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
@@ -38,7 +39,7 @@ const has = (ws: Warning[], hazard: string, level?: number) => ws.some((w) => w.
 
 test('数据：户外活动、应急包都存在；「野外找吃的」不在任何关闭名单里', () => {
 	// 合并爱好分支后：观鸟（爱好 id）也在清单里
-	const acts = new Set([...ACTIVITIES.map((a) => a.id), ...HOBBY_IDS]);
+	const acts = new Set([...ACTIVITIES.map((a) => a.id), ...HOBBY_IDS, ...VOLUNTEER_GIGS.map((g) => g.id)]); // 志愿者合并后：户外志愿也在清单里
 	for (const h of Object.values(HAZARDS)) {
 		for (const id of h.outdoor ?? []) assert.ok(acts.has(id), `${h.id} 的 ${id}`);
 		assert.ok(!(h.outdoor ?? []).includes('forage'), `${h.id} 不能封 forage`);

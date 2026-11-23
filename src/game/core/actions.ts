@@ -21,6 +21,7 @@ import { resolveTrade } from './trade.ts';
 import { claimWeekly } from './weekly.ts';
 import { buyInsurance } from './insure.ts';
 import { venueAction } from './venues.ts';
+import { doVolunteer } from './volunteer.ts';
 import { applyAbn, applyTfn, lodgeReturn } from './tax-actions.ts';
 import { buyListing, sellToBuyer } from './secondhand.ts';
 import { SWAP_GOODS, type SwapKind } from '../data/secondhand.ts';
@@ -99,7 +100,8 @@ export type GameAction =
 	| { t: 'biz'; op: 'gig' | 'license'; id: string }
 	| { t: 'biz'; op: 'open'; shop: string; site: string }
 	| { t: 'biz'; op: 'restock'; qty: number }
-	| { t: 'biz'; op: 'hire' | 'fire' | 'tend' | 'close' }; // 副业与小生意（第 43 批）
+	| { t: 'biz'; op: 'hire' | 'fire' | 'tend' | 'close' } // 副业与小生意（第 43 批）
+	| { t: 'volunteer'; id: string }; // 志愿者（第 43 批）
 
 /** 租房市场：交入住检查报告、报修、续约、接受或申诉押金扣款、骗租广告（转钱 / 核实） */
 export type RentalOp = 'report' | 'repair' | 'renew' | 'accept' | 'dispute' | 'scam-pay' | 'scam-check';
@@ -176,6 +178,7 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'cert':
 		case 'study':
 		case 'experience':
+		case 'volunteer':
 		case 'insure':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
 		case 'swap':
@@ -320,6 +323,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 				: hireStaff(state, region, a.op);
 			break;
 		case 'tax': r = a.op === 'tfn' ? applyTfn(state) : a.op === 'abn' ? applyAbn(state) : lodgeReturn(state); break;
+		case 'volunteer': r = doVolunteer(state, region, a.id, now); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;

@@ -51,6 +51,7 @@ import { validTraits } from './attributes.ts';
 import { cleanTax, newTaxState } from './tax.ts';
 import { cleanRental, emptyRental } from './rental.ts';
 import { WEATHERS } from '../data/weather.ts';
+import { cleanVolunteer, emptyVolunteer } from './respect.ts';
 import { SWAP } from '../data/secondhand.ts';
 import { BIRDS, CRAFTS, HOBBY, HOBBY_IDS, PLANTS } from '../data/hobbies.ts';
 import { CLUBS, RACES, SPORT_IDS, SPORT_RULES } from '../data/sports.ts';
@@ -210,6 +211,7 @@ export function createCharacter(opts: {
 		clockIn: null,
 		realWork: { day: 0, min: 0 },
 		workDay: -1,
+		volunteer: emptyVolunteer(),
 		tax: newTaxState(START_CLOCK),
 		hobby: emptyHobby(),
 		tally: newTally({ clock: START_CLOCK, visited: { [opts.spawn]: 1 }, relations: {}, met: {}, cash: origin.cash }),
@@ -325,6 +327,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		job: cleanJob(r.job, knownLocs),
 		// 旧存档没有这个字段：用当前工作的 lastDay 补上
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
+		volunteer: cleanVolunteer(r.volunteer, num(r.clock, 0, CAPS.clock, START_CLOCK), opts.now === undefined ? undefined : realDayOf(opts.now)),
 		illness: cleanIllness(r.illness, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		visa: cleanVisa(r.visa, ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), new Set(CAREERS.map((c) => c.id))),
 		...cleanEstate(r, knownLocs),
@@ -736,7 +739,7 @@ function cleanRelations(raw: unknown): Record<string, Relation> {
 		const r = (raw as Record<string, any>)[npc.id];
 		if (!r || typeof r !== 'object') continue;
 		const last: Relation['last'] = {};
-		for (const k of ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond', 'host', 'hobby'] as const) {
+		for (const k of ['chat', 'gift', 'help', 'perk', 'favor', 'bond', 'unbond', 'host', 'hobby', 'vol'] as const) {
 			const d = r.last?.[k];
 			if (typeof d === 'number' && Number.isFinite(d) && d >= 0) last[k] = Math.floor(d);
 		}
