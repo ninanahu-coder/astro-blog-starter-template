@@ -23,6 +23,7 @@ import { buyInsurance } from './insure.ts';
 import { venueAction } from './venues.ts';
 import { doVolunteer } from './volunteer.ts';
 import { doPaper, paperGate } from './paperwork.ts';
+import { takeTrip } from './trips.ts';
 import { applyAbn, applyTfn, lodgeReturn } from './tax-actions.ts';
 import { buyListing, sellToBuyer } from './secondhand.ts';
 import { SWAP_GOODS, type SwapKind } from '../data/secondhand.ts';
@@ -118,7 +119,8 @@ export type GameAction =
 	| { t: 'biz'; op: 'restock'; qty: number }
 	| { t: 'biz'; op: 'hire' | 'fire' | 'tend' | 'close' } // 副业与小生意（第 43 批）
 	| { t: 'volunteer'; id: string } // 志愿者（第 43 批）
-	| { t: 'paper'; id: string }; // 证件和办事（落地清单，core/paperwork.ts）
+	| { t: 'paper'; id: string } // 证件和办事（落地清单，core/paperwork.ts）
+	| { t: 'trip'; dest: string; days: number }; // 离开地图的旅行（跨州、回国），见 core/trips.ts
 
 /** 租房市场：交入住检查报告、报修、续约、接受或申诉押金扣款、骗租广告（转钱 / 核实） */
 export type RentalOp = 'report' | 'repair' | 'renew' | 'accept' | 'dispute' | 'scam-pay' | 'scam-check';
@@ -203,6 +205,8 @@ export function parseAction(raw: unknown): GameAction | null {
 		case 'volunteer':
 		case 'insure':
 			return str(a.id) ? { t: a.t, id: a.id } : null;
+		case 'trip':
+			return str(a.dest) && Number.isInteger(a.days) && (a.days as number) >= 1 && (a.days as number) <= 60 ? { t: 'trip', dest: a.dest, days: a.days as number } : null;
 		case 'bank': {
 			// 金额：正整数、有上限；利率、额度、期数都不收客户端的，由服务端按规则算
 			const amount = finite(a.amount) && a.amount >= 1 && a.amount <= BANK_AMOUNT_MAX ? Math.floor(a.amount) : null;
@@ -383,6 +387,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'tax': r = a.op === 'tfn' ? applyTfn(state) : a.op === 'abn' ? applyAbn(state) : lodgeReturn(state); break;
 		case 'volunteer': r = doVolunteer(state, region, a.id, now); break;
 		case 'paper': r = doPaper(state, region, a.id); break;
+		case 'trip': r = takeTrip(state, region, a.dest, a.days); break;
 	}
 	// resolveEvent 在“待处理事件已失效”时会返回 ok:false 但清掉了 pending，这个修正也要保存
 	const changed = r.ok || r.state !== state;

@@ -9,6 +9,7 @@ import { openAccount } from './bank.ts';
 import { applyTfn } from './tax-actions.ts';
 import { tfnState } from './tax.ts';
 import { coverOf } from './health.ts';
+import { banDaysLeft, licenceBanned } from './law.ts';
 
 export type { PaperRec };
 export type { Papers } from './paper-clean.ts';
@@ -80,6 +81,7 @@ export function paperBlocked(state: PlayerState, region: Region, p: PaperDef): s
 	if (st === 'na') return '你的签证不带 Medicare，看病全额自付（私人医保还没做）';
 	if (p.linked === 'tfn' && st === 'waiting') return `TFN 在寄来的路上，第 ${state.tax.tfn + 1} 天到`;
 	if (p.linked) return undefined; // 开户、申请 TFN 不花钱不花时间，在哪都能办（规则在 main 的银行、税务）
+	if (p.id.startsWith('licence') && licenceBanned(state)) return `驾照暂停中，还有 ${banDaysLeft(state)} 天，期间不能换驾照`; // main 的交通违章（合并 main 时复核）
 	if (st === 'waiting') return `在办理中，第 ${state.papers[p.id].ready + 1} 天办好`;
 	if (st === 'retry' && state.papers[p.id].ready > dayOf(state.clock)) return `第 ${state.papers[p.id].ready + 1} 天才能再考`;
 	const why = needsUnmet(state, p);
@@ -162,7 +164,7 @@ export function doPaper(prev: PlayerState, region: Region, id: string): ActionRe
 // ---------- 接入其他动作（只在 actions.ts 调用） ----------
 
 /** 动作形状的最小子集，避免和 actions.ts 循环引用 */
-type GateAction = { t: string; op?: string; id?: string; loan?: boolean };
+type GateAction = { t: string; op?: string; id?: string };
 
 /** 某个动作因为手续没办而不能做时返回原因；合并 main 后只拦考重型卡车驾照（按揭要开户由 main 的银行审批管） */
 export function paperGate(state: PlayerState, a: GateAction): string | undefined {

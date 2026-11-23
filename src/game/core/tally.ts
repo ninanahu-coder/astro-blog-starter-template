@@ -62,7 +62,8 @@ export function tallyCash(state: PlayerState, cat: TallyCat, delta: number) {
 /** 动作的钱记在哪一类：[收入来源, 支出去向] */
 export function actionCats(a: GameAction): [TallyCat, TallyCat] {
 	switch (a.t) {
-		case 'travel': return ['transport', 'transport'];
+		case 'travel':
+		case 'trip': return ['transport', 'transport']; // 跨州旅行、回国探亲的机票和补买行李（旅行合并 main 后）
 		case 'activity': return ['work', 'daily']; // 活动里赚钱的是零工，花钱的是日常
 		case 'event': return ['event', 'event'];
 		case 'gps': return ['fun', 'fun'];

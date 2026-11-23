@@ -711,6 +711,7 @@ function cleanJob(raw: any, knownLocs?: Set<string>): Job | null {
 		shifts: Math.floor(num(raw.shifts, 0, 1e6, 0)),
 		good: Math.floor(num(raw.good, 0, 1e6, 0)),
 		lastDay: Math.floor(num(raw.lastDay, -1, 1e7, -1)),
+		...(raw.leave && typeof raw.leave === 'object' && Number.isInteger(raw.leave.y) && raw.leave.y >= 0 && raw.leave.y < 1e5 ? { leave: { y: raw.leave.y, d: Math.floor(num(raw.leave.d, 0, 365, 0)) } } : {}),
 	};
 }
 

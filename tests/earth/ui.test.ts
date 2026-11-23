@@ -1852,27 +1852,71 @@ test('界面：留言列表拉取失败（限流、同步码失效、断网）�
 	assert.ok(notes >= 1 && notes <= 3, `留言列表请求了 ${notes} 次`);
 });
 
-test('界面：落地清单（第 43 批）——今天页显示进度和每项的现实流程、来源；点「办理」真的办好；没办 TFN 时贷款按钮不能点', async () => {
+test('界面：落地清单（合并 main 后在「在这里」的抽屉里）——进度、现实流程和来源；点「办理」真的办好；开户直接在 main 的银行办', async () => {
 	const { world } = makeWorld();
 	const a = await makeChar(world, 'paper-card-a', '办事甲');
-	let before = '', after = '';
+	let place = '', before = '', after = '', bank = '';
 	await openWithHash('', a, world, true, {
 		after: async ({ click, el }) => {
 			await click({ tab: 'place' });
-			before = el('panel').innerHTML;
+			place = el('panel').innerHTML;
+			await click({ drawer: 'papers' });
+			before = el('modal').innerHTML;
 			await click({ paper: 'phone' });
-			after = el('panel').innerHTML;
+			await click({ tab: 'place' });
+			await click({ drawer: 'papers' });
+			after = el('modal').innerHTML;
+			await click({ paper: 'bank' });
+			await click({ tab: 'place' });
+			await click({ drawer: 'papers' });
+			bank = el('modal').innerHTML;
 		},
 	});
-	assert.match(before, /🛂 落地清单<\/h3> <span class="muted">0\/\d+<\/span>/);
+	assert.match(place, /data-drawer="papers"[^>]*>[\s\S]*?落地清单[\s\S]*?\d+\/\d+ 办好/, '抽屉摘要写进度');
+	assert.match(before, /🛂 落地清单<\/h3> <span class="muted">\d+\/\d+<\/span>/);
 	assert.match(before, /以官方为准：<a href="https:\/\/www\.acma\.gov\.au\/id-checks-prepaid-mobiles" target="_blank" rel="noopener">/);
 	assert.match(before, /data-paper="phone" >办理/);
-	assert.match(before, /data-paper="bank" disabled>办理/, '没手机卡不能开户');
+	assert.match(before, /data-paper="bank" >办理/, '开户不再要先办手机卡（main 的银行在手机上就能开）');
+	assert.match(before, /点「办理」就在「我 · 资产」的银行办/);
 	assert.match(after, /✅ 📱 办手机卡<small>已办好/);
-	assert.match(after, /落地清单<\/h3> <span class="muted">1\/\d+<\/span>/);
+	assert.match(bank, /✅ 🏦 开银行户<small>已办好（「我 · 资产」的银行）/);
+	assert.match(before, /<b>在哪办：<\/b>「我 · 资产」的银行（点「办理」就在那边办，不花时间）/, '链接到 main 的行不写清单自己的地点和时间');
+	assert.doesNotMatch(before, /有银行网点的城镇/);
 	assert.deepEqual(a11yIssues(before), []);
 });
 
+test('界面：跨州旅行和回国探亲（第 43 批）——珀斯机场列出航线、票价出处、行李和请假提示；点了以后离开几天再回来', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'trip-ui-a', '旅行甲');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.cash = 5000;
+	rec.state.loc = 'perth';
+	rec.state.job = { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 };
+	data.set('save:' + a.cred.id, rec);
+	const clock0 = rec.state.clock;
+	let list = '', saved: any = null;
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'go' });
+			list = el('panel').innerHTML;
+			await click({ trip: 'sydney', days: '3' });
+			for (let i = 0; i < 100 && (data.get('save:' + a.cred.id) as any).state.clock === clock0; i++) await pause(20);
+			saved = (data.get('save:' + a.cred.id) as any).state;
+		},
+	});
+	assert.match(list, /🧳 跨州旅行和回国探亲/);
+	assert.match(list, /data-trip="home-cn" data-days="14"/);
+	assert.match(list, /南航 CZ320 直飞广州/);
+	assert.match(list, /票价出处：Google Flights/);
+	assert.match(list, /飞行约 7 小时 50 分/);
+	assert.match(list, /请假太久，工作会丢/, '14 天超过请假上限');
+	assert.match(list, /工作保留/);
+	assert.match(list, /别忘了：.*护照/);
+	assert.match(list, /🚗 三天自驾游建议/);
+	assert.equal(saved.clock, clock0 + 3 * 1440);
+	assert.equal(saved.inventory['souvenir-syd'], 1);
+	assert.equal(saved.loc, 'perth');
+});
 test('界面：体验改造 P1——今天页分三层，第 1 天不超过 6 张卡；商店、做事等收进底部抽屉，抽屉能开能关', async () => {
 	const { data, world } = makeWorld();
 	const a = await makeChar(world, 'ux-p1-a', '三层');
@@ -2172,5 +2216,43 @@ test('界面：时间和睡眠（合并 main 后）——有工作时今天页�
 	assert.match(home, /data-home="sleep"/);
 	assert.match(home, /心情 \+\d+ · 睡眠质量 \d+%/, '回家睡觉一行写睡眠质量');
 	assert.match(home, /补觉：睡眠质量 \d+%/);
+});
+
+test('界面：跨州旅行（合并 main 后）——带着没寄养的宠物，旅行按钮变灰并写原因', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'trip-ui-pet', '带狗');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.cash = 5000;
+	rec.state.loc = 'perth';
+	rec.state.pet = { kind: 'dog', name: '豆豆', from: 'shelter', since: 0, bond: 50, fedDay: 0, playDay: -1, walkDay: -1, vetDay: 0, board: null };
+	data.set('save:' + a.cred.id, rec);
+	let list = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'go' });
+			list = el('panel').innerHTML;
+		},
+	});
+	assert.match(list, /data-trip="sydney" data-days="3" disabled/);
+	assert.match(list, /豆豆不能随你坐飞机，先寄养/);
+});
+
+test('界面：落地清单（合并 main 后）——签证不带医保的角色，医保那一行只写说明、没有「办理」按钮', async () => {
+	const { data, world } = makeWorld();
+	const a = await makeChar(world, 'paper-card-bp', '背包');
+	const rec = data.get('save:' + a.cred.id) as any;
+	rec.state.origin = 'backpacker';
+	rec.state.visa = { ...rec.state.visa, kind: 'none', until: -1 };
+	data.set('save:' + a.cred.id, rec);
+	let html = '';
+	await openWithHash('', { cred: a.cred, state: rec.state }, world, true, {
+		after: async ({ click, el }) => {
+			await click({ tab: 'place' });
+			await click({ drawer: 'papers' });
+			html = el('modal').innerHTML;
+		},
+	});
+	assert.match(html, /ℹ️ 💳 登记 Medicare<small>你的签证不带 Medicare，看病全额自付/);
+	assert.doesNotMatch(html, /data-paper="medicare"/);
 });
 

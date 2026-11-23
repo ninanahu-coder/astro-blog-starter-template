@@ -1,4 +1,6 @@
-// 证件和办事（第 43 批）：数据自洽、办事流程、等待和考试、地址过期、对其他动作的门槛、医保报销、存档校验
+// 证件和办事（第 43 批）：数据自洽、办事流程、等待和考试、地址过期、对其他动作的门槛、存档校验；合并 main 后银行户、TFN、医保看 main 的系统
+import { STAT_EVENTS } from '../../src/game/ui/telemetry.ts';
+import { systemOf } from '../../tools/earth/balance/systems.ts';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
@@ -177,7 +179,7 @@ test('途中晕倒：当没去，不收费、不记办事', () => {
 
 test('门槛：重型卡车驾照要本地驾照；按揭买房不再由清单拦（main 的银行审批管）', () => {
 	const rich = make({ cash: 200_000, clock: at(10) });
-	assert.equal(paperGate(rich, { t: 'property', op: 'buy', id: flat.id, loan: true }), undefined);
+	assert.equal(paperGate(rich, { t: 'property', op: 'buy', id: flat.id, loan: true } as never), undefined);
 	assert.ok(applyAction(rich, WA, { t: 'property', op: 'buy', id: flat.id, loan: false }).ok, '全款不用手续');
 	assert.match(paperGate(rich, { t: 'cert', id: 'hr-licence' })!, /驾照/);
 	assert.equal(paperGate({ ...rich, papers: done('licence') }, { t: 'cert', id: 'hr-licence' }), undefined);
@@ -240,3 +242,22 @@ test('新手清单：按顺序一路办下来（同一天能办的当天办完�
 	const p = paperProgress(s);
 	assert.equal(p.done, p.total, JSON.stringify(paperChecklist(s, WA).map((x) => [x.paper.id, x.status, x.blocked])));
 });
+
+test('复核：驾照暂停期间不能换驾照；清单抽屉记进使用统计；模拟器里清单开户归「房产」开关', () => {
+	const s = make({ clock: at(10), papers: done('address') });
+	assert.equal(paperBlocked(s, WA, getPaper('licence-theory')!), undefined);
+	const banned = { ...s, law: { ...s.law, ban: s.clock + 5 * 1440 } };
+	assert.match(paperBlocked(banned, WA, getPaper('licence-theory')!)!, /驾照暂停中/);
+	assert.match(paperBlocked({ ...banned, papers: done('address', 'licence-theory') }, WA, getPaper('licence')!)!, /驾照暂停中/);
+	assert.ok(STAT_EVENTS.drawer!.includes('papers'));
+	assert.equal(systemOf({ t: 'paper', id: 'bank' }), 'property');
+	assert.equal(systemOf({ t: 'paper', id: 'phone' }), undefined);
+});
+
+test('复核：链接到 main 的行，文案不再说开户要手机卡、贷款要 TFN', () => {
+	assert.equal(getPaper('phone')!.unlocks.now.join(''), '');
+	assert.ok(!getPaper('bank')!.docs.some((d) => d.includes('手机')));
+	assert.ok(!getPaper('tfn')!.unlocks.now.join('').includes('贷款'));
+	for (const p of PAPERS.filter((x) => x.linked)) assert.equal(p.needs.length, 0, p.id);
+});
+

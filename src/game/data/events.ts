@@ -5,6 +5,7 @@ import { assertEvents } from '../core/event-rules.ts';
 import { VENUE_EVENTS } from './venue-events.ts';
 import { SA_EVENTS } from './events-sa.ts';
 import { TRAIL_EVENTS } from './trail-events.ts';
+import { TRIP_EVENTS } from './trip-events.ts';
 
 export const EVENTS: GameEvent[] = [
 	{
@@ -501,6 +502,7 @@ export const EVENTS: GameEvent[] = [
 	...VENUE_EVENTS,
 	...SA_EVENTS,
 	...TRAIL_EVENTS,
+	...TRIP_EVENTS,
 ];
 
 // 加载时校验：字段拼错、引用不存在的后续事件、链式事件没人解锁……直接报错（写法见 docs/earth-game/event-engine.md §5）

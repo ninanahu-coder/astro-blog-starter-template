@@ -68,7 +68,7 @@ export const PAPERS: PaperDef[] = [
 	{
 		id: 'phone', name: '办手机卡', icon: '📱', needs: [], where: OFFICE, place: '有手机店或超市的城镇', hours: [8, 21], minutes: 30, fee: 10, waitDays: 0,
 		docs: ['护照'],
-		unlocks: { now: ['开银行户的前置（银行要澳洲手机号收验证码）'], later: ['应聘正式工作时要留联系电话'] },
+		unlocks: { now: [], later: ['应聘正式工作时要留联系电话'] }, // 合并 main 后：开户在 main 的银行，手机上核验身份，不要先办手机卡
 		real: {
 			who: '任何人；预付卡激活前运营商必须核实身份。',
 			steps: '到运营商门店或超市买预付 SIM 卡，用护照等证件核实身份后激活。',
@@ -79,7 +79,7 @@ export const PAPERS: PaperDef[] = [
 	},
 	{
 		id: 'bank', name: '开银行户', icon: '🏦', linked: 'bank', needs: [], where: OFFICE, place: '有银行网点的城镇', hours: [9, 16], minutes: 45, fee: 0, waitDays: 0,
-		docs: ['护照', '签证（电子签证即可）', '澳洲手机号'],
+		docs: ['护照', '签证（电子签证即可）'],
 		unlocks: { now: ['在「我 · 资产」的银行卡片开户；按揭买房、信用卡、贷款、先买后付都要先开户'], later: [] },
 		real: {
 			who: '任何人；银行按反洗钱法规做客户身份识别（KYC）。',
@@ -92,7 +92,7 @@ export const PAPERS: PaperDef[] = [
 	{
 		id: 'tfn', linked: 'tfn', name: '申请 TFN（税号）', icon: '🧾', needs: [], where: 'online', place: '网上', minutes: 20, fee: 0, waitDays: 7,
 		docs: ['护照', '有工作权限的签证', '澳洲收信地址'],
-		unlocks: { now: ['贷款买房要有 TFN'], later: ['没有 TFN 时雇主按最高税率预扣工资'] },
+		unlocks: { now: ['工资按正常税率预扣（没有 TFN 时按最高税率）', '能报税、注册 ABN'], later: [] }, // 合并 main 后：这些都是 main 税务的规则
 		real: {
 			who: '持有工作权限签证、人在澳洲的人可以网上申请（签证有 8101、8103、8116 等禁止工作条件的不行）。',
 			steps: '在 ATO 网站用护照网上申请（Individual Auto Registration），免费，不用寄证件。',
@@ -138,7 +138,7 @@ export const PAPERS: PaperDef[] = [
 			wait: '激活后通常马上能用电子卡，实体卡另寄。',
 			sources: [{ title: 'Home Affairs：Student visa conditions（存档页）', url: 'https://archive.homeaffairs.gov.au/trav/stud/more/visa-conditions/visa-conditions-students' }],
 		},
-		desc: '留学生的医疗保险，看病拿它报销。',
+		desc: '留学生签证要求买的医疗保险，看病按它收费。',
 	},
 	{
 		id: 'medicare', linked: 'cover', name: '登记 Medicare', icon: '💳', needs: [], where: AGENCY, place: 'Services Australia 服务中心（城市和较大的镇）', hours: [9, 16], minutes: 40, fee: 0, waitDays: 0,
