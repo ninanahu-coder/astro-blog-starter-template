@@ -26,6 +26,7 @@ import { VENUE_OPS } from '../data/venues.ts';
 import { FINANCE } from './finance.ts';
 import { cleanBank, emptyBank } from './credit.ts';
 import { realDayOf } from './daily.ts';
+import { SLEEP } from '../data/sleep.ts';
 import { cleanFlatshare, emptyFlatshare } from './flatmates.ts';
 import { cleanIllness } from './health.ts';
 import { cleanOnboard, freshOnboard } from './onboard.ts';
@@ -221,6 +222,7 @@ export function createCharacter(opts: {
 		tally: newTally({ clock: START_CLOCK, visited: { [opts.spawn]: 1 }, relations: {}, met: {}, cash: origin.cash }),
 		illness: null,
 		visa: newVisa(origin.id, Math.floor(START_CLOCK / 1440)),
+		rest: { wake: START_CLOCK - 60, debt: 0 }, // 第 1 天 07:00 醒来
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		biz: emptyBiz(),
 		sport: emptySport(),
@@ -491,6 +493,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		cooking: cleanCooking(r.cooking, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		tally: cleanTally(r.tally, tallyCtx(r, visited)),
 		trails: cleanTrails(r.trails, opts.now),
+		rest: cleanRest(r.rest, num(r.clock, 0, CAPS.clock, START_CLOCK), r.journal),
 		journal,
 		biz: cleanBiz(r.biz, num(r.clock, 0, CAPS.clock, START_CLOCK)),
 		sport: cleanSport(r.sport, num(r.clock, 0, CAPS.clock, START_CLOCK)),
@@ -636,6 +639,25 @@ function cleanDaily(r: any, now?: number): PlayerState['daily'] {
 	if (now === undefined) return daily;
 	const today = realDayOf(now);
 	return daily.day > today ? { day: today, streak: 0 } : daily;
+}
+
+/** 日志里表示睡醒的几种说法（回家睡、睡车、旅馆、露营、补觉、出院） */
+const SLEEP_LOG = /睡了一觉|睡了个好觉|住旅馆|露营过夜|补了 .*觉|医院醒来/;
+
+/** 作息（第 43 批）：醒来时间是游戏时钟，不晚于存档的 clock；旧存档没有就按「刚醒、不欠债」 */
+function cleanRest(v: any, clock: number, journal?: unknown): PlayerState['rest'] {
+	const o = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+	let wake = Object.hasOwn(o, 'wake') ? Math.floor(num(o.wake, 0, clock, clock)) : clock;
+	// 合并 main 时复核：线上会在分支之间切换，别的分支的代码睡了觉不改 rest。日志里有更晚的睡醒记录就从那时算起，免得一回来就记满睡眠债
+	if (Array.isArray(journal)) {
+		for (const j of journal) {
+			const t = j && typeof j === 'object' ? (j as { t?: unknown; text?: unknown }).t : undefined;
+			const text = j && typeof j === 'object' ? (j as { text?: unknown }).text : undefined;
+			if (typeof t === 'number' && Number.isFinite(t) && t > wake && t <= clock && typeof text === 'string' && SLEEP_LOG.test(text)) wake = Math.floor(t);
+		}
+	}
+	const debt = Object.hasOwn(o, 'debt') ? Math.round(num(o.debt, 0, SLEEP.debtMax, 0) * 10) / 10 : 0;
+	return { wake, debt };
 }
 
 /** 主要路线进度：只留已知路线；站数钳到 0..站数；沿途标记只在走到一半时有意义；时间不能在未来 */

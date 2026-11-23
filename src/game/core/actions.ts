@@ -1,7 +1,7 @@
 // 动作协议：客户端只发送「想做什么」，由服务端调用引擎结算并保存。
 // parseAction 负责把不可信的网络输入校验成 GameAction；applyAction 把它分发给引擎。
 import {
-	travelOptions, applyJob, seekCare, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, relaxAtHome, sellFurniture, buyItem, sellItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, applyForHome, inspectHome, leaseAction, settleBondClaim, handleScam, resolveEvent, sleepHome, travel, useItem, workShift,
+	travelOptions, applyJob, seekCare, buyProperty, moveIntoProperty, repayLoan, sellProperty, toggleRentOut, buyFurniture, relaxAtHome, napHome, sellFurniture, buyItem, sellItem, buyVehicle, doExperience, sellVehicle, sleepInVehicle, serviceVehicle, takeCert, takeQuestPhoto, takeCourse, gpsCheckIn, interactNpc, leaveHome, performActivity, quitJob, applyForHome, inspectHome, leaseAction, settleBondClaim, handleScam, resolveEvent, sleepHome, travel, useItem, workShift,
 } from './engine.ts';
 import { buyGroceries, cookRecipe, hostDinner, orderDelivery } from './cooking.ts';
 import { GROCER_BATCH_MAX } from '../data/cooking.ts';
@@ -65,7 +65,7 @@ export type GameAction =
 	| { t: 'job'; op: 'apply'; career: string }
 	| { t: 'job'; op: 'work' | 'quit' }
 	| { t: 'home'; op: 'rent'; home: string; term?: 'fixed' | 'periodic' } // 递申请（营地直接租）；term 不写为固定期限
-	| { t: 'home'; op: 'sleep' | 'leave' | 'relax' | 'delivery' }
+	| { t: 'home'; op: 'sleep' | 'nap' | 'leave' | 'relax' | 'delivery' } // nap：在家补觉（时间和睡眠）
 	| { t: 'home'; op: 'cook'; recipe?: string } // 不带 recipe：随手做一顿（旧客户端）
 	| { t: 'home'; op: 'host'; recipe: string }
 	| { t: 'grocery'; id: string; n: number }
@@ -172,7 +172,7 @@ export function parseAction(raw: unknown): GameAction | null {
 			}
 			if (a.op === 'cook') return a.recipe === undefined ? { t: 'home', op: 'cook' } : str(a.recipe) ? { t: 'home', op: 'cook', recipe: a.recipe } : null;
 			if (a.op === 'host') return str(a.recipe) ? { t: 'home', op: 'host', recipe: a.recipe } : null;
-			return a.op === 'sleep' || a.op === 'leave' || a.op === 'relax' || a.op === 'delivery' ? { t: 'home', op: a.op } : null;
+			return a.op === 'sleep' || a.op === 'nap' || a.op === 'leave' || a.op === 'relax' || a.op === 'delivery' ? { t: 'home', op: a.op } : null;
 		case 'grocery':
 			return str(a.id) && Number.isInteger(a.n) && (a.n as number) >= 1 && (a.n as number) <= GROCER_BATCH_MAX ? { t: 'grocery', id: a.id, n: a.n as number } : null;
 		case 'rental':
@@ -288,6 +288,7 @@ export function applyAction(state: PlayerState, region: Region, a: GameAction, n
 		case 'home':
 			r = a.op === 'rent' ? applyForHome(state, region, a.home, a.term)
 				: a.op === 'sleep' ? sleepHome(state, region)
+				: a.op === 'nap' ? napHome(state, region)
 				: a.op === 'cook' ? cookRecipe(state, region, a.recipe)
 				: a.op === 'host' ? hostDinner(state, region, a.recipe)
 				: a.op === 'delivery' ? orderDelivery(state, region)

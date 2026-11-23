@@ -41,6 +41,8 @@ import { dateOf, dayOf, hourOf, hoursLabel, inSpan, isOpen, period, SEASONS } fr
 import { WEATHERS } from '../data/weather.ts';
 import { FESTIVALS } from '../data/festivals.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
+import { SLEEP } from '../data/sleep.ts';
+import { debtNow, restOf, settleSleep, sleepFx, sleepNote, sleepQuality, type SleepQuality, type SleepSpot } from './sleep.ts';
 import { checkScore, costMult, gainMult, getItem, heatMult, homeComfort, hurtMult } from './attributes.ts';
 import { CAPS, clamp100, JOURNAL_MAX, SKILL_META } from './character.ts';
 import { haversineKm, locateInRegion, POI_RADIUS_KM } from './geo.ts';
@@ -131,6 +133,7 @@ function collapse(state: PlayerState, region: Region) {
 	state.loc = nearestHospital(state, region);
 	state.pending = null;
 	state.clock = Math.min(CAPS.clock, state.clock + 12 * 60);
+	state.rest = { wake: state.clock, debt: debtNow({ ...state, clock: state.clock - 12 * 60 }) }; // 在医院躺了 12 小时：醒着的时间从出院算起；入院前熬夜欠的觉也记上，不免（合并 main 时复核）
 	addMoodlet(state, 'collapsed'); // 出院时才开始计时，醒来时剩满 48 小时
 	log(state, `你晕倒了，在${getLocation(region, state.loc)?.name ?? ''}的医院醒来，医药费 $${bill}。`);
 	// 住院又过了 12 小时：跨过结算日的话也要结算，不然醒来能抢在结算前卖房、退租。放在这里，饿晕和受伤致晕两条路都覆盖
@@ -667,6 +670,13 @@ export function performActivity(prev: PlayerState, region: Region, activityId: s
 	if (blocked) return fail(prev, blocked);
 	const state = clone(prev);
 	const fx = scaledFx(prev, act);
+	// 住旅馆、露营这类「一觉」走睡眠规则（时间和睡眠）：恢复乘睡眠质量，醒来结算睡眠债；体质系数和「睡着」在 sleepFor 里统一加
+	if (act.bed) {
+		const slept = sleepFor(state, region, { ...fx, minutes: act.minutes }, { bed: act.bed });
+		if (!slept) return collapsedResult(state);
+		log(state, `在${loc.name}${act.name}，${sleepNote(slept)}。`);
+		return { ok: true, state, msg: `${act.icon} ${act.name}完成，${sleepNote(slept)}。` };
+	}
 	// 税务：临时工工资先预扣；有 ABN 时街头表演按生意收入算（见 core/tax.ts）
 	const kind = fx.cash && fx.cash > 0 ? activityIncome(act.id) : 'none';
 	const gross = kind === 'hobby' ? hobbyIncome(state, fx.cash!) : fx.cash ?? 0;
@@ -1514,16 +1524,52 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	// 睡这一觉用的是入睡时的住处：睡到一半跨过结算日，住处可能因为欠租或断供被收走（state.home 变成 null）
 	const furniture = Object.values(prev.home.furniture);
 	const cosy = homeComfort(prev) >= 3 || 'bed' in prev.home.furniture;
-	if (applyEffect(state, bodyScaled(prev, { minutes: 480, asleep: true, health: 15 + def.comfort, needs: { energy: 100, hygiene: 50 + def.comfort * 2, fun: 5 + def.comfort } }), region)) return collapsedResult(state);
+	const slept = sleepFor(state, region, { minutes: SLEEP.fullMinutes, health: 15 + def.comfort, needs: { energy: 100, hygiene: 50 + def.comfort * 2, fun: 5 + def.comfort } }, homeSpot(prev));
+	if (!slept) return collapsedResult(state);
 	for (const id of furniture) {
 		const extra = getFurniture(id)?.sleep;
 		if (extra && applyEffect(state, extra, region)) return collapsedResult(state);
 	}
-	if (cosy) addMoodlet(state, 'great-sleep');
+	if (cosy && slept.q >= SLEEP.poorAt) addMoodlet(state, 'great-sleep');
 	// 室友：社交恢复、家里太乱、相处融洽、室友事件。睡到一半住处没了（state.home 为 null）就不算
 	if (state.home && activeMates(state).length) afterSleepFlat(state, { log: (t) => log(state, t), mood: (id) => addMoodlet(state, id) });
-	log(state, `在${def.name}睡了一觉。`);
-	return { ok: true, state, msg: state.home ? '睡了个好觉。' : '睡了一觉，醒来时住处已经没了（详见日志）。' };
+	log(state, `在${def.name}睡了一觉，${sleepNote(slept)}。`);
+	return { ok: true, state, msg: state.home ? `睡了一觉，${sleepNote(slept)}。` : '睡了一觉，醒来时住处已经没了（详见日志）。' };
+}
+
+/** 住处的床（睡眠质量用）：舒适度含家具，有床位家具另加 */
+export function homeSpot(state: PlayerState): SleepSpot {
+	return { bed: 'home', comfort: homeComfort(state), bedFurniture: !!state.home && 'bed' in state.home.furniture };
+}
+
+/**
+ * 睡一觉（第 43 批）：恢复的精力和健康乘睡眠质量，醒来结算作息（睡眠债、醒了多久）和相应心情。原地修改。
+ * 途中晕倒返回 null（作息不结算：晕倒住院那条路自己会重置醒来时间）；否则返回这一觉的质量。
+ */
+function sleepFor(state: PlayerState, region: Region, fx: Effect, spot: SleepSpot, nap = false): SleepQuality | null {
+	const start = state.clock;
+	const sq = sleepQuality(state, region, spot, start);
+	// 合并 main 后：睡眠质量乘在「一觉」上，体质的恢复系数（bodyScaled）和睡着（asleep：精力不降、饱食减半）是 main 的两层，叠加；精力上限照旧
+	if (applyEffect(state, bodyScaled(state, { ...sleepFx(fx, sq.q), asleep: true }), region)) return null;
+	const r = settleSleep(restOf(state), start, state.clock, sq.q, nap);
+	state.rest = r.rest;
+	for (const id of r.moodlets) addMoodlet(state, id);
+	return sq;
+}
+
+/** 在家补个觉（第 43 批）：2 小时，回一点精力，按质量还一点睡眠债，把「醒了多久」往回拨 */
+export function napHome(prev: PlayerState, region: Region): ActionResult {
+	if (prev.pending) return fail(prev, '先处理眼前的事件。');
+	if (!prev.home) return fail(prev, '你没有住处。');
+	if (prev.home.loc !== prev.loc) return fail(prev, '要回到住处才能补觉。');
+	if (!homeUsable(prev)) return fail(prev, '没有能睡人的车，营地住不了。');
+	if (prev.flatshare.sublet) return fail(prev, '房间转租出去了，先收回来才能住。'); // 室友与合租：转租期间不能回去睡
+	const state = clone(prev);
+	const slept = sleepFor(state, region, { minutes: SLEEP.napMinutes, needs: { energy: SLEEP.napEnergy } }, homeSpot(prev), true);
+	if (!slept) return collapsedResult(state);
+	const msg = `补了 ${SLEEP.napMinutes / 60} 小时觉，${sleepNote(slept)}。`;
+	log(state, msg);
+	return { ok: true, state, msg };
 }
 
 // ---------- 交通工具 ----------
@@ -1647,9 +1693,10 @@ export function sleepInVehicle(prev: PlayerState, region: Region): ActionResult 
 	const v = getVehicle(prev.vehicle);
 	if (!v?.sleep) return fail(prev, '你的车不能睡人。');
 	const state = clone(prev);
-	if (applyEffect(state, bodyScaled(prev, { ...v.sleep, minutes: 480, asleep: true }), region)) return collapsedResult(state);
-	log(state, `在${v.name}里睡了一觉。`);
-	return { ok: true, state, msg: '在车里睡了一觉。' };
+	const slept = sleepFor(state, region, { ...v.sleep, minutes: SLEEP.fullMinutes }, { bed: 'vehicle' });
+	if (!slept) return collapsedResult(state);
+	log(state, `在${v.name}里睡了一觉，${sleepNote(slept)}。`);
+	return { ok: true, state, msg: `在车里睡了一觉，${sleepNote(slept)}。` };
 }
 
 // ---------- 课程 ----------

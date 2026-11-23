@@ -10,6 +10,8 @@ import {
 import { CAREERS, PROMOTE_SHIFTS } from '../../src/game/data/careers.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
 import { WA } from '../../src/game/data/wa.ts';
+import { sleepQuality } from '../../src/game/core/sleep.ts';
+import { homeSpot } from '../../src/game/core/engine.ts';
 import { withholding } from '../../src/game/core/tax.ts';
 import type { PlayerState } from '../../src/game/core/types.ts';
 
@@ -92,10 +94,16 @@ test('租房：首周租金、按周扣租、付不起被收回', () => {
 
 test('回家睡觉与住房心情加成', () => {
 	const s = rentHome(make({ cash: 2000, clock: at(9) }), WA, 'beach').state;
-	const tired = { ...s, needs: { hunger: 80, energy: 5, hygiene: 10, fun: 40, social: 60 } };
+	const tired = { ...s, health: 40, needs: { hunger: 80, energy: 5, hygiene: 10, fun: 40, social: 60 } };
 	const r = sleepHome(tired, WA);
 	assert.ok(r.ok);
-	assert.equal(r.state.needs.energy, energyCap(r.state), '睡醒精力回到精力上限');
+	// 时间和睡眠：白天 9 点在城里睡，质量打折；醒来精力不超过精力上限，夜里睡比白天睡回得多
+	const q = sleepQuality(tired, WA, homeSpot(tired)).q;
+	assert.ok(q < 1, '白天、城里睡不满');
+	assert.ok(r.state.needs.energy <= energyCap(r.state));
+	const night = sleepHome({ ...tired, clock: at(22) }, WA);
+	assert.ok(night.state.needs.energy >= r.state.needs.energy);
+	assert.ok(night.state.health > r.state.health, '夜里睡比白天睡回的健康多（合并 main 后：精力有上限（约 81–84），住旅馆、回家睡夜里和白天都能睡到上限，睡眠质量的差别体现在健康恢复、心情和睡眠债上）');
 	assert.equal(sleepHome({ ...tired, loc: 'fremantle' }, WA).ok, false, '不在住处');
 	assert.equal(mood(s) - mood({ ...s, home: null }), 10, '海景小屋 +10 心情');
 });

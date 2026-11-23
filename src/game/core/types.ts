@@ -580,6 +580,8 @@ export interface Activity {
 	exposed?: 'sea';
 	/** 只在这些天气出现（当天天气不符时列表里不显示、也不能做） */
 	weather?: string[];
+	/** 这是一觉（第 43 批）：睡在哪，决定睡眠质量的床（见 data/sleep.ts 的 BED）。写了就走睡眠规则：精力和健康恢复乘质量、记作息 */
+	bed?: 'motel' | 'camp';
 	desc: string;
 }
 
@@ -903,6 +905,8 @@ export interface PlayerState {
 	tally: Tally; // 生涯统计（「我 · 生涯」）：累计收支、公里、里程碑和周期小结，见 career-stats.md
 	illness: { id: string; since: number; until: number; care: string[]; rx: boolean } | null; // 正在生的病或伤（data/health.ts 的 id）：游戏时钟的起止分钟、这次已做过的就医（gp/pharmacy/ed/rx）、GP 是否开了处方；见 docs/earth-game/health.md
 	visa: VisaState; // 签证路线（第 43 批，docs/earth-game/visa.md）；非留学生出身 kind 为 'none'
+	/** 作息（第 43 批）：wake = 最近一次醒来的游戏时钟（分钟，≤ clock）；debt = 睡眠债（小时，0–24，一位小数）。见 docs/earth-game/time-sleep.md */
+	rest: { wake: number; debt: number };
 	journal: JournalEntry[];
 	biz: Business; // 副业与小生意：证照、副业冷却、营业额账本、店铺（见 core/business.ts）
 	sport: SportState; // 运动和比赛（docs/earth-game/sports.md）
