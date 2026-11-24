@@ -186,6 +186,10 @@ test('南澳职业与住处（第 45 轮）：每个南澳地点都有至少一�
 	}
 	const dug = HOMES.find((h) => h.id === 'dugout')!;
 	assert.deepEqual(WORLD.locations.filter((l) => hit(dug.where, l)).map((l) => l.id), ['coober-pedy'], '地下屋只在库伯佩迪');
+	// 第十二轮：地下屋 140 → 115，回到「营地 < 地下屋 < 合租」的租金阶梯；旧存档按 $140 交的押金不砍
+	const rent = (id: string) => HOMES.find((h) => h.id === id)!.rentWeek;
+	assert.ok(rent('campground') < dug.rentWeek && dug.rentWeek < rent('room'), `营地 ${rent('campground')} < 地下屋 ${dug.rentWeek} < 合租 ${rent('room')}`);
+	assert.equal(dug.rentWas, 140);
 	const same = (a: string, b: string) => {
 		const [x, y] = [PROPERTIES.find((p) => p.id === a)!, PROPERTIES.find((p) => p.id === b)!];
 		assert.deepEqual([x.price, x.weekly, x.rentIncome, x.homeType], [y.price, y.weekly, y.rentIncome, y.homeType], `${a} 照搬 ${b}`);

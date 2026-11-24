@@ -23,7 +23,7 @@ import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter, ORIGINS } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careAt, careersAt, coursesAt, dealerAt, DECAY, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, npcsAt, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careAt, careersAt, coursesAt, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { assess, taxStatus, tfnState } from '../../../src/game/core/tax.ts';
@@ -36,8 +36,8 @@ import { choreBlocked } from '../../../src/game/core/flat-actions.ts';
 import { currentIllness } from '../../../src/game/core/health.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import { careerSummary, earnedOf, spentOf } from '../../../src/game/core/tally.ts';
-import type { PlayerState } from '../../../src/game/core/types.ts';
-import { WA } from '../../../src/game/data/wa.ts';
+import type { PlayerState, Region } from '../../../src/game/core/types.ts';
+import { WA, WORLD } from '../../../src/game/data/wa.ts';
 import { paperChecklist } from '../../../src/game/core/paperwork.ts';
 import { volunteerAt } from '../../../src/game/core/volunteer.ts';
 import { volShifts, volTier } from '../../../src/game/core/respect.ts';
@@ -51,6 +51,9 @@ import { lbEntry, type LbEntry, type LbStatKey } from '../../../src/game/core/le
 import { LB_ANOMALY } from '../../../src/game/data/leaderboard.ts';
 import { canWork, ieltsAt, visaKindNow, visaOptions } from '../../../src/game/core/immigration.ts';
 import { VISA_ROUTES, VISA_RULES } from '../../../src/game/data/visas.ts';
+import { birdingAt, gardenStatus, songsKnown, timesToday } from '../../../src/game/core/hobbies.ts';
+import { BIRDS, CRAFTS, INSTRUMENT, PHOTO_WORK, PLANTS, SONGS } from '../../../src/game/data/hobbies.ts';
+import { FISH } from '../../../src/game/data/fish.ts';
 
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
 const DAYS = Number(arg('days', '60'));
@@ -95,6 +98,12 @@ interface Bot {
 	s: PlayerState;
 	rng: () => number;
 	plan: Plan;
+	/** 爱好机器人（第十二轮）：轻度玩家当天做过没有；全收集玩家跨州时的目的地、到达那天、路线进度、是否已退租出发 */
+	hobbyDay?: number;
+	hobbyTarget?: string;
+	hobbyTargetDay?: number;
+	hobbyRouteIndex?: number;
+	hobbyTraveling?: boolean;
 	/** 理财机器人最近一次买入的游戏日 */
 	investDay?: number;
 	stats: {
@@ -134,6 +143,8 @@ interface Bot {
 		visaExpiredDays: number;
 		prDay?: number;
 		ielts: number;
+		/** 爱好收集册（第十二轮）：册子发的声望合计、合计到 25（店长门槛）那天、每个里程碑（如 crafts:half）第几天拿到 */
+		hobby: { respect: number; thresholdDay?: number; milestones: Record<string, number> };
 	};
 	/** 排行榜（排行榜第一版）：每个成功动作后按服务端同一个函数算榜单记录，看异常值复核线会不会误伤正常玩法 */
 	lb: { e: LbEntry; now: number; max: Record<LbStatKey, number>; holds: number; why: string[] };
@@ -145,7 +156,7 @@ const LB_KEYS: LbStatKey[] = ['worth', 'respect', 'dex', 'places'];
 function trackLb(b: Bot) {
 	const prev = b.lb.e;
 	b.lb.now += LB_SIM_STEP_MS;
-	const e = lbEntry(b.s, b.lb.now, prev, { places: WA.pois.length });
+	const e = lbEntry(b.s, b.lb.now, prev, { places: regionOf(b).pois.length });
 	for (const k of LB_KEYS) b.lb.max[k] = Math.max(b.lb.max[k], e.stats[k] - prev.stats[k]);
 	if (e.hold && e.hold.at === b.lb.now) {
 		b.lb.holds++;
@@ -222,6 +233,14 @@ interface Plan {
 	invest?: { asset: string; keep: number };
 	/** 现金超过多少才签租约（默认 $400）。第十一轮：农场工 $700，先领第一笔工资再锁首期和押金 */
 	rentAt?: number;
+	/** 走完整世界（WORLD，含南澳等跨州地点）而不是西澳单区；不写的策略仍走 WA，原有结果不变（第十二轮，全收集要跨州） */
+	world?: boolean;
+	/** 爱好收集（第十二轮）。light：每三天在家做一次手工或乐器；all：先上班、种完跨季菜园，第 75 天起退租跨州收六本 */
+	hobby?: { mode: 'light' | 'all' };
+}
+
+function regionOf(b: Bot): Region {
+	return b.plan.world ? WORLD : WA;
 }
 
 const PLANS: Plan[] = [
@@ -253,6 +272,9 @@ const PLANS: Plan[] = [
 	{ id: 'barista-side', name: '咖啡店 + 下班家教（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, side: { licenses: ['wwc-wa'], gigs: ['tutor'] } },
 	{ id: 'shop-milktea', name: '咖啡店攒钱开奶茶店（北桥，雇 1 人）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, shop: { type: 'milk-tea', site: 'northbridge', openAt: 11_000, staff: 1, restockBelow: 150 } },
 	{ id: 'shop-repair', name: '咖啡店攒钱开手机维修铺（维多利亚公园，不雇人、自己看店）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, shop: { type: 'phone-repair', site: 'victoria-park', openAt: 9_000, staff: 0, restockBelow: 20 } },
+	// 第十二轮：爱好收集册声望的回归策略（balance.md 第十二轮第 1 节）。全收集要跨州，走完整世界
+	{ id: 'hobby-light', name: '爱好轻度玩家（咖啡店；每三天一次手工/乐器）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', hobby: { mode: 'light' } },
+	{ id: 'hobby-all', name: '爱好全收集玩家（咖啡店；第 75 天起跨州）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', world: true, hobby: { mode: 'all' } },
 ];
 
 // 出身对照（初始属性设计，见 docs/earth-game/initial-stats.md）：同一策略、不带特质，只换出身，看起始现金、车和能力的差别。只出报告，不改数值
@@ -327,7 +349,7 @@ function tryAct(b: Bot, a: GameAction): boolean {
 	const sys = OFF.size ? systemOf(a) : undefined;
 	if (sys && OFF.has(sys)) return (ecoOf(b).blocked[sys] = (ecoOf(b).blocked[sys] ?? 0) + 1), false;
 	const before = b.s;
-	const r = applyAction(b.s, WA, a, simNow(b.s.clock));
+	const r = applyAction(b.s, regionOf(b), a, simNow(b.s.clock));
 	if (!r.ok) {
 		b.s = r.state;
 		return false;
@@ -335,6 +357,13 @@ function tryAct(b: Bot, a: GameAction): boolean {
 	b.s = r.state;
 	trackLb(b);
 	const key = actionKey(a);
+	const newMilestones = b.s.hobby.got.filter((id) => !before.hobby.got.includes(id));
+	if (newMilestones.length) {
+		const gained = Math.max(0, b.s.respect - before.respect);
+		b.stats.hobby.respect += gained;
+		for (const id of newMilestones) b.stats.hobby.milestones[id] ??= dayOf(b.s.clock) + 1;
+		if (b.stats.hobby.thresholdDay === undefined && b.stats.hobby.respect >= 25) b.stats.hobby.thresholdDay = dayOf(b.s.clock) + 1;
+	}
 	// 店铺结算挂在任意动作之后：把这次结算出的净额单独记成 shop-days，不算进触发它的动作
 	const shopNow = b.s.biz.shop;
 	const settledNet = shopNow ? shopNow.hist.filter((h) => h.d > (before.biz.shop?.last ?? Infinity)).reduce((n, h) => n + h.net, 0) : 0;
@@ -367,7 +396,7 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		if (j.text.includes('晕倒')) b.stats.collapses++;
 		if (/你病了|中了暑气|扭伤了/.test(j.text)) b.stats.ill++;
 	}
-	countLoss(b, before, a.t === 'property' && a.op === 'sell');
+	if (!(a.t === 'home' && a.op === 'leave')) countLoss(b, before, a.t === 'property' && a.op === 'sell'); // 主动退租（全收集出发前）不算收房
 	if (b.s.job && before.job && b.s.job.career === before.job.career && b.s.job.level > before.job.level) {
 		b.stats.promotions++;
 		b.stats.promoDays.push(dayOf(b.s.clock) + 1);
@@ -395,24 +424,24 @@ function taxChore(b: Bot): boolean {
 function careStep(b: Bot): boolean {
 	const cur = currentIllness(b.s);
 	if (!cur) return false;
-	const here = careAt(b.s, WA).filter((x) => !x.blocked);
+	const here = careAt(b.s, regionOf(b)).filter((x) => !x.blocked);
 	const has = (k: string) => here.some((x) => x.care.id === k);
 	const order = cur.def.severity >= 3 ? ['ed', 'gp', 'pharmacy'] : cur.ill.rx ? ['pharmacy', 'gp'] : ['gp', 'pharmacy'];
 	for (const k of order) if (has(k) && !cur.ill.care.includes(k) && tryAct(b, { t: 'care', kind: k as 'gp' | 'pharmacy' | 'ed' })) return true;
 	return cur.ill.rx && !cur.ill.care.includes('rx') && has('pharmacy') && tryAct(b, { t: 'care', kind: 'pharmacy' });
 }
 
-const can = (b: Bot, id: string) => activitiesAt(b.s, WA).some((x) => x.act.id === id && !x.blocked);
+const can = (b: Bot, id: string) => activitiesAt(b.s, regionOf(b)).some((x) => x.act.id === id && !x.blocked);
 const act = (b: Bot, id: string) => can(b, id) && tryAct(b, { t: 'activity', id });
 
 /** 从 from 到 dest 按路线跳数最少的下一站（广度优先；没有路返回 undefined） */
-function nextHop(from: string, dest: string): string | undefined {
+function nextHop(region: Region, from: string, dest: string): string | undefined {
 	const prev = new Map<string, string>([[from, from]]);
 	const queue = [from];
 	while (queue.length) {
 		const at = queue.shift()!;
 		if (at === dest) break;
-		for (const r of WA.routes) {
+		for (const r of region.routes) {
 			const nb = r.a === at ? r.b : r.b === at ? r.a : null;
 			if (nb && !prev.has(nb)) { prev.set(nb, at); queue.push(nb); }
 		}
@@ -425,10 +454,11 @@ function nextHop(from: string, dest: string): string | undefined {
 
 /** 去某地：有直达就走最便宜的可用方式，否则沿跳数最少的路线先去下一站（第 46 轮补上：农场工要去的玛格丽特河从珀斯没有直达） */
 function headTo(b: Bot, dest: string): boolean {
-	const opts = travelOptions(b.s, WA).filter((o) => o.available);
+	const region = regionOf(b);
+	const opts = travelOptions(b.s, region).filter((o) => o.available);
 	const direct = opts.filter((o) => o.to === dest).sort((x, y) => x.cost - y.cost)[0];
 	if (direct) return tryAct(b, { t: 'travel', to: direct.to, mode: direct.mode });
-	const hop = nextHop(b.s.loc, dest);
+	const hop = nextHop(region, b.s.loc, dest);
 	const step = hop ? opts.filter((o) => o.to === hop).sort((x, y) => x.cost - y.cost)[0] : undefined;
 	return !!step && tryAct(b, { t: 'travel', to: step.to, mode: step.mode });
 }
@@ -439,7 +469,7 @@ function recordGigMiss(b: Bot, reason: GigMiss) {
 
 /** 已经想开工却没有一种零工能做：记下当前最直接的阻塞原因。 */
 function recordBlockedGigs(b: Bot) {
-	const gigsHere = activitiesAt(b.s, WA).filter((x) => (GIG_IDS as readonly string[]).includes(x.act.id));
+	const gigsHere = activitiesAt(b.s, regionOf(b)).filter((x) => (GIG_IDS as readonly string[]).includes(x.act.id));
 	if (!gigsHere.length) {
 		recordGigMiss(b, 'location');
 		return;
@@ -502,14 +532,14 @@ function stepSafeDrifter(b: Bot) {
 
 	// 只用免费社交和娱乐；不去酒吧，也不为探索离开稳定零工地点。
 	if (s.needs.social < 40) {
-		const npc = npcsAt(s, WA).find((n) => !n.blocked.chat);
+		const npc = npcsAt(s, regionOf(b)).find((n) => !n.blocked.chat);
 		if (npc && tryAct(b, { t: 'npc', npc: npc.npc.id, act: 'chat' })) return;
 	}
 	if (s.needs.fun < 40 && s.needs.energy >= 35 && act(b, 'swim')) return;
 
 	// 补一根便宜的应急能量棒，但不动 $200 应急金。
 	if (!s.inventory.snack && s.cash > gig.cashReserve) {
-		const e = shopAt(s, WA).find((x) => x.item.id === 'snack' && !x.blocked);
+		const e = shopAt(s, regionOf(b)).find((x) => x.item.id === 'snack' && !x.blocked);
 		if (e && tryAct(b, { t: 'buy', item: 'snack' })) return;
 	}
 	act(b, 'rest');
@@ -542,14 +572,15 @@ function tryCoop(b: Bot): boolean {
 	const s = b.s;
 	const cfg = b.plan.coop!;
 	if (OFF.has('coop')) return false;
-	const open = coopsAt(s, WA).find((x) => !x.blocked);
+	const region = regionOf(b);
+	const open = coopsAt(s, region).find((x) => !x.blocked);
 	if (!open) return false;
 	if (cfg.mateChance < 1 && b.rng() >= cfg.mateChance) return false;
-	const base = createCharacter({ id: `sim-mate-${b.stats.coops}`, name: 'mate', avatar: '🧑', origin: b.plan.origin, traits: [], region: WA.id, spawn: s.loc, seed: Math.floor(b.rng() * 1e9) });
+	const base = createCharacter({ id: `sim-mate-${b.stats.coops}`, name: 'mate', avatar: '🧑', origin: b.plan.origin, traits: [], region: region.id, spawn: s.loc, seed: Math.floor(b.rng() * 1e9) });
 	const n = cfg.mateNeeds;
 	const mate = { ...base, loc: s.loc, clock: s.clock, needs: { ...base.needs, hunger: n, energy: n, hygiene: n, fun: n, social: n } };
-	if (coopBlocked(s, WA, open.def) || coopBlocked(mate, WA, open.def)) return false;
-	const r = applyCoop(open.def, WA, [{ state: s, role: 0, name: b.plan.id }, { state: mate, role: 1, name: 'mate' }]);
+	if (coopBlocked(s, region, open.def) || coopBlocked(mate, region, open.def)) return false;
+	const r = applyCoop(open.def, region, [{ state: s, role: 0, name: b.plan.id }, { state: mate, role: 1, name: 'mate' }]);
 	const me = r.results[0];
 	if (!me.ok) return false;
 	b.stats.flow.coop = (b.stats.flow.coop ?? 0) + (me.state.cash - s.cash);
@@ -573,7 +604,7 @@ function cookFromPantry(b: Bot): boolean {
 function shopForDish(b: Bot): boolean {
 	const s = b.s;
 	if (!s.home || s.loc !== s.home.loc || kitchenLevel(s) < 1 || pantryTotal(s) >= 4 || s.cash < 300) return false;
-	const offers = groceriesAt(s, WA);
+	const offers = groceriesAt(s, regionOf(b));
 	const ok = (id: string) => offers.some((o) => o.item.id === id && !o.blocked);
 	const dish = RECIPES.filter((r) => r.cuisine !== 'basic' && recipeKnown(s, r) && r.kitchen <= kitchenLevel(s) && Object.keys(r.ingredients).every(ok))
 		.sort((x, y) => (s.cooking.made[x.id] ?? 0) - (s.cooking.made[y.id] ?? 0))[0];
@@ -593,7 +624,7 @@ function stepVisa(b: Bot): boolean {
 	const s = b.s;
 	const now = visaKindNow(s);
 	if (now === 'none' || now === 'pr') return false;
-	const opts = visaOptions(s, WA);
+	const opts = visaOptions(s, regionOf(b));
 	for (const id of VISA_ORDER) {
 		if (id === 'student' && now !== 'expired') continue;
 		if (id === 'graduate2' && (s.visa.until - dayOf(s.clock)) > 20) continue; // 第一次 485 快到期才续
@@ -602,12 +633,115 @@ function stepVisa(b: Bot): boolean {
 	}
 	const grad = opts.find((x) => x.route.id === 'graduate');
 	const wantIelts = s.visa.ielts < VISA_RULES.graduate.minIelts && (grad?.blocked?.includes('雅思') || (s.visa.course && s.visa.course.end - dayOf(s.clock) < 30));
-	const t = wantIelts ? ieltsAt(s, WA) : null;
+	const t = wantIelts ? ieltsAt(s, regionOf(b)) : null;
 	if (t && !t.blocked && s.cash > t.fee + (VISA_ROUTES.find((r) => r.id === 'graduate')?.fee ?? 0) + 300 && s.needs.energy > 40 && tryAct(b, { t: 'visa', op: 'ielts' })) {
 		b.stats.ielts++;
 		return true;
 	}
 	return false;
+}
+
+// ---------- 爱好机器人（第十二轮） ----------
+/** 发声望的六本收集册（data/hobbies.ts 的 COLLECTION_REWARD）：id → 报告里的名字 */
+const REWARD_BOOKS = { fish: '钓鱼', birds: '观鸟', works: '摄影地点', plants: '菜园', crafts: '手工', songs: '曲目' } as const;
+
+function buyHobbyItem(b: Bot, id: string): boolean {
+	if (b.s.inventory[id]) return false;
+	const offer = shopAt(b.s, regionOf(b)).find((x) => x.item.id === id && !x.blocked);
+	return !!offer && b.s.cash - offer.price >= 400 && tryAct(b, { t: 'buy', item: id });
+}
+
+function stepLightHobby(b: Bot): boolean {
+	const s = b.s;
+	const day = dayOf(s.clock);
+	if (buyHobbyItem(b, INSTRUMENT)) return true;
+	if (!s.home || s.loc !== s.home.loc || day % 3 !== 0 || b.hobbyDay === day) return false;
+	const craft = s.hobby.made.length / CRAFTS.length;
+	const music = songsKnown(s.hobby.xp.music ?? 0).length / SONGS.length;
+	const order = craft <= music ? ['craft', 'music'] as const : ['music', 'craft'] as const;
+	for (const id of order) {
+		if (id === 'craft' && s.hobby.made.length >= CRAFTS.length) continue;
+		if (id === 'music' && songsKnown(s.hobby.xp.music ?? 0).length >= SONGS.length) continue;
+		if (tryAct(b, { t: 'hobby', id })) {
+			b.hobbyDay = day;
+			return true;
+		}
+	}
+	return false;
+}
+
+function matchesWhere(loc: Region['locations'][number], where: { locs?: string[]; kinds?: string[]; tags?: string[] }): boolean {
+	return !!(where.locs?.includes(loc.id) || where.kinds?.includes(loc.kind) || where.tags?.some((t) => loc.tags.includes(t)));
+}
+
+/** 这里还可能贡献几个未收项目；忽略季节/时段，只用于排旅行路线，不直接发奖。 */
+function staticCollectionNeed(b: Bot, locId: string): number {
+	const s = b.s;
+	const loc = regionOf(b).locations.find((x) => x.id === locId);
+	if (!loc) return 0;
+	let n = (s.hobby.works[loc.id] ?? 0) >= PHOTO_WORK.good ? 0 : 1;
+	n += FISH.filter((f) => !s.fish[f.id] && matchesWhere(loc, f.where)).length;
+	n += BIRDS.filter((bird) => !s.hobby.birds.includes(bird.id) && matchesWhere(loc, bird.where)).length;
+	return n;
+}
+
+function chooseHobbyTarget(b: Bot): string | undefined {
+	const locs = regionOf(b).locations;
+	let from = b.hobbyRouteIndex ?? 0;
+	for (let pass = 0; pass < 2; pass++) {
+		for (let i = from; i < locs.length; i++) {
+			if (locs[i].id !== b.s.loc && staticCollectionNeed(b, locs[i].id) > 0) {
+				b.hobbyRouteIndex = i + 1;
+				return locs[i].id;
+			}
+		}
+		from = 0;
+		b.hobbyRouteIndex = 0;
+	}
+	return undefined;
+}
+
+/**
+ * 全收集：先买鱼竿/琴；在家按成熟时收种、每天最多各做一次手工和乐器；
+ * 每地每天最多摄影 2、钓鱼 3、观鸟 3 次，只在当前池里还有新种时做。
+ * travel=false 是上班期的本地休闲；travel=true 从第 75 天起按完整世界地点轮游，每地最多停 2 天后继续。
+ */
+function stepAllHobby(b: Bot, travel: boolean): boolean {
+	const s = b.s;
+	const region = regionOf(b);
+	const day = dayOf(s.clock);
+	if (buyHobbyItem(b, INSTRUMENT) || buyHobbyItem(b, 'rod')) return true;
+	const atHome = !!s.home && s.loc === s.home.loc;
+	if (atHome) {
+		const g = gardenStatus(s);
+		if (g.op !== 'none' && g.op !== 'water' && !g.blocked && tryAct(b, { t: 'hobby', id: 'garden' })) return true;
+		if (s.hobby.made.length < CRAFTS.length && timesToday(s.hobby, 'craft', day) < 1 && tryAct(b, { t: 'hobby', id: 'craft' })) return true;
+	}
+	if (songsKnown(s.hobby.xp.music ?? 0).length < SONGS.length && timesToday(s.hobby, 'music', day) < 1 && tryAct(b, { t: 'hobby', id: 'music' })) return true;
+	if ((s.hobby.works[s.loc] ?? 0) < PHOTO_WORK.good && timesToday(s.hobby, 'photo', day) < 2 && tryAct(b, { t: 'hobby', id: 'photo' })) return true;
+	const fish = fishingAt(s, region);
+	if (fish && !fish.blocked && fish.fish.some((f) => !s.fish[f.id]) && timesToday(s.hobby, 'fishing', day) < 3 && tryAct(b, { t: 'fish' })) return true;
+	const birds = birdingAt(s, region);
+	if (birds && !birds.blocked && birds.birds.some((x) => !s.hobby.birds.includes(x.id)) && timesToday(s.hobby, 'birding', day) < 3 && tryAct(b, { t: 'hobby', id: 'birding' })) return true;
+	if (!travel) return false;
+
+	if (b.hobbyTarget && b.hobbyTarget !== s.loc) {
+		if (headTo(b, b.hobbyTarget)) return true;
+		b.hobbyTarget = undefined;
+	}
+	if (b.hobbyTarget === s.loc) {
+		b.hobbyTargetDay ??= day;
+		if (staticCollectionNeed(b, s.loc) > 0 && day - b.hobbyTargetDay < 2) return act(b, 'rest');
+		b.hobbyTarget = undefined;
+		b.hobbyTargetDay = undefined;
+	}
+	const next = chooseHobbyTarget(b);
+	if (next) {
+		b.hobbyTarget = next;
+		b.hobbyTargetDay = undefined;
+		return headTo(b, next);
+	}
+	return act(b, 'rest');
 }
 
 function step(b: Bot) {
@@ -636,7 +770,7 @@ function step(b: Bot) {
 	if (s.health < 35 && (act(b, 'clinic') || (s.inventory.firstaid && tryAct(b, { t: 'use', item: 'firstaid' })))) return;
 	if (s.needs.hunger < 35) {
 		if (cookFromPantry(b)) return;
-		if (!homeActionBlocked(s, 'cook', WA) && tryAct(b, { t: 'home', op: 'cook' })) return;
+		if (!homeActionBlocked(s, 'cook', regionOf(b)) && tryAct(b, { t: 'home', op: 'cook' })) return;
 		if (act(b, 'eat')) return;
 		if (s.inventory.snack && tryAct(b, { t: 'use', item: 'snack' })) return;
 		if (s.inventory.water && tryAct(b, { t: 'use', item: 'water' })) return;
@@ -662,8 +796,26 @@ function step(b: Bot) {
 	if (!isIdle(plan) && stepVisa(b)) return;
 	// 1.5 运动策略（第 43 批）：比赛日先比赛再上班（周六公园 5 公里在早上 7–9 点，和早班撞）
 	if (plan.sport && s.needs.hunger >= 35) {
-		const today = racesSoon(s, WA, 0).find((o) => o.race.sport === plan.sport!.sport && !o.raceBlocked);
+		const today = racesSoon(s, regionOf(b), 0).find((o) => o.race.sport === plan.sport!.sport && !o.raceBlocked);
 		if (today && tryAct(b, { t: 'sport', op: 'race', id: today.race.id })) return;
+	}
+	// 全收集玩家先按真实上班路线攒钱、跨季节种完菜园；第 75 天后（最迟第 95 天）才请长假跨州。
+	const collectorTravel = plan.hobby?.mode === 'all' && dayOf(s.clock) >= 75 && s.hobby.plants.length >= PLANTS.length;
+	if (collectorTravel) {
+		// 105 天以上的跨州长旅先退租，不让一个明知长期离家的机器人继续背着周租。
+		if (!b.hobbyTraveling) {
+			if (s.home && tryAct(b, { t: 'home', op: 'leave' })) {
+				b.hobbyTraveling = true;
+				return;
+			}
+			b.hobbyTraveling = true;
+		}
+		// 资金不足就回珀斯上原来的班，攒到 $5,000 再续行；不靠破产或免费生存动作硬刷全收集。
+		if (s.cash < 2500 && s.loc !== 'perth' && headTo(b, 'perth')) return;
+		if (!(s.loc === 'perth' && s.cash < 5000)) {
+			stepAllHobby(b, true);
+			return;
+		}
 	}
 
 	// 2. 找工作、租房、去上班
@@ -671,17 +823,17 @@ function step(b: Bot) {
 		if (!s.job) {
 			if (s.loc !== plan.job.loc) {
 				if (headTo(b, plan.job.loc)) return;
-			} else if (careersAt(s, WA).some((o) => o.career.id === plan.job!.career && !o.blocked)) {
+			} else if (careersAt(s, regionOf(b)).some((o) => o.career.id === plan.job!.career && !o.blocked)) {
 				if (tryAct(b, { t: 'job', op: 'apply', career: plan.job.career })) return;
 			}
 		} else if (s.loc !== s.job.loc) {
 			if (headTo(b, s.job.loc)) return; // 被送去外地医院等情况：先回工作地点
-		} else if (dayOf(s.clock) % 7 !== 6 && !shiftBlocked(s, WA) && tryAct(b, { t: 'job', op: 'work' })) return; // 每周休一天
+		} else if (dayOf(s.clock) % 7 !== 6 && !shiftBlocked(s, regionOf(b)) && tryAct(b, { t: 'job', op: 'work' })) return; // 每周休一天
 	}
-	if (plan.home && !s.home && s.cash > (plan.rentAt ?? 400)) {
-		const want = plan.job?.loc ?? WA.spawn;
+	if (plan.home && !s.home && !b.hobbyTraveling && s.cash > (plan.rentAt ?? 400)) {
+		const want = plan.job?.loc ?? regionOf(b).spawn;
 		// 租房市场（rental 批次）：先看房再递申请（固定期限）；被拒当天这套房不可申请，第二天再来
-		if (s.loc === want && homesAt(s, WA).some((o) => o.home.id === plan.home && !o.blocked)) {
+		if (s.loc === want && homesAt(s, regionOf(b)).some((o) => o.home.id === plan.home && !o.blocked)) {
 			if (!viewedOk(s.rental, s.loc, plan.home, dayOf(s.clock)) && tryAct(b, { t: 'rental', op: 'inspect', home: plan.home })) return;
 			if (tryAct(b, { t: 'home', op: 'rent', home: plan.home, term: 'fixed' })) return;
 		}
@@ -693,6 +845,8 @@ function step(b: Bot) {
 		if (s.rental.lease?.end && !leaseBlocked(s, 'renew') && tryAct(b, { t: 'rental', op: 'renew' })) return;
 	}
 	if (s.rental.claim && tryAct(b, { t: 'rental', op: s.rental.claim.prior ? 'dispute' : 'accept' })) return;
+	if (plan.hobby?.mode === 'light' && stepLightHobby(b)) return;
+	if (plan.hobby?.mode === 'all' && stepAllHobby(b, false)) return;
 
 	// 2.5 副业与小生意（只有带 side / shop 的策略）
 	if ((plan.side || plan.shop) && stepBiz(b)) return;
@@ -700,7 +854,7 @@ function step(b: Bot) {
 	// 2.5 手续（第 43 批）：有收入打算的机器人顺路把落地清单上当场能办的办掉（不专门跑路、不换驾照）；
 	// 合并 main 后：开户、申请 TFN 走 main 的银行和税务；关掉「房产」系统时不经清单开户（和直接开户一样归房产）
 	if (plan.spend !== false && !isIdle(plan) && s.needs.energy >= 40) {
-		const row = paperChecklist(s, WA).find((x) => !x.blocked && !x.paper.id.startsWith('licence'));
+		const row = paperChecklist(s, regionOf(b)).find((x) => !x.blocked && !x.paper.id.startsWith('licence'));
 		if (row && tryAct(b, { t: 'paper', id: row.paper.id })) return;
 	}
 
@@ -709,13 +863,13 @@ function step(b: Bot) {
 		if (s.job && s.cash > 600) {
 			const next = getCareer(s.job.career)!.levels[s.job.level + 1];
 			const lacking = SKILL_KEYS.filter((k) => (next?.req?.skills?.[k] ?? 0) > s.skills[k]);
-			const course = coursesAt(s, WA).find((o) => lacking.includes(o.course.skill) && !o.blocked);
+			const course = coursesAt(s, regionOf(b)).find((o) => lacking.includes(o.course.skill) && !o.blocked);
 			if (course && tryAct(b, { t: 'course', id: course.course.id })) return;
 		}
 		if (atHome && s.cash > 1500 && plan.swap) {
 			// 二手市场对照：同样只买新品价 ≤ $500、空着的槽位，先看换手墙
 			const how = plan.swap;
-			const l = swapBoard(s, WA)?.listings.find((x) => x.good.kind === 'furniture' && newPrice(x.good) <= 500 && !s.home!.furniture[FURNITURE.find((f) => f.id === x.good.ref)!.slot] && !buyBlocked(s, x, how));
+			const l = swapBoard(s, regionOf(b))?.listings.find((x) => x.good.kind === 'furniture' && newPrice(x.good) <= 500 && !s.home!.furniture[FURNITURE.find((f) => f.id === x.good.ref)!.slot] && !buyBlocked(s, x, how));
 			if (l && tryAct(b, { t: 'swap', op: 'buy', id: l.id, ref: l.good.ref, how, haggle: how === 'pickup' })) {
 				b.stats.swapBuys++;
 				return;
@@ -726,7 +880,7 @@ function step(b: Bot) {
 			if (f && tryAct(b, { t: 'furniture', op: 'buy', id: f.item.id })) return;
 		}
 		if (s.cash > 2500) {
-			const exp = experiencesAt(s, WA).find((o) => o.first && !o.blocked);
+			const exp = experiencesAt(s, regionOf(b)).find((o) => o.first && !o.blocked);
 			if (exp && tryAct(b, { t: 'experience', id: exp.exp.id })) return;
 		}
 		// 理财（第 25 批）：现金多出 keep 的部分每天最多买一次；缺钱时卖出应急。理财机器人不买房
@@ -739,7 +893,7 @@ function step(b: Bot) {
 			}
 		}
 		// 买房：首付之外还留 $3,000 周转；买了就搬进去。按揭要先开银行账户（banking.md），开户不花钱不花时间
-		const house = propertiesAt(s, WA).find((o) => !o.owned && s.cash >= o.down + 3000);
+		const house = propertiesAt(s, regionOf(b)).find((o) => !o.owned && s.cash >= o.down + 3000);
 		if (house && !plan.invest && !s.bank.open && s.properties.length === 0) tryAct(b, { t: 'bank', op: 'open' });
 		if (house && !plan.invest && s.properties.length === 0 && tryAct(b, { t: 'property', op: 'buy', id: house.property.id, loan: s.cash < house.property.price + 3000 })) {
 			tryAct(b, { t: 'property', op: 'movein', id: house.property.id });
@@ -747,7 +901,7 @@ function step(b: Bot) {
 			return;
 		}
 		if (s.vehicle === 'none' && s.cash > 7000 && s.properties.length > 0) {
-			const car = dealerAt(s, WA).find((o) => o.vehicle.id === 'car' && !o.blocked);
+			const car = dealerAt(s, regionOf(b)).find((o) => o.vehicle.id === 'car' && !o.blocked);
 			if (car && tryAct(b, { t: 'vehicle', op: 'buy', id: 'car' })) return;
 		}
 	}
@@ -759,7 +913,7 @@ function step(b: Bot) {
 
 	// 3.6 志愿者批：精力、饱食够才去，免得做完志愿饿晕
 	if (plan.volunteer && s.needs.energy >= 45 && s.needs.hunger >= 40) {
-		const v = volunteerAt(s, WA, simNow(s.clock)).find((o) => !o.blocked);
+		const v = volunteerAt(s, regionOf(b), simNow(s.clock)).find((o) => !o.blocked);
 		if (v && tryAct(b, { t: 'volunteer', id: v.gig.id })) return;
 	}
 
@@ -776,7 +930,7 @@ function step(b: Bot) {
 		// 做饭分支：在家、食材够一桌，就请客
 		const feast = RECIPES.find((r) => r.cuisine !== 'basic' && !hostBlocked(s, r.id));
 		if (feast && tryAct(b, { t: 'home', op: 'host', recipe: feast.id })) return;
-		const npc = npcsAt(s, WA).find((n) => !n.blocked.chat);
+		const npc = npcsAt(s, regionOf(b)).find((n) => !n.blocked.chat);
 		if (npc && tryAct(b, { t: 'npc', npc: npc.npc.id, act: 'chat' })) return;
 		if (s.cash > 150 && act(b, 'pub')) return;
 	}
@@ -787,13 +941,13 @@ function step(b: Bot) {
 	}
 	// 背包里放点吃的
 	if (!s.inventory.snack && s.cash > 100) {
-		const e = shopAt(s, WA).find((x) => x.item.id === 'snack' && !x.blocked);
+		const e = shopAt(s, regionOf(b)).find((x) => x.item.id === 'snack' && !x.blocked);
 		if (e && tryAct(b, { t: 'buy', item: 'snack' })) return;
 	}
 
 	// 6. 闲着：到处走或者打发时间
 	if (plan.roam && b.rng() < 0.35) {
-		const opts = travelOptions(s, WA).filter((o) => o.available && o.mode !== 'air' && o.cost < s.cash * 0.3);
+		const opts = travelOptions(s, regionOf(b)).filter((o) => o.available && o.mode !== 'air' && o.cost < s.cash * 0.3);
 		if (opts.length) {
 			const o = opts[Math.floor(b.rng() * opts.length)];
 			if (tryAct(b, { t: 'travel', to: o.to, mode: o.mode })) return;
@@ -823,7 +977,7 @@ function stepBiz(b: Bot): boolean {
 		}
 		const shop = s.biz.shop;
 		if (shop && s.loc === site.loc) {
-			const can = shopActions(s, WA);
+			const can = shopActions(s, regionOf(b));
 			const type = getShopType(shop.type)!;
 			if (shop.stock < shopPlan.restockBelow && !can.restock && s.cash > SHOP_RESERVE) {
 				const target = Math.min(type.maxStock, shopPlan.restockBelow * 2); // 第十一轮：不再灌满库存，把周租现金压进去
@@ -837,7 +991,7 @@ function stepBiz(b: Bot): boolean {
 	}
 	if (plan.side && s.needs.energy >= 45 && s.needs.hunger >= 45) {
 		for (const id of plan.side.gigs) {
-			const g = gigsAt(s, WA).find((o) => o.gig.id === id);
+			const g = gigsAt(s, regionOf(b)).find((o) => o.gig.id === id);
 			if (g && !g.blocked && tryAct(b, { t: 'biz', op: 'gig', id })) return true;
 		}
 	}
@@ -851,7 +1005,7 @@ function stepBiz(b: Bot): boolean {
 function trySport(b: Bot): boolean {
 	const s = b.s;
 	const sp = b.plan.sport!;
-	for (const o of racesSoon(s, WA)) {
+	for (const o of racesSoon(s, regionOf(b))) {
 		if (o.race.sport !== sp.sport) continue;
 		if (o.startsIn === 0 && !o.raceBlocked && tryAct(b, { t: 'sport', op: 'race', id: o.race.id })) return true;
 		if (o.race.fee > 0 && !o.enterBlocked && s.cash - o.fee >= 300 && tryAct(b, { t: 'sport', op: 'enter', id: o.race.id })) return true;
@@ -859,17 +1013,18 @@ function trySport(b: Bot): boolean {
 	const club = getClub(sp.club)!;
 	const c = s.sport.club;
 	if (s.loc === club.loc && (!c || c.id !== club.id || c.until <= dayOf(s.clock)) && s.cash - club.fee >= 300 && tryAct(b, { t: 'sport', op: 'join', id: club.id })) return true;
-	if (!clubSessionBlocked(s, WA) && tryAct(b, { t: 'sport', op: 'club' })) return true;
+	if (!clubSessionBlocked(s, regionOf(b)) && tryAct(b, { t: 'sport', op: 'club' })) return true;
 	const f = s.sport.form[sp.sport];
 	if (formOf(s, sp.sport) < 60 && f?.d !== dayOf(s.clock) && s.needs.energy >= 45 && act(b, 'jog')) return true;
 	return false;
 }
 
 function runBot(plan: Plan, seed: number): Bot {
-	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: WA.id, spawn: WA.spawn, seed });
+	const region = plan.world ? WORLD : WA;
+	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: region.id, spawn: region.spawn, seed });
 	const b: Bot = {
 		s, plan, rng: mulberry(seed * 7919),
-		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0 },
+		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} } },
 		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
@@ -932,6 +1087,7 @@ const lbRows: string[] = [];
 const visaRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
 const swapRows: string[] = [];
+const hobbyRows: string[] = [];
 for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, i + 1));
 	const at = (d: number) => bots.map((b) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)]);
@@ -1044,6 +1200,12 @@ for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 		const e = (k: 'first' | 'later' | 'forced') => avg(bots.map((b) => b.stats.evict[k])).toFixed(2);
 		evictRows.push(`| ${plan.name} | ${e('first')} | ${e('later')} | ${e('forced')} | ${ev.toFixed(2)} |`);
 	}
+	if (plan.hobby) {
+		const days = (xs: (number | undefined)[]) => { const d = xs.filter((x): x is number => x !== undefined); return d.length ? `${d.length}，${pct(d, 0.1)} / ${pct(d, 0.5)} / ${pct(d, 0.9)}` : '0，—'; };
+		const resp = bots.map((b) => b.stats.hobby.respect);
+		const books = Object.entries(REWARD_BOOKS).map(([id, name]) => `${name} ${days(bots.map((b) => b.stats.hobby.milestones[`${id}:half`]))} · ${days(bots.map((b) => b.stats.hobby.milestones[`${id}:full`]))}`).join('；');
+		hobbyRows.push(`| ${plan.name} | ${pct(resp, 0.1)} / ${pct(resp, 0.5)} / ${pct(resp, 0.9)} | ${days(bots.map((b) => b.stats.hobby.thresholdDay))} | ${books} |`);
+	}
 	out(`| ${plan.name} | ${money(pct(at(7), 0.5))} | ${money(pct(at(30), 0.5))} | ${money(pct(at(endD), 0.5))} | ${money(pct(at(endD), 0.1))}–${money(pct(at(endD), 0.9))} | ${money(net)} | ${money(pct(bots.map((b) => netWorth(b.s)), 0.5))} | ${(() => { const d = bots.map((b) => b.stats.homeDay).filter((x): x is number => x !== undefined); return d.length > bots.length / 2 ? `第 ${pct(d, 0.5)} 天` : '—'; })()} | ${m.toFixed(0)} | ${coll.toFixed(2)} | ${ev.toFixed(2)} | ${pr.toFixed(2)} | ${promoCol} | ${(broke * 100).toFixed(0)}% |`);
 	// 结构化结果（--format=json / csv、基线、A/B 用）：和上面这一行同一批机器人、同一套口径
 	const eco = averageEco(bots.map((b) => ecoOf(b)), DAYS);
@@ -1104,6 +1266,16 @@ if (evictRows.length) {
 	for (const row of evictRows) out(row);
 } else out('所有策略都没有被收房或断供。');
 out();
+if (hobbyRows.length) {
+	out('## 爱好收集册声望（第十二轮）');
+	out();
+	out('六本收集册各发一次：收到一半 +2、收齐 +5，最多 42，店长要 25。天数写「人数，P10 / 中位 / P90」，人数是期内拿到的种子数，分位数只在拿到的人里算。每本写「收到一半 · 收齐」。');
+	out();
+	out('| 策略 | 爱好声望 P10 / 中位 / P90 | 爱好声望到 25 | 各册 |');
+	out('| --- | --- | --- | --- |');
+	for (const row of hobbyRows) out(row);
+	out();
+}
 out('## 健康与看病（健康系统第 1 版）');
 out();
 out('机器人有病就在所在地点就医（重症先急诊；有处方先取药；其余先 GP 再药房），不为看病专门出行。生病次数含受伤记的扭伤。数值全部待平衡，见 docs/earth-game/health.md。');
