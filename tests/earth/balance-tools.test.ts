@@ -20,7 +20,7 @@ const SHORT = ['--days=21', '--runs=2', '--only=barista,drifter'];
 const simulate = (...extra: string[]): SimResult => runSim([...SHORT, ...extra]);
 const sim = (...args: string[]) => spawnSync(process.execPath, ['tools/earth/balance/sim.ts', ...args], { cwd: ROOT, encoding: 'utf8' });
 const base = simulate();
-const PLAN_IDS = [...readFileSync(join(ROOT, 'tools/earth/balance/sim.ts'), 'utf8').split('const PLANS: Plan[] = [')[1].split('\n];')[0].matchAll(/\bid: '([\w-]+)'/g)].map((m) => m[1]);
+const PLAN_IDS = [...readFileSync(join(ROOT, 'tools/earth/balance/sim.ts'), 'utf8').split('const PLANS: Plan[] = [')[1].split('\n];')[0].matchAll(/(?<!npc: \{ )\bid: '([\w-]+)'/g)].map((m) => m[1]);
 
 // ---------- 系统开关 ----------
 

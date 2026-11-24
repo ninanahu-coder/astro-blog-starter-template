@@ -16,7 +16,7 @@
 | 商店 | `core/engine.ts` 的 `shopAt()`、`buyItem()`、`useItem()` | 价格 = 标价 × 特质折扣（精打细算 0.85）；买一件花 5 分钟 |
 | 装备加值 | `attributes.ts` 的 `checkScore()` | 同一项检定只取加值最高的一件，不叠加；有 `weather` 的只在那几种天气生效 |
 | 背包 | 存档 `inventory: Record<物品id, 数量>`；页面的 `bagIds` 是 NPC 卡片上的送礼按钮 | 只有每件的 `max`，没有总容量；`sanitizeState()` 丢掉不认识的物品、把数量钳到 1..max |
-| 送礼给 NPC | `engine.ts` 的 `interactNpc(…, 'gift')`、`giftReaction()` | 最爱 +15 / 喜欢 +9 / 一般 +3 / 讨厌 −8；不指定物品时自动挑反应最好的，随身装备不会被自动送 |
+| 送礼给 NPC | `engine.ts` 的 `interactNpc(…, 'gift')`、`giftReaction()` | 最爱 +5 / 喜欢 +3 / 一般 +1 / 讨厌 −8（第十三轮由 +15 / +9 / +3 下调）；不指定物品时自动挑反应最好的，随身装备不会被自动送 |
 | 玩家之间交易 | `core/trade.ts` + `server/world.ts` 的 `handleTrade()` | 送礼、二手摊，见第 6 节 |
 | 真实超市采购 | `formulas.ts` 的 `groceriesOutcome()` | 到真实超市（`wa/sa.venues.json` 里的 `supermarket`）$14 买 3 根能量棒 + 3 瓶水（便利店要 $27） |
 | 卖车 | `engine.ts` 的 `sellBlocked()`、`sellVehicle()` | 车行营业时间内按残值回收 |

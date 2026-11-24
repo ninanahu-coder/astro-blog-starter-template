@@ -12,8 +12,8 @@ export const RELATION_TIERS = [
 	{ min: 90, name: '挚友' },
 ] as const;
 
-/** 送礼时关系的变化（现状） */
-export const GIFT_GAIN: Record<GiftReaction, number> = { love: 15, like: 9, neutral: 3, dislike: -8 };
+/** 送礼时关系的变化（第十三轮 15 / 9 / 3 → 5 / 3 / 1：最爱礼物原来一周就到挚友；讨厌仍是 -8） */
+export const GIFT_GAIN: Record<GiftReaction, number> = { love: 5, like: 3, neutral: 1, dislike: -8 };
 
 /** 其他互动涨多少关系（现状：聊天投机 7 / 寒暄 3，帮忙 9，专属互动 2；帮个小忙是第 29 批新加的，待平衡） */
 export const RELATION_GAIN = {

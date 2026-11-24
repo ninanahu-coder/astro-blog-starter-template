@@ -27,7 +27,7 @@ import { ODDS, RENTAL, RENTAL_BODIES, SCAM_TIP } from '../data/rental.ts';
 import { applicantsFor, applyOdds, claimOutcome, endLease, leaseMatches, moveOutSplit, needsLease, oddsLabel, paidAhead, rejectReason, rejectedToday, renew, renewBlocked, rentalTick, rentalWeek, rentDue, scamAd, startLease, viewedOk, type OddsInput, type ScamAd } from './rental.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { careerPayMult, fuelMult, hiringFrozen, loanRateMult, rentOn, type FareKind } from './world.ts';
-import { downPayment, FINANCE, loanCap, loanPayment, propertyEquity, repairRange, saleProceeds, vehicleDuty, weeklyInterest, weeklyPrincipal } from './finance.ts';
+import { downPayment, FINANCE, loanCap, loanPayment, propertyEquity, repairRange, saleNote, saleProceeds, vehicleDuty, weeklyInterest, weeklyPrincipal } from './finance.ts';
 import { bankDebt, inDefault, settleBank } from './credit.ts';
 import { BANK } from '../data/credit.ts';
 import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } from '../data/furniture.ts';
@@ -2031,7 +2031,7 @@ function settleProperties(state: PlayerState, region: Region) {
 		const got = saleProceeds(def, p.loan, FINANCE.forecloseShare);
 		removeProperty(state, p.id);
 		state.cash += got;
-		log(state, `连续欠款，${def.name}被强制卖出，还清贷款后到手 $${got}。`);
+		log(state, `连续欠款，${def.name}被强制卖出，${saleNote(def, p.loan, FINANCE.forecloseShare)}。`);
 	}
 	void region;
 }
@@ -2114,7 +2114,7 @@ export function sellProperty(prev: PlayerState, id: string): ActionResult {
 	const got = saleProceeds(def, mine.loan);
 	removeProperty(state, id);
 	state.cash += got;
-	const msg = `卖掉了${def.name}，${mine.loan ? `还清贷款 $${mine.loan} 后` : ''}到手 $${got}。`;
+	const msg = `卖掉了${def.name}，${saleNote(def, mine.loan)}。`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }

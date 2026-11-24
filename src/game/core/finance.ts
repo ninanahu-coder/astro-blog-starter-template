@@ -39,6 +39,14 @@ export const weeksToPayOff = (def: PropertyDef, loan: number) => Math.ceil(loan 
 /** 卖房到手 = 房价 × 比例 − 剩余贷款（不会为负） */
 export const saleProceeds = (def: PropertyDef, loan: number, share = FINANCE.sellShare) => Math.max(0, Math.round(def.price * share) - loan);
 
+/** 卖房日志里「到手多少」那半句。卖价不够还贷时短缺直接免掉，不再写「还清贷款」（第十三轮） */
+export function saleNote(def: PropertyDef, loan: number, share = FINANCE.sellShare): string {
+	const gross = Math.round(def.price * share);
+	if (!loan) return `到手 $${gross}`;
+	if (gross >= loan) return `还清贷款 $${loan} 后到手 $${gross - loan}`;
+	return `卖价 $${gross} 抵贷款 $${loan}；不足的 $${loan - gross} 已免除，到手 $0`;
+}
+
 /** 一套房计入净资产的价值（按正常卖出估算） */
 export const propertyEquity = (def: PropertyDef, loan: number) => saleProceeds(def, loan);
 
