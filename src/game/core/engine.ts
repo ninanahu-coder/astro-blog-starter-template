@@ -24,7 +24,7 @@ import { CAREERS, GOOD_BONUS, PROMOTE_GOOD, PROMOTE_SHIFTS, SHIFT_DC } from '../
 import { BOND_WEEKS, HOMES } from '../data/housing.ts';
 import { areaOf } from '../data/areas-base.ts';
 import { ODDS, RENTAL, RENTAL_BODIES, SCAM_TIP } from '../data/rental.ts';
-import { applicantsFor, applyOdds, claimOutcome, endLease, leaseMatches, moveOutSplit, needsLease, oddsLabel, rejectReason, rejectedToday, renew, renewBlocked, rentalTick, rentalWeek, rentDue, scamAd, startLease, viewedOk, type OddsInput, type ScamAd } from './rental.ts';
+import { applicantsFor, applyOdds, claimOutcome, endLease, leaseMatches, moveOutSplit, needsLease, oddsLabel, paidAhead, rejectReason, rejectedToday, renew, renewBlocked, rentalTick, rentalWeek, rentDue, scamAd, startLease, viewedOk, type OddsInput, type ScamAd } from './rental.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { careerPayMult, fuelMult, hiringFrozen, loanRateMult, rentOn, type FareKind } from './world.ts';
 import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, saleProceeds, vehicleDuty, weeklyInterest, weeklyPrincipal } from './finance.ts';
@@ -1200,7 +1200,7 @@ export function bondFor(home: HomeDef): number {
 }
 
 /** 搬走时押金结算的明细（vacate 填写） */
-interface MoveOut { bond: number; fee?: number; held?: number; notes?: string[] }
+interface MoveOut { bond: number; fee?: number; held?: number; notes?: string[]; ahead?: number }
 
 /**
  * 离开住处：家具半价折现，押金结算（arrears：先从押金里扣的欠租）。返回家具折现，退回的押金等写进 refund。
@@ -1210,10 +1210,11 @@ function vacate(state: PlayerState, arrears = 0, refund?: MoveOut, evicted = fal
 	const got = furnitureValue(state);
 	const day = dayOf(state.clock);
 	const split = moveOutSplit(state, day, arrears, evicted);
+	const ahead = paidAhead(state); // 签约时预收、还没抵扣的下周房租，搬走时退回
 	const ended = leaseMatches(state) ? endLease(state, day, split.refund + split.held, evicted) : { held: 0, notes: [] as string[] };
 	state.rental.lease = null;
-	state.cash = Math.max(0, state.cash + got + split.refund - split.extra);
-	if (refund) Object.assign(refund, { bond: split.refund, fee: split.fee, held: ended.held, notes: ended.notes });
+	state.cash = Math.max(0, state.cash + got + split.refund + ahead - split.extra);
+	if (refund) Object.assign(refund, { bond: split.refund, fee: split.fee, held: ended.held, notes: ended.notes, ...(ahead ? { ahead } : {}) });
 	state.home = null;
 	state.flatshare = emptyFlatshare(); // 室友留在原处（二房东的租约由室友接手），和你无关了
 	return got;
@@ -1223,7 +1224,7 @@ function vacate(state: PlayerState, arrears = 0, refund?: MoveOut, evicted = fal
 /** 押金结算的说明，接在一句话后面；附注自带句号，去掉最后一个（调用方会再加「。」；合并 main 后复核：原来会出现「。。」） */
 const bondNote = (n: number | MoveOut) => {
 	const o = typeof n === 'number' ? { bond: n } : n;
-	return `${o.fee ? `，提前解约违约金 $${o.fee}` : ''}${o.bond ? `，押金退回 $${o.bond}` : ''}${o.notes?.length ? `。${o.notes.join('').replace(/。$/, '')}` : ''}`;
+	return `${o.fee ? `，提前解约违约金 $${o.fee}` : ''}${o.bond ? `，押金退回 $${o.bond}` : ''}${'ahead' in o && o.ahead ? `，预收的下周房租退回 $${o.ahead}` : ''}${o.notes?.length ? `。${o.notes.join('').replace(/。$/, '')}` : ''}`;
 };
 
 /**
@@ -1249,10 +1250,15 @@ function weeklyTick(state: PlayerState, region: Region) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
 			const full = rentDue(state, def, state.nextWeek - 7); // 有租约按租约房租；没有按租金指数（世界事件），按正在结算的这个结算日算
-			const rent = flatRentDue(state, full, weekEnd); // 合租分摊、转租收入（按这周实际转租的天数折算，flatmates.md）
+			const owed = flatRentDue(state, full, weekEnd); // 合租分摊、转租收入（按这周实际转租的天数折算，flatmates.md）
+			const ahead = paidAhead(state); // 签约时预收的这周房租：先抵扣，多退少补
+			if (ahead) state.rental.lease!.paidAhead = undefined;
+			const rent = Math.max(0, owed - ahead), credit = Math.max(0, ahead - owed);
 			if (state.cash >= rent) {
-				state.cash -= rent;
-				log(state, `周结算：支付${place}${def.name}房租 $${rent}${rent !== full ? '（合租分摊或转租后）' : ''}。`);
+				state.cash += credit - rent;
+				log(state, ahead
+					? `周结算：${place}${def.name}这周房租 $${owed}${owed !== full ? '（合租分摊或转租后）' : ''}已在签约时预收${credit ? `，多收的 $${credit} 退回` : ''}${rent ? `，补交 $${rent}` : ''}。`
+					: `周结算：支付${place}${def.name}房租 $${rent}${rent !== full ? '（合租分摊或转租后）' : ''}。`);
 				for (const line of rentalWeek(state, dayOf(state.clock))) log(state, line);
 			} else {
 				// 押金先抵这周房租，剩下的退回
@@ -1315,10 +1321,26 @@ export function firstRent(state: PlayerState, home: HomeDef): number {
 	return Math.round((rentOn(home.rentWeek, dayOf(state.clock)) * days) / 7);
 }
 
-/** 租下要先付的钱 = 首期租金 + 押金 − 旧住处马上能退回的押金（换房时旧押金在付款前退回；扣掉违约金和房东申请扣的部分，违约金超出押金的要另付） */
+/**
+ * 签约时预收的下一整周房租（第十轮平衡）：首期不满一周（不在结算日签约）时，第一个结算日几天后就到，
+ * 原来要再交一整周，刚搬进来的新人常因此被收房。西澳预付租金最多 2 周（rental.md [WA1]）：零头不满 1 周 + 1 周。
+ * 在结算日签约（包括开局第 0 天）首期已是整周，不预收；营地没有租约也不预收。
+ */
+export function rentAhead(state: PlayerState, home: HomeDef): number {
+	const days = Math.max(1, Math.min(7, state.nextWeek - dayOf(state.clock)));
+	return needsLease(home) && days < 7 ? rentOn(home.rentWeek, dayOf(state.clock)) : 0;
+}
+
+/** 租下要先付的钱 = 首期租金 + 预收下周房租 + 押金 − 旧住处马上能退回的押金和预收房租（换房时旧押金在付款前退回；扣掉违约金和房东申请扣的部分，违约金超出押金的要另付） */
 export function moveInCost(state: PlayerState, home: HomeDef): number {
 	const out = moveOutSplit(state, dayOf(state.clock));
-	return firstRent(state, home) + bondFor(home) - out.refund + out.extra;
+	return firstRent(state, home) + rentAhead(state, home) + bondFor(home) - out.refund - paidAhead(state) + out.extra;
+}
+
+/** 租房要先付的钱的说明：首期 $X + 预收下周房租 $Y + 押金 $Z */
+export function moveInNote(state: PlayerState, home: HomeDef): string {
+	const ahead = rentAhead(state, home), bond = bondFor(home);
+	return `首期租金 $${firstRent(state, home)}${ahead ? ` + 预收下周房租 $${ahead}` : ''}${bond ? ` + 押金 $${bond}` : ''}`;
 }
 
 export interface HomeOffer {
@@ -1334,7 +1356,7 @@ export function homesAt(state: PlayerState, region: Region): HomeOffer[] {
 		blocked: state.home?.type === home.id && state.home.loc === loc.id && !state.home.owned ? '你正住在这里'
 			: home.vehicleSleep && !canSleepIn(state.vehicle) ? '要有能睡人的车（比如露营车）才能住营地'
 			: state.pet && !homeAllowsPet(home.id, state.pet.kind) ? `这里不许养${getPetKind(state.pet.kind)?.name ?? '宠物'}`
-			: state.cash < moveInCost(state, home) ? `首期租金 $${firstRent(state, home)}${bondFor(home) ? ` + 押金 $${bondFor(home)}` : ''}`
+			: state.cash < moveInCost(state, home) ? moveInNote(state, home)
 			: rejectedToday(state.rental, loc.id, home.id, dayOf(state.clock)) ? '今天这套房的申请被拒了，明天再试' : undefined,
 	}));
 }
@@ -1350,12 +1372,14 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string, term
 	if (offer.blocked) return fail(prev, offer.blocked);
 	const state = clone(prev);
 	const due = firstRent(state, offer.home);
+	const ahead = rentAhead(state, offer.home);
 	const bond = bondFor(offer.home);
 	const back: MoveOut = { bond: 0 };
 	const sold = vacate(state, 0, back);
-	state.cash -= due + bond;
+	state.cash -= due + ahead + bond;
 	state.home = { type: homeId, loc: state.loc, furniture: {}, ...(bond ? { bond } : {}) };
 	const lease = needsLease(offer.home) ? startLease(state.seed, offer.home, state.loc, dayOf(state.clock), term) : null;
+	if (lease && ahead) lease.paidAhead = ahead;
 	state.rental.lease = lease;
 	state.rental.viewed = null;
 	state.flatshare.home = homeKey(state.home);
@@ -1364,7 +1388,7 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string, term
 	if (advance(state, 60, region)) return collapsedResult(state);
 	const body = getAreaBody(prev.loc);
 	const leaseNote = lease ? `；${lease.end ? `固定期限 ${RENTAL.fixedDays} 天` : '周期租约'}，押金交给${body.bond}托管，${RENTAL.reportDays} 天内记得交回入住检查报告` : '';
-	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}${bond ? `、押金 $${bond}（搬走时退）` : ''}，${lease ? `之后每周 $${lease.rent}（按签约时的行情定，租约里涨租另行通知）` : `眼下每周 $${rentOn(offer.home.rentWeek, dayOf(prev.clock))}（随租金行情变）`}${leaseNote}${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；旧住处押金退回 $${back.bond}` : ''}${back.fee ? `；旧租约违约金 $${back.fee}` : ''}${back.notes?.length ? `。${back.notes.join('')}` : '。'}${mates.length ? `室友：${mates.join('、')}。` : ''}`;
+	const msg = `在${getLocation(region, prev.loc)!.name}租下了${offer.home.name}，首期 $${due}（到结算日）${ahead ? `、预收下周房租 $${ahead}` : ''}${bond ? `、押金 $${bond}（搬走时退）` : ''}，${lease ? `之后每周 $${lease.rent}（按签约时的行情定，租约里涨租另行通知）` : `眼下每周 $${rentOn(offer.home.rentWeek, dayOf(prev.clock))}（随租金行情变）`}${leaseNote}${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；旧住处押金退回 $${back.bond}` : ''}${back.ahead ? `；旧住处预收的房租退回 $${back.ahead}` : ''}${back.fee ? `；旧租约违约金 $${back.fee}` : ''}${back.notes?.length ? `。${back.notes.join('')}` : '。'}${mates.length ? `室友：${mates.join('、')}。` : ''}`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1958,7 +1982,7 @@ export function netWorth(state: PlayerState): number {
 		const def = getProperty(p.id);
 		return sum + (def ? propertyEquity(def, p.loan) : 0);
 	}, 0);
-	return state.cash + resaleValue(state.vehicle, state.car.km) + furnitureValue(state) + (state.home?.bond ?? 0) + estate + holdingsValue(state) - bankDebt(state.bank);
+	return state.cash + resaleValue(state.vehicle, state.car.km) + furnitureValue(state) + (state.home?.bond ?? 0) + paidAhead(state) + estate + holdingsValue(state) - bankDebt(state.bank);
 }
 
 /** 每周结算里的房产部分。顺序：租金收入 → 维修 → 物业费与还款 → 断供处理 */
@@ -2111,7 +2135,7 @@ export function moveIntoProperty(prev: PlayerState, id: string): ActionResult {
 	// 「搬了新家」每套房只给一次：搬出再搬回不花钱也不花时间，不能拿来反复刷
 	if (!mine.lived) addMoodlet(state, 'new-home');
 	mine.lived = true;
-	const msg = `搬进了自己的${def.name}，以后不用交房租了${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；租房押金退回 $${back.bond}` : ''}${back.fee ? `；提前解约违约金 $${back.fee}` : ''}${back.notes?.length ? `。${back.notes.join('')}` : '。'}`;
+	const msg = `搬进了自己的${def.name}，以后不用交房租了${sold ? `；旧家具折现 $${sold}` : ''}${back.bond ? `；租房押金退回 $${back.bond}` : ''}${back.ahead ? `；预收的下周房租退回 $${back.ahead}` : ''}${back.fee ? `；提前解约违约金 $${back.fee}` : ''}${back.notes?.length ? `。${back.notes.join('')}` : '。'}`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }

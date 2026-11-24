@@ -606,3 +606,19 @@ test('页面：切榜时旧请求的结果作废并重拉；上榜提示盖着�
 	assert.match(src, /paint\(modal, lbAskHtml\(\)\)/);
 	assert.ok(!/setHtml\(modal, lbAskHtml\(\)\)/.test(src));
 });
+
+// 第十轮平衡定口径：身家榜 = netWorth（持仓按卖出到手价，扣全部欠银行的钱），不拆现金榜、不给持仓再打折
+test('身家榜口径：等于净资产，含理财到手价，扣信用卡和贷款', async () => {
+	const { netWorth } = await import('../../src/game/core/engine.ts');
+	const { holdingsValue } = await import('../../src/game/core/market.ts');
+	const { buyAsset } = await import('../../src/game/core/invest.ts');
+	const b0 = base();
+	const s = buyAsset({ ...b0, cash: 3000 }, WA, 'emu-coin', 1000).state;
+	assert.ok(holdingsValue(s) > 0);
+	assert.equal(lbStats(s).worth, Math.round(netWorth(s)));
+	assert.ok(Math.abs(lbStats(s).worth - lbStats({ ...s, holdings: {} }).worth - holdingsValue(s)) <= 1, '持仓按卖出到手价计入');
+	const owed = structuredClone(s);
+	owed.bank.card = { limit: 500, bal: 120, missed: 0 };
+	owed.bank.loans.push({ kind: 'personal', bal: 300, pay: 10, rate: 0.003, missed: 0 });
+	assert.equal(lbStats(s).worth - lbStats(owed).worth, 420, '扣欠银行的钱');
+});

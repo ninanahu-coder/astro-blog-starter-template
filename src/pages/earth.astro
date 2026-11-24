@@ -885,7 +885,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { codeOf, exportName, hashAction, makeQr, parseCred, parsePendingKey, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, exitPoint, mapLabel, webglSupported, type Basemap, type Pin } from '../game/ui/basemap.ts';
 			import { favorToday, isFading } from '../game/core/relations.ts';
-			import { careAt, activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, animalHint, seasonAnimals, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, bondFor, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions , getAreaBody, leaseBlocked, oddsInput, scamHere } from '../game/core/engine.ts';
+			import { careAt, activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, animalHint, seasonAnimals, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, rentAhead, bondFor, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions , getAreaBody, leaseBlocked, oddsInput, scamHere } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { credentialName, VISA } from '../game/data/education.ts';
 			import { programsAt } from '../game/core/education.ts';
@@ -962,6 +962,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import type { NpcAction, PlayerState, Region, TravelMode, Venue } from '../game/core/types.ts';
 			import { AREAS as MAP_AREAS, areaOf, exitsOf, WORLD_BASE } from '../game/data/areas-base.ts';
 			import { awayPreview, fareSeasonsOn, packingList, packingReminders, planRoadTrip, tripDaysBlocked, tripOptions } from '../game/core/trips.ts';
+			import { JOB_LEAVE_DAYS } from '../game/data/trips.ts';
 
 			// 首屏只带不含真实地点的区域；真实地点（<区域>.venues.json，几十到上百 KB）打开「附近」时再按所在区域下载（第 34 轮；南澳单独一个文件）
 			// 规则用整个世界（所有区域合在一起，第 41 轮）；地图、底图、轮廓按所在地点的区域画（curArea）
@@ -2502,10 +2503,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 
 			// 今日日程（第 43 批）：上班窗口、作息；只提示不拦
 			const AGENDA_MARK: Record<AgendaStatus, string> = { done: '✅ 已完成', now: '🟢 现在', later: '⏳ 稍后', missed: '⛔ 已错过', blocked: '⛔ 今天上不了' };
-			/** 睡这一觉的说明：睡眠质量，加上会不会赶不上今天的班（合并 main 时复核） */
+			/** 睡这一觉的说明：睡眠质量，加上会不会赶不上今天的班（合并 main 时复核）。
+			 * 整觉加一句精力上限（第十轮平衡定：回家、住旅馆的整觉精力常直接回到上限，睡眠质量主要体现在健康、心情和睡眠债；露营、睡车恢复本来就少） */
 			function sleepHint(s: PlayerState, spot: SleepSpot, minutes: number) {
 				const w = timeConflict(s, minutes, true);
-				return `${sleepNote(sleepQuality(s, region, spot))}${w ? `；⚠ ${w}` : ''}`;
+				const cap = minutes >= SLEEP.fullMinutes ? `，精力最多回到上限 ${Math.round(energyCap(s))}` : '';
+				return `${sleepNote(sleepQuality(s, region, spot))}${cap}${w ? `；⚠ ${w}` : ''}`;
 			}
 			function agendaCard(s: PlayerState) {
 				// 合并 main 后：没工作、还没到熬夜、也不欠觉时不显示（今天页第 1 天不超过 6 张卡，体验改造 P1）
@@ -2588,7 +2591,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const scamHtml = scam ? `<div class="row" style="margin-top:8px"><span class="body">${esc(scam.home.name)} · $${scam.rent}/周<small>${esc(`房东在国外，不能看房；先转押金和 ${RENTAL.scamWeeks} 周房租共 $${scam.ask}，钥匙快递给你。`)}</small></span><span class="inline"><button data-rental="scam-pay">先转钱订下</button><button data-rental="scam-check">核实一下</button></span></div>` : '';
 				const offerHtml = ({ home, blocked }: (typeof rentals)[number]) => {
 					const viewed = viewedOk(s.rental, loc.id, home.id, today);
-					const info = blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}${bondFor(home) ? ` + 押金 $${bondFor(home)}（搬走时退）` : ''}${viewed ? ` · 看房来了 ${s.rental.viewed!.n} 组人，你的申请${oddsLabel(applyOdds(oddsInput(s, home)))}` : ''}`;
+					const info = blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}${rentAhead(s, home) ? ` + 预收下周房租 $${rentAhead(s, home)}` : ''}${bondFor(home) ? ` + 押金 $${bondFor(home)}（搬走时退）` : ''}${viewed ? ` · 看房来了 ${s.rental.viewed!.n} 组人，你的申请${oddsLabel(applyOdds(oddsInput(s, home)))}` : ''}`;
 					const btns = !needsLease(home) ? `<button data-home="rent" data-home-id="${home.id}" ${blocked ? 'disabled' : ''}>${s.home ? '搬来' : '租下'}</button>`
 						: !viewed ? `<button data-rental="inspect" data-home-id="${home.id}">看房</button>`
 						: `<span class="inline"><button data-home="rent" data-home-id="${home.id}" data-term="fixed" ${blocked ? 'disabled' : ''}>申请 · 固定 ${RENTAL.fixedDays} 天</button><button data-home="rent" data-home-id="${home.id}" data-term="periodic" ${blocked ? 'disabled' : ''}>申请 · 周期</button></span>`;
@@ -2853,7 +2856,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						const why = o.blocked ?? tripDaysBlocked(s, o.dest.kind, d); // 宠物寄养、签证（合并 main 后）
 						const bits = [
 							pv.settlements ? `经过 ${pv.settlements} 次周结算，约 $${pv.weeklyDue}` : '期间没有周结算',
-							pv.loseJob ? '<span class="warn-text">请假太久，工作会丢</span>' : s.job ? '工作保留' : '',
+							pv.loseJob ? `<span class="warn-text">超过可保留工作的请假（今年还剩 ${pv.leaveLeft} 天），工作会丢</span>` : s.job ? `工作保留，不带薪（今年还剩 ${pv.leaveLeft} 天，这趟用 ${d} 天）` : '',
 							pv.short ? '<span class="warn-text">现金可能不够周结算</span>' : '',
 						].filter(Boolean).join(' · ');
 						return `<button class="row" data-trip="${esc(o.dest.id)}" data-days="${d}" ${why ? 'disabled' : ''}>
@@ -2867,7 +2870,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						<div class="list">${btns}</div>
 						<p class="muted"><small>票价出处：${esc(o.fare.source)}</small></p></div>`;
 				}).join('');
-				return `<p class="section-title">🧳 跨州旅行和回国探亲</p><p class="muted">离开期间房租、车险、贷款照常扣；旅途吃住不另收费，不掉需求。${seasons ? `现在是${seasons}，机票偏贵。` : ''}</p>${cards}`;
+				return `<p class="section-title">🧳 跨州旅行和回国探亲</p><p class="muted">离开期间房租、车险、贷款照常扣；${s.job ? `有工作的话，一年里可保留工作的请假共 ${JOB_LEAVE_DAYS} 天，离开期间不发工资；` : ''}旅途吃住不另收费，不掉需求。${seasons ? `现在是${seasons}，机票偏贵。` : ''}</p>${cards}`;
 			}
 
 			/** 出行页顶上的分页：路线（地图）和附近（真实地点）；附近原来是单独的底部标签 */

@@ -46,15 +46,15 @@ export interface VisaRouteDef {
 }
 
 export const VISA_ROUTES: VisaRouteDef[] = [
-	{ id: 'student', sub: '500', name: '续读：再申请学生签证', to: 'student', from: ['student', 'graduate', 'graduate2', 'expired'], fee: 2400, desc: '报一个两年的硕士课程（本科毕业后才能报），签证跟着新课程走。费用含首期学费押金。' },
-	{ id: 'graduate', sub: '485', name: '毕业生工作签证', to: 'graduate', from: ['student'], fee: 1300, desc: '毕业后申请，不限工时。' },
-	{ id: 'graduate2', sub: '485', name: '第二次毕业生签证', to: 'graduate2', from: ['graduate'], fee: 1300, desc: '在偏远地区读书生活过才有；在珀斯、阿德莱德多 1 年，其他偏远地区多 2 年。' },
-	{ id: 'sponsored', sub: '482', name: '雇主担保工作签证', to: 'sponsored', from: ['student', 'graduate', 'graduate2'], fee: 1500, desc: '现在的雇主为你担保。只能做担保的那份工作的本行。' },
-	{ id: 'ens', sub: '186', name: '雇主担保永居（过渡类）', to: 'pr', from: ['sponsored'], fee: 2600, desc: '为担保雇主做满两年后，雇主提名你转永居。' },
-	{ id: 'skilled', sub: '189', name: '独立技术移民', to: 'pr', from: ['student', 'graduate', 'graduate2', 'sponsored'], fee: 2600, desc: '按打分，不需要提名。' },
-	{ id: 'state', sub: '190', name: '州担保技术移民', to: 'pr', from: ['student', 'graduate', 'graduate2', 'sponsored'], fee: 2600, desc: '西澳或南澳州政府提名，加 5 分。' },
-	{ id: 'regional', sub: '491', name: '偏远地区技术移民临时签证', to: 'regional', from: ['student', 'graduate', 'graduate2', 'sponsored'], fee: 2200, desc: '州政府提名到偏远地区，加 15 分；先拿 5 年临时签证。' },
-	{ id: 'regionalPr', sub: '191', name: '偏远地区永居', to: 'pr', from: ['regional'], fee: 2600, desc: '持 491 在偏远地区住满 3 年、期间有足够的工作收入。' },
+	{ id: 'student', sub: '500', name: '续读：再申请学生签证', to: 'student', from: ['student', 'graduate', 'graduate2', 'expired'], fee: 1200, desc: '报一个两年的硕士课程（本科毕业后才能报），签证跟着新课程走。费用含首期学费押金。' },
+	{ id: 'graduate', sub: '485', name: '毕业生工作签证', to: 'graduate', from: ['student'], fee: 650, desc: '毕业后申请，不限工时。' },
+	{ id: 'graduate2', sub: '485', name: '第二次毕业生签证', to: 'graduate2', from: ['graduate'], fee: 650, desc: '在偏远地区读书生活过才有；在珀斯、阿德莱德多 1 年，其他偏远地区多 2 年。' },
+	{ id: 'sponsored', sub: '482', name: '雇主担保工作签证', to: 'sponsored', from: ['student', 'graduate', 'graduate2'], fee: 750, desc: '现在的雇主为你担保。只能做担保的那份工作的本行。' },
+	{ id: 'ens', sub: '186', name: '雇主担保永居（过渡类）', to: 'pr', from: ['sponsored'], fee: 1300, desc: '为担保雇主做满两年后，雇主提名你转永居。' },
+	{ id: 'skilled', sub: '189', name: '独立技术移民', to: 'pr', from: ['student', 'graduate', 'graduate2', 'sponsored'], fee: 1300, desc: '按打分，不需要提名。' },
+	{ id: 'state', sub: '190', name: '州担保技术移民', to: 'pr', from: ['student', 'graduate', 'graduate2', 'sponsored'], fee: 1300, desc: '西澳或南澳州政府提名，加 5 分。' },
+	{ id: 'regional', sub: '491', name: '偏远地区技术移民临时签证', to: 'regional', from: ['student', 'graduate', 'graduate2', 'sponsored'], fee: 1100, desc: '州政府提名到偏远地区，加 15 分；先拿 5 年临时签证。' },
+	{ id: 'regionalPr', sub: '191', name: '偏远地区永居', to: 'pr', from: ['regional'], fee: 1300, desc: '持 491 在偏远地区住满 3 年、期间有足够的工作收入。' },
 ];
 
 /** 游戏规则数值。标「现实」的来自 Home Affairs（简化）；其余是游戏自定，全部待平衡 */
@@ -86,7 +86,7 @@ export const VISA_RULES = {
 	/** 191：现实为持 491 满 3 年；收入门槛官方说法本批未核实，游戏用「至少一半的日子在上班」代替（待平衡） */
 	regionalPr: { years: 3, workShare: 0.5 },
 	/** 考雅思（游戏价和几率，待平衡）：每次有 chance 的几率涨半分，chance = base + 魅力 / charismaDiv，最多 max */
-	ielts: { fee: 400, minutes: 180, base: 0.35, charismaDiv: 200, max: 0.8, kinds: ['city'] as string[] },
+	ielts: { fee: 200, minutes: 180, base: 0.35, charismaDiv: 200, max: 0.8, kinds: ['city'] as string[] },
 };
 
 /** 打分表（现实，按 Home Affairs 189 打分表；第三方逐项核对，官方页面本批 403 未读到原文） */

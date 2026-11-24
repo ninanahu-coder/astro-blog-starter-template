@@ -1909,8 +1909,9 @@ test('界面：跨州旅行和回国探亲（第 43 批）——珀斯机场列�
 	assert.match(list, /南航 CZ320 直飞广州/);
 	assert.match(list, /票价出处：Google Flights/);
 	assert.match(list, /飞行约 7 小时 50 分/);
-	assert.match(list, /请假太久，工作会丢/, '14 天超过请假上限');
-	assert.match(list, /工作保留/);
+	assert.match(list, /超过可保留工作的请假（今年还剩 9 天），工作会丢/, '14 天超过请假上限');
+	assert.match(list, /工作保留，不带薪（今年还剩 9 天，这趟用 [0-9]+ 天）/);
+	assert.match(list, /可保留工作的请假共 9 天，离开期间不发工资/);
 	assert.match(list, /别忘了：.*护照/);
 	assert.match(list, /🚗 三天自驾游建议/);
 	assert.equal(saved.clock, clock0 + 3 * 1440);
@@ -2216,6 +2217,8 @@ test('界面：时间和睡眠（合并 main 后）——有工作时今天页�
 	assert.match(home, /data-home="sleep"/);
 	assert.match(home, /心情 \+\d+ · 睡眠质量 \d+%/, '回家睡觉一行写睡眠质量');
 	assert.match(home, /补觉：睡眠质量 \d+%/);
+	assert.match(home, /睡眠质量 \d+%[^<]*，精力最多回到上限 \d+/, '整觉写精力上限（第十轮）');
+	assert.doesNotMatch(home, /补觉：[^<]*精力最多回到上限/, '补觉不写上限');
 });
 
 test('界面：跨州旅行（合并 main 后）——带着没寄养的宠物，旅行按钮变灰并写原因', async () => {
