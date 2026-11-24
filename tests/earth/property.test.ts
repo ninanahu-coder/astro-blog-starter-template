@@ -8,7 +8,7 @@ import {
 	toggleRentOut,
 } from '../../src/game/core/engine.ts';
 import {
-	downPayment, expectedYield, FINANCE, loanPayment, propertyDue, saleProceeds, weeklyInterest, weeklyPrincipal, weeksToPayOff,
+	downPayment, expectedYield, FINANCE, loanPayment, propertyDue, saleNote, saleProceeds, weeklyInterest, weeklyPrincipal, weeksToPayOff,
 } from '../../src/game/core/finance.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
 import { PROPERTIES } from '../../src/game/data/properties.ts';
@@ -47,6 +47,22 @@ test('贷款公式', () => {
 	assert.equal(weeksToPayOff(flat, 56000), 160);
 	assert.equal(saleProceeds(flat, 56000), 66500 - 56000);
 	assert.equal(saleProceeds(flat, 70000), 0, '资不抵债时到手为 0，不会为负');
+	// 卖房日志（第十三轮）：不够还贷时写明免掉多少，不写「还清」
+	assert.equal(saleNote(flat, 0), '到手 $66500');
+	assert.equal(saleNote(flat, 56000), '还清贷款 $56000 后到手 $10500');
+	assert.equal(saleNote(flat, 72000), '卖价 $66500 抵贷款 $72000；不足的 $5500 已免除，到手 $0');
+	assert.equal(saleNote(flat, 72072, FINANCE.forecloseShare), '卖价 $59500 抵贷款 $72072；不足的 $12572 已免除，到手 $0');
+});
+
+test('卖房：卖价不够还贷，短缺免掉、提示不写还清', () => {
+	let s = buyProperty(make({ cash: 7000, clock: at(10) }), WA, flat.id, true).state;
+	s = { ...s, properties: [{ ...s.properties[0], loan: 72000 }] };
+	const r = sellProperty(s, flat.id);
+	assert.ok(r.ok, r.msg);
+	assert.equal(r.state.cash, s.cash, '到手 0，现金不变');
+	assert.equal(r.state.properties.length, 0);
+	assert.match(r.msg, /不足的 \$5500 已免除，到手 \$0/);
+	assert.doesNotMatch(r.msg, /还清/);
 });
 
 test('买房：全款或贷款；要在当地；钱不够', () => {
@@ -205,6 +221,8 @@ test('断供：宽限两周，第三次欠款强制卖房，现金不会为负',
 	assert.equal(w3.properties.length, 0, '第三次欠款被强制卖出');
 	assert.equal(w3.home, null);
 	assert.ok(w3.cash >= 0 && w3.cash < 7000, `到手 ${w3.cash}，比首付少`);
+	const forced = w3.journal.find((j) => j.text.includes('被强制卖出，'))!.text;
+	assert.match(forced, /卖价 \$59500 抵贷款 \$\d+；不足的 \$\d+ 已免除，到手 \$0/, forced);
 	// 宽限期内补上就清零
 	const saved = passTo({ ...w2, cash: 5000 }, 20);
 	assert.equal(ownedProperty(saved, flat.id)!.missed, 0);

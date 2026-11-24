@@ -54,6 +54,8 @@ import { VISA_ROUTES, VISA_RULES } from '../../../src/game/data/visas.ts';
 import { birdingAt, gardenStatus, songsKnown, timesToday } from '../../../src/game/core/hobbies.ts';
 import { BIRDS, CRAFTS, INSTRUMENT, PHOTO_WORK, PLANTS, SONGS } from '../../../src/game/data/hobbies.ts';
 import { FISH } from '../../../src/game/data/fish.ts';
+import { ITEMS } from '../../../src/game/data/items.ts';
+import { NPCS } from '../../../src/game/data/npcs.ts';
 
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
 const DAYS = Number(arg('days', '60'));
@@ -145,6 +147,16 @@ interface Bot {
 		ielts: number;
 		/** 爱好收集册（第十二轮）：册子发的声望合计、合计到 25（店长门槛）那天、每个里程碑（如 crafts:half）第几天拿到 */
 		hobby: { respect: number; thresholdDay?: number; milestones: Record<string, number> };
+		/** NPC 送礼和专属互动（第十三轮）：目标 NPC 到 30 / 60 / 90 好感的天数、送礼件数和零售价、perk 次数和分钟、perk 写的需求（配置）和实际净增 */
+		npc: {
+			milestones: Partial<Record<'30' | '60' | '90', number>>;
+			gifts: number;
+			giftSpend: number;
+			perks: number;
+			perkMinutes: number;
+			perkNeeds: Record<string, number>;
+			perkActual: Record<string, number>;
+		};
 	};
 	/** 排行榜（排行榜第一版）：每个成功动作后按服务端同一个函数算榜单记录，看异常值复核线会不会误伤正常玩法 */
 	lb: { e: LbEntry; now: number; max: Record<LbStatKey, number>; holds: number; why: string[] };
@@ -237,14 +249,18 @@ interface Plan {
 	world?: boolean;
 	/** 爱好收集（第十二轮）。light：每三天在家做一次手工或乐器；all：先上班、种完跨季菜园，第 75 天起退租跨州收六本 */
 	hobby?: { mode: 'light' | 'all' };
-}
+	/**
+	 * NPC（第十三轮）：只统计目标 NPC 的关系进度。none：不改行为（只观测聊天）；perk：不送礼，解锁后冷却到就用专属互动；
+	 * love：只送 TA 的最爱；cheap：送当地买得到、TA 不讨厌的最便宜物品。送礼到 90 好感停手，专属互动冷却到就用
+	 */
+	npc?: { id: string; gift: 'none' | 'perk' | 'love' | 'cheap' };}
 
 function regionOf(b: Bot): Region {
 	return b.plan.world ? WORLD : WA;
 }
 
 const PLANS: Plan[] = [
-	{ id: 'barista', name: '咖啡店上班族（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room' },
+	{ id: 'barista', name: '咖啡店上班族（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', npc: { id: 'mia', gift: 'none' } },
 	{ id: 'lifeguard', name: '救生员（珀斯，公寓）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'perth', career: 'lifeguard' }, home: 'flat' },
 	{ id: 'miner', name: '矿工（卡尔古利，合租）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'kalgoorlie', career: 'miner' }, home: 'room' },
 	{ id: 'drifter', name: '打零工的背包客（无房）', origin: 'backpacker', traits: ['loner', 'frugal'], roam: true },
@@ -275,6 +291,16 @@ const PLANS: Plan[] = [
 	// 第十二轮：爱好收集册声望的回归策略（balance.md 第十二轮第 1 节）。全收集要跨州，走完整世界
 	{ id: 'hobby-light', name: '爱好轻度玩家（咖啡店；每三天一次手工/乐器）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', hobby: { mode: 'light' } },
 	{ id: 'hobby-all', name: '爱好全收集玩家（咖啡店；第 75 天起跨州）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', world: true, hobby: { mode: 'all' } },
+	// 第十三轮：NPC 送礼与专属互动（balance.md 第十三轮第 1 节）。珀斯不送礼的对照就是上面的 barista
+	{ id: 'barista-gift-love', name: '咖啡店 + 米娅：只送最爱礼物、冷却到就用早餐', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', npc: { id: 'mia', gift: 'love' } },
+	{ id: 'barista-gift-cheap', name: '咖啡店 + 米娅：送当地最便宜非讨厌礼物、冷却到就用早餐', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', npc: { id: 'mia', gift: 'cheap' } },
+	{ id: 'barista-perk-only', name: '咖啡店 + 米娅：不送礼、自然解锁后冷却到就用早餐', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', npc: { id: 'mia', gift: 'perk' } },
+	{ id: 'barista-esperance', name: '咖啡店上班族（埃斯佩兰斯，合租；不送礼）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'esperance', career: 'barista' }, home: 'room', npc: { id: 'nan', gift: 'none' } },
+	{ id: 'barista-nan-gift-love', name: '咖啡店 + 南希：只送最爱礼物、冷却到就吃晚饭', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'esperance', career: 'barista' }, home: 'room', npc: { id: 'nan', gift: 'love' } },
+	{ id: 'barista-nan-gift-cheap', name: '咖啡店 + 南希：送当地最便宜非讨厌礼物、冷却到就吃晚饭', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'esperance', career: 'barista' }, home: 'room', npc: { id: 'nan', gift: 'cheap' } },
+	{ id: 'barista-nan-perk-only', name: '咖啡店 + 南希：不送礼、自然解锁后冷却到就吃晚饭', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'esperance', career: 'barista' }, home: 'room', npc: { id: 'nan', gift: 'perk' } },
+	// 第十三轮：库伯佩迪普通生涯（正常交房租、做可选声望互动），让地下屋进长期回归
+	{ id: 'miner-coober-dugout', name: '库伯佩迪矿工（地下屋）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'coober-pedy', career: 'miner' }, home: 'dugout', world: true },
 ];
 
 // 出身对照（初始属性设计，见 docs/earth-game/initial-stats.md）：同一策略、不带特质，只换出身，看起始现金、车和能力的差别。只出报告，不改数值
@@ -363,6 +389,10 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		b.stats.hobby.respect += gained;
 		for (const id of newMilestones) b.stats.hobby.milestones[id] ??= dayOf(b.s.clock) + 1;
 		if (b.stats.hobby.thresholdDay === undefined && b.stats.hobby.respect >= 25) b.stats.hobby.thresholdDay = dayOf(b.s.clock) + 1;
+	}
+	if (b.plan.npc) {
+		const score = b.s.relations[b.plan.npc.id]?.score ?? 0;
+		for (const t of ['30', '60', '90'] as const) if (score >= Number(t)) b.stats.npc.milestones[t] ??= dayOf(b.s.clock) + 1;
 	}
 	// 店铺结算挂在任意动作之后：把这次结算出的净额单独记成 shop-days，不算进触发它的动作
 	const shopNow = b.s.biz.shop;
@@ -744,6 +774,37 @@ function stepAllHobby(b: Bot, travel: boolean): boolean {
 	return act(b, 'rest');
 }
 
+/** NPC 策略（第十三轮）：目标在场时先用到期的专属互动，再送礼到 90；礼物在当地商店买，买完至少留 $300 */
+function stepNpc(b: Bot): boolean {
+	const cfg = b.plan.npc;
+	if (!cfg || cfg.gift === 'none') return false;
+	const here = npcsAt(b.s, regionOf(b)).find((x) => x.npc.id === cfg.id);
+	if (!here) return false;
+	const perk = here.npc.perk;
+	if (perk && 'perk' in here.blocked && !here.blocked.perk) {
+		const before = b.s;
+		if (tryAct(b, { t: 'npc', npc: cfg.id, act: 'perk' })) {
+			const n = b.stats.npc;
+			n.perks++;
+			n.perkMinutes += perk.fx.minutes ?? 0;
+			for (const [k, v] of Object.entries(perk.fx.needs ?? {})) n.perkNeeds[k] = (n.perkNeeds[k] ?? 0) + v;
+			for (const k of Object.keys(before.needs) as (keyof PlayerState['needs'])[]) n.perkActual[k] = (n.perkActual[k] ?? 0) + b.s.needs[k] - before.needs[k];
+			return true;
+		}
+	}
+	if (cfg.gift === 'perk' || here.rel.score >= 90 || here.blocked.gift) return false;
+	const gift = ITEMS.filter((it) => !it.passive && !here.npc.gifts.dislike.includes(it.id) && (cfg.gift === 'cheap' || here.npc.gifts.love.includes(it.id)))
+		.sort((a, z) => a.price - z.price || a.id.localeCompare(z.id))[0];
+	if (!gift) return false;
+	if ((b.s.inventory[gift.id] ?? 0) > 0 && tryAct(b, { t: 'npc', npc: cfg.id, act: 'gift', item: gift.id })) {
+		b.stats.npc.gifts++;
+		b.stats.npc.giftSpend += gift.price;
+		return true;
+	}
+	const offer = shopAt(b.s, regionOf(b)).find((x) => x.item.id === gift.id && !x.blocked);
+	return !!offer && b.s.cash - offer.price >= 300 && tryAct(b, { t: 'buy', item: offer.item.id });
+}
+
 function step(b: Bot) {
 	const s = b.s;
 	const plan = b.plan;
@@ -845,6 +906,7 @@ function step(b: Bot) {
 		if (s.rental.lease?.end && !leaseBlocked(s, 'renew') && tryAct(b, { t: 'rental', op: 'renew' })) return;
 	}
 	if (s.rental.claim && tryAct(b, { t: 'rental', op: s.rental.claim.prior ? 'dispute' : 'accept' })) return;
+	if (plan.npc && stepNpc(b)) return;
 	if (plan.hobby?.mode === 'light' && stepLightHobby(b)) return;
 	if (plan.hobby?.mode === 'all' && stepAllHobby(b, false)) return;
 
@@ -1024,7 +1086,7 @@ function runBot(plan: Plan, seed: number): Bot {
 	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: region.id, spawn: region.spawn, seed });
 	const b: Bot = {
 		s, plan, rng: mulberry(seed * 7919),
-		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} } },
+		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} } },
 		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
@@ -1055,6 +1117,7 @@ function runBot(plan: Plan, seed: number): Bot {
 // ---------- 汇总 ----------
 if (ONLY.length) for (const list of [PLANS, ORIGIN_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
 const results: PlanResult[] = [];
+const getNpcPerk = (id: string) => NPCS.find((x) => x.id === id)?.perk;
 const pct = (xs: number[], p: number) => {
 	const v = [...xs].sort((a, b) => a - b);
 	return v[Math.min(v.length - 1, Math.floor(p * v.length))];
@@ -1088,6 +1151,8 @@ const visaRows: string[] = [];
 const summary: Record<string, { netPerDay: number; collapses: number; evictions: number; promotions: number; brokeShare: number; mood: number; end: number }> = {};
 const swapRows: string[] = [];
 const hobbyRows: string[] = [];
+const tailRows: string[] = [];
+const npcRows: string[] = [];
 for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, i + 1));
 	const at = (d: number) => bots.map((b) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)]);
@@ -1200,6 +1265,24 @@ for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 		const e = (k: 'first' | 'later' | 'forced') => avg(bots.map((b) => b.stats.evict[k])).toFixed(2);
 		evictRows.push(`| ${plan.name} | ${e('first')} | ${e('later')} | ${e('forced')} | ${ev.toFixed(2)} |`);
 	}
+	if (plan.job) {
+		// 第十三轮：Task 2 门槛只看中位，这里补尾部。没达到的种子算在线外
+		const tri = (xs: number[]) => (xs.length ? `${pct(xs, 0.1)} / ${pct(xs, 0.5)} / ${pct(xs, 0.9)}` : '—');
+		const share = (n: number) => `${Math.round((n / RUNS) * 100)}%`;
+		const p1 = nth(0), p2 = nth(1);
+		const homes = bots.map((b) => b.stats.homeDay).filter((x): x is number => x !== undefined);
+		tailRows.push(`| ${plan.name} | ${tri(p1)} | ${share(RUNS - p1.filter((d) => d <= 15).length)} | ${tri(p2)} | ${share(p2.filter((d) => d < 30).length)} / ${share(RUNS - p2.filter((d) => d <= 60).length)} | ${homes.length ? `${homes.length}，${tri(homes)}` : '—'} | ${homes.length ? share(RUNS - homes.filter((d) => d <= 98).length) : '—'} |`);
+	}
+	if (plan.npc) {
+		const n = (f: (x: Bot['stats']['npc']) => number) => avg(bots.map((b) => f(b.stats.npc)));
+		const ms = (k: '30' | '60' | '90') => { const d = bots.map((b) => b.stats.npc.milestones[k]).filter((x): x is number => x !== undefined); return d.length ? `${d.length}，${pct(d, 0.1)} / ${pct(d, 0.5)} / ${pct(d, 0.9)}` : '0，—'; };
+		// 实际净增只列 perk 写了的那几项（别的需求在互动耗时里照常衰减，不算 perk 的账）
+		const NEED_NAMES: Record<string, string> = { hunger: '饱食', energy: '精力', social: '社交', fun: '娱乐', hygiene: '卫生' };
+		const perkKeys = Object.keys(getNpcPerk(plan.npc.id)?.fx.needs ?? {});
+		const needs = (key: 'perkNeeds' | 'perkActual') => perkKeys.map((k) => [k, avg(bots.map((b) => b.stats.npc[key][k] ?? 0))] as const).filter(([, v]) => Math.abs(v) >= 1).map(([k, v]) => `${NEED_NAMES[k] ?? k} ${Math.round(v)}`).join('，') || '—';
+		const gift = { none: '不送礼', perk: '只用 perk', love: '最爱', cheap: '便宜礼物' }[plan.npc.gift];
+		npcRows.push(`| ${plan.name} | ${NPCS.find((x) => x.id === plan.npc!.id)?.name ?? plan.npc.id} · ${gift} | ${ms('30')} | ${ms('60')} | ${ms('90')} | ${n((x) => x.gifts).toFixed(1)} / ${money(n((x) => x.giftSpend))} | ${n((x) => x.perks).toFixed(1)} / ${(n((x) => x.perkMinutes) / 60).toFixed(1)} 小时 | ${needs('perkNeeds')} | ${needs('perkActual')} |`);
+	}
 	if (plan.hobby) {
 		const days = (xs: (number | undefined)[]) => { const d = xs.filter((x): x is number => x !== undefined); return d.length ? `${d.length}，${pct(d, 0.1)} / ${pct(d, 0.5)} / ${pct(d, 0.9)}` : '0，—'; };
 		const resp = bots.map((b) => b.stats.hobby.respect);
@@ -1274,6 +1357,26 @@ if (hobbyRows.length) {
 	out('| 策略 | 爱好声望 P10 / 中位 / P90 | 爱好声望到 25 | 各册 |');
 	out('| --- | --- | --- | --- |');
 	for (const row of hobbyRows) out(row);
+	out();
+}
+if (npcRows.length) {
+	out('## NPC 送礼与专属互动（第十三轮）');
+	out();
+	out('目标 NPC 在场时先用到期的专属互动（perk），再送礼到 90 好感。好感天数写「人数，P10 / 中位 / P90」，只在达到的种子里算。perk 需求：配置是次数 × 数据里的值，实际是扣掉耗时衰减和 100 上限后的净增。净资产、心情、升职看主表同名行。');
+	out();
+	out('| 策略 | NPC · 送法 | 到 30 | 到 60 | 到 90 | 礼物件数 / 零售价（每人） | perk 次数 / 时间（每人） | perk 需求（配置） | perk 需求（实际） |');
+	out('| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+	for (const row of npcRows) out(row);
+	out();
+}
+if (tailRows.length) {
+	out('## 升职与买房的尾部（第十三轮）');
+	out();
+	out('Task 2 门槛按中位判；这里看有多少种子落在线外。分位数写 P10 / 中位 / P90；没升职或没买房的种子算在线外。买房一栏写「买了的人数，P10 / 中位 / P90」。');
+	out();
+	out('| 策略 | 第 1 次升职 | 晚于第 15 天 | 第 2 次升职 | 早于第 30 / 晚于第 60 天 | 买房 | 晚于第 98 天 |');
+	out('| --- | --- | --- | --- | --- | --- | --- |');
+	for (const row of tailRows) out(row);
 	out();
 }
 out('## 健康与看病（健康系统第 1 版）');
