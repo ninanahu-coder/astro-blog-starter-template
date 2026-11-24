@@ -1,55 +1,106 @@
 {
 	"note": "AI 生成示意内容（视频：远程 ComfyUI MiniMax H3；语音：MiniMax TTS），不是实拍、不是真人录音。",
 	"loc": {
+		"adelaide": {
+			"src": "/earth/media/loc/adelaide.mp4",
+			"poster": "/earth/media/loc/adelaide.webp",
+			"once": true
+		},
+		"barossa": {
+			"src": "/earth/media/loc/barossa.mp4",
+			"poster": "/earth/media/loc/barossa.webp"
+		},
 		"busselton": {
 			"src": "/earth/media/loc/busselton.mp4",
-			"poster": "/earth/cgi/busselton.webp",
+			"poster": "/earth/media/loc/busselton.webp",
 			"once": true
+		},
+		"cape-jervis": {
+			"src": "/earth/media/loc/cape-jervis.mp4",
+			"poster": "/earth/media/loc/cape-jervis.webp",
+			"once": true
+		},
+		"ceduna": {
+			"src": "/earth/media/loc/ceduna.mp4",
+			"poster": "/earth/media/loc/ceduna.webp",
+			"once": true
+		},
+		"coober-pedy": {
+			"src": "/earth/media/loc/coober-pedy.mp4",
+			"poster": "/earth/media/loc/coober-pedy.webp"
 		},
 		"exmouth": {
 			"src": "/earth/media/loc/exmouth.mp4",
-			"poster": "/earth/cgi/exmouth.webp",
+			"poster": "/earth/media/loc/exmouth.webp",
 			"once": true
 		},
 		"fremantle": {
 			"src": "/earth/media/loc/fremantle.mp4",
-			"poster": "/earth/cgi/fremantle.webp",
+			"poster": "/earth/media/loc/fremantle.webp",
 			"once": true
 		},
 		"geraldton": {
 			"src": "/earth/media/loc/geraldton.mp4",
-			"poster": "/earth/cgi/geraldton.webp"
+			"poster": "/earth/media/loc/geraldton.webp"
+		},
+		"glenelg": {
+			"src": "/earth/media/loc/glenelg.mp4",
+			"poster": "/earth/media/loc/glenelg.webp",
+			"once": true
+		},
+		"hahndorf": {
+			"src": "/earth/media/loc/hahndorf.mp4",
+			"poster": "/earth/media/loc/hahndorf.webp"
 		},
 		"kalbarri": {
 			"src": "/earth/media/loc/kalbarri.mp4",
-			"poster": "/earth/cgi/kalbarri.webp",
+			"poster": "/earth/media/loc/kalbarri.webp",
 			"once": true
+		},
+		"kangaroo-island": {
+			"src": "/earth/media/loc/kangaroo-island.mp4",
+			"poster": "/earth/media/loc/kangaroo-island.webp"
 		},
 		"karijini": {
 			"src": "/earth/media/loc/karijini.mp4",
-			"poster": "/earth/cgi/karijini.webp"
+			"poster": "/earth/media/loc/karijini.webp"
 		},
 		"kununurra": {
 			"src": "/earth/media/loc/kununurra.mp4",
-			"poster": "/earth/cgi/kununurra.webp"
+			"poster": "/earth/media/loc/kununurra.webp"
 		},
 		"margaret-river": {
 			"src": "/earth/media/loc/margaret-river.mp4",
-			"poster": "/earth/cgi/margaret-river.webp",
+			"poster": "/earth/media/loc/margaret-river.webp",
+			"once": true
+		},
+		"mclaren-vale": {
+			"src": "/earth/media/loc/mclaren-vale.mp4",
+			"poster": "/earth/media/loc/mclaren-vale.webp",
+			"once": true
+		},
+		"mount-gambier": {
+			"src": "/earth/media/loc/mount-gambier.mp4",
+			"poster": "/earth/media/loc/mount-gambier.webp",
 			"once": true
 		},
 		"pemberton": {
 			"src": "/earth/media/loc/pemberton.mp4",
-			"poster": "/earth/cgi/pemberton.webp"
+			"poster": "/earth/media/loc/pemberton.webp"
 		},
 		"perth": {
 			"src": "/earth/media/loc/perth.mp4",
-			"poster": "/earth/cgi/perth.webp",
+			"poster": "/earth/media/loc/perth.webp",
 			"once": true
 		},
 		"pinnacles": {
 			"src": "/earth/media/loc/pinnacles.mp4",
-			"poster": "/earth/cgi/pinnacles.webp",
+			"poster": "/earth/media/loc/pinnacles.webp",
+			"once": true
+		},
+		"port-lincoln": {
+			"src": "/earth/media/loc/port-lincoln.mp4",
+			"poster": "/earth/media/loc/port-lincoln.webp",
 			"once": true
 		}
 	},

@@ -2,6 +2,8 @@
 """把远程 H3 出的地点短片压成网页用的小文件，并写进 public/earth/media/manifest.json。
 用法：python3 tools/earth/media/encode-clips.py perth karijini busselton
      python3 tools/earth/media/encode-clips.py --once perth@perth-push   （只播一次的推镜版：不做循环淡化，清单写 once: true）
+     python3 tools/earth/media/encode-clips.py --posters-only        （不重压，只把清单里每段的封面换成成片第一帧）
+封面一律是成片第一帧（public/earth/media/loc/<地点>.webp），不再用静态图（比例不同，开播会跳）。
 输入 tools/earth/media/h3/<地点或 @ 后的目录>/clips/seg1.mp4（h3v2 poll 下载的原片，不进仓库）；
 输出 public/earth/media/loc/<地点>.mp4：H.264 640×360、24fps、去掉音轨（页面上静音循环播放）、首尾 0.5 秒交叉淡化成无缝循环、faststart，单个 ≤ 1MB。
 另抽 6 张等距帧拼成 tools/earth/media/h3/<地点>/contact.jpg 供逐帧目检（不进仓库）。"""
@@ -16,9 +18,27 @@ MAX = 1_000_000
 
 def run(cmd): subprocess.run(cmd, check=True, capture_output=True)
 
+def write_poster(loc):
+    """从 public 里的成片取第一帧存成 <地点>.webp（本机 ffmpeg 没编 libwebp，取 PNG 帧后用 Pillow 存）"""
+    import io
+    from PIL import Image
+    png = subprocess.run(['ffmpeg', '-v', 'error', '-i', str(OUT / f'{loc}.mp4'), '-frames:v', '1', '-f', 'image2pipe', '-vcodec', 'png', '-'], check=True, capture_output=True).stdout
+    Image.open(io.BytesIO(png)).convert('RGB').save(OUT / f'{loc}.webp', 'WEBP', quality=82, method=6)
+    return f'/earth/media/loc/{loc}.webp'
+
+
+def posters_only():
+    """不重新压片，只把清单里每段短片的封面换成它自己的第一帧"""
+    m = json.loads(MANIFEST.read_text())
+    for loc, c in m['loc'].items():
+        c['poster'] = write_poster(loc); print(f'✓ {loc} 封面 {(OUT / (loc + ".webp")).stat().st_size / 1000:.0f}KB')
+    MANIFEST.write_text(json.dumps(m, ensure_ascii=False, indent='\t') + '\n')
+
+
 def main(args):
+    if '--posters-only' in args: return posters_only()
     once = '--once' in args
-    locs = [x for x in args if x != '--once']
+    locs = [x for x in args if not x.startswith('--')]
     OUT.mkdir(parents=True, exist_ok=True)
     m = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {'note': 'AI 生成示意内容（视频：远程 ComfyUI MiniMax H3；语音：MiniMax TTS），不是实拍、不是真人录音。', 'loc': {}, 'voice': {}}
     for arg in locs:
@@ -43,7 +63,9 @@ def main(args):
         if size > MAX: sys.exit(f'{loc}: 压到 crf 37 仍有 {size} 字节')
         dur = float(subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', str(dst)], capture_output=True, text=True).stdout)
         run(['ffmpeg', '-y', '-v', 'error', '-i', str(src), '-vf', f'fps=6/{dur:.3f},scale=480:-2,tile=2x3', '-frames:v', '1', str(H3 / d / 'contact.jpg')])
-        m['loc'][loc] = {'src': f'/earth/media/loc/{loc}.mp4', 'poster': f'/earth/cgi/{loc}.webp', **({'once': True} if once else {})}
+        # 封面一律用成片自己的第一帧：静态图多是 2:1，短片是 16:9（裁掉两边），直接拿静态图当封面开播时画面会跳一下（§6.7）
+        poster = write_poster(loc)
+        m['loc'][loc] = {'src': f'/earth/media/loc/{loc}.mp4', 'poster': poster, **({'once': True} if once else {})}
         print(f'✓ {loc}{" (once)" if once else ""} {size / 1000:.0f}KB crf{crf} {dur:.2f}s')
     m['loc'] = dict(sorted(m['loc'].items())); m['voice'] = dict(sorted(m.get('voice', {}).items()))
     MANIFEST.write_text(json.dumps(m, ensure_ascii=False, indent='\t') + '\n')

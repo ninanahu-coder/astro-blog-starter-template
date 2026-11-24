@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic vineyard at sunset in front of a stone winery homestead with a long verandah, rows of grapevines with dark grapes in the foreground, rolling hills behind, a large gum tree at the upper left, with the stone homestead, the vine rows, the gum tree and the composition shown in <Picture 1> preserved. From the first frame the vine leaves flutter and low sunlight flares through the gum tree. The camera pushes in with small amplitude at slow speed toward the stone homestead beyond the vine rows and comes to rest on a slightly tighter wide shot of the homestead framed by the vines in the final second. Clouds drift slowly to the right and the vine leaves and gum branches sway lightly in a warm breeze, and the homestead, the vineyard posts and the hills stay still.
+
+overall_soundscape: A warm evening breeze and distant birds; vine leaves rustling.
+
+non_diegetic_music: N/A

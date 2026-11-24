@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Photorealistic vineyard at sunset in front of a stone winery homestead with a long verandah, rows of grapevines with dark grapes in the foreground, rolling hills behind, a large gum tree at the upper left. The camera holds a locked-off static wide shot. The vine leaves flutter and low sunlight flares through the gum tree throughout the shot. Clouds drift slowly to the right and the vine leaves and gum branches sway lightly in a warm breeze. The homestead, the vineyard posts and the hills stay still. A continuous smooth motion from the first frame to the last frame; the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.
+
+overall_soundscape: A warm evening breeze and distant birds; vine leaves rustling
+
+non_diegetic_music: N/A

@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic deep cobalt-blue crater lake ringed by steep limestone cliffs and green bush at sunset, rocks and grasses on the rim in the foreground, gum leaves at the upper left, with the blue lake, the crater cliffs, the rim and the composition shown in <Picture 1> preserved. From the first frame cloud reflections slide across the blue water and fine ripples cross the lake. The camera pushes in with small amplitude at slow speed toward the blue lake and comes to rest on a slightly tighter wide shot of the lake inside the crater in the final second. Clouds drift slowly to the right and the rim grasses and gum leaves sway lightly in a breeze, and the crater cliffs and the rim rocks stay still.
+
+overall_soundscape: A light breeze on a high rim and distant birds; grass rustling.
+
+non_diegetic_music: N/A

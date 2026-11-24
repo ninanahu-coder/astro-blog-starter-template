@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Photorealistic outback mining landscape at sunset, a pale sandstone hillside with dugout doorways cut into the rock, white cone-shaped heaps of dug earth on red ground, a small timber mine headframe on the ridge. The camera holds a locked-off static wide shot. A thin veil of dust drifts low across the red ground throughout the shot. Clouds drift slowly to the left, a thin veil of dust drifts to the right near the ground, and the dry shrubs tremble in a hot breeze. The hillside, the white heaps and the headframe stay still. A continuous smooth motion from the first frame to the last frame; the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.
+
+overall_soundscape: A dry desert wind over open ground; fine grit skittering over rock
+
+non_diegetic_music: N/A

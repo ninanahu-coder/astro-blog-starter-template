@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic city skyline at sunrise beside a calm river, a low arched footbridge, a white tent-roofed pavilion and a glass-fronted building on the far bank, green parkland in front and soft hills behind, eucalyptus branches at the upper left",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "Soft morning birdsong and faint water lapping",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "The river surface ripples gently and the reflections of the buildings shimmer throughout the shot. Clouds drift slowly to the right and the eucalyptus leaves at the upper left sway lightly in a soft breeze. The buildings, the footbridge and the hills stay still.",
+   "sfx": "a light breeze in the leaves"
+  }
+ ]
+}

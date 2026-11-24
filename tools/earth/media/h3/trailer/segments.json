@@ -1,0 +1,35 @@
+{
+ "style": "Polished stylised 3D render of a warm wooden desk seen from above in soft afternoon window light, navy, cream and gold palette, shallow depth of field, clean mobile game concept interface",
+ "continuity": "the desk, the light, the dark navy passport and the pen keep the same look in every shot, printed words stay sharp and legible, and the scene settles into the pose and framing shown in Picture 2 at the end of the shot.",
+ "ambience": "a quiet room with soft paper rustle",
+ "segments": [
+  {
+   "first": "kf/k1.png",
+   "last": "kf/k2.png",
+   "sec": 5,
+   "camera": "The camera pushes in at slow speed toward the desk, travelling from the viewpoint of Picture 1 to the viewpoint of Picture 2.",
+   "action": "The cream card slides out from under the dark navy passport and glides to the centre of the desk while the passport slides to the left edge of the frame. The card grows until it fills most of the frame, and the seven navy bars on the card fill from left to right one after another. The round red stamp presses onto the lower right corner of the card in the final second.",
+   "sfx": "paper sliding on wood, a soft stamp thud"
+  },
+  {
+   "first": "kf/k2.png",
+   "last": "kf/k3.png",
+   "sec": 5,
+   "camera": "The camera pulls back at slow speed above the desk, travelling from the viewpoint of Picture 1 to the viewpoint of Picture 2.",
+   "action": "The cream card slides off the desk toward the bottom of the frame while a large paper map unfolds across the desk from the centre outward. A dotted navy route draws itself along the coast of the map from the upper left to the lower right, and small gold pins pop up along it one after another. A photo print with a white border drops onto the centre of the map and comes to rest in the final second.",
+   "sfx": "paper unfolding, small soft taps"
+  },
+  {
+   "first": "kf/k3.png",
+   "last": "kf/k4.png",
+   "sec": 5,
+   "camera": "The camera pushes in at medium speed toward the photo print in the centre of the map until the desert landscape inside the print fills the whole frame, arriving at the viewpoint of Picture 2.",
+   "action": "The white border of the photo print, the map and the desk slide out past the edges of the frame as the view moves into the print. The limestone pillars inside the print gain depth and the clouds above them begin to drift slowly to the right. The golden sand and the long shadows stay still.",
+   "sfx": "a rising dry desert wind"
+  }
+ ],
+ "music": {
+  "sec": 15,
+  "prompt": "An original warm instrumental travel theme: soft fingerpicked acoustic guitar and light piano begin gently, a steady light shaker and warm strings join after four seconds, the melody lifts into a hopeful wide open swell with a gentle low drum from ten seconds, ending on one sustained bright chord. No vocals, no lyrics."
+ }
+}

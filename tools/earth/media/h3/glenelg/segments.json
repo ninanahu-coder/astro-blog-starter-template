@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic seaside promenade at sunset, a vintage red and cream tram standing on its rails beside an ornate sandstone building, tall pine trees, a long timber jetty reaching out over a calm sea",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "Gentle surf and a soft sea breeze",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "Small waves wash onto the sand and the sunset light glows on the paving throughout the shot. Clouds drift slowly to the left and the pine branches sway lightly in the sea breeze. The tram, the building, the lamp posts and the jetty stay still.",
+   "sfx": "small waves washing onto sand"
+  }
+ ]
+}

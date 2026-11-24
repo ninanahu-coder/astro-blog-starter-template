@@ -27,20 +27,37 @@ test('地点短片：键是真实地点，文件在、不超过约 1MB，封面�
 		assert.ok(locs.has(k), `${k} 不是地点`);
 		assert.ok(existsSync(file(c.src)), `${k} 的短片不存在`);
 		assert.ok(statSync(file(c.src)).size <= CLIP_MAX_BYTES, `${k} 短片太大`);
-		if (c.poster) assert.ok(existsSync(file(c.poster)), `${k} 的封面不存在`);
+		// 封面必须是成片自己的第一帧（encode-clips.py 生成）：静态图是 2:1、短片是 16:9，拿静态图当封面开播时画面会跳（§6.7）
+		assert.equal(c.poster, `/earth/media/loc/${k}.webp`, `${k} 的封面不是短片首帧`);
+		assert.ok(existsSync(file(c.poster!)), `${k} 的封面不存在`);
+		assert.ok(statSync(file(c.poster!)).size <= 120_000, `${k} 封面太大`);
 	}
 });
 
 test('地点短片验收记录：清单每一段都有测量且过线（tools/earth/media/clips-qa.json，§6.4）', () => {
-	const qa = JSON.parse(readFileSync(new URL('../../tools/earth/media/clips-qa.json', import.meta.url), 'utf8')).clips as Record<string, Record<string, number | string | boolean>>;
+	const qaFile = JSON.parse(readFileSync(new URL('../../tools/earth/media/clips-qa.json', import.meta.url), 'utf8'));
+	const qa = qaFile.clips as Record<string, Record<string, number | string | boolean>>;
 	assert.deepEqual(Object.keys(qa).sort(), Object.keys(media.loc).sort(), '验收记录和清单的地点不一致');
+	// 每个地点要么有短片，要么在 skipped 里写明为什么不做；新加地点时必须二选一，不会悄悄漏掉
+	const skipped = qaFile.skipped as Record<string, string>;
+	const all = AREAS.flatMap((x) => x.locations.map((l) => l.id));
+	assert.deepEqual([...Object.keys(media.loc), ...Object.keys(skipped)].sort(), [...all].sort(), '有地点既没有短片也没有写不做的原因（或两边都有）');
+	for (const [k, why] of Object.entries(skipped)) assert.ok(why.trim().length >= 4, `${k} 没写不做的原因`);
 	for (const [k, c] of Object.entries(media.loc)) {
 		const r = qa[k];
 		assert.equal(r.pass, true, `${k} 没过验收`);
 		assert.equal(r.bytes, statSync(file(c.src)).size, `${k} 成片换过但没重新测量`);
 		assert.equal(r.mode, c.once ? 'once' : 'loop', `${k} once / 循环和验收记录不一致`);
 		assert.ok((r.kf_diff as number) < 10, `${k} 首帧和关键帧差太多（可能串帧）`);
-		if (c.once) {
+		assert.ok((r.poster_diff as number) < 6, `${k} 封面和成片首帧对不上：${r.poster_diff}`);
+		assert.equal(r.eyeball, 'ok', `${k} 还没有逐帧目检结论`);
+		if (r.kind === 'keyframed') {
+			// 首尾帧定镜头（Blender 定机位 + 重绘 + H3 补间）：只播一次；末帧要落在第二张关键帧上，中间没有单帧跳变
+			assert.equal(c.once, true, `${k} 首尾不同的片子必须只播一次`);
+			assert.ok((r.kf_end_diff as number) < 10, `${k} 末帧没落在关键帧上`);
+			assert.ok((r.max_over_median as number) < 3, `${k} 有单帧跳变`);
+			assert.match(c.poster ?? '', /^\/earth\/media\/loc\//, `${k} 封面要用短片自己的首帧`);
+		} else if (c.once) {
 			// 推镜：至少推近 4%，一路向前、不回弹
 			assert.ok((r.scale_end as number) >= 1.04, `${k} 推镜不够：×${r.scale_end}`);
 			assert.ok((r.rebound as number) <= 0.01 && r.monotonic === true, `${k} 推镜有回弹`);

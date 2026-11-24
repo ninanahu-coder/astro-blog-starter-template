@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Photorealistic golden-hour desert landscape, hundreds of pale pitted limestone pillars rising from golden-orange wind-rippled sand under a dramatic sunset sky with orange and purple clouds, long shadows running to the right. The camera pushes in at slow speed along the open sand between the pillars and rises slightly, travelling from the viewpoint of Picture 1 to the viewpoint of Picture 2. The nearest pillars glide past on both sides with natural parallax while the distant pillars shift only a little. The clouds drift slowly to the right throughout the shot and the long shadows stay fixed on the sand. The pillars themselves stay still. A continuous smooth motion from the first frame to the last frame; every pillar keeps its shape, texture and place on the ground as the viewpoint advances, and the scene settles into the framing shown in Picture 2 and holds there through the end of the shot.
+
+overall_soundscape: a dry desert wind and faint sand hiss; soft whisper of drifting sand
+
+non_diegetic_music: N/A

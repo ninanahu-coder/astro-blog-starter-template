@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Polished stylised 3D render of a warm wooden desk seen from above in soft afternoon window light, navy, cream and gold palette, shallow depth of field, clean mobile game concept interface. The camera pulls back at slow speed above the desk, travelling from the viewpoint of Picture 1 to the viewpoint of Picture 2. The cream card slides off the desk toward the bottom of the frame while a large paper map unfolds across the desk from the centre outward. A dotted navy route draws itself along the coast of the map from the upper left to the lower right, and small gold pins pop up along it one after another. A photo print with a white border drops onto the centre of the map and comes to rest in the final second. A continuous smooth motion from the first frame to the last frame; the desk, the light, the dark navy passport and the pen keep the same look in every shot, printed words stay sharp and legible, and the scene settles into the pose and framing shown in Picture 2 at the end of the shot.
+
+overall_soundscape: a quiet room with soft paper rustle; paper unfolding, small soft taps
+
+non_diegetic_music: N/A

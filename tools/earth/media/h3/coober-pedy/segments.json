@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic outback mining landscape at sunset, a pale sandstone hillside with dugout doorways cut into the rock, white cone-shaped heaps of dug earth on red ground, a small timber mine headframe on the ridge",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "A dry desert wind over open ground",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "A thin veil of dust drifts low across the red ground throughout the shot. Clouds drift slowly to the left, a thin veil of dust drifts to the right near the ground, and the dry shrubs tremble in a hot breeze. The hillside, the white heaps and the headframe stay still.",
+   "sfx": "fine grit skittering over rock"
+  }
+ ]
+}
