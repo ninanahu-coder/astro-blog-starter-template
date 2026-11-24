@@ -200,6 +200,18 @@ export function shopLicenses(type: ShopTypeDef, site: ShopSiteDef): string[] {
 export const shopBond = (site: ShopSiteDef) => site.rent * SHOP_RULES.bondWeeks;
 export const openCost = (type: ShopTypeDef, site: ShopSiteDef) => type.fitout + shopBond(site);
 
+/**
+ * 开店预算（第十四轮）：开店花的钱之外，开张后第一周还要备的钱。只做提示、不拦开店。
+ * 新店库存是 0、不雇人：第一批货按界面「进货」一次的量（最多 100 单）；一周店租；雇一个人一周的工资、养老金和保险另列。
+ * 平衡模拟里开店机器人没备这笔钱时，开张后被签证费掏空、补不了货，空店每天照付店租直到被收房（balance.md 第十四轮）
+ */
+export function openBudget(type: ShopTypeDef, site: ShopSiteDef): { cost: number; stock: number; rent: number; staffWeek: number; total: number } {
+	const cost = openCost(type, site);
+	const stock = Math.min(100, type.maxStock) * type.unitCost;
+	const staffWeek = Math.round(SHOP_RULES.staffWage * 7 * (1 + SHOP_RULES.superRate + SHOP_RULES.compRate));
+	return { cost, stock, rent: site.rent, staffWeek, total: cost + stock + site.rent };
+}
+
 export interface ShopOffer {
 	type: ShopTypeDef;
 	site: ShopSiteDef;

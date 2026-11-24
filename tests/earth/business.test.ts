@@ -5,9 +5,10 @@ import { applyAction, parseAction, publicState, type GameAction } from '../../sr
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import { cleanBiz, emptyBiz } from '../../src/game/core/business-save.ts';
 import {
-	closeShop, doGig, getLicense, gigsAt, hireStaff, licenseOffers, licenseValid, openCost, openShop, recordBiz, restockShop, settleBiz, settleShopDay, shopActions, shopDailyCost, shopOffersAt, stateOf, tendShop,
+	closeShop, doGig, getLicense, gigsAt, hireStaff, licenseOffers, licenseValid, openBudget, openCost, openShop, recordBiz, restockShop, settleBiz, settleShopDay, shopActions, shopDailyCost, shopOffersAt, stateOf, tendShop,
 } from '../../src/game/core/business.ts';
 import { GIGS, GST, LICENSES, SHOP_EVENTS, SHOP_RULES, SHOP_SITES, SHOP_TYPES } from '../../src/game/data/business.ts';
+import { budgetNote } from '../../src/game/ui/business.ts';
 import { areaOf } from '../../src/game/data/areas-base.ts';
 import { WORLD } from '../../src/game/data/wa.ts';
 import { EarthWorld } from '../../src/game/server/world.ts';
@@ -506,4 +507,18 @@ test('页面：生意卡在「工作」抽屉里，摘要算上副业和自己�
 	const page = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
 	assert.match(page, /'工作', workHtml \+ bizCard\(s, region, esc\),/);
 	assert.match(page, /gigsAt\(s, region\)\.length \? `\$\{gigsAt\(s, region\)\.length\} 份副业`/);
+});
+
+test('开店预算提示（第十四轮）：开店成本外再备第一批货和一周店租；钱只够开门时提醒、不拦', () => {
+	const tea = SHOP_TYPES.find((t) => t.id === 'milk-tea')!;
+	const nb = SHOP_SITES.find((x) => x.id === 'northbridge')!;
+	const b = openBudget(tea, nb);
+	assert.equal(b.cost, openCost(tea, nb));
+	assert.equal(b.stock, Math.min(100, tea.maxStock) * tea.unitCost);
+	assert.equal(b.rent, nb.rent);
+	assert.equal(b.staffWeek, Math.round(SHOP_RULES.staffWage * 7 * (1 + SHOP_RULES.superRate + SHOP_RULES.compRate)));
+	assert.equal(b.total, b.cost + b.stock + b.rent);
+	assert.doesNotMatch(budgetNote(tea, nb, b.total), /只够开门/, '钱够就不提醒');
+	assert.match(budgetNote(tea, nb, b.cost), /只够开门/, '刚够开店成本就提醒');
+	assert.doesNotMatch(budgetNote(tea, nb, b.cost - 1), /只够开门/, '连开店都不够时按钮本来就灰着，不重复提醒');
 });

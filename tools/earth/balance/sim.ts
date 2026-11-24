@@ -13,7 +13,8 @@
 //   --off=events,coop       关掉这些系统再跑（只改机器人行为，见 systems.ts；--list-systems 列出全部）
 //   --ab=events             同样的种子跑两遍：全开 vs 关掉，输出对比（ab.ts）
 //   --format=json|csv       导出结构化结果（默认 md）；配合 --out 写文件
-//   --only=barista,idle     只跑这些策略
+//   --only=barista,idle     只跑这些策略（NPC 诊断路线 lifeguard-jack-perk 等只能这样点名跑，见 DIAG_PLANS）
+//   --seed-offset=100       种子从 101 起（默认 0，即 1…runs），用来换一批种子复核
 //   npm run earth:sim -- --swap        二手市场对照：咖啡店策略 × 买家具不走 / 走换手墙看货 / 走换手墙先转账
 import { writeFileSync } from 'node:fs';
 import { averageEco, blankEco, parseSystems, recordEco, SYSTEMS, systemOf, type EcoStats } from './systems.ts';
@@ -23,7 +24,7 @@ import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter, ORIGINS } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careAt, careersAt, coursesAt, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, npcsAt, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careAt, careersAt, coursesAt, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { assess, taxStatus, tfnState } from '../../../src/game/core/tax.ts';
@@ -43,7 +44,7 @@ import { volunteerAt } from '../../../src/game/core/volunteer.ts';
 import { volShifts, volTier } from '../../../src/game/core/respect.ts';
 import { level } from '../../../src/game/core/attributes.ts';
 import { gigsAt, licenseValid, shopActions, shopOffersAt } from '../../../src/game/core/business.ts';
-import { getShopSite, getShopType } from '../../../src/game/core/business.ts';
+import { getShopSite, getShopType, openCost, shopDailyCost } from '../../../src/game/core/business.ts';
 import { FURNITURE } from '../../../src/game/data/furniture.ts';
 import { buyBlocked, newPrice, swapBoard } from '../../../src/game/core/secondhand.ts';
 import { clubSessionBlocked, formOf, getClub, racesSoon } from '../../../src/game/core/sports.ts';
@@ -60,6 +61,7 @@ import { NPCS } from '../../../src/game/data/npcs.ts';
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
 const DAYS = Number(arg('days', '60'));
 const RUNS = Number(arg('runs', '40'));
+const SEED_OFFSET = Number(arg('seed-offset', '0'));
 const OUT = arg('out', '');
 const BY_ORIGIN = process.argv.includes('--origins');
 /** 一个现实日里玩几个游戏日（只影响按现实日算的规则，目前是志愿的现实日上限）。默认 1：每个游戏日都是新的现实日 */
@@ -108,6 +110,8 @@ interface Bot {
 	hobbyTraveling?: boolean;
 	/** 理财机器人最近一次买入的游戏日 */
 	investDay?: number;
+	/** 第十四轮：保守漫游最近一次出发日 */
+	safeRoamDay?: number;
 	stats: {
 		collapses: number;
 		/** 收房或断供合计 = evict.first + evict.later + evict.forced */
@@ -220,6 +224,8 @@ interface Plan {
 	spend?: boolean;
 	/** 有配置时使用保守零工策略 */
 	gig?: GigPlan;
+	/** 第十四轮：保守零工攒够钱后，按下限低频旅行 */
+	safeRoam?: { everyDays: number; cashFloor: number; minEnergy: number; minHunger: number; maxCost: number; stops: string[] };
 	/**
 	 * 第 46 轮：保命、上班之后，所在地点能做共同事件就拉一个搭档一起做（第 10 批审查后改成三种搭档假设做对照）。
 	 * mateNeeds：搭档的各项需求（100 = 全满）；mateChance：每次想做时有搭档在场的概率
@@ -231,9 +237,14 @@ interface Plan {
 	side?: { licenses: string[]; gigs: string[] };
 	/**
 	 * 开店：现金到 openAt 时在 site 开 type，雇 staff 个人，库存低于 restockBelow 就补到 restockBelow × 2（不超过库存上限），补货后留 SHOP_RESERVE 现金。
-	 * 不雇人（staff 0）的店开张后自己店优先，不再去上正式班（第十一轮：原来先上咖啡店班、空当才看店，策略名和实际行为不符）
+	 * 不雇人（staff 0）的店开张后自己店优先，不再去上正式班（第十一轮：原来先上咖啡店班、空当才看店，策略名和实际行为不符）；第十四轮起店里没货时回去上正式班。
+	 * 第十四轮：空店先辞退店员，库存到 restockBelow 且留得出一周人手开销才（重新）雇人。有 safety 时开张线按 safeOpenAt() 算，开店前也做首次体验、做完至少留 respectReserve
 	 */
-	shop?: { type: string; site: string; openAt: number; staff: number; restockBelow: number };
+	shop?: {
+		type: string; site: string; openAt: number; staff: number; restockBelow: number;
+		/** 第十四轮：开张现金 = 开店成本 + 初货 + N 周店铺固定成本 + M 周住房 + 已知签证 + 补货储备 */
+		safety?: { operatingWeeks: number; homeWeeks: number; visaReserve: number; respectReserve: number };
+	};
 	/** 二手市场对照：买家具先看换手墙。pickup＝上门看货 + 砍价；prepay＝一律先转账送货、不砍价（不看红旗） */
 	swap?: 'pickup' | 'prepay';
 	/** 第 43 批：练哪项运动、加入哪个俱乐部；保命、上班之后报名参赛、上训练课、自己练（见 trySport） */
@@ -268,6 +279,11 @@ const PLANS: Plan[] = [
 		id: 'drifter-safe', name: '保守背包客（无房，少漫游）', origin: 'backpacker', traits: ['loner', 'frugal'], spend: false,
 		gig: { cashTarget: 700, cashReserve: 200, minEnergy: 55, minHunger: 50, preferred: ['work-cafe', 'work-farm', 'busk', 'work-mine'] },
 	},
+	{
+		id: 'drifter-roam-safe', name: '保守漫游背包客（无房，低频旅行）', origin: 'backpacker', traits: ['loner', 'frugal'], spend: false, roam: true,
+		gig: { cashTarget: 1600, cashReserve: 500, minEnergy: 65, minHunger: 60, preferred: ['work-cafe', 'work-farm', 'busk', 'work-mine'] },
+		safeRoam: { everyDays: 21, cashFloor: 1200, minEnergy: 80, minHunger: 80, maxCost: 80, stops: ['perth', 'fremantle', 'bunbury', 'margaret-river'] },
+	},
 	{ id: 'barista-vol', name: '咖啡店 + 有空做志愿（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', volunteer: true },
 	{ id: 'drifter-vol', name: '背包客 + 有空做志愿（无房）', origin: 'backpacker', traits: ['loner', 'frugal'], roam: true, volunteer: true },
 	{ id: 'idle', name: '什么都不干（对照组）', origin: 'backpacker', traits: [] },
@@ -286,8 +302,8 @@ const PLANS: Plan[] = [
 	// 副业与小生意（side-business.md）新增：排在最后，原有各行结果不变
 	{ id: 'side-gig', name: '副业留学生：家教 + 送外卖（珀斯，合租，无正式工作）', origin: 'student', traits: ['charming', 'neat'], home: 'room', spend: false, side: { licenses: ['abn', 'wwc-wa'], gigs: ['tutor', 'delivery', 'daigou'] } },
 	{ id: 'barista-side', name: '咖啡店 + 下班家教（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, side: { licenses: ['wwc-wa'], gigs: ['tutor'] } },
-	{ id: 'shop-milktea', name: '咖啡店攒钱开奶茶店（北桥，雇 1 人）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, shop: { type: 'milk-tea', site: 'northbridge', openAt: 11_000, staff: 1, restockBelow: 150 } },
-	{ id: 'shop-repair', name: '咖啡店攒钱开手机维修铺（维多利亚公园，不雇人、自己看店）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, shop: { type: 'phone-repair', site: 'victoria-park', openAt: 9_000, staff: 0, restockBelow: 20 } },
+	{ id: 'shop-milktea', name: '咖啡店攒钱开奶茶店（北桥，雇 1 人）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, shop: { type: 'milk-tea', site: 'northbridge', openAt: 11_000, staff: 1, restockBelow: 150, safety: { operatingWeeks: 1, homeWeeks: 2, visaReserve: 850, respectReserve: 1500 } } },
+	{ id: 'shop-repair', name: '咖啡店攒钱开手机维修铺（维多利亚公园，不雇人、自己看店）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, shop: { type: 'phone-repair', site: 'victoria-park', openAt: 9_000, staff: 0, restockBelow: 20, safety: { operatingWeeks: 1, homeWeeks: 2, visaReserve: 850, respectReserve: 1500 } } },
 	// 第十二轮：爱好收集册声望的回归策略（balance.md 第十二轮第 1 节）。全收集要跨州，走完整世界
 	{ id: 'hobby-light', name: '爱好轻度玩家（咖啡店；每三天一次手工/乐器）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', hobby: { mode: 'light' } },
 	{ id: 'hobby-all', name: '爱好全收集玩家（咖啡店；第 75 天起跨州）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', world: true, hobby: { mode: 'all' } },
@@ -301,6 +317,23 @@ const PLANS: Plan[] = [
 	{ id: 'barista-nan-perk-only', name: '咖啡店 + 南希：不送礼、自然解锁后冷却到就吃晚饭', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'esperance', career: 'barista' }, home: 'room', npc: { id: 'nan', gift: 'perk' } },
 	// 第十三轮：库伯佩迪普通生涯（正常交房租、做可选声望互动），让地下屋进长期回归
 	{ id: 'miner-coober-dugout', name: '库伯佩迪矿工（地下屋）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'coober-pedy', career: 'miner' }, home: 'dugout', world: true },
+];
+
+/**
+ * NPC 诊断路线（第十四轮）：同地点、同职业的「不用 perk」和「自然解锁后用 perk」成对比较其他 NPC 的专属互动。
+ * 不进默认报告（外地住房机器人有约 1% 的收房尾部，会让「有工作收房 0」亮红灯，和 perk 无关），只在 --only 点名时跑。
+ */
+const DIAG_PLANS: Plan[] = [
+	{ id: 'lifeguard-freo-none', name: '救生员（弗里曼特尔；老杰克对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'fremantle', career: 'lifeguard' }, home: 'room', npc: { id: 'jack', gift: 'none' } },
+	{ id: 'lifeguard-jack-perk', name: '救生员 + 老杰克：自然解锁后出海', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'fremantle', career: 'lifeguard' }, home: 'room', npc: { id: 'jack', gift: 'perk' } },
+	{ id: 'lifeguard-rottnest-none', name: '救生员（罗特尼斯；琳达对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'rottnest', career: 'lifeguard' }, home: 'beach', npc: { id: 'linda', gift: 'none' } },
+	{ id: 'lifeguard-linda-perk', name: '救生员 + 琳达：自然解锁后走小路', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'rottnest', career: 'lifeguard' }, home: 'beach', npc: { id: 'linda', gift: 'perk' } },
+	{ id: 'lifeguard-margaret-none', name: '救生员（玛格丽特河；里奥对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'margaret-river', career: 'lifeguard' }, home: 'room', npc: { id: 'leo', gift: 'none' } },
+	{ id: 'lifeguard-leo-perk', name: '救生员 + 里奥：自然解锁后冲浪课', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'margaret-river', career: 'lifeguard' }, home: 'room', npc: { id: 'leo', gift: 'perk' } },
+	{ id: 'lifeguard-exmouth-none', name: '救生员（埃克斯茅斯；萨姆对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'exmouth', career: 'lifeguard' }, home: 'room', npc: { id: 'sam', gift: 'none' } },
+	{ id: 'lifeguard-sam-perk', name: '救生员 + 萨姆：自然解锁后浮潜', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'exmouth', career: 'lifeguard' }, home: 'room', npc: { id: 'sam', gift: 'perk' } },
+	{ id: 'miner-bill-none', name: '矿工（卡尔古利；比尔对照）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'kalgoorlie', career: 'miner' }, home: 'room', npc: { id: 'bill', gift: 'none' } },
+	{ id: 'miner-bill-perk', name: '矿工 + 比尔：自然解锁后请客', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'kalgoorlie', career: 'miner' }, home: 'room', npc: { id: 'bill', gift: 'perk' } },
 ];
 
 // 出身对照（初始属性设计，见 docs/earth-game/initial-stats.md）：同一策略、不带特质，只换出身，看起始现金、车和能力的差别。只出报告，不改数值
@@ -571,6 +604,18 @@ function stepSafeDrifter(b: Bot) {
 	if (!s.inventory.snack && s.cash > gig.cashReserve) {
 		const e = shopAt(s, regionOf(b)).find((x) => x.item.id === 'snack' && !x.blocked);
 		if (e && tryAct(b, { t: 'buy', item: 'snack' })) return;
+	}
+	const roam = b.plan.safeRoam;
+	const day = dayOf(s.clock);
+	if (roam && s.cash >= gig.cashTarget && s.needs.energy >= roam.minEnergy && s.needs.hunger >= roam.minHunger && day - (b.safeRoamDay ?? -roam.everyDays) >= roam.everyDays) {
+		const opts = travelOptions(s, regionOf(b)).filter((o) => o.available && o.mode !== 'air' && roam.stops.includes(o.to) && o.cost <= roam.maxCost && s.cash - o.cost >= roam.cashFloor);
+		if (opts.length) {
+			const o = opts[Math.floor(b.rng() * opts.length)];
+			if (tryAct(b, { t: 'travel', to: o.to, mode: o.mode })) {
+				b.safeRoamDay = day;
+				return;
+			}
+		}
 	}
 	act(b, 'rest');
 }
@@ -880,7 +925,9 @@ function step(b: Bot) {
 	}
 
 	// 2. 找工作、租房、去上班
-	if (plan.job && !(plan.shop?.staff === 0 && s.biz.shop)) {
+	// 自己看店的策略只有在店里有货时才停正式班；空店时回去上班，避免租金把补货本金越吃越少。
+	const selfShopTrading = !!(plan.shop?.staff === 0 && s.biz.shop && s.biz.shop.stock > 0);
+	if (plan.job && !selfShopTrading) {
 		if (!s.job) {
 			if (s.loc !== plan.job.loc) {
 				if (headTo(b, plan.job.loc)) return;
@@ -909,6 +956,12 @@ function step(b: Bot) {
 	if (plan.npc && stepNpc(b)) return;
 	if (plan.hobby?.mode === 'light' && stepLightHobby(b)) return;
 	if (plan.hobby?.mode === 'all' && stepAllHobby(b, false)) return;
+
+	// 第十四轮：开店前仍做当地首次体验，但每次做完至少留下独立储备；不打开买房、家具、车辆。
+	if (plan.shop?.safety && !s.biz.shop) {
+		const exp = experiencesAt(s, regionOf(b)).find((o) => o.first && !o.blocked && s.cash - o.exp.price >= plan.shop!.safety!.respectReserve);
+		if (exp && tryAct(b, { t: 'experience', id: exp.exp.id })) return;
+	}
 
 	// 2.5 副业与小生意（只有带 side / shop 的策略）
 	if ((plan.side || plan.shop) && stepBiz(b)) return;
@@ -1023,17 +1076,30 @@ function step(b: Bot) {
 /** 补货后至少留下的现金（第十一轮 300 → 1000：维修铺原来把周租现金全压进库存，结算付不起房租被收房） */
 const SHOP_RESERVE = 1000;
 
+/** 第十四轮：开张后仍可支付初货、近期固定成本、住房、已知签证费，并保留补货储备。 */
+function safeOpenAt(b: Bot): number {
+	const p = b.plan.shop!;
+	if (!p.safety) return p.openAt;
+	const type = getShopType(p.type)!;
+	const site = getShopSite(p.site)!;
+	const stock = Math.min(type.maxStock, p.restockBelow * 2) * type.unitCost;
+	const dummy = { type: p.type, site: p.site, day: 0, last: -1, stock: 0, staff: p.staff, tend: -1, rep: 50, debt: 0, bond: 0, hist: [] } as NonNullable<PlayerState['biz']['shop']>;
+	const operating = shopDailyCost(dummy).total * 7 * p.safety.operatingWeeks;
+	const home = (b.plan.home ? getHome(b.plan.home)?.rentWeek ?? 0 : 0) * p.safety.homeWeeks;
+	return Math.max(p.openAt, openCost(type, site) + stock + operating + home + p.safety.visaReserve + SHOP_RESERVE);
+}
+
 /** 副业与小生意的一步：办证 → 开店、补货、雇人 → 副业。做了一件事返回 true */
 function stepBiz(b: Bot): boolean {
 	const s = b.s;
 	const plan = b.plan;
 	const shopPlan = plan.shop;
 	const want = [...(plan.side?.licenses ?? []), ...(shopPlan ? ['abn', 'bizname', ...(getShopType(shopPlan.type)!.food ? [`food-${getShopSite(shopPlan.site)!.state}`] : [])] : [])];
-	const readyForShop = !shopPlan || s.biz.shop || s.cash >= shopPlan.openAt;
+	const readyForShop = !shopPlan || s.biz.shop || s.cash >= safeOpenAt(b);
 	for (const id of want) if (readyForShop && !licenseValid(s, id) && s.cash > 400 && tryAct(b, { t: 'biz', op: 'license', id })) return true;
 	if (shopPlan) {
 		const site = getShopSite(shopPlan.site)!;
-		if (!s.biz.shop && s.cash >= shopPlan.openAt) {
+		if (!s.biz.shop && s.cash >= safeOpenAt(b)) {
 			if (s.loc !== site.loc) return headTo(b, site.loc);
 			if (shopOffersAt(s).some((o) => o.site.id === site.id && o.type.id === shopPlan.type && !o.blocked)) return tryAct(b, { t: 'biz', op: 'open', shop: shopPlan.type, site: shopPlan.site });
 		}
@@ -1041,12 +1107,16 @@ function stepBiz(b: Bot): boolean {
 		if (shop && s.loc === site.loc) {
 			const can = shopActions(s, regionOf(b));
 			const type = getShopType(shop.type)!;
+			const target = Math.min(type.maxStock, shopPlan.restockBelow * 2);
+			// 空店先停薪：保留铺租，用正式班把现金攒回“完整补货 + 一周固定成本”，再恢复雇员。
+			if (shop.stock === 0 && shop.staff > 0 && !can.fire && tryAct(b, { t: 'biz', op: 'fire' })) return true;
 			if (shop.stock < shopPlan.restockBelow && !can.restock && s.cash > SHOP_RESERVE) {
-				const target = Math.min(type.maxStock, shopPlan.restockBelow * 2); // 第十一轮：不再灌满库存，把周租现金压进去
 				const qty = Math.min(target - shop.stock, Math.floor((s.cash - SHOP_RESERVE) / type.unitCost), 1000);
 				if (qty >= 1 && tryAct(b, { t: 'biz', op: 'restock', qty })) return true;
 			}
-			if (shop.staff < shopPlan.staff && !can.hire && tryAct(b, { t: 'biz', op: 'hire' })) return true;
+			const staffed = { ...shop, staff: shopPlan.staff };
+			const hireFloor = SHOP_RESERVE + shopDailyCost(staffed).total * 7;
+			if (shop.staff < shopPlan.staff && shop.stock >= shopPlan.restockBelow && s.cash >= hireFloor && !can.hire && tryAct(b, { t: 'biz', op: 'hire' })) return true;
 			// 不雇人的店：开张后自己店优先（第十一轮起不再上正式班），精力、饱食够就看店
 			if (shopPlan.staff === 0 && !can.tend && s.needs.energy >= 45 && s.needs.hunger >= 40 && tryAct(b, { t: 'biz', op: 'tend' })) return true;
 		}
@@ -1115,7 +1185,10 @@ function runBot(plan: Plan, seed: number): Bot {
 }
 
 // ---------- 汇总 ----------
-if (ONLY.length) for (const list of [PLANS, ORIGIN_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
+if (ONLY.length) {
+	PLANS.push(...DIAG_PLANS); // 诊断路线只在 --only 点名时跑
+	for (const list of [PLANS, ORIGIN_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
+}
 const results: PlanResult[] = [];
 const getNpcPerk = (id: string) => NPCS.find((x) => x.id === id)?.perk;
 const pct = (xs: number[], p: number) => {
@@ -1154,7 +1227,7 @@ const hobbyRows: string[] = [];
 const tailRows: string[] = [];
 const npcRows: string[] = [];
 for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
-	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, i + 1));
+	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, SEED_OFFSET + i + 1));
 	const at = (d: number) => bots.map((b) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)]);
 	const endD = Math.min(DAYS, 60);
 	const net = avg(bots.map((b) => (b.stats.cashByDay[b.stats.cashByDay.length - 1] - b.stats.cashByDay[0]) / DAYS));
