@@ -84,7 +84,12 @@ npm run earth:sim -- --ab=events --format=csv --out=ab.csv
 npm run earth:sim -- --eco                          # 报告末尾加「经济流水：投放与回收」表
 npm run earth:sim -- --format=json --out=r.json
 npm run earth:sim -- --format=csv --only=barista,idle
+npm run earth:sim -- --runs=100 --days=180 --seed-offset=100 --only=shop-milktea,shop-repair   # 换一批种子（101–200）复核
+npm run earth:sim -- --runs=100 --days=180 --only=lifeguard-freo-none,lifeguard-jack-perk       # NPC 诊断路线：不进默认报告，只能点名跑
 ```
+
+- `--seed-offset=N`：种子从 N+1 起，默认 0。收房这类千分之几的尾部，换两三批种子复核，别只看 1–100。
+- NPC 诊断路线（`DIAG_PLANS`，第十四轮）：老杰克、琳达、里奥、萨姆、比尔各一对「不用 perk / 自然解锁后用 perk」。外地住房机器人有约 1% 的收房尾部，放进默认报告会让「有工作收房 0」亮红灯，所以只在 `--only` 点名时跑。
 
 - **投放**是一个动作让现金增加的部分（工资、零工、事件奖励、卖东西）；**回收**是让现金减少的部分（吃、住、行、房租、学费、买东西）。两者都按动作类型 `a.t` 汇总，键名和统计分支的 `eco.in.<类型>`、`eco.out.<类型>` 一致；另外按 sim.ts 的动作键（activity 按活动 id）再汇总一份细表。共同事件记在 `coop` 下，线上统计没有这一项（见 §0）。
 - 口径和原报告「钱从哪来」一致：动作途中扣掉的周租、物业费，算在那个动作头上。

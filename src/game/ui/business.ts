@@ -1,8 +1,8 @@
 // 「地点」页的「副业与生意」卡片：这里能做的副业、我的店、能租的铺面、证照、本年账本。
 // 只拼 HTML 字符串：所有来自数据或存档的文字都经过调用方传入的 esc()；按钮用 data-biz 属性，由页面统一派发成 { t: 'biz', … } 动作。
-import { gigsAt, licenseOffers, shopActions, shopOffersAt, shopSummary } from '../core/business.ts';
+import { gigsAt, licenseOffers, openBudget, shopActions, shopOffersAt, shopSummary } from '../core/business.ts';
 import { dayOf } from '../core/time.ts';
-import { GST, SHOP_RULES } from '../data/business.ts';
+import { GST, SHOP_RULES, type ShopSiteDef, type ShopTypeDef } from '../data/business.ts';
 import type { PlayerState, Region } from '../core/types.ts';
 
 const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
@@ -10,6 +10,13 @@ const dis = (why: string | undefined, esc: (s: unknown) => string) => (why ? `di
 
 /** 进货按钮一次进多少：补到上限，最多一批 100 单 */
 export const restockLot = (stock: number, max: number) => Math.max(1, Math.min(100, max - stock));
+
+/** 开店预算提示（第十四轮）：开张后第一周还要备多少钱；钱只够开门时提醒，但不拦 */
+export function budgetNote(type: ShopTypeDef, site: ShopSiteDef, cash: number): string {
+	const b = openBudget(type, site);
+	const base = `开张后还要备：第一批货 ${money(b.stock)}、一周店租 ${money(b.rent)}（雇一个人每周再加 ${money(b.staffWeek)}），手里最好有 ${money(b.total)} 以上。`;
+	return cash >= b.cost && cash < b.total ? `${base}⚠️ 现在的钱只够开门：进不了货就卖不出东西，店租照付会欠款。` : base;
+}
 
 export function bizCard(s: PlayerState, region: Region, esc: (s: unknown) => string): string {
 	const gigs = gigsAt(s, region);
@@ -38,7 +45,7 @@ export function bizCard(s: PlayerState, region: Region, esc: (s: unknown) => str
 			${[can.restock, can.tend].some((w) => w && w.startsWith('要到')) ? `<p style="margin-top:4px" class="muted">${esc(can.restock)}。</p>` : ''}</div>`;
 	} else if (offers.length) {
 		shopHtml = `<details style="margin-top:10px"><summary class="muted">在这里开店（${new Set(offers.map((o) => o.site.id)).size} 个街区）</summary>
-			${offers.map(({ type, site, cost, blocked }) => `<div class="row" style="margin-top:8px"><span class="ico">${type.icon}</span><span class="body">${esc(site.name)} · ${esc(type.name)} · ${money(cost)}<small>${esc(blocked ?? `${site.desc} 每周租金 ${money(site.rent)}。${type.desc}`)}</small></span>
+			${offers.map(({ type, site, cost, blocked }) => `<div class="row" style="margin-top:8px"><span class="ico">${type.icon}</span><span class="body">${esc(site.name)} · ${esc(type.name)} · ${money(cost)}<small>${esc(blocked ?? `${site.desc} 每周租金 ${money(site.rent)}。${type.desc}`)}</small><small>${esc(budgetNote(type, site, s.cash))}</small></span>
 			<button data-biz="open" data-biz-shop="${esc(type.id)}" data-biz-site="${esc(site.id)}" ${dis(blocked, esc)}>开店</button></div>`).join('')}</details>`;
 	}
 	const lic = licenseOffers(s);
