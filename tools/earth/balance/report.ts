@@ -9,7 +9,10 @@ export interface PlanResult {
 	metrics: {
 		cashDay7: number; cashDay30: number; cashEnd: number; cashEndP10: number; cashEndP90: number;
 		netPerDay: number; netWorth: number; homeDay: number | null; mood: number;
-		collapses: number; evictions: number; promotions: number; promo1Day: number | null; promo2Day: number | null;
+		collapses: number; evictions: number;
+		/** evictions 拆开（第十一轮）：首个租约结算期被收房 / 之后被收房 / 断供强制卖房，每人平均 */
+		evictFirst: number; evictLater: number; forcedSales: number;
+		promotions: number; promo1Day: number | null; promo2Day: number | null;
 		brokeShare: number; events: number; coops: number;
 		/** 每人每天的现金投放 / 回收合计 */
 		ecoIn: number; ecoOut: number;

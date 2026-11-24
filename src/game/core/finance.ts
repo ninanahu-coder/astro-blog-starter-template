@@ -15,6 +15,9 @@ export const FINANCE = {
 	yieldCap: 0.04, // 设计约束：出租的期望年化净收益不超过房价的这个比例
 };
 
+/** 存档里一套房的贷款最多能是多少：房价，降过价的按以前最高的房价（旧存档按原价贷的款不抹掉） */
+export const loanCap = (def: PropertyDef) => Math.max(def.price, def.priceWas ?? 0);
+
 /** 贷款买房的首付金额 */
 export const downPayment = (def: PropertyDef) => Math.round(def.price * FINANCE.minDown);
 

@@ -81,8 +81,8 @@ test('合租房间：租下就有两位室友，房租不变；不推进随机�
 	assert.equal(a.flatshare.mates.length, FLAT_RULES.autoMates.room);
 	assert.equal(new Set(a.flatshare.mates.map((m) => m.id)).size, a.flatshare.mates.length);
 	assert.equal(a.seed, rentAt(fresh(), 'flat').seed, '室友用哈希，不额外推进 seed（和租一居室推进得一样多）');
-	assert.equal(weeklyCosts(a).rent, 160);
-	assert.equal(rentShare(a), 160);
+	assert.equal(weeklyCosts(a).rent, 120);
+	assert.equal(rentShare(a), 120);
 	const b = rentAt(fresh(), 'room');
 	assert.deepEqual(a.flatshare.mates, b.flatshare.mates);
 	// 不能挑人、不能请人走

@@ -99,7 +99,13 @@ interface Bot {
 	investDay?: number;
 	stats: {
 		collapses: number;
+		/** 收房或断供合计 = evict.first + evict.later + evict.forced */
 		evictions: number;
+		/**
+		 * 第十一轮：按状态转移拆原因，不再搜日志里的「收回 / 强制卖出」（卖家具给二手店的「收回 $X」会被误计）。
+		 * first：租约还没过第一个结算日就被收房；later：之后的周被收房（包括营地这类没有租约的住处）；forced：房贷断供被强制卖房
+		 */
+		evict: { first: number; later: number; forced: number };
 		promotions: number;
 		events: number;
 		moodSum: number;
@@ -200,7 +206,10 @@ interface Plan {
 	volunteer?: boolean;
 	/** 副业：要办的证照、依次尝试的副业（精力、饱食都不低于 45 时才做） */
 	side?: { licenses: string[]; gigs: string[] };
-	/** 开店：现金到 openAt 时在 site 开 type，雇 staff 个人，库存低于 restockBelow 就补货 */
+	/**
+	 * 开店：现金到 openAt 时在 site 开 type，雇 staff 个人，库存低于 restockBelow 就补到 restockBelow × 2（不超过库存上限），补货后留 SHOP_RESERVE 现金。
+	 * 不雇人（staff 0）的店开张后自己店优先，不再去上正式班（第十一轮：原来先上咖啡店班、空当才看店，策略名和实际行为不符）
+	 */
 	shop?: { type: string; site: string; openAt: number; staff: number; restockBelow: number };
 	/** 二手市场对照：买家具先看换手墙。pickup＝上门看货 + 砍价；prepay＝一律先转账送货、不砍价（不看红旗） */
 	swap?: 'pickup' | 'prepay';
@@ -211,6 +220,8 @@ interface Plan {
 	 * 现金低于 $300 时卖出 $500 应急。
 	 */
 	invest?: { asset: string; keep: number };
+	/** 现金超过多少才签租约（默认 $400）。第十一轮：农场工 $700，先领第一笔工资再锁首期和押金 */
+	rentAt?: number;
 }
 
 const PLANS: Plan[] = [
@@ -227,7 +238,7 @@ const PLANS: Plan[] = [
 	{ id: 'idle', name: '什么都不干（对照组）', origin: 'backpacker', traits: [] },
 	// 第 46 轮新增（只出报告，不改数值）：第 11 轮的两种新职业、第 1 轮起的共同事件。排在原有策略后面，原有各行结果不变
 	{ id: 'bartender', name: '酒保（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'bartender' }, home: 'room' },
-	{ id: 'farmhand', name: '农场工（玛格丽特河，合租）', origin: 'backpacker', traits: ['athletic', 'tough'], job: { loc: 'margaret-river', career: 'farmhand' }, home: 'room' },
+	{ id: 'farmhand', name: '农场工（玛格丽特河，合租）', origin: 'backpacker', traits: ['athletic', 'tough'], job: { loc: 'margaret-river', career: 'farmhand' }, home: 'room', rentAt: 700 },
 	// 共同事件三种搭档假设（第 10 批审查问题 1）：理想（需求全满、随叫随到）是上限，不是保守估计；另外两种看搭档状态和在场率的影响
 	{ id: 'barista-coop', name: '咖啡店 + 共同事件：理想搭档（需求全满、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 100, mateChance: 1 } },
 	{ id: 'barista-coop-tired', name: '咖啡店 + 共同事件：疲惫搭档（需求 40、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 1 } },
@@ -240,8 +251,8 @@ const PLANS: Plan[] = [
 	// 副业与小生意（side-business.md）新增：排在最后，原有各行结果不变
 	{ id: 'side-gig', name: '副业留学生：家教 + 送外卖（珀斯，合租，无正式工作）', origin: 'student', traits: ['charming', 'neat'], home: 'room', spend: false, side: { licenses: ['abn', 'wwc-wa'], gigs: ['tutor', 'delivery', 'daigou'] } },
 	{ id: 'barista-side', name: '咖啡店 + 下班家教（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, side: { licenses: ['wwc-wa'], gigs: ['tutor'] } },
-	{ id: 'shop-milktea', name: '咖啡店攒钱开奶茶店（北桥，雇 1 人）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, shop: { type: 'milk-tea', site: 'northbridge', openAt: 14_000, staff: 1, restockBelow: 150 } },
-	{ id: 'shop-repair', name: '咖啡店攒钱开手机维修铺（维多利亚公园，不雇人、自己看店）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, shop: { type: 'phone-repair', site: 'victoria-park', openAt: 7_000, staff: 0, restockBelow: 20 } },
+	{ id: 'shop-milktea', name: '咖啡店攒钱开奶茶店（北桥，雇 1 人）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, shop: { type: 'milk-tea', site: 'northbridge', openAt: 11_000, staff: 1, restockBelow: 150 } },
+	{ id: 'shop-repair', name: '咖啡店攒钱开手机维修铺（维多利亚公园，不雇人、自己看店）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', spend: false, shop: { type: 'phone-repair', site: 'victoria-park', openAt: 9_000, staff: 0, restockBelow: 20 } },
 ];
 
 // 出身对照（初始属性设计，见 docs/earth-game/initial-stats.md）：同一策略、不带特质，只换出身，看起始现金、车和能力的差别。只出报告，不改数值
@@ -355,8 +366,8 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		if (j.t <= before.clock) continue;
 		if (j.text.includes('晕倒')) b.stats.collapses++;
 		if (/你病了|中了暑气|扭伤了/.test(j.text)) b.stats.ill++;
-		if (j.text.includes('收回') || j.text.includes('强制卖出')) b.stats.evictions++;
 	}
+	countLoss(b, before, a.t === 'property' && a.op === 'sell');
 	if (b.s.job && before.job && b.s.job.career === before.job.career && b.s.job.level > before.job.level) {
 		b.stats.promotions++;
 		b.stats.promoDays.push(dayOf(b.s.clock) + 1);
@@ -509,6 +520,24 @@ function stepSafeDrifter(b: Bot) {
  * 和服务端一样，开始前对每个成员都检查 coopBlocked，有人不能参加就不做。只统计机器人自己的收益。
  * 搭档是假设出来的，结果只说明「在这个假设下」会怎样，不代表真实玩家的分布（第 10 批审查问题 1）。
  */
+/**
+ * 收房 / 断供（第十一轮）：看状态变化，不搜日志文案。租着的住处没了 = 被收房（机器人不会主动退租不搬）；
+ * 房产少了又不是自己卖的（sold）= 断供强制卖房。tryAct 和 tryCoop 都要调（两条路都会推进时间、跨周结算）
+ */
+function countLoss(b: Bot, before: PlayerState, sold: boolean): void {
+	if (before.home && !before.home.owned && !b.s.home) {
+		const lease = before.rental.lease;
+		// 租约还没过结算日（签约在上一个结算日当天或之后）：这是首个结算期被收房
+		(lease && lease.start >= before.nextWeek - 7 ? b.stats.evict.first++ : b.stats.evict.later++);
+		b.stats.evictions++;
+	}
+	const lost = before.properties.filter((p) => !b.s.properties.some((q) => q.id === p.id)).length;
+	if (lost && !sold) {
+		b.stats.evict.forced += lost;
+		b.stats.evictions += lost;
+	}
+}
+
 function tryCoop(b: Bot): boolean {
 	const s = b.s;
 	const cfg = b.plan.coop!;
@@ -529,6 +558,7 @@ function tryCoop(b: Bot): boolean {
 	if (r.success) b.stats.coopOk++;
 	b.stats.coopKinds[open.def.id] = (b.stats.coopKinds[open.def.id] ?? 0) + 1;
 	b.s = me.state;
+	countLoss(b, s, false); // 共同事件也会推进时间、跨周结算
 	trackLb(b);
 	return true;
 }
@@ -637,7 +667,7 @@ function step(b: Bot) {
 	}
 
 	// 2. 找工作、租房、去上班
-	if (plan.job) {
+	if (plan.job && !(plan.shop?.staff === 0 && s.biz.shop)) {
 		if (!s.job) {
 			if (s.loc !== plan.job.loc) {
 				if (headTo(b, plan.job.loc)) return;
@@ -648,7 +678,7 @@ function step(b: Bot) {
 			if (headTo(b, s.job.loc)) return; // 被送去外地医院等情况：先回工作地点
 		} else if (dayOf(s.clock) % 7 !== 6 && !shiftBlocked(s, WA) && tryAct(b, { t: 'job', op: 'work' })) return; // 每周休一天
 	}
-	if (plan.home && !s.home && s.cash > 400) {
+	if (plan.home && !s.home && s.cash > (plan.rentAt ?? 400)) {
 		const want = plan.job?.loc ?? WA.spawn;
 		// 租房市场（rental 批次）：先看房再递申请（固定期限）；被拒当天这套房不可申请，第二天再来
 		if (s.loc === want && homesAt(s, WA).some((o) => o.home.id === plan.home && !o.blocked)) {
@@ -774,6 +804,9 @@ function step(b: Bot) {
 	act(b, 'rest'); // 兜底：一定能做，保证时间往前走
 }
 
+/** 补货后至少留下的现金（第十一轮 300 → 1000：维修铺原来把周租现金全压进库存，结算付不起房租被收房） */
+const SHOP_RESERVE = 1000;
+
 /** 副业与小生意的一步：办证 → 开店、补货、雇人 → 副业。做了一件事返回 true */
 function stepBiz(b: Bot): boolean {
 	const s = b.s;
@@ -792,12 +825,13 @@ function stepBiz(b: Bot): boolean {
 		if (shop && s.loc === site.loc) {
 			const can = shopActions(s, WA);
 			const type = getShopType(shop.type)!;
-			if (shop.stock < shopPlan.restockBelow && !can.restock && s.cash > 300) {
-				const qty = Math.min(type.maxStock - shop.stock, Math.floor((s.cash - 300) / type.unitCost), 1000);
+			if (shop.stock < shopPlan.restockBelow && !can.restock && s.cash > SHOP_RESERVE) {
+				const target = Math.min(type.maxStock, shopPlan.restockBelow * 2); // 第十一轮：不再灌满库存，把周租现金压进去
+				const qty = Math.min(target - shop.stock, Math.floor((s.cash - SHOP_RESERVE) / type.unitCost), 1000);
 				if (qty >= 1 && tryAct(b, { t: 'biz', op: 'restock', qty })) return true;
 			}
 			if (shop.staff < shopPlan.staff && !can.hire && tryAct(b, { t: 'biz', op: 'hire' })) return true;
-			// 不雇人的店：上班之外的空当自己看店（精力够、没有正式班要上时）
+			// 不雇人的店：开张后自己店优先（第十一轮起不再上正式班），精力、饱食够就看店
 			if (shopPlan.staff === 0 && !can.tend && s.needs.energy >= 45 && s.needs.hunger >= 40 && tryAct(b, { t: 'biz', op: 'tend' })) return true;
 		}
 	}
@@ -835,7 +869,7 @@ function runBot(plan: Plan, seed: number): Bot {
 	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: WA.id, spawn: WA.spawn, seed });
 	const b: Bot = {
 		s, plan, rng: mulberry(seed * 7919),
-		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0 },
+		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0 },
 		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
@@ -885,6 +919,8 @@ const flows: string[] = [];
 const skillRows: [string, number[]][] = [];
 const gigDiagRows: string[] = [];
 const collapseDiagRows: string[] = [];
+/** 第十一轮：收房或断供的原因拆分（只列有的策略） */
+const evictRows: string[] = [];
 const coopRows: string[] = [];
 const volRows: string[] = [];
 const taxRows: string[] = [];
@@ -1004,6 +1040,10 @@ for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 		const endMed = (k: LbStatKey) => pct(bots.map((b) => b.lb.e.stats[k]), 0.5);
 		lbRows.push(`| ${plan.name} | ${money(pct(mx('worth'), 0.99))} / ${money(Math.max(...mx('worth')))} | ${pct(mx('respect'), 0.99)} / ${Math.max(...mx('respect'))} | ${pct(mx('dex'), 0.99)} / ${Math.max(...mx('dex'))} | ${(flagged.length / bots.length * 100).toFixed(0)}% | ${why} | ${money(endMed('worth'))} / ${endMed('respect')} / ${endMed('dex')}‰ |`);
 	}
+	if (ev > 0) {
+		const e = (k: 'first' | 'later' | 'forced') => avg(bots.map((b) => b.stats.evict[k])).toFixed(2);
+		evictRows.push(`| ${plan.name} | ${e('first')} | ${e('later')} | ${e('forced')} | ${ev.toFixed(2)} |`);
+	}
 	out(`| ${plan.name} | ${money(pct(at(7), 0.5))} | ${money(pct(at(30), 0.5))} | ${money(pct(at(endD), 0.5))} | ${money(pct(at(endD), 0.1))}–${money(pct(at(endD), 0.9))} | ${money(net)} | ${money(pct(bots.map((b) => netWorth(b.s)), 0.5))} | ${(() => { const d = bots.map((b) => b.stats.homeDay).filter((x): x is number => x !== undefined); return d.length > bots.length / 2 ? `第 ${pct(d, 0.5)} 天` : '—'; })()} | ${m.toFixed(0)} | ${coll.toFixed(2)} | ${ev.toFixed(2)} | ${pr.toFixed(2)} | ${promoCol} | ${(broke * 100).toFixed(0)}% |`);
 	// 结构化结果（--format=json / csv、基线、A/B 用）：和上面这一行同一批机器人、同一套口径
 	const eco = averageEco(bots.map((b) => ecoOf(b)), DAYS);
@@ -1013,7 +1053,7 @@ for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 		metrics: {
 			cashDay7: pct(at(7), 0.5), cashDay30: pct(at(30), 0.5), cashEnd: pct(at(endD), 0.5), cashEndP10: pct(at(endD), 0.1), cashEndP90: pct(at(endD), 0.9),
 			netPerDay: net, netWorth: pct(bots.map((b) => netWorth(b.s)), 0.5), homeDay: homeDays.length > bots.length / 2 ? pct(homeDays, 0.5) : null, mood: m,
-			collapses: coll, evictions: ev, promotions: pr, promo1Day: nth(0).length ? pct(nth(0), 0.5) : null, promo2Day: nth(1).length ? pct(nth(1), 0.5) : null,
+			collapses: coll, evictions: ev, evictFirst: avg(bots.map((b) => b.stats.evict.first)), evictLater: avg(bots.map((b) => b.stats.evict.later)), forcedSales: avg(bots.map((b) => b.stats.evict.forced)), promotions: pr, promo1Day: nth(0).length ? pct(nth(0), 0.5) : null, promo2Day: nth(1).length ? pct(nth(1), 0.5) : null,
 			brokeShare: broke, events: avg(bots.map((b) => b.stats.events)), coops: avg(bots.map((b) => b.stats.coops)),
 			ecoIn: Object.values(eco.in).reduce((x, y) => x + y, 0), ecoOut: Object.values(eco.out).reduce((x, y) => x + y, 0),
 		},
@@ -1053,6 +1093,16 @@ out();
 out('| 策略 | 晕倒前健康 / 饱食 / 精力（中位） | 回算的见底原因（次/人） | 出行途中晕倒/人 | 常见触发动作（次/人） |');
 out('| --- | --- | --- | --- | --- |');
 for (const row of collapseDiagRows) out(row);
+out();
+out('## 收房或断供的原因');
+out();
+out('按状态变化计（第十一轮起）：租着的住处没了算收房，房产少了又不是自己卖的算断供强制卖房。首个结算期 = 租约还没过第一个结算日。');
+out();
+if (evictRows.length) {
+	out('| 策略 | 首个结算期被收房/人 | 之后被收房/人 | 断供强制卖房/人 | 合计/人 |');
+	out('| --- | --- | --- | --- | --- |');
+	for (const row of evictRows) out(row);
+} else out('所有策略都没有被收房或断供。');
 out();
 out('## 健康与看病（健康系统第 1 版）');
 out();

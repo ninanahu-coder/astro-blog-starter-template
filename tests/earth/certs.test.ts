@@ -97,13 +97,13 @@ test('考证途中晕倒：按没报名结算——不发证、不收学费，�
 });
 
 test('考证途中跨周结算、交完房租钱不够交学费：按先交学费再上课重算，付不起的房租照常收房', () => {
-	// 合租 $160/周，手上 $250：先交房租剩 $90，不够 $120 学费
-	const s = make({ loc: 'fremantle', clock: at(14, 6), nextWeek: 6, cash: 250, vehicle: 'none', home: { type: 'room', loc: 'fremantle', furniture: {} } });
+	// 合租 $120/周（第十一轮），手上 $200：先交房租剩 $80，不够 $120 学费
+	const s = make({ loc: 'fremantle', clock: at(14, 6), nextWeek: 6, cash: 200, vehicle: 'none', home: { type: 'room', loc: 'fremantle', furniture: {} } });
 	const r = takeCert(s, WA, 'rsa');
 	assert.ok(r.ok && !r.collapsed, r.msg);
 	assert.deepEqual(r.state.certs, ['rsa']);
-	assert.equal(r.state.home, null, '先交了学费，剩 $130 付不起房租');
-	assert.equal(r.state.cash, 130);
+	assert.equal(r.state.home, null, '先交了学费，剩 $80 付不起房租');
+	assert.equal(r.state.cash, 80);
 });
 
 test('证书走动作协议，存档校验去掉不认识的证书', () => {

@@ -121,21 +121,21 @@ test('走动作协议；存档校验去掉不认识的鱼和非法条数', () =>
 });
 
 test('跨周结算前先给鱼款：鱼款够补上刚到期的房租就不会被收房（Codex 第 4 批审查）', () => {
-	// 半夜前开钓，90 分钟后跨进新一周；现金差几块才够房租 $160
+	// 半夜前开钓，90 分钟后跨进新一周；现金差几块才够房租 $120（第十一轮）
 	let caughtOnce = false;
 	for (let seed = 1; seed < 60 && !caughtOnce; seed++) {
 		const d = calmDay('fremantle', 5);
 		const s = make({ loc: 'fremantle', clock: at(23, d), nextWeek: d + 1, home: { type: 'room', loc: 'fremantle', furniture: {} } }, seed);
 		if (fishingAt(s, WA)?.blocked) continue;
-		const r = goFishing({ ...s, cash: 159 }, WA);
+		const r = goFishing({ ...s, cash: 119 }, WA);
 		assert.ok(r.ok && !r.collapsed, r.msg);
 		assert.equal(r.state.nextWeek, d + 8, '已经跨周结算');
 		if (!/钓到/.test(r.msg)) {
-			assert.equal(r.state.home, null, '空手而归，$159 付不起房租');
+			assert.equal(r.state.home, null, '空手而归，$119 付不起房租');
 			continue;
 		}
 		caughtOnce = true;
-		assert.ok(r.state.home, `$159 + 鱼款 ≥ 房租 $160，不该被收房：${r.msg}`);
+		assert.ok(r.state.home, `$119 + 鱼款 ≥ 房租 $120，不该被收房：${r.msg}`);
 	}
 	assert.ok(caughtOnce, '至少要有一次钓到鱼');
 });

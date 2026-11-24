@@ -246,10 +246,20 @@ test('雇人开门：按客流卖货，扣工资养老金工伤保险，账记�
 	assert.equal(checked, 3);
 	s = restockShop(s, R, 300).state;
 	const d1 = settleShopDay(s, shopOf(s).last + 1);
-	assert.ok(d1.sold > 0 && d1.sold <= 60 * shopOf(s).staff, `一个店员一天最多接待 60 单，卖了 ${d1.sold}`);
-	assert.ok(d1.customers > d1.sold || !!d1.event, '北桥奶茶店客流超过一个人手');
-	assert.equal(d1.revenue, d1.sold * 7);
+	const tea = SHOP_TYPES.find((x) => x.id === 'milk-tea')!;
+	assert.ok(d1.sold > 0 && d1.sold <= tea.perHand * shopOf(s).staff, `一个店员一天最多接待 ${tea.perHand} 单，卖了 ${d1.sold}`);
+	assert.equal(d1.revenue, d1.sold * tea.price);
 	assert.equal(shopOf(s).hist.at(-1)!.sold, d1.sold);
+	// 人手上限真的会卡住：往后找一个没有经营事件、来客超过一个人手的日子（周末北桥），正好卖满一个人手
+	let capped = false;
+	for (let k = 2; k < 30 && !capped; k++) {
+		const t = structuredClone(s);
+		const d = settleShopDay(t, shopOf(s).last + k);
+		if (d.event || d.customers <= tea.perHand) continue;
+		capped = true;
+		assert.equal(d.sold, tea.perHand, `来客 ${d.customers} 超过一个人手，只卖得出 ${tea.perHand}`);
+	}
+	assert.ok(capped, '30 天里应有来客超过一个人手的日子');
 	assert.equal(hireStaff(hireStaff(s, R, 'hire').state, R, 'hire').ok, false, `最多 ${SHOP_RULES.maxStaff} 人`);
 });
 

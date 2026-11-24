@@ -115,7 +115,8 @@ export interface ShopTypeDef {
 }
 
 export const SHOP_TYPES: ShopTypeDef[] = [
-	{ id: 'milk-tea', name: '奶茶店', icon: '🧋', desc: '珍珠奶茶和水果茶，周末排长队。', fitout: 9000, price: 7, unitCost: 2, customers: 70, perHand: 60, maxStock: 600, food: true },
+	// 奶茶店平衡第十一轮：装修 9000 → 6000、单价 7 → 8、每人每天 60 → 80 杯；原来满负荷一天的毛利 $300 还低于每天固定开销约 $311，越开越亏（balance.md 第十一轮）
+	{ id: 'milk-tea', name: '奶茶店', icon: '🧋', desc: '珍珠奶茶和水果茶，周末排长队。', fitout: 6000, price: 8, unitCost: 2, customers: 70, perHand: 80, maxStock: 600, food: true },
 	{ id: 'grocery', name: '亚洲杂货店', icon: '🛒', desc: '方便面、调料、零食和冷冻饺子。', fitout: 6000, price: 25, unitCost: 17, customers: 32, perHand: 40, maxStock: 300, food: true },
 	{ id: 'phone-repair', name: '手机维修铺', icon: '📱', desc: '换屏、换电池、贴膜。', fitout: 4000, price: 85, unitCost: 35, customers: 7, perHand: 8, maxStock: 60, food: false },
 ];

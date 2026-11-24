@@ -137,7 +137,7 @@ test('申请：通过的比例跟成功率一致（种子决定，不是固定�
 	const worker = rate({ job: { career: 'barista', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } as PlayerState['job'] });
 	assert.ok(jobless < worker, `没工作 ${jobless} < 有工作 ${worker}`);
 	const n = applicantsFor(41, 'wa', 'perth', 'room', 0);
-	const expect = applyOdds({ rent: 160, income: 0, cash: 2000 - 0, refs: 0, marks: 0, applicants: n });
+	const expect = applyOdds({ rent: 120, income: 0, cash: 2000 - 0, refs: 0, marks: 0, applicants: n });
 	assert.ok(Math.abs(jobless - expect) < 0.08, `没工作的通过率 ${jobless} 接近 ${expect}`);
 });
 
@@ -146,7 +146,7 @@ test('签约：周期租约没有到期日；房租按租约扣（涨租后不�
 	const s = housed();
 	const l = s.rental.lease!;
 	assert.equal(l.end, 0);
-	assert.equal(l.rent, 160);
+	assert.equal(l.rent, 120);
 	assert.equal(l.report, 0);
 	assert.ok(l.prior >= 0 && l.prior <= RENTAL.priorMax);
 	const raised = structuredClone(s);
@@ -234,7 +234,7 @@ test('固定期到期自动转周期；续约只能在最后 14 天或周期租�
 	const r = leaseAction(late, WA, 'renew');
 	assert.ok(r.ok, r.msg);
 	assert.equal(r.state.rental.lease!.end, RENTAL.fixedDays * 2);
-	assert.equal(r.state.rental.lease!.rent, 160, '续约不涨租');
+	assert.equal(r.state.rental.lease!.rent, 120, '续约不涨租');
 	const t = make();
 	t.rental.lease = startLease(1, home('room'), 'perth', 0, 'fixed');
 	assert.match(rentalTick(t, RENTAL.fixedDays).join(''), /转为周期/);
@@ -244,12 +244,12 @@ test('固定期到期自动转周期；续约只能在最后 14 天或周期租�
 	const year = make();
 	year.rental.lease = { ...startLease(1, home('room'), 'perth', 0, 'fixed'), end: 120 };
 	const l2 = year.rental.lease;
-	assert.equal(renew(l2, 110), Math.round(160 * (1 + RENTAL.risePct)));
-	assert.deepEqual(l2.rise, { at: 120, to: 168 });
+	assert.equal(renew(l2, 110), Math.round(120 * (1 + RENTAL.risePct)));
+	assert.deepEqual(l2.rise, { at: 120, to: 126 });
 	assert.equal(l2.end, 120 + RENTAL.fixedDays);
-	assert.match(rentalTick(year, 120).join(''), /\$160 → \$168/);
+	assert.match(rentalTick(year, 120).join(''), /\$120 → \$126/);
 	const early = { ...startLease(1, home('room'), 'perth', 0, 'fixed'), end: 100 };
-	assert.equal(renew(early, 90), 160);
+	assert.equal(renew(early, 90), 120);
 	assert.equal(early.rise, null);
 });
 
@@ -318,16 +318,16 @@ test('退房：没争议的押金马上退，扣款留在托管机构；交过�
 	const reported = leaseAction(s, WA, 'report').state;
 	const left = leaveHome(reported);
 	assert.ok(left.ok);
-	assert.equal(left.state.cash, reported.cash + 320 - 96);
-	assert.deepEqual(left.state.rental.claim, { amount: 96, prior: 64, day: 0 });
+	assert.equal(left.state.cash, reported.cash + 240 - 72);
+	assert.deepEqual(left.state.rental.claim, { amount: 72, prior: 48, day: 0 });
 	assert.equal(left.state.rental.lease, null);
-	assert.match(left.msg, /押金退回 \$224.*扣 \$96/);
+	assert.match(left.msg, /押金退回 \$168.*扣 \$72/);
 	const won = settleBondClaim(left.state, WA, true);
 	assert.ok(won.ok, won.msg);
-	assert.equal(won.state.cash, left.state.cash + 64);
+	assert.equal(won.state.cash, left.state.cash + 48);
 	assert.equal(won.state.rental.claim, null);
 	assert.equal(won.state.clock, left.state.clock + RENTAL.disputeMin);
-	assert.match(won.msg, /退回 \$64.*\$32 归房东/);
+	assert.match(won.msg, /退回 \$48.*\$24 归房东/);
 	const ok = settleBondClaim(left.state, WA, false);
 	assert.equal(ok.state.cash, left.state.cash, '接受：扣款归房东');
 	assert.equal(ok.state.clock, left.state.clock, '接受不花时间');
@@ -346,11 +346,11 @@ test('再次搬走时，旧的扣款按接受处理；扣款不算进可用来�
 	const again = structuredClone(rentHome(first, WA, 'room').state);
 	again.rental.lease!.prior = 10;
 	const r = leaveHome(again);
-	assert.match(r.msg, /上一笔 \$64 押金扣款没处理，按接受算/);
-	assert.equal(r.state.rental.claim!.amount, 32);
+	assert.match(r.msg, /上一笔 \$48 押金扣款没处理，按接受算/);
+	assert.equal(r.state.rental.claim!.amount, 24);
 	// 换房时房东要扣的部分不能当首付用
 	const h = housed({}, 'room', 'periodic', 50);
-	assert.equal(moveInCost(h, home('flat')), Math.round((320 * 7) / 7) + 640 - (320 - 160));
+	assert.equal(moveInCost(h, home('flat')), Math.round((320 * 7) / 7) + 640 - (240 - 120));
 });
 
 test('退租记录：住满 14 天干净退房记一条推荐人；被收房记一条坏记录', () => {
@@ -385,7 +385,7 @@ test('固定期内提前走：违约金 2 周房租先从押金扣，不够从�
 	after.rental = structuredClone(s.rental);
 	rentalTick(after, RENTAL.fixedDays + 1);
 	assert.equal(leaveHome(after).state.cash, after.cash + 640, '到期转周期后退租不收违约金');
-	assert.equal(moveInCost(s, home('room')), 160 + 320 - 0 + 0, '换房时违约金吃掉旧押金');
+	assert.equal(moveInCost(s, home('room')), 120 + 240 - 0 + 0, '换房时违约金吃掉旧押金');
 	const owned = moveIntoProperty(buyProperty({ ...s, cash: 200000 }, WA, 'perth-apartment', false).state, 'perth-apartment');
 	assert.match(owned.msg, /违约金 \$640/, '搬进自有房也算提前解约');
 });
@@ -438,14 +438,14 @@ test('存档清洗：旧存档没有 rental 给默认；在租房的补周期租
 	const s = housed();
 	const legacy = sanitizeState({ ...s, rental: undefined, clock: at(9, 30) }, locs)!;
 	// 合并 main 后：补的租约按当天的租金指数定价（世界事件）
-	assert.deepEqual(legacy.rental.lease, { home: 'room', loc: 'perth', start: 30, end: 0, rent: rentOn(160, 30), lastRise: 30, rise: null, report: 1, prior: 0, wear: 0, fault: null });
+	assert.deepEqual(legacy.rental.lease, { home: 'room', loc: 'perth', start: 30, end: 0, rent: rentOn(120, 30), lastRise: 30, rise: null, report: 1, prior: 0, wear: 0, fault: null });
 	assert.deepEqual(sanitizeState(legacy, locs), legacy, '幂等');
 	const evil = {
 		lease: { home: 'room', loc: 'perth', start: -5, end: 1e9, rent: 1e9, lastRise: 'x', rise: { at: 1e9, to: 1 }, report: 7, prior: 500, wear: -1, fault: { urgent: 'yes', name: '<script>', since: 0, asked: 0 } },
 		refs: 99, marks: -3, viewed: { loc: 'atlantis', home: 'room', day: 0, n: 99 }, rejected: { loc: 'perth', home: 'room', day: -1 }, claim: { amount: 1e12, prior: 1e12, day: 1e9 }, scam: 1e9,
 	};
 	const c = sanitizeState({ ...s, rental: evil }, locs)!;
-	assert.deepEqual(c.rental.lease, { home: 'room', loc: 'perth', start: 0, end: RENTAL.fixedDays + RENTAL.renewWindow, rent: 480, lastRise: 0, rise: null, report: 1, prior: 100, wear: 0, fault: null }, '到期日钳到续约能达到的最远；涨租不涨的通知作废');
+	assert.deepEqual(c.rental.lease, { home: 'room', loc: 'perth', start: 0, end: RENTAL.fixedDays + RENTAL.renewWindow, rent: 360, lastRise: 0, rise: null, report: 1, prior: 100, wear: 0, fault: null }, '到期日钳到续约能达到的最远；涨租不涨的通知作废');
 	assert.equal(c.rental.refs, RENTAL.recordMax);
 	assert.equal(c.rental.marks, 0);
 	assert.equal(c.rental.viewed, null, '不认识的地点');
@@ -491,7 +491,7 @@ test('一路走完：看房 → 申请 → 交报告 → 坏东西报修 → 涨
 	}
 	assert.ok(s.home, '没被收房');
 	assert.ok(dayOf(s.clock) - start >= 150);
-	assert.ok(notices > 0 && s.rental.lease!.rent > 160, '周期租约住过一年会涨租');
+	assert.ok(notices > 0 && s.rental.lease!.rent > 120, '周期租约住过一年会涨租');
 	assert.ok(s.journal.length > 0);
 	const left = applyAction(s, WA, { t: 'home', op: 'leave' }).state;
 	assert.equal(left.rental.refs, 1);
