@@ -117,9 +117,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 	// 让「下一步」有明确的建议：服务端存档的饱食改低
 	const rec = data.get('save:' + cred.id) as any;
 	rec.state.needs.hunger = 15;
-	// 租着合租房间、现金只有 $120、明天周结算：今天页应该出预警
+	// 租着合租房间、现金只有 $80、明天周结算：今天页应该出预警
 	rec.state.home = { type: 'room', loc: rec.state.loc, furniture: {} };
-	rec.state.cash = 120;
+	rec.state.cash = 80; // 第十一轮合租 $120：要比一周房租少
 	rec.state.nextWeek = Math.floor(rec.state.clock / 1440) + 1;
 	// 宠物（v31）：名字是玩家输入，存档里故意带 HTML，页面必须转义。寄养着：后面要坐船上罗特内斯特岛，带着宠物上不了岛
 	rec.state.pet = { kind: 'budgie', name: '<i>啾</i>', from: 'shelter', since: 0, bond: 40, fedDay: 0, playDay: -1, walkDay: -1, vetDay: 0, board: { loc: rec.state.loc, until: Math.floor(rec.state.clock / 1440) + 14 } };
@@ -205,8 +205,8 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		// 开局时页面先画本机缓存，再去服务端拉存档（上面把饱食、现金改了）：等本机缓存换成服务端那份再往下测（最多 2 秒）。
 		// 原来固定只等 50 毫秒，机器忙时偶尔还没拉到就断言，周结算预警那条会时好时坏（第 15 批 20 次重复测试里抓到）
 		const pulled = () => (JSON.parse(store.get('earth.save.v1') ?? 'null') as { cash?: number; needs?: { hunger?: number } } | null);
-		for (let i = 0; i < 100 && !(pulled()?.cash === 120 && pulled()?.needs?.hunger === 15); i++) await pause(20);
-		assert.equal(pulled()?.cash, 120, '开局没有拉到服务端存档');
+		for (let i = 0; i < 100 && !(pulled()?.cash === 80 && pulled()?.needs?.hunger === 15); i++) await pause(20);
+		assert.equal(pulled()?.cash, 80, '开局没有拉到服务端存档');
 		await idle();
 		// 旧角色：弹一次上榜提示，背后页面不可点；选「匿名上榜」后关掉并记到服务端
 		for (let i = 0; i < 100 && !el('modal').innerHTML.includes('lbask-title'); i++) await pause(20);
@@ -241,7 +241,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		// 顶栏（草图样式）：时间小字 + 地点大标题 + 天气；一排现金、等级、心情
 		assert.match(el('hud').innerHTML, /<h1>[^<]+<\/h1>/, '今天页顶栏用地点做大标题');
 		assert.match(el('hud').innerHTML, /class="wx-pill/, '顶栏有天气');
-		assert.match(el('hud').innerHTML, /class="chip cash">\$120</, '顶栏有现金');
+		assert.match(el('hud').innerHTML, /class="chip cash">\$80</, '顶栏有现金');
 		// 今天页：下一步在最上面，然后是状态卡，最低的一项标「最缺」
 		// 主界面定稿（第 15 批）：需求环 → 下一步 → 心愿 → 快捷动作
 		assert.ok(panel().indexOf('<h3>状态</h3>') >= 0 && panel().indexOf('<h3>状态</h3>') < panel().indexOf('class="next"'), '需求环排在下一步前面');
@@ -259,9 +259,9 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		await click({ drawerClose: '' });
 		// 左上人物名牌：等级环，点了去成长页；右上现金和天气
 		assert.match(el('hud').innerHTML, /<button class="lv-plate" data-tab="grow" aria-label="Lv1 新来的，升级进度 \d+%，去成长页">/);
-		assert.match(el('hud').innerHTML, /<div class="scene-right"><span class="chip cash">\$120<\/span>/);
+		assert.match(el('hud').innerHTML, /<div class="scene-right"><span class="chip cash">\$80<\/span>/);
 		assert.match(panel(), /最缺/);
-		assert.match(panel(), /要付 \$160（房租 \$160），现在只有 \$120，还差 \$40/);
+		assert.match(panel(), /要付 \$120（房租 \$120），现在只有 \$80，还差 \$40/);
 		// 「下一步」：饱食最低 → 吃饭
 		const next = panel().match(/<div class="next">[\s\S]*?<\/div>/)?.[0] ?? '';
 		assert.match(next, /肚子有点饿了/);
@@ -401,7 +401,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		assert.doesNotMatch(panel(), /出发去布鲁姆/);
 		await click({ loc: 'fremantle' });
 		assert.match(panel(), /class="tile on" data-dmode="[a-z]+" data-dest="fremantle" aria-pressed="true"/);
-		assert.match(panel(), /路费后剩 \$\d+，1 天后周结算要付 \$160，会不够/);
+		assert.match(panel(), /路费后剩 \$\d+，1 天后周结算要付 \$120，会不够/);
 		assert.match(panel(), /data-go="fremantle" data-mode="[a-z]+">出发去弗里曼特尔/);
 		// 第 32 批：珀斯—弗里曼特尔多了 Transperth 火车，默认选最便宜的火车，长途巴士是另一个能点的方块（换走法在最后用卡尔古利测）
 		assert.match(panel(), /class="tile on" data-dmode="transit" data-dest="fremantle"/);
@@ -550,7 +550,7 @@ test('界面：五个标签、子栏、下一步、事件弹窗和转义', async
 		winListeners.online?.({});
 		await pause(60);
 		// 出行到罗特尼斯岛（先到弗里曼特尔坐渡轮）：第一次抵达有事件，弹窗打开时锁住背后
-		// 开头为了测周结算预警把现金设成 $120：弗里曼特尔抽到的事件不固定，有的选项要花钱，剩下的不够坐渡轮去罗特尼斯岛。出发前补足
+		// 开头为了测周结算预警把现金设成 $80：弗里曼特尔抽到的事件不固定，有的选项要花钱，剩下的不够坐渡轮去罗特尼斯岛。出发前补足
 		const rich = data.get('save:' + cred.id) as any;
 		rich.state.cash = 2000;
 		rich.state.rev += 1;

@@ -23,7 +23,7 @@ import { WISHES } from '../data/wishes.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { MIND } from '../data/mind.ts';
 import { VENUE_OPS } from '../data/venues.ts';
-import { FINANCE } from './finance.ts';
+import { FINANCE, loanCap } from './finance.ts';
 import { cleanBank, emptyBank } from './credit.ts';
 import { realDayOf } from './daily.ts';
 import { SLEEP } from '../data/sleep.ts';
@@ -725,7 +725,7 @@ function cleanEstate(r: any, knownLocs?: Set<string>): { properties: OwnedProper
 			if (!raw) continue;
 			properties.push({
 				id: def.id,
-				loan: Math.round(num(raw.loan, 0, def.price, 0)),
+				loan: Math.round(num(raw.loan, 0, loanCap(def), 0)),
 				rented: raw.rented === true,
 				missed: Math.floor(num(raw.missed, 0, FINANCE.graceWeeks, 0)),
 				...(raw.rented === true && raw.fresh === true ? { fresh: true } : {}),
@@ -755,8 +755,8 @@ function cleanHome(raw: any, knownLocs?: Set<string>): Home | null {
 	if (raw.furniture && typeof raw.furniture === 'object') {
 		for (const f of FURNITURE) if (raw.furniture[f.slot] === f.id) furniture[f.slot] = f.id;
 	}
-	// 押金（第 26 批）：不超过这种房型该交的押金；旧存档没有，按 0 算（当初没交过，也不退）
-	const bond = Math.floor(num(raw.bond, 0, Math.round(def.rentWeek * (def.bondWeeks ?? BOND_WEEKS)), 0));
+	// 押金（第 26 批）：不超过这种房型该交的押金（降过租的按以前最高的周租，旧存档交的押金不砍）；旧存档没有，按 0 算（当初没交过，也不退）
+	const bond = Math.floor(num(raw.bond, 0, Math.round(Math.max(def.rentWeek, def.rentWas ?? 0) * (def.bondWeeks ?? BOND_WEEKS)), 0));
 	return { type: def.id, loc: raw.loc, furniture, ...(bond ? { bond } : {}) };
 }
 

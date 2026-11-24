@@ -104,7 +104,7 @@ test('卖车、折抵、净资产都按现在的里程算', () => {
 
 // ---------- 租房押金 ----------
 test('押金：周租 × BOND_WEEKS，房车营地免押金', () => {
-	assert.equal(bondFor(home('room')), 160 * BOND_WEEKS);
+	assert.equal(bondFor(home('room')), 120 * BOND_WEEKS);
 	assert.equal(bondFor(home('campground')), 0);
 	for (const h of HOMES) assert.ok(bondFor(h) <= h.rentWeek * 4, `${h.id} 不超过真实上限 4 周`);
 });
@@ -113,32 +113,32 @@ test('租房先付首期 + 押金；押金搬走全退、算进净资产', () =>
 	const s = make({ cash: 1000, clock: at(9) });
 	const r = rentHome(s, WA, 'room');
 	assert.ok(r.ok);
-	assert.equal(r.state.home!.bond, 320);
-	assert.equal(r.state.cash, 1000 - 160 - 320);
-	assert.match(r.msg, /押金 \$320/);
-	assert.equal(netWorth(r.state), r.state.cash + 320, '押金是自己的钱');
+	assert.equal(r.state.home!.bond, 240);
+	assert.equal(r.state.cash, 1000 - 120 - 240);
+	assert.match(r.msg, /押金 \$240/);
+	assert.equal(netWorth(r.state), r.state.cash + 240, '押金是自己的钱');
 	const left = leaveHome(r.state);
-	assert.equal(left.state.cash, r.state.cash + 320);
-	assert.match(left.msg, /押金退回 \$320/);
+	assert.equal(left.state.cash, r.state.cash + 240);
+	assert.match(left.msg, /押金退回 \$240/);
 	assert.equal(s.home, null, '入参没被改');
 });
 
 test('钱够首期不够押金：租不了；换房时旧押金先退回再算', () => {
 	const poor = make({ cash: 300, clock: at(9) });
 	const room = homesAt(poor, WA).find((o) => o.home.id === 'room')!;
-	assert.match(room.blocked!, /押金 \$320/);
+	assert.match(room.blocked!, /押金 \$240/);
 	assert.equal(rentHome(poor, WA, 'room').ok, false);
-	// 已经住合租（押金 $320），手头 $300：换一居室要首期 320 + 押金 640 − 退回 320 = 640，仍不够
-	const housed = rentHome(make({ cash: 780, clock: at(9) }), WA, 'room').state;
+	// 已经住合租（押金 $240），手头 $300：换一居室要首期 320 + 押金 640 − 退回 240 = 720，仍不够
+	const housed = rentHome(make({ cash: 660, clock: at(9) }), WA, 'room').state;
 	assert.equal(housed.cash, 300);
-	assert.equal(moveInCost(housed, home('flat')), 320 + 640 - 320);
+	assert.equal(moveInCost(housed, home('flat')), 320 + 640 - 240);
 	assert.ok(homesAt(housed, WA).find((o) => o.home.id === 'flat')!.blocked);
-	const richer = { ...housed, cash: 640 };
+	const richer = { ...housed, cash: 720 };
 	const moved = rentHome(richer, WA, 'flat');
 	assert.ok(moved.ok, moved.msg);
 	assert.equal(moved.state.cash, 0, '旧押金退回后正好付清');
 	assert.equal(moved.state.home!.bond, 640);
-	assert.match(moved.msg, /旧住处押金退回 \$320/);
+	assert.match(moved.msg, /旧住处押金退回 \$240/);
 });
 
 test('付不起房租被收房：押金先抵一周房租，剩下的退回', () => {
@@ -155,16 +155,16 @@ test('搬进自己的房子：租房押金退回；自有房没有押金', () =>
 	const before = s.cash;
 	const r = moveIntoProperty(s, 'perth-apartment');
 	assert.ok(r.ok);
-	assert.equal(r.state.cash, before + 320);
+	assert.equal(r.state.cash, before + 240);
 	assert.equal(r.state.home!.bond, undefined);
-	assert.match(r.msg, /押金退回 \$320/);
+	assert.match(r.msg, /押金退回 \$240/);
 });
 
 test('存档清洗：押金钳到这种房型的上限，自有房去掉押金，旧存档按 0', () => {
 	const base = rentHome(make({ cash: 1000, clock: at(9) }), WA, 'room').state;
 	const clean = (h: unknown, extra: object = {}) => sanitizeState({ ...base, ...extra, home: h }, locs)!.home;
-	assert.equal(clean({ ...base.home, bond: 320 })!.bond, 320);
-	assert.equal(clean({ ...base.home, bond: 99999 })!.bond, 320, '不超过 2 周房租');
+	assert.equal(clean({ ...base.home, bond: 240 })!.bond, 240);
+	assert.equal(clean({ ...base.home, bond: 99999 })!.bond, 320, '不超过 2 周房租（降过租的按以前最高的 $160 算，旧存档的押金不砍）');
 	assert.equal(clean({ ...base.home, bond: -5 })!.bond, undefined);
 	assert.equal(clean({ ...base.home, bond: 'x' })!.bond, undefined);
 	assert.equal(clean({ type: 'room', loc: 'perth', furniture: {} })!.bond, undefined, '旧存档没有押金');

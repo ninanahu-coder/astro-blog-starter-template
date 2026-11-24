@@ -60,7 +60,8 @@ export const CAREERS: CareerDef[] = [
 		],
 	},
 	{
-		id: 'farmhand', name: '农场', where: { kinds: ['outback'], tags: ['wine'] }, start: [5, 7], minutes: 480, skill: 'stamina',
+		// 上班窗口平衡第十一轮 [5, 7] → [5, 10]：首周能赶上的班次太少，首次升职第 23 天、首周被收房（balance.md 第十一轮）
+		id: 'farmhand', name: '农场', where: { kinds: ['outback'], tags: ['wine'] }, start: [5, 10], minutes: 480, skill: 'stamina',
 		shift: { needs: { energy: -40, hygiene: -30, fun: -10 }, skills: { stamina: 1.5, strength: 1, survival: 0.5 } },
 		levels: [
 			{ title: '摘果工', pay: 200 },

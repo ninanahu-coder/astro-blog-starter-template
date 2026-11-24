@@ -189,6 +189,7 @@ export interface HomeDef {
 	desc: string;
 	vehicleSleep?: boolean; // 人睡在自己车里（房车营地）：要有能睡人的车才能租、才能回去睡
 	bondWeeks?: number; // 押金是几周房租；不写用 data/housing.ts 的 BOND_WEEKS
+	rentWas?: number; // 降过租的房型写以前最高的周租：存档清洗给押金封顶时按它，旧存档按原价交的押金不会被砍（第十一轮合租 160 → 120）
 }
 
 export interface Home {
@@ -254,6 +255,8 @@ export interface PropertyDef {
 	weekly: number; // 每周物业费与地税
 	rentIncome: number; // 出租的周租金
 	desc: string;
+	/** 降过价的房子写以前最高的房价：存档清洗、欠款计息给贷款封顶时按它，旧存档按原价贷的款不会被抹掉（第十一轮 9 万 → 7 万） */
+	priceWas?: number;
 }
 
 export interface OwnedProperty {

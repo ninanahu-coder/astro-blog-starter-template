@@ -162,31 +162,31 @@ test('家具数据自洽', () => {
 
 test('租房首期按到结算日的天数折算', () => {
 	const room = HOMES.find((h) => h.id === 'room')!;
-	assert.equal(firstRent(make({ clock: at(9) }), room), 160, '第 1 天租：整周');
-	assert.equal(firstRent(make({ clock: at(9, 5) }), room), Math.round((160 * 2) / 7), '第 6 天租：只付 2 天');
+	assert.equal(firstRent(make({ clock: at(9) }), room), 120, '第 1 天租：整周');
+	assert.equal(firstRent(make({ clock: at(9, 5) }), room), Math.round((120 * 2) / 7), '第 6 天租：只付 2 天');
 	const r = rentHome(make({ cash: 1000, clock: at(9, 5) }), WA, 'room');
-	assert.equal(r.state.cash, 1000 - 46 - 160 - 320, '首期只付 2 天，预收下周房租一整周（第十轮），押金照收 2 周（第 26 批）');
-	assert.equal(r.state.rental.lease!.paidAhead, 160);
+	assert.equal(r.state.cash, 1000 - 34 - 120 - 240, '首期只付 2 天，预收下周房租一整周（第十轮），押金照收 2 周（第 26 批）');
+	assert.equal(r.state.rental.lease!.paidAhead, 120);
 	const day0 = rentHome(make({ cash: 1000, clock: at(9) }), WA, 'room');
-	assert.equal(day0.state.cash, 1000 - 160 - 320, '结算日（开局第 0 天）签约：首期已是整周，不预收');
+	assert.equal(day0.state.cash, 1000 - 120 - 240, '结算日（开局第 0 天）签约：首期已是整周，不预收');
 	assert.equal(day0.state.rental.lease!.paidAhead, undefined);
 });
 
 test('预收的下周房租：每周开销、压力、旅行预估按实际要扣的算；存档清洗幂等（第十轮审查补）', async () => {
 	const { pressureSources } = await import('../../src/game/core/mind.ts');
 	const { awayPreview } = await import('../../src/game/core/trips.ts');
-	const s = rentHome(make({ cash: 46 + 160 + 320, clock: at(9, 5) }), WA, 'room').state;
+	const s = rentHome(make({ cash: 34 + 120 + 240, clock: at(9, 5) }), WA, 'room').state;
 	assert.equal(s.cash, 0);
 	const wc = weeklyCosts(s);
 	assert.equal(wc.rent, 0, '下一次结算的房租已预收');
-	assert.equal(wc.ahead, 160);
+	assert.equal(wc.ahead, 120);
 	assert.ok(!pressureSources(s).some((p) => p.id === 'rent'), '不报交租压力');
 	const one = awayPreview(s, 3, 0);
 	assert.equal(one.settlements, 1);
 	assert.equal(one.weeklyDue, 0, '只经过第一次结算：全被预收抵掉');
 	const two = awayPreview(s, 9, 0);
 	assert.equal(two.settlements, 2);
-	assert.equal(two.weeklyDue, 160, '第二次结算起按整周');
+	assert.equal(two.weeklyDue, 120, '第二次结算起按整周');
 	// 存档清洗幂等：结算日字段异常时，判断预收用的是钳过的结算日
 	const raw = JSON.parse(JSON.stringify(s));
 	raw.clock = at(9, 30);
@@ -202,20 +202,20 @@ test('预收的下周房租：每周开销、压力、旅行预估按实际要�
 test('预收的下周房租：第一个结算日抵扣、存档保留、提前搬走退回、计入净资产（第十轮平衡）', () => {
 	const r = rentHome(make({ cash: 1000, clock: at(9, 5) }), WA, 'room');
 	const s = r.state;
-	assert.equal(netWorth(s), s.cash + s.home!.bond! + 160 + furnitureValue(s), '预收的房租算在净资产里');
+	assert.equal(netWorth(s), s.cash + s.home!.bond! + 120 + furnitureValue(s), '预收的房租算在净资产里');
 	const saved = sanitizeState(JSON.parse(JSON.stringify(s)));
-	assert.equal(saved!.rental.lease!.paidAhead, 160, '存档清洗保留预收');
+	assert.equal(saved!.rental.lease!.paidAhead, 120, '存档清洗保留预收');
 	const gone = leaveHome(s);
 	assert.ok(gone.ok, gone.msg);
-	assert.equal(gone.state.cash, s.cash + s.home!.bond! + 160, '结算日前搬走：押金和预收的房租都退回');
-	assert.match(gone.msg, /预收的下周房租退回 \$160/);
+	assert.equal(gone.state.cash, s.cash + s.home!.bond! + 120, '结算日前搬走：押金和预收的房租都退回');
+	assert.match(gone.msg, /预收的下周房租退回 \$120/);
 	const t = structuredClone(s);
 	t.cash = 0; // 身上没钱也不会在第一个结算日被收房
 	advance(t, 2 * 1440, WA);
 	assert.ok(t.home, '第一个结算日用预收抵扣，不收房');
 	assert.equal(t.rental.lease!.paidAhead, undefined, '抵扣后清掉');
 	assert.ok(t.journal.some((l) => /已在签约时预收/.test(l.text)), '日志写明预收抵扣');
-	const late = sanitizeState({ ...JSON.parse(JSON.stringify(t)), rental: { ...t.rental, lease: { ...t.rental.lease, paidAhead: 160 } } });
+	const late = sanitizeState({ ...JSON.parse(JSON.stringify(t)), rental: { ...t.rental, lease: { ...t.rental.lease, paidAhead: 120 } } });
 	assert.equal(late!.rental.lease!.paidAhead, undefined, '签约一周后的存档带预收字段：清洗掉，不会再抵一周');
 });
 
@@ -261,22 +261,22 @@ test('搬走或被收房：家具半价折现', () => {
 	s = buyFurniture(s, WA, 'mattress').state;
 	s = buyFurniture(s, WA, 'plants').state;
 	assert.equal(furnitureValue(s), 275);
-	assert.equal(s.home!.bond, 320, '合租房间押金 = 2 周房租（第 26 批）');
+	assert.equal(s.home!.bond, 240, '合租房间押金 = 2 周房租（第 26 批）');
 	const left = leaveHome(s);
-	assert.equal(left.state.cash, s.cash + 275 + 320, '家具折现 + 押金全退');
+	assert.equal(left.state.cash, s.cash + 275 + 240, '家具折现 + 押金全退');
 	const evicted = applyAction({ ...s, cash: 10, clock: at(20, 6) }, WA, { t: 'activity', id: 'sleep-camp' }).state;
 	assert.equal(evicted.home, null);
-	assert.equal(evicted.cash, 10 + 275 + 160, '押金先扣一周房租 $160，剩下 $160 退回');
+	assert.equal(evicted.cash, 10 + 275 + 120, '押金先扣一周房租 $120，剩下 $120 退回');
 });
 
 test('每周结算：房租 + 车辆保险；没钱续保记麻烦值', () => {
 	const s = housed({ vehicle: '4wd' });
-	assert.deepEqual(weeklyCosts(s), { rent: 160, vehicle: 40, property: 0, total: 200, ahead: 0 });
+	assert.deepEqual(weeklyCosts(s), { rent: 120, vehicle: 40, property: 0, total: 160, ahead: 0 });
 	const after = applyAction({ ...s, clock: at(20, 6) }, WA, { t: 'activity', id: 'sleep-camp' }).state;
-	assert.equal(after.cash, s.cash - 200);
+	assert.equal(after.cash, s.cash - 160);
 	assert.equal(after.nextWeek, 14);
 	const two = applyAction({ ...s, clock: at(20, 13) }, WA, { t: 'activity', id: 'sleep-camp' }).state;
-	assert.equal(two.cash, s.cash - 400, '跨两周扣两次');
+	assert.equal(two.cash, s.cash - 320, '跨两周扣两次');
 	const broke = applyAction(make({ vehicle: 'car', cash: 5, clock: at(20, 6) }), WA, { t: 'activity', id: 'sleep-camp' }).state;
 	assert.equal(broke.cash, 5);
 	assert.ok(broke.heat > 0);
@@ -304,11 +304,11 @@ test('阶段 B 的动作协议与旧存档迁移', () => {
 test('跨周结算前先发这一班的工资：工资够付刚到期的房租就不会被收房', () => {
 	const s = housed({ clock: at(9) });
 	const job = { career: 'barista', loc: s.loc, level: 0, shifts: 0, good: 0, lastDay: -1 };
-	// 有 TFN（按正常税率预扣，见 core/tax.ts）：$80 + 税后工资（表现好有奖金时预扣也多）≥ 房租 $160
+	// 有 TFN（按正常税率预扣，见 core/tax.ts）：$80 + 税后工资（表现好有奖金时预扣也多）≥ 房租 $120（第十一轮）
 	const due = { ...s, job, cash: 80, clock: at(7, 6), nextWeek: 6, tax: { ...s.tax, tfn: 0 }, needs: { hunger: 90, energy: 90, hygiene: 80, fun: 60, social: 60 } };
 	const r = applyAction(due, WA, { t: 'job', op: 'work' });
 	assert.ok(r.ok && !r.collapsed, r.msg);
-	assert.ok(r.state.home, '$80 + 税后工资（表现好有奖金时预扣也多）≥ 房租 $160，不该被收房');
+	assert.ok(r.state.home, '$80 + 税后工资（表现好有奖金时预扣也多）≥ 房租 $120，不该被收房');
 	assert.equal(r.state.nextWeek, 13);
 	assert.ok(r.state.cash < 50 + 200, '房租照扣');
 });

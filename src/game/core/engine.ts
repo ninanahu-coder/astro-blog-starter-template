@@ -27,7 +27,7 @@ import { ODDS, RENTAL, RENTAL_BODIES, SCAM_TIP } from '../data/rental.ts';
 import { applicantsFor, applyOdds, claimOutcome, endLease, leaseMatches, moveOutSplit, needsLease, oddsLabel, paidAhead, rejectReason, rejectedToday, renew, renewBlocked, rentalTick, rentalWeek, rentDue, scamAd, startLease, viewedOk, type OddsInput, type ScamAd } from './rental.ts';
 import { PROPERTIES } from '../data/properties.ts';
 import { careerPayMult, fuelMult, hiringFrozen, loanRateMult, rentOn, type FareKind } from './world.ts';
-import { downPayment, FINANCE, loanPayment, propertyEquity, repairRange, saleProceeds, vehicleDuty, weeklyInterest, weeklyPrincipal } from './finance.ts';
+import { downPayment, FINANCE, loanCap, loanPayment, propertyEquity, repairRange, saleProceeds, vehicleDuty, weeklyInterest, weeklyPrincipal } from './finance.ts';
 import { bankDebt, inDefault, settleBank } from './credit.ts';
 import { BANK } from '../data/credit.ts';
 import { FURNITURE, FURNITURE_RESALE, FURNITURE_SLOTS, HOME_COOK, HOME_RELAX } from '../data/furniture.ts';
@@ -2023,7 +2023,7 @@ function settleProperties(state: PlayerState, region: Region) {
 			continue;
 		}
 		p.missed++;
-		p.loan = Math.min(def.price, p.loan + interest); // 没付的利息计入本金；不超过房价（存档校验的上限，正常买房到不了）
+		p.loan = Math.min(loanCap(def), p.loan + interest); // 没付的利息计入本金；不超过存档校验的上限（房价，降过价的按原价），正常买房到不了
 		if (p.missed <= FINANCE.graceWeeks) {
 			log(state, `付不起${def.name}这周的 $${due}（第 ${p.missed} 次欠款，超过 ${FINANCE.graceWeeks} 次将被强制卖房）。`);
 			continue;

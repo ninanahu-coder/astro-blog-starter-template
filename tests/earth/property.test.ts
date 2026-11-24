@@ -36,16 +36,17 @@ test('房产数据自洽，出租收益不超过上限', () => {
 });
 
 test('贷款公式', () => {
-	assert.equal(downPayment(flat), 9000);
-	assert.equal(weeklyInterest(72000), 72);
-	assert.equal(weeklyPrincipal(flat, 72000), 450);
+	// 河景公寓第十一轮：房价 70000、物业费 28
+	assert.equal(downPayment(flat), 7000);
+	assert.equal(weeklyInterest(56000), 56);
+	assert.equal(weeklyPrincipal(flat, 56000), 350);
 	assert.equal(weeklyPrincipal(flat, 100), 100, '最后一期只还剩下的');
-	assert.equal(loanPayment(flat, 72000), 522);
+	assert.equal(loanPayment(flat, 56000), 406);
 	assert.equal(loanPayment(flat, 0), 0);
-	assert.equal(propertyDue(flat, { id: flat.id, loan: 72000, rented: false, missed: 0 }), 36 + 522);
-	assert.equal(weeksToPayOff(flat, 72000), 160);
-	assert.equal(saleProceeds(flat, 72000), 85500 - 72000);
-	assert.equal(saleProceeds(flat, 90000), 0, '资不抵债时到手为 0，不会为负');
+	assert.equal(propertyDue(flat, { id: flat.id, loan: 56000, rented: false, missed: 0 }), 28 + 406);
+	assert.equal(weeksToPayOff(flat, 56000), 160);
+	assert.equal(saleProceeds(flat, 56000), 66500 - 56000);
+	assert.equal(saleProceeds(flat, 70000), 0, '资不抵债时到手为 0，不会为负');
 });
 
 test('买房：全款或贷款；要在当地；钱不够', () => {
@@ -53,7 +54,7 @@ test('买房：全款或贷款；要在当地；钱不够', () => {
 	assert.equal(propertiesAt({ ...rich, loc: 'broome' }, WA).length, 0);
 	const full = buyProperty(rich, WA, flat.id, false);
 	assert.ok(full.ok);
-	assert.equal(full.state.cash, 10000);
+	assert.equal(full.state.cash, 30000);
 	assert.deepEqual(ownedProperty(full.state, flat.id), { id: flat.id, loan: 0, rented: false, missed: 0 });
 	assert.equal(buyProperty(full.state, WA, flat.id, true).ok, false, '不能重复买');
 
@@ -61,9 +62,9 @@ test('买房：全款或贷款；要在当地；钱不够', () => {
 	assert.equal(buyProperty(s, WA, flat.id, false).ok, false, '全款不够');
 	const loan = buyProperty(s, WA, flat.id, true);
 	assert.ok(loan.ok);
-	assert.equal(loan.state.cash, 11000);
-	assert.equal(ownedProperty(loan.state, flat.id)!.loan, 81000);
-	assert.equal(buyProperty(make({ cash: 8999 }), WA, flat.id, true).ok, false, '首付不够');
+	assert.equal(loan.state.cash, 13000);
+	assert.equal(ownedProperty(loan.state, flat.id)!.loan, 63000);
+	assert.equal(buyProperty(make({ cash: 6999 }), WA, flat.id, true).ok, false, '首付不够');
 	assert.equal(buyProperty({ ...rich, loc: 'fremantle' }, WA, flat.id, false).ok, false, '人不在当地');
 });
 
@@ -71,12 +72,12 @@ test('买了马上卖亏 5%；净资产按可变现价值算', () => {
 	const s = make({ cash: 100000, clock: at(10) });
 	assert.equal(netWorth(s), 100000);
 	const bought = buyProperty(s, WA, flat.id, false).state;
-	assert.equal(netWorth(bought), 10000 + 85500);
+	assert.equal(netWorth(bought), 30000 + 66500);
 	const sold = sellProperty(bought, flat.id);
-	assert.equal(sold.state.cash, 95500);
+	assert.equal(sold.state.cash, 96500);
 	assert.equal(sold.state.properties.length, 0);
 	const viaLoan = sellProperty(buyProperty(make({ cash: 20000, clock: at(10) }), WA, flat.id, true).state, flat.id);
-	assert.equal(viaLoan.state.cash, 11000 + 4500, '贷款买再卖同样亏掉房价的 5%');
+	assert.equal(viaLoan.state.cash, 13000 + 3500, '贷款买再卖同样亏掉房价的 5%');
 	assert.equal(sellProperty(s, flat.id).ok, false);
 });
 
@@ -86,28 +87,28 @@ test('自住：不交房租，只交物业费；可以添家具、回家睡觉',
 	assert.ok(moved.ok);
 	s = moved.state;
 	assert.deepEqual(s.home, { type: 'flat', loc: 'perth', furniture: {}, owned: flat.id });
-	assert.deepEqual(weeklyCosts(s), { rent: 0, vehicle: 0, property: 36, total: 36, ahead: 0 });
+	assert.deepEqual(weeklyCosts(s), { rent: 0, vehicle: 0, property: 28, total: 28, ahead: 0 });
 	assert.equal(moveIntoProperty(s, flat.id).ok, false, '已经住在这里');
 	s = buyFurniture(s, WA, 'mattress').state;
 	assert.ok(sleepHome({ ...s, needs: { ...s.needs, energy: 5 } }, WA).ok);
 	const week = passTo(s, 6);
-	assert.equal(week.cash, s.cash - 36, '一周只扣物业费');
+	assert.equal(week.cash, s.cash - 28, '一周只扣物业费');
 	assert.ok(week.home, '不会被收房');
 });
 
 test('每周还款：本金减少，还清后只剩物业费', () => {
 	let s = buyProperty(make({ cash: 30000, clock: at(10) }), WA, flat.id, true).state;
 	const w1 = passTo(s, 6);
-	assert.equal(w1.cash, s.cash - (36 + 81 + 450));
-	assert.equal(ownedProperty(w1, flat.id)!.loan, 80550);
+	assert.equal(w1.cash, s.cash - (28 + 63 + 350));
+	assert.equal(ownedProperty(w1, flat.id)!.loan, 62650);
 	const paid = repayLoan(w1, flat.id, 5000);
-	assert.equal(ownedProperty(paid.state, flat.id)!.loan, 75550);
+	assert.equal(ownedProperty(paid.state, flat.id)!.loan, 57650);
 	assert.equal(repayLoan(w1, flat.id, 1e9).state.cash, 0, '最多还到手头现金');
 	assert.equal(repayLoan(w1, flat.id, -5).ok, false);
 	s = { ...w1, cash: 90000 };
 	s = repayLoan(s, flat.id, 90000).state;
 	assert.equal(ownedProperty(s, flat.id)!.loan, 0);
-	assert.equal(s.cash, 90000 - 80550);
+	assert.equal(s.cash, 90000 - 62650);
 	assert.equal(repayLoan(s, flat.id, 100).ok, false, '没有贷款了');
 });
 
@@ -191,19 +192,19 @@ test('晕倒住院跨过结算日也要结算：醒来不能抢在断供前卖�
 });
 
 test('断供：宽限两周，第三次欠款强制卖房，现金不会为负', () => {
-	let s = buyProperty(make({ cash: 9000, clock: at(10) }), WA, flat.id, true).state;
+	let s = buyProperty(make({ cash: 7000, clock: at(10) }), WA, flat.id, true).state;
 	s = moveIntoProperty(s, flat.id).state;
 	assert.equal(s.cash, 0);
 	const w1 = passTo(s, 6);
 	assert.equal(ownedProperty(w1, flat.id)!.missed, 1);
-	assert.equal(ownedProperty(w1, flat.id)!.loan, 81081, '欠的利息计入本金');
+	assert.equal(ownedProperty(w1, flat.id)!.loan, 63063, '欠的利息计入本金');
 	const w2 = passTo(w1, 13);
 	assert.equal(ownedProperty(w2, flat.id)!.missed, 2);
 	assert.ok(w2.home, '宽限期内还住着');
 	const w3 = passTo(w2, 20);
 	assert.equal(w3.properties.length, 0, '第三次欠款被强制卖出');
 	assert.equal(w3.home, null);
-	assert.ok(w3.cash >= 0 && w3.cash < 9000, `到手 ${w3.cash}，比首付少`);
+	assert.ok(w3.cash >= 0 && w3.cash < 7000, `到手 ${w3.cash}，比首付少`);
 	// 宽限期内补上就清零
 	const saved = passTo({ ...w2, cash: 5000 }, 20);
 	assert.equal(ownedProperty(saved, flat.id)!.missed, 0);
@@ -215,7 +216,7 @@ test('卖掉正在住的房子会搬出，家具折现', () => {
 	s = buyFurniture(s, WA, 'mattress').state;
 	const sold = sellProperty(s, flat.id);
 	assert.equal(sold.state.home, null);
-	assert.equal(sold.state.cash, s.cash + 85500 + 200);
+	assert.equal(sold.state.cash, s.cash + 66500 + 200);
 });
 
 test('动作协议与存档校验', () => {
@@ -241,11 +242,26 @@ test('动作协议与存档校验', () => {
 		home: { type: 'flat', loc: 'perth', furniture: {}, owned: 'freo-terrace' },
 	};
 	const clean = sanitizeState(dirty)!;
-	assert.deepEqual(clean.properties, [{ id: flat.id, loan: 90000, rented: false, missed: 2 }]);
+	assert.deepEqual(clean.properties, [{ id: flat.id, loan: 90000, rented: false, missed: 2 }], '贷款封顶按以前最高的房价（第十一轮降价前 9 万）');
 	assert.equal(clean.home, null, '声称住在没买的房子里：住处作废');
 	const rentedHome = sanitizeState({ ...base, properties: [{ id: flat.id, loan: 0, rented: true, missed: 0 }], home: { type: 'flat', loc: 'perth', furniture: {}, owned: flat.id } })!;
 	assert.equal(rentedHome.home, null, '不能同时出租和自住');
 	const old = { ...base } as Record<string, unknown>;
 	Reflect.deleteProperty(old, 'properties');
 	assert.deepEqual(sanitizeState(old)!.properties, []);
+});
+
+test('第十一轮降价后的旧存档：按原价交的合租押金、按原价贷的房贷不会被存档清洗或欠款计息砍掉', () => {
+	const room = HOMES.find((h) => h.id === 'room')!;
+	assert.equal(room.rentWeek, 120);
+	const base = make();
+	const old = sanitizeState({ ...base, home: { type: 'room', loc: 'perth', furniture: {}, bond: 320 } })!;
+	assert.equal(old.home!.bond, 320, '旧存档按 $160 周租交的 2 周押金照退');
+	assert.equal(sanitizeState({ ...base, home: { type: 'room', loc: 'perth', furniture: {}, bond: 99999 } })!.home!.bond, 320, '伪造的押金仍封顶');
+	assert.equal(flat.price, 70000);
+	const owner = sanitizeState({ ...base, properties: [{ id: flat.id, loan: 81000, rented: false, missed: 0 }] })!;
+	assert.equal(ownedProperty(owner, flat.id)!.loan, 81000, '按 9 万房价贷的款不抹掉');
+	const broke = passTo({ ...owner, cash: 0 }, 6);
+	assert.equal(ownedProperty(broke, flat.id)!.missed, 1);
+	assert.equal(ownedProperty(broke, flat.id)!.loan, 81081, '欠款计息照常加到本金，不被新房价截断');
 });
