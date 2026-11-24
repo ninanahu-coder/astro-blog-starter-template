@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic quiet village main street at golden hour, stone and half-timbered cottages with flower gardens on the left, tall gum trees arching over an empty road, with the cottages, the gum trees, the empty road and the composition shown in <Picture 1> preserved. From the first frame dappled sunlight flickers on the road as the leaves move. The camera pushes in with small amplitude at slow speed toward the far end of the empty street and comes to rest on a slightly tighter wide shot of the tree-lined street in the final second. The gum leaves overhead sway lightly and the garden flowers stir in a soft breeze throughout the shot, and the cottages, the fences and the tree trunks stay still.
+
+overall_soundscape: Birdsong and softly rustling leaves; a light breeze through gum leaves.
+
+non_diegetic_music: N/A

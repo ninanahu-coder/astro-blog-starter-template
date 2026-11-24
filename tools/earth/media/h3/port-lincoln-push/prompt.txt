@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic fishing harbour at sunset, three fishing boats moored at timber wharves on calm water, silos and sheds at the left, a low headland across the bay, rocks and shrubs in the foreground, with the fishing boats, the wharves, the silos and the composition shown in <Picture 1> preserved. From the first frame the water ripples softly and the reflections of the boats waver. The camera pushes in with small amplitude at slow speed toward the moored fishing boats and comes to rest on a slightly tighter wide shot of the boats at the wharf in the final second. The boats keep their shape and rock very slightly at their moorings, clouds drift slowly to the right, and the foreground shrubs stir in a light breeze, and the wharves, the silos and the headland stay still.
+
+overall_soundscape: Calm harbour water lapping against hulls and timber; a rope creaking softly.
+
+non_diegetic_music: N/A

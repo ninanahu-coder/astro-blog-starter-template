@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic outback mining landscape at sunset, a pale sandstone hillside with dugout doorways cut into the rock, white cone-shaped heaps of dug earth on red ground, a small timber mine headframe on the ridge, with the sandstone hillside, the dugout doorways, the white heaps and the composition shown in <Picture 1> preserved. From the first frame a thin veil of dust drifts low across the red ground. The camera pushes in with small amplitude at slow speed toward the dugout doorways in the hillside and comes to rest on a slightly tighter wide shot of the hillside and its dugouts in the final second. Clouds drift slowly to the left, a thin veil of dust drifts to the right near the ground, and the dry shrubs tremble in a hot breeze, and the hillside, the white heaps and the headframe stay still.
+
+overall_soundscape: A dry desert wind over open ground; fine grit skittering over rock.
+
+non_diegetic_music: N/A

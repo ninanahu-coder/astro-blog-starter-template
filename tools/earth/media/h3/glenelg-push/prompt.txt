@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic seaside promenade at sunset, a vintage red and cream tram standing on its rails beside an ornate sandstone building, tall pine trees, a long timber jetty reaching out over a calm sea, with the tram, the sandstone building, the jetty and the composition shown in <Picture 1> preserved. From the first frame small waves wash onto the sand and the sunset light glows on the paving. The camera pushes in with small amplitude at slow speed toward the jetty and the setting sun and comes to rest on a slightly tighter wide shot of the jetty over the water in the final second. Clouds drift slowly to the left and the pine branches sway lightly in the sea breeze, and the tram, the building, the lamp posts and the jetty stay still.
+
+overall_soundscape: Gentle surf and a soft sea breeze; small waves washing onto sand.
+
+non_diegetic_music: N/A

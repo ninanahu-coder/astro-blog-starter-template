@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic fishing harbour at sunset, three fishing boats moored at timber wharves on calm water, silos and sheds at the left, a low headland across the bay, rocks and shrubs in the foreground",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "Calm harbour water lapping against hulls and timber",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "The water ripples softly and the reflections of the boats waver throughout the shot. The boats keep their shape and rock very slightly at their moorings, clouds drift slowly to the right, and the foreground shrubs stir in a light breeze. The wharves, the silos and the headland stay still.",
+   "sfx": "a rope creaking softly"
+  }
+ ]
+}

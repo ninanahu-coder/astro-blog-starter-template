@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic rugged coastal headland at sunset, a white and blue passenger ferry crossing a deep blue strait in front of a long island on the horizon, rocky cliffs and coastal shrubs in the foreground, gum leaves at the upper left, with the ferry, the cliffs, the island on the horizon and the composition shown in <Picture 1> preserved. From the first frame swells roll through the strait and break white against the rocks below. The camera pushes in with small amplitude at slow speed toward the ferry on the strait and comes to rest on a slightly tighter wide shot of the ferry with the island behind it in the final second. The ferry keeps its shape and glides slowly to the right trailing a white wake, clouds drift slowly to the left, and the coastal grasses bend in the wind, and the cliffs, the rocks and the island stay still.
+
+overall_soundscape: Wind over a headland and surf on rocks below; waves breaking on rocks.
+
+non_diegetic_music: N/A

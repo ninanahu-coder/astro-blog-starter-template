@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic long timber jetty crossing calm shallow water at sunset, rows of oyster racks in the shallows, a sandy shore with rocks in the foreground, distant silos at the far left, with the timber jetty, the oyster racks, the shore and the composition shown in <Picture 1> preserved. From the first frame the shallow water ripples and the sunset reflection shimmers. The camera pushes in with small amplitude at slow speed toward the jetty and the oyster racks and comes to rest on a slightly tighter wide shot of the jetty over the shallows in the final second. Clouds drift slowly to the right and small ripples run toward the shore throughout the shot, and the jetty, the oyster racks and the silos stay still.
+
+overall_soundscape: Still shallow water lapping on sand; small ripples on the shore.
+
+non_diegetic_music: N/A

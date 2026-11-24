@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic long timber jetty crossing calm shallow water at sunset, rows of oyster racks in the shallows, a sandy shore with rocks in the foreground, distant silos at the far left",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "Still shallow water lapping on sand",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "The shallow water ripples and the sunset reflection shimmers throughout the shot. Clouds drift slowly to the right and small ripples run toward the shore throughout the shot. The jetty, the oyster racks and the silos stay still.",
+   "sfx": "small ripples on the shore"
+  }
+ ]
+}

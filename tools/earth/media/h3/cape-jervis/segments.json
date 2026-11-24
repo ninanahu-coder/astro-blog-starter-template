@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic rugged coastal headland at sunset, a white and blue passenger ferry crossing a deep blue strait in front of a long island on the horizon, rocky cliffs and coastal shrubs in the foreground, gum leaves at the upper left",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "Wind over a headland and surf on rocks below",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "Swells roll through the strait and break white against the rocks below throughout the shot. The ferry keeps its shape and glides slowly to the right trailing a white wake, clouds drift slowly to the left, and the coastal grasses bend in the wind. The cliffs, the rocks and the island stay still.",
+   "sfx": "waves breaking on rocks"
+  }
+ ]
+}

@@ -1,0 +1,7 @@
+How the reference pictures align with the target video — Picture 1 (from Shot 1) aligns with the 0.00-second mark of the target video; Picture 2 (from Shot 1) aligns with the 5.17-second mark of the target video.
+
+integrated_multimodal_description: [Shot 1] Photorealistic huge wind-sculpted granite boulders streaked with orange lichen on a bare rock dome above the sea at sunset, tussock grass in the foreground. The camera holds a locked-off static wide shot. Waves break in white spray on the rocks at the right throughout the shot. Clouds drift slowly to the left and the tussock grass bends in the wind throughout the shot. The boulders and the rock dome stay still. A continuous smooth motion from the first frame to the last frame; the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.
+
+overall_soundscape: A steady sea wind and surf below the rocks; spray hissing on granite
+
+non_diegetic_music: N/A

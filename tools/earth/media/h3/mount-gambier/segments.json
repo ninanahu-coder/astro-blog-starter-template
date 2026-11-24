@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic deep cobalt-blue crater lake ringed by steep limestone cliffs and green bush at sunset, rocks and grasses on the rim in the foreground, gum leaves at the upper left",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "A light breeze on a high rim and distant birds",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "Cloud reflections slide across the blue water and fine ripples cross the lake throughout the shot. Clouds drift slowly to the right and the rim grasses and gum leaves sway lightly in a breeze. The crater cliffs and the rim rocks stay still.",
+   "sfx": "grass rustling"
+  }
+ ]
+}

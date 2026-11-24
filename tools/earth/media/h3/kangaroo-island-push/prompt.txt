@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic huge wind-sculpted granite boulders streaked with orange lichen on a bare rock dome above the sea at sunset, tussock grass in the foreground, with the granite boulders, the rock dome, the sea and the composition shown in <Picture 1> preserved. From the first frame waves break in white spray on the rocks at the right. The camera pushes in with small amplitude at slow speed toward the largest hollowed boulder and comes to rest on a slightly tighter wide shot of the boulders against the sunset sky in the final second. Clouds drift slowly to the left and the tussock grass bends in the wind throughout the shot, and the boulders and the rock dome stay still.
+
+overall_soundscape: A steady sea wind and surf below the rocks; spray hissing on granite.
+
+non_diegetic_music: N/A

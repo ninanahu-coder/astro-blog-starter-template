@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic hillside vineyards at sunset rolling down toward a distant blue sea, a gum tree trunk at the left, a wooden post and vine leaves in the right foreground, with the vineyard rows, the distant sea, the gum tree and the composition shown in <Picture 1> preserved. From the first frame the vine leaves in the foreground flutter and the sunlight glints on the distant sea. The camera pushes in with small amplitude at slow speed toward the vineyard rows and the sea beyond them and comes to rest on a slightly tighter wide shot of the vineyards above the coast in the final second. Clouds drift slowly to the right and the vine leaves and dry grasses sway lightly in a warm breeze, and the hills, the wooden posts and the tree trunk stay still.
+
+overall_soundscape: A warm breeze over open hills and distant birds; dry grass rustling.
+
+non_diegetic_music: N/A

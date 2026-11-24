@@ -1,0 +1,7 @@
+For the target video, at 0.00 seconds into the target video, <Picture 1> (from [Shot 1]) is fully referenced.
+
+integrated_multimodal_description: [Shot 1] Photorealistic city skyline at sunrise beside a calm river, a low arched footbridge, a white tent-roofed pavilion and a glass-fronted building on the far bank, green parkland in front and soft hills behind, eucalyptus branches at the upper left, with the skyline, the river, the footbridge and the composition shown in <Picture 1> preserved. From the first frame the river surface ripples gently and the reflections of the buildings shimmer. The camera pushes in with small amplitude at slow speed toward the skyline across the river and comes to rest on a slightly tighter wide shot of the skyline and its reflection in the final second. Clouds drift slowly to the right and the eucalyptus leaves at the upper left sway lightly in a soft breeze, and the buildings, the footbridge and the hills stay still.
+
+overall_soundscape: Soft morning birdsong and faint water lapping; a light breeze in the leaves.
+
+non_diegetic_music: N/A

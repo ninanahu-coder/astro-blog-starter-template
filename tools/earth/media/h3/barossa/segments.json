@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic vineyard at sunset in front of a stone winery homestead with a long verandah, rows of grapevines with dark grapes in the foreground, rolling hills behind, a large gum tree at the upper left",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "A warm evening breeze and distant birds",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "The vine leaves flutter and low sunlight flares through the gum tree throughout the shot. Clouds drift slowly to the right and the vine leaves and gum branches sway lightly in a warm breeze. The homestead, the vineyard posts and the hills stay still.",
+   "sfx": "vine leaves rustling"
+  }
+ ]
+}

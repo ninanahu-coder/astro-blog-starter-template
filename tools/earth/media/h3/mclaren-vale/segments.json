@@ -1,0 +1,15 @@
+{
+ "style": "Photorealistic hillside vineyards at sunset rolling down toward a distant blue sea, a gum tree trunk at the left, a wooden post and vine leaves in the right foreground",
+ "continuity": "the framing, horizon and every landmark remain fixed and the scene settles into the framing shown in Picture 2 at the end of the shot, matching the first frame so the clip can loop.",
+ "ambience": "A warm breeze over open hills and distant birds",
+ "segments": [
+  {
+   "first": "kf/first.png",
+   "last": "kf/first.png",
+   "sec": 5,
+   "camera": "The camera holds a locked-off static wide shot.",
+   "action": "The vine leaves in the foreground flutter and the sunlight glints on the distant sea throughout the shot. Clouds drift slowly to the right and the vine leaves and dry grasses sway lightly in a warm breeze. The hills, the wooden posts and the tree trunk stay still.",
+   "sfx": "dry grass rustling"
+  }
+ ]
+}
