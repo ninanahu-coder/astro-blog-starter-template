@@ -10,6 +10,11 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
 	{
+		v: 99, date: '2026-11-25', title: '节日卡合并', items: [
+			'「现实里的节日和假期」并进今天页的「节日」卡，成为卡里的一节，不再单独占一张卡。',
+		],
+	},
+	{
 		v: 98, date: '2026-11-25', title: '开店预算提示', items: [
 			'开店选项下面多了一行预算：开张后还要备第一批货、一周店租，雇一个人每周另算。',
 			'手里的钱只够开门时会提醒一句，但仍然可以开店。',
