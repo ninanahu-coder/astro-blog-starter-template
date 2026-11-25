@@ -2,6 +2,7 @@
 title: "FluffyWA Daily Company Schedule (Detailed)"
 description: "FluffyWA's detailed company-wide daily timetable: synchronised routines across K1–K4, staffing overview and cross-site coordination"
 pubDate: "Jul 09 2026"
+updatedDate: "Jul 30 2026"
 heroImage: "/blog-placeholder-2.jpg"
 ---
 
@@ -18,6 +19,8 @@ This is the company-level companion to the *FluffyWA Kennel Work Schedule*: the 
 | 16:00 – 18:00 | 0.5 | **2 staff** | Evening duty + K4 reception |
 
 > K3 (100 dogs) carries the heaviest load, so cleaning, feeding and exercise all run on **zone rotation**: the 100 kennels are split into zones A, B, C and D of 25 each, and every task rolls through A→B→C→D so 1.5 staff can cover the site.
+
+**How to read the tables**: each time block is one horizontal table, with the four sites (K1/K2/K3/K4) laid out side by side on a single row, and the rightmost "Company coordination" column showing the duty manager's action for that block. Read down your own site's column to execute, while watching the coordination column for anything that touches your site — a cross-site transfer, reception support or a roll call. The four sites' rhythms are deliberately aligned (same block for feeding, same block for cleaning, same block for exercise), so the duty manager can grasp the whole company's status in a single round of phone calls, and so a floating staffer can switch seamlessly between the two sites in their group.
 
 ## Company Daily Timetable
 
@@ -62,10 +65,24 @@ This is the company-level companion to the *FluffyWA Kennel Work Schedule*: the 
 
 ## Execution Notes
 
-1. **K3 zone rotation is critical**: zones run strictly A→B→C→D with no skipping; the site lead stamps each zone's completion time in the daily log.
+> **Company-wide coordination on hot days** (common in Perth summers): the duty manager gives a single reminder at the 08:30 roll call — all four sites move the 11:00–12:00 and 14:00–15:15 exercise to cooler times or shorten it, keep the yards well stocked with water, and step up patrols for signs of heatstroke all day (excessive panting, drooling, unsteadiness). Any suspected heatstroke: move the dog to shade to cool down immediately and report by phone.
+
+1. **K3 zone rotation is critical**: zones run strictly A→B→C→D with no skipping to avoid missing any; the site lead stamps each zone's completion time in the daily log.
 2. **Puppies eat four times a day**: 07:30, 09:00, 14:00 and 15:15, all at K4, handled by the designated carer with separate records.
 3. **Reception happens only at K4**: mornings 9:00–11:00 covered by the half shift, afternoons 16:00–18:00 are peak and run on bookings, with the duty manager backing up at peak times.
 4. **Inter-site transfers** are scheduled only in the 11:00–12:00 or 13:00–14:00 high-staff windows; both site leads confirm health status and sign off before transfer.
 5. **Three company-level syncs daily**: 08:30 roll call, 12:00 midday phone round, 17:45 daily report — all owned by the duty manager.
+6. **Assigning new arrivals**: from 09:45–11:00 the K4 reception makes an initial site assignment by size and temperament — large dogs steer clear of the crowded, full K3, and puppies always go to K4; the assignment is recorded on the list and the receiving site lead is notified to reserve a place.
+7. **No gaps at handover**: the early floater opens up at 07:00 until the core shift arrives at 08:30–09:00, the early floater relieves the specialist's 12:00–13:00 lunch, and the evening floater stays on duty until the 18:00 lock-up — these three linking points are where the company is most likely to drop the ball, so every handover is confirmed in person or by phone.
+
+### Duty Manager's Daily Rhythm (Company coordination column at a glance)
+
+| Time window | Duty manager's main actions |
+| --- | --- |
+| 07:00 – 09:00 | On standby, collect morning anomalies from all sites, arrange today's cross-site support, 08:30 roll call across the four sites by phone |
+| 09:00 – 12:00 | Handle calls and bookings, decide new-arrival site assignments, arrange 11:00–12:00 cross-site transfers |
+| 12:00 – 13:00 | Phone round of the four sites, confirm midday duty cover is in place |
+| 13:00 – 16:00 | Grooming scheduling and customer notices, push the week's priority tasks, consolidate supply gaps |
+| 16:00 – 18:00 | Back up K4 reception at peak by phone/in person, clear open items, 17:45 compile the daily report and post tomorrow's plan to the group |
 
 > For site details, the weekly workflow and management guidelines, see the *FluffyWA Kennel Work Schedule*.

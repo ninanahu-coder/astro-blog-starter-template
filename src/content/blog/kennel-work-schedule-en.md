@@ -2,7 +2,7 @@
 title: "FluffyWA Kennel Work Schedule"
 description: "FluffyWA's four kennel sites (K1–K4), staffing-based daily timetable, shift roster, weekly workflow and management guidelines"
 pubDate: "Jul 09 2026"
-updatedDate: "Jul 09 2026"
+updatedDate: "Jul 30 2026"
 heroImage: "/blog-placeholder-4.jpg"
 ---
 
@@ -28,6 +28,15 @@ Each site is rostered to the following staffing standard:
 | Other hours (07:00–09:00, 12:00–13:00, 16:00–18:00) | **0.5 staff** | One duty person on half time; light tasks only (patrol, water top-up) |
 
 **Rostering principle**: all labour-intensive or two-person work (kennel cleaning, feeding, exercise, disinfection, grooming) must be completed within the two 1.5-staff windows. Heavy work is strictly prohibited during 0.5-staff windows — the duty person patrols and observes, records and reports issues, and never handles them alone.
+
+**Downgrade order when short-staffed** (when there are last-minute absences and floater cover can't fill the gap, protect the basics in this priority order):
+
+1. **Protect feeding and water** — the two daily meals (puppies on the puppy plan) and all-day drinking water cannot be skipped
+2. **Protect health patrols** — at least one room-by-room patrol per high-staff window; acute cases must never be missed
+3. **Protect cleaning and disinfection** — at minimum clear kennels soiled by waste; deep disinfection may be deferred but must be noted in the log
+4. **May be temporarily compressed** — shorten the second exercise round or switch it to in-kennel settling; reschedule grooming appointments (notify the customer in advance)
+
+> **K3 works zone by zone, no skipping**: K3's 100 kennels are split into four zones — A, B, C, D — of 25 each. Cleaning, feeding, exercise and disinfection always roll A→B→C→D, with the lead marking each zone's completion time in the log. Even when short-handed, finish zone by zone to avoid the "half done here, half done there" gaps.
 
 ## Shift Definitions and Roster
 
@@ -90,6 +99,8 @@ After check-in, dogs are assigned to K1–K3 by size and temperament; puppies al
 | 07:45 – 08:30 | Top up all water, switch on ventilation fans (check heaters in winter) |
 | 08:30 – 09:00 | Verify today's check-in/check-out list and feeding charts, prep materials for the morning |
 
+> **What to look for on the first opening patrol**: focus on the signals left overnight — each kennel's stool condition (any diarrhoea or blood), any vomiting, leftover food from last night, whether the water has been knocked over, and whether the dog's alertness and standing posture look normal. At the first sign of anything off, log it and isolate if needed, then move on to the next kennel; never skip the patrol just to rush into feeding.
+
 ### 09:00 – 12:00 | Morning core block (1.5 staff)
 
 | Time | Tasks |
@@ -141,6 +152,18 @@ The daily routine (patrol, feeding, cleaning, exercise, disinfection) stays fixe
 - Wednesday's purchase order arrives before the following Wednesday — a one-week cycle
 - Friday must confirm the weekend booking list and lock in weekend staffing
 - Sunday is the lightest day: wrap up and prepare for the coming week
+- Set a **safety stock line** for inventory: when food, common medications or cleaning/disinfectant supplies fall below one week's usage, flag them in red on Wednesday's order for priority restocking — don't wait until you run out
+
+### Handover Quick-Check List
+
+At the end of every shift (especially the evening lock-up and after cross-site support), confirm each item below and hand over face-to-face or by phone — never from memory:
+
+- [ ] Today's per-dog records are complete (food intake, water, waste, alertness, medication, exercise, anomalies)
+- [ ] Dogs needing ongoing observation/isolation are flagged in the log and named verbally to the next shift
+- [ ] Unfinished or deferred tasks (deep disinfection, repairs, rescheduled grooming) have their reason and follow-up written down
+- [ ] Bowls washed, water topped up, disinfection tools returned to their assigned storage zones
+- [ ] Door locks, fencing, yard gates and ventilation/climate-control equipment checked
+- [ ] Next day's check-in/check-out and drop-off/pick-up booking list verified
 
 ## Guidelines
 

@@ -2,6 +2,7 @@
 title: "Kennel Cleaning SOP: Adult Dogs and Puppies"
 description: "FluffyWA kennel cleaning standard operating manual—separate cleaning frequencies, procedures, disinfectant selection, and key precautions for adult dogs and puppies"
 pubDate: "Jul 09 2026"
+updatedDate: "Jul 30 2026"
 heroImage: "/blog-placeholder-5.jpg"
 ---
 
@@ -18,6 +19,10 @@ This document is the standard operating procedure (SOP) for cleaning at the Fluf
 5. **Never mix chemicals**—bleach + ammonia-based cleaner = toxic gas; bleach + quats deactivate each other
 6. **Hand hygiene**—wash hands or change gloves between contact with different groups of dogs; change shoes or use dedicated shoes when switching groups
 7. **Clean while dogs are out**—empty the kennel run during exercise time before cleaning, to reduce dogs' fear of noise and equipment and to allow thorough disinfection
+8. **PPE in place**—wear gloves; when handling irritant disinfectants (bleach and the like), wear goggles/a mask as needed; after contact with a suspected sick dog, remove gloves first, then wash hands
+9. **Keep records**—log every deep disinfection, turnover terminal disinfection, and isolation-run treatment on the cleaning record, noting the time, disinfectant, contact time, and operator
+
+> **Color-zoning suggestion**: blue for the adult area, green for the puppy area, red for the isolation area. Group brooms, mops, buckets, and cloths by color so it is obvious at a glance whether the wrong item has been picked up, minimizing the human error of "borrowing across zones."
 
 ---
 
@@ -36,6 +41,8 @@ This document is the standard operating procedure (SOP) for cleaning at the Fluf
 | Exercise yard deep cleaning | Weekly |
 | Kennel deep disinfection | At least once weekly; before a new dog moves in; after an outbreak |
 | Turnover (a different dog moves into the same run) | Thorough cleaning + disinfection each time |
+| High-touch surfaces (door handles, cage-door latches, water-bowl hooks) | Daily, with an extra pass when switching groups |
+| Isolation/sick runs | Dedicated equipment each time, done last by a designated person |
 
 ## Adult Daily Cleaning Steps
 
@@ -56,6 +63,17 @@ This document is the standard operating procedure (SOP) for cleaning at the Fluf
 | Quaternary ammonium (QUAT) | Routine daily use (**does not kill parvo**) | About 10 minutes |
 | Potassium peroxymonosulfate | Weekly deep disinfection, disease prevention | About 10 minutes |
 | Bleach 1:32 | Terminal disinfection for parvo outbreaks/runs with a history | 10 minutes, rinse and ventilate |
+
+## Adult Turnover Terminal-Disinfection Checklist (after one dog leaves, before the next moves in)
+
+- [ ] Remove all old bedding, leftover food, and toys (wash fabric toys at high temperature or discard them)
+- [ ] Scrub floor, wall bases, cage doors, and door-handle latches with detergent; rinse off organic matter with clean water
+- [ ] Apply disinfectant and time the full contact period (for runs with a parvo history, use bleach 1:32, 10 minutes)
+- [ ] Rinse and dry thoroughly to prevent residue from burning the next dog's paws
+- [ ] Wash, disinfect, and dry food and water bowls separately; put down clean bedding
+- [ ] Fill in the turnover cleaning record
+
+> **Common mistakes (adult area)**: (1) rinsing before the contact time has elapsed; (2) spraying without washing off organic matter first, deactivating the disinfectant; (3) only sweeping at turnover without disinfecting; (4) returning the dog to the run after bleach disinfection without rinsing, burning the paw pads.
 
 ---
 
@@ -103,6 +121,15 @@ Puppies (especially those not fully vaccinated) are the most vulnerable group in
 - **Puppies come first in the cleaning order**: over the course of a day, staff do the puppy area first, then adults, and finally isolation/sick dogs—to avoid carrying pathogens to the most vulnerable puppies
 - **Change clothing when switching groups**: wash hands before and after entering the puppy area, and ideally change shoes or wear dedicated shoes and change your outer garment
 - **Do not disrupt warming and feeding rhythm during cleaning**: hypothermia and hypoglycemia are two of the three big killers of puppies, so prioritize keeping puppies from getting chilled while cleaning
+- **Always ventilate, rinse, and dry before returning puppies**: even the gentlest disinfectant harms puppies' airways if the odor accumulates; only return puppies once there is no lingering smell and the floor is dry
+
+> **Common mistakes (puppy area)**: (1) spraying disinfectant while puppies are present; (2) using adult-area equipment to save effort; (3) using chlorhexidine as an anti-parvo disinfectant (chlorhexidine does not kill parvo); (4) returning puppies after bleach disinfection with insufficient ventilation; (5) cleaning for so long that the puppies get chilled.
+
+### Perth Hot-Season Puppy Notes (summer, December–February)
+
+- **Afraid of both cold and heat**: puppies regulate temperature poorly, so hot days are just as dangerous; keep the nursery out of midday sun, ventilate but do not let a heat lamp plus high ambient temperature combine into overheating.
+- **Hydration first**: puppies dehydrate easily in the heat—check and top up water bowls frequently, and after each feeding wash, disinfect, and dry feeding utensils faster (heat causes rapid fermentation and spoilage).
+- **Dryness matters even more**: Perth summers are both hot and humid, and damp bedding causes both heat loss and mold—replace it immediately whenever it is found damp.
 
 ---
 
@@ -116,6 +143,8 @@ Puppies (especially those not fully vaccinated) are the most vulnerable group in
 | Killing parvo | Bleach 1:32 / AHP / potassium peroxymonosulfate | **Accelerated hydrogen peroxide 1:16** (preferred) |
 | Deep disinfection | Weekly + turnover | Weekly + every turnover |
 | Cleaning order | After puppies, before isolation | **First** |
+| Post-disinfection handling | Rinse, dry | Rinse, **ventilate thoroughly**, dry, and confirm no lingering odor before returning |
+| Tool color code (suggested) | Blue | Green |
 | Special attention | Rinse to protect paws, dry | **Avoid irritating odors, keep warm, dedicated equipment** |
 
 > This document is used together with the *Cleaning and Disinfection Schedule*, the *Puppy Survival Rate Improvement Plan*, and the *Most Effective Operations Plan*. It is recommended to print the "One-Page Quick Comparison" and each area's disinfectant table and post them in the cleaning rooms of the adult and puppy areas.
