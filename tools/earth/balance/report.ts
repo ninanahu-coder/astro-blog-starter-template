@@ -28,6 +28,15 @@ export interface PlanResult {
 	eco: { in: Record<string, number>; out: Record<string, number>; inDetail: Record<string, number>; outDetail: Record<string, number> };
 	/** 系统关掉后每人被拦下的次数 */
 	blocked: Record<string, number>;
+	/** 第十九轮：转行 / 换城哨兵；只在 --switch 路线输出。 */
+	transition?: {
+		kind: 'career' | 'transfer'; requestedDay: number;
+		sourceLevel: Quantiles; sourceTopShare: number;
+		hireShare: number; hireDay: Quantiles | null; daysToHire: Quantiles | null;
+		firstPromoDay: Quantiles | null; topDay: Quantiles | null;
+		daysHireToFirstPromo: Quantiles | null; daysHireToTop: Quantiles | null;
+		preNet30: number; postNet30: number | null; relocationCost: number;
+	};
 	/** 第十八轮：只有 DAYS >= 365 时生成，默认短跑和 baseline.json 不变。 */
 	long?: {
 		netWorthDay0: Quantiles; netWorthDay180: Quantiles; netWorthDay365: Quantiles;

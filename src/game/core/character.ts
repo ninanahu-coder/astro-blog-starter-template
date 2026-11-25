@@ -177,6 +177,7 @@ export function createCharacter(opts: {
 		inventory: { water: 2, snack: 1 },
 		relations: {},
 		job: null,
+		careerLevels: {},
 		home: null,
 		rental: emptyRental(),
 		properties: [],
@@ -339,6 +340,7 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		inventory: cleanInventory(r.inventory),
 		relations: cleanRelations(r.relations),
 		job: cleanJob(r.job, knownLocs),
+		careerLevels: cleanCareerLevels(r.careerLevels, r.job, knownLocs),
 		// 旧存档没有这个字段：用当前工作的 lastDay 补上
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
 		volunteer: cleanVolunteer(r.volunteer, num(r.clock, 0, CAPS.clock, START_CLOCK), opts.now === undefined ? undefined : realDayOf(opts.now)),
@@ -714,6 +716,21 @@ function cleanJob(raw: any, knownLocs?: Set<string>): Job | null {
 		lastDay: Math.floor(num(raw.lastDay, -1, 1e7, -1)),
 		...(raw.leave && typeof raw.leave === 'object' && Number.isInteger(raw.leave.y) && raw.leave.y >= 0 && raw.leave.y < 1e5 ? { leave: { y: raw.leave.y, d: Math.floor(num(raw.leave.d, 0, 365, 0)) } } : {}),
 	};
+}
+
+/** 旧存档没有职业履历时，至少从当前工作恢复已做到的等级。 */
+function cleanCareerLevels(raw: unknown, currentRaw?: unknown, knownLocs?: Set<string>): Record<string, number> {
+	const out: Record<string, number> = {};
+	if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+		for (const c of CAREERS) {
+			if (!Object.hasOwn(raw, c.id)) continue;
+			const level = Math.floor(num((raw as Record<string, unknown>)[c.id], 0, c.levels.length - 1, 0));
+			if (level > 0) out[c.id] = level;
+		}
+	}
+	const current = cleanJob(currentRaw, knownLocs);
+	if (current && current.level > (out[current.career] ?? 0)) out[current.career] = current.level;
+	return out;
 }
 
 /** 房产与住处要一起校验：住在自有房里时，那套房必须确实拥有、地点一致、且没有出租 */

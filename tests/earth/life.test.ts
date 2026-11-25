@@ -6,6 +6,7 @@ import { mood } from '../../src/game/core/attributes.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
 	applyJob, careersAt, homesAt, leaveHome, performActivity, promotionStatus, quitJob, rentHome, shiftBlocked, sleepHome, workShift,
+	tryPromote,
 } from '../../src/game/core/engine.ts';
 import { CAREERS, PROMOTE_SHIFTS } from '../../src/game/data/careers.ts';
 import { HOMES } from '../../src/game/data/housing.ts';
@@ -137,6 +138,31 @@ test('上过班后辞职再应聘：当天不能再上一班，第二天可以',
 	assert.notEqual(shiftBlocked(rested({ ...again.state, clock: at(7, 1) })), '今天已经上过班了');
 });
 
+test('同职业换城和回聘保留最高等级，但当前档班次归零；跨职业仍从最低档开始', () => {
+	const senior = make({
+		loc: 'fremantle',
+		job: { career: 'barista', loc: 'perth', level: 2, shifts: 7, good: 6, lastDay: 3 },
+		careerLevels: {},
+		skills: { ...make().skills, swimming: 100, stamina: 100 },
+	});
+	const moved = applyJob(senior, WA, 'barista');
+	assert.ok(moved.ok, moved.msg);
+	assert.deepEqual(moved.state.job, { career: 'barista', loc: 'fremantle', level: 2, shifts: 0, good: 0, lastDay: senior.workDay });
+	const other = applyJob(moved.state, WA, 'lifeguard');
+	assert.ok(other.ok, other.msg);
+	assert.equal(other.state.job!.level, 0, '第一次做另一个部门仍从最低档开始');
+	const back = applyJob(other.state, WA, 'barista');
+	assert.ok(back.ok, back.msg);
+	assert.equal(back.state.job!.level, 2, '做过别的部门后回原行仍恢复历史最高档');
+	const rehired = applyJob(quitJob(back.state).state, WA, 'barista');
+	assert.ok(rehired.ok, rehired.msg);
+	assert.equal(rehired.state.job!.level, 2);
+	assert.equal(rehired.state.job!.shifts, 0);
+	const respect = rehired.state.respect;
+	assert.equal(tryPromote(rehired.state), '', '顶级回聘不能重复领取升职奖励');
+	assert.equal(rehired.state.respect, respect);
+});
+
 test('存档校验：旧存档没有 workDay，用当前工作的 lastDay 补上', () => {
 	const locs = new Set(WA.locations.map((l) => l.id));
 	const old = { ...make({ job: { career: 'barista', loc: 'perth', level: 0, shifts: 1, good: 0, lastDay: 3 } }) } as Record<string, unknown>;
@@ -162,6 +188,21 @@ test('存档校验：职业与住房', () => {
 	const migrated = sanitizeState(old, locs)!;
 	assert.equal(migrated.job, null);
 	assert.equal(migrated.home, null);
+});
+
+test('存档校验：职业最高等级兼容旧存档、过滤坏值并幂等', () => {
+	const locs = new Set(WA.locations.map((l) => l.id));
+	const old = { ...make({ job: { career: 'barista', loc: 'perth', level: 2, shifts: 0, good: 0, lastDay: 3 } }) } as Record<string, unknown>;
+	Reflect.deleteProperty(old, 'careerLevels');
+	const restored = sanitizeState(old, locs)!;
+	assert.deepEqual(restored.careerLevels, { barista: 2 });
+	const bad = Object.create({ barista: 2 });
+	bad.miner = 99;
+	bad.guide = -3;
+	bad.bogus = 2;
+	const clean = sanitizeState({ ...make({ job: { career: 'barista', loc: 'perth', level: 1, shifts: 0, good: 0, lastDay: 3 } }), careerLevels: bad }, locs)!;
+	assert.deepEqual(clean.careerLevels, { barista: 1, miner: 2 });
+	assert.deepEqual(sanitizeState(clean, locs), clean, '幂等');
 });
 
 test('有待处理事件时不能退房', () => {

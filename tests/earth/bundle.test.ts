@@ -82,10 +82,12 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *     gzip 271,552 → 276,440（+4.9KB），上限 272,600 → 277,500；未压缩 838,705 → 853,524，上限 840,900 → 856,600。
  *   - 证件和办事「落地清单」：办事项数据、现实流程摘要和官方来源（data/paperwork.ts）、规则（core/paperwork.ts、core/paper-clean.ts）、「在这里」的清单抽屉，
  *     gzip 276,440 → 282,814（+6.4KB），上限 277,500 → 283,900；未压缩 853,524 → 875,048，上限 856,600 → 878,100。
+ *   - 第十九轮职业履历：同职业换城 / 回聘保留最高职级，未压缩 877,996 → 878,302（+306B），gzip 283,790 → 283,870（+80B）；
+ *     按本文件约定留余量，上限调到 881,400 / 284,900。
  */
-export const FIRST_SCREEN_MAX = 878_100;
+export const FIRST_SCREEN_MAX = 881_400; // 第十九轮职业履历：实测 878,302，按本文件约定留 3KB
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 283_900;
+export const FIRST_SCREEN_GZIP_MAX = 284_900; // 实测 283,870，按约定留 1KB
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
