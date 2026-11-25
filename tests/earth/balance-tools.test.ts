@@ -294,3 +294,19 @@ test('第十八轮：短跑 JSON 不带 long；365 天带 long 字段，导游�
 	assert.ok(l.homeUpgradeDay.median >= 112, `升级日 ${l.homeUpgradeDay.median}`);
 	assert.equal(l.evictions181_365, 0);
 });
+
+test('第十九轮 --switch：跨部门仍从头晋升，同部门跨城在入职日恢复原职级', () => {
+	const r = sim('--switch', '--days=160', '--runs=1', '--format=json');
+	assert.equal(r.status, 0, r.stderr);
+	const plans = JSON.parse(r.stdout).plans;
+	assert.deepEqual(plans.map((p: { id: string }) => p.id), ['switch-barista-it-d60', 'switch-miner-port-hedland-d120']);
+	const career = plans[0].transition;
+	assert.equal(career.kind, 'career');
+	assert.equal(career.hireShare, 1);
+	assert.ok(career.daysHireToTop.median > 0);
+	const transfer = plans[1].transition;
+	assert.equal(transfer.kind, 'transfer');
+	assert.equal(transfer.hireShare, 1);
+	assert.equal(transfer.daysHireToTop.median, 0);
+	assert.equal(transfer.topDay.median, transfer.hireDay.median);
+});

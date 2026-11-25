@@ -1106,6 +1106,11 @@ export function promotionStatus(state: PlayerState): { next: CareerLevel; shifts
 	return { next, shifts: job.shifts, good: job.good, blocked: unmet(state, next) };
 }
 
+function rememberCareer(state: PlayerState) {
+	const job = state.job;
+	if (job) state.careerLevels[job.career] = Math.max(state.careerLevels[job.career] ?? 0, job.level);
+}
+
 export function applyJob(prev: PlayerState, region: Region, careerId: string): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	const offer = careersAt(prev, region).find((o) => o.career.id === careerId);
@@ -1113,11 +1118,13 @@ export function applyJob(prev: PlayerState, region: Region, careerId: string): A
 	if (offer.blocked) return fail(prev, offer.blocked);
 	const state = clone(prev);
 	const old = state.job ? getCareer(state.job.career) : null;
+	rememberCareer(state);
+	const remembered = state.careerLevels[careerId] ?? 0;
 	// 今天已经上过班的话，换了工作当天也不能再上一班
-	state.job = { career: careerId, loc: state.loc, level: 0, shifts: 0, good: 0, lastDay: state.workDay };
+	state.job = { career: careerId, loc: state.loc, level: remembered, shifts: 0, good: 0, lastDay: state.workDay };
 	voidCareerCard(state); // 不管之前有没有工作：存档里可能留着对不上工作的职业卡
 	if (advance(state, 30, region)) return collapsedResult(state);
-	const title = offer.career.levels[0].title;
+	const title = offer.career.levels[remembered].title;
 	const place = getLocation(region, state.loc)!.name;
 	const msg = `${old ? `辞去了${old.name}的工作，` : ''}被${place}的${offer.career.name}录用为${title}。`;
 	log(state, msg);
@@ -1137,6 +1144,7 @@ export function quitJob(prev: PlayerState): ActionResult {
 	if (!prev.job) return fail(prev, '你还没有工作。');
 	const state = clone(prev);
 	const c = getCareer(state.job!.career)!;
+	rememberCareer(state);
 	state.job = null;
 	const voided = voidCareerCard(state);
 	log(state, `辞去了${c.name}的工作。`);
@@ -1179,6 +1187,7 @@ export function tryPromote(state: PlayerState): string {
 	job.level++;
 	job.shifts = 0;
 	job.good = 0;
+	rememberCareer(state);
 	state.respect += 3;
 	addMoodlet(state, 'promoted');
 	return ` 升职为${next.title}！`;

@@ -870,6 +870,8 @@ export interface PlayerState {
 	inventory: Record<string, number>; // itemId -> 数量
 	relations: Record<string, Relation>; // npcId -> 关系
 	job: Job | null;
+	/** 每个职业做过的最高等级（CareerDef.id -> 0 起等级）；换城或回聘时恢复等级，当前档班次不保留。 */
+	careerLevels: Record<string, number>;
 	home: Home | null;
 	rental: RentalState; // 租房市场（rental 批次）：租约、看房、退租记录、待处理的押金扣款
 	properties: OwnedProperty[];

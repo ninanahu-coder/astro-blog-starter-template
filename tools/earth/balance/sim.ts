@@ -16,6 +16,7 @@
 //   --only=barista,idle     只跑这些策略（NPC 诊断路线 lifeguard-jack-perk 等只能这样点名跑，见 DIAG_PLANS）
 //   --seed-offset=100       种子从 101 起（默认 0，即 1…runs），用来换一批种子复核
 //   --long                  第十八轮长线哨兵：十部门代表路线，默认 365 天 × 100 种子
+//   --switch                第十九轮转行哨兵：咖啡→IT、矿工跨城换岗，默认仍不增加路线
 //   npm run earth:sim -- --swap        二手市场对照：咖啡店策略 × 买家具不走 / 走换手墙看货 / 走换手墙先转账
 import { writeFileSync } from 'node:fs';
 import { averageEco, blankEco, parseSystems, recordEco, SYSTEMS, systemOf, type EcoStats } from './systems.ts';
@@ -68,6 +69,7 @@ const SEED_OFFSET = Number(arg('seed-offset', '0'));
 const OUT = arg('out', '');
 const BY_ORIGIN = process.argv.includes('--origins');
 const BY_MATRIX = process.argv.includes('--matrix');
+const BY_SWITCH = process.argv.includes('--switch');
 /** 一个现实日里玩几个游戏日（只影响按现实日算的规则，目前是志愿的现实日上限）。默认 1：每个游戏日都是新的现实日 */
 const GAME_PER_REAL = Math.max(1, Number(arg('game-days-per-real-day', '1')));
 /** 模拟用的现实时间：从固定的珀斯 0 点起，每 GAME_PER_REAL 个游戏日过一个现实日 */
@@ -116,6 +118,12 @@ interface Bot {
 	investDay?: number;
 	/** 第十四轮：保守漫游最近一次出发日 */
 	safeRoamDay?: number;
+	/** 第十九轮：每个机器人的转行 / 换岗状态。 */
+	transition?: {
+		activated: boolean; sourceLevel: number; sourceTop: boolean;
+		hireDay?: number; firstPromoDay?: number; topDay?: number;
+		relocationCost: number; relocationComplete: boolean;
+	};
 	stats: {
 		collapses: number;
 		/** 收房或断供合计 = evict.first + evict.later + evict.forced */
@@ -261,6 +269,16 @@ interface Plan {
 	home?: string;
 	/** 长线机器人：到顶且至少运行 112 天后，无房产时升级租住。 */
 	postTopHome?: string;
+	/** 第十九轮：到指定日辞去原职，再按目标配置应聘。只由 --switch 使用。 */
+	transition?: {
+		kind: 'career' | 'transfer';
+		day: number;
+		to: {
+			job: { loc: string; career: string };
+			careerPrep?: Plan['careerPrep']; home?: string; postTopHome?: string;
+			rentAt?: number; remoteSafety?: Plan['remoteSafety']; spend?: boolean;
+		};
+	};
 	/** 有空就四处旅行 */
 	roam?: boolean;
 	/** false：不上课、不体验、不买车（用来和旧版本对比） */
@@ -426,6 +444,29 @@ const MATRIX_PLANS: Plan[] = MATRIX_IDS.flatMap((id) => {
 	});
 });
 
+/** 第十九轮：不进默认 39 条，只用 --switch 跑的跨部门与同部门跨城哨兵。 */
+const SWITCH_PLANS: Plan[] = [
+	{
+		id: 'switch-barista-it-d60', name: '转行哨兵：咖啡→IT（第 60 天）', origin: 'student', traits: ['charming', 'neat'],
+		job: { loc: 'perth', career: 'barista' }, home: 'room',
+		transition: {
+			kind: 'career', day: 60,
+			to: {
+				job: { loc: 'perth', career: 'it-support' }, home: 'room',
+				careerPrep: { entryPrograms: ['english-class', 'cert4-it'], cashReserve: 500, preferredGigs: ['work-cafe'] },
+			},
+		},
+	},
+	{
+		id: 'switch-miner-port-hedland-d120', name: '换岗哨兵：矿工卡尔古利→黑德兰港（第 120 天）', origin: 'fifo', traits: ['athletic', 'tough'],
+		job: { loc: 'kalgoorlie', career: 'miner' }, home: 'room', spend: false, remoteSafety: { ...REMOTE_SAFETY },
+		transition: {
+			kind: 'transfer', day: 120,
+			to: { job: { loc: 'port-hedland', career: 'miner' }, home: 'room', spend: false, remoteSafety: { ...REMOTE_SAFETY } },
+		},
+	},
+];
+
 /**
  * NPC 诊断路线（第十四轮）：同地点、同职业的「不用 perk」和「自然解锁后用 perk」成对比较其他 NPC 的专属互动。
  * 不进默认报告（外地住房机器人有约 1% 的收房尾部，会让「有工作收房 0」亮红灯，和 perk 无关），只在 --only 点名时跑。
@@ -526,6 +567,11 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		return false;
 	}
 	b.s = r.state;
+	if (b.transition?.activated && b.plan.transition && !b.transition.relocationComplete) {
+		const relocation = a.t === 'travel' || a.t === 'rental' || (a.t === 'home' && (a.op === 'leave' || a.op === 'rent'));
+		if (relocation && b.s.cash < before.cash) b.transition.relocationCost += before.cash - b.s.cash;
+		if (!b.plan.transition.to.home || (b.s.home?.loc === b.plan.transition.to.job.loc && b.s.home?.type === b.plan.transition.to.home)) b.transition.relocationComplete = true;
+	}
 	trackLb(b);
 	const key = actionKey(a);
 	if (dayOf(before.clock) >= 180) {
@@ -580,14 +626,57 @@ function tryAct(b: Bot, a: GameAction): boolean {
 	if (b.s.job && before.job && b.s.job.career === before.job.career && b.s.job.level > before.job.level) {
 		b.stats.promotions++;
 		b.stats.promoDays.push(dayOf(b.s.clock) + 1);
+		if (b.transition?.activated && b.plan.transition && b.s.job.career === b.plan.transition.to.job.career) {
+			b.transition.firstPromoDay ??= dayOf(b.s.clock) + 1;
+			if (b.s.job.level === getCareer(b.s.job.career)!.levels.length - 1) b.transition.topDay ??= dayOf(b.s.clock) + 1;
+		}
 	}
-	if (!before.job && b.s.job) b.stats.jobDay ??= dayOf(b.s.clock) + 1;
+	if (!before.job && b.s.job) {
+		b.stats.jobDay ??= dayOf(b.s.clock) + 1;
+		if (b.transition?.activated && b.plan.transition && b.s.job.career === b.plan.transition.to.job.career) {
+			b.transition.hireDay ??= dayOf(b.s.clock) + 1;
+			if (b.s.job.level === getCareer(b.s.job.career)!.levels.length - 1) b.transition.topDay ??= b.transition.hireDay;
+		}
+	}
 	if (a.t === 'job' && a.op === 'work') b.stats.shifts++;
 	if (a.t === 'tax' && a.op === 'lodge' && before.tax.ret && !b.stats.taxReturn) {
 		const ret = before.tax.ret;
 		b.stats.taxReturn = { tax: assess(ret, taxStatus(before.origin)).tax, withheld: ret.withheld, due: b.s.tax.last?.due ?? 0, day: dayOf(b.s.clock) + 1 };
 	}
 	return true;
+}
+
+/** 第十九轮：到点辞职；异地路线先主动退租，再走真实出行、看房和应聘。 */
+function stepTransition(b: Bot): boolean {
+	const spec = b.plan.transition;
+	if (!spec || dayOf(b.s.clock) < spec.day) return false;
+	if (!b.transition) {
+		const old = b.s.job;
+		const c = old ? getCareer(old.career) : undefined;
+		b.transition = {
+			activated: false,
+			sourceLevel: old?.level ?? -1,
+			sourceTop: !!old && !!c && old.level === c.levels.length - 1,
+			relocationCost: 0,
+			relocationComplete: !spec.to.home || b.s.home?.loc === spec.to.job.loc,
+		};
+	}
+	if (!b.transition.activated) {
+		b.transition.activated = true;
+		if (b.s.job && tryAct(b, { t: 'job', op: 'quit' })) {
+			const to = spec.to;
+			b.plan.job = { ...to.job };
+			b.plan.careerPrep = to.careerPrep ? structuredClone(to.careerPrep) : undefined;
+			b.plan.home = to.home;
+			b.plan.postTopHome = to.postTopHome;
+			b.plan.rentAt = to.rentAt;
+			b.plan.remoteSafety = to.remoteSafety ? { ...to.remoteSafety } : undefined;
+			b.plan.spend = to.spend;
+			return true;
+		}
+	}
+	if (b.s.home && b.s.home.loc !== spec.to.job.loc && !b.s.home.owned && tryAct(b, { t: 'home', op: 'leave' })) return true;
+	return false;
 }
 
 /** 税务杂事（税务分支）：开局网上申请 TFN；有待申报的税表、TFN 也到了就报税。都不花游戏时间 */
@@ -1051,6 +1140,7 @@ function step(b: Bot) {
 		if (pick < 0 || !tryAct(b, { t: 'event', choice: pick })) throw new Error(`机器人卡在事件 ${ev.id}（${plan.id}，第 ${dayOf(s.clock)} 天）`);
 		return;
 	}
+	if (stepTransition(b)) return;
 	if (careStep(b)) return;
 	if (!isIdle(plan) && taxChore(b)) return;
 	if (plan.gig) {
@@ -1404,8 +1494,10 @@ function trySport(b: Bot): boolean {
 function runBot(plan: Plan, seed: number): Bot {
 	const region = plan.world ? WORLD : WA;
 	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: region.id, spawn: region.spawn, seed });
+	// transition 会在运行中切换目标；每个种子必须持有独立计划。
+	const livePlan = structuredClone(plan);
 	const b: Bot = {
-		s, plan, rng: mulberry(seed * 7919),
+		s, plan: livePlan, rng: mulberry(seed * 7919),
 		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, moodByDay: [mood(s)], moodLateSum: 0, moodLateN: 0, moodLateBins: [{ sum: 0, n: 0 }, { sum: 0, n: 0 }, { sum: 0, n: 0 }], worthByDay: [netWorth(s)], collapsesByDay: [0], evictionsByDay: [0], visaExpiredByDay: [0], lateActions: {}, lateActionMinutes: {}, visaTransitions: [], shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} } },
 		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
@@ -1450,7 +1542,7 @@ function runBot(plan: Plan, seed: number): Bot {
 // ---------- 汇总 ----------
 if (ONLY.length) {
 	PLANS.push(...DIAG_PLANS); // 诊断路线只在 --only 点名时跑
-	for (const list of [PLANS, ORIGIN_PLANS, MATRIX_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
+	for (const list of [PLANS, ORIGIN_PLANS, MATRIX_PLANS, SWITCH_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
 }
 const results: PlanResult[] = [];
 const getNpcPerk = (id: string) => NPCS.find((x) => x.id === id)?.perk;
@@ -1489,7 +1581,7 @@ const swapRows: string[] = [];
 const hobbyRows: string[] = [];
 const tailRows: string[] = [];
 const npcRows: string[] = [];
-const selectedPlans = BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : LONG && !ONLY.length ? PLANS.filter((p) => MATRIX_IDS.includes(p.id)) : PLANS;
+const selectedPlans = BY_SWITCH ? SWITCH_PLANS : BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : LONG && !ONLY.length ? PLANS.filter((p) => MATRIX_IDS.includes(p.id)) : PLANS;
 for (const plan of selectedPlans) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, SEED_OFFSET + i + 1));
 	const at = (d: number) => bots.map((b) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)]);
@@ -1633,6 +1725,34 @@ for (const plan of selectedPlans) {
 	// 结构化结果（--format=json / csv、基线、A/B 用）：和上面这一行同一批机器人、同一套口径
 	const eco = averageEco(bots.map((b) => ecoOf(b)), DAYS);
 	const homeDays = bots.map((b) => b.stats.homeDay).filter((x): x is number => x !== undefined);
+	const transition = plan.transition ? (() => {
+		const tri = (xs: number[]) => ({ p10: pct(xs, 0.1), median: pct(xs, 0.5), p90: pct(xs, 0.9) });
+		const snap = (b: Bot, d: number) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)];
+		const live = bots.map((b) => b.transition).filter((x): x is NonNullable<Bot['transition']> => !!x);
+		const hired = live.filter((x): x is typeof x & { hireDay: number } => x.hireDay !== undefined);
+		const p1 = live.filter((x): x is typeof x & { firstPromoDay: number } => x.firstPromoDay !== undefined);
+		const top = live.filter((x): x is typeof x & { topDay: number } => x.topDay !== undefined);
+		const post = bots.flatMap((b) => {
+			const h = b.transition?.hireDay;
+			return h === undefined || h + 30 > DAYS ? [] : [(snap(b, h + 30) - snap(b, h)) / 30];
+		});
+		return {
+			kind: plan.transition.kind,
+			requestedDay: plan.transition.day,
+			sourceLevel: tri(live.map((x) => x.sourceLevel)),
+			sourceTopShare: live.filter((x) => x.sourceTop).length / RUNS,
+			hireShare: hired.length / RUNS,
+			hireDay: hired.length ? tri(hired.map((x) => x.hireDay)) : null,
+			daysToHire: hired.length ? tri(hired.map((x) => x.hireDay - plan.transition!.day)) : null,
+			firstPromoDay: p1.length ? tri(p1.map((x) => x.firstPromoDay)) : null,
+			topDay: top.length ? tri(top.map((x) => x.topDay)) : null,
+			daysHireToFirstPromo: p1.length ? tri(p1.map((x) => x.firstPromoDay - x.hireDay!)) : null,
+			daysHireToTop: top.length ? tri(top.map((x) => x.topDay - x.hireDay!)) : null,
+			preNet30: avg(bots.map((b) => (snap(b, plan.transition!.day) - snap(b, Math.max(0, plan.transition!.day - 30))) / Math.min(30, plan.transition!.day))),
+			postNet30: post.length ? avg(post) : null,
+			relocationCost: avg(live.map((x) => x.relocationCost)),
+		};
+	})() : undefined;
 	const long = DAYS >= 365 ? (() => {
 		const snap = (b: Bot, xs: number[], day: number) => xs[Math.min(day, xs.length - 1)];
 		const tri = (xs: number[]) => ({ p10: pct(xs, 0.1), median: pct(xs, 0.5), p90: pct(xs, 0.9) });
@@ -1694,6 +1814,7 @@ for (const plan of selectedPlans) {
 		},
 		skills: Object.fromEntries(SKILL_KEYS.map((k) => [k, pct(bots.map((b) => b.s.skills[k]), 0.5)])),
 		flow, eco: { in: eco.in, out: eco.out, inDetail: eco.inDetail, outDetail: eco.outDetail }, blocked: eco.blocked,
+		...(transition ? { transition } : {}),
 		...(long ? { long } : {}),
 	});
 }
