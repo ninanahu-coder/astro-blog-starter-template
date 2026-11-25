@@ -66,7 +66,7 @@ export const CAREERS: CareerDef[] = [
 		levels: [
 			{ title: '摘果工', pay: 200 },
 			{ title: '农场工', pay: 240, req: { skills: { stamina: 25 } } },
-			{ title: '农场主管', pay: 320, req: { skills: { stamina: 45, survival: 25 }, respect: 25 } },
+			{ title: '农场主管', pay: 320, req: { skills: { stamina: 45, survival: 10 }, respect: 25 } }, // 平衡第十七轮：生存 25 → 10（非背包客出身二升从第 160 天提前到 43–58 天）
 		],
 	},
 	// 第 33 批新增（教育与职业发展，docs/earth-game/education-career.md）：入行或升职要持证书或学历（req.certs）。

@@ -243,3 +243,26 @@ test('面板扫全仓库：src/game 里每一行带「待平衡」的都列出�
 	assert.match(md, new RegExp(`${items.length} 处「待平衡」标记`));
 	assert.equal(tuningCsv(items).trim().split('\n').length, items.length + 1);
 });
+
+test('第十七轮 --matrix：十个部门 × 四种出身恰好 40 条 mx-* 路线；--only 能单点；带 jobShare、lowCashDays', () => {
+	const all = sim('--matrix', '--days=1', '--runs=1', '--format=json');
+	assert.equal(all.status, 0, all.stderr);
+	const ids = JSON.parse(all.stdout).plans.map((p: { id: string }) => p.id) as string[];
+	assert.equal(ids.length, 40);
+	assert.equal(new Set(ids).size, 40);
+	assert.ok(ids.every((id) => id.startsWith('mx-')), ids.join());
+	const one = sim('--matrix', '--only=mx-it-support-backpacker', '--days=1', '--runs=1', '--format=json');
+	const plans = JSON.parse(one.stdout).plans;
+	assert.deepEqual(plans.map((p: { id: string }) => p.id), ['mx-it-support-backpacker']);
+	assert.equal(typeof plans[0].metrics.jobShare, 'number');
+	assert.equal(typeof plans[0].metrics.lowCashDays, 'number');
+});
+
+test('第十七轮：非 FIFO 卡车先在出生地补力量 / 驾驶，没补完不去卡尔古利签房、不被收房', () => {
+	const r = sim('--matrix', '--only=mx-trucker-backpacker', '--days=10', '--runs=1', '--format=json');
+	const m = JSON.parse(r.stdout).plans[0].metrics;
+	assert.equal(m.homeDay, null);
+	assert.equal(m.jobShare, 0);
+	assert.equal(m.evictions, 0);
+	assert.match(readFileSync(join(ROOT, 'tools/earth/balance/sim.ts'), 'utf8'), /id: 'trucker',[^\n]*\n[^\n]*cashReserve: 1000,/);
+});
