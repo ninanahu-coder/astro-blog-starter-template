@@ -16,8 +16,8 @@ export interface PlanResult {
 		/** 第十六轮：入职日、升职尾部、到顶比例和入职后的等待天数 */
 		jobDay: number | null; jobDayP10: number | null; jobDayP90: number | null;
 		promo1DayP10: number | null; promo1DayP90: number | null; promo2DayP10: number | null; promo2DayP90: number | null;
-		topShare: number; promo1AfterHire: number | null; promo2AfterHire: number | null;
-		brokeShare: number; events: number; coops: number;
+		jobShare: number; topShare: number; promo1AfterHire: number | null; promo2AfterHire: number | null;
+		brokeShare: number; lowCashDays: number; events: number; coops: number;
 		/** 每人每天的现金投放 / 回收合计 */
 		ecoIn: number; ecoOut: number;
 	};

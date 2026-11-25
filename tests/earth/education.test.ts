@@ -77,6 +77,11 @@ test('证书门槛：没有 White Card 不能应聘工地、没有 HR 证不能�
 	assert.equal(promotionStatus({ ...it1, certs: ['cert4-it', 'bachelor'] })!.blocked, undefined);
 });
 
+test('平衡第十七轮：农场主管要体能 45、生存 10、声望 25', () => {
+	const lv = CAREERS.find((c) => c.id === 'farmhand')!.levels[2];
+	assert.deepEqual(lv.req, { skills: { stamina: 45, survival: 10 }, respect: 25 });
+});
+
 test('学历课程：前置条件、上课时间、钱、每天一次；上满毕业拿学历和声望；不改入参', () => {
 	const s = make({ clock: at(10) });
 	const offer = (st: PlayerState, id: string) => programsAt(st, WA).find((o) => o.program.id === id)!;

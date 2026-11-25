@@ -65,6 +65,7 @@ const RUNS = Number(arg('runs', '40'));
 const SEED_OFFSET = Number(arg('seed-offset', '0'));
 const OUT = arg('out', '');
 const BY_ORIGIN = process.argv.includes('--origins');
+const BY_MATRIX = process.argv.includes('--matrix');
 /** 一个现实日里玩几个游戏日（只影响按现实日算的规则，目前是志愿的现实日上限）。默认 1：每个游戏日都是新的现实日 */
 const GAME_PER_REAL = Math.max(1, Number(arg('game-days-per-real-day', '1')));
 /** 模拟用的现实时间：从固定的珀斯 0 点起，每 GAME_PER_REAL 个游戏日过一个现实日 */
@@ -227,6 +228,8 @@ interface Plan {
 	 */
 	careerPrep?: {
 		entrySkills?: Partial<Record<SkillKey, number>>;
+		/** 第十七轮：需要先租房办地址时，也可先在出生地补完这些能力。 */
+		preHomeSkills?: boolean;
 		entryPapers?: string[];
 		entryCerts?: string[];
 		entryPrograms?: string[];
@@ -318,6 +321,7 @@ const PLANS: Plan[] = [
 	// 第 46 轮新增（只出报告，不改数值）：第 11 轮的两种新职业、第 1 轮起的共同事件。排在原有策略后面，原有各行结果不变
 	{ id: 'bartender', name: '酒保（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'bartender' }, home: 'room' },
 	{ id: 'farmhand', name: '农场工（玛格丽特河，合租）', origin: 'backpacker', traits: ['athletic', 'tough'], job: { loc: 'margaret-river', career: 'farmhand' }, home: 'room', rentAt: 700 },
+	{ id: 'farmhand-fifo', name: 'FIFO 农场工（玛格丽特河，合租）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'margaret-river', career: 'farmhand' }, home: 'room', rentAt: 700 },
 	// 第十六轮：补齐此前没有 sim 路线的五个职业。careerPrep 的实现规格见本轮 balance.md。
 	{ id: 'guide', name: '导游（玛格丽特河，合租）', origin: 'backpacker', traits: ['loner', 'frugal'], job: { loc: 'margaret-river', career: 'guide' }, home: 'room', rentAt: 700 },
 	{
@@ -335,6 +339,10 @@ const PLANS: Plan[] = [
 	{
 		id: 'it-support', name: 'IT 支持（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'it-support' }, home: 'room',
 		careerPrep: { entryPrograms: ['english-class', 'cert4-it'], cashReserve: 500, preferredGigs: ['work-cafe'] },
+	},
+	{
+		id: 'it-support-backpacker', name: '非留学生 IT 支持（珀斯，自己读本科）', origin: 'backpacker', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'it-support' }, home: 'room',
+		careerPrep: { entrySkills: { street: 18 }, entryPrograms: ['english-class', 'cert4-it'], promotionPrograms: ['bachelor'], cashReserve: 500, preferredGigs: ['work-cafe'] }, rentAt: 700, remoteSafety: REMOTE_SAFETY,
 	},
 	// 共同事件三种搭档假设（第 10 批审查问题 1）：理想（需求全满、随叫随到）是上限，不是保守估计；另外两种看搭档状态和在场率的影响
 	{ id: 'barista-coop', name: '咖啡店 + 共同事件：理想搭档（需求全满、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 100, mateChance: 1 } },
@@ -364,6 +372,41 @@ const PLANS: Plan[] = [
 	// 第十三轮：库伯佩迪普通生涯（正常交房租、做可选声望互动），让地下屋进长期回归
 	{ id: 'miner-coober-dugout', name: '库伯佩迪矿工（地下屋）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'coober-pedy', career: 'miner' }, home: 'dugout', world: true },
 ];
+
+/** 第十七轮：部门 × 出身矩阵（--matrix，不进默认报告）。十个部门固定代表路线，只替换出身；非留学生 IT 自读学士。 */
+const MATRIX_IDS = ['barista', 'lifeguard', 'guide', 'miner', 'trucker', 'bartender', 'farmhand', 'builder', 'carer', 'it-support'];
+const MATRIX_PLANS: Plan[] = MATRIX_IDS.flatMap((id) => {
+	const base = PLANS.find((p) => p.id === id)!;
+	return ORIGINS.map((origin) => {
+		const entrySkills: Partial<Record<SkillKey, number>> | undefined = id === 'lifeguard' ? { swimming: 25 }
+			: id === 'miner' ? { strength: 20 }
+			: id === 'trucker' && origin.id !== 'fifo' ? { strength: 20, driving: 20 }
+			: id === 'builder' && origin.id !== 'fifo' ? { strength: 35, stamina: 20 }
+			: id === 'carer' && origin.id !== 'student' ? { charisma: 30 }
+			: id === 'farmhand' && origin.id === 'student' ? { stamina: 15 }
+			: id === 'it-support' && origin.id !== 'student' ? { street: 18 }
+			: base.careerPrep?.entrySkills;
+		const needsPrep = !!base.careerPrep || !!entrySkills || (id === 'it-support' && origin.id !== 'student');
+		const careerPrep = needsPrep ? {
+			...(base.careerPrep ?? {}),
+			...(entrySkills ? { entrySkills } : {}),
+			...((id === 'lifeguard' || id === 'miner' || id === 'builder' || id === 'farmhand') ? { cashReserve: 200, preferredGigs: ['work-cafe'] as const, minHunger: 70, minEnergy: 75 } : {}),
+			...(id === 'trucker' && origin.id !== 'fifo' ? { preHomeSkills: true } : {}),
+			...(id === 'carer' && origin.id !== 'student' ? { minEnergy: 75 } : {}),
+			...(id === 'carer' && origin.id === 'backpacker' ? { cashReserve: 400 } : {}),
+			...(id === 'it-support' && origin.id !== 'student' ? { promotionPrograms: ['bachelor'] } : {}),
+		} : undefined;
+		return {
+			...base,
+			id: `mx-${id}-${origin.id}`,
+			name: `${base.job!.career} × ${origin.name}`,
+			origin: origin.id,
+			careerPrep,
+			...(base.home === 'room' && (origin.id === 'backpacker' || origin.id === 'surfer') && (base.rentAt ?? 400) < 700 ? { rentAt: 700 } : {}),
+			...(((origin.id === 'backpacker' || origin.id === 'surfer') || (id === 'lifeguard' && origin.id === 'fifo')) && base.home ? { remoteSafety: REMOTE_SAFETY } : {}),
+		};
+	});
+});
 
 /**
  * NPC 诊断路线（第十四轮）：同地点、同职业的「不用 perk」和「自然解锁后用 perk」成对比较其他 NPC 的专属互动。
@@ -916,6 +959,25 @@ function careerPrepPending(b: Bot, phase: 'entry' | 'promotion'): boolean {
 	return ids.some((id) => { const p = getProgram(id); return !!p && !b.s.certs.includes(p.award); });
 }
 
+const careerSkillPrepPending = (b: Bot) => Object.entries(b.plan.careerPrep?.entrySkills ?? {}).some(([k, v]) => b.s.skills[k as SkillKey] < v!);
+
+function tryCareerSkillPrep(b: Bot): boolean {
+	const cfg = b.plan.careerPrep;
+	if (!cfg) return false;
+	const fund = (cost: number) => {
+		if (b.s.cash - cost >= (cfg.cashReserve ?? 0)) return false;
+		if (cfg.preferredGigs) tryGigs(b, cfg.preferredGigs);
+		return true;
+	};
+	for (const [skill, target] of Object.entries(cfg.entrySkills ?? {})) {
+		if (b.s.skills[skill as SkillKey] >= target!) continue;
+		const offer = coursesAt(b.s, regionOf(b)).find((o) => o.course.skill === skill);
+		if (offer && fund(offer.price)) return true;
+		return !!offer && !offer.blocked && tryAct(b, { t: 'course', id: offer.course.id });
+	}
+	return false;
+}
+
 function tryCareerPrep(b: Bot, phase: 'entry' | 'promotion'): boolean {
 	const cfg = b.plan.careerPrep;
 	if (!cfg) return false;
@@ -925,12 +987,7 @@ function tryCareerPrep(b: Bot, phase: 'entry' | 'promotion'): boolean {
 		return true; // 做不了零工也要等待，不能穿透储备继续付费。
 	};
 	if (phase === 'entry') {
-		for (const [skill, target] of Object.entries(cfg.entrySkills ?? {})) {
-			if (b.s.skills[skill as SkillKey] >= target!) continue;
-			const offer = coursesAt(b.s, regionOf(b)).find((o) => o.course.skill === skill);
-			if (offer && fund(offer.price)) return true;
-			return !!offer && !offer.blocked && tryAct(b, { t: 'course', id: offer.course.id });
-		}
+		if (careerSkillPrepPending(b)) return tryCareerSkillPrep(b);
 		for (const id of cfg.entryPapers ?? []) {
 			if (paperDone(b.s, id)) continue;
 			const row = paperChecklist(b.s, regionOf(b)).find((o) => o.paper.id === id);
@@ -1041,7 +1098,8 @@ function step(b: Bot) {
 	// 2. 找工作、租房、去上班
 	// 自己看店的策略只有在店里有货时才停正式班；空店时回去上班，避免租金把补货本金越吃越少。
 	const selfShopTrading = !!(plan.shop?.staff === 0 && s.biz.shop && s.biz.shop.stock > 0);
-	if (!s.job && careerPrepPending(b, 'entry') && (!plan.careerPrep?.allowHomeBeforeEntry || !!s.home)) {
+	const preHomeSkillOnly = !s.job && !s.home && !!plan.careerPrep?.allowHomeBeforeEntry && !!plan.careerPrep.preHomeSkills && careerSkillPrepPending(b);
+	if (preHomeSkillOnly || (!s.job && careerPrepPending(b, 'entry') && (!plan.careerPrep?.allowHomeBeforeEntry || !!s.home))) {
 		const prep = plan.careerPrep!;
 		if (s.needs.hunger < (prep.minHunger ?? 35)) {
 			if (cookFromPantry(b)) return;
@@ -1053,9 +1111,20 @@ function step(b: Bot) {
 			if (act(b, 'sleep-camp')) return;
 			if (act(b, 'rest')) return;
 		}
-		if (tryCareerPrep(b, 'entry')) return;
+		if (preHomeSkillOnly ? tryCareerSkillPrep(b) : tryCareerPrep(b, 'entry')) return;
 		// 入门课没开时留在出生城市等下一时段，不先跑去工作地点或签租约。
 		if (act(b, 'rest')) return;
+	}
+	// 需要地址证明的路线：能力补完后先在出生地攒够安全签约线，再搬去工作地租房。
+	if (!s.job && !s.home && plan.careerPrep?.allowHomeBeforeEntry && !careerSkillPrepPending(b)) {
+		const h = plan.home ? getHome(plan.home) : undefined;
+		const target = h && rs ? moveInCost(s, h) + rs.cashReserve + h.rentWeek * rs.moveInRentWeeks : (plan.rentAt ?? 400);
+		if (s.cash <= target) {
+			if (s.needs.hunger < (plan.careerPrep.minHunger ?? 35) && (act(b, 'eat') || (s.inventory.snack && tryAct(b, { t: 'use', item: 'snack' })))) return;
+			if (s.needs.energy < (plan.careerPrep.minEnergy ?? 25) && (act(b, 'sleep-camp') || act(b, 'rest'))) return;
+			if (plan.careerPrep.preferredGigs && tryGigs(b, plan.careerPrep.preferredGigs)) return;
+			if (act(b, 'recycle')) return;
+		}
 	}
 	if (plan.job && !selfShopTrading) {
 		if (!s.job) {
@@ -1334,7 +1403,7 @@ function runBot(plan: Plan, seed: number): Bot {
 // ---------- 汇总 ----------
 if (ONLY.length) {
 	PLANS.push(...DIAG_PLANS); // 诊断路线只在 --only 点名时跑
-	for (const list of [PLANS, ORIGIN_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
+	for (const list of [PLANS, ORIGIN_PLANS, MATRIX_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
 }
 const results: PlanResult[] = [];
 const getNpcPerk = (id: string) => NPCS.find((x) => x.id === id)?.perk;
@@ -1373,7 +1442,7 @@ const swapRows: string[] = [];
 const hobbyRows: string[] = [];
 const tailRows: string[] = [];
 const npcRows: string[] = [];
-for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
+for (const plan of BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, SEED_OFFSET + i + 1));
 	const at = (d: number) => bots.map((b) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)]);
 	const endD = Math.min(DAYS, 60);
@@ -1525,8 +1594,8 @@ for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 			promotions: pr, promo1Day: nth(0).length ? pct(nth(0), 0.5) : null, promo2Day: nth(1).length ? pct(nth(1), 0.5) : null,
 			jobDay: jobDays.length ? pct(jobDays, 0.5) : null, jobDayP10: jobDays.length ? pct(jobDays, 0.1) : null, jobDayP90: jobDays.length ? pct(jobDays, 0.9) : null,
 			promo1DayP10: p1Days.length ? pct(p1Days, 0.1) : null, promo1DayP90: p1Days.length ? pct(p1Days, 0.9) : null, promo2DayP10: p2Days.length ? pct(p2Days, 0.1) : null, promo2DayP90: p2Days.length ? pct(p2Days, 0.9) : null,
-			topShare: p2Days.length / RUNS, promo1AfterHire: afterHire(0).length ? pct(afterHire(0), 0.5) : null, promo2AfterHire: afterHire(1).length ? pct(afterHire(1), 0.5) : null,
-			brokeShare: broke, events: avg(bots.map((b) => b.stats.events)), coops: avg(bots.map((b) => b.stats.coops)),
+			jobShare: jobDays.length / RUNS, topShare: p2Days.length / RUNS, promo1AfterHire: afterHire(0).length ? pct(afterHire(0), 0.5) : null, promo2AfterHire: afterHire(1).length ? pct(afterHire(1), 0.5) : null,
+			brokeShare: broke, lowCashDays: broke * DAYS, events: avg(bots.map((b) => b.stats.events)), coops: avg(bots.map((b) => b.stats.coops)),
 			ecoIn: Object.values(eco.in).reduce((x, y) => x + y, 0), ecoOut: Object.values(eco.out).reduce((x, y) => x + y, 0),
 		},
 		skills: Object.fromEntries(SKILL_KEYS.map((k) => [k, pct(bots.map((b) => b.s.skills[k]), 0.5)])),
