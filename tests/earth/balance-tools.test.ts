@@ -266,3 +266,31 @@ test('第十七轮：非 FIFO 卡车先在出生地补力量 / 驾驶，没补�
 	assert.equal(m.evictions, 0);
 	assert.match(readFileSync(join(ROOT, 'tools/earth/balance/sim.ts'), 'utf8'), /id: 'trucker',[^\n]*\n[^\n]*cashReserve: 1000,/);
 });
+
+test('第十八轮 --long：无 --only 时恰好十部门代表路线；--only 照常筛选；默认 39 条策略不变', () => {
+	const all = sim('--long', '--days=1', '--runs=1', '--format=json');
+	assert.equal(all.status, 0, all.stderr);
+	const ids = JSON.parse(all.stdout).plans.map((p: { id: string }) => p.id) as string[];
+	assert.deepEqual([...ids].sort(), ['barista', 'bartender', 'builder', 'carer', 'farmhand', 'guide', 'it-support', 'lifeguard', 'miner', 'trucker']);
+	const one = sim('--long', '--only=guide', '--days=1', '--runs=1', '--format=json');
+	assert.deepEqual(JSON.parse(one.stdout).plans.map((p: { id: string }) => p.id), ['guide']);
+	assert.equal(PLAN_IDS.length, 39);
+	assert.equal(new Set(PLAN_IDS).size, 39);
+});
+
+test('第十八轮：短跑 JSON 不带 long；365 天带 long 字段，导游到顶后升级租公寓', () => {
+	const short = sim('--only=guide', '--days=1', '--runs=1', '--format=json');
+	assert.equal(JSON.parse(short.stdout).plans[0].long, undefined);
+	const r = sim('--long', '--only=guide', '--days=365', '--runs=1', '--format=json');
+	assert.equal(r.status, 0, r.stderr);
+	const l = JSON.parse(r.stdout).plans[0].long;
+	for (const k of ['netWorthDay0', 'netWorthDay180', 'netWorthDay365', 'cashDay180', 'cashDay365']) {
+		for (const q of ['p10', 'median', 'p90']) assert.equal(typeof l[k][q], 'number', `${k}.${q}`);
+	}
+	for (const k of ['cashNetPerDayLateBins', 'worthGrowthPerDayLateBins', 'moodMeanLateBins', 'moodActionMeanLateBins']) assert.equal(l[k].length, 3, k);
+	for (const k of ['worthGrowthPerDay181_365', 'moodMean181_365', 'collapses181_365', 'evictions181_365', 'lowCashDays181_365', 'visaExpiredDays181_365']) assert.equal(typeof l[k], 'number', k);
+	assert.equal(typeof l.visaTransitions, 'object');
+	assert.equal(l.homeUpgradeShare, 1);
+	assert.ok(l.homeUpgradeDay.median >= 112, `升级日 ${l.homeUpgradeDay.median}`);
+	assert.equal(l.evictions181_365, 0);
+});

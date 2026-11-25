@@ -15,6 +15,7 @@
 //   --format=json|csv       导出结构化结果（默认 md）；配合 --out 写文件
 //   --only=barista,idle     只跑这些策略（NPC 诊断路线 lifeguard-jack-perk 等只能这样点名跑，见 DIAG_PLANS）
 //   --seed-offset=100       种子从 101 起（默认 0，即 1…runs），用来换一批种子复核
+//   --long                  第十八轮长线哨兵：十部门代表路线，默认 365 天 × 100 种子
 //   npm run earth:sim -- --swap        二手市场对照：咖啡店策略 × 买家具不走 / 走换手墙看货 / 走换手墙先转账
 import { writeFileSync } from 'node:fs';
 import { averageEco, blankEco, parseSystems, recordEco, SYSTEMS, systemOf, type EcoStats } from './systems.ts';
@@ -60,8 +61,9 @@ import { ITEMS } from '../../../src/game/data/items.ts';
 import { NPCS } from '../../../src/game/data/npcs.ts';
 
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
-const DAYS = Number(arg('days', '60'));
-const RUNS = Number(arg('runs', '40'));
+const LONG = process.argv.includes('--long');
+const DAYS = Number(arg('days', LONG ? '365' : '60'));
+const RUNS = Number(arg('runs', LONG ? '100' : '40'));
 const SEED_OFFSET = Number(arg('seed-offset', '0'));
 const OUT = arg('out', '');
 const BY_ORIGIN = process.argv.includes('--origins');
@@ -129,12 +131,26 @@ interface Bot {
 		events: number;
 		moodSum: number;
 		moodN: number;
+		/** 第十八轮：每个游戏日跨日后的长线快照；索引 0 是创角时。 */
+		moodByDay: number[];
+		moodLateSum: number;
+		moodLateN: number;
+		moodLateBins: { sum: number; n: number }[];
+		worthByDay: number[];
+		collapsesByDay: number[];
+		evictionsByDay: number[];
+		visaExpiredByDay: number[];
+		/** 第 181 天起成功动作的次数与游戏分钟，用来识别“到顶后没事可做”。 */
+		lateActions: Record<string, number>;
+		lateActionMinutes: Record<string, number>;
+		visaTransitions: { day: number; from: string; to: string }[];
 		shifts: number;
 		daysBroke: number;
 		cashByDay: number[];
 		flow: Record<string, number>;
 		promoDays: number[];
 		homeDay?: number;
+		homeUpgradeDay?: number;
 		diag: BackpackerDiagnostics;
 		/** 健康系统第 1 版：生病次数、生病的天数、就医花的钱 */
 		ill: number;
@@ -243,6 +259,8 @@ interface Plan {
 	};
 	/** 想租的房型（在工作地点或出生点） */
 	home?: string;
+	/** 长线机器人：到顶且至少运行 112 天后，无房产时升级租住。 */
+	postTopHome?: string;
 	/** 有空就四处旅行 */
 	roam?: boolean;
 	/** false：不上课、不体验、不买车（用来和旧版本对比） */
@@ -320,10 +338,10 @@ const PLANS: Plan[] = [
 	{ id: 'idle', name: '什么都不干（对照组）', origin: 'backpacker', traits: [] },
 	// 第 46 轮新增（只出报告，不改数值）：第 11 轮的两种新职业、第 1 轮起的共同事件。排在原有策略后面，原有各行结果不变
 	{ id: 'bartender', name: '酒保（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'bartender' }, home: 'room' },
-	{ id: 'farmhand', name: '农场工（玛格丽特河，合租）', origin: 'backpacker', traits: ['athletic', 'tough'], job: { loc: 'margaret-river', career: 'farmhand' }, home: 'room', rentAt: 700 },
-	{ id: 'farmhand-fifo', name: 'FIFO 农场工（玛格丽特河，合租）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'margaret-river', career: 'farmhand' }, home: 'room', rentAt: 700 },
+	{ id: 'farmhand', name: '农场工（玛格丽特河，合租）', origin: 'backpacker', traits: ['athletic', 'tough'], job: { loc: 'margaret-river', career: 'farmhand' }, home: 'room', postTopHome: 'flat', rentAt: 700 },
+	{ id: 'farmhand-fifo', name: 'FIFO 农场工（玛格丽特河，合租）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'margaret-river', career: 'farmhand' }, home: 'room', postTopHome: 'flat', rentAt: 700 },
 	// 第十六轮：补齐此前没有 sim 路线的五个职业。careerPrep 的实现规格见本轮 balance.md。
-	{ id: 'guide', name: '导游（玛格丽特河，合租）', origin: 'backpacker', traits: ['loner', 'frugal'], job: { loc: 'margaret-river', career: 'guide' }, home: 'room', rentAt: 700 },
+	{ id: 'guide', name: '导游（玛格丽特河，合租）', origin: 'backpacker', traits: ['loner', 'frugal'], job: { loc: 'margaret-river', career: 'guide' }, home: 'room', postTopHome: 'flat', rentAt: 700 },
 	{
 		id: 'trucker', name: '卡车司机（卡尔古利，合租）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'kalgoorlie', career: 'trucker' }, home: 'room',
 		careerPrep: { entrySkills: { driving: 20 }, entryPapers: ['address', 'licence-theory', 'licence'], entryCerts: ['hr-licence'], cashReserve: 1000, preferredGigs: ['work-mine', 'work-cafe'], minHunger: 70, minEnergy: 75, allowHomeBeforeEntry: true },
@@ -510,6 +528,11 @@ function tryAct(b: Bot, a: GameAction): boolean {
 	b.s = r.state;
 	trackLb(b);
 	const key = actionKey(a);
+	if (dayOf(before.clock) >= 180) {
+		b.stats.lateActions[key] = (b.stats.lateActions[key] ?? 0) + 1;
+		b.stats.lateActionMinutes[key] = (b.stats.lateActionMinutes[key] ?? 0) + Math.max(0, b.s.clock - before.clock);
+	}
+	if (before.visa.kind !== b.s.visa.kind) b.stats.visaTransitions.push({ day: dayOf(b.s.clock) + 1, from: before.visa.kind, to: b.s.visa.kind });
 	const newMilestones = b.s.hobby.got.filter((id) => !before.hobby.got.includes(id));
 	if (newMilestones.length) {
 		const gained = Math.max(0, b.s.respect - before.respect);
@@ -1142,24 +1165,35 @@ function step(b: Bot) {
 			}
 		} else if (dayOf(s.clock) % 7 !== 6 && !shiftBlocked(s, regionOf(b)) && tryAct(b, { t: 'job', op: 'work' })) return; // 每周休一天
 	}
+	const postTopHome = plan.postTopHome ? getHome(plan.postTopHome) : undefined;
+	const atCareerTop = !!s.job && s.job.level === getCareer(s.job.career)!.levels.length - 1;
+	const postTopReady = !!postTopHome && atCareerTop && dayOf(s.clock) >= 112 && s.properties.length === 0
+		&& s.loc === (plan.job?.loc ?? regionOf(b).spawn) && s.home?.type !== postTopHome.id
+		&& s.cash - moveInCost(s, postTopHome) >= Math.max(3000, postTopHome.rentWeek * 8);
+	// 已准备升级住房时不再续新的固定期；等当前合同自然转周期后再搬，避免违约金。
+	if (postTopReady && s.home && !s.home.owned && !s.rental.lease?.end && tryAct(b, { t: 'home', op: 'leave' })) return;
 	// 租约维护优先于升职课程，避免连续课程挤掉续签窗口。
 	if (s.home && !s.home.owned) {
 		if (!leaseBlocked(s, 'report') && tryAct(b, { t: 'rental', op: 'report' })) return;
 		if (!leaseBlocked(s, 'repair') && tryAct(b, { t: 'rental', op: 'repair' })) return;
-		if (s.rental.lease?.end && !leaseBlocked(s, 'renew') && tryAct(b, { t: 'rental', op: 'renew' })) return;
+		if (!postTopReady && s.rental.lease?.end && !leaseBlocked(s, 'renew') && tryAct(b, { t: 'rental', op: 'renew' })) return;
 	}
 	// 当天班已经上完或今天休班后，再补下一档要求的长期课程。
 	if (s.job && careerPrepPending(b, 'promotion') && tryCareerPrep(b, 'promotion')) return;
-	const wantHome = plan.home ? getHome(plan.home) : undefined;
+	const wantHomeId = postTopReady ? plan.postTopHome : plan.home;
+	const wantHome = wantHomeId ? getHome(wantHomeId) : undefined;
 	const canSign = rs && wantHome
 		? s.cash - moveInCost(s, wantHome) >= rs.cashReserve + wantHome.rentWeek * rs.moveInRentWeeks // 第十五轮：签完还留储备 + 两周租金
-		: s.cash > (plan.rentAt ?? 400);
-	if (plan.home && !s.home && !b.hobbyTraveling && canSign) {
+		: postTopReady && wantHome ? s.cash - moveInCost(s, wantHome) >= Math.max(3000, wantHome.rentWeek * 8) : s.cash > (plan.rentAt ?? 400);
+	if (wantHomeId && !s.home && !b.hobbyTraveling && canSign) {
 		const want = plan.job?.loc ?? regionOf(b).spawn;
 		// 租房市场（rental 批次）：先看房再递申请（固定期限）；被拒当天这套房不可申请，第二天再来
-		if (s.loc === want && homesAt(s, regionOf(b)).some((o) => o.home.id === plan.home && !o.blocked)) {
-			if (!viewedOk(s.rental, s.loc, plan.home, dayOf(s.clock)) && tryAct(b, { t: 'rental', op: 'inspect', home: plan.home })) return;
-			if (tryAct(b, { t: 'home', op: 'rent', home: plan.home, term: 'fixed' })) return;
+		if (s.loc === want && homesAt(s, regionOf(b)).some((o) => o.home.id === wantHomeId && !o.blocked)) {
+			if (!viewedOk(s.rental, s.loc, wantHomeId, dayOf(s.clock)) && tryAct(b, { t: 'rental', op: 'inspect', home: wantHomeId })) return;
+			if (tryAct(b, { t: 'home', op: 'rent', home: wantHomeId, term: 'fixed' })) {
+				if (wantHomeId === plan.postTopHome) b.stats.homeUpgradeDay ??= dayOf(b.s.clock) + 1;
+				return;
+			}
 		}
 	}
 	// 押金扣款有报告就申诉。
@@ -1372,7 +1406,7 @@ function runBot(plan: Plan, seed: number): Bot {
 	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: region.id, spawn: region.spawn, seed });
 	const b: Bot = {
 		s, plan, rng: mulberry(seed * 7919),
-		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} } },
+		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, moodByDay: [mood(s)], moodLateSum: 0, moodLateN: 0, moodLateBins: [{ sum: 0, n: 0 }, { sum: 0, n: 0 }, { sum: 0, n: 0 }], worthByDay: [netWorth(s)], collapsesByDay: [0], evictionsByDay: [0], visaExpiredByDay: [0], lateActions: {}, lateActionMinutes: {}, visaTransitions: [], shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} } },
 		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
@@ -1384,14 +1418,27 @@ function runBot(plan: Plan, seed: number): Bot {
 		step(b);
 		if (sickAt) b.stats.sickMin += Math.max(0, Math.min(b.s.clock, sickAt) - before);
 		if (b.s.clock === before && !getPendingEvent(b.s)) act(b, 'rest'); // 防止原地打转
-		b.stats.moodSum += mood(b.s);
+		const moodNow = mood(b.s);
+		b.stats.moodSum += moodNow;
 		b.stats.moodN++;
 		const d = dayOf(b.s.clock);
+		if (d >= 180) {
+			b.stats.moodLateSum += moodNow;
+			b.stats.moodLateN++;
+			const bin = d < 240 ? 0 : d < 300 ? 1 : 2;
+			b.stats.moodLateBins[bin].sum += moodNow;
+			b.stats.moodLateBins[bin].n++;
+		}
 		while (lastDay < d) {
 			lastDay++;
 			b.stats.cashByDay.push(b.s.cash);
+			b.stats.moodByDay.push(mood(b.s));
+			b.stats.worthByDay.push(netWorth(b.s));
+			b.stats.collapsesByDay.push(b.stats.collapses);
+			b.stats.evictionsByDay.push(b.stats.evictions);
 			if (b.s.cash < 20) b.stats.daysBroke++;
 			if (!canWork(b.s)) b.stats.visaExpiredDays++;
+			b.stats.visaExpiredByDay.push(b.stats.visaExpiredDays);
 			if (b.stats.prDay === undefined && b.s.visa.kind === 'pr') b.stats.prDay = lastDay;
 		}
 	}
@@ -1442,7 +1489,8 @@ const swapRows: string[] = [];
 const hobbyRows: string[] = [];
 const tailRows: string[] = [];
 const npcRows: string[] = [];
-for (const plan of BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
+const selectedPlans = BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : LONG && !ONLY.length ? PLANS.filter((p) => MATRIX_IDS.includes(p.id)) : PLANS;
+for (const plan of selectedPlans) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, SEED_OFFSET + i + 1));
 	const at = (d: number) => bots.map((b) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)]);
 	const endD = Math.min(DAYS, 60);
@@ -1585,6 +1633,52 @@ for (const plan of BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ?
 	// 结构化结果（--format=json / csv、基线、A/B 用）：和上面这一行同一批机器人、同一套口径
 	const eco = averageEco(bots.map((b) => ecoOf(b)), DAYS);
 	const homeDays = bots.map((b) => b.stats.homeDay).filter((x): x is number => x !== undefined);
+	const long = DAYS >= 365 ? (() => {
+		const snap = (b: Bot, xs: number[], day: number) => xs[Math.min(day, xs.length - 1)];
+		const tri = (xs: number[]) => ({ p10: pct(xs, 0.1), median: pct(xs, 0.5), p90: pct(xs, 0.9) });
+		const lateDays = DAYS - 180;
+		const lateActions: Record<string, number> = {};
+		const lateActionMinutes: Record<string, number> = {};
+		for (const b of bots) {
+			for (const [k, v] of Object.entries(b.stats.lateActions)) lateActions[k] = (lateActions[k] ?? 0) + v / RUNS / lateDays;
+			for (const [k, v] of Object.entries(b.stats.lateActionMinutes)) lateActionMinutes[k] = (lateActionMinutes[k] ?? 0) + v / RUNS;
+		}
+		const totalLateMinutes = Object.values(lateActionMinutes).reduce((x, y) => x + y, 0);
+		const transitionDays: Record<string, number[]> = {};
+		const homeUpgradeDays = bots.map((b) => b.stats.homeUpgradeDay).filter((d): d is number => d !== undefined);
+		for (const b of bots) for (const t of b.stats.visaTransitions) (transitionDays[`${t.from}->${t.to}`] ??= []).push(t.day);
+		return {
+			netWorthDay0: tri(bots.map((b) => snap(b, b.stats.worthByDay, 0))),
+			netWorthDay180: tri(bots.map((b) => snap(b, b.stats.worthByDay, 180))),
+			netWorthDay365: tri(bots.map((b) => snap(b, b.stats.worthByDay, 365))),
+			cashDay180: tri(bots.map((b) => snap(b, b.stats.cashByDay, 180))),
+			cashDay365: tri(bots.map((b) => snap(b, b.stats.cashByDay, 365))),
+			cashNetPerDay181_365: avg(bots.map((b) => (snap(b, b.stats.cashByDay, 365) - snap(b, b.stats.cashByDay, 180)) / lateDays)),
+			worthGrowthPerDay1_180: avg(bots.map((b) => (snap(b, b.stats.worthByDay, 180) - snap(b, b.stats.worthByDay, 0)) / 180)),
+			worthGrowthPerDay181_365: avg(bots.map((b) => (snap(b, b.stats.worthByDay, 365) - snap(b, b.stats.worthByDay, 180)) / lateDays)),
+			cashNetPerDayLateBins: [[180, 240], [240, 300], [300, 365]].map(([a, z]) => avg(bots.map((b) => (snap(b, b.stats.cashByDay, z) - snap(b, b.stats.cashByDay, a)) / (z - a)))),
+			worthGrowthPerDayLateBins: [[180, 240], [240, 300], [300, 365]].map(([a, z]) => avg(bots.map((b) => (snap(b, b.stats.worthByDay, z) - snap(b, b.stats.worthByDay, a)) / (z - a)))),
+			moodDay90: pct(bots.map((b) => snap(b, b.stats.moodByDay, 90)), 0.5),
+			moodDay180: pct(bots.map((b) => snap(b, b.stats.moodByDay, 180)), 0.5),
+			moodDay365: pct(bots.map((b) => snap(b, b.stats.moodByDay, 365)), 0.5),
+			moodMean181_365: avg(bots.map((b) => avg(b.stats.moodByDay.slice(181, 366)))),
+			moodMeanLateBins: [[180, 240], [240, 300], [300, 365]].map(([a, z]) => avg(bots.map((b) => avg(b.stats.moodByDay.slice(a + 1, z + 1))))),
+			moodActionMean181_365: avg(bots.map((b) => b.stats.moodLateSum / Math.max(1, b.stats.moodLateN))),
+			moodActionMeanLateBins: [0, 1, 2].map((i) => avg(bots.map((b) => b.stats.moodLateBins[i].sum / Math.max(1, b.stats.moodLateBins[i].n)))),
+			collapses181_365: avg(bots.map((b) => b.stats.collapses - snap(b, b.stats.collapsesByDay, 180))),
+			evictions181_365: avg(bots.map((b) => b.stats.evictions - snap(b, b.stats.evictionsByDay, 180))),
+			lowCashDays181_365: avg(bots.map((b) => b.stats.cashByDay.slice(181, 366).filter((x) => x < 20).length)),
+			homeShare: homeDays.length / RUNS,
+			homeDay: homeDays.length ? tri(homeDays) : null,
+			homeUpgradeShare: homeUpgradeDays.length / RUNS,
+			homeUpgradeDay: homeUpgradeDays.length ? tri(homeUpgradeDays) : null,
+			visaExpiredDaysTotal: avg(bots.map((b) => b.stats.visaExpiredDays)),
+			visaExpiredDays181_365: avg(bots.map((b) => b.stats.visaExpiredDays - snap(b, b.stats.visaExpiredByDay, 180))),
+			visaTransitions: Object.fromEntries(Object.entries(transitionDays).map(([k, xs]) => [k, { count: xs.length, share: xs.length / RUNS, day: tri(xs) }])),
+			lateActionsPerDay: lateActions,
+			lateActionMinuteShare: Object.fromEntries(Object.entries(lateActionMinutes).map(([k, v]) => [k, totalLateMinutes ? v / totalLateMinutes : 0])),
+		};
+	})() : undefined;
 	results.push({
 		id: plan.id, name: plan.name,
 		metrics: {
@@ -1600,6 +1694,7 @@ for (const plan of BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ?
 		},
 		skills: Object.fromEntries(SKILL_KEYS.map((k) => [k, pct(bots.map((b) => b.s.skills[k]), 0.5)])),
 		flow, eco: { in: eco.in, out: eco.out, inDetail: eco.inDetail, outDetail: eco.outDetail }, blocked: eco.blocked,
+		...(long ? { long } : {}),
 	});
 }
 out();
