@@ -885,7 +885,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { codeOf, exportName, hashAction, makeQr, parseCred, parsePendingKey, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, exitPoint, mapLabel, webglSupported, type Basemap, type Pin } from '../game/ui/basemap.ts';
 			import { favorToday, isFading } from '../game/core/relations.ts';
-			import { careAt, activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, animalHint, seasonAnimals, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, rentAhead, bondFor, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions , getAreaBody, leaseBlocked, oddsInput, scamHere } from '../game/core/engine.ts';
+			import { careAt, activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, animalHint, seasonAnimals, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, rentAhead, bondFor, moveInWarn, spendWarn, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions , getAreaBody, leaseBlocked, oddsInput, scamHere } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { credentialName, VISA } from '../game/data/education.ts';
 			import { programsAt } from '../game/core/education.ts';
@@ -2592,7 +2592,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const scamHtml = scam ? `<div class="row" style="margin-top:8px"><span class="body">${esc(scam.home.name)} · $${scam.rent}/周<small>${esc(`房东在国外，不能看房；先转押金和 ${RENTAL.scamWeeks} 周房租共 $${scam.ask}，钥匙快递给你。`)}</small></span><span class="inline"><button data-rental="scam-pay">先转钱订下</button><button data-rental="scam-check">核实一下</button></span></div>` : '';
 				const offerHtml = ({ home, blocked }: (typeof rentals)[number]) => {
 					const viewed = viewedOk(s.rental, loc.id, home.id, today);
-					const info = blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}${rentAhead(s, home) ? ` + 预收下周房租 $${rentAhead(s, home)}` : ''}${bondFor(home) ? ` + 押金 $${bondFor(home)}（搬走时退）` : ''}${viewed ? ` · 看房来了 ${s.rental.viewed!.n} 组人，你的申请${oddsLabel(applyOdds(oddsInput(s, home)))}` : ''}`;
+					const info = blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}${rentAhead(s, home) ? ` + 预收下周房租 $${rentAhead(s, home)}` : ''}${bondFor(home) ? ` + 押金 $${bondFor(home)}（搬走时退）` : ''}${moveInWarn(s, home) ? ` ${moveInWarn(s, home)}` : ''}${viewed ? ` · 看房来了 ${s.rental.viewed!.n} 组人，你的申请${oddsLabel(applyOdds(oddsInput(s, home)))}` : ''}`;
 					const btns = !needsLease(home) ? `<button data-home="rent" data-home-id="${home.id}" ${blocked ? 'disabled' : ''}>${s.home ? '搬来' : '租下'}</button>`
 						: !viewed ? `<button data-rental="inspect" data-home-id="${home.id}">看房</button>`
 						: `<span class="inline"><button data-home="rent" data-home-id="${home.id}" data-term="fixed" ${blocked ? 'disabled' : ''}>申请 · 固定 ${RENTAL.fixedDays} 天</button><button data-home="rent" data-home-id="${home.id}" data-term="periodic" ${blocked ? 'disabled' : ''}>申请 · 周期</button></span>`;
@@ -3592,6 +3592,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 						const pills = [
 							stormBlocked ? '<span class="pill bad">今天有风暴，下不了海</span>' : '',
 							c.cost ? `<span class="pill ${poor ? 'bad' : 'cost'}">${poor ? `需要 $${c.cost}，钱不够` : `$${c.cost}`}</span>` : '',
+							!poor && c.cost && spendWarn(s, c.cost) ? `<span class="pill bad">${esc(spendWarn(s, c.cost))}</span>` : '',
 							c.check ? `<span class="pill" title="你 ${checkScore(s, c.check.skill).total} + 随机 0–60，难度 ${c.check.dc}">${SKILL_META[c.check.skill].icon} ${SKILL_META[c.check.skill].name}检定 · 成功率约 ${odds(c.check.skill, c.check.dc)}%</span>` : '',
 						].join('');
 						// 第一个能选的选项高亮（第一项钱不够或风暴下不了海时，顺延到下一个能选的）

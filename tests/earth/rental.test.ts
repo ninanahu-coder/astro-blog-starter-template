@@ -5,7 +5,7 @@ import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
 import {
-	applyForHome, bondFor, buyProperty, handleScam, homesAt, inspectHome, leaseAction, leaseBlocked, leaveHome, moveInCost, moveIntoProperty, rentHome, scamHere, settleBondClaim,
+	applyForHome, bondFor, buyProperty, handleScam, homesAt, inspectHome, leaseAction, leaseBlocked, leaveHome, moveInCost, moveInWarn, moveIntoProperty, rentHome, scamHere, settleBondClaim, spendWarn, CASH_CUSHION,
 } from '../../src/game/core/engine.ts';
 import { homeComfort } from '../../src/game/core/attributes.ts';
 import {
@@ -547,4 +547,17 @@ test('复核修正：同一天被拒的每套都记下；旧形状读档转换�
 	const rising = { ...h, rental: { ...h.rental, lease: { ...l, rise: { at: h.nextWeek - 1, to: l.rent + 30 } } } };
 	assert.equal(weeklyCosts(rising).rent, l.rent + 30);
 	assert.equal(rentDue(rising, home('room'), dayOf(rising.clock)), dayOf(rising.clock) >= h.nextWeek - 1 ? l.rent + 30 : l.rent, '还没到生效日按原房租');
+});
+
+test('第十五轮：签完剩的钱不够两周房租、事件选完剩的钱少于应急线时提醒（只提醒不拦）', () => {
+	const room = home('room');
+	const cost = moveInCost(make({ cash: 100000 }), room);
+	const tight = make({ cash: cost + room.rentWeek });
+	assert.match(moveInWarn(tight, room) ?? '', /签完只剩 \$\d+，不够两周房租/);
+	assert.equal(moveInWarn(make({ cash: cost + room.rentWeek * 2 }), room), undefined, '留够两周不提醒');
+	assert.equal(moveInWarn(make({ cash: cost - 1 }), room), undefined, '签不起时由 blocked 说明，不重复提醒');
+	assert.equal(spendWarn(make({ cash: 398 }), 200), '选完只剩 $198');
+	assert.equal(spendWarn(make({ cash: 200 + CASH_CUSHION }), 200), undefined);
+	assert.equal(spendWarn(make({ cash: 100 }), 200), undefined, '付不起时界面另有「钱不够」');
+	assert.equal(spendWarn(make({ cash: 1000 }), 0), undefined, '免费选项不提醒');
 });
