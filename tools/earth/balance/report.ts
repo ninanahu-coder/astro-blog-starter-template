@@ -13,6 +13,10 @@ export interface PlanResult {
 		/** evictions 拆开（第十一轮）：首个租约结算期被收房 / 之后被收房 / 断供强制卖房，每人平均 */
 		evictFirst: number; evictLater: number; forcedSales: number;
 		promotions: number; promo1Day: number | null; promo2Day: number | null;
+		/** 第十六轮：入职日、升职尾部、到顶比例和入职后的等待天数 */
+		jobDay: number | null; jobDayP10: number | null; jobDayP90: number | null;
+		promo1DayP10: number | null; promo1DayP90: number | null; promo2DayP10: number | null; promo2DayP90: number | null;
+		topShare: number; promo1AfterHire: number | null; promo2AfterHire: number | null;
 		brokeShare: number; events: number; coops: number;
 		/** 每人每天的现金投放 / 回收合计 */
 		ecoIn: number; ecoOut: number;

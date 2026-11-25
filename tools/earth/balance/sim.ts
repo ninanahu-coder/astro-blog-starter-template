@@ -24,8 +24,9 @@ import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter, ORIGINS } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careAt, careersAt, coursesAt, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, moveInCost, npcsAt, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careAt, careersAt, certsAt, coursesAt, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, moveInCost, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
+import { getProgram, programsAt } from '../../../src/game/core/education.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { assess, taxStatus, tfnState } from '../../../src/game/core/tax.ts';
 import { cookBlocked, groceriesAt, hostBlocked, kitchenLevel, pantryTotal, recipeKnown } from '../../../src/game/core/cooking.ts';
@@ -37,9 +38,9 @@ import { choreBlocked } from '../../../src/game/core/flat-actions.ts';
 import { currentIllness } from '../../../src/game/core/health.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import { careerSummary, earnedOf, spentOf } from '../../../src/game/core/tally.ts';
-import type { PlayerState, Region } from '../../../src/game/core/types.ts';
+import type { PlayerState, Region, SkillKey } from '../../../src/game/core/types.ts';
 import { WA, WORLD } from '../../../src/game/data/wa.ts';
-import { paperChecklist } from '../../../src/game/core/paperwork.ts';
+import { paperChecklist, paperDone } from '../../../src/game/core/paperwork.ts';
 import { volunteerAt } from '../../../src/game/core/volunteer.ts';
 import { volShifts, volTier } from '../../../src/game/core/respect.ts';
 import { level } from '../../../src/game/core/attributes.ts';
@@ -122,6 +123,8 @@ interface Bot {
 		 */
 		evict: { first: number; later: number; forced: number };
 		promotions: number;
+		/** 第十六轮：首次入职的绝对游戏日 */
+		jobDay?: number;
 		events: number;
 		moodSum: number;
 		moodN: number;
@@ -218,6 +221,23 @@ interface Plan {
 	traits: string[];
 	/** 想去的工作地点与职业；没有表示不找正式工作 */
 	job?: { loc: string; career: string };
+	/**
+	 * 第十六轮：入职前补能力 / 证书 / 学历；入职后补下一档要求的学历。
+	 * 现金低于 cashReserve 时先做 preferredGigs，避免未入职的长期课程把现金耗尽。
+	 */
+	careerPrep?: {
+		entrySkills?: Partial<Record<SkillKey, number>>;
+		entryPapers?: string[];
+		entryCerts?: string[];
+		entryPrograms?: string[];
+		promotionPrograms?: string[];
+		cashReserve?: number;
+		preferredGigs?: readonly (typeof GIG_IDS)[number][];
+		minHunger?: number;
+		minEnergy?: number;
+		/** 证件需要地址时，先去工作地租房，再回来继续入门准备。 */
+		allowHomeBeforeEntry?: boolean;
+	};
 	/** 想租的房型（在工作地点或出生点） */
 	home?: string;
 	/** 有空就四处旅行 */
@@ -298,6 +318,24 @@ const PLANS: Plan[] = [
 	// 第 46 轮新增（只出报告，不改数值）：第 11 轮的两种新职业、第 1 轮起的共同事件。排在原有策略后面，原有各行结果不变
 	{ id: 'bartender', name: '酒保（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'bartender' }, home: 'room' },
 	{ id: 'farmhand', name: '农场工（玛格丽特河，合租）', origin: 'backpacker', traits: ['athletic', 'tough'], job: { loc: 'margaret-river', career: 'farmhand' }, home: 'room', rentAt: 700 },
+	// 第十六轮：补齐此前没有 sim 路线的五个职业。careerPrep 的实现规格见本轮 balance.md。
+	{ id: 'guide', name: '导游（玛格丽特河，合租）', origin: 'backpacker', traits: ['loner', 'frugal'], job: { loc: 'margaret-river', career: 'guide' }, home: 'room', rentAt: 700 },
+	{
+		id: 'trucker', name: '卡车司机（卡尔古利，合租）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'kalgoorlie', career: 'trucker' }, home: 'room',
+		careerPrep: { entrySkills: { driving: 20 }, entryPapers: ['address', 'licence-theory', 'licence'], entryCerts: ['hr-licence'], cashReserve: 1000, preferredGigs: ['work-mine', 'work-cafe'], minHunger: 70, minEnergy: 75, allowHomeBeforeEntry: true },
+	},
+	{
+		id: 'builder', name: '建筑工（卡尔古利，合租）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'kalgoorlie', career: 'builder' }, home: 'room',
+		careerPrep: { entryCerts: ['white-card'] },
+	},
+	{
+		id: 'carer', name: '护理员（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'carer' }, home: 'room',
+		careerPrep: { entryCerts: ['first-aid'], promotionPrograms: ['cert3-support'], cashReserve: 500, preferredGigs: ['work-cafe'] }, rentAt: 700,
+	},
+	{
+		id: 'it-support', name: 'IT 支持（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'it-support' }, home: 'room',
+		careerPrep: { entryPrograms: ['english-class', 'cert4-it'], cashReserve: 500, preferredGigs: ['work-cafe'] },
+	},
 	// 共同事件三种搭档假设（第 10 批审查问题 1）：理想（需求全满、随叫随到）是上限，不是保守估计；另外两种看搭档状态和在场率的影响
 	{ id: 'barista-coop', name: '咖啡店 + 共同事件：理想搭档（需求全满、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 100, mateChance: 1 } },
 	{ id: 'barista-coop-tired', name: '咖啡店 + 共同事件：疲惫搭档（需求 40、随时在场）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', coop: { mateNeeds: 40, mateChance: 1 } },
@@ -332,6 +370,11 @@ const PLANS: Plan[] = [
  * 不进默认报告（外地住房机器人有约 1% 的收房尾部，会让「有工作收房 0」亮红灯，和 perk 无关），只在 --only 点名时跑。
  */
 const DIAG_PLANS: Plan[] = [
+	{ id: 'guide-surfer', name: '导游（玛格丽特河，冲浪手对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'margaret-river', career: 'guide' }, home: 'room', rentAt: 700 },
+	{
+		id: 'trucker-licensed', name: '卡车司机（卡尔古利，先考 HR 驾照）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'kalgoorlie', career: 'trucker' }, home: 'room',
+		careerPrep: { entrySkills: { driving: 20 }, entryPapers: ['address', 'licence-theory', 'licence'], entryCerts: ['hr-licence'], cashReserve: 1000, preferredGigs: ['work-mine', 'work-cafe'], minHunger: 70, minEnergy: 75, allowHomeBeforeEntry: true },
+	},
 	{ id: 'lifeguard-freo-none', name: '救生员（弗里曼特尔；老杰克对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'fremantle', career: 'lifeguard' }, home: 'room', npc: { id: 'jack', gift: 'none' } },
 	{ id: 'lifeguard-jack-perk', name: '救生员 + 老杰克：自然解锁后出海', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'fremantle', career: 'lifeguard' }, home: 'room', npc: { id: 'jack', gift: 'perk' } },
 	{ id: 'lifeguard-rottnest-none', name: '救生员（罗特尼斯；琳达对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'rottnest', career: 'lifeguard' }, home: 'beach', npc: { id: 'linda', gift: 'none' }, remoteSafety: REMOTE_SAFETY },
@@ -472,6 +515,7 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		b.stats.promotions++;
 		b.stats.promoDays.push(dayOf(b.s.clock) + 1);
 	}
+	if (!before.job && b.s.job) b.stats.jobDay ??= dayOf(b.s.clock) + 1;
 	if (a.t === 'job' && a.op === 'work') b.stats.shifts++;
 	if (a.t === 'tax' && a.op === 'lodge' && before.tax.ret && !b.stats.taxReturn) {
 		const ret = before.tax.ret;
@@ -858,6 +902,60 @@ function stepNpc(b: Bot): boolean {
 	return !!offer && b.s.cash - offer.price >= 300 && tryAct(b, { t: 'buy', item: offer.item.id });
 }
 
+/** 第十六轮：职业入门 / 升职所需的能力、证书和学历。 */
+function careerPrepPending(b: Bot, phase: 'entry' | 'promotion'): boolean {
+	const cfg = b.plan.careerPrep;
+	if (!cfg) return false;
+	if (phase === 'entry') {
+		if (Object.entries(cfg.entrySkills ?? {}).some(([k, v]) => b.s.skills[k as SkillKey] < v!)) return true;
+		if ((cfg.entryPapers ?? []).some((id) => !paperDone(b.s, id))) return true;
+		if ((cfg.entryCerts ?? []).some((id) => !b.s.certs.includes(id))) return true;
+	}
+	const nextCerts = b.s.job ? getCareer(b.s.job.career)?.levels[b.s.job.level + 1]?.req?.certs ?? [] : [];
+	const ids = phase === 'entry' ? cfg.entryPrograms ?? [] : (cfg.promotionPrograms ?? []).filter((id) => { const p = getProgram(id); return !!p && nextCerts.includes(p.award); });
+	return ids.some((id) => { const p = getProgram(id); return !!p && !b.s.certs.includes(p.award); });
+}
+
+function tryCareerPrep(b: Bot, phase: 'entry' | 'promotion'): boolean {
+	const cfg = b.plan.careerPrep;
+	if (!cfg) return false;
+	const fund = (cost: number) => {
+		if (b.s.cash - cost >= (cfg.cashReserve ?? 0)) return false;
+		if (cfg.preferredGigs) tryGigs(b, cfg.preferredGigs);
+		return true; // 做不了零工也要等待，不能穿透储备继续付费。
+	};
+	if (phase === 'entry') {
+		for (const [skill, target] of Object.entries(cfg.entrySkills ?? {})) {
+			if (b.s.skills[skill as SkillKey] >= target!) continue;
+			const offer = coursesAt(b.s, regionOf(b)).find((o) => o.course.skill === skill);
+			if (offer && fund(offer.price)) return true;
+			return !!offer && !offer.blocked && tryAct(b, { t: 'course', id: offer.course.id });
+		}
+		for (const id of cfg.entryPapers ?? []) {
+			if (paperDone(b.s, id)) continue;
+			const row = paperChecklist(b.s, regionOf(b)).find((o) => o.paper.id === id);
+			if (row && fund(row.paper.fee)) return true;
+			return !!row && !row.blocked && tryAct(b, { t: 'paper', id });
+		}
+		for (const id of cfg.entryCerts ?? []) {
+			if (b.s.certs.includes(id)) continue;
+			const offer = certsAt(b.s, regionOf(b)).find((o) => o.cert.id === id);
+			if (offer && fund(offer.cert.price)) return true;
+			return !!offer && !offer.blocked && tryAct(b, { t: 'cert', id });
+		}
+	}
+	const nextCerts = b.s.job ? getCareer(b.s.job.career)?.levels[b.s.job.level + 1]?.req?.certs ?? [] : [];
+	const ids = phase === 'entry' ? cfg.entryPrograms ?? [] : (cfg.promotionPrograms ?? []).filter((id) => { const p = getProgram(id); return !!p && nextCerts.includes(p.award); });
+	for (const id of ids) {
+		const p = getProgram(id);
+		if (!p || b.s.certs.includes(p.award)) continue;
+		const offer = programsAt(b.s, regionOf(b)).find((o) => o.program.id === id);
+		if (offer && fund(offer.program.fee)) return true;
+		return !!offer && !offer.blocked && tryAct(b, { t: 'study', id });
+	}
+	return false;
+}
+
 function step(b: Bot) {
 	const s = b.s;
 	const plan = b.plan;
@@ -943,6 +1041,22 @@ function step(b: Bot) {
 	// 2. 找工作、租房、去上班
 	// 自己看店的策略只有在店里有货时才停正式班；空店时回去上班，避免租金把补货本金越吃越少。
 	const selfShopTrading = !!(plan.shop?.staff === 0 && s.biz.shop && s.biz.shop.stock > 0);
+	if (!s.job && careerPrepPending(b, 'entry') && (!plan.careerPrep?.allowHomeBeforeEntry || !!s.home)) {
+		const prep = plan.careerPrep!;
+		if (s.needs.hunger < (prep.minHunger ?? 35)) {
+			if (cookFromPantry(b)) return;
+			if (act(b, 'eat') || (s.inventory.snack && tryAct(b, { t: 'use', item: 'snack' }))) return;
+		}
+		if (s.needs.energy < (prep.minEnergy ?? 25)) {
+			if (atHome && tryAct(b, { t: 'home', op: 'sleep' })) return;
+			// 长课前直接睡满；按小时休息会连续错过 7–11 点的证照开课窗。
+			if (act(b, 'sleep-camp')) return;
+			if (act(b, 'rest')) return;
+		}
+		if (tryCareerPrep(b, 'entry')) return;
+		// 入门课没开时留在出生城市等下一时段，不先跑去工作地点或签租约。
+		if (act(b, 'rest')) return;
+	}
 	if (plan.job && !selfShopTrading) {
 		if (!s.job) {
 			if (s.loc !== plan.job.loc) {
@@ -959,6 +1073,14 @@ function step(b: Bot) {
 			}
 		} else if (dayOf(s.clock) % 7 !== 6 && !shiftBlocked(s, regionOf(b)) && tryAct(b, { t: 'job', op: 'work' })) return; // 每周休一天
 	}
+	// 租约维护优先于升职课程，避免连续课程挤掉续签窗口。
+	if (s.home && !s.home.owned) {
+		if (!leaseBlocked(s, 'report') && tryAct(b, { t: 'rental', op: 'report' })) return;
+		if (!leaseBlocked(s, 'repair') && tryAct(b, { t: 'rental', op: 'repair' })) return;
+		if (s.rental.lease?.end && !leaseBlocked(s, 'renew') && tryAct(b, { t: 'rental', op: 'renew' })) return;
+	}
+	// 当天班已经上完或今天休班后，再补下一档要求的长期课程。
+	if (s.job && careerPrepPending(b, 'promotion') && tryCareerPrep(b, 'promotion')) return;
 	const wantHome = plan.home ? getHome(plan.home) : undefined;
 	const canSign = rs && wantHome
 		? s.cash - moveInCost(s, wantHome) >= rs.cashReserve + wantHome.rentWeek * rs.moveInRentWeeks // 第十五轮：签完还留储备 + 两周租金
@@ -971,12 +1093,7 @@ function step(b: Bot) {
 			if (tryAct(b, { t: 'home', op: 'rent', home: plan.home, term: 'fixed' })) return;
 		}
 	}
-	// 租约：交入住检查报告、坏了就报修、固定期快到就续约、押金扣款有报告就申诉
-	if (s.home && !s.home.owned) {
-		if (!leaseBlocked(s, 'report') && tryAct(b, { t: 'rental', op: 'report' })) return;
-		if (!leaseBlocked(s, 'repair') && tryAct(b, { t: 'rental', op: 'repair' })) return;
-		if (s.rental.lease?.end && !leaseBlocked(s, 'renew') && tryAct(b, { t: 'rental', op: 'renew' })) return;
-	}
+	// 押金扣款有报告就申诉。
 	if (s.rental.claim && tryAct(b, { t: 'rental', op: s.rental.claim.prior ? 'dispute' : 'accept' })) return;
 	// 第十五轮：偏远路线健康 / 饱食 / 精力不安全时先恢复，不去 NPC 互动、徒步、游泳、酒吧、市集
 	if (rs && (s.health < 40 || s.needs.hunger < minHunger || s.needs.energy < minEnergy)) {
@@ -1267,6 +1384,9 @@ for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 	const pr = avg(bots.map((b) => b.stats.promotions));
 	const broke = avg(bots.map((b) => b.stats.daysBroke / DAYS));
 	const nth = (k: number) => bots.map((b) => b.stats.promoDays[k]).filter((d) => d !== undefined);
+	const p1Days = nth(0), p2Days = nth(1);
+	const jobDays = bots.map((b) => b.stats.jobDay).filter((d): d is number => d !== undefined);
+	const afterHire = (k: number) => bots.map((b) => b.stats.jobDay !== undefined && b.stats.promoDays[k] !== undefined ? b.stats.promoDays[k] - b.stats.jobDay : undefined).filter((d): d is number => d !== undefined);
 	const promoCol = [0, 1].map((k) => (nth(k).length ? `第 ${pct(nth(k), 0.5)} 天` : '—')).join(' / ');
 	summary[plan.id] = { netPerDay: net, collapses: coll, evictions: ev, promotions: pr, brokeShare: broke, mood: m, end: pct(at(endD), 0.5) };
 	{
@@ -1401,7 +1521,11 @@ for (const plan of BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : PLANS) {
 		metrics: {
 			cashDay7: pct(at(7), 0.5), cashDay30: pct(at(30), 0.5), cashEnd: pct(at(endD), 0.5), cashEndP10: pct(at(endD), 0.1), cashEndP90: pct(at(endD), 0.9),
 			netPerDay: net, netWorth: pct(bots.map((b) => netWorth(b.s)), 0.5), homeDay: homeDays.length > bots.length / 2 ? pct(homeDays, 0.5) : null, mood: m,
-			collapses: coll, evictions: ev, evictFirst: avg(bots.map((b) => b.stats.evict.first)), evictLater: avg(bots.map((b) => b.stats.evict.later)), forcedSales: avg(bots.map((b) => b.stats.evict.forced)), promotions: pr, promo1Day: nth(0).length ? pct(nth(0), 0.5) : null, promo2Day: nth(1).length ? pct(nth(1), 0.5) : null,
+			collapses: coll, evictions: ev, evictFirst: avg(bots.map((b) => b.stats.evict.first)), evictLater: avg(bots.map((b) => b.stats.evict.later)), forcedSales: avg(bots.map((b) => b.stats.evict.forced)),
+			promotions: pr, promo1Day: nth(0).length ? pct(nth(0), 0.5) : null, promo2Day: nth(1).length ? pct(nth(1), 0.5) : null,
+			jobDay: jobDays.length ? pct(jobDays, 0.5) : null, jobDayP10: jobDays.length ? pct(jobDays, 0.1) : null, jobDayP90: jobDays.length ? pct(jobDays, 0.9) : null,
+			promo1DayP10: p1Days.length ? pct(p1Days, 0.1) : null, promo1DayP90: p1Days.length ? pct(p1Days, 0.9) : null, promo2DayP10: p2Days.length ? pct(p2Days, 0.1) : null, promo2DayP90: p2Days.length ? pct(p2Days, 0.9) : null,
+			topShare: p2Days.length / RUNS, promo1AfterHire: afterHire(0).length ? pct(afterHire(0), 0.5) : null, promo2AfterHire: afterHire(1).length ? pct(afterHire(1), 0.5) : null,
 			brokeShare: broke, events: avg(bots.map((b) => b.stats.events)), coops: avg(bots.map((b) => b.stats.coops)),
 			ecoIn: Object.values(eco.in).reduce((x, y) => x + y, 0), ecoOut: Object.values(eco.out).reduce((x, y) => x + y, 0),
 		},

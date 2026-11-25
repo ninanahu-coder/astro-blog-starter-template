@@ -46,7 +46,7 @@ test('学历课程数据自洽：id、学历唯一，前置条件和职业门槛
 });
 
 test('第 33 批新职业：入行要证书或学历，每级时薪不低于 $20、逐级上涨', () => {
-	for (const id of ['builder', 'carer', 'it-support']) {
+	for (const id of ['builder', 'carer', 'it-support', 'trucker']) {
 		const c = CAREERS.find((x) => x.id === id)!;
 		assert.ok(c, id);
 		assert.ok(c.levels[0].req?.certs?.length, `${id} 入行要证`);
@@ -57,18 +57,24 @@ test('第 33 批新职业：入行要证书或学历，每级时薪不低于 $20
 	}
 });
 
-test('证书门槛：没有 White Card 不能应聘工地，有了就能；护理员要三级证书才能升', () => {
+test('证书门槛：没有 White Card 不能应聘工地、没有 HR 证不能开卡车；护理三级证书和学士卡在第三档（平衡第十六轮）', () => {
 	const s = make({ clock: at(9) });
 	const site = careersAt(s, WA).find((o) => o.career.id === 'builder')!;
 	assert.equal(site.blocked, `需要${credentialName('white-card')}`);
 	assert.equal(careersAt({ ...s, certs: ['white-card'] }, WA).find((o) => o.career.id === 'builder')!.blocked, undefined);
-	const carer = { ...s, certs: ['first-aid'], skills: { ...s.skills, charisma: 60 }, job: { career: 'carer', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } };
-	assert.equal(promotionStatus(carer)!.blocked, `需要${credentialName('cert3-support')}`);
-	assert.equal(promotionStatus({ ...carer, certs: ['first-aid', 'cert3-support'] })!.blocked, undefined);
-	// 门槛只看持有，证书和学历混在一个列表里也能认
-	const it = { ...s, certs: ['cert4-it'], skills: { ...s.skills, street: 30 }, job: { career: 'it-support', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } };
-	assert.match(promotionStatus(it)!.blocked!, /学士/);
-	assert.equal(promotionStatus({ ...it, certs: ['cert4-it', 'bachelor'] })!.blocked, undefined);
+	assert.deepEqual(CAREERS.find((c) => c.id === 'trucker')!.levels[0].req?.certs, ['hr-licence']);
+	// 护理员：二档只看魅力，三级证书挪到升组长
+	const carer = { ...s, certs: ['first-aid'], respect: 60, skills: { ...s.skills, charisma: 60 }, job: { career: 'carer', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } };
+	assert.equal(promotionStatus(carer)!.blocked, undefined);
+	const carer1 = { ...carer, job: { ...carer.job, level: 1 } };
+	assert.equal(promotionStatus(carer1)!.blocked, `需要${credentialName('cert3-support')}`);
+	assert.equal(promotionStatus({ ...carer1, certs: ['first-aid', 'cert3-support'] })!.blocked, undefined);
+	// IT：二档只看街头 18，学士挪到主管；门槛只看持有，证书和学历混在一个列表里也能认
+	const it = { ...s, certs: ['cert4-it'], respect: 60, skills: { ...s.skills, street: 18, charisma: 60 }, job: { career: 'it-support', loc: 'perth', level: 0, shifts: 0, good: 0, lastDay: -1 } };
+	assert.equal(promotionStatus(it)!.blocked, undefined);
+	const it1 = { ...it, job: { ...it.job, level: 1 } };
+	assert.match(promotionStatus(it1)!.blocked!, /学士/);
+	assert.equal(promotionStatus({ ...it1, certs: ['cert4-it', 'bachelor'] })!.blocked, undefined);
 });
 
 test('学历课程：前置条件、上课时间、钱、每天一次；上满毕业拿学历和声望；不改入参', () => {
