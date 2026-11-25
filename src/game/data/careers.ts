@@ -25,9 +25,9 @@ export const CAREERS: CareerDef[] = [
 		id: 'guide', name: '旅游公司', where: { kinds: ['park', 'island', 'coast'] }, start: [7, 10], minutes: 480, skill: 'survival',
 		shift: { needs: { energy: -30, social: 20, hygiene: -15 }, skills: { survival: 1.5, charisma: 1 } },
 		levels: [
-			{ title: '导游助理', pay: 160 }, // 第 25 批 150 → 160：按 8 小时折算 $18.75/小时，低于游戏最低时薪 $20（core/economy.ts），待平衡
-			{ title: '导游', pay: 225, req: { skills: { survival: 25, charisma: 25 } } },
-			{ title: '探险领队', pay: 330, req: { skills: { survival: 45, charisma: 40 }, respect: 40 } },
+			{ title: '导游助理', pay: 160 }, // 第 25 批 150 → 160：按 8 小时折算正好 $20/小时，等于游戏最低时薪（core/economy.ts）
+			{ title: '导游', pay: 225, req: { skills: { survival: 25, charisma: 17 } } }, // 平衡第十六轮：魅力 25 → 17（首次升职中位 45 → 12 天）
+			{ title: '探险领队', pay: 330, req: { skills: { survival: 45, charisma: 28 }, respect: 25 } }, // 第十六轮：魅力 40 → 28、声望 40 → 25
 		],
 	},
 	{
@@ -43,9 +43,9 @@ export const CAREERS: CareerDef[] = [
 		id: 'trucker', name: '货运公司', where: { kinds: ['mining', 'city'], tags: ['airport'] }, start: [18, 23], minutes: 600, skill: 'driving',
 		shift: { needs: { energy: -45, social: -10, fun: -10 }, skills: { driving: 2.5 } },
 		levels: [
-			{ title: '副驾', pay: 300, req: { skills: { driving: 20 } } },
-			{ title: '长途司机', pay: 460, req: { skills: { driving: 40 } } },
-			{ title: '车队长', pay: 620, req: { skills: { driving: 60 }, respect: 40 } },
+			{ title: '副驾', pay: 260, req: { skills: { driving: 20 }, certs: ['hr-licence'] } }, // 第十六轮：300/460/620 → 260/360/460，入门要 HR 证（持证 +15%）；原来几乎无门槛、净资产贴矿工 3 倍线
+			{ title: '长途司机', pay: 360, req: { skills: { driving: 40 } } },
+			{ title: '车队长', pay: 460, req: { skills: { driving: 60 }, respect: 40 } },
 		],
 	},
 	// 第 11 轮新增；平衡分析第九轮调过：酒保工资 140/200/280 → 130/180/250、班次娱乐 +5 → −5（收入和心情原来都高于咖啡店）；
@@ -76,7 +76,7 @@ export const CAREERS: CareerDef[] = [
 		shift: { needs: { energy: -45, hygiene: -30, fun: -10 }, skills: { strength: 1.5, stamina: 1 } },
 		levels: [
 			{ title: '工地普工', pay: 200, req: { certs: ['white-card'] } },
-			{ title: '熟练工', pay: 280, req: { skills: { strength: 35, stamina: 30 } } },
+			{ title: '熟练工', pay: 280, req: { skills: { strength: 35, stamina: 20 } } }, // 第十六轮：体能 30 → 20
 			{ title: '工长', pay: 380, req: { skills: { strength: 50 }, respect: 30 } },
 		],
 	},
@@ -85,8 +85,8 @@ export const CAREERS: CareerDef[] = [
 		shift: { needs: { energy: -35, social: 10, hygiene: -15, fun: -5 }, skills: { charisma: 1, stamina: 0.5 } },
 		levels: [
 			{ title: '护理助理', pay: 176, req: { certs: ['first-aid'] } },
-			{ title: '护理员', pay: 240, req: { skills: { charisma: 30 }, certs: ['cert3-support'] } },
-			{ title: '护理组长', pay: 330, req: { skills: { charisma: 45 }, respect: 30 } },
+			{ title: '护理员', pay: 240, req: { skills: { charisma: 30 } } }, // 第十六轮：护理三级证书移到组长
+			{ title: '护理组长', pay: 330, req: { skills: { charisma: 45 }, respect: 30, certs: ['cert3-support'] } },
 		],
 	},
 	{
@@ -94,8 +94,8 @@ export const CAREERS: CareerDef[] = [
 		shift: { needs: { energy: -25, social: 5, fun: -5 }, skills: { street: 0.8, charisma: 0.5 } },
 		levels: [
 			{ title: '服务台专员', pay: 200, req: { certs: ['cert4-it'] } },
-			{ title: '系统管理员', pay: 320, req: { skills: { street: 25 }, certs: ['bachelor'] } },
-			{ title: 'IT 主管', pay: 440, req: { skills: { charisma: 40 }, respect: 40 } },
+			{ title: '系统管理员', pay: 320, req: { skills: { street: 18 } } }, // 第十六轮：街头 25 → 18，学士移到主管
+			{ title: 'IT 主管', pay: 440, req: { skills: { charisma: 40 }, respect: 40, certs: ['bachelor'] } },
 		],
 	},
 ];
