@@ -28,7 +28,25 @@ export interface PlanResult {
 	eco: { in: Record<string, number>; out: Record<string, number>; inDetail: Record<string, number>; outDetail: Record<string, number> };
 	/** 系统关掉后每人被拦下的次数 */
 	blocked: Record<string, number>;
+	/** 第十八轮：只有 DAYS >= 365 时生成，默认短跑和 baseline.json 不变。 */
+	long?: {
+		netWorthDay0: Quantiles; netWorthDay180: Quantiles; netWorthDay365: Quantiles;
+		cashDay180: Quantiles; cashDay365: Quantiles;
+		cashNetPerDay181_365: number; worthGrowthPerDay1_180: number; worthGrowthPerDay181_365: number;
+		cashNetPerDayLateBins: number[]; worthGrowthPerDayLateBins: number[];
+		moodDay90: number; moodDay180: number; moodDay365: number; moodMean181_365: number;
+		moodMeanLateBins: number[];
+		moodActionMean181_365: number; moodActionMeanLateBins: number[];
+		collapses181_365: number; evictions181_365: number; lowCashDays181_365: number;
+		homeShare: number; homeDay: Quantiles | null;
+		homeUpgradeShare: number; homeUpgradeDay: Quantiles | null;
+		visaExpiredDaysTotal: number; visaExpiredDays181_365: number;
+		visaTransitions: Record<string, { count: number; share: number; day: Quantiles }>;
+		lateActionsPerDay: Record<string, number>; lateActionMinuteShare: Record<string, number>;
+	};
 }
+
+interface Quantiles { p10: number; median: number; p90: number }
 
 /** 一次模拟（sim.ts --format=json 的输出，多了 variant 字段） */
 export interface SimResult {
