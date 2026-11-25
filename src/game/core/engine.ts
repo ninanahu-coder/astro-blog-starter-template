@@ -1343,6 +1343,22 @@ export function moveInNote(state: PlayerState, home: HomeDef): string {
 	return `首期租金 $${firstRent(state, home)}${ahead ? ` + 预收下周房租 $${ahead}` : ''}${bond ? ` + 押金 $${bond}` : ''}`;
 }
 
+/** 第十五轮：花完之后最好还留的应急钱；只用于提示，不拦操作 */
+export const CASH_CUSHION = 200;
+/** 签约后剩的钱不够两周房租时提醒；签得起又够时、或签不起（由 homesAt 的 blocked 说明）时返回 undefined */
+export function moveInWarn(state: PlayerState, home: HomeDef): string | undefined {
+	const cost = moveInCost(state, home);
+	if (state.cash < cost) return undefined;
+	const left = state.cash - cost, need = home.rentWeek * 2;
+	return left < need ? `⚠️ 签完只剩 $${Math.round(left)}，不够两周房租 $${need}；饭钱、车票、看病都从这里出。` : undefined;
+}
+/** 事件选项花完后剩的钱少于 $200 + 一周现行房租时提醒 */
+export function spendWarn(state: PlayerState, cost: number): string | undefined {
+	if (!cost || cost > state.cash) return undefined;
+	const left = state.cash - cost, rent = state.rental.lease?.rent ?? 0;
+	return left < CASH_CUSHION + rent ? `选完只剩 $${Math.round(left)}${rent ? `，下周房租 $${rent}` : ''}` : undefined;
+}
+
 export interface HomeOffer {
 	home: HomeDef;
 	blocked?: string;

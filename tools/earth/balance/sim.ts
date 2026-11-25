@@ -24,7 +24,7 @@ import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter, ORIGINS } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careAt, careersAt, coursesAt, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, npcsAt, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careAt, careersAt, coursesAt, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, moveInCost, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { assess, taxStatus, tfnState } from '../../../src/game/core/tax.ts';
@@ -182,6 +182,8 @@ function trackLb(b: Bot) {
 }
 
 const GIG_IDS = ['work-mine', 'work-farm', 'work-cafe', 'busk'] as const;
+/** 第十五轮实跑的偏远安全规则（三批种子 × 六条路线：0 晕倒、0 收房） */
+const REMOTE_SAFETY = { cashReserve: 200, moveInRentWeeks: 2, spendRentWeeks: 2, minHunger: 50, minEnergy: 25, strandedGig: true } as const;
 type GigMiss = 'location' | 'hours' | 'energy' | 'needs' | 'weather' | 'requirements';
 type CollapseCause = 'hunger' | 'energy' | 'both' | 'other';
 
@@ -226,6 +228,12 @@ interface Plan {
 	gig?: GigPlan;
 	/** 第十四轮：保守零工攒够钱后，按下限低频旅行 */
 	safeRoam?: { everyDays: number; cashFloor: number; minEnergy: number; minHunger: number; maxCost: number; stops: string[] };
+	/**
+	 * 第十五轮：偏远路线的安全规则（只挂罗特尼斯、玛格丽特河、埃克斯茅斯三对救生员诊断路线）。
+	 * 事件做完留 cashReserve；签租约后留 cashReserve + moveInRentWeeks 周租；酒吧 / 市集后留 cashReserve + spendRentWeeks 周租；
+	 * 饱食 / 精力低于线就先恢复、不娱乐；被送到外地回不去时做当地零工（strandedGig）或回收。
+	 */
+	remoteSafety?: { cashReserve: number; moveInRentWeeks: number; spendRentWeeks: number; minHunger: number; minEnergy: number; strandedGig: boolean };
 	/**
 	 * 第 46 轮：保命、上班之后，所在地点能做共同事件就拉一个搭档一起做（第 10 批审查后改成三种搭档假设做对照）。
 	 * mateNeeds：搭档的各项需求（100 = 全满）；mateChance：每次想做时有搭档在场的概率
@@ -326,12 +334,12 @@ const PLANS: Plan[] = [
 const DIAG_PLANS: Plan[] = [
 	{ id: 'lifeguard-freo-none', name: '救生员（弗里曼特尔；老杰克对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'fremantle', career: 'lifeguard' }, home: 'room', npc: { id: 'jack', gift: 'none' } },
 	{ id: 'lifeguard-jack-perk', name: '救生员 + 老杰克：自然解锁后出海', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'fremantle', career: 'lifeguard' }, home: 'room', npc: { id: 'jack', gift: 'perk' } },
-	{ id: 'lifeguard-rottnest-none', name: '救生员（罗特尼斯；琳达对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'rottnest', career: 'lifeguard' }, home: 'beach', npc: { id: 'linda', gift: 'none' } },
-	{ id: 'lifeguard-linda-perk', name: '救生员 + 琳达：自然解锁后走小路', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'rottnest', career: 'lifeguard' }, home: 'beach', npc: { id: 'linda', gift: 'perk' } },
-	{ id: 'lifeguard-margaret-none', name: '救生员（玛格丽特河；里奥对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'margaret-river', career: 'lifeguard' }, home: 'room', npc: { id: 'leo', gift: 'none' } },
-	{ id: 'lifeguard-leo-perk', name: '救生员 + 里奥：自然解锁后冲浪课', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'margaret-river', career: 'lifeguard' }, home: 'room', npc: { id: 'leo', gift: 'perk' } },
-	{ id: 'lifeguard-exmouth-none', name: '救生员（埃克斯茅斯；萨姆对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'exmouth', career: 'lifeguard' }, home: 'room', npc: { id: 'sam', gift: 'none' } },
-	{ id: 'lifeguard-sam-perk', name: '救生员 + 萨姆：自然解锁后浮潜', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'exmouth', career: 'lifeguard' }, home: 'room', npc: { id: 'sam', gift: 'perk' } },
+	{ id: 'lifeguard-rottnest-none', name: '救生员（罗特尼斯；琳达对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'rottnest', career: 'lifeguard' }, home: 'beach', npc: { id: 'linda', gift: 'none' }, remoteSafety: REMOTE_SAFETY },
+	{ id: 'lifeguard-linda-perk', name: '救生员 + 琳达：自然解锁后走小路', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'rottnest', career: 'lifeguard' }, home: 'beach', npc: { id: 'linda', gift: 'perk' }, remoteSafety: REMOTE_SAFETY },
+	{ id: 'lifeguard-margaret-none', name: '救生员（玛格丽特河；里奥对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'margaret-river', career: 'lifeguard' }, home: 'room', npc: { id: 'leo', gift: 'none' }, remoteSafety: REMOTE_SAFETY },
+	{ id: 'lifeguard-leo-perk', name: '救生员 + 里奥：自然解锁后冲浪课', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'margaret-river', career: 'lifeguard' }, home: 'room', npc: { id: 'leo', gift: 'perk' }, remoteSafety: REMOTE_SAFETY },
+	{ id: 'lifeguard-exmouth-none', name: '救生员（埃克斯茅斯；萨姆对照）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'exmouth', career: 'lifeguard' }, home: 'room', npc: { id: 'sam', gift: 'none' }, remoteSafety: REMOTE_SAFETY },
+	{ id: 'lifeguard-sam-perk', name: '救生员 + 萨姆：自然解锁后浮潜', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'exmouth', career: 'lifeguard' }, home: 'room', npc: { id: 'sam', gift: 'perk' }, remoteSafety: REMOTE_SAFETY },
 	{ id: 'miner-bill-none', name: '矿工（卡尔古利；比尔对照）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'kalgoorlie', career: 'miner' }, home: 'room', npc: { id: 'bill', gift: 'none' } },
 	{ id: 'miner-bill-perk', name: '矿工 + 比尔：自然解锁后请客', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'kalgoorlie', career: 'miner' }, home: 'room', npc: { id: 'bill', gift: 'perk' } },
 ];
@@ -858,7 +866,10 @@ function step(b: Bot) {
 		b.stats.events++;
 		// 选第一个现在能选的选项：付得起、风暴天不下海（和引擎的限制一致）
 		const stormy = !!weatherAt(s).closesSea;
-		const pick = ev.choices.findIndex((c) => (!c.cost || c.cost <= s.cash) && !(c.exposed === 'sea' && stormy));
+		const ok = (c: (typeof ev.choices)[number]) => (!c.cost || c.cost <= s.cash) && !(c.exposed === 'sea' && stormy);
+		// 第十五轮：偏远路线先选做完还留储备的选项（埃克斯茅斯开局 $200 鲸鲨同游把现金打空）
+		const safe = plan.remoteSafety ? ev.choices.findIndex((c) => ok(c) && s.cash - (c.cost ?? 0) >= plan.remoteSafety!.cashReserve) : -1;
+		const pick = safe >= 0 ? safe : ev.choices.findIndex(ok);
 		if (pick < 0 || !tryAct(b, { t: 'event', choice: pick })) throw new Error(`机器人卡在事件 ${ev.id}（${plan.id}，第 ${dayOf(s.clock)} 天）`);
 		return;
 	}
@@ -870,11 +881,16 @@ function step(b: Bot) {
 	}
 	const h = hourOf(s.clock);
 	const atHome = s.home && s.home.loc === s.loc;
+	const rs = plan.remoteSafety;
+	const minHunger = rs?.minHunger ?? 35;
+	const minEnergy = rs?.minEnergy ?? 25;
+	/** 偏远路线可选消费后至少留的钱：储备 + 若干周现行租金 */
+	const remoteFloor = rs ? rs.cashReserve + (s.rental.lease?.rent ?? 0) * rs.spendRentWeeks : 0;
 
 	// 1. 生存（没钱时赶上免费餐就去吃）
 	if (s.cash < 60 && s.needs.hunger < 80 && (act(b, 'charity-meal') || act(b, 'charity-dinner'))) return;
 	if (s.health < 35 && (act(b, 'clinic') || (s.inventory.firstaid && tryAct(b, { t: 'use', item: 'firstaid' })))) return;
-	if (s.needs.hunger < 35) {
+	if (s.needs.hunger < minHunger) {
 		if (cookFromPantry(b)) return;
 		if (!homeActionBlocked(s, 'cook', regionOf(b)) && tryAct(b, { t: 'home', op: 'cook' })) return;
 		if (act(b, 'eat')) return;
@@ -884,7 +900,7 @@ function step(b: Bot) {
 	}
 	// 夜里精力不满才睡（刚睡醒的半夜不会再睡一觉，否则会睡过上班时间）
 	const night = (h >= 22 || h < 5) && s.needs.energy < 70;
-	if (s.needs.energy < 25 || night) {
+	if (s.needs.energy < minEnergy || night) {
 		if (atHome && tryAct(b, { t: 'home', op: 'sleep' })) return;
 		if (s.cash > 600 && act(b, 'sleep-motel')) return;
 		if (act(b, 'sleep-camp')) return;
@@ -936,9 +952,18 @@ function step(b: Bot) {
 			}
 		} else if (s.loc !== s.job.loc) {
 			if (headTo(b, s.job.loc)) return; // 被送去外地医院等情况：先回工作地点
+			// 第十五轮：回不去（付不起车票）时，需求够就做当地零工攒路费，否则先回收
+			if (rs?.strandedGig) {
+				if (s.needs.hunger >= minHunger && s.needs.energy >= minEnergy && tryGigs(b, GIG_IDS)) return;
+				if (act(b, 'recycle')) return;
+			}
 		} else if (dayOf(s.clock) % 7 !== 6 && !shiftBlocked(s, regionOf(b)) && tryAct(b, { t: 'job', op: 'work' })) return; // 每周休一天
 	}
-	if (plan.home && !s.home && !b.hobbyTraveling && s.cash > (plan.rentAt ?? 400)) {
+	const wantHome = plan.home ? getHome(plan.home) : undefined;
+	const canSign = rs && wantHome
+		? s.cash - moveInCost(s, wantHome) >= rs.cashReserve + wantHome.rentWeek * rs.moveInRentWeeks // 第十五轮：签完还留储备 + 两周租金
+		: s.cash > (plan.rentAt ?? 400);
+	if (plan.home && !s.home && !b.hobbyTraveling && canSign) {
 		const want = plan.job?.loc ?? regionOf(b).spawn;
 		// 租房市场（rental 批次）：先看房再递申请（固定期限）；被拒当天这套房不可申请，第二天再来
 		if (s.loc === want && homesAt(s, regionOf(b)).some((o) => o.home.id === plan.home && !o.blocked)) {
@@ -953,6 +978,11 @@ function step(b: Bot) {
 		if (s.rental.lease?.end && !leaseBlocked(s, 'renew') && tryAct(b, { t: 'rental', op: 'renew' })) return;
 	}
 	if (s.rental.claim && tryAct(b, { t: 'rental', op: s.rental.claim.prior ? 'dispute' : 'accept' })) return;
+	// 第十五轮：偏远路线健康 / 饱食 / 精力不安全时先恢复，不去 NPC 互动、徒步、游泳、酒吧、市集
+	if (rs && (s.health < 40 || s.needs.hunger < minHunger || s.needs.energy < minEnergy)) {
+		if (s.needs.hunger < minHunger && s.needs.energy >= minEnergy && act(b, 'recycle')) return;
+		if (act(b, 'rest')) return;
+	}
 	if (plan.npc && stepNpc(b)) return;
 	if (plan.hobby?.mode === 'light' && stepLightHobby(b)) return;
 	if (plan.hobby?.mode === 'all' && stepAllHobby(b, false)) return;
@@ -1047,12 +1077,12 @@ function step(b: Bot) {
 		if (feast && tryAct(b, { t: 'home', op: 'host', recipe: feast.id })) return;
 		const npc = npcsAt(s, regionOf(b)).find((n) => !n.blocked.chat);
 		if (npc && tryAct(b, { t: 'npc', npc: npc.npc.id, act: 'chat' })) return;
-		if (s.cash > 150 && act(b, 'pub')) return;
+		if (s.cash > 150 && (!rs || s.cash - 30 >= remoteFloor) && act(b, 'pub')) return;
 	}
 	if (s.needs.fun < 40) {
 		if (!homeActionBlocked(s, 'relax') && tryAct(b, { t: 'home', op: 'relax' })) return;
-		for (const f of ['swim', 'hike', 'market']) if (act(b, f)) return;
-		if (s.cash > 150 && act(b, 'pub')) return;
+		for (const f of ['swim', 'hike', 'market']) if ((f !== 'market' || !rs || s.cash - 15 >= remoteFloor) && act(b, f)) return;
+		if (s.cash > 150 && (!rs || s.cash - 30 >= remoteFloor) && act(b, 'pub')) return;
 	}
 	// 背包里放点吃的
 	if (!s.inventory.snack && s.cash > 100) {
