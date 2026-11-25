@@ -2457,7 +2457,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					${rows.map(item).join('')}</details>`;
 			}
 			/** 现实活动（第 24 批）：按服务器时间和当地时区自动上线、下线；能不能领以服务器结算为准 */
-			function liveCard(s: PlayerState) {
+			function liveSection(s: PlayerState) {
 				const now = srvNow();
 				const cal = liveCalendar(now, 30);
 				if (!cal.length) return '';
@@ -2472,7 +2472,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 					return `<div class="row"><span class="ico">${ev.kind === 'festival' ? '🎪' : '🎉'}</span><span class="body">${esc(ev.name)} · ${esc(where)}<small>${when} · ${esc(liveDateLabel(ev))}${why && !(s.live ?? []).includes(ev.id) ? ` · ${esc(why)}` : ''} · <a href="${esc(ev.source)}" target="_blank" rel="noopener noreferrer">来源</a></small></span><span class="meta">${btn}</span></div>`;
 				}).join('');
 				if (!rows) return '';
-				return `<div class="card"><h3>现实里的节日和假期</h3><p class="muted">跟真实日历走，和游戏里的季节无关。在活动地点（假期是同一个州）可以领一次到场纪念。</p><div class="list" style="margin-top:8px">${rows}</div></div>`;
+				// 并进「节日」卡当一节（不单独成卡）：真实日历一进 30 天窗口就多一张卡，第 1 天今天页会超过 6 张
+				return `<div class="live-sec" style="margin-top:12px"><h4>现实里的节日和假期</h4><p class="muted">跟真实日历走，和游戏里的季节无关。在活动地点（假期是同一个州）可以领一次到场纪念。</p><div class="list" style="margin-top:8px">${rows}</div></div>`;
 			}
 
 			/** 天象卡（第 8 批）：按地点和游戏日期用公式估算，只做显示，不影响玩法 */
@@ -2687,7 +2688,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const festHtml = `<div class="card">${festHere ? cover('fest:' + festHere.festival.id) : ''}<h3>${festHere ? `🎉 ${esc(festHere.festival.name)}进行中` : '节日'}</h3>${festHere ? `<p>${esc(festHere.festival.desc)} 节日专属体验在「在这里 · 体验和爱好」里。</p>` : ''}
 					${festSoon.map((c) => cgi['fest:' + c.festival.id]
 						? `<div class="row" style="margin-top:8px">${thumb('fest:' + c.festival.id)}<span class="body">${esc(c.festival.name)}<small>${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(getLocation(region, c.festival.loc)!.name)}</small></span></div>`
-						: `<p style="margin-top:4px">${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(c.festival.name)} · ${esc(getLocation(region, c.festival.loc)!.name)}</p>`).join('')}</div>`;
+						: `<p style="margin-top:4px">${c.active ? '正在举行' : `${c.startsIn} 天后`} · ${esc(c.festival.name)} · ${esc(getLocation(region, c.festival.loc)!.name)}</p>`).join('')}${liveSection(s)}</div>`;
 				// 渐进出现（v36）：新角色头一两天先不摆钓鱼、课程、车行、房产这些卡，条件到了自动出现
 				const on = (id: string) => featureShown(s, id);
 				// 体验改造 P1（docs/earth-game/ux-p1.md）：今天页分三层。
@@ -2737,7 +2738,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					${featSlip(s)}
 					${agendaCard(s)}
 					${hereHtml}
-					<section class="later-zone" aria-label="以后">${storyCard}${liveCard(s)}${festHtml}${laterNote(s)}</section>`;
+					<section class="later-zone" aria-label="以后">${storyCard}${festHtml}${laterNote(s)}</section>`;
 			}
 
 			/** 「刚才」：上一个成功动作的结果和数值变化，紧贴在状态环下面（以前在地点卡里，要往下翻才看得到） */
