@@ -18,6 +18,7 @@
 //   --long                  第十八轮长线哨兵：十部门代表路线，默认 365 天 × 100 种子
 //   --risk                  第二十轮风险尾部：同十部门、默认 365 天 × 100 种子；输出逐种子风险指标
 //   --switch                第十九轮转行哨兵：咖啡→IT、矿工跨城换岗，默认仍不增加路线
+//   --edu                   第二十一轮进修回报：正式项目与技能活动同种子配对，默认 365 天 × 100 种子
 //   npm run earth:sim -- --swap        二手市场对照：咖啡店策略 × 买家具不走 / 走换手墙看货 / 走换手墙先转账
 import { writeFileSync } from 'node:fs';
 import { averageEco, blankEco, parseSystems, recordEco, SYSTEMS, systemOf, type EcoStats } from './systems.ts';
@@ -27,7 +28,7 @@ import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter, ORIGINS } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careAt, careerPay, careersAt, certsAt, coursesAt, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, getLocation, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, moveInCost, npcsAt, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careAt, careerPay, careersAt, certsAt, coursesAt, coursePrice, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, getLocation, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, moveInCost, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { getProgram, programsAt } from '../../../src/game/core/education.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
@@ -64,10 +65,16 @@ import { BIRDS, CRAFTS, INSTRUMENT, PHOTO_WORK, PLANTS, SONGS } from '../../../s
 import { FISH } from '../../../src/game/data/fish.ts';
 import { ITEMS } from '../../../src/game/data/items.ts';
 import { NPCS } from '../../../src/game/data/npcs.ts';
+import { ACTIVITIES } from '../../../src/game/data/activities.ts';
+import { CERTS } from '../../../src/game/data/certs.ts';
+import { COURSES } from '../../../src/game/data/courses.ts';
+import { PROGRAMS } from '../../../src/game/data/education.ts';
 
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
 const RISK = process.argv.includes('--risk');
-const LONG = process.argv.includes('--long') || RISK;
+/** 第二十一轮：同种子进修做 / 不做配对。 */
+const BY_EDU = process.argv.includes('--edu');
+const LONG = process.argv.includes('--long') || RISK || BY_EDU;
 const DAYS = Number(arg('days', LONG ? '365' : '60'));
 const RUNS = Number(arg('runs', LONG ? '100' : '40'));
 const SEED_OFFSET = Number(arg('seed-offset', '0'));
@@ -196,6 +203,8 @@ interface Bot {
 		};
 		/** 第二十轮：职业风险尾部。只在 --risk 输出，但始终采集，保证开关不改变行为。 */
 		risk: RiskStats;
+		/** 第二十一轮进修回报：每项进修的次数、直接费用、时间和首末日。 */
+		edu: Record<string, { actions: number; spend: number; minutes: number; firstDay: number; lastDay: number }>;
 	};
 	/** 排行榜（排行榜第一版）：每个成功动作后按服务端同一个函数算榜单记录，看异常值复核线会不会误伤正常玩法 */
 	lb: { e: LbEntry; now: number; max: Record<LbStatKey, number>; holds: number; why: string[] };
@@ -256,6 +265,18 @@ function trackLb(b: Bot) {
 const GIG_IDS = ['work-mine', 'work-farm', 'work-cafe', 'busk'] as const;
 /** 第十五轮实跑的偏远安全规则（三批种子 × 六条路线：0 晕倒、0 收房） */
 const REMOTE_SAFETY = { cashReserve: 200, moveInRentWeeks: 2, spendRentWeeks: 2, minHunger: 50, minEnergy: 25, strandedGig: true } as const;
+/** 第二十一轮：只影响 sim 机器人；游戏规则仍允许玩家自行选择。 */
+const AUTO_ENTRY_CERT_BY_PLAN: Record<string, { id: string; reserve: number }> = {
+	barista: { id: 'barista-cert', reserve: 200 },
+	miner: { id: 'mine-induction', reserve: 200 },
+	bartender: { id: 'rsa', reserve: 200 },
+};
+/** 只校正默认代表机器人；错配出身矩阵保持原策略。入门准备也不受此表影响。 */
+const SKIP_PROMOTION_COURSES_BY_PLAN: Record<string, readonly string[]> = {
+	barista: ['networking'],
+	lifeguard: ['surf-school'],
+	carer: ['networking'],
+};
 type GigMiss = 'location' | 'hours' | 'energy' | 'needs' | 'weather' | 'requirements';
 type CollapseCause = 'hunger' | 'energy' | 'both' | 'other';
 
@@ -375,7 +396,31 @@ interface Plan {
 	 * NPC（第十三轮）：只统计目标 NPC 的关系进度。none：不改行为（只观测聊天）；perk：不送礼，解锁后冷却到就用专属互动；
 	 * love：只送 TA 的最爱；cheap：送当地买得到、TA 不讨厌的最便宜物品。送礼到 90 好感停手，专属互动冷却到就用
 	 */
-	npc?: { id: string; gift: 'none' | 'perk' | 'love' | 'cheap' };}
+	npc?: { id: string; gift: 'none' | 'perk' | 'love' | 'cheap' };
+	/** 第二十一轮进修回报元数据与行为开关。 */
+	education?: EducationExperiment;
+}
+
+interface EducationExperiment {
+	pair: string;
+	variant: 'base' | 'do' | 'without' | 'activity' | 'free' | 'free-price' | 'self-funded' | 'no-cap';
+	item?: string;
+	/** 在应聘前、当前地点能上课时先拿证。 */
+	forceCert?: string;
+	/** 创角时注入证书 / 学历，量“门槛与费用全部拿掉”的上限。 */
+	freeAwards?: string[];
+	/** 禁止机器人使用这门技能课；afterHire 仍允许入职准备使用。 */
+	blockCourse?: string;
+	blockCourseAfterHire?: string;
+	/** 禁用 course 后，在升职缺对应能力时主动做这个活动。 */
+	replaceCourseWithActivity?: { course: string; activity: string };
+	/** 留学生签证自动毕业仍保留签证学历，但不把 bachelor 送进职业证书。 */
+	suppressVisaBachelor?: boolean;
+	/** 上课后退还这门项目的学费；课程、能力、声望和耗时完全保留。 */
+	refundProgram?: string;
+	/** 只在反事实中让正式工作不受显式学业的 48 小时 / 两周上限；学习进度照常保留。 */
+	noStudentWorkCap?: boolean;
+}
 
 function regionOf(b: Bot): Region {
 	return b.plan.world ? WORLD : WA;
@@ -487,6 +532,88 @@ const MATRIX_PLANS: Plan[] = MATRIX_IDS.flatMap((id) => {
 		};
 	});
 });
+
+/** 第二十一轮 /tmp 实验路线：十部门基线 + 20 项正式进修的代表性同种子反事实。 */
+const eduClone = (baseId: string, suffix: string, cfg: EducationExperiment, amend: Partial<Plan> = {}): Plan => {
+	const base = structuredClone(PLANS.find((p) => p.id === baseId)!);
+	return { ...base, ...amend, id: `edu-${baseId}-${suffix}`, name: `${base.job?.career ?? baseId} · ${suffix}`, education: cfg };
+};
+const EDU_PLANS: Plan[] = [
+	...MATRIX_IDS.map((id) => eduClone(id, 'base', { pair: id, variant: 'base' })),
+	// 六张纯加薪证：在应聘前拿证，比较“先投资”与原策略从不拿证。
+	eduClone('barista', 'cert-barista', { pair: 'barista', variant: 'do', item: 'cert:barista-cert', forceCert: 'barista-cert' }),
+	eduClone('lifeguard', 'cert-bronze', { pair: 'lifeguard', variant: 'do', item: 'cert:bronze-medallion', forceCert: 'bronze-medallion' }),
+	eduClone('guide', 'cert-wilderness', { pair: 'guide', variant: 'do', item: 'cert:wilderness-first-aid', forceCert: 'wilderness-first-aid' }),
+	eduClone('miner', 'cert-mine', { pair: 'miner', variant: 'do', item: 'cert:mine-induction', forceCert: 'mine-induction' }),
+	eduClone('bartender', 'cert-rsa', { pair: 'bartender', variant: 'do', item: 'cert:rsa', forceCert: 'rsa' }),
+	eduClone('farmhand', 'cert-tractor', { pair: 'farmhand', variant: 'do', item: 'cert:tractor-ticket', forceCert: 'tractor-ticket' }),
+	// 三张入行证：免费注入，量原价与 7.5–8 小时课对入职的最大拖慢。
+	eduClone('trucker', 'free-hr', { pair: 'trucker', variant: 'free', item: 'cert:hr-licence', freeAwards: ['hr-licence'] }),
+	eduClone('builder', 'free-white-card', { pair: 'builder', variant: 'free', item: 'cert:white-card', freeAwards: ['white-card'] }),
+	eduClone('carer', 'free-first-aid', { pair: 'carer', variant: 'free', item: 'cert:first-aid', freeAwards: ['first-aid'] }),
+	// 四个长项目：免费注入单个 award；其余前置与项目保留。
+	eduClone('it-support', 'free-english', { pair: 'it-support', variant: 'free', item: 'program:english-class', freeAwards: ['english'] }),
+	eduClone('it-support', 'free-cert4', { pair: 'it-support', variant: 'free', item: 'program:cert4-it', freeAwards: ['cert4-it'] }),
+	eduClone('carer', 'free-cert3', { pair: 'carer', variant: 'free', item: 'program:cert3-support', freeAwards: ['cert3-support'] }),
+	eduClone('it-support', 'free-bachelor', { pair: 'it-support', variant: 'free', item: 'program:bachelor', freeAwards: ['bachelor'] }),
+	// 七门技能课：禁用该课，保留活动与其他课，量机器人真实会不会用、用了是否有净收益。
+	eduClone('trucker', 'without-driving', { pair: 'trucker', variant: 'without', item: 'course:driving-school', blockCourseAfterHire: 'driving-school' }),
+	eduClone('lifeguard', 'without-surf', { pair: 'lifeguard', variant: 'without', item: 'course:surf-school', blockCourse: 'surf-school' }),
+	eduClone('miner', 'without-trainer', { pair: 'miner', variant: 'without', item: 'course:personal-trainer', blockCourse: 'personal-trainer' }),
+	eduClone('farmhand', 'without-run-club', { pair: 'farmhand', variant: 'without', item: 'course:run-club', blockCourse: 'run-club' }),
+	eduClone('barista', 'without-networking', { pair: 'barista', variant: 'without', item: 'course:networking', blockCourse: 'networking' }),
+	eduClone('guide', 'without-bushcraft', { pair: 'guide', variant: 'without', item: 'course:bushcraft', blockCourse: 'bushcraft' }),
+	eduClone('bartender', 'without-negotiation', { pair: 'bartender', variant: 'without', item: 'course:negotiation', blockCourse: 'negotiation' }),
+	eduClone('lifeguard', 'without-run-club', { pair: 'lifeguard', variant: 'without', item: 'course:run-club', blockCourse: 'run-club' }),
+	eduClone('bartender', 'without-networking', { pair: 'bartender', variant: 'without', item: 'course:networking', blockCourse: 'networking' }),
+	eduClone('carer', 'without-networking', { pair: 'carer', variant: 'without', item: 'course:networking', blockCourse: 'networking' }),
+	// 非留学生本科与留学生“签证不送职业本科”的公平性反事实。
+	eduClone('it-support-backpacker', 'base', { pair: 'it-support-backpacker', variant: 'base' }),
+	eduClone('it-support-backpacker', 'free-bachelor', { pair: 'it-support-backpacker', variant: 'free', item: 'program:bachelor', freeAwards: ['bachelor'] }),
+	eduClone('it-support', 'self-funded-bachelor', { pair: 'it-support', variant: 'self-funded', item: 'program:bachelor', suppressVisaBachelor: true }, {
+		careerPrep: { ...structuredClone(PLANS.find((p) => p.id === 'it-support')!.careerPrep!), promotionPrograms: ['bachelor'] },
+	}),
+	// 只把项目学费归零，保留全部课时、能力和声望，隔离价格负担。
+	eduClone('it-support', 'free-price-english', { pair: 'it-support', variant: 'free-price', item: 'program:english-class', refundProgram: 'english-class' }),
+	eduClone('it-support', 'free-price-cert4', { pair: 'it-support', variant: 'free-price', item: 'program:cert4-it', refundProgram: 'cert4-it' }),
+	eduClone('carer', 'free-price-cert3', { pair: 'carer', variant: 'free-price', item: 'program:cert3-support', refundProgram: 'cert3-support' }),
+	eduClone('it-support-backpacker', 'free-price-bachelor', { pair: 'it-support-backpacker', variant: 'free-price', item: 'program:bachelor', refundProgram: 'bachelor' }),
+	// 学生限工的单因素反事实：项目照读，只让正式班不受 48 小时 / 两周限制。
+	eduClone('carer', 'no-student-cap', { pair: 'carer', variant: 'no-cap', noStudentWorkCap: true }),
+	eduClone('it-support', 'no-student-cap', { pair: 'it-support', variant: 'no-cap', noStudentWorkCap: true }),
+	// 代表地点碰不到的两门课：加地点 / 出身匹配的小样路线，避免把“机器人没遇到”误判成“规则无用途”。
+	eduClone('builder', 'perth-student-base', { pair: 'builder-perth-student', variant: 'base' }, {
+		origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'builder' }, home: 'room', careerPrep: { entryCerts: ['white-card'] },
+	}),
+	eduClone('builder', 'perth-student-without-trainer', { pair: 'builder-perth-student', variant: 'without', item: 'course:personal-trainer', blockCourse: 'personal-trainer' }, {
+		origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'builder' }, home: 'room', careerPrep: { entryCerts: ['white-card'] },
+	}),
+	eduClone('builder', 'perth-student-without-run-club', { pair: 'builder-perth-student', variant: 'without', item: 'course:run-club', blockCourse: 'run-club' }, {
+		origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'builder' }, home: 'room', careerPrep: { entryCerts: ['white-card'] },
+	}),
+	eduClone('guide', 'kalbarri-base', { pair: 'guide-kalbarri', variant: 'base' }, { job: { loc: 'kalbarri', career: 'guide' }, home: undefined, postTopHome: undefined }),
+	eduClone('guide', 'kalbarri-without-bushcraft', { pair: 'guide-kalbarri', variant: 'without', item: 'course:bushcraft', blockCourse: 'bushcraft' }, { job: { loc: 'kalbarri', career: 'guide' }, home: undefined, postTopHome: undefined }),
+	// 技能课与同能力活动的机会成本对照；仍保留其他课程。
+	eduClone('lifeguard', 'surf-to-swim', { pair: 'lifeguard', variant: 'activity', item: 'course:surf-school', blockCourse: 'surf-school', replaceCourseWithActivity: { course: 'surf-school', activity: 'swim' } }),
+	eduClone('lifeguard', 'run-to-jog', { pair: 'lifeguard', variant: 'activity', item: 'course:run-club', blockCourse: 'run-club', replaceCourseWithActivity: { course: 'run-club', activity: 'jog' } }),
+	eduClone('barista', 'networking-to-busk', { pair: 'barista', variant: 'activity', item: 'course:networking', blockCourse: 'networking', replaceCourseWithActivity: { course: 'networking', activity: 'busk' } }),
+	eduClone('builder', 'perth-student-trainer-to-gym', { pair: 'builder-perth-student', variant: 'activity', item: 'course:personal-trainer', blockCourse: 'personal-trainer', replaceCourseWithActivity: { course: 'personal-trainer', activity: 'gym' } }, {
+		origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'builder' }, home: 'room', careerPrep: { entryCerts: ['white-card'] },
+	}),
+	eduClone('guide', 'kalbarri-bushcraft-to-forage', { pair: 'guide-kalbarri', variant: 'activity', item: 'course:bushcraft', blockCourse: 'bushcraft', replaceCourseWithActivity: { course: 'bushcraft', activity: 'forage' } }, { job: { loc: 'kalbarri', career: 'guide' }, home: undefined, postTopHome: undefined }),
+	// 谈判课的街头活动只在有市集的地点；用弗里曼特尔酒保保持职业与课程都可用。
+	eduClone('bartender', 'fremantle-base', { pair: 'bartender-fremantle', variant: 'base' }, { job: { loc: 'fremantle', career: 'bartender' } }),
+	eduClone('bartender', 'fremantle-without-negotiation', { pair: 'bartender-fremantle', variant: 'without', item: 'course:negotiation', blockCourse: 'negotiation' }, { job: { loc: 'fremantle', career: 'bartender' } }),
+	eduClone('bartender', 'fremantle-negotiation-to-market', { pair: 'bartender-fremantle', variant: 'activity', item: 'course:negotiation', blockCourse: 'negotiation', replaceCourseWithActivity: { course: 'negotiation', activity: 'market' } }, { job: { loc: 'fremantle', career: 'bartender' } }),
+	// 长项目“读到顶 vs 停在二级”：直接量项目本身何时回本。
+	eduClone('carer', 'without-cert3', { pair: 'carer', variant: 'without', item: 'program:cert3-support' }, {
+		careerPrep: { ...structuredClone(PLANS.find((p) => p.id === 'carer')!.careerPrep!), promotionPrograms: [] },
+	}),
+	eduClone('it-support-backpacker', 'without-bachelor', { pair: 'it-support-backpacker', variant: 'without', item: 'program:bachelor' }, {
+		careerPrep: { ...structuredClone(PLANS.find((p) => p.id === 'it-support-backpacker')!.careerPrep!), promotionPrograms: [] },
+	}),
+	eduClone('it-support', 'without-visa-bachelor', { pair: 'it-support', variant: 'without', item: 'program:bachelor', suppressVisaBachelor: true }),
+];
 
 /** 第十九轮：不进默认 39 条，只用 --switch 跑的跨部门与同部门跨城哨兵。 */
 const SWITCH_PLANS: Plan[] = [
@@ -665,17 +792,59 @@ function observeRiskDay(b: Bot) {
 	if (c && currentIllness(b.s) && illnessBlock(b.s, ['work', ...loadOfEffect(c.shift)])) d.sick = true;
 }
 
+function recordEducationAction(b: Bot, before: PlayerState, after: PlayerState, a: GameAction) {
+	let key: string | undefined;
+	let spend = 0;
+	let minutes = 0;
+	if (a.t === 'cert') {
+		const x = CERTS.find((c) => c.id === a.id);
+		if (x) { key = `cert:${x.id}`; spend = x.price; minutes = x.minutes; }
+	} else if (a.t === 'course') {
+		const x = COURSES.find((c) => c.id === a.id);
+		if (x) { key = `course:${x.id}`; spend = coursePrice(before, x); minutes = x.minutes; }
+	} else if (a.t === 'study') {
+		const x = PROGRAMS.find((p) => p.id === a.id);
+		if (x) { key = `program:${x.id}`; spend = x.fee; minutes = x.minutes; }
+	} else if (a.t === 'activity' && a.id === b.plan.education?.replaceCourseWithActivity?.activity) {
+		const x = ACTIVITIES.find((v) => v.id === a.id);
+		if (x) { key = `activity:${x.id}`; spend = -(x.fx.cash ?? 0); minutes = x.minutes; }
+	}
+	if (!key) return;
+	const day = dayOf(after.clock) + 1;
+	const row = b.stats.edu[key] ?? { actions: 0, spend: 0, minutes: 0, firstDay: day, lastDay: day };
+	row.actions++;
+	row.spend += spend;
+	row.minutes += minutes;
+	row.firstDay = Math.min(row.firstDay, day);
+	row.lastDay = Math.max(row.lastDay, day);
+	b.stats.edu[key] = row;
+}
+
 /** 尝试一个动作；成功则更新状态并统计 */
 function tryAct(b: Bot, a: GameAction): boolean {
 	const sys = OFF.size ? systemOf(a) : undefined;
 	if (sys && OFF.has(sys)) return (ecoOf(b).blocked[sys] = (ecoOf(b).blocked[sys] ?? 0) + 1), false;
 	const before = b.s;
-	const r = applyAction(b.s, regionOf(b), a, simNow(b.s.clock));
+	const bypassCap = !!b.plan.education?.noStudentWorkCap && a.t === 'job' && a.op === 'work';
+	const actionState = bypassCap ? {
+		...b.s,
+		study: Object.fromEntries(Object.entries(b.s.study).map(([id, st]) => [id, { ...st, day: -999_999 }])),
+	} : b.s;
+	const r = applyAction(actionState, regionOf(b), a, simNow(b.s.clock));
 	if (!r.ok) {
 		b.s = r.state;
 		return false;
 	}
-	b.s = r.state;
+	b.s = bypassCap ? { ...r.state, study: before.study } : r.state;
+	recordEducationAction(b, before, b.s, a);
+	if (a.t === 'study' && a.id === b.plan.education?.refundProgram) {
+		const p = PROGRAMS.find((x) => x.id === a.id);
+		if (p) b.s = { ...b.s, cash: b.s.cash + p.fee };
+	}
+	// 签证毕业结算仍保留 visa.degree，只有职业证书里的“免费本科”被拿掉，逼机器人自己读 bachelor。
+	if (b.plan.education?.suppressVisaBachelor && before.visa.course?.award === 'bachelor' && !b.s.visa.course && !before.certs.includes('bachelor') && b.s.certs.includes('bachelor')) {
+		b.s = { ...b.s, certs: b.s.certs.filter((id) => id !== 'bachelor') };
+	}
 	const risk = b.stats.risk;
 	if (a.t === 'job' && a.op === 'work' && before.job) {
 		const base = careerPay(before, before.job.career, before.job.level);
@@ -779,6 +948,15 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		b.stats.taxReturn = { tax: assess(ret, taxStatus(before.origin)).tax, withheld: ret.withheld, due: b.s.tax.last?.due ?? 0, day: dayOf(b.s.clock) + 1 };
 	}
 	return true;
+}
+
+function shiftBlockedForBot(b: Bot): string | undefined {
+	if (!b.plan.education?.noStudentWorkCap) return shiftBlocked(b.s, regionOf(b));
+	const uncapped = {
+		...b.s,
+		study: Object.fromEntries(Object.entries(b.s.study).map(([id, st]) => [id, { ...st, day: -999_999 }])),
+	};
+	return shiftBlocked(uncapped, regionOf(b));
 }
 
 /** 第十九轮：到点辞职；异地路线先主动退租，再走真实出行、看房和应聘。 */
@@ -1218,7 +1396,7 @@ function tryCareerSkillPrep(b: Bot): boolean {
 	};
 	for (const [skill, target] of Object.entries(cfg.entrySkills ?? {})) {
 		if (b.s.skills[skill as SkillKey] >= target!) continue;
-		const offer = coursesAt(b.s, regionOf(b)).find((o) => o.course.skill === skill);
+		const offer = coursesAt(b.s, regionOf(b)).find((o) => o.course.skill === skill && o.course.id !== b.plan.education?.blockCourse);
 		if (offer && fund(offer.price)) return true;
 		return !!offer && !offer.blocked && tryAct(b, { t: 'course', id: offer.course.id });
 	}
@@ -1346,6 +1524,24 @@ function step(b: Bot) {
 	// 2. 找工作、租房、去上班
 	// 自己看店的策略只有在店里有货时才停正式班；空店时回去上班，避免租金把补货本金越吃越少。
 	const selfShopTrading = !!(plan.shop?.staff === 0 && s.biz.shop && s.biz.shop.stock > 0);
+	const autoCert = !plan.education ? AUTO_ENTRY_CERT_BY_PLAN[plan.id] : undefined;
+	if (!s.job && autoCert && !s.certs.includes(autoCert.id)) {
+		const offer = certsAt(s, regionOf(b)).find((o) => o.cert.id === autoCert.id);
+		if (offer && s.cash - offer.cert.price >= autoCert.reserve) {
+			if (!offer.blocked && tryAct(b, { t: 'cert', id: autoCert.id })) return;
+			if (act(b, 'rest')) return;
+		}
+	}
+	const forcedCert = plan.education?.forceCert;
+	if (!s.job && forcedCert && !s.certs.includes(forcedCert)) {
+		const offer = certsAt(s, regionOf(b)).find((o) => o.cert.id === forcedCert);
+		if (offer) {
+			if (!offer.blocked && tryAct(b, { t: 'cert', id: forcedCert })) return;
+			if (act(b, 'rest')) return;
+		}
+		// 出生地没有课时先照常去工作地；工作地也没有才原地等，暴露错误配置。
+		if (s.loc === plan.job?.loc && act(b, 'rest')) return;
+	}
 	const preHomeSkillOnly = !s.job && !s.home && !!plan.careerPrep?.allowHomeBeforeEntry && !!plan.careerPrep.preHomeSkills && careerSkillPrepPending(b);
 	if (preHomeSkillOnly || (!s.job && careerPrepPending(b, 'entry') && (!plan.careerPrep?.allowHomeBeforeEntry || !!s.home))) {
 		const prep = plan.careerPrep!;
@@ -1388,7 +1584,7 @@ function step(b: Bot) {
 				if (s.needs.hunger >= minHunger && s.needs.energy >= minEnergy && tryGigs(b, GIG_IDS)) return;
 				if (act(b, 'recycle')) return;
 			}
-		} else if (dayOf(s.clock) % 7 !== 6 && !shiftBlocked(s, regionOf(b)) && tryAct(b, { t: 'job', op: 'work' })) return; // 每周休一天
+		} else if (dayOf(s.clock) % 7 !== 6 && !shiftBlockedForBot(b) && tryAct(b, { t: 'job', op: 'work' })) return; // 每周休一天
 	}
 	const postTopHome = plan.postTopHome ? getHome(plan.postTopHome) : undefined;
 	const atCareerTop = !!s.job && s.job.level === getCareer(s.job.career)!.levels.length - 1;
@@ -1453,7 +1649,12 @@ function step(b: Bot) {
 		if (s.job && s.cash > 600) {
 			const next = getCareer(s.job.career)!.levels[s.job.level + 1];
 			const lacking = SKILL_KEYS.filter((k) => (next?.req?.skills?.[k] ?? 0) > s.skills[k]);
-			const course = coursesAt(s, regionOf(b)).find((o) => lacking.includes(o.course.skill) && !o.blocked);
+			const replacement = plan.education?.replaceCourseWithActivity;
+			const replacedCourse = replacement ? COURSES.find((c) => c.id === replacement.course) : undefined;
+			if (replacement && replacedCourse && lacking.includes(replacedCourse.skill) && act(b, replacement.activity)) return;
+			const skipped = plan.education ? [] : (SKIP_PROMOTION_COURSES_BY_PLAN[plan.id] ?? []);
+			const course = coursesAt(s, regionOf(b)).find((o) => lacking.includes(o.course.skill) && !o.blocked
+				&& !skipped.includes(o.course.id) && o.course.id !== plan.education?.blockCourse && o.course.id !== plan.education?.blockCourseAfterHire);
 			if (course && tryAct(b, { t: 'course', id: course.course.id })) return;
 		}
 		if (atHome && s.cash > 1500 && plan.swap) {
@@ -1629,11 +1830,12 @@ function trySport(b: Bot): boolean {
 function runBot(plan: Plan, seed: number): Bot {
 	const region = plan.world ? WORLD : WA;
 	const s = createCharacter({ id: `sim-${plan.id}-${seed}`, name: plan.id, avatar: '🧑', origin: plan.origin, traits: plan.traits, region: region.id, spawn: region.spawn, seed });
+	for (const award of plan.education?.freeAwards ?? []) if (!s.certs.includes(award)) s.certs = [...s.certs, award];
 	// transition 会在运行中切换目标；每个种子必须持有独立计划。
 	const livePlan = structuredClone(plan);
 	const b: Bot = {
 		s, plan: livePlan, rng: mulberry(seed * 7919),
-		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, moodByDay: [mood(s)], moodLateSum: 0, moodLateN: 0, moodLateBins: [{ sum: 0, n: 0 }, { sum: 0, n: 0 }, { sum: 0, n: 0 }], worthByDay: [netWorth(s)], collapsesByDay: [0], evictionsByDay: [0], visaExpiredByDay: [0], lateActions: {}, lateActionMinutes: {}, visaTransitions: [], shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} }, risk: blankRisk(s) },
+		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, moodByDay: [mood(s)], moodLateSum: 0, moodLateN: 0, moodLateBins: [{ sum: 0, n: 0 }, { sum: 0, n: 0 }, { sum: 0, n: 0 }], worthByDay: [netWorth(s)], collapsesByDay: [0], evictionsByDay: [0], visaExpiredByDay: [0], lateActions: {}, lateActionMinutes: {}, visaTransitions: [], shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} }, risk: blankRisk(s), edu: {} },
 		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
@@ -1684,7 +1886,7 @@ function runBot(plan: Plan, seed: number): Bot {
 // ---------- 汇总 ----------
 if (ONLY.length) {
 	PLANS.push(...DIAG_PLANS); // 诊断路线只在 --only 点名时跑
-	for (const list of [PLANS, ORIGIN_PLANS, MATRIX_PLANS, SWITCH_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
+	for (const list of [PLANS, ORIGIN_PLANS, MATRIX_PLANS, SWITCH_PLANS, EDU_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
 }
 const results: PlanResult[] = [];
 const getNpcPerk = (id: string) => NPCS.find((x) => x.id === id)?.perk;
@@ -1730,7 +1932,7 @@ const hobbyRows: string[] = [];
 const tailRows: string[] = [];
 const npcRows: string[] = [];
 const riskRows: string[] = [];
-const selectedPlans = BY_SWITCH ? SWITCH_PLANS : BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : LONG && !ONLY.length ? PLANS.filter((p) => MATRIX_IDS.includes(p.id)) : PLANS;
+const selectedPlans = BY_EDU ? EDU_PLANS : BY_SWITCH ? SWITCH_PLANS : BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : LONG && !ONLY.length ? PLANS.filter((p) => MATRIX_IDS.includes(p.id)) : PLANS;
 for (const plan of selectedPlans) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, SEED_OFFSET + i + 1));
 	const at = (d: number) => bots.map((b) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)]);
@@ -2014,6 +2216,21 @@ for (const plan of selectedPlans) {
 		const bonusShare = risk.bonusForegone.mean / Math.max(1, risk.jobGross.mean + risk.bonusForegone.mean);
 		riskRows.push(`| ${plan.name} | ${money(risk.netWorth.p10)} / ${money(risk.netWorth.median)} / ${money(risk.netWorth.p90)} | ${(risk.p10P50 * 100).toFixed(1)}% | ${d(risk.workStopDays)} | ${d(risk.sickLeaveDays)} | ${d(risk.collapseDays)} | ${money(risk.missedRiskGross.mean)} / ${(lossShare * 100).toFixed(1)}% | ${d(risk.badShifts)} / ${(bonusShare * 100).toFixed(1)}% | ${d(risk.jobLosses)} / ${d(risk.demotions)} | ${d(risk.evictions)} | ${d(risk.lowCashDays)} / ${d(risk.lowCashStreak)} | ${risk.minMood.p10.toFixed(0)} / ${risk.minMood.median.toFixed(0)} / ${risk.minMood.p90.toFixed(0)} |`);
 	}
+	const education = plan.education ? {
+		pair: plan.education.pair, variant: plan.education.variant, ...(plan.education.item ? { item: plan.education.item } : {}),
+		seeds: bots.map((b, i) => {
+			const atDay = (xs: number[], day: number) => xs[Math.min(day, xs.length - 1)];
+			return {
+				seed: SEED_OFFSET + i + 1,
+				jobDay: b.stats.jobDay ?? null, topDay: b.stats.promoDays[1] ?? null,
+				netWorthDay180: atDay(b.stats.worthByDay, 180), netWorthDay365: atDay(b.stats.worthByDay, 365),
+				cashDay180: atDay(b.stats.cashByDay, 180), cashDay365: atDay(b.stats.cashByDay, 365),
+				mood: b.stats.moodSum / Math.max(1, b.stats.moodN), promotions: b.stats.promotions, shifts: b.stats.shifts,
+				collapses: b.stats.collapses, evictions: b.stats.evictions, actions: b.stats.edu,
+				netWorthByDay: b.stats.worthByDay.slice(0, DAYS + 1), cashByDay: b.stats.cashByDay.slice(0, DAYS + 1), moodByDay: b.stats.moodByDay.slice(0, DAYS + 1),
+			};
+		}),
+	} : undefined;
 	results.push({
 		id: plan.id, name: plan.name,
 		metrics: {
@@ -2032,7 +2249,32 @@ for (const plan of selectedPlans) {
 		...(transition ? { transition } : {}),
 		...(long ? { long } : {}),
 		...(risk ? { risk } : {}),
+		...(education ? { education } : {}),
 	});
+}
+if (BY_EDU) {
+	out();
+	out('## 进修回报配对（--edu）');
+	out();
+	out('同一 pair 使用同一批种子。`do` 是主动拿证减基线；`without` 显示“原课程策略减禁用课程”；`activity` 显示“主动活动减课程”；其余变体显示“变体减基线”。正资产差表示左述方案更富。逐种子日快照和动作学费 / 分钟见 JSON 的 `education.seeds`。');
+	out();
+	out('| pair | 变体 | 项目 | 入职日差 | 到顶日差 | 第 180 天净资产差 | 第 365 天净资产差 | 平均心情差 |');
+	out('| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |');
+	const eduPlans = results.filter((p) => p.education);
+	const bases = new Map(eduPlans.filter((p) => p.education!.variant === 'base').map((p) => [p.education!.pair, p]));
+	for (const p of eduPlans.filter((x) => x.education!.variant !== 'base')) {
+		const base = bases.get(p.education!.pair);
+		if (!base?.education) continue;
+		const bySeed = new Map(base.education.seeds.map((s) => [s.seed, s]));
+		const pairs = p.education!.seeds.map((s) => [s, bySeed.get(s.seed)] as const).filter((x): x is readonly [typeof x[0], NonNullable<typeof x[1]>] => !!x[1]);
+		const sign = p.education!.variant === 'without' ? -1 : 1;
+		const delta = (key: 'jobDay' | 'topDay' | 'netWorthDay180' | 'netWorthDay365' | 'mood') => pairs
+			.map(([a, b]) => a[key] === null || b[key] === null ? undefined : sign * (a[key] - b[key]))
+			.filter((x): x is number => x !== undefined);
+		const med = (key: 'jobDay' | 'topDay' | 'netWorthDay180' | 'netWorthDay365' | 'mood') => delta(key).length ? pct(delta(key), 0.5) : null;
+		const signed = (v: number | null, digits = 0) => v === null ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(digits)}`;
+		out(`| ${p.education!.pair} | ${p.education!.variant} | ${p.education!.item ?? '—'} | ${signed(med('jobDay'))} | ${signed(med('topDay'))} | ${signed(med('netWorthDay180'))} | ${signed(med('netWorthDay365'))} | ${signed(avg(delta('mood')), 2)} |`);
+	}
 }
 out();
 if (RISK) {

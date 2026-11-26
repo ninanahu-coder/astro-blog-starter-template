@@ -65,6 +65,11 @@ export interface PlanResult {
 		maxSleepDebt: Distribution; sleepDebtDays: Distribution; poorSleeps: Distribution;
 		seeds: RiskSeed[];
 	};
+	/** 第二十一轮进修回报输出；同 pair、同 seed 直接做差。 */
+	education?: {
+		pair: string; variant: string; item?: string;
+		seeds: EducationSeed[];
+	};
 }
 
 interface Quantiles { p10: number; median: number; p90: number }
@@ -76,6 +81,14 @@ interface RiskSeed {
 	missedRiskGross: number; workStopLostGross: number; sickLostGross: number; collapseLostGross: number; careCashLoss: number;
 	jobLosses: number; demotions: number; evictions: number; lowCashDays: number; lowCashStreak: number;
 	minMood: number; minHealth: number; maxSleepDebt: number; sleepDebtDays: number; poorSleeps: number;
+}
+
+interface EducationSeed {
+	seed: number; jobDay: number | null; topDay: number | null;
+	netWorthDay180: number; netWorthDay365: number; cashDay180: number; cashDay365: number;
+	mood: number; promotions: number; shifts: number; collapses: number; evictions: number;
+	netWorthByDay: number[]; cashByDay: number[]; moodByDay: number[];
+	actions: Record<string, { actions: number; spend: number; minutes: number; firstDay: number; lastDay: number }>;
 }
 
 /** 一次模拟（sim.ts --format=json 的输出，多了 variant 字段） */
