@@ -262,6 +262,33 @@ test('第十七轮 --matrix：十个部门 × 四种出身恰好 40 条 mx-* 路
 	assert.equal(typeof plans[0].metrics.lowCashDays, 'number');
 });
 
+test('第二十二轮 --visa：固定十部门留学生，输出逐种子路线、费用与失权天数；legacy 只切策略口径', () => {
+	const run = sim('--visa', '--days=3', '--runs=2', '--format=json');
+	assert.equal(run.status, 0, run.stderr);
+	const plans = JSON.parse(run.stdout).plans;
+	assert.equal(plans.length, 10);
+	assert.ok(plans.every((p: { id: string }) => p.id.startsWith('mx-') && p.id.endsWith('-student')));
+	for (const p of plans) {
+		assert.equal(p.visa.strategy, 'focus');
+		assert.equal(p.visa.seeds.length, 2);
+		assert.deepEqual(p.visa.seeds.map((s: { seed: number }) => s.seed), [1, 2]);
+		for (const k of ['prShare', 'finalKinds', 'expiredDays', 'visaFees', 'ieltsAttempts', 'routes']) assert.notEqual(p.visa[k], undefined, `${p.id}.${k}`);
+	}
+	const legacy = sim('--visa', '--visa-strategy=legacy', '--days=3', '--runs=1', '--format=json');
+	assert.equal(legacy.status, 0, legacy.stderr);
+	assert.ok(JSON.parse(legacy.stdout).plans.every((p: { visa: { strategy: string } }) => p.visa.strategy === 'legacy'));
+	assert.equal(sim('--visa', '--visa-strategy=nope', '--days=1', '--runs=1').status, 2);
+	const plain = sim('--matrix', '--only=mx-barista-student', '--days=3', '--runs=1', '--format=json');
+	assert.equal(JSON.parse(plain.stdout).plans[0].visa, undefined);
+	const path = sim('--visa', '--only=mx-trucker-student', '--days=365', '--runs=1', '--format=json');
+	assert.equal(path.status, 0, path.stderr);
+	const visa = JSON.parse(path.stdout).plans[0].visa;
+	assert.deepEqual(visa.finalKinds, { pr: 1 });
+	assert.deepEqual(visa.expiredDays, { mean: 0, max: 0 });
+	assert.ok(visa.routes.student && visa.routes.sponsored && visa.routes.ens);
+	assert.equal(visa.routes.regional, undefined, '拿到 482 后不应再跳到更慢、更贵的 491');
+});
+
 test('第二十一轮 --edu：同 pair 同种子，输出逐日资产、现金、心情与进修动作', () => {
 	const run = sim('--edu', '--only=edu-barista-base,edu-barista-cert-barista', '--days=3', '--runs=2', '--format=json');
 	assert.equal(run.status, 0, run.stderr);
