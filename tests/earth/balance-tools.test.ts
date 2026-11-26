@@ -6,6 +6,9 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { CERTS } from '../../src/game/data/certs.ts';
+import { COURSES } from '../../src/game/data/courses.ts';
+import { PROGRAMS } from '../../src/game/data/education.ts';
 import { runSim } from '../../tools/earth/balance/ab.ts';
 import { abRows, diffBaseline, toBaseline, toCsv, toJson, variantName, type Baseline, type SimResult } from '../../tools/earth/balance/report.ts';
 import { GIGS, parseSystems, SYSTEM_IDS, SYSTEMS, systemOf } from '../../tools/earth/balance/systems.ts';
@@ -79,10 +82,11 @@ test('关掉共同事件：理想搭档那一行一次都不做；全开时确�
 	assert.equal(off.eco.in.coop ?? 0, 0);
 });
 
-test('关掉课程：咖啡店的课一节都不上，被拦下的次数记在 blocked', () => {
-	const b = base.plans.find((p) => p.id === 'barista')!;
-	assert.ok((b.eco.out.course ?? 0) > 0, '对照：全开时咖啡店会上课');
-	const o = runSim(['--days=21', '--runs=2', '--only=barista', '--off=courses']).plans[0];
+test('关掉课程：酒吧的课一节都不上，被拦下的次数记在 blocked', () => {
+	const args = ['--days=21', '--runs=2', '--only=bartender'];
+	const b = runSim(args).plans[0];
+	assert.ok((b.eco.out.course ?? 0) > 0, '对照：全开时酒吧会上课');
+	const o = runSim([...args, '--off=courses']).plans[0];
 	assert.equal(o.eco.out.course ?? 0, 0);
 	assert.ok(o.blocked.courses > 0);
 });
@@ -256,6 +260,62 @@ test('第十七轮 --matrix：十个部门 × 四种出身恰好 40 条 mx-* 路
 	assert.deepEqual(plans.map((p: { id: string }) => p.id), ['mx-it-support-backpacker']);
 	assert.equal(typeof plans[0].metrics.jobShare, 'number');
 	assert.equal(typeof plans[0].metrics.lowCashDays, 'number');
+});
+
+test('第二十一轮 --edu：同 pair 同种子，输出逐日资产、现金、心情与进修动作', () => {
+	const run = sim('--edu', '--only=edu-barista-base,edu-barista-cert-barista', '--days=3', '--runs=2', '--format=json');
+	assert.equal(run.status, 0, run.stderr);
+	const plans = JSON.parse(run.stdout).plans;
+	assert.deepEqual(plans.map((p: { id: string }) => p.id), ['edu-barista-base', 'edu-barista-cert-barista']);
+	assert.deepEqual(plans.map((p: { education: { pair: string; variant: string } }) => [p.education.pair, p.education.variant]), [['barista', 'base'], ['barista', 'do']]);
+	for (const p of plans) {
+		assert.equal(p.education.seeds.length, 2);
+		assert.deepEqual(p.education.seeds.map((s: { seed: number }) => s.seed), [1, 2]);
+		for (const seed of p.education.seeds) {
+			assert.ok(seed.netWorthByDay.length >= 4);
+			assert.equal(seed.cashByDay.length, seed.netWorthByDay.length);
+			assert.equal(seed.moodByDay.length, seed.netWorthByDay.length);
+		}
+	}
+	const md = sim('--edu', '--only=edu-barista-base,edu-barista-cert-barista', '--days=3', '--runs=1');
+	assert.equal(md.status, 0, md.stderr);
+	assert.match(md.stdout, /进修回报配对（--edu）/);
+	assert.match(md.stdout, /cert:barista-cert/);
+});
+
+test('第二十一轮 --edu：九证、七课、四项目无遗漏', () => {
+	const run = sim('--edu', '--days=1', '--runs=1', '--format=json');
+	assert.equal(run.status, 0, run.stderr);
+	const items = new Set(JSON.parse(run.stdout).plans.map((p: { education: { item?: string } }) => p.education.item).filter(Boolean));
+	for (const c of CERTS) assert.ok(items.has(`cert:${c.id}`), c.id);
+	for (const c of COURSES) assert.ok(items.has(`course:${c.id}`), c.id);
+	for (const p of PROGRAMS) assert.ok(items.has(`program:${p.id}`), p.id);
+});
+
+test('第二十一轮机器人：正回报证照自动买，已证实挤班的晋升课跳过；--edu 基线不套优化器', () => {
+	const run = sim('--only=barista,lifeguard,miner,bartender,carer', '--days=60', '--runs=1', '--format=json');
+	assert.equal(run.status, 0, run.stderr);
+	const byId = new Map(JSON.parse(run.stdout).plans.map((p: { id: string }) => [p.id, p]));
+	for (const id of ['barista', 'miner', 'bartender']) {
+		assert.ok((byId.get(id) as { flow: Record<string, number> }).flow.cert < 0, `${id} 应自动拿证`);
+	}
+	for (const id of ['barista', 'carer']) {
+		assert.equal((byId.get(id) as { flow: Record<string, number> }).flow.course ?? 0, 0, `${id} 不应上已证实挤班的晋升课`);
+	}
+	assert.equal((byId.get('lifeguard') as { flow: Record<string, number> }).flow.cert ?? 0, 0, '救生员自动拿证有长线收房尾部，保持原策略');
+	assert.ok(((byId.get('lifeguard') as { flow: Record<string, number> }).flow.course ?? 0) < 0, '救生员只跳过冲浪学校，保留跑团');
+	const edu = sim('--edu', '--only=edu-barista-base,edu-barista-cert-barista', '--days=5', '--runs=1', '--format=json');
+	const [base, cert] = JSON.parse(edu.stdout).plans;
+	assert.equal(base.education.seeds[0].actions['cert:barista-cert'], undefined);
+	assert.equal(cert.education.seeds[0].actions['cert:barista-cert'].actions, 1);
+});
+
+test('第二十一轮机器人：默认路线优化不外推到 mx-* 错配出身', () => {
+	const run = sim('--matrix', '--only=mx-barista-backpacker,mx-lifeguard-student,mx-carer-backpacker', '--days=60', '--runs=1', '--format=json');
+	assert.equal(run.status, 0, run.stderr);
+	for (const plan of JSON.parse(run.stdout).plans as { id: string; flow: Record<string, number> }[]) {
+		assert.ok((plan.flow.course ?? 0) < 0, `${plan.id} 应保留原有课程策略`);
+	}
 });
 
 test('第十七轮：非 FIFO 卡车先在出生地补力量 / 驾驶，没补完不去卡尔古利签房、不被收房', () => {
