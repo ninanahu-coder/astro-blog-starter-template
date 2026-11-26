@@ -53,9 +53,30 @@ export interface PlanResult {
 		visaTransitions: Record<string, { count: number; share: number; day: Quantiles }>;
 		lateActionsPerDay: Record<string, number>; lateActionMinuteShare: Record<string, number>;
 	};
+	/** 第二十轮：只有 --risk 时生成；原始逐种子行用于配对反事实和换种子复核。 */
+	risk?: {
+		netWorth: Quantiles; p10P50: number;
+		workStopDays: Distribution; sickLeaveDays: Distribution; sickDays: Distribution; collapseDays: Distribution;
+		badShifts: Distribution; jobGross: Distribution; bonusForegone: Distribution;
+		missedRiskGross: Distribution; workStopLostGross: Distribution; sickLostGross: Distribution; careCashLoss: Distribution;
+		jobLosses: Distribution; demotions: Distribution; evictions: Distribution;
+		lowCashDays: Distribution; lowCashStreak: Distribution;
+		minMood: Quantiles; minHealth: Quantiles;
+		maxSleepDebt: Distribution; sleepDebtDays: Distribution; poorSleeps: Distribution;
+		seeds: RiskSeed[];
+	};
 }
 
 interface Quantiles { p10: number; median: number; p90: number }
+interface Distribution { mean: number; p90: number; max: number }
+interface RiskSeed {
+	seed: number; netWorth: number; cash: number;
+	workStopDays: number; sickLeaveDays: number; sickDays: number; collapseDays: number; collapses: number;
+	badShifts: number; goodShifts: number; jobGross: number; bonusGross: number; bonusForegone: number;
+	missedRiskGross: number; workStopLostGross: number; sickLostGross: number; collapseLostGross: number; careCashLoss: number;
+	jobLosses: number; demotions: number; evictions: number; lowCashDays: number; lowCashStreak: number;
+	minMood: number; minHealth: number; maxSleepDebt: number; sleepDebtDays: number; poorSleeps: number;
+}
 
 /** 一次模拟（sim.ts --format=json 的输出，多了 variant 字段） */
 export interface SimResult {

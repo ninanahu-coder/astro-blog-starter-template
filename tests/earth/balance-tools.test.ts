@@ -295,6 +295,20 @@ test('第十八轮：短跑 JSON 不带 long；365 天带 long 字段，导游�
 	assert.equal(l.evictions181_365, 0);
 });
 
+test('第二十轮 --risk：沿用十部门长线选择，JSON 带汇总和逐种子风险，默认短跑不带', () => {
+	const plain = sim('--only=barista', '--days=5', '--runs=2', '--format=json');
+	assert.equal(JSON.parse(plain.stdout).plans[0].risk, undefined);
+	const r = sim('--risk', '--only=barista', '--days=5', '--runs=2', '--format=json');
+	assert.equal(r.status, 0, r.stderr);
+	const risk = JSON.parse(r.stdout).plans[0].risk;
+	assert.equal(risk.seeds.length, 2);
+	for (const k of ['workStopDays', 'sickLeaveDays', 'collapseDays', 'missedRiskGross', 'badShifts', 'jobLosses', 'demotions', 'lowCashDays', 'lowCashStreak']) {
+		for (const q of ['mean', 'p90', 'max']) assert.equal(typeof risk[k][q], 'number', `${k}.${q}`);
+	}
+	for (const q of ['p10', 'median', 'p90']) assert.equal(typeof risk.netWorth[q], 'number', `netWorth.${q}`);
+	assert.match(sim('--risk', '--only=barista', '--days=5', '--runs=1').stdout, /职业风险尾部（--risk）/);
+});
+
 test('第十九轮 --switch：跨部门仍从头晋升，同部门跨城在入职日恢复原职级', () => {
 	const r = sim('--switch', '--days=160', '--runs=1', '--format=json');
 	assert.equal(r.status, 0, r.stderr);
