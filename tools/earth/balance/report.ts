@@ -70,6 +70,21 @@ export interface PlanResult {
 		pair: string; variant: string; item?: string;
 		seeds: EducationSeed[];
 	};
+	/** 第二十二轮：只有 --visa 时生成；逐种子记录用于换种子和路径审计。 */
+	visa?: {
+		strategy: string;
+		finalKinds: Record<string, number>;
+		prShare: number; prDay: Quantiles | null;
+		expiredDays: { mean: number; max: number };
+		visaFees: Quantiles;
+		ieltsAttempts: { mean: number; max: number };
+		routes: Record<string, { count: number; share: number; day: Quantiles }>;
+		seeds: {
+			seed: number; finalKind: string; prDay: number | null; expiredDays: number;
+			visaFees: number; ieltsAttempts: number; finalIelts: number;
+			applications: { day: number; route: string; from: string; to: string; fee: number }[];
+		}[];
+	};
 }
 
 interface Quantiles { p10: number; median: number; p90: number }

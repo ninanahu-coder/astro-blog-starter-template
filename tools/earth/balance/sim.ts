@@ -19,6 +19,7 @@
 //   --risk                  第二十轮风险尾部：同十部门、默认 365 天 × 100 种子；输出逐种子风险指标
 //   --switch                第十九轮转行哨兵：咖啡→IT、矿工跨城换岗，默认仍不增加路线
 //   --edu                   第二十一轮进修回报：正式项目与技能活动同种子配对，默认 365 天 × 100 种子
+//   --visa                  第二十二轮签证哨兵：十部门留学生，默认 365 天 × 100 种子；输出逐种子路线、费用和失去工作权天数
 //   npm run earth:sim -- --swap        二手市场对照：咖啡店策略 × 买家具不走 / 走换手墙看货 / 走换手墙先转账
 import { writeFileSync } from 'node:fs';
 import { averageEco, blankEco, parseSystems, recordEco, SYSTEMS, systemOf, type EcoStats } from './systems.ts';
@@ -74,7 +75,11 @@ const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWit
 const RISK = process.argv.includes('--risk');
 /** 第二十一轮：同种子进修做 / 不做配对。 */
 const BY_EDU = process.argv.includes('--edu');
-const LONG = process.argv.includes('--long') || RISK || BY_EDU;
+/** 第二十二轮：十部门留学生签证路径。 */
+const BY_VISA = process.argv.includes('--visa');
+const VISA_STRATEGY = arg('visa-strategy', 'focus');
+const VISA_FOCUS = BY_VISA && VISA_STRATEGY === 'focus';
+const LONG = process.argv.includes('--long') || RISK || BY_EDU || BY_VISA;
 const DAYS = Number(arg('days', LONG ? '365' : '60'));
 const RUNS = Number(arg('runs', LONG ? '100' : '40'));
 const SEED_OFFSET = Number(arg('seed-offset', '0'));
@@ -109,6 +114,10 @@ try {
 }
 if (!Number.isInteger(DAYS) || DAYS < 1 || !Number.isInteger(RUNS) || RUNS < 1 || !['md', 'json', 'csv'].includes(FORMAT)) {
 	console.error('--days、--runs 要是正整数，--format 只能是 md、json、csv');
+	process.exit(2);
+}
+if (BY_VISA && !['focus', 'legacy'].includes(VISA_STRATEGY)) {
+	console.error('--visa-strategy 只能是 focus 或 legacy');
 	process.exit(2);
 }
 /** 每个机器人的现金流水和被拦下的次数（不放进 Bot.stats：少改别的分支也在改的地方） */
@@ -164,6 +173,7 @@ interface Bot {
 		lateActions: Record<string, number>;
 		lateActionMinutes: Record<string, number>;
 		visaTransitions: { day: number; from: string; to: string }[];
+		visaApplications: { day: number; route: string; from: string; to: string; fee: number }[];
 		shifts: number;
 		daysBroke: number;
 		cashByDay: number[];
@@ -883,6 +893,10 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		b.stats.lateActionMinutes[key] = (b.stats.lateActionMinutes[key] ?? 0) + Math.max(0, b.s.clock - before.clock);
 	}
 	if (before.visa.kind !== b.s.visa.kind) b.stats.visaTransitions.push({ day: dayOf(b.s.clock) + 1, from: before.visa.kind, to: b.s.visa.kind });
+	if (a.t === 'visa' && a.op === 'apply') {
+		const route = VISA_ROUTES.find((x) => x.id === a.route);
+		if (route) b.stats.visaApplications.push({ day: dayOf(b.s.clock) + 1, route: route.id, from: before.visa.kind, to: route.to, fee: route.fee });
+	}
 	const newMilestones = b.s.hobby.got.filter((id) => !before.hobby.got.includes(id));
 	if (newMilestones.length) {
 		const gained = Math.max(0, b.s.respect - before.respect);
@@ -1215,13 +1229,18 @@ function shopForDish(b: Bot): boolean {
  * 毕业生签证只差雅思时在城市里考雅思，钱留够申请费 + $300。
  */
 const VISA_ORDER = ['ens', 'skilled', 'state', 'regionalPr', 'regional', 'sponsored', 'graduate2', 'graduate', 'student'];
+/** --visa 使用最快拿 PR 的顺序：直接 PR 优先；同样满足 1 年经验时，482→186 比 491→191 少 60 个担保工作日且少 $350。 */
+const VISA_FOCUS_ORDER = ['ens', 'skilled', 'state', 'regionalPr', 'sponsored', 'regional', 'graduate2', 'graduate', 'student'];
 function stepVisa(b: Bot): boolean {
 	const s = b.s;
 	const now = visaKindNow(s);
 	if (now === 'none' || now === 'pr') return false;
 	const opts = visaOptions(s, regionOf(b));
-	for (const id of VISA_ORDER) {
-		if (id === 'student' && now !== 'expired') continue;
+	for (const id of VISA_FOCUS ? VISA_FOCUS_ORDER : VISA_ORDER) {
+		// 默认机器人沿用旧口径；专项机器人在到期前 1 天仍无别路时续读，给随机事件留出余量，避免人为制造失去工作权。
+		if (id === 'student' && now !== 'expired' && !(VISA_FOCUS && now === 'student' && !s.visa.course && s.visa.until - dayOf(s.clock) <= 1)) continue;
+		// 已拿到 482 就留在担保路线等 186；否则下一次决策会立刻改申 491，反而更慢、更贵。
+		if (VISA_FOCUS && now === 'sponsored' && id === 'regional') continue;
 		if (id === 'graduate2' && (s.visa.until - dayOf(s.clock)) > 20) continue; // 第一次 485 快到期才续
 		const o = opts.find((x) => x.route.id === id && !x.blocked);
 		if (o && tryAct(b, { t: 'visa', op: 'apply', route: id })) return true;
@@ -1835,7 +1854,7 @@ function runBot(plan: Plan, seed: number): Bot {
 	const livePlan = structuredClone(plan);
 	const b: Bot = {
 		s, plan: livePlan, rng: mulberry(seed * 7919),
-		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, moodByDay: [mood(s)], moodLateSum: 0, moodLateN: 0, moodLateBins: [{ sum: 0, n: 0 }, { sum: 0, n: 0 }, { sum: 0, n: 0 }], worthByDay: [netWorth(s)], collapsesByDay: [0], evictionsByDay: [0], visaExpiredByDay: [0], lateActions: {}, lateActionMinutes: {}, visaTransitions: [], shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} }, risk: blankRisk(s), edu: {} },
+		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, moodByDay: [mood(s)], moodLateSum: 0, moodLateN: 0, moodLateBins: [{ sum: 0, n: 0 }, { sum: 0, n: 0 }, { sum: 0, n: 0 }], worthByDay: [netWorth(s)], collapsesByDay: [0], evictionsByDay: [0], visaExpiredByDay: [0], lateActions: {}, lateActionMinutes: {}, visaTransitions: [], visaApplications: [], shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} }, risk: blankRisk(s), edu: {} },
 		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
@@ -1932,7 +1951,7 @@ const hobbyRows: string[] = [];
 const tailRows: string[] = [];
 const npcRows: string[] = [];
 const riskRows: string[] = [];
-const selectedPlans = BY_EDU ? EDU_PLANS : BY_SWITCH ? SWITCH_PLANS : BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : LONG && !ONLY.length ? PLANS.filter((p) => MATRIX_IDS.includes(p.id)) : PLANS;
+const selectedPlans = BY_VISA ? MATRIX_PLANS.filter((p) => p.origin === 'student') : BY_EDU ? EDU_PLANS : BY_SWITCH ? SWITCH_PLANS : BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : LONG && !ONLY.length ? PLANS.filter((p) => MATRIX_IDS.includes(p.id)) : PLANS;
 for (const plan of selectedPlans) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, SEED_OFFSET + i + 1));
 	const at = (d: number) => bots.map((b) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)]);
@@ -2231,6 +2250,41 @@ for (const plan of selectedPlans) {
 			};
 		}),
 	} : undefined;
+	const visa = BY_VISA && plan.origin === 'student' ? (() => {
+		const tri = (xs: number[]) => ({ p10: pct(xs, 0.1), median: pct(xs, 0.5), p90: pct(xs, 0.9) });
+		const prs = bots.map((b) => b.stats.prDay).filter((d): d is number => d !== undefined);
+		const kinds: Record<string, number> = {};
+		const routes: Record<string, { count: number; days: number[] }> = {};
+		for (const b of bots) {
+			kinds[b.s.visa.kind] = (kinds[b.s.visa.kind] ?? 0) + 1;
+			for (const a of b.stats.visaApplications) {
+				const row = routes[a.route] ??= { count: 0, days: [] };
+				row.count++;
+				row.days.push(a.day);
+			}
+		}
+		const seeds = bots.map((b, i) => ({
+			seed: SEED_OFFSET + i + 1,
+			finalKind: b.s.visa.kind,
+			prDay: b.stats.prDay ?? null,
+			expiredDays: b.stats.visaExpiredDays,
+			visaFees: b.stats.visaApplications.reduce((n, a) => n + a.fee, 0) + b.stats.ielts * VISA_RULES.ielts.fee,
+			ieltsAttempts: b.stats.ielts,
+			finalIelts: b.s.visa.ielts,
+			applications: b.stats.visaApplications,
+		}));
+		return {
+			strategy: VISA_STRATEGY,
+			finalKinds: kinds,
+			prShare: prs.length / RUNS,
+			prDay: prs.length ? tri(prs) : null,
+			expiredDays: { mean: avg(seeds.map((x) => x.expiredDays)), max: Math.max(...seeds.map((x) => x.expiredDays)) },
+			visaFees: tri(seeds.map((x) => x.visaFees)),
+			ieltsAttempts: { mean: avg(seeds.map((x) => x.ieltsAttempts)), max: Math.max(...seeds.map((x) => x.ieltsAttempts)) },
+			routes: Object.fromEntries(Object.entries(routes).map(([id, x]) => [id, { count: x.count, share: x.count / RUNS, day: tri(x.days) }])),
+			seeds,
+		};
+	})() : undefined;
 	results.push({
 		id: plan.id, name: plan.name,
 		metrics: {
@@ -2250,7 +2304,24 @@ for (const plan of selectedPlans) {
 		...(long ? { long } : {}),
 		...(risk ? { risk } : {}),
 		...(education ? { education } : {}),
+		...(visa ? { visa } : {}),
 	});
+}
+if (BY_VISA) {
+	out();
+	out('## 签证专项（--visa）');
+	out();
+	out(VISA_FOCUS ? '十部门均固定留学生出身；专项机器人直接永居优先，同日可选时 482 优先于 491，拿到 482 后留在担保路线，到期前 1 天仍无别路才续读。消费和考试地点不作弊。费用含签证申请费和雅思费，不含交通。' : '十部门均固定留学生出身；legacy 完全沿用默认机器人的签证顺序、消费和考试行为，只增加诊断输出。费用含签证申请费和雅思费，不含交通。');
+	out();
+	out('| 部门 | 第 365 天签证 | PR 率 / 中位日 | 失去工作权天数（均值 / 最大） | 签证费（p10 / 中位 / p90） | 路线（人数@中位日） |');
+	out('| --- | --- | --- | --- | --- | --- |');
+	for (const p of results) {
+		const v = p.visa!;
+		const kinds = Object.entries(v.finalKinds).map(([k, n]) => `${k} ${n}`).join('，');
+		const fees = [v.visaFees.p10, v.visaFees.median, v.visaFees.p90].map(money).join(' / ');
+		const routes = Object.entries(v.routes).map(([id, x]) => `${id} ${x.count}@${x.day.median}`).join('，');
+		out(`| ${p.name} | ${kinds} | ${(v.prShare * 100).toFixed(0)}% / ${v.prDay ? `第 ${v.prDay.median} 天` : '—'} | ${v.expiredDays.mean.toFixed(1)} / ${v.expiredDays.max} | ${fees} | ${routes || '—'} |`);
+	}
 }
 if (BY_EDU) {
 	out();
