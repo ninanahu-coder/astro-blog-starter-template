@@ -16,6 +16,7 @@
 //   --only=barista,idle     只跑这些策略（NPC 诊断路线 lifeguard-jack-perk 等只能这样点名跑，见 DIAG_PLANS）
 //   --seed-offset=100       种子从 101 起（默认 0，即 1…runs），用来换一批种子复核
 //   --long                  第十八轮长线哨兵：十部门代表路线，默认 365 天 × 100 种子
+//   --risk                  第二十轮风险尾部：同十部门、默认 365 天 × 100 种子；输出逐种子风险指标
 //   --switch                第十九轮转行哨兵：咖啡→IT、矿工跨城换岗，默认仍不增加路线
 //   npm run earth:sim -- --swap        二手市场对照：咖啡店策略 × 买家具不走 / 走换手墙看货 / 走换手墙先转账
 import { writeFileSync } from 'node:fs';
@@ -26,7 +27,7 @@ import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter, ORIGINS } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careAt, careersAt, certsAt, coursesAt, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, moveInCost, npcsAt, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careAt, careerPay, careersAt, certsAt, coursesAt, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, getLocation, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, moveInCost, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
 import { getProgram, programsAt } from '../../../src/game/core/education.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
@@ -37,7 +38,10 @@ import { viewedOk } from '../../../src/game/core/rental.ts';
 import { weatherAt } from '../../../src/game/core/weather.ts';
 import { choreDone, dutyFor, flatChoiceBlocked, getFlatEvent } from '../../../src/game/core/flatmates.ts';
 import { choreBlocked } from '../../../src/game/core/flat-actions.ts';
-import { currentIllness } from '../../../src/game/core/health.ts';
+import { currentIllness, illnessBlock, loadOfEffect } from '../../../src/game/core/health.ts';
+import { debtNow } from '../../../src/game/core/sleep.ts';
+import { workStopped } from '../../../src/game/core/disasters.ts';
+import { GOOD_BONUS } from '../../../src/game/data/careers.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import { careerSummary, earnedOf, spentOf } from '../../../src/game/core/tally.ts';
 import type { PlayerState, Region, SkillKey } from '../../../src/game/core/types.ts';
@@ -62,7 +66,8 @@ import { ITEMS } from '../../../src/game/data/items.ts';
 import { NPCS } from '../../../src/game/data/npcs.ts';
 
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
-const LONG = process.argv.includes('--long');
+const RISK = process.argv.includes('--risk');
+const LONG = process.argv.includes('--long') || RISK;
 const DAYS = Number(arg('days', LONG ? '365' : '60'));
 const RUNS = Number(arg('runs', LONG ? '100' : '40'));
 const SEED_OFFSET = Number(arg('seed-offset', '0'));
@@ -189,9 +194,48 @@ interface Bot {
 			perkNeeds: Record<string, number>;
 			perkActual: Record<string, number>;
 		};
+		/** 第二十轮：职业风险尾部。只在 --risk 输出，但始终采集，保证开关不改变行为。 */
+		risk: RiskStats;
 	};
 	/** 排行榜（排行榜第一版）：每个成功动作后按服务端同一个函数算榜单记录，看异常值复核线会不会误伤正常玩法 */
 	lb: { e: LbEntry; now: number; max: Record<LbStatKey, number>; holds: number; why: string[] };
+}
+
+interface RiskDay {
+	day: number;
+	scheduled: boolean;
+	career?: string;
+	pay: number;
+	worked: boolean;
+	stop: boolean;
+	sick: boolean;
+	collapse: boolean;
+}
+
+interface RiskStats {
+	day: RiskDay | null;
+	workStopDays: number;
+	sickLeaveDays: number;
+	collapseDays: number;
+	lastCollapseDay: number;
+	scheduledDays: number;
+	missedRiskGross: number;
+	workStopLostGross: number;
+	sickLostGross: number;
+	collapseLostGross: number;
+	goodShifts: number;
+	badShifts: number;
+	jobGross: number;
+	bonusGross: number;
+	bonusForegone: number;
+	careCashLoss: number;
+	jobLosses: number;
+	demotions: number;
+	minMood: number;
+	minHealth: number;
+	maxSleepDebt: number;
+	sleepDebtDays: number;
+	poorSleeps: number;
 }
 
 /** 模拟里的现实时间：每个成功动作算 10 秒（一小时 360 个动作，比真人快），只用于净资产一小时涨幅检查 */
@@ -556,6 +600,71 @@ function recordCollapse(b: Bot, before: PlayerState, after: PlayerState, a: Game
 	d.collapseBefore.push({ health: before.health, hunger: before.needs.hunger, energy: before.needs.energy });
 }
 
+function blankRisk(s: PlayerState): RiskStats {
+	return {
+		day: null,
+		workStopDays: 0, sickLeaveDays: 0, collapseDays: 0, lastCollapseDay: -1,
+		scheduledDays: 0,
+		missedRiskGross: 0, workStopLostGross: 0, sickLostGross: 0, collapseLostGross: 0,
+		goodShifts: 0, badShifts: 0, jobGross: 0, bonusGross: 0, bonusForegone: 0,
+		careCashLoss: 0, jobLosses: 0, demotions: 0,
+		minMood: mood(s), minHealth: s.health, maxSleepDebt: debtNow(s), sleepDebtDays: 0, poorSleeps: 0,
+	};
+}
+
+function finalizeRiskDay(b: Bot) {
+	const d = b.stats.risk.day;
+	if (!d?.scheduled || d.worked) return;
+	const hit = d.stop || d.sick || d.collapse;
+	if (d.stop) {
+		b.stats.risk.workStopDays++;
+		b.stats.risk.workStopLostGross += d.pay;
+	}
+	if (d.sick) {
+		b.stats.risk.sickLeaveDays++;
+		b.stats.risk.sickLostGross += d.pay;
+	}
+	if (d.collapse) b.stats.risk.collapseLostGross += d.pay;
+	// 同一天同时命中几种风险，只算一次未赚到的基础薪。
+	if (hit) b.stats.risk.missedRiskGross += d.pay;
+}
+
+function scheduleRiskDay(b: Bot, day: number) {
+	const job = b.s.job;
+	const scheduled = !!job && day % 7 !== 6; // 和 step() 的每周休一天一致
+	b.stats.risk.day = {
+		day, scheduled, career: job?.career,
+		pay: job ? careerPay(b.s, job.career, job.level) : 0,
+		worked: !!job && job.lastDay === day,
+		stop: false, sick: false, collapse: false,
+	};
+	if (scheduled) b.stats.risk.scheduledDays++;
+}
+
+/** 记录这个工作日是否真的因病、灾害或晕倒错过；治疗后仍赶上班的不算病假。 */
+function observeRiskDay(b: Bot) {
+	const today = dayOf(b.s.clock);
+	if (!b.stats.risk.day || b.stats.risk.day.day !== today) {
+		finalizeRiskDay(b);
+		scheduleRiskDay(b, today);
+	}
+	const d = b.stats.risk.day!;
+	// 当天中途入职：从此刻起也进入观测，但没遇到风险就不会算损失。
+	if (!d.scheduled && b.s.job && today % 7 !== 6) {
+		d.scheduled = true;
+		d.career = b.s.job.career;
+		d.pay = careerPay(b.s, b.s.job.career, b.s.job.level);
+		d.worked = b.s.job.lastDay === today;
+		b.stats.risk.scheduledDays++;
+	}
+	const job = b.s.job;
+	if (!d.scheduled || !job || job.career !== d.career) return;
+	const c = getCareer(job.career);
+	const loc = getLocation(regionOf(b), job.loc);
+	if (loc && workStopped(loc, today)) d.stop = true;
+	if (c && currentIllness(b.s) && illnessBlock(b.s, ['work', ...loadOfEffect(c.shift)])) d.sick = true;
+}
+
 /** 尝试一个动作；成功则更新状态并统计 */
 function tryAct(b: Bot, a: GameAction): boolean {
 	const sys = OFF.size ? systemOf(a) : undefined;
@@ -567,6 +676,32 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		return false;
 	}
 	b.s = r.state;
+	const risk = b.stats.risk;
+	if (a.t === 'job' && a.op === 'work' && before.job) {
+		const base = careerPay(before, before.job.career, before.job.level);
+		const bonus = Math.round(base * (1 + GOOD_BONUS)) - base;
+		if (!r.collapsed) {
+			const good = r.msg.includes('表现出色');
+			risk.jobGross += base + (good ? bonus : 0);
+			if (good) { risk.goodShifts++; risk.bonusGross += bonus; }
+			else { risk.badShifts++; risk.bonusForegone += bonus; }
+			if (risk.day?.day === dayOf(before.clock)) risk.day.worked = true;
+		}
+	}
+	if (a.t === 'care' && b.s.cash < before.cash) risk.careCashLoss += before.cash - b.s.cash;
+	if (before.job && !b.s.job && !(a.t === 'job' && a.op === 'quit')) risk.jobLosses++;
+	if (before.job && b.s.job && before.job.career === b.s.job.career && b.s.job.level < before.job.level) risk.demotions++;
+	if (r.collapsed) {
+		const cd = dayOf(before.clock);
+		if (risk.lastCollapseDay !== cd) { risk.lastCollapseDay = cd; risk.collapseDays++; }
+		if (risk.day?.day === cd) risk.day.collapse = true;
+	}
+	const roughBefore = before.moodlets.find((x) => x.id === 'rough-night')?.until ?? 0;
+	const roughAfter = b.s.moodlets.find((x) => x.id === 'rough-night')?.until ?? 0;
+	if (roughAfter > roughBefore) risk.poorSleeps++;
+	risk.minMood = Math.min(risk.minMood, mood(b.s));
+	risk.minHealth = Math.min(risk.minHealth, b.s.health);
+	risk.maxSleepDebt = Math.max(risk.maxSleepDebt, debtNow(b.s));
 	if (b.transition?.activated && b.plan.transition && !b.transition.relocationComplete) {
 		const relocation = a.t === 'travel' || a.t === 'rental' || (a.t === 'home' && (a.op === 'leave' || a.op === 'rent'));
 		if (relocation && b.s.cash < before.cash) b.transition.relocationCost += before.cash - b.s.cash;
@@ -1498,18 +1633,20 @@ function runBot(plan: Plan, seed: number): Bot {
 	const livePlan = structuredClone(plan);
 	const b: Bot = {
 		s, plan: livePlan, rng: mulberry(seed * 7919),
-		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, moodByDay: [mood(s)], moodLateSum: 0, moodLateN: 0, moodLateBins: [{ sum: 0, n: 0 }, { sum: 0, n: 0 }, { sum: 0, n: 0 }], worthByDay: [netWorth(s)], collapsesByDay: [0], evictionsByDay: [0], visaExpiredByDay: [0], lateActions: {}, lateActionMinutes: {}, visaTransitions: [], shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} } },
+		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, moodByDay: [mood(s)], moodLateSum: 0, moodLateN: 0, moodLateBins: [{ sum: 0, n: 0 }, { sum: 0, n: 0 }, { sum: 0, n: 0 }], worthByDay: [netWorth(s)], collapsesByDay: [0], evictionsByDay: [0], visaExpiredByDay: [0], lateActions: {}, lateActionMinutes: {}, visaTransitions: [], shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} }, risk: blankRisk(s) },
 		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
 	let lastDay = dayOf(s.clock);
 	let i = 0;
+	observeRiskDay(b);
 	for (; i < 50000 && b.s.clock < end; i++) {
 		const before = b.s.clock;
 		const sickAt = currentIllness(b.s) ? b.s.illness!.until : 0;
 		step(b);
 		if (sickAt) b.stats.sickMin += Math.max(0, Math.min(b.s.clock, sickAt) - before);
 		if (b.s.clock === before && !getPendingEvent(b.s)) act(b, 'rest'); // 防止原地打转
+		observeRiskDay(b);
 		const moodNow = mood(b.s);
 		b.stats.moodSum += moodNow;
 		b.stats.moodN++;
@@ -1523,6 +1660,11 @@ function runBot(plan: Plan, seed: number): Bot {
 		}
 		while (lastDay < d) {
 			lastDay++;
+			const debt = debtNow(b.s);
+			b.stats.risk.maxSleepDebt = Math.max(b.stats.risk.maxSleepDebt, debt);
+			if (debt >= 4) b.stats.risk.sleepDebtDays++;
+			b.stats.risk.minMood = Math.min(b.stats.risk.minMood, mood(b.s));
+			b.stats.risk.minHealth = Math.min(b.stats.risk.minHealth, b.s.health);
 			b.stats.cashByDay.push(b.s.cash);
 			b.stats.moodByDay.push(mood(b.s));
 			b.stats.worthByDay.push(netWorth(b.s));
@@ -1551,6 +1693,12 @@ const pct = (xs: number[], p: number) => {
 	return v[Math.min(v.length - 1, Math.floor(p * v.length))];
 };
 const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
+const dist = (xs: number[]) => ({ mean: avg(xs), p90: pct(xs, 0.9), max: Math.max(...xs) });
+const maxBelowRun = (xs: number[], floor: number) => {
+	let best = 0, run = 0;
+	for (const x of xs) { run = x < floor ? run + 1 : 0; best = Math.max(best, run); }
+	return best;
+};
 const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
 
 const lines: string[] = [];
@@ -1581,6 +1729,7 @@ const swapRows: string[] = [];
 const hobbyRows: string[] = [];
 const tailRows: string[] = [];
 const npcRows: string[] = [];
+const riskRows: string[] = [];
 const selectedPlans = BY_SWITCH ? SWITCH_PLANS : BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : LONG && !ONLY.length ? PLANS.filter((p) => MATRIX_IDS.includes(p.id)) : PLANS;
 for (const plan of selectedPlans) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, SEED_OFFSET + i + 1));
@@ -1799,6 +1948,72 @@ for (const plan of selectedPlans) {
 			lateActionMinuteShare: Object.fromEntries(Object.entries(lateActionMinutes).map(([k, v]) => [k, totalLateMinutes ? v / totalLateMinutes : 0])),
 		};
 	})() : undefined;
+	const risk = RISK ? (() => {
+		const tri = (xs: number[]) => ({ p10: pct(xs, 0.1), median: pct(xs, 0.5), p90: pct(xs, 0.9) });
+		const finalWorth = (b: Bot) => b.stats.worthByDay[Math.min(DAYS, b.stats.worthByDay.length - 1)];
+		const finalCash = (b: Bot) => b.stats.cashByDay[Math.min(DAYS, b.stats.cashByDay.length - 1)];
+		const seeds = bots.map((b, i) => ({
+			seed: SEED_OFFSET + i + 1,
+			netWorth: finalWorth(b), cash: finalCash(b),
+			workStopDays: b.stats.risk.workStopDays,
+			sickLeaveDays: b.stats.risk.sickLeaveDays,
+			sickDays: b.stats.sickMin / 1440,
+			collapseDays: b.stats.risk.collapseDays,
+			collapses: b.stats.collapses,
+			badShifts: b.stats.risk.badShifts,
+			goodShifts: b.stats.risk.goodShifts,
+			jobGross: b.stats.risk.jobGross,
+			bonusGross: b.stats.risk.bonusGross,
+			bonusForegone: b.stats.risk.bonusForegone,
+			missedRiskGross: b.stats.risk.missedRiskGross,
+			workStopLostGross: b.stats.risk.workStopLostGross,
+			sickLostGross: b.stats.risk.sickLostGross,
+			collapseLostGross: b.stats.risk.collapseLostGross,
+			careCashLoss: b.stats.risk.careCashLoss,
+			jobLosses: b.stats.risk.jobLosses,
+			demotions: b.stats.risk.demotions,
+			evictions: b.stats.evictions,
+			lowCashDays: b.stats.daysBroke,
+			lowCashStreak: maxBelowRun(b.stats.cashByDay.slice(1, DAYS + 1), 20),
+			minMood: b.stats.risk.minMood,
+			minHealth: b.stats.risk.minHealth,
+			maxSleepDebt: b.stats.risk.maxSleepDebt,
+			sleepDebtDays: b.stats.risk.sleepDebtDays,
+			poorSleeps: b.stats.risk.poorSleeps,
+		}));
+		const worth = seeds.map((x) => x.netWorth);
+		return {
+			netWorth: tri(worth), p10P50: pct(worth, 0.1) / Math.max(1, pct(worth, 0.5)),
+			workStopDays: dist(seeds.map((x) => x.workStopDays)),
+			sickLeaveDays: dist(seeds.map((x) => x.sickLeaveDays)),
+			sickDays: dist(seeds.map((x) => x.sickDays)),
+			collapseDays: dist(seeds.map((x) => x.collapseDays)),
+			badShifts: dist(seeds.map((x) => x.badShifts)),
+			jobGross: dist(seeds.map((x) => x.jobGross)),
+			bonusForegone: dist(seeds.map((x) => x.bonusForegone)),
+			missedRiskGross: dist(seeds.map((x) => x.missedRiskGross)),
+			workStopLostGross: dist(seeds.map((x) => x.workStopLostGross)),
+			sickLostGross: dist(seeds.map((x) => x.sickLostGross)),
+			careCashLoss: dist(seeds.map((x) => x.careCashLoss)),
+			jobLosses: dist(seeds.map((x) => x.jobLosses)),
+			demotions: dist(seeds.map((x) => x.demotions)),
+			evictions: dist(seeds.map((x) => x.evictions)),
+			lowCashDays: dist(seeds.map((x) => x.lowCashDays)),
+			lowCashStreak: dist(seeds.map((x) => x.lowCashStreak)),
+			minMood: tri(seeds.map((x) => x.minMood)),
+			minHealth: tri(seeds.map((x) => x.minHealth)),
+			maxSleepDebt: dist(seeds.map((x) => x.maxSleepDebt)),
+			sleepDebtDays: dist(seeds.map((x) => x.sleepDebtDays)),
+			poorSleeps: dist(seeds.map((x) => x.poorSleeps)),
+			seeds,
+		};
+	})() : undefined;
+	if (risk) {
+		const d = (x: { mean: number; p90: number; max: number }, digits = 1) => `${x.mean.toFixed(digits)} / ${x.p90.toFixed(digits)} / ${x.max.toFixed(digits)}`;
+		const lossShare = risk.missedRiskGross.mean / Math.max(1, risk.jobGross.mean + risk.missedRiskGross.mean);
+		const bonusShare = risk.bonusForegone.mean / Math.max(1, risk.jobGross.mean + risk.bonusForegone.mean);
+		riskRows.push(`| ${plan.name} | ${money(risk.netWorth.p10)} / ${money(risk.netWorth.median)} / ${money(risk.netWorth.p90)} | ${(risk.p10P50 * 100).toFixed(1)}% | ${d(risk.workStopDays)} | ${d(risk.sickLeaveDays)} | ${d(risk.collapseDays)} | ${money(risk.missedRiskGross.mean)} / ${(lossShare * 100).toFixed(1)}% | ${d(risk.badShifts)} / ${(bonusShare * 100).toFixed(1)}% | ${d(risk.jobLosses)} / ${d(risk.demotions)} | ${d(risk.evictions)} | ${d(risk.lowCashDays)} / ${d(risk.lowCashStreak)} | ${risk.minMood.p10.toFixed(0)} / ${risk.minMood.median.toFixed(0)} / ${risk.minMood.p90.toFixed(0)} |`);
+	}
 	results.push({
 		id: plan.id, name: plan.name,
 		metrics: {
@@ -1816,9 +2031,20 @@ for (const plan of selectedPlans) {
 		flow, eco: { in: eco.in, out: eco.out, inDetail: eco.inDetail, outDetail: eco.outDetail }, blocked: eco.blocked,
 		...(transition ? { transition } : {}),
 		...(long ? { long } : {}),
+		...(risk ? { risk } : {}),
 	});
 }
 out();
+if (RISK) {
+	out('## 职业风险尾部（--risk）');
+	out();
+	out('天数列均为「均值 / P90 / 最大」。病假只算原本排班、因当前病伤确实不能上班且当天最终没上成的天；治疗后仍赶上班不算。风险少赚按当天当前等级基础薪估，重叠风险只算一次，不含表现奖金。低现金为日末现金 < $20；连续低现金取每个种子的最长连续天数。最低心情按每个成功动作后的瞬时值取 P10 / 中位 / P90。');
+	out();
+	out('| 策略 | 第 365 天净资产 P10 / P50 / P90 | P10/P50 | 停工天 | 病假天 | 晕倒天 | 风险少赚均值 / 占可得毛收入 | 无奖金班次 / 奖金损失占比 | 失业 / 降档 | 收房 | 低现金日 / 最长连续日 | 最低心情 P10 / P50 / P90 |');
+	out('| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+	for (const row of riskRows) out(row);
+	out();
+}
 out('## 第 ' + DAYS + ' 天的能力值（中位）');
 out();
 out('| 策略 | ' + ['体能', '力量', '驾驶', '游泳', '魅力', '生存', '街头'].join(' | ') + ' |');
