@@ -20,6 +20,7 @@
 //   --switch                第十九轮转行哨兵：咖啡→IT、矿工跨城换岗，默认仍不增加路线
 //   --edu                   第二十一轮进修回报：正式项目与技能活动同种子配对，默认 365 天 × 100 种子
 //   --visa                  第二十二轮签证哨兵：十部门留学生，默认 365 天 × 100 种子；输出逐种子路线、费用和失去工作权天数
+//   --housing               第二十三轮住房哨兵：十部门 + 库伯佩迪地点哨兵 × 租住 / 自住 / 出租 / 第二套房，默认 365 天 × 100 种子
 //   npm run earth:sim -- --swap        二手市场对照：咖啡店策略 × 买家具不走 / 走换手墙看货 / 走换手墙先转账
 import { writeFileSync } from 'node:fs';
 import { averageEco, blankEco, parseSystems, recordEco, SYSTEMS, systemOf, type EcoStats } from './systems.ts';
@@ -29,8 +30,10 @@ import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter, ORIGINS } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careAt, careerPay, careersAt, certsAt, coursesAt, coursePrice, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, getLocation, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, moveInCost, npcsAt, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careAt, careerPay, careersAt, certsAt, coursesAt, coursePrice, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, getLocation, getProperty, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, moveInCost, npcsAt, shiftBlocked, shopAt, travelOptions,
 } from '../../../src/game/core/engine.ts';
+import { homeLoanOffer } from '../../../src/game/core/bank.ts';
+import { downPayment } from '../../../src/game/core/finance.ts';
 import { getProgram, programsAt } from '../../../src/game/core/education.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
 import { assess, taxStatus, tfnState } from '../../../src/game/core/tax.ts';
@@ -70,6 +73,7 @@ import { ACTIVITIES } from '../../../src/game/data/activities.ts';
 import { CERTS } from '../../../src/game/data/certs.ts';
 import { COURSES } from '../../../src/game/data/courses.ts';
 import { PROGRAMS } from '../../../src/game/data/education.ts';
+import { PROPERTIES } from '../../../src/game/data/properties.ts';
 
 const arg = (name: string, dflt: string) => process.argv.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3) ?? dflt;
 const RISK = process.argv.includes('--risk');
@@ -77,9 +81,12 @@ const RISK = process.argv.includes('--risk');
 const BY_EDU = process.argv.includes('--edu');
 /** 第二十二轮：十部门留学生签证路径。 */
 const BY_VISA = process.argv.includes('--visa');
+/** 第二十三轮：同部门、同种子的住房路径配对。 */
+const BY_HOUSING = process.argv.includes('--housing');
+const HOUSING_STRATEGY = arg('housing-strategy', '');
 const VISA_STRATEGY = arg('visa-strategy', 'focus');
 const VISA_FOCUS = BY_VISA && VISA_STRATEGY === 'focus';
-const LONG = process.argv.includes('--long') || RISK || BY_EDU || BY_VISA;
+const LONG = process.argv.includes('--long') || RISK || BY_EDU || BY_VISA || BY_HOUSING;
 const DAYS = Number(arg('days', LONG ? '365' : '60'));
 const RUNS = Number(arg('runs', LONG ? '100' : '40'));
 const SEED_OFFSET = Number(arg('seed-offset', '0'));
@@ -120,6 +127,12 @@ if (BY_VISA && !['focus', 'legacy'].includes(VISA_STRATEGY)) {
 	console.error('--visa-strategy 只能是 focus 或 legacy');
 	process.exit(2);
 }
+const HOUSING_VARIANTS = ['room', 'upgrade', 'cash-home', 'loan-home', 'rental', 'second', 'savings'] as const;
+type HousingVariant = typeof HOUSING_VARIANTS[number];
+if (BY_HOUSING && HOUSING_STRATEGY && !HOUSING_VARIANTS.includes(HOUSING_STRATEGY as HousingVariant)) {
+	console.error(`--housing-strategy 只能是 ${HOUSING_VARIANTS.join('、')}`);
+	process.exit(2);
+}
 /** 每个机器人的现金流水和被拦下的次数（不放进 Bot.stats：少改别的分支也在改的地方） */
 const ECO = new WeakMap<object, EcoStats>();
 const ecoOf = (b: object) => ECO.get(b) ?? (ECO.set(b, blankEco()), ECO.get(b)!);
@@ -137,6 +150,8 @@ interface Bot {
 	hobbyTraveling?: boolean;
 	/** 理财机器人最近一次买入的游戏日 */
 	investDay?: number;
+	/** 第二十三轮：为买异地第二套房而进行的往返。 */
+	housingTrip?: { property: string; returnLoc: string };
 	/** 第十四轮：保守漫游最近一次出发日 */
 	safeRoamDay?: number;
 	/** 第十九轮：每个机器人的转行 / 换岗状态。 */
@@ -181,6 +196,8 @@ interface Bot {
 		promoDays: number[];
 		homeDay?: number;
 		homeUpgradeDay?: number;
+		/** 第二十三轮：购房动作的逐套审计记录。 */
+		propertyBuys: { day: number; id: string; use: 'self' | 'rental'; cashBefore: number; worthBefore: number }[];
 		diag: BackpackerDiagnostics;
 		/** 健康系统第 1 版：生病次数、生病的天数、就医花的钱 */
 		ill: number;
@@ -344,6 +361,13 @@ interface Plan {
 	home?: string;
 	/** 长线机器人：到顶且至少运行 112 天后，无房产时升级租住。 */
 	postTopHome?: string;
+	/** 第二十三轮 --housing 专项；不挂配置时，默认机器人行为逐字不变。 */
+	housing?: {
+		pair: string;
+		variant: HousingVariant;
+		property: string;
+		second?: string;
+	};
 	/** 第十九轮：到指定日辞去原职，再按目标配置应聘。只由 --switch 使用。 */
 	transition?: {
 		kind: 'career' | 'transfer';
@@ -539,6 +563,50 @@ const MATRIX_PLANS: Plan[] = MATRIX_IDS.flatMap((id) => {
 			careerPrep,
 			...(base.home === 'room' && (origin.id === 'backpacker' || origin.id === 'surfer') && (base.rentAt ?? 400) < 700 ? { rentAt: 700 } : {}),
 			...(((origin.id === 'backpacker' || origin.id === 'surfer') || (id === 'lifeguard' && origin.id === 'fifo')) && base.home ? { remoteSafety: REMOTE_SAFETY } : {}),
+		};
+	});
+});
+
+/**
+ * 第二十三轮 --housing 住房路线。所有路线固定先租合租房间，只替换住房决策；`savings` 是 3% 高息储蓄的机会成本对照。
+ * 第二套房必须亲自到异地成交，再挂牌出租并回工作地；地图上每个代表工作地只有一套可买房，不能在原地重复买。
+ */
+const HOUSING_BASES: { pair: string; base: Plan }[] = [
+	...MATRIX_IDS.map((id) => ({ pair: id, base: PLANS.find((p) => p.id === id)! })),
+	{ pair: 'miner-coober', base: PLANS.find((p) => p.id === 'miner-coober-dugout')! },
+];
+const SECOND_PROPERTY_BY_LOC: Record<string, string> = {
+	perth: 'kal-cottage',
+	kalgoorlie: 'perth-apartment',
+	'margaret-river': 'kal-cottage',
+	'coober-pedy': 'kal-cottage',
+};
+const UPGRADE_HOME_BY_LOC: Record<string, string> = {
+	perth: 'flat',
+	'margaret-river': 'flat',
+	'coober-pedy': 'dugout',
+};
+const HOUSING_LABEL: Record<HousingVariant, string> = {
+	room: '一直合租', upgrade: '到顶后升级租房', 'cash-home': '全款自住', 'loan-home': '按揭自住',
+	rental: '按揭买房出租', second: '按揭自住 + 异地第二套出租', savings: '一直合租 + 高息储蓄',
+};
+const HOUSING_PAIR_LABEL: Record<string, string> = {
+	barista: '咖啡', lifeguard: '救生', guide: '导游', miner: '矿工', trucker: '卡车', bartender: '酒吧',
+	farmhand: '农场', builder: '建筑', carer: '护理', 'it-support': 'IT', 'miner-coober': '库伯佩迪矿工',
+};
+const HOUSING_PLANS: Plan[] = HOUSING_BASES.flatMap(({ pair, base }) => {
+	const property = PROPERTIES.find((p) => p.loc === base.job?.loc);
+	if (!property) throw new Error(`住房哨兵 ${pair} 的工作地 ${base.job?.loc} 没有可买房产`);
+	return HOUSING_VARIANTS.map((variant) => {
+		const clone = structuredClone(base);
+		return {
+			...clone,
+			id: `housing-${pair}-${variant}`,
+			name: `${HOUSING_PAIR_LABEL[pair] ?? pair} · ${HOUSING_LABEL[variant]}`,
+			home: 'room',
+			postTopHome: variant === 'upgrade' ? UPGRADE_HOME_BY_LOC[property.loc] : undefined,
+			invest: variant === 'savings' ? { asset: 'savings', keep: 3000 } : undefined,
+			housing: { pair, variant, property: property.id, second: variant === 'second' ? SECOND_PROPERTY_BY_LOC[property.loc] : undefined },
 		};
 	});
 });
@@ -1060,6 +1128,72 @@ function headTo(b: Bot, dest: string): boolean {
 	return !!step && tryAct(b, { t: 'travel', to: step.to, mode: step.mode });
 }
 
+/** 第二十三轮：按指定用途买一套房；购房前保留 reserve 现金。 */
+function buyHousingProperty(b: Bot, id: string, use: 'self' | 'rental', loan: boolean, reserve = 3000): boolean {
+	const def = getProperty(id);
+	if (!def || b.s.loc !== def.loc) return false;
+	const mine = b.s.properties.find((p) => p.id === id);
+	if (mine) {
+		if (use === 'rental' && !mine.rented) return tryAct(b, { t: 'property', op: 'rentout', id });
+		if (use === 'self' && b.s.home?.owned !== id) return tryAct(b, { t: 'property', op: 'movein', id });
+		return false;
+	}
+	// 断供后不反复买同一套房；每个策略只检验一次进入路径。
+	if (b.stats.propertyBuys.some((x) => x.id === id)) return false;
+	const need = (loan ? downPayment(def) : def.price) + reserve;
+	if (b.s.cash < need) return false;
+	if (loan && !b.s.bank.open) return tryAct(b, { t: 'bank', op: 'open' });
+	if (loan && 'blocked' in homeLoanOffer(b.s, id)) return false;
+	const cashBefore = b.s.cash;
+	const worthBefore = netWorth(b.s);
+	if (!tryAct(b, { t: 'property', op: 'buy', id, loan })) return false;
+	const day = dayOf(b.s.clock) + 1;
+	b.stats.propertyBuys.push({ day, id, use, cashBefore, worthBefore });
+	if (use === 'self') {
+		tryAct(b, { t: 'property', op: 'movein', id });
+		b.stats.homeDay ??= day;
+	} else {
+		tryAct(b, { t: 'property', op: 'rentout', id });
+	}
+	return true;
+}
+
+/** 第二十三轮：处理第二套房的异地成交、挂牌和返程；只在休息日从工作地出发。 */
+function stepHousingTrip(b: Bot): boolean {
+	const h = b.plan.housing;
+	if (!h || h.variant !== 'second' || !h.second) return false;
+	const first = b.s.properties.find((p) => p.id === h.property);
+	const secondDef = getProperty(h.second);
+	if (!first || !secondDef || b.stats.propertyBuys.some((x) => x.id === h.second) && !b.s.properties.some((p) => p.id === h.second)) return false;
+	if (!b.housingTrip) {
+		if (b.s.properties.some((p) => p.id === h.second)) return false;
+		if (dayOf(b.s.clock) % 7 !== 6 || b.s.loc !== b.plan.job?.loc) return false;
+		if (b.s.cash < downPayment(secondDef) + 3000 || 'blocked' in homeLoanOffer(b.s, h.second)) return false;
+		b.housingTrip = { property: h.second, returnLoc: b.plan.job.loc };
+	}
+	const trip = b.housingTrip;
+	const mine = b.s.properties.find((p) => p.id === trip.property);
+	if (!mine) {
+		if (b.s.loc !== secondDef.loc) return headTo(b, secondDef.loc);
+		// 出发时已经留了 $3,000；交通费从这笔周转金里出，抵达后只要求首付仍够。
+		return buyHousingProperty(b, trip.property, 'rental', true, 0);
+	}
+	if (!mine.rented) return tryAct(b, { t: 'property', op: 'rentout', id: trip.property });
+	if (b.s.loc !== trip.returnLoc) return headTo(b, trip.returnLoc);
+	b.housingTrip = undefined;
+	return false;
+}
+
+/** 第二十三轮：工作地的首次购房动作。 */
+function stepHousingPurchase(b: Bot): boolean {
+	const h = b.plan.housing;
+	if (!h) return false;
+	if (h.variant === 'cash-home') return buyHousingProperty(b, h.property, 'self', false);
+	if (h.variant === 'loan-home' || h.variant === 'second') return buyHousingProperty(b, h.property, 'self', true);
+	if (h.variant === 'rental') return buyHousingProperty(b, h.property, 'rental', true);
+	return false;
+}
+
 function recordGigMiss(b: Bot, reason: GigMiss) {
 	b.stats.diag.gigMisses[reason]++;
 }
@@ -1543,7 +1677,8 @@ function step(b: Bot) {
 	// 2. 找工作、租房、去上班
 	// 自己看店的策略只有在店里有货时才停正式班；空店时回去上班，避免租金把补货本金越吃越少。
 	const selfShopTrading = !!(plan.shop?.staff === 0 && s.biz.shop && s.biz.shop.stock > 0);
-	const autoCert = !plan.education ? AUTO_ENTRY_CERT_BY_PLAN[plan.id] : undefined;
+	const behaviorId = plan.housing?.pair ?? plan.id;
+	const autoCert = !plan.education ? AUTO_ENTRY_CERT_BY_PLAN[behaviorId] : undefined;
 	if (!s.job && autoCert && !s.certs.includes(autoCert.id)) {
 		const offer = certsAt(s, regionOf(b)).find((o) => o.cert.id === autoCert.id);
 		if (offer && s.cash - offer.cert.price >= autoCert.reserve) {
@@ -1589,6 +1724,8 @@ function step(b: Bot) {
 			if (act(b, 'recycle')) return;
 		}
 	}
+	// 异地第二套房必须先完成成交、挂牌和返程；放在上班判断前，避免机器人抵达异地后立刻掉头。
+	if (stepHousingTrip(b)) return;
 	if (plan.job && !selfShopTrading) {
 		if (!s.job) {
 			if (s.loc !== plan.job.loc) {
@@ -1671,7 +1808,7 @@ function step(b: Bot) {
 			const replacement = plan.education?.replaceCourseWithActivity;
 			const replacedCourse = replacement ? COURSES.find((c) => c.id === replacement.course) : undefined;
 			if (replacement && replacedCourse && lacking.includes(replacedCourse.skill) && act(b, replacement.activity)) return;
-			const skipped = plan.education ? [] : (SKIP_PROMOTION_COURSES_BY_PLAN[plan.id] ?? []);
+			const skipped = plan.education ? [] : (SKIP_PROMOTION_COURSES_BY_PLAN[behaviorId] ?? []);
 			const course = coursesAt(s, regionOf(b)).find((o) => lacking.includes(o.course.skill) && !o.blocked
 				&& !skipped.includes(o.course.id) && o.course.id !== plan.education?.blockCourse && o.course.id !== plan.education?.blockCourseAfterHire);
 			if (course && tryAct(b, { t: 'course', id: course.course.id })) return;
@@ -1702,15 +1839,16 @@ function step(b: Bot) {
 				return;
 			}
 		}
+		if (plan.housing && stepHousingPurchase(b)) return;
 		// 买房：首付之外还留 $3,000 周转；买了就搬进去。按揭要先开银行账户（banking.md），开户不花钱不花时间
 		const house = propertiesAt(s, regionOf(b)).find((o) => !o.owned && s.cash >= o.down + 3000);
-		if (house && !plan.invest && !s.bank.open && s.properties.length === 0) tryAct(b, { t: 'bank', op: 'open' });
-		if (house && !plan.invest && s.properties.length === 0 && tryAct(b, { t: 'property', op: 'buy', id: house.property.id, loan: s.cash < house.property.price + 3000 })) {
+		if (house && !plan.invest && !plan.housing && !s.bank.open && s.properties.length === 0) tryAct(b, { t: 'bank', op: 'open' });
+		if (house && !plan.invest && !plan.housing && s.properties.length === 0 && tryAct(b, { t: 'property', op: 'buy', id: house.property.id, loan: s.cash < house.property.price + 3000 })) {
 			tryAct(b, { t: 'property', op: 'movein', id: house.property.id });
 			b.stats.homeDay = dayOf(b.s.clock) + 1;
 			return;
 		}
-		if (s.vehicle === 'none' && s.cash > 7000 && s.properties.length > 0) {
+		if (!plan.housing && s.vehicle === 'none' && s.cash > 7000 && s.properties.length > 0) {
 			const car = dealerAt(s, regionOf(b)).find((o) => o.vehicle.id === 'car' && !o.blocked);
 			if (car && tryAct(b, { t: 'vehicle', op: 'buy', id: 'car' })) return;
 		}
@@ -1854,7 +1992,7 @@ function runBot(plan: Plan, seed: number): Bot {
 	const livePlan = structuredClone(plan);
 	const b: Bot = {
 		s, plan: livePlan, rng: mulberry(seed * 7919),
-		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, moodByDay: [mood(s)], moodLateSum: 0, moodLateN: 0, moodLateBins: [{ sum: 0, n: 0 }, { sum: 0, n: 0 }, { sum: 0, n: 0 }], worthByDay: [netWorth(s)], collapsesByDay: [0], evictionsByDay: [0], visaExpiredByDay: [0], lateActions: {}, lateActionMinutes: {}, visaTransitions: [], visaApplications: [], shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} }, risk: blankRisk(s), edu: {} },
+		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, moodByDay: [mood(s)], moodLateSum: 0, moodLateN: 0, moodLateBins: [{ sum: 0, n: 0 }, { sum: 0, n: 0 }, { sum: 0, n: 0 }], worthByDay: [netWorth(s)], collapsesByDay: [0], evictionsByDay: [0], visaExpiredByDay: [0], lateActions: {}, lateActionMinutes: {}, visaTransitions: [], visaApplications: [], shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], propertyBuys: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} }, risk: blankRisk(s), edu: {} },
 		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
@@ -1905,7 +2043,7 @@ function runBot(plan: Plan, seed: number): Bot {
 // ---------- 汇总 ----------
 if (ONLY.length) {
 	PLANS.push(...DIAG_PLANS); // 诊断路线只在 --only 点名时跑
-	for (const list of [PLANS, ORIGIN_PLANS, MATRIX_PLANS, SWITCH_PLANS, EDU_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
+	for (const list of [PLANS, ORIGIN_PLANS, MATRIX_PLANS, SWITCH_PLANS, EDU_PLANS, HOUSING_PLANS]) list.splice(0, list.length, ...list.filter((p) => ONLY.includes(p.id)));
 }
 const results: PlanResult[] = [];
 const getNpcPerk = (id: string) => NPCS.find((x) => x.id === id)?.perk;
@@ -1951,7 +2089,9 @@ const hobbyRows: string[] = [];
 const tailRows: string[] = [];
 const npcRows: string[] = [];
 const riskRows: string[] = [];
-const selectedPlans = BY_VISA ? MATRIX_PLANS.filter((p) => p.origin === 'student') : BY_EDU ? EDU_PLANS : BY_SWITCH ? SWITCH_PLANS : BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : LONG && !ONLY.length ? PLANS.filter((p) => MATRIX_IDS.includes(p.id)) : PLANS;
+const selectedPlans = BY_HOUSING
+	? HOUSING_PLANS.filter((p) => !HOUSING_STRATEGY || p.housing?.variant === HOUSING_STRATEGY)
+	: BY_VISA ? MATRIX_PLANS.filter((p) => p.origin === 'student') : BY_EDU ? EDU_PLANS : BY_SWITCH ? SWITCH_PLANS : BY_MATRIX ? MATRIX_PLANS : BY_SWAP ? SWAP_PLANS : BY_ORIGIN ? ORIGIN_PLANS : LONG && !ONLY.length ? PLANS.filter((p) => MATRIX_IDS.includes(p.id)) : PLANS;
 for (const plan of selectedPlans) {
 	const bots = Array.from({ length: RUNS }, (_, i) => runBot(plan, SEED_OFFSET + i + 1));
 	const at = (d: number) => bots.map((b) => b.stats.cashByDay[Math.min(d, b.stats.cashByDay.length - 1)]);
@@ -2250,6 +2390,35 @@ for (const plan of selectedPlans) {
 			};
 		}),
 	} : undefined;
+	const housing = plan.housing ? {
+		pair: plan.housing.pair,
+		variant: plan.housing.variant,
+		property: plan.housing.property,
+		...(plan.housing.second ? { second: plan.housing.second } : {}),
+		seeds: bots.map((b, i) => {
+			const atDay = (xs: number[], day: number) => xs[Math.min(day, xs.length - 1)];
+			const first = b.stats.propertyBuys.find((x) => x.id === plan.housing!.property);
+			const second = plan.housing!.second ? b.stats.propertyBuys.find((x) => x.id === plan.housing!.second) : undefined;
+			return {
+				seed: SEED_OFFSET + i + 1,
+				firstBuyDay: first?.day ?? null,
+				secondBuyDay: second?.day ?? null,
+				netWorthDay180: atDay(b.stats.worthByDay, 180),
+				netWorthDay365: atDay(b.stats.worthByDay, 365),
+				cashDay180: atDay(b.stats.cashByDay, 180),
+				cashDay365: atDay(b.stats.cashByDay, 365),
+				mood: b.stats.moodSum / Math.max(1, b.stats.moodN),
+				collapses: b.stats.collapses,
+				evictions: b.stats.evictions,
+				forcedSales: b.stats.evict.forced,
+				properties: b.s.properties.length,
+				rented: b.s.properties.filter((x) => x.rented).length,
+				buys: b.stats.propertyBuys,
+				netWorthByDay: b.stats.worthByDay.slice(0, DAYS + 1),
+				cashByDay: b.stats.cashByDay.slice(0, DAYS + 1),
+			};
+		}),
+	} : undefined;
 	const visa = BY_VISA && plan.origin === 'student' ? (() => {
 		const tri = (xs: number[]) => ({ p10: pct(xs, 0.1), median: pct(xs, 0.5), p90: pct(xs, 0.9) });
 		const prs = bots.map((b) => b.stats.prDay).filter((d): d is number => d !== undefined);
@@ -2304,8 +2473,46 @@ for (const plan of selectedPlans) {
 		...(long ? { long } : {}),
 		...(risk ? { risk } : {}),
 		...(education ? { education } : {}),
+		...(housing ? { housing } : {}),
 		...(visa ? { visa } : {}),
 	});
+}
+if (BY_HOUSING) {
+	out();
+	out('## 住房路径专项（--housing）');
+	out();
+	out('同一部门、同一 seed 配对。持续回本日 = 从该日起直到期末，净资产都不再低于对照；“第二套增量”只把 second 与 loan-home 比，并从第二套成交日起算。房产按 95% 正常卖出净值计入净资产。');
+	out();
+	out('| 部门 · 策略 | 第 180 天净资产（p10 / 中位 / p90） | 第 365 天净资产 | 第 180 / 365 天现金 P10 | 首套（人数@中位日） | 第二套 | 强售 / 收房 / 晕倒（人均） | 平均心情 | 持续回本：合租 / 储蓄 / 第二套增量 |');
+	out('| --- | --- | --- | --- | --- | --- | --- | --- | --- |');
+	const hPlans = results.filter((p) => p.housing);
+	const q = (xs: number[]) => `${money(pct(xs, 0.1))} / ${money(pct(xs, 0.5))} / ${money(pct(xs, 0.9))}`;
+	const bought = (xs: (number | null)[]) => {
+		const days = xs.filter((x): x is number => x !== null);
+		return days.length ? `${days.length}@${pct(days, 0.5)}` : '0@—';
+	};
+	const payback = (p: PlanResult, base: PlanResult | undefined, secondOnly = false) => {
+		if (!p.housing || !base?.housing) return '—';
+		const bySeed = new Map(base.housing.seeds.map((x) => [x.seed, x]));
+		const days: number[] = [];
+		for (const s of p.housing.seeds) {
+			const b = bySeed.get(s.seed);
+			const start = secondOnly ? s.secondBuyDay : s.firstBuyDay;
+			if (!b || start === null) continue;
+			let lastNegative = start - 1;
+			for (let d = start; d <= DAYS; d++) if ((s.netWorthByDay[d] ?? s.netWorthByDay.at(-1)!) < (b.netWorthByDay[d] ?? b.netWorthByDay.at(-1)!)) lastNegative = d;
+			if (lastNegative < DAYS) days.push(Math.max(start, lastNegative + 1));
+		}
+		return days.length ? `${days.length}@${pct(days, 0.5)}` : '0@—';
+	};
+	for (const p of hPlans) {
+		const h = p.housing!;
+		const ss = h.seeds;
+		const room = hPlans.find((x) => x.housing?.pair === h.pair && x.housing.variant === 'room');
+		const savings = hPlans.find((x) => x.housing?.pair === h.pair && x.housing.variant === 'savings');
+		const loan = hPlans.find((x) => x.housing?.pair === h.pair && x.housing.variant === 'loan-home');
+		out(`| ${p.name} | ${q(ss.map((x) => x.netWorthDay180))} | ${q(ss.map((x) => x.netWorthDay365))} | ${money(pct(ss.map((x) => x.cashDay180), 0.1))} / ${money(pct(ss.map((x) => x.cashDay365), 0.1))} | ${bought(ss.map((x) => x.firstBuyDay))} | ${bought(ss.map((x) => x.secondBuyDay))} | ${avg(ss.map((x) => x.forcedSales)).toFixed(2)} / ${avg(ss.map((x) => x.evictions)).toFixed(2)} / ${avg(ss.map((x) => x.collapses)).toFixed(2)} | ${avg(ss.map((x) => x.mood)).toFixed(1)} | ${payback(p, room)} / ${payback(p, savings)} / ${h.variant === 'second' ? payback(p, loan, true) : '—'} |`);
+	}
 }
 if (BY_VISA) {
 	out();
