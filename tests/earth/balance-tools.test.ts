@@ -262,6 +262,49 @@ test('第十七轮 --matrix：十个部门 × 四种出身恰好 40 条 mx-* 路
 	assert.equal(typeof plans[0].metrics.lowCashDays, 'number');
 });
 
+test('第二十三轮 --housing：十部门 + 库伯佩迪 × 七种住法，同 pair 同种子配对，记录买房与出租', () => {
+	const run = sim('--housing', '--days=3', '--runs=2', '--format=json');
+	assert.equal(run.status, 0, run.stderr);
+	const plans = JSON.parse(run.stdout).plans;
+	assert.equal(plans.length, 77);
+	const variants = ['room', 'upgrade', 'cash-home', 'loan-home', 'rental', 'second', 'savings'];
+	assert.deepEqual([...new Set(plans.map((p: { housing: { variant: string } }) => p.housing.variant))].sort(), [...variants].sort());
+	assert.equal(new Set(plans.map((p: { housing: { pair: string } }) => p.housing.pair)).size, 11);
+	for (const p of plans) {
+		assert.deepEqual(p.housing.seeds.map((s: { seed: number }) => s.seed), [1, 2], p.id);
+		for (const k of ['firstBuyDay', 'secondBuyDay', 'netWorthDay365', 'cashDay365', 'forcedSales', 'rented', 'buys', 'netWorthByDay', 'cashByDay']) assert.ok(k in p.housing.seeds[0], `${p.id}.${k}`);
+	}
+	// 同一部门七种住法的第 0 天完全相同：只有住房决策不同。
+	const day0 = new Map<string, string>();
+	for (const p of plans) {
+		const key = JSON.stringify(p.housing.seeds.map((s: { netWorthByDay: number[]; cashByDay: number[] }) => [s.netWorthByDay[0], s.cashByDay[0]]));
+		if (!day0.has(p.housing.pair)) day0.set(p.housing.pair, key);
+		assert.equal(key, day0.get(p.housing.pair), p.id);
+	}
+	const one = sim('--housing', '--housing-strategy=second', '--days=3', '--runs=1', '--format=json');
+	assert.equal(one.status, 0, one.stderr);
+	assert.ok(JSON.parse(one.stdout).plans.every((p: { housing: { variant: string; second?: string } }) => p.housing.variant === 'second' && p.housing.second));
+	assert.equal(sim('--housing', '--housing-strategy=nope', '--days=1', '--runs=1').status, 2);
+	const plain = sim('--matrix', '--only=mx-miner-fifo', '--days=3', '--runs=1', '--format=json');
+	assert.equal(JSON.parse(plain.stdout).plans[0].housing, undefined);
+
+	const year = sim('--housing', '--only=housing-miner-upgrade,housing-miner-coober-upgrade,housing-miner-rental,housing-miner-second', '--days=365', '--runs=1', '--format=json');
+	assert.equal(year.status, 0, year.stderr);
+	const byId = Object.fromEntries(JSON.parse(year.stdout).plans.map((p: { id: string }) => [p.id, p]));
+	assert.equal(byId['housing-miner-upgrade'].long.homeUpgradeShare, 0, '卡尔古利没有一居室可租，升级策略应留在合租房');
+	assert.equal(byId['housing-miner-upgrade'].long.evictions181_365, 0);
+	assert.equal(byId['housing-miner-coober-upgrade'].long.homeUpgradeShare, 1, '库伯佩迪升级到地下屋');
+	const rental = byId['housing-miner-rental'].housing.seeds[0];
+	assert.ok(rental.firstBuyDay !== null && rental.rented === 1);
+	assert.deepEqual(rental.buys.map((b: { id: string; use: string }) => [b.id, b.use]), [['kal-cottage', 'rental']]);
+	const second = byId['housing-miner-second'].housing.seeds[0];
+	assert.ok(second.firstBuyDay !== null && second.secondBuyDay !== null && second.secondBuyDay > second.firstBuyDay);
+	assert.deepEqual(second.buys.map((b: { id: string; use: string }) => [b.id, b.use]), [['kal-cottage', 'self'], ['perth-apartment', 'rental']]);
+	assert.equal(second.properties, 2);
+	assert.equal(second.rented, 1);
+	assert.equal(second.forcedSales, 0);
+});
+
 test('第二十二轮 --visa：固定十部门留学生，输出逐种子路线、费用与失权天数；legacy 只切策略口径', () => {
 	const run = sim('--visa', '--days=3', '--runs=2', '--format=json');
 	assert.equal(run.status, 0, run.stderr);

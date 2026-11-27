@@ -85,6 +85,14 @@ export interface PlanResult {
 			applications: { day: number; route: string; from: string; to: string; fee: number }[];
 		}[];
 	};
+	/** 第二十三轮：只有 --housing 时生成；逐种子日快照用于同种子回本比较。 */
+	housing?: {
+		pair: string;
+		variant: string;
+		property: string;
+		second?: string;
+		seeds: HousingSeed[];
+	};
 }
 
 interface Quantiles { p10: number; median: number; p90: number }
@@ -104,6 +112,25 @@ interface EducationSeed {
 	mood: number; promotions: number; shifts: number; collapses: number; evictions: number;
 	netWorthByDay: number[]; cashByDay: number[]; moodByDay: number[];
 	actions: Record<string, { actions: number; spend: number; minutes: number; firstDay: number; lastDay: number }>;
+}
+
+interface HousingSeed {
+	seed: number;
+	firstBuyDay: number | null;
+	secondBuyDay: number | null;
+	netWorthDay180: number;
+	netWorthDay365: number;
+	cashDay180: number;
+	cashDay365: number;
+	mood: number;
+	collapses: number;
+	evictions: number;
+	forcedSales: number;
+	properties: number;
+	rented: number;
+	buys: { day: number; id: string; use: 'self' | 'rental'; cashBefore: number; worthBefore: number }[];
+	netWorthByDay: number[];
+	cashByDay: number[];
 }
 
 /** 一次模拟（sim.ts --format=json 的输出，多了 variant 字段） */
