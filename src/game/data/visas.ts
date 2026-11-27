@@ -49,7 +49,7 @@ export const VISA_ROUTES: VisaRouteDef[] = [
 	{ id: 'student', sub: '500', name: '续读：再申请学生签证', to: 'student', from: ['student', 'graduate', 'graduate2', 'expired'], fee: 1200, desc: '报一个两年的硕士课程（本科毕业后才能报），签证跟着新课程走。费用含首期学费押金。' },
 	{ id: 'graduate', sub: '485', name: '毕业生工作签证', to: 'graduate', from: ['student'], fee: 650, desc: '毕业后申请，不限工时。' },
 	{ id: 'graduate2', sub: '485', name: '第二次毕业生签证', to: 'graduate2', from: ['graduate'], fee: 650, desc: '在偏远地区读书生活过才有；在珀斯、阿德莱德多 1 年，其他偏远地区多 2 年。' },
-	{ id: 'sponsored', sub: '482', name: '雇主担保工作签证', to: 'sponsored', from: ['student', 'graduate', 'graduate2'], fee: 750, desc: '现在的雇主为你担保。只能做担保的那份工作的本行。' },
+	{ id: 'sponsored', sub: '482', name: '雇主担保工作签证', to: 'sponsored', from: ['student', 'graduate', 'graduate2', 'sponsored'], fee: 750, desc: '现在的雇主为你担保。持 482 换到新的清单职业时，可以由新雇主重新担保。' },
 	{ id: 'ens', sub: '186', name: '雇主担保永居（过渡类）', to: 'pr', from: ['sponsored'], fee: 1300, desc: '为担保雇主做满两年后，雇主提名你转永居。' },
 	{ id: 'skilled', sub: '189', name: '独立技术移民', to: 'pr', from: ['student', 'graduate', 'graduate2', 'sponsored'], fee: 1300, desc: '按打分，不需要提名。' },
 	{ id: 'state', sub: '190', name: '州担保技术移民', to: 'pr', from: ['student', 'graduate', 'graduate2', 'sponsored'], fee: 1300, desc: '西澳或南澳州政府提名，加 5 分。' },
@@ -113,28 +113,30 @@ export const POINTS = {
  * 职业对应的「移民职业」（游戏简化，**不代表真实职业清单**）。
  * 现实里是 Home Affairs 的技术移民职业清单（MLTSSL 等）和担保用的 Core Skills Occupation List，需要职业评估；
  * 这里只按游戏里的职业和等级粗略对应，用来演示「要在清单职业里攒经验」这条规则。待平衡。
- * skilled：能走打分类（189/190/491）；sponsor：能被雇主担保（482/186）。minLevel：到这一级才算本行经验
+ * skilled：能走 189/190；regional：能被西澳 / 南澳州担保走 491；sponsor：能被雇主担保（482/186）。minLevel：到这一级才算本行经验。
+ * regional 是两州合并后的游戏简化标记：WA / SA 现实清单不同，不代表任一州的官方完整清单。
  */
 export interface OccupationDef {
 	career: string;
 	title: string;
 	minLevel: number;
 	skilled: boolean;
+	regional: boolean;
 	sponsor: boolean;
 }
 
 export const OCCUPATIONS: OccupationDef[] = [
-	{ career: 'barista', title: '咖啡馆经理', minLevel: 2, skilled: false, sponsor: true },
-	{ career: 'bartender', title: '酒吧经理', minLevel: 2, skilled: false, sponsor: true },
-	{ career: 'lifeguard', title: '水上安全主管', minLevel: 2, skilled: false, sponsor: true },
-	{ career: 'guide', title: '旅游团领队', minLevel: 2, skilled: true, sponsor: true },
-	{ career: 'miner', title: '矿山设备操作员', minLevel: 1, skilled: true, sponsor: true },
-	{ career: 'trucker', title: '重型卡车司机', minLevel: 1, skilled: false, sponsor: true },
-	{ career: 'farmhand', title: '农场主管', minLevel: 2, skilled: true, sponsor: true },
+	{ career: 'barista', title: '咖啡馆经理', minLevel: 2, skilled: false, regional: true, sponsor: true }, // WA 州担保扩展职业；SA 以游戏可玩性合并处理
+	{ career: 'bartender', title: '酒吧经理', minLevel: 2, skilled: false, regional: false, sponsor: true },
+	{ career: 'lifeguard', title: '水上安全主管', minLevel: 2, skilled: false, regional: false, sponsor: true },
+	{ career: 'guide', title: '旅游团领队', minLevel: 2, skilled: true, regional: true, sponsor: true },
+	{ career: 'miner', title: '矿山设备操作员', minLevel: 1, skilled: true, regional: true, sponsor: true },
+	{ career: 'trucker', title: '重型卡车司机', minLevel: 1, skilled: false, regional: false, sponsor: true }, // WA / SA 游戏中改走雇主担保；SA 现实可见 DAMA 路径
+	{ career: 'farmhand', title: '农场主管', minLevel: 2, skilled: true, regional: true, sponsor: true },
 	// 合并 main 时补上 main 的三个持证职业（visa.md §9 原本就列为合并时要做）。等级和能走哪条路是游戏取值，待平衡
-	{ career: 'builder', title: '建筑工长', minLevel: 1, skilled: true, sponsor: true },
-	{ career: 'carer', title: '养老护理员', minLevel: 1, skilled: false, sponsor: true },
-	{ career: 'it-support', title: 'ICT 支持工程师', minLevel: 0, skilled: true, sponsor: true },
+	{ career: 'builder', title: '建筑工长', minLevel: 1, skilled: true, regional: true, sponsor: true },
+	{ career: 'carer', title: '养老护理员', minLevel: 1, skilled: false, regional: true, sponsor: true }, // WA / SA 官方逐项状态待下轮联网核验，本轮先保留可玩路径
+	{ career: 'it-support', title: 'ICT 支持工程师', minLevel: 0, skilled: true, regional: true, sponsor: true },
 ];
 
 /**

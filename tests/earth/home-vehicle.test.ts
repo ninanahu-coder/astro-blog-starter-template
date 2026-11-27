@@ -12,6 +12,7 @@ import { vehicleDuty } from '../../src/game/core/finance.ts';
 import { dayOf } from '../../src/game/core/time.ts';
 import { weatherOn } from '../../src/game/core/weather.ts';
 import { BOND_WEEKS, HOMES } from '../../src/game/data/housing.ts';
+import { homeAllowsPet } from '../../src/game/data/pets.ts';
 import { DEPRECIATION, VEHICLES } from '../../src/game/data/vehicles.ts';
 import { WEATHERS } from '../../src/game/data/weather.ts';
 import { WA, WORLD } from '../../src/game/data/wa.ts';
@@ -31,6 +32,17 @@ const make = (over: Partial<PlayerState> = {}): PlayerState => ({
 });
 const home = (id: string) => HOMES.find((h) => h.id === id)!;
 const locs = new Set(WORLD.locations.map((l) => l.id));
+
+test('第二十四轮：卡尔古利可租一居室，库伯佩迪和黑德兰港的住房阶梯不变', () => {
+	const ids = (loc: string) => homesAt(make({ loc, cash: 5000, clock: at(9) }), WORLD).map((o) => o.home.id);
+	assert.ok(ids('kalgoorlie').includes('flat'));
+	assert.ok(!ids('coober-pedy').includes('flat'));
+	assert.ok(ids('coober-pedy').includes('dugout'));
+	assert.ok(!ids('port-hedland').includes('flat'), '黑德兰港没有 gold 标签，住房阶梯不变');
+	const mining = WORLD.locations.filter((l) => l.kind === 'mining' && ids(l.id).includes('flat')).map((l) => l.id);
+	assert.deepEqual(mining, ['kalgoorlie']);
+	assert.ok(homeAllowsPet('flat', 'dog') && homeAllowsPet('flat', 'cat'), '卡尔古利新开放的 flat 沿用猫狗规则');
+});
 
 // ---------- 过户印花税 ----------
 test('过户印花税：西澳按 2.75% / 滑动费率 / 6.5% 三档', () => {

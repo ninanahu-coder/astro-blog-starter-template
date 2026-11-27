@@ -43,7 +43,7 @@ export interface PlanResult {
 		cashDay180: Quantiles; cashDay365: Quantiles;
 		cashNetPerDay181_365: number; worthGrowthPerDay1_180: number; worthGrowthPerDay181_365: number;
 		cashNetPerDayLateBins: number[]; worthGrowthPerDayLateBins: number[];
-		moodDay90: number; moodDay180: number; moodDay365: number; moodMean181_365: number;
+		moodDay90: number; moodDay180: number; moodDay365: number; moodMean181_365: number; moodNoonMean181_365: number;
 		moodMeanLateBins: number[];
 		moodActionMean181_365: number; moodActionMeanLateBins: number[];
 		collapses181_365: number; evictions181_365: number; lowCashDays181_365: number;
@@ -101,8 +101,10 @@ interface RiskSeed {
 	seed: number; netWorth: number; cash: number;
 	workStopDays: number; sickLeaveDays: number; sickDays: number; collapseDays: number; collapses: number;
 	badShifts: number; goodShifts: number; jobGross: number; bonusGross: number; bonusForegone: number;
+	badShiftsByLevel: [number, number, number]; bonusForegoneByLevel: [number, number, number];
 	missedRiskGross: number; workStopLostGross: number; sickLostGross: number; collapseLostGross: number; careCashLoss: number;
 	jobLosses: number; demotions: number; evictions: number; lowCashDays: number; lowCashStreak: number;
+	lowCashStreakStart: number | null; leaseDay: number | null;
 	minMood: number; minHealth: number; maxSleepDebt: number; sleepDebtDays: number; poorSleeps: number;
 }
 

@@ -1,6 +1,6 @@
 // 签证存档字段（第 43 批）：新建角色的初始值和不可信存档的清洗。
 // 只依赖数据表，不依赖 engine.ts（character.ts 要用它，避免循环引用）。规范见 docs/earth-game/save-sync.md §5。
-import { VISA_KINDS, VISA_RULES, type VisaKind } from '../data/visas.ts';
+import { OCCUPATIONS, VISA_KINDS, VISA_RULES, type VisaKind } from '../data/visas.ts';
 import type { VisaState } from './types.ts';
 
 const KINDS = new Set<VisaKind>(VISA_KINDS.map((k) => k.id));
@@ -60,4 +60,27 @@ export function cleanVisa(raw: unknown, origin: string, day: number, careers: Re
 		had: Array.isArray(r.had) ? [...new Set(r.had.filter((k): k is VisaKind => typeof k === 'string' && KINDS.has(k as VisaKind)))].slice(0, 16) : [],
 		warned: r.warned === true,
 	};
+}
+
+/**
+ * 新顶层字段 visaExp 的不可信输入清洗。旧档把全部总经验给最后一个职业，不追溯削弱旧资格。
+ * 各项和小于 visa.exp 时，差额补给 visa.occ；和大于总数时重建，保证幂等和回滚后自愈。
+ */
+export function cleanVisaExp(raw: unknown, visa: VisaState, careers: ReadonlySet<string>): Record<string, number> {
+	const allowed = new Set(OCCUPATIONS.map((o) => o.career).filter((id) => careers.has(id)));
+	const out: Record<string, number> = {};
+	if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+		for (const key of Object.keys(raw).slice(0, 16)) {
+			if (!Object.hasOwn(raw, key) || !allowed.has(key)) continue;
+			const value = (raw as Record<string, unknown>)[key];
+			if (typeof value !== 'number' || !Number.isFinite(value)) continue;
+			out[key] = Math.floor(Math.max(0, Math.min(visa.exp, value)));
+		}
+	}
+	let sum = Object.values(out).reduce((a, b) => a + b, 0);
+	const occ = visa.occ && allowed.has(visa.occ) ? visa.occ : null;
+	if (sum > visa.exp) return occ && visa.exp ? { [occ]: visa.exp } : {};
+	if (sum < visa.exp && occ) out[occ] = (out[occ] ?? 0) + visa.exp - sum;
+	sum = Object.values(out).reduce((a, b) => a + b, 0);
+	return sum === visa.exp ? out : occ && visa.exp ? { [occ]: visa.exp } : {};
 }

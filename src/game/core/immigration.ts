@@ -37,17 +37,32 @@ export function occupationFor(career: string, level: number): OccupationDef | un
 	return o && level >= o.minLevel ? o : undefined;
 }
 
+/** 按职业读签证经验；直接构造的旧状态没过 sanitizeState 时，仍把差额给 visa.occ。 */
+export function visaExperienceDays(s: PlayerState, career: string): number {
+	const rows = s.visaExp && typeof s.visaExp === 'object' ? s.visaExp : {};
+	const own = Number.isFinite(rows[career]) ? Math.max(0, Math.floor(rows[career])) : 0;
+	const tracked = Object.values(rows).reduce((n, x) => n + (Number.isFinite(x) ? Math.max(0, Math.floor(x)) : 0), 0);
+	return career === s.visa.occ && tracked < s.visa.exp ? own + s.visa.exp - tracked : own;
+}
+
+function bestOccupation(s: PlayerState, route: 'skilled' | 'state' | 'regional'): { occupation: OccupationDef; days: number } | undefined {
+	return OCCUPATIONS
+		.filter((o) => route === 'regional' ? (o.skilled || o.regional) : o.skilled)
+		.map((occupation) => ({ occupation, days: visaExperienceDays(s, occupation.career) }))
+		.sort((a, b) => b.days - a.days || a.occupation.career.localeCompare(b.occupation.career))[0];
+}
+
 export interface PointsLine { label: string; pts: number }
 
 /** 技术移民打分（189 / 190 / 491 共用一张表，nomination 是州提名加分）。返回明细和总分 */
-export function visaPoints(s: PlayerState, nomination?: 'state' | 'regional'): { total: number; lines: PointsLine[] } {
+export function visaPoints(s: PlayerState, nomination?: 'state' | 'regional', occDays = s.visa.exp): { total: number; lines: PointsLine[] } {
 	const v = s.visa;
 	const age = visaAge(s);
-	const yrs = v.exp / R.daysPerYear;
+	const yrs = occDays / R.daysPerYear;
 	const lines: PointsLine[] = [
 		{ label: `年龄 ${age} 岁`, pts: POINTS.age.find(([lo, hi]) => age >= lo && age <= hi)?.[2] ?? 0 },
 		{ label: `英语 雅思 ${v.ielts || '未考'}`, pts: POINTS.english.find(([min]) => v.ielts >= min)?.[1] ?? 0 },
-		{ label: `澳洲本行经验 ${years(v.exp)} 年`, pts: POINTS.ausExp.find(([min]) => yrs >= min)?.[1] ?? 0 },
+		{ label: `澳洲本行经验 ${years(occDays)} 年`, pts: POINTS.ausExp.find(([min]) => yrs >= min)?.[1] ?? 0 },
 		{ label: `学历：${{ none: '无', bachelor: '本科', master: '硕士' }[degreeOf(s)]}`, pts: POINTS.degree[degreeOf(s)] ?? 0 },
 		{ label: '在澳洲读满两年', pts: degreeOf(s) !== 'none' ? POINTS.ausStudy : 0 },
 		{ label: '在偏远地区读书（西澳、南澳）', pts: degreeOf(s) !== 'none' ? POINTS.regionalStudy : 0 },
@@ -74,7 +89,7 @@ export function routeUnmet(s: PlayerState, region: Region, id: VisaRoute): strin
 	const age = visaAge(s);
 	if (!route.from.includes(now)) return `现在的签证（${getVisaKind(now).name}）不能申请这一类`;
 	const ielts = (min: number) => (v.ielts < min ? `雅思要 ${min} 分（现在 ${v.ielts || '未考'}）` : undefined);
-	const exp = (y: number) => (v.exp < y * R.daysPerYear ? `清单职业经验要 ${y} 年（现在 ${years(v.exp)} 年）` : undefined);
+	const exp = (y: number, days = v.exp) => (days < y * R.daysPerYear ? `清单职业经验要 ${y} 年（现在 ${years(days)} 年）` : undefined);
 	switch (id) {
 		case 'student':
 			return v.course && v.course.end > today ? '现在的课程还没读完' : degreeOf(s) === 'none' ? '本科毕业后才能报硕士' : undefined;
@@ -86,7 +101,8 @@ export function routeUnmet(s: PlayerState, region: Region, id: VisaRoute): strin
 			const o = s.job ? occupationFor(s.job.career, s.job.level) : undefined;
 			if (!s.job) return '要先有一份工作，由雇主担保';
 			if (!o?.sponsor) return `现在这份工作（${getCareer(s.job.career)?.levels[s.job.level]?.title ?? ''}）不在担保职业里`;
-			return exp(R.sponsored.minExpYears) ?? ielts(R.sponsored.minIelts);
+			if (now === 'sponsored' && v.sponsor?.career === s.job.career) return '你已经在这份职业的担保下';
+			return exp(R.sponsored.minExpYears, visaExperienceDays(s, o.career)) ?? ielts(R.sponsored.minIelts);
 		}
 		case 'ens':
 			return (v.sponsor?.days ?? 0) < R.ens.sponsorYears * R.daysPerYear ? `要在担保下工作满 ${R.ens.sponsorYears} 年（现在 ${years(v.sponsor?.days ?? 0)} 年）`
@@ -94,13 +110,12 @@ export function routeUnmet(s: PlayerState, region: Region, id: VisaRoute): strin
 		case 'skilled':
 		case 'state':
 		case 'regional': {
-			const o = v.occ ? OCCUPATIONS.find((x) => x.career === v.occ) : undefined;
-			const ok = o && (o.skilled || (id === 'regional' && o.sponsor));
-			if (!ok) return id === 'regional' ? '要有清单职业的工作经验' : '要有技术移民清单职业的工作经验';
+			const best = bestOccupation(s, id);
+			if (!best?.days) return id === 'regional' ? '这份职业不在州担保偏远地区清单上（可以走 482 雇主担保）' : '要有技术移民清单职业的工作经验';
 			if (age >= R.points.maxAge) return `年龄要在 ${R.points.maxAge} 岁以下`;
-			const why = exp(R.points.minExpYears) ?? ielts(R.points.minIelts);
+			const why = exp(R.points.minExpYears, best.days) ?? ielts(R.points.minIelts);
 			if (why) return why;
-			const pts = visaPoints(s, id === 'skilled' ? undefined : id).total;
+			const pts = visaPoints(s, id === 'skilled' ? undefined : id, best.days).total;
 			return pts < R.points.pass ? `打分 ${pts}，要 ${R.points.pass} 分` : undefined;
 		}
 		case 'regionalPr': {
@@ -119,7 +134,9 @@ export function visaOptions(s: PlayerState, region: Region): RouteOffer[] {
 	if (now === 'none' || now === 'pr') return [];
 	return VISA_ROUTES.filter((r) => r.from.includes(now)).map((route) => {
 		const blocked = routeUnmet(s, region, route.id) ?? (s.cash < route.fee ? `需要 $${route.fee}` : undefined);
-		const points = route.id === 'skilled' ? visaPoints(s).total : route.id === 'state' || route.id === 'regional' ? visaPoints(s, route.id).total : undefined;
+		const scored = route.id === 'skilled' || route.id === 'state' || route.id === 'regional' ? bestOccupation(s, route.id) : undefined;
+		const points = route.id === 'skilled' ? visaPoints(s, undefined, scored?.days ?? 0).total
+			: route.id === 'state' || route.id === 'regional' ? visaPoints(s, route.id, scored?.days ?? 0).total : undefined;
 		return { route, blocked, points };
 	});
 }
@@ -216,6 +233,7 @@ export function settleVisa(before: PlayerState, after: PlayerState): string {
 		if (o) {
 			v.exp += 1;
 			v.occ = o.career;
+			after.visaExp[o.career] = (after.visaExp[o.career] ?? 0) + 1;
 		}
 		if (v.kind === 'sponsored' && v.sponsor && v.sponsor.career === after.job.career) v.sponsor.days += 1;
 	}

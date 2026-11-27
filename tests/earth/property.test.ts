@@ -21,6 +21,7 @@ const make = (over: Partial<PlayerState> = {}): PlayerState => ({
 	...over,
 });
 const flat = PROPERTIES.find((p) => p.id === 'perth-apartment')!;
+const townhouse = PROPERTIES.find((p) => p.id === 'margaret-townhouse')!;
 /** 睡一觉把时间推到指定那天晚上，触发途中的周结算 */
 const passTo = (s: PlayerState, day: number) => applyAction({ ...s, clock: at(20, day) }, WA, { t: 'activity', id: 'sleep-camp' }).state;
 
@@ -33,6 +34,13 @@ test('房产数据自洽，出租收益不超过上限', () => {
 		const y = expectedYield(p);
 		assert.ok(y > 0 && y <= FINANCE.yieldCap, `${p.id} 年化净收益 ${(y * 100).toFixed(2)}% 应在 0–4%`);
 	}
+});
+
+test('第二十四轮：玛格丽特河镇中心联排是可买的入门 flat', () => {
+	const listed = propertiesAt(make({ loc: 'margaret-river', cash: 300000 }), WA);
+	assert.deepEqual(listed.map((x) => x.property.id), ['margaret-townhouse', 'margaret-beach-house']);
+	assert.equal(downPayment(townhouse), 10000);
+	assert.ok(expectedYield(townhouse) >= 0.035 && expectedYield(townhouse) <= 0.037);
 });
 
 test('贷款公式', () => {

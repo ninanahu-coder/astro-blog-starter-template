@@ -1,5 +1,5 @@
 // 「我」页的签证卡片（第 43 批）：纯函数，返回 HTML 字符串，所有插值都过 esc()。页面和测试共用。
-import { daysLeft, ieltsAt, getVisaKind, visaAge, visaKindNow, visaOptions, visaPoints, years } from '../core/immigration.ts';
+import { daysLeft, ieltsAt, getVisaKind, visaAge, visaExperienceDays, visaKindNow, visaOptions, visaPoints, years } from '../core/immigration.ts';
 import { getCareer } from '../core/engine.ts';
 import { OCCUPATIONS, VISA_DISCLAIMER, VISA_RULES, VISA_SOURCE } from '../data/visas.ts';
 import type { PlayerState, Region } from '../core/types.ts';
@@ -15,15 +15,19 @@ export function visaCardHtml(s: PlayerState, region: Region, esc: (s: unknown) =
 	const left = daysLeft(s);
 	const status = kind === 'pr' ? '永久，不会到期' : kind === 'expired' ? '已过期：不能工作' : left === 0 ? '今天到期' : `${left} 天后到期`;
 	const occ = v.occ ? OCCUPATIONS.find((o) => o.career === v.occ) : undefined;
+	const expRows = OCCUPATIONS.map((o) => ({ title: o.title, days: visaExperienceDays(s, o.career) })).filter((x) => x.days > 0).sort((a, b) => b.days - a.days);
+	const shown = expRows.slice(0, 3).map((x) => `${x.title} ${years(x.days)} 年`);
+	if (expRows.length > 3) shown.push(`其他 ${expRows.length - 3} 个职业`);
 	const course = v.course ? `在读${v.course.award === 'master' ? '硕士' : '本科'}，${Math.max(0, v.course.end - Math.floor(s.clock / 1440))} 天后毕业` : `学历：${{ none: '无', bachelor: '本科', master: '硕士' }[v.degree]}`;
 	const facts = [
 		`${visaAge(s)} 岁`,
 		`雅思 ${v.ielts || '未考'}`,
 		course,
-		`清单职业经验 ${years(v.exp)} 年${occ ? `（${occ.title}）` : ''}`,
+		shown.length ? `清单职业经验：${shown.join(' · ')}` : `清单职业经验 ${years(v.exp)} 年${occ ? `（${occ.title}）` : ''}`,
 		...(v.sponsor ? [`担保：${getCareer(v.sponsor.career)?.name ?? ''} ${years(v.sponsor.days)} 年`] : []),
 	];
-	const pts = visaPoints(s);
+	const skilledDays = OCCUPATIONS.filter((o) => o.skilled).reduce((best, o) => Math.max(best, visaExperienceDays(s, o.career)), 0);
+	const pts = visaPoints(s, undefined, skilledDays);
 	const ptsHtml = kind === 'pr' ? '' : `<details style="margin-top:6px"><summary>技术移民打分：${pts.total} 分（及格 ${VISA_RULES.points.pass}）</summary>${pts.lines.map((l) => `<p class="muted">${esc(l.label)}：+${l.pts}</p>`).join('')}<p class="muted">州政府提名另加：190 +5，491 +15。</p></details>`;
 	const routes = visaOptions(s, region).map(({ route, blocked, points }) =>
 		`<div class="row" style="margin-top:8px"><span class="body">${esc(route.name)}（${esc(route.sub)}）· $${route.fee}<small>${esc(blocked ?? route.desc)}${points !== undefined ? ` · ${points} 分` : ''}</small></span><button data-visa="${esc(route.id)}" ${blocked ? 'disabled' : ''}>申请</button></div>`).join('');

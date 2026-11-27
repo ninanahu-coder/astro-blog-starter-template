@@ -291,6 +291,7 @@ const PROP_SCENE = {
 	'kal-cottage': 'an old tin-roofed miner\'s cottage with a front verandah, distant lights of an open-cut mine at dusk',
 	'perth-apartment': 'a small city apartment balcony overlooking a wide river and skyline',
 	'freo-terrace': 'a row of century-old limestone terrace houses on a heritage port street',
+	'margaret-townhouse': 'a modest two-storey townhouse just behind the main street of Margaret River, with a small rear courtyard and surf gear drying on a clothesline',
 	'margaret-beach-house': 'a timber beach house with a deck behind coastal dunes, a surf break beyond',
 	'adelaide-villa': 'a bluestone cottage with cast iron lace on its front verandah on a leafy old street',
 	'glenelg-unit': 'a low seaside apartment block beside a beach and a long jetty at sunset',

@@ -920,6 +920,8 @@ export interface PlayerState {
 	tally: Tally; // 生涯统计（「我 · 生涯」）：累计收支、公里、里程碑和周期小结，见 career-stats.md
 	illness: { id: string; since: number; until: number; care: string[]; rx: boolean } | null; // 正在生的病或伤（data/health.ts 的 id）：游戏时钟的起止分钟、这次已做过的就医（gp/pharmacy/ed/rx）、GP 是否开了处方；见 docs/earth-game/health.md
 	visa: VisaState; // 签证路线（第 43 批，docs/earth-game/visa.md）；非留学生出身 kind 为 'none'
+	/** 各清单职业分别累计的工作日；visa.exp 仍是全部清单职业的总数。 */
+	visaExp: Record<string, number>;
 	/** 作息（第 43 批）：wake = 最近一次醒来的游戏时钟（分钟，≤ clock）；debt = 睡眠债（小时，0–24，一位小数）。见 docs/earth-game/time-sleep.md */
 	rest: { wake: number; debt: number };
 	journal: JournalEntry[];

@@ -397,6 +397,8 @@ test('骗租广告：只在城镇类地点、按日期出现，标价六成；�
 	for (let d = 0; d < 400; d++) if (scamAd(perth, d, HOMES)) days++;
 	assert.ok(Math.abs(days / 400 - RENTAL.scamChance) < 0.06, `${days}/400 天有骗租广告`);
 	assert.equal(scamAd({ id: 'x', kind: 'outback' }, 1, HOMES), undefined, '内陆没有');
+	const kalgoorlie = WORLD.locations.find((l) => l.id === 'kalgoorlie')!;
+	assert.equal(scamAd(kalgoorlie, 1, HOMES), undefined, '卡尔古利新公寓不进入骗租广告');
 	assert.equal(scamAd(perth, 1, HOMES.filter((h) => h.vehicleSleep)), undefined, '只有营地的地方没有');
 	let d = 0;
 	while (!scamAd(perth, d, HOMES)) d++;

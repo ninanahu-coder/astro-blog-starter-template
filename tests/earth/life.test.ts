@@ -33,6 +33,12 @@ test('职业与住房数据自洽', () => {
 	assert.equal(new Set(HOMES.map((h) => h.id)).size, HOMES.length);
 });
 
+test('第二十四轮：IT 在岗主技能每班成长为 1，与护理并列最慢', () => {
+	const it = CAREERS.find((c) => c.id === 'it-support')!;
+	assert.equal(it.shift.skills?.street, 1);
+	assert.deepEqual(CAREERS.filter((c) => (c.shift.skills?.[c.skill] ?? 0) <= 1).map((c) => c.id), ['carer', 'it-support']);
+});
+
 test('应聘：地点与条件', () => {
 	const s = make({ clock: at(9) });
 	const ids = careersAt(s, WA).map((o) => o.career.id);

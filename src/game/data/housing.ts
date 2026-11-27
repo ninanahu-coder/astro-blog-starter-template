@@ -4,7 +4,7 @@ import type { HomeDef } from '../core/types.ts';
 export const HOMES: HomeDef[] = [
 	// 合租房间周租平衡第十一轮 160 → 120：咖啡店买房最大的拖慢项，也是低收入首周被收房的主因（balance.md 第十一轮）
 	{ id: 'room', name: '合租房间', rentWeek: 120, rentWas: 160, comfort: 0, where: { kinds: ['city', 'port', 'town', 'coast', 'mining'] }, desc: '一张床，共用厨房和浴室。' },
-	{ id: 'flat', name: '一居室公寓', rentWeek: 320, comfort: 5, where: { kinds: ['city', 'port', 'town', 'coast'] }, desc: '自己的厨房和浴室，安静。' },
+	{ id: 'flat', name: '一居室公寓', rentWeek: 320, comfort: 5, where: { kinds: ['city', 'port', 'town', 'coast'], tags: ['gold'] }, desc: '自己的厨房和浴室，安静。' },
 	{ id: 'beach', name: '海景小屋', rentWeek: 650, comfort: 10, where: { tags: ['beach'] }, desc: '推开门就是大海。' },
 	// 第 14 轮新增（租金、舒适度待平衡）
 	{ id: 'campground', name: '房车营地', rentWeek: 90, comfort: 2, vehicleSleep: true, bondWeeks: 0, where: { kinds: ['coast', 'park', 'outback', 'town'] }, desc: '一块带电桩的车位，公共淋浴和烧烤台；人睡在自己车里。' },
