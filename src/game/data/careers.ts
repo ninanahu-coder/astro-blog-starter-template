@@ -91,7 +91,7 @@ export const CAREERS: CareerDef[] = [
 	},
 	{
 		id: 'it-support', name: 'IT 公司', where: { kinds: ['city'] }, start: [8, 10], minutes: 480, skill: 'street',
-		shift: { needs: { energy: -25, social: 5, fun: -5 }, skills: { street: 0.8, charisma: 0.5 } },
+		shift: { needs: { energy: -25, social: 5, fun: -5 }, skills: { street: 1, charisma: 0.5 } },
 		levels: [
 			{ title: '服务台专员', pay: 200, req: { certs: ['cert4-it'] } },
 			{ title: '系统管理员', pay: 320, req: { skills: { street: 18 } } }, // 第十六轮：街头 25 → 18，学士移到主管

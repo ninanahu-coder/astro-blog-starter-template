@@ -9,7 +9,9 @@ import { FULL_AREAS, getRegion, WA, WORLD } from '../../src/game/data/wa.ts';
 import saVenues from '../../src/game/data/sa.venues.json' with { type: 'json' };
 import { applyAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
-import { travelOptions } from '../../src/game/core/engine.ts';
+import { matches, travelOptions } from '../../src/game/core/engine.ts';
+import { HOMES } from '../../src/game/data/housing.ts';
+import { PROPERTIES } from '../../src/game/data/properties.ts';
 import type { Region } from '../../src/game/core/types.ts';
 
 /** 假的第二区域：两个地点、一条公路 */
@@ -24,6 +26,14 @@ const FAKE: Region = {
 };
 const CROSS = [{ a: 'perth', b: 'zz-a', mode: 'air' as const }];
 const W2 = mergeAreas([WA, FAKE], CROSS);
+
+test('第二十四轮：每套可购房产的房型在当地也能租到', () => {
+	for (const p of PROPERTIES) {
+		const loc = WORLD.locations.find((l) => l.id === p.loc)!;
+		const home = HOMES.find((h) => h.id === p.homeType)!;
+		assert.ok(matches(home.where, loc), `${p.id} 的 ${p.homeType} 在 ${p.loc} 也能租到`);
+	}
+});
 
 test('合并：地点、路线、打卡点、真实地点拼在一起，范围取并集；出生点和默认医院用第一个区域的', () => {
 	assert.equal(W2.locations.length, WA.locations.length + 2);

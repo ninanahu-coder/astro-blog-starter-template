@@ -24,15 +24,16 @@ const rentIncome = (s: PlayerState) => s.properties.reduce((sum, p) => sum + (p.
 
 /**
  * 每周还款能力（审批用）。dropRent：买房自住时现在的房租会停，不算进已有开销。
+ * extraRent：正在申请的投资房预期租金；capacity 会统一按 BANK.rentShade 打折。
  * 已有开销 = 房租 + 车辆 + 房产（物业费与还款）+ 银行这边的还款 + 信用卡额度 × 3%
  */
-export function bankCapacity(s: PlayerState, dropRent = false): number {
+export function bankCapacity(s: PlayerState, dropRent = false, extraRent = 0): number {
 	const wc = weeklyCosts(s);
 	// 合并 main 后：自己开的店每周的固定开销、欠 ATO 的税每周分期也算已有开销（复核）
 	const shop = s.biz?.shop ? shopDailyCost(s.biz.shop).total * 7 : 0;
 	const taxPlan = s.tax?.debt ? Math.min(s.tax.debt, Math.max(TAX_GAME.planMin, Math.ceil(s.tax.debt * TAX_GAME.planShare))) : 0;
 	const commitments = wc.total - (dropRent ? wc.rent : 0) + bankWeekly(s.bank) + Math.round((s.bank.card?.limit ?? 0) * BANK.cardCommit) + shop + taxPlan;
-	return capacity(bankIncome(s), rentIncome(s), commitments);
+	return capacity(bankIncome(s), rentIncome(s) + extraRent, commitments);
 }
 
 const done = (state: PlayerState, msg: string): ActionResult => {
@@ -114,19 +115,22 @@ export function carLoanBlocks(s: PlayerState): string | undefined {
 }
 
 /** 房贷审批（买房按揭时先过这一关）：返回审批结果或原因 */
-export function homeLoanOffer(s: PlayerState, id: string) {
+export function homeLoanOffer(s: PlayerState, id: string, use: 'home' | 'invest' = 'home') {
 	const def = getProperty(id);
 	if (!def) return { blocked: '没有这套房。' } as const;
-	return homeOffer(s.bank, today(s), bankCapacity(s, true), def.price, downPayment(def), Math.round(def.price * FINANCE.weeklyPrincipal), FINANCE.weeklyRate * loanRateMult(today(s))); // 按今天的利率指数测算，和实际扣的利息一致（合并 main 后）
+	const cap = use === 'invest'
+		? bankCapacity(s, false, rentOn(def.rentIncome, today(s)))
+		: bankCapacity(s, true);
+	return homeOffer(s.bank, today(s), cap, def.price, downPayment(def), Math.round(def.price * FINANCE.weeklyPrincipal), FINANCE.weeklyRate * loanRateMult(today(s))); // 按今天的利率指数测算，和实际扣的利息一致（合并 main 后）
 }
 
 /** 按揭买房：先过审批，再走原来的买房流程；首付不足 20% 的加贷款保险，并进贷款 */
-export function buyPropertyWithLoan(prev: PlayerState, region: Region, id: string): ActionResult {
+export function buyPropertyWithLoan(prev: PlayerState, region: Region, id: string, use: 'home' | 'invest' = 'home'): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	const listed = propertiesAt(prev, region).find((o) => o.property.id === id);
 	if (!listed) return fail(prev, '这里没有这套房。');
 	if (listed.blockedLoan) return fail(prev, listed.blockedLoan);
-	const offer = homeLoanOffer(prev, id);
+	const offer = homeLoanOffer(prev, id, use);
 	if ('blocked' in offer) return fail(prev, `房贷没批：${offer.blocked}`);
 	const r = buyProperty(prev, region, id, true);
 	if (!r.ok) return r;
@@ -176,4 +180,3 @@ export function repayBank(prev: PlayerState, kind: DebtKind, amount: number): Ac
 	const left = kind === 'card' ? state.bank.card?.bal ?? 0 : state.bank.loans.find((l) => l.kind === kind)?.bal ?? 0;
 	return done(state, left ? `还了${name} $${paid}，还欠 $${left}。` : `${name}还清了！`);
 }
-

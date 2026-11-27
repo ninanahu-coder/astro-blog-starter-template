@@ -4,7 +4,7 @@ import { cleanCooking, newCooking } from './cooking-save.ts';
 import { migrateSave } from './save.ts';
 import { cleanBiz, emptyBiz } from './business-save.ts';
 import { cleanTally, newTally } from './tally.ts';
-import { cleanVisa, newVisa } from './visa-save.ts';
+import { cleanVisa, cleanVisaExp, newVisa } from './visa-save.ts';
 import { NEED_KEYS, SKILL_KEYS } from './types.ts';
 import type { HobbyState, Home, Job, OwnedProperty, Needs, Pet, PlayerState, Relation, Skills, Vehicle } from './types.ts';
 import { getPetKind, PET } from '../data/pets.ts';
@@ -225,6 +225,7 @@ export function createCharacter(opts: {
 		tally: newTally({ clock: START_CLOCK, visited: { [opts.spawn]: 1 }, relations: {}, met: {}, cash: origin.cash }),
 		illness: null,
 		visa: newVisa(origin.id, Math.floor(START_CLOCK / 1440)),
+		visaExp: {},
 		rest: { wake: START_CLOCK - 60, debt: 0 }, // 第 1 天 07:00 醒来
 		journal: [{ t: START_CLOCK, text: `以「${origin.name}」的身份开始了新生活。` }],
 		biz: emptyBiz(),
@@ -309,6 +310,10 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 				.filter((j: any) => j && typeof j.text === 'string')
 				.map((j: any) => ({ t: num(j.t, 0, 1e9, 0), text: String(j.text).slice(0, 200) }))
 		: [];
+	const knownCareers = new Set(CAREERS.map((c) => c.id));
+	const cleanOrigin = ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id;
+	const cleanDay = Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440);
+	const visa = cleanVisa(r.visa, cleanOrigin, cleanDay, knownCareers);
 	const out: PlayerState = {
 		v: 1,
 		id: r.id,
@@ -345,7 +350,8 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		workDay: Math.floor(Math.max(num(r.workDay, -1, 1e7, -1), num(r.job?.lastDay, -1, 1e7, -1))),
 		volunteer: cleanVolunteer(r.volunteer, num(r.clock, 0, CAPS.clock, START_CLOCK), opts.now === undefined ? undefined : realDayOf(opts.now)),
 		illness: cleanIllness(r.illness, num(r.clock, 0, CAPS.clock, START_CLOCK)),
-		visa: cleanVisa(r.visa, ORIGINS.some((o) => o.id === r.origin) ? r.origin : ORIGINS[0].id, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), new Set(CAREERS.map((c) => c.id))),
+		visa,
+		visaExp: cleanVisaExp(r.visaExp, visa, knownCareers),
 		...cleanEstate(r, knownLocs),
 		flatshare: cleanFlatshare(r.flatshare, cleanEstate(r, knownLocs).home, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440)), // 对不上现在住处的室友记录清空（合并 main 时复核）
 		bank: cleanBank(r.bank, Math.floor(num(r.clock, 0, CAPS.clock, START_CLOCK) / 1440), Array.isArray(r.properties) && r.properties.some((p: any) => p && typeof p.loan === 'number' && p.loan > 0), new Set(VEHICLES.map((v) => v.id)), new Set(FURNITURE.map((f) => f.id))),

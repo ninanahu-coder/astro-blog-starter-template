@@ -30,9 +30,9 @@ import { coopBlocked, coopsAt } from '../../../src/game/core/coop.ts';
 import { decayMult, mood } from '../../../src/game/core/attributes.ts';
 import { createCharacter, ORIGINS } from '../../../src/game/core/character.ts';
 import {
-	activitiesAt, careAt, careerPay, careersAt, certsAt, coursesAt, coursePrice, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, getLocation, getProperty, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, moveInCost, npcsAt, shiftBlocked, shopAt, travelOptions,
+	activitiesAt, careAt, careerPay, careersAt, certsAt, coursesAt, coursePrice, dealerAt, DECAY, fishingAt, netWorth, propertiesAt, furnitureAt, getHome, getLocation, getProperty, homeActionBlocked, experiencesAt, getCareer, getPendingEvent, homesAt, leaseBlocked, moveInCost, npcsAt, shiftBlocked, shopAt, travelOptions, CASH_CUSHION,
 } from '../../../src/game/core/engine.ts';
-import { homeLoanOffer } from '../../../src/game/core/bank.ts';
+import { buyPropertyWithLoan, homeLoanOffer } from '../../../src/game/core/bank.ts';
 import { downPayment } from '../../../src/game/core/finance.ts';
 import { getProgram, programsAt } from '../../../src/game/core/education.ts';
 import { dayOf, hourOf } from '../../../src/game/core/time.ts';
@@ -49,7 +49,7 @@ import { workStopped } from '../../../src/game/core/disasters.ts';
 import { GOOD_BONUS } from '../../../src/game/data/careers.ts';
 import { SKILL_KEYS } from '../../../src/game/core/types.ts';
 import { careerSummary, earnedOf, spentOf } from '../../../src/game/core/tally.ts';
-import type { PlayerState, Region, SkillKey } from '../../../src/game/core/types.ts';
+import type { ActionResult, PlayerState, Region, SkillKey } from '../../../src/game/core/types.ts';
 import { WA, WORLD } from '../../../src/game/data/wa.ts';
 import { paperChecklist, paperDone } from '../../../src/game/core/paperwork.ts';
 import { volunteerAt } from '../../../src/game/core/volunteer.ts';
@@ -177,6 +177,8 @@ interface Bot {
 		moodN: number;
 		/** 第十八轮：每个游戏日跨日后的长线快照；索引 0 是创角时。 */
 		moodByDay: number[];
+		/** 第二十四轮：每天 12:00 后第一个观测点；只作诊断，不改哨兵线。 */
+		moodNoonByDay: number[];
 		moodLateSum: number;
 		moodLateN: number;
 		moodLateBins: { sum: number; n: number }[];
@@ -196,6 +198,8 @@ interface Bot {
 		promoDays: number[];
 		homeDay?: number;
 		homeUpgradeDay?: number;
+		/** 第二十四轮：首次成功签下租约的游戏日。 */
+		leaseDay?: number;
 		/** 第二十三轮：购房动作的逐套审计记录。 */
 		propertyBuys: { day: number; id: string; use: 'self' | 'rental'; cashBefore: number; worthBefore: number }[];
 		diag: BackpackerDiagnostics;
@@ -264,6 +268,8 @@ interface RiskStats {
 	jobGross: number;
 	bonusGross: number;
 	bonusForegone: number;
+	badShiftsByLevel: [number, number, number];
+	bonusForegoneByLevel: [number, number, number];
 	careCashLoss: number;
 	jobLosses: number;
 	demotions: number;
@@ -583,6 +589,7 @@ const SECOND_PROPERTY_BY_LOC: Record<string, string> = {
 };
 const UPGRADE_HOME_BY_LOC: Record<string, string> = {
 	perth: 'flat',
+	kalgoorlie: 'flat',
 	'margaret-river': 'flat',
 	'coober-pedy': 'dugout',
 };
@@ -812,6 +819,7 @@ function blankRisk(s: PlayerState): RiskStats {
 		scheduledDays: 0,
 		missedRiskGross: 0, workStopLostGross: 0, sickLostGross: 0, collapseLostGross: 0,
 		goodShifts: 0, badShifts: 0, jobGross: 0, bonusGross: 0, bonusForegone: 0,
+		badShiftsByLevel: [0, 0, 0], bonusForegoneByLevel: [0, 0, 0],
 		careCashLoss: 0, jobLosses: 0, demotions: 0,
 		minMood: mood(s), minHealth: s.health, maxSleepDebt: debtNow(s), sleepDebtDays: 0, poorSleeps: 0,
 	};
@@ -899,7 +907,7 @@ function recordEducationAction(b: Bot, before: PlayerState, after: PlayerState, 
 }
 
 /** 尝试一个动作；成功则更新状态并统计 */
-function tryAct(b: Bot, a: GameAction): boolean {
+function tryAct(b: Bot, a: GameAction, run?: (state: PlayerState) => ActionResult): boolean {
 	const sys = OFF.size ? systemOf(a) : undefined;
 	if (sys && OFF.has(sys)) return (ecoOf(b).blocked[sys] = (ecoOf(b).blocked[sys] ?? 0) + 1), false;
 	const before = b.s;
@@ -908,7 +916,7 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		...b.s,
 		study: Object.fromEntries(Object.entries(b.s.study).map(([id, st]) => [id, { ...st, day: -999_999 }])),
 	} : b.s;
-	const r = applyAction(actionState, regionOf(b), a, simNow(b.s.clock));
+	const r = run ? run(actionState) : applyAction(actionState, regionOf(b), a, simNow(b.s.clock));
 	if (!r.ok) {
 		b.s = r.state;
 		return false;
@@ -931,7 +939,13 @@ function tryAct(b: Bot, a: GameAction): boolean {
 			const good = r.msg.includes('表现出色');
 			risk.jobGross += base + (good ? bonus : 0);
 			if (good) { risk.goodShifts++; risk.bonusGross += bonus; }
-			else { risk.badShifts++; risk.bonusForegone += bonus; }
+			else {
+				const level = Math.max(0, Math.min(2, before.job.level));
+				risk.badShifts++;
+				risk.bonusForegone += bonus;
+				risk.badShiftsByLevel[level]++;
+				risk.bonusForegoneByLevel[level] += bonus;
+			}
 			if (risk.day?.day === dayOf(before.clock)) risk.day.worked = true;
 		}
 	}
@@ -965,6 +979,7 @@ function tryAct(b: Bot, a: GameAction): boolean {
 		const route = VISA_ROUTES.find((x) => x.id === a.route);
 		if (route) b.stats.visaApplications.push({ day: dayOf(b.s.clock) + 1, route: route.id, from: before.visa.kind, to: route.to, fee: route.fee });
 	}
+	if (a.t === 'home' && a.op === 'rent' && !before.home && b.s.home) b.stats.leaseDay ??= dayOf(b.s.clock) + 1;
 	const newMilestones = b.s.hobby.got.filter((id) => !before.hobby.got.includes(id));
 	if (newMilestones.length) {
 		const gained = Math.max(0, b.s.respect - before.respect);
@@ -1143,10 +1158,13 @@ function buyHousingProperty(b: Bot, id: string, use: 'self' | 'rental', loan: bo
 	const need = (loan ? downPayment(def) : def.price) + reserve;
 	if (b.s.cash < need) return false;
 	if (loan && !b.s.bank.open) return tryAct(b, { t: 'bank', op: 'open' });
-	if (loan && 'blocked' in homeLoanOffer(b.s, id)) return false;
+	if (loan && 'blocked' in homeLoanOffer(b.s, id, use === 'rental' ? 'invest' : 'home')) return false;
 	const cashBefore = b.s.cash;
 	const worthBefore = netWorth(b.s);
-	if (!tryAct(b, { t: 'property', op: 'buy', id, loan })) return false;
+	const loanUse = use === 'rental' ? 'invest' : 'home';
+	if (!tryAct(b, { t: 'property', op: 'buy', id, loan }, loan
+		? (state) => buyPropertyWithLoan(state, regionOf(b), id, loanUse)
+		: undefined)) return false;
 	const day = dayOf(b.s.clock) + 1;
 	b.stats.propertyBuys.push({ day, id, use, cashBefore, worthBefore });
 	if (use === 'self') {
@@ -1168,7 +1186,7 @@ function stepHousingTrip(b: Bot): boolean {
 	if (!b.housingTrip) {
 		if (b.s.properties.some((p) => p.id === h.second)) return false;
 		if (dayOf(b.s.clock) % 7 !== 6 || b.s.loc !== b.plan.job?.loc) return false;
-		if (b.s.cash < downPayment(secondDef) + 3000 || 'blocked' in homeLoanOffer(b.s, h.second)) return false;
+		if (b.s.cash < downPayment(secondDef) + 3000 || 'blocked' in homeLoanOffer(b.s, h.second, 'invest')) return false;
 		b.housingTrip = { property: h.second, returnLoc: b.plan.job.loc };
 	}
 	const trip = b.housingTrip;
@@ -1761,7 +1779,9 @@ function step(b: Bot) {
 	const wantHome = wantHomeId ? getHome(wantHomeId) : undefined;
 	const canSign = rs && wantHome
 		? s.cash - moveInCost(s, wantHome) >= rs.cashReserve + wantHome.rentWeek * rs.moveInRentWeeks // 第十五轮：签完还留储备 + 两周租金
-		: postTopReady && wantHome ? s.cash - moveInCost(s, wantHome) >= Math.max(3000, wantHome.rentWeek * 8) : s.cash > (plan.rentAt ?? 400);
+		: postTopReady && wantHome ? s.cash - moveInCost(s, wantHome) >= Math.max(3000, wantHome.rentWeek * 8)
+			: !!wantHome && s.cash > (plan.rentAt ?? 400)
+				&& (plan.job?.career !== 'lifeguard' || s.cash - moveInCost(s, wantHome) >= CASH_CUSHION);
 	if (wantHomeId && !s.home && !b.hobbyTraveling && canSign) {
 		const want = plan.job?.loc ?? regionOf(b).spawn;
 		// 租房市场（rental 批次）：先看房再递申请（固定期限）；被拒当天这套房不可申请，第二天再来
@@ -1841,7 +1861,9 @@ function step(b: Bot) {
 		}
 		if (plan.housing && stepHousingPurchase(b)) return;
 		// 买房：首付之外还留 $3,000 周转；买了就搬进去。按揭要先开银行账户（banking.md），开户不花钱不花时间
-		const house = propertiesAt(s, regionOf(b)).find((o) => !o.owned && s.cash >= o.down + 3000);
+		// 有到顶后升级租房计划的路线忽略新增联排，保留原来的租房 / 海边木屋策略；--housing 仍会显式选择联排。
+		const house = propertiesAt(s, regionOf(b)).find((o) => !o.owned && s.cash >= o.down + 3000
+			&& !(plan.postTopHome && o.property.id === 'margaret-townhouse'));
 		if (house && !plan.invest && !plan.housing && !s.bank.open && s.properties.length === 0) tryAct(b, { t: 'bank', op: 'open' });
 		if (house && !plan.invest && !plan.housing && s.properties.length === 0 && tryAct(b, { t: 'property', op: 'buy', id: house.property.id, loan: s.cash < house.property.price + 3000 })) {
 			tryAct(b, { t: 'property', op: 'movein', id: house.property.id });
@@ -1992,7 +2014,7 @@ function runBot(plan: Plan, seed: number): Bot {
 	const livePlan = structuredClone(plan);
 	const b: Bot = {
 		s, plan: livePlan, rng: mulberry(seed * 7919),
-		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, moodByDay: [mood(s)], moodLateSum: 0, moodLateN: 0, moodLateBins: [{ sum: 0, n: 0 }, { sum: 0, n: 0 }, { sum: 0, n: 0 }], worthByDay: [netWorth(s)], collapsesByDay: [0], evictionsByDay: [0], visaExpiredByDay: [0], lateActions: {}, lateActionMinutes: {}, visaTransitions: [], visaApplications: [], shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], propertyBuys: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} }, risk: blankRisk(s), edu: {} },
+		stats: { biz: { gigs: {}, bankrupt: 0, shopNet: 0 }, swapBuys: 0, collapses: 0, evictions: 0, evict: { first: 0, later: 0, forced: 0 }, promotions: 0, events: 0, moodSum: 0, moodN: 0, moodByDay: [mood(s)], moodNoonByDay: [], moodLateSum: 0, moodLateN: 0, moodLateBins: [{ sum: 0, n: 0 }, { sum: 0, n: 0 }, { sum: 0, n: 0 }], worthByDay: [netWorth(s)], collapsesByDay: [0], evictionsByDay: [0], visaExpiredByDay: [0], lateActions: {}, lateActionMinutes: {}, visaTransitions: [], visaApplications: [], shifts: 0, daysBroke: 0, cashByDay: [s.cash], flow: {}, promoDays: [], propertyBuys: [], diag: blankDiagnostics(), ill: 0, sickMin: 0, coops: 0, coopOk: 0, coopKinds: {}, visaExpiredDays: 0, ielts: 0, hobby: { respect: 0, milestones: {} }, npc: { milestones: {}, gifts: 0, giftSpend: 0, perks: 0, perkMinutes: 0, perkNeeds: {}, perkActual: {} }, risk: blankRisk(s), edu: {} },
 		lb: { e: lbEntry(s, 0), now: 0, max: { worth: 0, respect: 0, dex: 0, places: 0 }, holds: 0, why: [] },
 	};
 	const end = s.clock + DAYS * 1440;
@@ -2005,6 +2027,10 @@ function runBot(plan: Plan, seed: number): Bot {
 		step(b);
 		if (sickAt) b.stats.sickMin += Math.max(0, Math.min(b.s.clock, sickAt) - before);
 		if (b.s.clock === before && !getPendingEvent(b.s)) act(b, 'rest'); // 防止原地打转
+		// 动作后的状态是跨过正午后的第一个观测点。长动作跨多天时，对每个被跨过的正午记同一个结束状态。
+		let noon = Math.floor(before / 1440) * 1440 + 720;
+		if (noon <= before) noon += 1440;
+		for (; noon <= b.s.clock && noon < end; noon += 1440) b.stats.moodNoonByDay[dayOf(noon)] ??= mood(b.s);
 		observeRiskDay(b);
 		const moodNow = mood(b.s);
 		b.stats.moodSum += moodNow;
@@ -2053,11 +2079,18 @@ const pct = (xs: number[], p: number) => {
 };
 const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
 const dist = (xs: number[]) => ({ mean: avg(xs), p90: pct(xs, 0.9), max: Math.max(...xs) });
-const maxBelowRun = (xs: number[], floor: number) => {
-	let best = 0, run = 0;
-	for (const x of xs) { run = x < floor ? run + 1 : 0; best = Math.max(best, run); }
-	return best;
+const maxBelowRunInfo = (xs: number[], floor: number) => {
+	let best = 0, bestStart = -1, run = 0, runStart = -1;
+	for (let i = 0; i < xs.length; i++) {
+		if (xs[i] < floor) {
+			if (!run) runStart = i;
+			run++;
+			if (run > best) { best = run; bestStart = runStart; }
+		} else run = 0;
+	}
+	return { len: best, start: bestStart };
 };
+const maxBelowRun = (xs: number[], floor: number) => maxBelowRunInfo(xs, floor).len;
 const money = (n: number) => `$${Math.round(n).toLocaleString('en-US')}`;
 
 const lines: string[] = [];
@@ -2292,6 +2325,7 @@ for (const plan of selectedPlans) {
 			moodDay180: pct(bots.map((b) => snap(b, b.stats.moodByDay, 180)), 0.5),
 			moodDay365: pct(bots.map((b) => snap(b, b.stats.moodByDay, 365)), 0.5),
 			moodMean181_365: avg(bots.map((b) => avg(b.stats.moodByDay.slice(181, 366)))),
+			moodNoonMean181_365: avg(bots.map((b) => avg(b.stats.moodNoonByDay.slice(181, 366).filter(Number.isFinite)))),
 			moodMeanLateBins: [[180, 240], [240, 300], [300, 365]].map(([a, z]) => avg(bots.map((b) => avg(b.stats.moodByDay.slice(a + 1, z + 1))))),
 			moodActionMean181_365: avg(bots.map((b) => b.stats.moodLateSum / Math.max(1, b.stats.moodLateN))),
 			moodActionMeanLateBins: [0, 1, 2].map((i) => avg(bots.map((b) => b.stats.moodLateBins[i].sum / Math.max(1, b.stats.moodLateBins[i].n)))),
@@ -2326,6 +2360,8 @@ for (const plan of selectedPlans) {
 			jobGross: b.stats.risk.jobGross,
 			bonusGross: b.stats.risk.bonusGross,
 			bonusForegone: b.stats.risk.bonusForegone,
+			badShiftsByLevel: b.stats.risk.badShiftsByLevel,
+			bonusForegoneByLevel: b.stats.risk.bonusForegoneByLevel,
 			missedRiskGross: b.stats.risk.missedRiskGross,
 			workStopLostGross: b.stats.risk.workStopLostGross,
 			sickLostGross: b.stats.risk.sickLostGross,
@@ -2336,6 +2372,8 @@ for (const plan of selectedPlans) {
 			evictions: b.stats.evictions,
 			lowCashDays: b.stats.daysBroke,
 			lowCashStreak: maxBelowRun(b.stats.cashByDay.slice(1, DAYS + 1), 20),
+			lowCashStreakStart: (() => { const x = maxBelowRunInfo(b.stats.cashByDay.slice(1, DAYS + 1), 20); return x.start < 0 ? null : x.start + 1; })(),
+			leaseDay: b.stats.leaseDay ?? null,
 			minMood: b.stats.risk.minMood,
 			minHealth: b.stats.risk.minHealth,
 			maxSleepDebt: b.stats.risk.maxSleepDebt,

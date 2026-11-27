@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction, publicState } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
-import { bankCapacity, bankIncome, buyFurnitureBnpl, homeLoanOffer } from '../../src/game/core/bank.ts';
+import { bankCapacity, bankIncome, buyFurnitureBnpl, buyPropertyWithLoan, homeLoanOffer } from '../../src/game/core/bank.ts';
 import {
 	amortized, bankDebt, bankWeekly, capacity, cardMinPay, repayDebt, cardOffer, carOffer, cashFee, cleanBank, creditScore, emptyBank, HIST_MAX, homeOffer, lenderScore, personalOffer, scoreBand, settleBank, type SettleHooks,
 } from '../../src/game/core/credit.ts';
@@ -556,6 +556,35 @@ test('合并 main：房贷审批按今天的利率指数测算，和实际扣的
 	if ('test' in want && 'test' in flatRate) assert.notEqual(want.test, flatRate.test, '利率指数确实改变了测算还款');
 });
 
+test('第二十四轮：投资房审批保留现住房租，并只按八成计入预期租金', () => {
+	const s = worker({
+		home: { type: 'room', loc: 'perth', furniture: {} },
+		nextWeek: 0,
+	});
+	const extraRent = rentOn(flat.rentIncome, 0);
+	const investCap = bankCapacity(s, false, extraRent);
+	const want = homeOffer(s.bank, 0, investCap, flat.price, downPayment(flat), Math.round(flat.price * FINANCE.weeklyPrincipal), FINANCE.weeklyRate * loanRateMult(0));
+	assert.deepEqual(homeLoanOffer(s, flat.id, 'invest'), want);
+	assert.equal(investCap, capacity(bankIncome(s), extraRent, weeklyCosts(s).total));
+	assert.ok(investCap <= bankCapacity(s, true) + Math.floor(extraRent * BANK.rentShade * BANK.dsr));
+});
+
+test('第二十四轮：工具可按投资口径成交，玩家动作仍默认按自住口径', () => {
+	const s = worker({
+		cash: 30000,
+		loc: 'margaret-river',
+		home: { type: 'room', loc: 'margaret-river', furniture: {} },
+		job: { career: 'guide', loc: 'margaret-river', level: 2, shifts: 0, good: 0, lastDay: -1 },
+		certs: ['wilderness-first-aid'],
+		nextWeek: 0,
+	});
+	s.bank.card = { limit: 500, bal: 0, missed: 0 };
+	assert.ok('blocked' in homeLoanOffer(s, 'margaret-beach-house', 'home'));
+	assert.ok(!('blocked' in homeLoanOffer(s, 'margaret-beach-house', 'invest')));
+	assert.equal(buyPropertyWithLoan(s, WA, 'margaret-beach-house').ok, false, '缺省仍是玩家自住口径');
+	assert.equal(buyPropertyWithLoan(s, WA, 'margaret-beach-house', 'invest').ok, true, '模拟工具可显式用投资口径');
+});
+
 test('合并 main：邻里换手墙卖车也要先还清车贷', () => {
 	const s = applyAction(worker({ cash: 3000 }), WA, { t: 'bank', op: 'carloan', id: car.id }).state;
 	const good = SWAP_GOODS.find((g) => g.kind === 'vehicle' && g.ref === car.id)!;
@@ -657,4 +686,3 @@ test('复核：还款能力算上自己店每周的固定开销和欠税分期�
 		assert.ok(offer.lmi > 0 && note.loan! > offer.loan - offer.lmi);
 	}
 });
-

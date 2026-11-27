@@ -3,12 +3,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { applyAction, parseAction } from '../../src/game/core/actions.ts';
 import { createCharacter, sanitizeState } from '../../src/game/core/character.ts';
-import { applyVisa, canWork, degreeOf, ieltsAt, regionalCategory, routeUnmet, settleVisa, takeIelts, visaAge, visaKindNow, visaOptions, visaPoints, visaWorkBlocked } from '../../src/game/core/immigration.ts';
+import { applyVisa, canWork, degreeOf, ieltsAt, regionalCategory, routeUnmet, settleVisa, takeIelts, visaAge, visaExperienceDays, visaKindNow, visaOptions, visaPoints, visaWorkBlocked } from '../../src/game/core/immigration.ts';
 import { visaBlocked, visaCapped } from '../../src/game/core/visa.ts';
 import { shiftBlocked } from '../../src/game/core/engine.ts';
 import { venueAction } from '../../src/game/core/venues.ts';
 import { SYSTEM_IDS, systemOf } from '../../tools/earth/balance/systems.ts';
-import { cleanVisa, newVisa } from '../../src/game/core/visa-save.ts';
+import { cleanVisa, cleanVisaExp, newVisa } from '../../src/game/core/visa-save.ts';
 import { visaCardHtml } from '../../src/game/ui/visa-card.ts';
 import { CAREERS } from '../../src/game/data/careers.ts';
 import { ACTIVITIES } from '../../src/game/data/activities.ts';
@@ -40,7 +40,8 @@ test('数据：路线 id 唯一、起止状态存在、费用为正；职业对�
 		const c = CAREERS.find((x) => x.id === o.career);
 		assert.ok(c, o.career);
 		assert.ok(o.minLevel >= 0 && o.minLevel < c!.levels.length, o.career);
-		assert.ok(o.skilled || o.sponsor, o.career);
+		assert.ok(o.skilled || o.regional || o.sponsor, o.career);
+		if (o.skilled) assert.equal(o.regional, true, `${o.career} 的技术职业也能走偏远提名`);
 	}
 	for (let i = 1; i < POINTS.age.length; i++) assert.equal(POINTS.age[i][0], POINTS.age[i - 1][1] + 1);
 	assert.equal(POINTS.age.at(-1)![1], R.points.maxAge - 1, '45 岁起不能打分');
@@ -96,6 +97,12 @@ test('存档：旧存档没有 visa 按今天补开局签证；坏值不抛异�
 	assert.equal(cleanVisa({ kind: 'pr', until: 99 }, 'student', 5, careers).until, -1, 'PR 不会到期');
 	assert.equal(newVisa('fifo', 3).kind, 'none');
 	assert.deepEqual(cleanVisa({ kind: 'graduate', had: 'graduate' }, 'student', 5, careers).had, [], '坏的 had 清成空列表');
+	const oldVisa = { ...s.visa, exp: 60, occ: 'barista' };
+	assert.deepEqual(cleanVisaExp(undefined, oldVisa, careers), { barista: 60 }, '旧档把总经验给最后职业');
+	const dirty = { barista: 20, 'it-support': 10, nope: 99, bad: NaN, negative: -2 };
+	const cleaned = cleanVisaExp(dirty, oldVisa, careers);
+	assert.deepEqual(cleaned, { barista: 50, 'it-support': 10 });
+	assert.deepEqual(cleanVisaExp(cleaned, oldVisa, careers), cleaned, '分职业经验清洗幂等');
 });
 
 test('打分：刚毕业的留学生 60 分；190 加 5、491 加 15；年龄、英语、经验分档', () => {
@@ -189,7 +196,7 @@ test('482 → 186：要在担保职业的对应等级、经验 1 年；担保下
 	assert.match(routeUnmet({ ...junior, job: { ...junior.job, level: 1 } }, WA, 'sponsored')!, /不在担保职业/, '咖啡师还不算，要店长');
 	const manager = { ...junior, job: { ...junior.job, level: 2 } };
 	assert.match(routeUnmet(manager, WA, 'sponsored')!, /经验要 1 年/);
-	const r = applyVisa({ ...manager, visa: { ...manager.visa, exp: Y } }, WA, 'sponsored');
+	const r = applyVisa({ ...manager, visa: { ...manager.visa, exp: Y, occ: 'barista' }, visaExp: { barista: Y } }, WA, 'sponsored');
 	assert.ok(r.ok, r.msg);
 	assert.deepEqual(r.state.visa.sponsor, { career: 'barista', days: 0 });
 	assert.equal(r.state.visa.until, 95 + 4 * Y);
@@ -197,6 +204,7 @@ test('482 → 186：要在担保职业的对应等级、经验 1 年；担保下
 	const shift = applyAction(r.state, WA, { t: 'job', op: 'work' });
 	assert.ok(shift.ok, shift.msg);
 	assert.equal(shift.state.visa.exp, Y + 1);
+	assert.equal(shift.state.visaExp.barista, Y + 1);
 	assert.equal(shift.state.visa.sponsor!.days, 1);
 	assert.equal(shift.state.visa.occ, 'barista');
 	const after = applyAction(shift.state, WA, { t: 'activity', id: 'rest' });
@@ -208,6 +216,18 @@ test('482 → 186：要在担保职业的对应等级、经验 1 年；担保下
 	assert.equal(ens.state.visa.until, -1);
 	assert.equal(visaOptions(ens.state, WA).length, 0, 'PR 之后没有路线');
 	assert.ok(canWork({ ...ens.state, clock: at(10, 9999) }), 'PR 不会过期');
+});
+
+test('第二十四轮：持 482 换职业可重新担保，同职业不得重复交费', () => {
+	const job = { career: 'barista', loc: 'perth', level: 2, shifts: 40, good: 20, lastDay: -1 };
+	const sponsored = graduate({ job }, { kind: 'sponsored', until: 999, ielts: 6, exp: 2 * Y, occ: 'barista', sponsor: { career: 'barista', days: Y } });
+	assert.match(routeUnmet(sponsored, WA, 'sponsored')!, /已经在这份职业的担保下/);
+	const switched = { ...sponsored, job: { ...job, career: 'carer', level: 1 }, visaExp: { barista: Y, carer: Y } };
+	assert.equal(routeUnmet(switched, WA, 'sponsored'), undefined);
+	const r = applyVisa(switched, WA, 'sponsored');
+	assert.ok(r.ok, r.msg);
+	assert.deepEqual(r.state.visa.sponsor, { career: 'carer', days: 0 });
+	assert.equal(r.state.cash, switched.cash - 750);
 });
 
 test('学徒的班不算清单职业经验', () => {
@@ -225,6 +245,11 @@ test('打分类：要技术移民清单职业的经验、45 岁以下、雅思 6
 	const g = graduate({}, { ielts: 6, exp: Y, occ: 'barista' });
 	assert.match(routeUnmet(g, WA, 'skilled')!, /技术移民清单/);
 	assert.equal(routeUnmet(g, WA, 'regional'), undefined, '咖啡馆经理能走 491');
+	for (const career of ['bartender', 'lifeguard', 'trucker']) {
+		const blocked = graduate({ job: { career, loc: 'perth', level: 2, shifts: 0, good: 0, lastDay: -1 }, visaExp: { [career]: Y } }, { ielts: 6, exp: Y, occ: career });
+		assert.match(routeUnmet(blocked, WA, 'regional')!, /州担保偏远地区清单/);
+		assert.equal(routeUnmet(blocked, WA, 'sponsored'), undefined, `${career} 仍可走 482`);
+	}
 	const m = graduate({}, { ielts: 6, exp: Y, occ: 'miner' });
 	assert.match(routeUnmet(graduate({}, { ielts: 6, exp: Y - 1, occ: 'miner' }), WA, 'skilled')!, /经验要 1 年/);
 	assert.equal(visaPoints(m).total, 65, '60 + 一年经验 5 分');
@@ -242,6 +267,20 @@ test('打分类：要技术移民清单职业的经验、45 岁以下、雅思 6
 	const pr = applyVisa(m, WA, 'state');
 	assert.ok(pr.ok && pr.state.visa.kind === 'pr', pr.msg);
 	assert.equal(pr.state.respect, m.respect + 10);
+});
+
+test('第二十四轮：签证经验按职业分开，上一班 IT 不能把咖啡经验变成 189 经验', () => {
+	const s = graduate({
+		job: { career: 'it-support', loc: 'perth', level: 0, shifts: 1, good: 0, lastDay: 95 },
+		visaExp: { barista: Y, 'it-support': 1 },
+	}, { ielts: 6, exp: Y + 1, occ: 'it-support' });
+	assert.equal(visaExperienceDays(s, 'barista'), Y);
+	assert.equal(visaExperienceDays(s, 'it-support'), 1);
+	assert.match(routeUnmet(s, WA, 'skilled')!, /经验要 1 年/);
+	assert.equal(visaPoints(s, undefined, visaExperienceDays(s, 'it-support')).lines.find((l) => l.label.includes('本行经验'))!.pts, 0);
+	assert.match(visaCardHtml(s, WA), /技术移民打分：60 分/, '签证卡总分也只能用最好的技术职业经验，不能混入咖啡经验');
+	assert.equal(routeUnmet(s, WA, 'regional'), undefined, '旧咖啡经验仍可用来申请 491');
+	assert.match(routeUnmet(s, WA, 'sponsored')!, /经验要 1 年/, '482 也只认当前 IT 经验');
 });
 
 test('491 → 191：住满 3 年、期间一半日子在上班才能转永居', () => {

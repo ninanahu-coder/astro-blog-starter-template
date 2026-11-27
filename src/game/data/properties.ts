@@ -7,6 +7,7 @@ export const PROPERTIES: PropertyDef[] = [
 	// 河景公寓（和阿德莱德青石小屋同档）平衡第十一轮 90000 / 36 / 135 → 70000 / 28 / 105：首付门槛下降，收益率不变（balance.md 第十一轮）
 	{ id: 'perth-apartment', name: '河景公寓', loc: 'perth', homeType: 'flat', price: 70000, priceWas: 90000, weekly: 28, rentIncome: 105, desc: '市中心的一居室，阳台对着天鹅河。' },
 	{ id: 'freo-terrace', name: '石灰岩联排', loc: 'fremantle', homeType: 'beach', price: 140000, weekly: 56, rentIncome: 210, desc: '老港口的百年联排，走路到海滩和市集。' },
+	{ id: 'margaret-townhouse', name: '镇中心联排', loc: 'margaret-river', homeType: 'flat', price: 100000, weekly: 40, rentIncome: 150, desc: '主街后面的两层联排，走路到超市和咖啡街，后院能晾冲浪服。' },
 	{ id: 'margaret-beach-house', name: '海边木屋', loc: 'margaret-river', homeType: 'beach', price: 220000, weekly: 88, rentIncome: 330, desc: '浪点后面的木屋，露台上能听到潮声。' },
 	// 第 45 轮（南澳）：价格、物业费、租金照搬西澳同档的房子（阿德莱德 = 珀斯公寓，格莱内尔格 = 弗里曼特尔联排，库伯佩迪 = 卡尔古利小屋），待平衡
 	{ id: 'adelaide-villa', name: '青石小屋', loc: 'adelaide', homeType: 'flat', price: 70000, priceWas: 90000, weekly: 28, rentIncome: 105, desc: '阿德莱德老城区的青石平房，前廊有铸铁花边。' },

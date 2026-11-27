@@ -263,6 +263,8 @@ test('第十七轮 --matrix：十个部门 × 四种出身恰好 40 条 mx-* 路
 });
 
 test('第二十三轮 --housing：十部门 + 库伯佩迪 × 七种住法，同 pair 同种子配对，记录买房与出租', () => {
+	const source = readFileSync(join(ROOT, 'tools/earth/balance/sim.ts'), 'utf8');
+	assert.match(source, /plan\.postTopHome && o\.property\.id === 'margaret-townhouse'/);
 	const run = sim('--housing', '--days=3', '--runs=2', '--format=json');
 	assert.equal(run.status, 0, run.stderr);
 	const plans = JSON.parse(run.stdout).plans;
@@ -270,6 +272,7 @@ test('第二十三轮 --housing：十部门 + 库伯佩迪 × 七种住法，同
 	const variants = ['room', 'upgrade', 'cash-home', 'loan-home', 'rental', 'second', 'savings'];
 	assert.deepEqual([...new Set(plans.map((p: { housing: { variant: string } }) => p.housing.variant))].sort(), [...variants].sort());
 	assert.equal(new Set(plans.map((p: { housing: { pair: string } }) => p.housing.pair)).size, 11);
+	assert.equal(plans.find((p: { id: string }) => p.id === 'housing-guide-loan-home').housing.property, 'margaret-townhouse');
 	for (const p of plans) {
 		assert.deepEqual(p.housing.seeds.map((s: { seed: number }) => s.seed), [1, 2], p.id);
 		for (const k of ['firstBuyDay', 'secondBuyDay', 'netWorthDay365', 'cashDay365', 'forcedSales', 'rented', 'buys', 'netWorthByDay', 'cashByDay']) assert.ok(k in p.housing.seeds[0], `${p.id}.${k}`);
@@ -291,7 +294,7 @@ test('第二十三轮 --housing：十部门 + 库伯佩迪 × 七种住法，同
 	const year = sim('--housing', '--only=housing-miner-upgrade,housing-miner-coober-upgrade,housing-miner-rental,housing-miner-second', '--days=365', '--runs=1', '--format=json');
 	assert.equal(year.status, 0, year.stderr);
 	const byId = Object.fromEntries(JSON.parse(year.stdout).plans.map((p: { id: string }) => [p.id, p]));
-	assert.equal(byId['housing-miner-upgrade'].long.homeUpgradeShare, 0, '卡尔古利没有一居室可租，升级策略应留在合租房');
+	assert.equal(byId['housing-miner-upgrade'].long.homeUpgradeShare, 1, '卡尔古利升级到一居室');
 	assert.equal(byId['housing-miner-upgrade'].long.evictions181_365, 0);
 	assert.equal(byId['housing-miner-coober-upgrade'].long.homeUpgradeShare, 1, '库伯佩迪升级到地下屋');
 	const rental = byId['housing-miner-rental'].housing.seeds[0];
@@ -418,7 +421,7 @@ test('第十八轮：短跑 JSON 不带 long；365 天带 long 字段，导游�
 		for (const q of ['p10', 'median', 'p90']) assert.equal(typeof l[k][q], 'number', `${k}.${q}`);
 	}
 	for (const k of ['cashNetPerDayLateBins', 'worthGrowthPerDayLateBins', 'moodMeanLateBins', 'moodActionMeanLateBins']) assert.equal(l[k].length, 3, k);
-	for (const k of ['worthGrowthPerDay181_365', 'moodMean181_365', 'collapses181_365', 'evictions181_365', 'lowCashDays181_365', 'visaExpiredDays181_365']) assert.equal(typeof l[k], 'number', k);
+	for (const k of ['worthGrowthPerDay181_365', 'moodMean181_365', 'moodNoonMean181_365', 'collapses181_365', 'evictions181_365', 'lowCashDays181_365', 'visaExpiredDays181_365']) assert.equal(typeof l[k], 'number', k);
 	assert.equal(typeof l.visaTransitions, 'object');
 	assert.equal(l.homeUpgradeShare, 1);
 	assert.ok(l.homeUpgradeDay.median >= 112, `升级日 ${l.homeUpgradeDay.median}`);
@@ -432,11 +435,28 @@ test('第二十轮 --risk：沿用十部门长线选择，JSON 带汇总和逐�
 	assert.equal(r.status, 0, r.stderr);
 	const risk = JSON.parse(r.stdout).plans[0].risk;
 	assert.equal(risk.seeds.length, 2);
+	for (const seed of risk.seeds) {
+		assert.equal(seed.badShiftsByLevel.reduce((a: number, b: number) => a + b, 0), seed.badShifts);
+		assert.equal(seed.bonusForegoneByLevel.reduce((a: number, b: number) => a + b, 0), seed.bonusForegone);
+		assert.ok(seed.lowCashStreakStart === null || Number.isInteger(seed.lowCashStreakStart));
+		assert.ok(seed.leaseDay === null || Number.isInteger(seed.leaseDay));
+	}
 	for (const k of ['workStopDays', 'sickLeaveDays', 'collapseDays', 'missedRiskGross', 'badShifts', 'jobLosses', 'demotions', 'lowCashDays', 'lowCashStreak']) {
 		for (const q of ['mean', 'p90', 'max']) assert.equal(typeof risk[k][q], 'number', `${k}.${q}`);
 	}
 	for (const q of ['p10', 'median', 'p90']) assert.equal(typeof risk.netWorth[q], 'number', `netWorth.${q}`);
 	assert.match(sim('--risk', '--only=barista', '--days=5', '--runs=1').stdout, /职业风险尾部（--risk）/);
+});
+
+test('第二十四轮：只让救生机器人签约后至少留 $200', () => {
+	const source = readFileSync(join(ROOT, 'tools/earth/balance/sim.ts'), 'utf8');
+	assert.match(source, /s\.cash - moveInCost\(s, wantHome\) >= CASH_CUSHION/);
+	assert.match(source, /plan\.job\?\.career !== 'lifeguard' \|\| s\.cash - moveInCost\(s, wantHome\) >= CASH_CUSHION/);
+	const r = sim('--risk', '--only=lifeguard', '--runs=1', '--seed-offset=19', '--days=30', '--format=json');
+	assert.equal(r.status, 0, r.stderr);
+	const seed = JSON.parse(r.stdout).plans[0].risk.seeds[0];
+	assert.ok(seed.leaseDay !== null && seed.leaseDay <= 30);
+	assert.equal(seed.lowCashStreak, 0);
 });
 
 test('第十九轮 --switch：跨部门仍从头晋升，同部门跨城在入职日恢复原职级', () => {
