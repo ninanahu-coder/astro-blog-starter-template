@@ -10,7 +10,7 @@ import { rentOn } from './world.ts';
 export const emptyRental = (): RentalState => ({ lease: null, refs: 0, marks: 0, viewed: null, rejected: null, claim: null, scam: -1 });
 
 /** 这种房型签不签租约：房车营地不是住宅租约，照旧直接租 */
-export const needsLease = (home: HomeDef) => !home.vehicleSleep;
+export const needsLease = (home: HomeDef) => !home.vehicleSleep && !home.employerCareer;
 
 /** 真实规则：这个区域、这个周租下押金最多几周（BOND_LAW）。未知区域按最严的 4 周 */
 export function bondCapWeeks(rentWeek: number, area: string): number {

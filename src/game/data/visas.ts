@@ -126,8 +126,8 @@ export interface OccupationDef {
 }
 
 export const OCCUPATIONS: OccupationDef[] = [
-	{ career: 'barista', title: '咖啡馆经理', minLevel: 2, skilled: false, regional: true, sponsor: true }, // WA 州担保扩展职业；SA 以游戏可玩性合并处理
-	{ career: 'bartender', title: '酒吧经理', minLevel: 2, skilled: false, regional: false, sponsor: true },
+	{ career: 'barista', title: '咖啡馆经理', minLevel: 2, skilled: false, regional: true, sponsor: true }, // 141111：SA 491 已核实；WA 当轮 Schedule 2 获邀，但逐签证清单无法从现有材料核实
+	{ career: 'bartender', title: '酒吧经理', minLevel: 2, skilled: false, regional: false, sponsor: true }, // ANZSCO 无独立“酒吧经理”；最接近的 141211 在 SA 不在列；141311 酒店经理虽在 SA 491、WA 当轮获邀，但不对应本职业
 	{ career: 'lifeguard', title: '水上安全主管', minLevel: 2, skilled: false, regional: false, sponsor: true },
 	{ career: 'guide', title: '旅游团领队', minLevel: 2, skilled: true, regional: true, sponsor: true },
 	{ career: 'miner', title: '矿山设备操作员', minLevel: 1, skilled: true, regional: true, sponsor: true },
@@ -135,7 +135,7 @@ export const OCCUPATIONS: OccupationDef[] = [
 	{ career: 'farmhand', title: '农场主管', minLevel: 2, skilled: true, regional: true, sponsor: true },
 	// 合并 main 时补上 main 的三个持证职业（visa.md §9 原本就列为合并时要做）。等级和能走哪条路是游戏取值，待平衡
 	{ career: 'builder', title: '建筑工长', minLevel: 1, skilled: true, regional: true, sponsor: true },
-	{ career: 'carer', title: '养老护理员', minLevel: 1, skilled: false, regional: true, sponsor: true }, // WA / SA 官方逐项状态待下轮联网核验，本轮先保留可玩路径
+	{ career: 'carer', title: '养老护理员', minLevel: 1, skilled: false, regional: false, sponsor: true }, // 423111：SA 不在列；WA 逐项状态无法从现有官方材料核实，保留 482→186 路
 	{ career: 'it-support', title: 'ICT 支持工程师', minLevel: 0, skilled: true, regional: true, sponsor: true },
 ];
 

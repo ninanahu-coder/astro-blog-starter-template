@@ -76,7 +76,7 @@ export function carLoanButton(s: PlayerState, id: string, net: number, esc: Esc)
 	if (!s.bank.open || net <= 0) return '';
 	const o = carOffer(s.bank, dayOf(s.clock), bankCapacity(s), net);
 	const why = 'blocked' in o ? o.blocked : s.cash < o.down ? `首付需要 $${o.down}` : '';
-	return `<button data-bank="carloan" data-bank-id="${esc(id)}" ${why ? `disabled title="${esc(why)}"` : ''}>${'blocked' in o ? '车贷' : `车贷（首付 $${o.down}，每周 $${o.pay}）`}</button>`;
+	return `<button data-bank="carloan" data-bank-id="${esc(id)}" data-bank-first="${'blocked' in o ? 0 : o.down}" ${why ? `disabled title="${esc(why)}"` : ''}>${'blocked' in o ? '车贷' : `车贷（首付 $${o.down}，每周 $${o.pay}）`}</button>`;
 }
 
 /** 家具的「先买后付」按钮 */

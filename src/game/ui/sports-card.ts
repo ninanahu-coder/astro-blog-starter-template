@@ -18,7 +18,7 @@ export function sportsCard(s: PlayerState, region: Region, esc: Esc): string {
 	if (!soon.length && !clubsHere.length && !clubDef && !results.length && !forms.length) return '';
 	const today = dayOf(s.clock);
 	const locName = (id: string) => getLocation(region, id)?.name ?? id;
-	const btn = (op: string, id: string, label: string, blocked?: string) => `<button data-sport="${op}" data-sport-id="${esc(id)}"${blocked ? ` disabled title="${esc(blocked)}"` : ''}>${esc(label)}</button>`;
+	const btn = (op: string, id: string, label: string, blocked?: string, cost = 0) => `<button data-sport="${op}" data-sport-id="${esc(id)}" data-cash-cost="${cost}" data-cash-label="${esc(label)}"${blocked ? ` disabled title="${esc(blocked)}"` : ''}>${esc(label)}</button>`;
 
 	const formHtml = forms.length
 		? `<p>准备度：${forms.map(({ sp, v }) => `${sp.icon} ${esc(sp.name)} ${v}`).join(' · ')}</p>`
@@ -34,7 +34,7 @@ export function sportsCard(s: PlayerState, region: Region, esc: Esc): string {
 		const status = o.done ? '这一届已经比过了' : o.entered ? `已报名 · 完赛把握约 ${odds.finish}%，上领奖台约 ${odds.podium}%` : `完赛把握约 ${odds.finish}%`;
 		const ref = r.ref ? ` 参照：${r.ref.name}（${r.ref.date}，${r.ref.status}）。` : '';
 		const buttons = [
-			r.fee > 0 && !o.entered && !o.done ? btn('enter', r.id, `报名 $${o.fee}`, o.enterBlocked) : '',
+			r.fee > 0 && !o.entered && !o.done ? btn('enter', r.id, `报名 $${o.fee}`, o.enterBlocked, o.fee) : '',
 			o.startsIn === 0 && !o.done ? btn('race', r.id, '参赛', o.raceBlocked) : '',
 		].join('');
 		const why = o.startsIn === 0 && !o.done && o.raceBlocked ? o.raceBlocked : !o.entered && !o.done && r.fee > 0 && o.enterBlocked && o.enterBlocked !== '已报名' ? o.enterBlocked : '';
@@ -47,11 +47,11 @@ export function sportsCard(s: PlayerState, region: Region, esc: Esc): string {
 		const why = clubSessionBlocked(s, region);
 		const bonus = clubBonusFor(s, clubDef.sport);
 		clubHtml = `<p style="margin-top:10px">${clubDef.icon} ${esc(clubDef.name)} · ${esc(left > 0 ? `会员还剩 ${left} 天` : '会费已到期')} · 训练课 ${hoursLabel(clubDef.meet)} 在${esc(locName(clubDef.loc))}。队友：${clubDef.mates.map((m) => `${m.icon} ${esc(m.name)}`).join('、')}。${bonus ? esc(`最近练过，同项目比赛 +${bonus}。`) : ''}</p>
-			<div class="inline" style="margin-top:6px">${btn('club', clubDef.id, '上训练课', why)}${clubDef.loc === s.loc ? btn('join', clubDef.id, `续费 $${clubDef.fee}`, s.cash < clubDef.fee ? '钱不够' : undefined) : ''}${btn('quit', clubDef.id, '退出')}</div>${why && left > 0 ? `<p class="muted">${esc(why)}</p>` : ''}`;
+			<div class="inline" style="margin-top:6px">${btn('club', clubDef.id, '上训练课', why)}${clubDef.loc === s.loc ? btn('join', clubDef.id, `续费 $${clubDef.fee}`, s.cash < clubDef.fee ? '钱不够' : undefined, clubDef.fee) : ''}${btn('quit', clubDef.id, '退出')}</div>${why && left > 0 ? `<p class="muted">${esc(why)}</p>` : ''}`;
 	}
 	const joinable = clubsHere.filter((c) => c.id !== club?.id);
 	if (joinable.length) {
-		clubHtml += joinable.map((c) => `<div class="row" style="margin-top:8px"><span class="ico">${c.icon}</span><span class="body">${esc(c.name)} · $${c.fee}/${SPORT_RULES.clubDays} 天<small>${esc(`${getSport(c.sport)?.name ?? ''} · 训练课 ${hoursLabel(c.meet)} · ${c.desc}${club ? ' 加入后会退出现在的俱乐部。' : ''}`)}</small></span>${btn('join', c.id, '加入', s.cash < c.fee ? '钱不够' : undefined)}</div>`).join('');
+		clubHtml += joinable.map((c) => `<div class="row" style="margin-top:8px"><span class="ico">${c.icon}</span><span class="body">${esc(c.name)} · $${c.fee}/${SPORT_RULES.clubDays} 天<small>${esc(`${getSport(c.sport)?.name ?? ''} · 训练课 ${hoursLabel(c.meet)} · ${c.desc}${club ? ' 加入后会退出现在的俱乐部。' : ''}`)}</small></span>${btn('join', c.id, '加入', s.cash < c.fee ? '钱不够' : undefined, c.fee)}</div>`).join('');
 	}
 
 	const resHtml = results.length

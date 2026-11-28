@@ -469,7 +469,7 @@ function regionOf(b: Bot): Region {
 const PLANS: Plan[] = [
 	{ id: 'barista', name: '咖啡店上班族（珀斯，合租）', origin: 'student', traits: ['charming', 'neat'], job: { loc: 'perth', career: 'barista' }, home: 'room', npc: { id: 'mia', gift: 'none' } },
 	{ id: 'lifeguard', name: '救生员（珀斯，公寓）', origin: 'surfer', traits: ['waterborn', 'athletic'], job: { loc: 'perth', career: 'lifeguard' }, home: 'flat' },
-	{ id: 'miner', name: '矿工（卡尔古利，合租）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'kalgoorlie', career: 'miner' }, home: 'room' },
+	{ id: 'miner', name: '矿工（卡尔古利，公司营地）', origin: 'fifo', traits: ['athletic', 'tough'], job: { loc: 'kalgoorlie', career: 'miner' }, home: 'mine-camp' },
 	{ id: 'drifter', name: '打零工的背包客（无房）', origin: 'backpacker', traits: ['loner', 'frugal'], roam: true },
 	{
 		id: 'drifter-safe', name: '保守背包客（无房，少漫游）', origin: 'backpacker', traits: ['loner', 'frugal'], spend: false,
@@ -574,7 +574,7 @@ const MATRIX_PLANS: Plan[] = MATRIX_IDS.flatMap((id) => {
 });
 
 /**
- * 第二十三轮 --housing 住房路线。所有路线固定先租合租房间，只替换住房决策；`savings` 是 3% 高息储蓄的机会成本对照。
+ * 第二十三轮 --housing 住房路线。除第二十五轮矿工 `room` 对照改用公司营地外，其余路线固定先租合租房间；`savings` 是 3% 高息储蓄的机会成本对照。
  * 第二套房必须亲自到异地成交，再挂牌出租并回工作地；地图上每个代表工作地只有一套可买房，不能在原地重复买。
  */
 const HOUSING_BASES: { pair: string; base: Plan }[] = [
@@ -606,11 +606,12 @@ const HOUSING_PLANS: Plan[] = HOUSING_BASES.flatMap(({ pair, base }) => {
 	if (!property) throw new Error(`住房哨兵 ${pair} 的工作地 ${base.job?.loc} 没有可买房产`);
 	return HOUSING_VARIANTS.map((variant) => {
 		const clone = structuredClone(base);
+		const companyCamp = (pair === 'miner' || pair === 'miner-coober') && variant === 'room';
 		return {
 			...clone,
 			id: `housing-${pair}-${variant}`,
-			name: `${HOUSING_PAIR_LABEL[pair] ?? pair} · ${HOUSING_LABEL[variant]}`,
-			home: 'room',
+			name: `${HOUSING_PAIR_LABEL[pair] ?? pair} · ${companyCamp ? '公司营地' : HOUSING_LABEL[variant]}`,
+			home: companyCamp ? 'mine-camp' : 'room',
 			postTopHome: variant === 'upgrade' ? UPGRADE_HOME_BY_LOC[property.loc] : undefined,
 			invest: variant === 'savings' ? { asset: 'savings', keep: 3000 } : undefined,
 			housing: { pair, variant, property: property.id, second: variant === 'second' ? SECOND_PROPERTY_BY_LOC[property.loc] : undefined },
@@ -715,10 +716,10 @@ const SWITCH_PLANS: Plan[] = [
 	},
 	{
 		id: 'switch-miner-port-hedland-d120', name: '换岗哨兵：矿工卡尔古利→黑德兰港（第 120 天）', origin: 'fifo', traits: ['athletic', 'tough'],
-		job: { loc: 'kalgoorlie', career: 'miner' }, home: 'room', spend: false, remoteSafety: { ...REMOTE_SAFETY },
+		job: { loc: 'kalgoorlie', career: 'miner' }, home: 'mine-camp', spend: false, remoteSafety: { ...REMOTE_SAFETY },
 		transition: {
 			kind: 'transfer', day: 120,
-			to: { job: { loc: 'port-hedland', career: 'miner' }, home: 'room', spend: false, remoteSafety: { ...REMOTE_SAFETY } },
+			to: { job: { loc: 'port-hedland', career: 'miner' }, home: 'mine-camp', spend: false, remoteSafety: { ...REMOTE_SAFETY } },
 		},
 	},
 ];
@@ -1316,7 +1317,8 @@ function stepSafeDrifter(b: Bot) {
  * 房产少了又不是自己卖的（sold）= 断供强制卖房。tryAct 和 tryCoop 都要调（两条路都会推进时间、跨周结算）
  */
 function countLoss(b: Bot, before: PlayerState, sold: boolean): void {
-	if (before.home && !before.home.owned && !b.s.home) {
+	// 公司床位随职位收回不是欠租收房；换岗会正常退床，不能污染“收房 / 断供”哨兵。
+	if (before.home && !before.home.owned && !getHome(before.home.type)?.employerCareer && !b.s.home) {
 		const lease = before.rental.lease;
 		// 租约还没过结算日（签约在上一个结算日当天或之后）：这是首个结算期被收房
 		(lease && lease.start >= before.nextWeek - 7 ? b.stats.evict.first++ : b.stats.evict.later++);

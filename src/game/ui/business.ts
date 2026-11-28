@@ -26,7 +26,7 @@ export function bizCard(s: PlayerState, region: Region, esc: (s: unknown) => str
 	const today = dayOf(s.clock);
 	const gigHtml = gigs.map(({ gig, range, blocked }) => `
 		<div class="row" style="margin-top:8px"><span class="ico">${gig.icon}</span><span class="body">${esc(gig.name)} · ${money(range[0])}–${money(range[1])}<small>${esc(blocked ?? `${gig.desc} ${Math.round(gig.minutes / 60 * 10) / 10} 小时${gig.cost ? `，先垫 ${money(gig.cost)}` : ''}`)}</small></span>
-		<button data-biz="gig" data-biz-id="${esc(gig.id)}" ${dis(blocked, esc)}>去做</button></div>`).join('');
+		<button data-biz="gig" data-biz-id="${esc(gig.id)}" data-cash-cost="${gig.cost ?? 0}" data-cash-label="${esc(gig.name)}" ${dis(blocked, esc)}>去做</button></div>`).join('');
 	let shopHtml = '';
 	if (sum) {
 		const { shop, type, site, daily, recentNet, recentSold, closeAt } = sum;
@@ -36,7 +36,7 @@ export function bizCard(s: PlayerState, region: Region, esc: (s: unknown) => str
 			<p class="muted" style="margin-top:4px">库存 ${shop.stock}/${type.maxStock} · 店员 ${shop.staff} 人 · 口碑 ${Math.round(shop.rep)}/100 · 每天固定开销 ${money(daily.total)}（租金 ${money(daily.rent)}${daily.wages ? `、工资养老金保险 ${money(daily.wages + daily.superPay + daily.comp)}` : ''}）</p>
 			<p style="margin-top:4px">最近 7 天卖出 ${recentSold} 单，净${recentNet >= 0 ? '赚' : '亏'} ${money(Math.abs(recentNet))}${shop.debt ? `；欠款 ${money(shop.debt)}，到 ${money(closeAt)} 就倒闭` : ''}${shop.staff === 0 && shop.tend !== today ? '；今天没人看店，不开门' : ''}</p>
 			<div class="inline" style="margin-top:6px">
-				<button data-biz="restock" data-biz-qty="${lot}" ${dis(can.restock, esc)}>进货 ${lot} 单 ${money(lot * type.unitCost)}</button>
+				<button data-biz="restock" data-biz-qty="${lot}" data-cash-cost="${lot * type.unitCost}" data-cash-label="进货" ${dis(can.restock, esc)}>进货 ${lot} 单 ${money(lot * type.unitCost)}</button>
 				<button data-biz="tend" ${dis(can.tend, esc)}>看店 ${SHOP_RULES.tendMinutes / 60} 小时</button>
 				<button data-biz="hire" ${dis(can.hire, esc)}>雇人</button>
 				<button data-biz="fire" ${dis(can.fire, esc)}>辞退</button>
@@ -46,12 +46,12 @@ export function bizCard(s: PlayerState, region: Region, esc: (s: unknown) => str
 	} else if (offers.length) {
 		shopHtml = `<details style="margin-top:10px"><summary class="muted">在这里开店（${new Set(offers.map((o) => o.site.id)).size} 个街区）</summary>
 			${offers.map(({ type, site, cost, blocked }) => `<div class="row" style="margin-top:8px"><span class="ico">${type.icon}</span><span class="body">${esc(site.name)} · ${esc(type.name)} · ${money(cost)}<small>${esc(blocked ?? `${site.desc} 每周租金 ${money(site.rent)}。${type.desc}`)}</small><small>${esc(budgetNote(type, site, s.cash))}</small></span>
-			<button data-biz="open" data-biz-shop="${esc(type.id)}" data-biz-site="${esc(site.id)}" ${dis(blocked, esc)}>开店</button></div>`).join('')}</details>`;
+			<button data-biz="open" data-biz-shop="${esc(type.id)}" data-biz-site="${esc(site.id)}" data-cash-cost="${cost}" data-cash-label="开店" ${dis(blocked, esc)}>开店</button></div>`).join('')}</details>`;
 	}
 	const lic = licenseOffers(s);
 	const licHtml = `<details style="margin-top:10px"><summary class="muted">证照（已有 ${lic.filter((o) => o.valid).length}/${lic.length}）· 网上办，在哪都能办</summary>
 		${lic.map(({ lic: l, valid, expires, blocked }) => `<div class="row" style="margin-top:8px"><span class="ico">${valid ? '✅' : l.icon}</span><span class="body">${esc(l.name)} · ${l.fee ? money(l.fee) : '免费'}<small>${esc(valid ? (expires !== null ? `还有 ${expires - today} 天到期` : '长期有效') : l.desc)}</small></span>
-		<button data-biz="license" data-biz-id="${esc(l.id)}" ${dis(blocked, esc)}>${valid ? '已办' : s.biz.lic[l.id] !== undefined ? '续办' : '办理'}</button></div>`).join('')}</details>`;
+		<button data-biz="license" data-biz-id="${esc(l.id)}" data-cash-cost="${l.fee}" data-cash-label="办理证照" ${dis(blocked, esc)}>${valid ? '已办' : s.biz.lic[l.id] !== undefined ? '续办' : '办理'}</button></div>`).join('')}</details>`;
 	const book = s.biz.book;
 	const bookHtml = `<p class="muted" style="margin-top:8px">今年生意营业额 ${money(book.gross)}，净 ${book.net >= 0 ? '' : '−'}${money(Math.abs(book.net))}。${s.biz.gst ? '已登记 GST。' : `营业额到 ${money(GST.threshold)} 要登记 GST。`}</p>`;
 	return `<div class="card"><h3>💼 副业与生意</h3>${gigHtml}${shopHtml}${licHtml}${bookHtml}</div>`;

@@ -2,6 +2,7 @@
 import type { HomeDef } from '../core/types.ts';
 
 export const HOMES: HomeDef[] = [
+	{ id: 'mine-camp', name: '矿区公司营地', rentWeek: 0, comfort: -4, employerCareer: 'miner', bondWeeks: 0, where: { kinds: ['mining'] }, desc: '在职矿工的公司床位；上班包餐，营地免费，但离城又挤。' },
 	// 合租房间周租平衡第十一轮 160 → 120：咖啡店买房最大的拖慢项，也是低收入首周被收房的主因（balance.md 第十一轮）
 	{ id: 'room', name: '合租房间', rentWeek: 120, rentWas: 160, comfort: 0, where: { kinds: ['city', 'port', 'town', 'coast', 'mining'] }, desc: '一张床，共用厨房和浴室。' },
 	{ id: 'flat', name: '一居室公寓', rentWeek: 320, comfort: 5, where: { kinds: ['city', 'port', 'town', 'coast'], tags: ['gold'] }, desc: '自己的厨房和浴室，安静。' },

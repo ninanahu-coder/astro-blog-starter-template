@@ -89,6 +89,7 @@ export const PET_VET_TAG = 'hospital';
  * 没写在这里的房型（以后新加的）默认都能养，测试会要求每种房型都写明。
  */
 export const HOME_PETS: Record<string, string[]> = {
+	'mine-camp': [],
 	room: ['budgie'],
 	flat: ['dog', 'cat', 'budgie'],
 	beach: ['dog', 'cat', 'budgie'],

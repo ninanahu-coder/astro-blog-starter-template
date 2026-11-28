@@ -99,7 +99,9 @@ export function resolveFlatEvent(prev: PlayerState, region: Region, choice: numb
 /** 转租现在不能办的原因 */
 export function subletBlocked(state: PlayerState, on: boolean): string | undefined {
 	if (!state.home || state.home.owned) return '只有租的住处能转租';
-	if (HOMES.find((h) => h.id === state.home!.type)?.vehicleSleep) return '营地车位不能转租';
+	const home = HOMES.find((h) => h.id === state.home!.type);
+	if (home?.vehicleSleep) return '营地车位不能转租';
+	if (home?.employerCareer) return '公司床位不能转租';
 	if (on && state.flatshare.sublet) return '已经转租出去了';
 	if (!on && !state.flatshare.sublet) return '房间没有转租';
 	if (on && atHome(state)) return '人还住在这里；出远门时再转租';

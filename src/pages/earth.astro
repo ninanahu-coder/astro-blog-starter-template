@@ -838,9 +838,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { npcStatus } from '../game/core/engine.ts';
 			import { ANIMALS, WILDLIFE_RULES } from '../game/data/wildlife.ts';
 			import { petOffers, petStatus, petTravelBlocked } from '../game/core/pets.ts';
-			import { PET, PET_RULES } from '../game/data/pets.ts';
+			import { getPetKind, PET, PET_RULES } from '../game/data/pets.ts';
 			import { FISH, FISHING } from '../game/data/fish.ts';
-			import { collections, fishRuleAt, hobbiesHere, hobbyStatus, licenceAt, rarityCounts, ruleLabel } from '../game/core/hobbies.ts';
+			import { collections, fishRuleAt, gardenStatus, hobbiesHere, hobbyStatus, licenceAt, nextCraft, rarityCounts, ruleLabel } from '../game/core/hobbies.ts';
 			import { COLLECTION_REWARD, HOBBIES, RARITY } from '../game/data/hobbies.ts';
 			const RARITY_NAME = Object.fromEntries(Object.entries(RARITY).map(([k, v]) => [k, `${v.icon}${v.name}`])) as Record<string, string>;
 			import { PHOTO_MINUTES, PHOTO_QUESTS } from '../game/data/photo-quests.ts';
@@ -853,11 +853,13 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import type { OnboardPage } from '../game/data/onboard.ts';
 			import { recapFor, recapLog } from '../game/core/recap.ts';
 			import { fmtHalf } from '../game/ui/numfmt.ts';
+			import { careerGuideHtml } from '../game/ui/career-guide.ts';
+			import { lowCashConfirm } from '../game/ui/cash-confirm.ts';
 			import { flatHtml } from '../game/ui/flatmates.ts';
-			import { activeMates } from '../game/core/flatmates.ts';
+			import { activeMates, getFlatEvent } from '../game/core/flatmates.ts';
 			import { taxCard } from '../game/ui/tax.ts';
 			import { swapCard } from '../game/ui/secondhand.ts';
-			import { swapBoard } from '../game/core/secondhand.ts';
+			import { buyCost, swapBoard } from '../game/core/secondhand.ts';
 			import type { SwapKind } from '../game/data/secondhand.ts';
 			import { sportsCard } from '../game/ui/sports-card.ts';
 			import { racesSoon } from '../game/core/sports.ts';
@@ -885,20 +887,20 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { codeOf, exportName, hashAction, makeQr, parseCred, parsePendingKey, parseSyncCode, qrSvg, readSyncHash, syncLink, type Cred } from '../game/ui/transfer.ts';
 			import { basemapBounds, canUseBasemap, createBasemap, exitPoint, mapLabel, webglSupported, type Basemap, type Pin } from '../game/ui/basemap.ts';
 			import { favorToday, isFading } from '../game/core/relations.ts';
-			import { careAt, activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, animalHint, seasonAnimals, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, rentAhead, bondFor, moveInWarn, spendWarn, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions , getAreaBody, leaseBlocked, oddsInput, scamHere } from '../game/core/engine.ts';
+			import { careAt, activitiesAt, photoQuestNow, placeFacts, fishingAt, dexProgress, animalHint, seasonAnimals, breakdownChance, careerPay, sellBlocked, garageAt, certBonus, certsAt, choiceLabel, festivalsSoon, getProperty, netWorth, propertiesAt, firstRent, rentAhead, bondFor, moveInCost, moveInWarn, spendWarn, furnitureAt, furnitureValue, getFurniture, homeActionBlocked, areaTitles, coursesAt, dealerAt, experiencesAt, getVehicle, resaleValue, careersAt, getCareer, getHome, homesAt, getRelation, npcsAt, giftReaction, GIFT_LABEL, promotionStatus, relationTier, getLocation, getPendingEvent, shiftBlocked, shopAt, travelOptions , getAreaBody, leaseBlocked, oddsInput, scamHere } from '../game/core/engine.ts';
 			import { PROMOTE_GOOD, PROMOTE_SHIFTS } from '../game/data/careers.ts';
 			import { credentialName, VISA } from '../game/data/education.ts';
 			import { programsAt } from '../game/core/education.ts';
 			import { workMinutesLeft } from '../game/core/visa.ts';
 			import { visaCardHtml } from '../game/ui/visa-card.ts';
-			import { applyOdds, breakFee, needsLease, oddsLabel, rentDue, viewedOk } from '../game/core/rental.ts';
+			import { applyOdds, breakFee, moveOutSplit, needsLease, oddsLabel, paidAhead, rentDue, viewedOk } from '../game/core/rental.ts';
 			import { RENTAL, SCAM_TIP } from '../game/data/rental.ts';
 			import { SERVICE_KM } from '../game/data/vehicles.ts';
 			import { insuranceCard } from '../game/ui/insurance.ts';
 			import { AREAS, EXPERIENCES } from '../game/data/experiences.ts';
 			import { FURNITURE, FURNITURE_SLOTS } from '../game/data/furniture.ts';
 			import { groceryHtml, kitchenHtml } from '../game/ui/kitchen.ts';
-			import { groceriesAt } from '../game/core/cooking.ts';
+			import { deliveryPrice, getRecipe, groceriesAt } from '../game/core/cooking.ts';
 			import { FINANCE, loanPayment, saleProceeds, weeksToPayOff } from '../game/core/finance.ts';
 			import { dayOf, hoursLabel } from '../game/core/time.ts';
 			import { agenda, timeConflict, type AgendaStatus } from '../game/core/schedule.ts';
@@ -916,13 +918,14 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { volunteerAt } from '../game/core/volunteer.ts';
 			import { refRespect, volTier } from '../game/core/respect.ts';
 			import { VISA_HINT, VOL_RULES } from '../game/data/volunteer.ts';
+			import { VISA_ROUTES } from '../game/data/visas.ts';
 			import { NPC_MOOD_ICON, NPC_MOOD_NAME } from '../game/data/npc-behavior.ts';
 			import { npcWhere } from '../game/core/npc-behavior.ts';
-			import { coopBlocked, coopCostLabel, coopsAt } from '../game/core/coop.ts';
+			import { coopBlocked, coopCost, coopCostLabel, coopsAt } from '../game/core/coop.ts';
 			import { getCoop } from '../game/data/coop.ts';
 			import { giveBlocked, saleRange, takeBlocked } from '../game/core/trade.ts';
 			import { marketCard, swapDesc, swapPicker, type MarketData, type SellPick, type SwapPick } from '../game/ui/market.ts';
-			import { swapReceiverBlocked } from '../game/core/exchange.ts';
+			import { EXCHANGE, feeOf, swapReceiverBlocked } from '../game/core/exchange.ts';
 			import type { SwapSide } from '../game/core/exchange.ts';
 			import { metList } from '../game/core/social.ts';
 			import { liveBlocked, liveCalendar, liveDateLabel } from '../game/core/live.ts';
@@ -931,11 +934,13 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { cleanNote, NOTE_MAX, NOTES_PER_LOC } from '../game/core/notes.ts';
 			import { realDayOf } from '../game/core/daily.ts';
 			import { paperChecklist, paperGate, paperProgress } from '../game/core/paperwork.ts';
+			import { returnPreview } from '../game/core/tax.ts';
 			import { ACTIVITIES } from '../game/data/activities.ts';
 			import { EVENTS } from '../game/data/events.ts';
 			import { dateLabel, period, PERIOD_IDS, WEEKDAYS, weekdayOf } from '../game/core/time.ts';
 			import { getWish } from '../game/core/wishes.ts';
 			import { coverOf, currentIllness, hoursLeft } from '../game/core/health.ts';
+			import { premiumFor } from '../game/core/insurance.ts';
 			import type { CareKind } from '../game/data/health.ts';
 			import { achievements, achReward, newAchievements } from '../game/core/achievements.ts';
 			import { climateOf, forecast, weatherAt, weatherOn } from '../game/core/weather.ts';
@@ -948,7 +953,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			import { WEATHERS } from '../game/data/weather.ts';
 			import { derivedStats } from '../game/core/formulas.ts';
 			import { energyCap, stress } from '../game/core/vitals.ts';
-			import { clockStale, getVenueType, venuesNear } from '../game/core/venues.ts';
+			import { clockStale, getVenueType, opOutcome, venuesNear } from '../game/core/venues.ts';
 			import { activeSponsors } from '../game/core/sponsor.ts';
 			import { SPONSORS } from '../game/data/sponsors.ts';
 			import { parseRedeemView, pinInputId, redeemCardHtml, sponsorOfferHtml, sponsorTagHtml, type RedeemView } from '../game/ui/sponsor.ts';
@@ -1073,6 +1078,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 
 			const $ = (id: string) => document.getElementById(id)!;
 			const esc = (s: unknown) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+			/** 只做客户端二次确认；实际价格和能否执行仍由服务端结算。 */
+			function confirmLowCash(label: string, cost: number): boolean {
+				if (!state) return false;
+				const warning = lowCashConfirm({ label, cash: state.cash, cost, rent: weeklyCosts(state).rent });
+				return !warning || confirm(warning);
+			}
 			const store = {
 				get(k: string) { try { return localStorage.getItem(k); } catch { return null; } },
 				set(k: string, v: string) { try { localStorage.setItem(k, v); } catch {} },
@@ -2578,6 +2589,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const workHtml = workHere || offers.length ? `<div class="card"><h3>工作</h3>${visaHtml}
 					${workHere ? `<div class="row" style="margin-top:8px">${thumb('career:' + career!.id)}<span class="body">${esc(career!.name)} · ${esc(career!.levels[job!.level].title)}<small>每班 $${careerPay(s, job!.career, job!.level)}${certBonus(s, job!.career) ? `（含证书 +${Math.round(certBonus(s, job!.career) * 100)}%）` : ''} · ${Math.round(career!.minutes / 60)} 小时 · ${hoursLabel(career!.start)} 开工</small></span><button class="primary" data-job="work" ${shiftWhy ? 'disabled' : ''}>上班</button></div>${shiftWhy ? `<p style="margin-top:4px">${esc(shiftWhy)}</p>` : ''}` : ''}
 					${offers.map(({ career: c, blocked }) => `<div class="row" style="margin-top:8px">${thumb('career:' + c.id)}<span class="body">${esc(c.name)} · 招${esc(c.levels[0].title)}<small>${esc(blocked ?? `每班 $${careerPay(s, c.id, 0)}，最高可升到${c.levels[c.levels.length - 1].title}`)}</small></span><button data-job="apply" data-career="${c.id}" ${blocked ? 'disabled' : ''}>${job ? '跳槽' : '应聘'}</button></div>`).join('')}</div>` : '';
+				const careerRoutesHtml = careerGuideHtml(s, region, esc);
 				const homeHere = s.home && s.home.loc === loc.id ? getHome(s.home.type) : undefined;
 				const rentals = homesAt(s, region);
 				const relaxWhy = homeActionBlocked(s, 'relax');
@@ -2589,7 +2601,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const leaseHtml = lease ? `<div class="row" style="margin-top:8px"><span class="body">租约<small>${esc(`${lease.end ? `固定期限，还有 ${lease.end - today} 天到期` : '周期租约'} · 押金在${getAreaBody(lease.loc).bond}托管${lease.rise ? ` · ${lease.rise.at - today} 天后房租涨到 $${lease.rise.to}` : ''}${lease.fault ? ` · ${lease.fault.name}${lease.fault.asked >= 0 ? '（已报修）' : ''}` : ''}${lease.report === 0 ? ` · 入住检查报告还有 ${lease.start + RENTAL.reportDays - today} 天交回` : lease.report === -1 ? ' · 入住检查报告没交' : ''}`)}</small></span></div>
 					<div class="inline" style="margin-top:8px">${lease.report === 0 ? `<button data-rental="report" ${leaseBlocked(s, 'report') ? 'disabled' : ''}>交入住检查报告</button>` : ''}${lease.fault && lease.fault.asked < 0 ? `<button data-rental="repair">书面报修</button>` : ''}<button data-rental="renew" ${leaseBlocked(s, 'renew') ? 'disabled' : ''}>续约 ${RENTAL.fixedDays} 天</button></div>` : '';
 				const claimHtml = claim ? `<div class="row" style="margin-top:8px"><span class="body">押金扣款 $${claim.amount}<small>${esc(`房东申请从押金里扣钱修损坏，钱还在托管机构。${claim.prior ? '你交过入住检查报告，申诉能要回入住时就有的损坏那部分。' : '申诉要不回钱：没交入住检查报告，或者入住时房子本来没有损坏。'}`)}</small></span><span class="inline"><button data-rental="accept">接受</button><button data-rental="dispute">申诉</button></span></div>` : '';
-				const scamHtml = scam ? `<div class="row" style="margin-top:8px"><span class="body">${esc(scam.home.name)} · $${scam.rent}/周<small>${esc(`房东在国外，不能看房；先转押金和 ${RENTAL.scamWeeks} 周房租共 $${scam.ask}，钥匙快递给你。`)}</small></span><span class="inline"><button data-rental="scam-pay">先转钱订下</button><button data-rental="scam-check">核实一下</button></span></div>` : '';
+				const scamHtml = scam ? `<div class="row" style="margin-top:8px"><span class="body">${esc(scam.home.name)} · $${scam.rent}/周<small>${esc(`房东在国外，不能看房；先转押金和 ${RENTAL.scamWeeks} 周房租共 $${scam.ask}，钥匙快递给你。`)}</small></span><span class="inline"><button data-rental="scam-pay" data-cash-cost="${scam.ask}" data-cash-label="预付租房款">先转钱订下</button><button data-rental="scam-check">核实一下</button></span></div>` : '';
 				const offerHtml = ({ home, blocked }: (typeof rentals)[number]) => {
 					const viewed = viewedOk(s.rental, loc.id, home.id, today);
 					const info = blocked ?? `${home.desc}${home.comfort ? ` 心情 +${home.comfort}` : ''} 首期 $${firstRent(s, home)}${rentAhead(s, home) ? ` + 预收下周房租 $${rentAhead(s, home)}` : ''}${bondFor(home) ? ` + 押金 $${bondFor(home)}（搬走时退）` : ''}${moveInWarn(s, home) ? ` ${moveInWarn(s, home)}` : ''}${viewed ? ` · 看房来了 ${s.rental.viewed!.n} 组人，你的申请${oddsLabel(applyOdds(oddsInput(s, home)))}` : ''}`;
@@ -2707,7 +2719,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 				const groups: [string, LucideName, string, string, string][] = [
 					['do', 'sparkles', '做事', doHtml, `现在能做 ${openActs.length + (vanHtml ? 1 : 0)} 项${laterActs.length ? ` · 稍后 ${laterActs.length} 项` : ''}`],
 					['shop', 'shopping-bag', '买东西', groceryHtml(s, region, esc) + shopHtml + (on('garage') ? swapCard(s, region) : ''), [groceriesAt(s, region).length ? '食材' : '', on('garage') && swapBoard(s, region) ? '换手墙' : '', shop.length ? `${shop.length} 件${shop.some((x) => x.markdown) ? ' · 有打折' : ''}` : ''].filter(Boolean).join(' · ')],
-					['work', 'briefcase-business', '工作', workHtml + bizCard(s, region, esc), [workHere ? `${esc(career!.name)} · ${shiftWhy ? '现在不能上班' : '可以上班'}` : offers.length ? `${offers.length} 个职位在招` : '', gigsAt(s, region).length ? `${gigsAt(s, region).length} 份副业` : '', s.biz.shop ? `你的店${s.biz.shop.debt ? ` · 欠款 $${s.biz.shop.debt}` : ''}` : ''].filter(Boolean).join(' · ')],
+					['work', 'briefcase-business', '工作', workHtml + careerRoutesHtml + bizCard(s, region, esc), [workHere ? `${esc(career!.name)} · ${shiftWhy ? '现在不能上班' : '可以上班'}` : offers.length ? `${offers.length} 个职位在招` : '', gigsAt(s, region).length ? `${gigsAt(s, region).length} 份副业` : '', s.biz.shop ? `你的店${s.biz.shop.debt ? ` · 欠款 $${s.biz.shop.debt}` : ''}` : ''].filter(Boolean).join(' · ')],
 					['home', 'house', '住处', homeHtml + flatAwayHtml, [homeHere ? `你的${esc(homeHere.name)}` : rentals.length ? `${rentals.length} 处可租` : '', s.rental.claim ? `押金扣款待处理 $${s.rental.claim.amount}` : '', activeMates(s).length ? `${activeMates(s).length} 位室友` : '', s.flatshare.sublet ? '转租中' : '', s.flatshare.ev ? (homeHere ? '室友有事找你' : '室友有事找你（回家处理）') : ''].filter(Boolean).join(' · ')],
 					['people', 'users', '这里的人', peopleHtml, people.length ? `${people.length} 位在这里${favorHere ? ' · 有人托你帮忙' : ''}` : '现在没人在'],
 					['fun', 'ticket', '体验和爱好', expHtml + volHtml + sportsCard(s, region, esc) + (on('hobby') ? photoQuestHtml + fishHtml + hobbyHtml + skyCard(s) : ''), [exps.length ? `${exps.length} 项体验` : '', vols.length ? `${vols.length} 项志愿` : '', sportSoon ? `${sportSoon} 场比赛快到了` : '', on('hobby') && pq ? '摄影任务' : '', on('hobby') && spot ? '能钓鱼' : '', on('hobby') && hobbyOpts.length ? `${hobbyOpts.length} 个爱好` : ''].filter(Boolean).join(' · ') || '看看星空'],
@@ -3669,11 +3681,12 @@ const cardLines = guilloche(400, 260, 14, 9);
 			});
 			document.addEventListener('click', (e) => {
 				gestured = true;
-				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-mind],[data-rental],[data-wall],[data-biz],[data-tax],[data-paper],[data-trip],[data-flat],[data-bank],[data-vol],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts]');
+				const t = (e.target as Element).closest<HTMLElement>('[data-tab],[data-metab],[data-career],[data-guide-close],[data-recap-close],[data-share],[data-pref],[data-result-close],[data-quick],[data-act],[data-care],[data-go],[data-loc],[data-choice],[data-gps],[data-locate],[data-venue],[data-emote],[data-copy],[data-qr],[data-queue-clear],[data-venues-retry],[data-pull],[data-board],[data-lbq],[data-lbpref],[data-lbask],[data-reset],[data-rekey],[data-export],[data-delacct],[data-recode],[data-buy],[data-use],[data-sell],[data-npc],[data-job],[data-home],[data-veh],[data-course],[data-cert],[data-study],[data-fish],[data-photo],[data-exp],[data-furn],[data-cook],[data-host],[data-grocery],[data-insure],[data-sport],[data-hobby],[data-mind],[data-rental],[data-wall],[data-biz],[data-tax],[data-paper],[data-trip],[data-flat],[data-bank],[data-vol],[data-prop],[data-dmode],[data-coop],[data-giftpick],[data-trade],[data-week],[data-note],[data-asset],[data-pet],[data-safety],[data-report-pick],[data-report],[data-live],[data-trail],[data-claim],[data-wear],[data-ob-tip],[data-ob-back],[data-ob-all],[data-ob-guide],[data-redeem],[data-redeem-confirm],[data-drawer],[data-drawer-close],[data-swappick],[data-swap],[data-mkt],[data-visa],[data-visa-ielts],[data-cash-cost]');
 				// 打开了环境音或音乐、但还没出过声：第一次点页面任何地方时解锁音频（浏览器的自动播放限制）
 				if (!audio && (prefs.ambience || prefs.music)) { try { ensureAudio(); } catch {} syncScene(); }
 				if (!t || !state || (t as HTMLButtonElement).disabled) return;
 				const d = t.dataset;
+				if (d.cashCost !== undefined && !confirmLowCash(d.cashLabel || '这项操作', Number(d.cashCost))) return;
 				if (d.drawer) {
 					const g = d.drawer;
 					if (Object.hasOwn(placeGroups, g)) { drawer = g; tm.track('drawer', drawer); }
@@ -3732,10 +3745,22 @@ const cardLines = guilloche(400, 260, 14, 9);
 				else if (d.npc && d.npcAct) act(d.npcItem ? { t: 'npc', npc: d.npc, act: 'gift', item: d.npcItem } : { t: 'npc', npc: d.npc, act: d.npcAct as NpcAction }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.veh) {
 					if (d.veh === 'sell' && !confirm('确定把车卖掉？')) return;
+					if (d.veh === 'buy') {
+						const offer = dealerAt(state, region).find((x) => x.vehicle.id === d.vehId);
+						if (offer && !confirmLowCash(`买${offer.vehicle.name}`, offer.net)) return;
+					}
+					if (d.veh === 'service') {
+						const offer = garageAt(state, region);
+						if (offer && !confirmLowCash('车辆保养', offer.price)) return;
+					}
 					const a: GameAction = d.veh === 'buy' ? { t: 'vehicle', op: 'buy', id: d.vehId! } : { t: 'vehicle', op: d.veh as 'sell' | 'sleep' | 'service' };
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
-				else if (d.paper) act({ t: 'paper', id: d.paper }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.paper) {
+					const row = paperChecklist(state, region).find((x) => x.paper.id === d.paper);
+					if (row && !confirmLowCash(`办理${row.paper.name}`, row.paper.fee)) return;
+					act({ t: 'paper', id: d.paper }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
 				else if (d.biz) {
 					// 副业与生意（ui/business.ts 的按钮）：只转发形状，合不合规则由服务端 parseAction + 引擎判断
 					if (d.biz === 'close' && !confirm('确定关店？装修费不退，押金扣掉欠款后退回，库存半价清货。')) return;
@@ -3750,12 +3775,24 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const a: GameAction = d.sport === 'club' || d.sport === 'quit' ? { t: 'sport', op: d.sport } : { t: 'sport', op: d.sport as 'enter' | 'race' | 'join', id: d.sportId! };
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
-				else if (d.insure) act({ t: 'insure', id: d.insure }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
-				else if (d.course) act({ t: 'course', id: d.course }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.insure) {
+					if (!confirmLowCash('购买保险', premiumFor(state.cover, d.insure, dayOf(state.clock)))) return;
+					act({ t: 'insure', id: d.insure }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
+				else if (d.course) {
+					const offer = coursesAt(state, region).find((x) => x.course.id === d.course);
+					if (offer && !confirmLowCash(`上${offer.course.name}`, offer.price)) return;
+					act({ t: 'course', id: d.course }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
 				else if (d.claim) act({ t: 'claim', id: d.claim }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if (d.wear !== undefined) act({ t: 'title', id: d.wear }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				else if ('photo' in d) act({ t: 'photo' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
-				else if ('hobby' in d) act({ t: 'hobby', id: d.hobby as never }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if ('hobby' in d) {
+					const garden = d.hobby === 'garden' ? gardenStatus(state) : null;
+					const cost = garden?.op === 'plant' ? garden.plant.seed : d.hobby === 'craft' ? nextCraft(state).cost : 0;
+					if (cost && !confirmLowCash('爱好材料', cost)) return;
+					act({ t: 'hobby', id: d.hobby as never }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
 				else if (d.pet) {
 					let a: GameAction;
 					if (d.pet === 'adopt') {
@@ -3770,16 +3807,45 @@ const cardLines = guilloche(400, 260, 14, 9);
 						if (d.pet === 'rehome' && !confirm('确定把它送回救助站？工作人员会给它找新家。')) return;
 						a = { t: 'pet', op: d.pet as 'feed' | 'play' | 'walk' | 'vet' | 'pickup' | 'rehome' };
 					}
+					const petDef = d.pet === 'adopt' ? getPetKind(d.petKind!) : state.pet ? getPetKind(state.pet.kind) : undefined;
+					const petCost = d.pet === 'adopt' && petDef ? (d.petFrom === 'breeder' ? petDef.buy ?? 0 : petDef.adopt) + petDef.register
+						: d.pet === 'board' && petDef ? petDef.board * a.days
+							: d.pet === 'feed' && petDef ? petDef.food : d.pet === 'vet' && petDef ? petDef.vet : 0;
+					if (petCost && !confirmLowCash(d.pet === 'adopt' ? '领养宠物' : d.pet === 'board' ? '寄养宠物' : d.pet === 'vet' ? '宠物体检' : '购买宠物口粮', petCost)) return;
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if ('fish' in d) act({ t: 'fish' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
-				else if (d.visa) { if (confirm('确定申请？申请费不退。')) act({ t: 'visa', op: 'apply', route: d.visa }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } }); }
-				else if ('visaIelts' in d) act({ t: 'visa', op: 'ielts' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
-				else if (d.cert) act({ t: 'cert', id: d.cert }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.visa) {
+					const route = VISA_ROUTES.find((x) => x.id === d.visa);
+					if (route && (!confirmLowCash(`申请${route.name}`, route.fee) || !confirm('确定申请？申请费不退。'))) return;
+					act({ t: 'visa', op: 'apply', route: d.visa }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
+				else if ('visaIelts' in d) {
+					const offer = ieltsAt(state, region);
+					if (offer && !confirmLowCash('报名雅思', offer.fee)) return;
+					act({ t: 'visa', op: 'ielts' }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
+				else if (d.cert) {
+					const offer = certsAt(state, region).find((x) => x.cert.id === d.cert);
+					if (offer && !confirmLowCash(`报名${offer.cert.name}`, offer.cert.price)) return;
+					act({ t: 'cert', id: d.cert }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
 				else if (d.vol) act({ t: 'volunteer', id: d.vol }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
-				else if (d.study) act({ t: 'study', id: d.study }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
-				else if (d.exp) act({ t: 'experience', id: d.exp }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
-				else if (d.trip) act({ t: 'trip', dest: d.trip, days: Number(d.days) }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.study) {
+					const offer = programsAt(state, region).find((x) => x.program.id === d.study);
+					if (offer && !confirmLowCash(`上${offer.program.name}`, offer.program.fee)) return;
+					act({ t: 'study', id: d.study }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
+				else if (d.exp) {
+					const offer = experiencesAt(state, region).find((x) => x.exp.id === d.exp);
+					if (offer && !confirmLowCash(`参加${offer.exp.name}`, offer.exp.price)) return;
+					act({ t: 'experience', id: d.exp }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
+				else if (d.trip) {
+					const offer = tripOptions(state).find((x) => x.dest.id === d.trip);
+					if (offer && !confirmLowCash(`前往${offer.dest.name}`, offer.price + offer.packing)) return;
+					act({ t: 'trip', dest: d.trip, days: Number(d.days) }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
 				else if (d.job) {
 					if (d.job === 'quit' && !confirm('确定辞职？当前等级的进度会清零。')) return;
 					const a: GameAction = d.job === 'apply' ? { t: 'job', op: 'apply', career: d.career! } : { t: 'job', op: d.job as 'work' | 'quit' };
@@ -3792,10 +3858,14 @@ const cardLines = guilloche(400, 260, 14, 9);
 					let a: GameAction;
 					if (d.prop === 'buy' || d.prop === 'buyloan') {
 						if (!confirm(`确定${d.prop === 'buy' ? '全款' : '贷款'}买下${pr.name}？以后卖出只能拿回房价的 95%。`)) return;
+						const offer = propertiesAt(state, region).find((x) => x.property.id === id);
+						if (offer && !confirmLowCash(`买下${pr.name}`, d.prop === 'buy' ? pr.price : offer.down)) return;
 						a = { t: 'property', op: 'buy', id, loan: d.prop === 'buyloan' };
 					} else if (d.prop === 'repay') {
 						const amount = Number(prompt('提前还多少？', String(Math.min(state.cash, state.properties.find((x) => x.id === id)?.loan ?? 0))));
 						if (!(amount > 0)) return;
+						const paid = Math.floor(Math.min(amount, state.cash, state.properties.find((x) => x.id === id)?.loan ?? 0));
+						if (!confirmLowCash('提前还房贷', paid)) return;
 						a = { t: 'property', op: 'repay', id, amount };
 					} else {
 						if (d.prop === 'sell' && !confirm(`确定卖掉${pr.name}？`)) return;
@@ -3811,11 +3881,16 @@ const cardLines = guilloche(400, 260, 14, 9);
 					if (d.bank === 'open' || d.bank === 'card') a = { t: 'bank', op: d.bank };
 					else if (d.bank === 'draw') { const n = ask('取现多少？（手续费 3%，当天起计息）', 100); if (n) a = { t: 'bank', op: 'draw', amount: n }; }
 					else if (d.bank === 'loan') { const n = ask('借多少？（$300–$5000，52 周还清）', 1000); if (n && confirm(`申请个人贷款 $${n}？每次申请都会记一次查询，信用分会小幅下降。`)) a = { t: 'bank', op: 'loan', amount: n }; }
-					else if (d.bank === 'repay' && (d.bankKind === 'card' || d.bankKind === 'personal' || d.bankKind === 'car')) { const n = ask('还多少？', Math.min(state.cash, 1000)); if (n) a = { t: 'bank', op: 'repay', kind: d.bankKind, amount: n }; }
-					else if (d.bank === 'carloan' && d.bankId) { if (confirm('用车贷买这辆车？车是贷款的抵押物，还清前不能卖或换；连续欠款会被收车。')) a = { t: 'bank', op: 'carloan', id: d.bankId }; }
+					else if (d.bank === 'repay' && (d.bankKind === 'card' || d.bankKind === 'personal' || d.bankKind === 'car')) {
+						const n = ask('还多少？', Math.min(state.cash, 1000));
+						const debt = d.bankKind === 'card' ? state.bank.card?.bal ?? 0 : state.bank.loans.find((x) => x.kind === d.bankKind)?.bal ?? 0;
+						const paid = Math.floor(Math.min(n, state.cash, debt));
+						if (n && paid && confirmLowCash('偿还银行欠款', paid)) a = { t: 'bank', op: 'repay', kind: d.bankKind, amount: n };
+					}
+					else if (d.bank === 'carloan' && d.bankId) { if (confirm('用车贷买这辆车？车是贷款的抵押物，还清前不能卖或换；连续欠款会被收车。') && confirmLowCash('支付车贷首付', Number(d.bankFirst) || 0)) a = { t: 'bank', op: 'carloan', id: d.bankId }; }
 					else if (d.bank === 'bnpl' && d.bankId) {
 						const name = FURNITURE.find((f) => f.id === d.bankId)?.name ?? '家具';
-						if (confirm(bnplConfirmText(name, Number(d.bankFirst), Number(d.bankAmt)))) a = { t: 'bank', op: 'bnpl', id: d.bankId, ack: true };
+						if (confirm(bnplConfirmText(name, Number(d.bankFirst), Number(d.bankAmt))) && confirmLowCash('支付先买后付第一期', Number(d.bankFirst))) a = { t: 'bank', op: 'bnpl', id: d.bankId, ack: true };
 					}
 					if (a) act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
@@ -3823,6 +3898,8 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const op = (['tfn', 'abn', 'lodge'] as const).find((x) => x === d.tax);
 					if (!op) return;
 					if (op === 'abn' && !confirm('注册 ABN 后，街头表演算个体户生意收入：挣得更多，但报税时要交税。确定？')) return;
+					const ret = op === 'lodge' ? returnPreview(state) : null;
+					if (ret && !confirmLowCash('报税补税', Math.min(state.cash, Math.max(0, ret.due + ret.penalty)))) return;
 					act({ t: 'tax', op }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.wall) {
@@ -3830,6 +3907,13 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const a: GameAction = d.wall === 'buy'
 						? { t: 'swap', op: 'buy', id: d.wallId!, ref: d.wallRef!, how: d.wallHow === 'prepay' ? 'prepay' : 'pickup', haggle: !!document.querySelector<HTMLInputElement>('#swap-haggle')?.checked }
 						: { t: 'swap', op: 'sell', kind: d.wallKind as SwapKind, ref: d.wallRef!, buyer: Number(d.wallBuyer), verify: d.wallVerify === '1' };
+					if (a.t === 'swap' && a.op === 'buy') {
+						const listing = swapBoard(state, region)?.listings.find((x) => x.id === a.id && x.good.ref === a.ref);
+						if (listing) {
+							const quote = buyCost(state, listing, a.how);
+							if (!confirmLowCash(a.haggle ? '购买二手物品（按砍价前最高价）' : '购买二手物品', quote.price + quote.fee)) return;
+						}
+					}
 					if (a.t === 'swap' && a.op === 'buy' && a.how === 'prepay' && !confirm('没见到东西先转账：如果对方是骗子，钱就拿不回来了。确定？')) return;
 					if (a.t === 'swap' && a.op === 'sell' && !a.verify && !confirm('不等钱到账就交货：如果对方是假付款，东西就拿不回来了。确定？')) return;
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
@@ -3846,14 +3930,24 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const amount = Number(q);
 					if (q === null || !(amount > 0)) return;
 					if (op === 'buy' && id === 'emu-coin' && !confirm('鸸鹋币一天涨跌一两成都正常，也可能跌掉大半。确定买入？')) return;
+					if (op === 'buy' && !confirmLowCash('买入理财产品', Math.floor(amount))) return;
 					act({ t: 'asset', op, id, amount }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
 				else if (d.furn) {
+					if (d.furn === 'buy') {
+						const offer = furnitureAt(state).find((x) => x.item.id === d.furnId);
+						if (offer && !confirmLowCash(`购买${offer.item.name}`, offer.net)) return;
+					}
 					const a: GameAction = d.furn === 'buy' ? { t: 'furniture', op: 'buy', id: d.furnId! } : { t: 'furniture', op: 'sell', slot: d.slot! };
 					act(a).then((r) => { if (r) { toast(r.msg); render(); } });
 				}
 				else if (d.flat) {
 					if (d.flat === 'askout' && !confirm('请这位室友下周搬走？关系会变差。')) return;
+					if (d.flat === 'resolve') {
+						const choice = state.flatshare.ev && getFlatEvent(state.flatshare.ev.id)?.choices[+d.flatChoice!];
+						const cost = (choice?.cost ?? 0) + (choice?.lend ?? 0);
+						if (cost && !confirmLowCash('处理室友事件', cost)) return;
+					}
 					const a: GameAction = d.flat === 'invite' || d.flat === 'askout' ? { t: 'flat', op: d.flat, mate: d.flatMate! }
 						: d.flat === 'resolve' ? { t: 'flat', op: 'resolve', choice: +d.flatChoice! }
 						: { t: 'flat', op: d.flat as 'chore' | 'sublet' | 'unsublet' };
@@ -3863,23 +3957,55 @@ const cardLines = guilloche(400, 260, 14, 9);
 					const a: GameAction = d.cook ? { t: 'home', op: 'cook', recipe: d.cook } : { t: 'home', op: 'host', recipe: d.host! };
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
-				else if (d.grocery) act({ t: 'grocery', id: d.grocery, n: Number(d.n) || 1 }).then((r) => { if (r) { toast(r.msg); render(); } });
+				else if (d.grocery) {
+					const n = Number(d.n) || 1;
+					const offer = groceriesAt(state, region).find((x) => x.item.id === d.grocery);
+					if (offer && !confirmLowCash(`购买${offer.item.name}`, offer.price * n)) return;
+					act({ t: 'grocery', id: d.grocery, n }).then((r) => { if (r) { toast(r.msg); render(); } });
+				}
 				else if (d.home) {
 					const fee = breakFee(state, dayOf(state.clock));
 					const feeNote = fee ? `固定期还没到，要付违约金 $${fee}。` : '';
 					if (d.home === 'leave' && !confirm(`确定退租？已付的房租不退，家具半价折现。${feeNote}`)) return;
 					if (d.home === 'rent' && state.home && !confirm(`搬家会退掉现在的住处，家具半价折现。${feeNote}确定？`)) return;
+					if (d.home === 'leave') {
+						const out = moveOutSplit(state, dayOf(state.clock));
+						const net = Math.max(0, out.extra - out.refund - paidAhead(state) - furnitureValue(state));
+						if (!confirmLowCash('提前退租净支出', net)) return;
+					}
+					if (d.home === 'rent') {
+						const home = getHome(d.homeId!);
+						// 搬家会先把旧家具折现；确认框按动作执行后的真实现金变化算，避免把会回笼的钱漏掉。
+						const net = home ? Math.max(0, moveInCost(state, home) - furnitureValue(state)) : 0;
+						if (home && !confirmLowCash(`签下${home.name}`, net)) return;
+					}
+					if (d.home === 'cook' && !confirmLowCash('随手做一顿', getRecipe('quick')?.cash ?? 0)) return;
+					if (d.home === 'delivery' && !confirmLowCash('叫外卖', deliveryPrice(state))) return;
 					const term = d.term === 'fixed' || d.term === 'periodic' ? d.term : undefined;
 					const a: GameAction = d.home === 'rent' ? { t: 'home', op: 'rent', home: d.homeId!, ...(term ? { term } : {}) } : { t: 'home', op: d.home as 'sleep' | 'nap' | 'leave' | 'cook' | 'relax' | 'delivery' };
 					act(a).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
 				}
-				else if (d.buy) act({ t: 'buy', item: d.buy }).then((r) => { if (r) { toast(r.msg); render(); } });
+				else if (d.buy) {
+					const offer = shopAt(state, region).find((x) => x.item.id === d.buy);
+					if (offer && !confirmLowCash(`购买${offer.item.name}`, offer.price)) return;
+					act({ t: 'buy', item: d.buy }).then((r) => { if (r) { toast(r.msg); render(); } });
+				}
 				else if (d.use) act({ t: 'use', item: d.use }).then((r) => { if (r) { toast(r.msg); render(); } });
 				else if (d.mind && Object.hasOwn(MIND_ACTS, d.mind)) act({ t: 'mind', op: d.mind as keyof typeof MIND_ACTS }).then((r) => { if (r) { toast(r.msg); render(); } });
-				else if (d.care) act({ t: 'care', kind: d.care as CareKind }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				else if (d.care) {
+					const offer = careAt(state, region).find((x) => x.care.id === d.care);
+					if (offer && !confirmLowCash(`接受${offer.care.name}`, offer.out.cost)) return;
+					act({ t: 'care', kind: d.care as CareKind }).then((r) => { if (r) { lastOutcome = r.msg; toast(r.msg); render(); } });
+				}
 				else if (d.sell) act({ t: 'sell', item: d.sell }).then((r) => { if (r) { toast(r.msg); render(); } });
-				else if (d.act) act({ t: 'activity', id: d.act }).then((r) => { if (r) { lastOutcome = null; toast(r.msg); render(); } });
+				else if (d.act) {
+					const offer = activitiesAt(state, region).find((x) => x.act.id === d.act);
+					if (offer?.act.fx.cash && offer.act.fx.cash < 0 && !confirmLowCash(offer.act.name, -offer.act.fx.cash)) return;
+					act({ t: 'activity', id: d.act }).then((r) => { if (r) { lastOutcome = null; toast(r.msg); render(); } });
+				}
 				else if (d.go) {
+					const offer = travelOptions(state, region).find((x) => x.to === d.go && x.mode === d.mode);
+					if (offer && !confirmLowCash('支付路费', offer.cost)) return;
 					act({ t: 'travel', to: d.go, mode: d.mode as TravelMode }).then((r) => { if (r) { selected = null; lastOutcome = null; tab = 'place'; if (!state!.pending) toast(r.msg); render(); window.scrollTo({ top: 0 }); } });
 				}
 				else if (d.dmode) { destMode = { dest: d.dest!, mode: d.dmode }; renderPanel(); }
@@ -3892,6 +4018,11 @@ const cardLines = guilloche(400, 260, 14, 9);
 				}
 				else if (d.choice) {
 					const ev = getPendingEvent(state);
+					const choice = ev?.choices[+d.choice];
+					// 旧事件把十项确定付款写在 ok.fx.cash；只有没有检定 / 风险时才把它当作点击时可知的费用。
+					const fixed = choice && !choice.check && choice.risk === undefined ? Math.max(0, -(choice.ok.fx.cash ?? 0)) : 0;
+					const cost = (choice?.cost ?? 0) + fixed;
+					if (choice && cost && !confirmLowCash(`选择「${choice.label}」`, cost)) return;
 					act({ t: 'event', choice: +d.choice }).then((r) => {
 						if (r) {
 							lastOutcome = r.msg;
@@ -3948,6 +4079,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					else if (d.swap === 'want') swapPick = { ...swapPick, want: d.item ?? '' };
 					else if (d.swap === 'send') {
 						const sp = swapPick;
+						if (!confirmLowCash('面交换物付款', Number(d.giveCash) || 0)) return;
 						const one = (item: string | undefined, cash: number) => ({ items: item ? [{ item, n: 1 }] : [], cash });
 						tradeOp('swap', { to: sp.to, toName: sp.name, give: one(sp.give || undefined, Number(d.giveCash) || 0), want: one(sp.want || undefined, Number(d.wantCash) || 0) });
 						return;
@@ -3959,9 +4091,16 @@ const cardLines = guilloche(400, 260, 14, 9);
 					else if (d.mkt === 'sellpick') { marketPick = {}; renderPanel(); }
 					else if (d.mkt === 'pickitem') { marketPick = { item: d.item }; renderPanel(); }
 					else if (d.mkt === 'pickkind' && marketPick) { marketPick = { ...marketPick, kind: d.kind === 'auction' ? 'auction' : 'fixed' }; renderPanel(); }
-					else if (d.mkt === 'sell') marketOp('sell', { kind: d.kind, item: d.item, price: Number(d.price), hours: Number(d.hours) });
-					else if (d.mkt === 'buy' || d.mkt === 'cancel') marketOp(d.mkt, { lot: d.lot });
-					else if (d.mkt === 'bid') marketOp('bid', { lot: d.lot, amount: Number(d.amount) });
+					else if (d.mkt === 'sell') {
+						const fee = feeOf(Number(d.price), EXCHANGE.listFeeRate);
+						if (confirmLowCash('支付交易所挂单费', fee)) marketOp('sell', { kind: d.kind, item: d.item, price: Number(d.price), hours: Number(d.hours) });
+					}
+					else if (d.mkt === 'buy') {
+						const lot = market?.lots.find((x) => x.id === d.lot);
+						if (lot && confirmLowCash('在交易所买入', lot.price)) marketOp('buy', { lot: d.lot });
+					}
+					else if (d.mkt === 'cancel') marketOp('cancel', { lot: d.lot });
+					else if (d.mkt === 'bid' && confirmLowCash('交易所出价', Number(d.amount))) marketOp('bid', { lot: d.lot, amount: Number(d.amount) });
 					else if (d.mkt === 'claim') marketOp('claim', {});
 				}
 				else if (d.week === 'claim') claimWeek();
@@ -3977,13 +4116,22 @@ const cardLines = guilloche(400, 260, 14, 9);
 					else if (d.trade === 'sellpick') { sellPick = true; giftTo = null; swapPick = null; renderPanel(); }
 					else if (d.trade === 'gift' && giftTo) tradeOp('gift', { to: giftTo.hash, toName: giftTo.name, item: d.item });
 					else if (d.trade === 'sale') tradeOp('sale', { item: d.item, price: Number(d.price) });
-					else if (d.trade === 'accept' || d.trade === 'decline' || d.trade === 'cancel') tradeOp(d.trade, { offer: d.offer });
+					else if (d.trade === 'accept') {
+						const offer = tradeOffers.find((x) => x.id === d.offer);
+						const cost = offer?.kind === 'sale' ? offer.price : offer?.kind === 'swap' ? offer.want?.cash ?? 0 : 0;
+						if (confirmLowCash('接受玩家交易', cost)) tradeOp('accept', { offer: d.offer });
+					}
+					else if (d.trade === 'decline' || d.trade === 'cancel') tradeOp(d.trade, { offer: d.offer });
 				}
 				else if (d.coop) {
 					if (d.coop === 'list') loadCoop(true);
 					else if (d.coop === 'open') coopOp('open', { coop: d.coopId, role: Number(d.role) });
 					else if (d.coop === 'join') coopOp('join', { lobby: d.lobby, role: Number(d.role) });
-					else if (d.coop === 'leave' || d.coop === 'start') coopOp(d.coop, { lobby: d.lobby });
+					else if (d.coop === 'start') {
+						const def = getCoop(coopLobbies.find((x) => x.id === d.lobby)?.coop ?? '');
+						if (def && confirmLowCash('开始共同事件', coopCost(def))) coopOp('start', { lobby: d.lobby });
+					}
+					else if (d.coop === 'leave') coopOp('leave', { lobby: d.lobby });
 				}
 				else if ('reset' in d) {
 					if (!confirm('确定删除本机存档？请先记下同步码。')) return;
@@ -4028,7 +4176,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 			/** 真实地点动作：先重新定位；游戏里不在那个地点时先用真实定位抵达 */
 			async function venueDo(venueId: string, op: VenueOp) {
 				const v = region.venues.find((x) => x.id === venueId);
-				if (!v || !getVenueType(v.type)) return;
+				const type = v ? getVenueType(v.type) : undefined;
+				if (!v || !type || !state) return;
+				const preview = opOutcome(state, op, type, v);
+				if (preview?.cost && !confirmLowCash(`在${v.name}${preview.notes[0] ?? '消费'}`, preview.cost)) return;
 				const f = await locate();
 				if (!f || !state) return;
 				if (state.loc !== v.loc) {

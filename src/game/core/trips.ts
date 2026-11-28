@@ -2,7 +2,7 @@
 // 设计见 docs/earth-game/travel.md。
 import { AWAY_DESTS, FARE_SEASONS, JETLAG_TZ, JOB_LEAVE_DAYS, PACKING, PACKING_REMINDERS, RETURN_EVENTS, RETURN_NEEDS, ROAD_TRIP_DRIVE_MIN_PER_DAY, TRIP_DAY_MIN, TRIP_DAYS, type AwayDest, type FareSeason, type TripFare, type TripKind } from '../data/trips.ts';
 import { EVENTS } from '../data/events.ts';
-import { addMoodlet, awayTime, clone, fail, getLocation, log, roll, travelOptions } from './engine.ts';
+import { addMoodlet, awayTime, clone, fail, getLocation, log, releaseEmployerHome, roll, travelOptions } from './engine.ts';
 import { petTravelBlocked } from './pets.ts';
 import { PET } from '../data/pets.ts';
 import { bankWeekly } from './credit.ts';
@@ -172,9 +172,10 @@ export function takeTrip(prev: PlayerState, region: Region, destId: string, days
 	const debtBefore = debtNow(prev);
 	state.cash -= opt.price + opt.packing;
 	log(state, `从${here}出发去${dest.name}，机票 $${opt.price}${opt.packing ? `，在当地补买没带的东西 $${opt.packing}` : ''}，要离开 ${days} 天。`);
-	let lostJob = false, keptLeft = -1;
+	let lostJob = false, lostHome = '', keptLeft = -1;
 	if (state.job && days > leaveLeft(state)) {
 		state.job = null;
+		lostHome = releaseEmployerHome(state);
 		lostJob = true;
 	} else if (state.job) {
 		const y = Math.floor(dayOf(state.clock) / YEAR_DAYS);
@@ -191,7 +192,7 @@ export function takeTrip(prev: PlayerState, region: Region, destId: string, days
 	}
 	const bizLast = settleBiz(state, region).trim(); // 回来那天的前一天也结算掉
 	if (bizLast) log(state, bizLast);
-	if (lostJob) log(state, `今年可保留工作的请假（不带薪）累计超过 ${JOB_LEAVE_DAYS} 天，老板另外找了人，工作没了。`);
+	if (lostJob) log(state, `今年可保留工作的请假（不带薪）累计超过 ${JOB_LEAVE_DAYS} 天，老板另外找了人，工作没了。${lostHome}`);
 	else if (keptLeft >= 0 && state.job) log(state, `请假 ${days} 天，工作保留；这几天不上班没有工资，今年可保留工作的请假还剩 ${keptLeft} 天。`);
 	for (const k of NEED_KEYS) state.needs[k] = RETURN_NEEDS[dest.kind][k];
 	// 合并时间和睡眠后：在外面每晚都睡了觉——醒来时间从回到机场算起，欠的觉每晚按普通一觉还一部分（见 time-sleep.md §2.4）
@@ -204,7 +205,7 @@ export function takeTrip(prev: PlayerState, region: Region, destId: string, days
 	log(state, `从${dest.name}回到${here}${item ? `，带回了${item.icon}${item.name}` : ''}。`);
 	const ev = pickReturnEvent(state, dest.kind);
 	if (ev) state.pending = { eventId: ev };
-	return { ok: true, state, msg: `离开 ${days} 天后回到${here}。${lostJob ? '工作已经没了。' : ''}` };
+	return { ok: true, state, msg: `离开 ${days} 天后回到${here}。${lostJob ? `工作已经没了。${lostHome}` : ''}` };
 }
 
 // ---------- 州内自驾游规划 ----------

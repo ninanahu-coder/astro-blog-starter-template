@@ -300,6 +300,8 @@ const PROP_SCENE = {
 
 // 租住的住处（home:<id>），方形
 const HOME_SCENE = {
+	// v105 公司营地先借用已有露营地缩略图；提示词保留，后续可按同一素材流程重出。
+	'mine-camp': 'a remote mining company accommodation camp with rows of compact dongas, a shared dining hall and red dirt at dawn',
 	room: 'a small tidy share-house bedroom with a single bed, a desk and a backpack on the floor',
 	flat: 'a compact modern one-bedroom apartment interior with a small kitchen and a sofa in afternoon light',
 	beach: 'a small weatherboard beach shack with a verandah just above the sand, ocean beyond',

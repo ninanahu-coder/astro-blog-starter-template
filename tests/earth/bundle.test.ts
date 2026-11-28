@@ -85,9 +85,9 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  *   - 第十九轮职业履历：同职业换城 / 回聘保留最高职级，未压缩 877,996 → 878,302（+306B），gzip 283,790 → 283,870（+80B）；
  *     按本文件约定留余量，上限调到 881,400 / 284,900。
  */
-export const FIRST_SCREEN_MAX = 881_400; // 第十九轮职业履历：实测 878,302，按本文件约定留 3KB
+export const FIRST_SCREEN_MAX = 892_500; // v105 求职路线 + 低余额确认：实测 889,449，按本文件约定留 3KB
 /** 首屏 gzip 后的上限（玩家实际下载的量），临时值，见上 */
-export const FIRST_SCREEN_GZIP_MAX = 284_900; // 实测 283,870，按约定留 1KB
+export const FIRST_SCREEN_GZIP_MAX = 288_900; // v105 实测 287,811，按约定留 1KB
 
 async function split() {
 	const astro = readFileSync(join(ROOT, 'src/pages/earth.astro'), 'utf8');
