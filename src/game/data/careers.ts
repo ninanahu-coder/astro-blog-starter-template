@@ -32,7 +32,8 @@ export const CAREERS: CareerDef[] = [
 	},
 	{
 		id: 'miner', name: '矿业公司', where: { kinds: ['mining'] }, start: [5, 8], minutes: 600, skill: 'strength',
-		shift: { needs: { energy: -50, hygiene: -35, fun: -20 }, skills: { strength: 2, stamina: 1 } },
+		// FIFO 班次的公司食堂和洗浴：只在实际上完班时补餐、减少清洁损耗；营地床位另见 housing.ts
+		shift: { needs: { hunger: 55, energy: -50, hygiene: -15, fun: -20 }, skills: { strength: 2, stamina: 1 } },
 		levels: [
 			{ title: '普工', pay: 300, req: { skills: { strength: 20 } } },
 			{ title: '设备操作员', pay: 380, req: { skills: { strength: 35, driving: 15 } } },

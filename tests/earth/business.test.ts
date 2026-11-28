@@ -505,7 +505,7 @@ test('店里操作先结算时，结算的钱单独记「工作与零工」，�
 test('页面：生意卡在「工作」抽屉里，摘要算上副业和自己的店（合并 main 后）', async () => {
 	const { readFileSync } = await import('node:fs');
 	const page = readFileSync(new URL('../../src/pages/earth.astro', import.meta.url), 'utf8');
-	assert.match(page, /'工作', workHtml \+ bizCard\(s, region, esc\),/);
+	assert.match(page, /'工作', workHtml \+ careerRoutesHtml \+ bizCard\(s, region, esc\),/);
 	assert.match(page, /gigsAt\(s, region\)\.length \? `\$\{gigsAt\(s, region\)\.length\} 份副业`/);
 });
 

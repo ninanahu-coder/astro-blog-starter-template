@@ -1111,6 +1111,14 @@ function rememberCareer(state: PlayerState) {
 	if (job) state.careerLevels[job.career] = Math.max(state.careerLevels[job.career] ?? 0, job.level);
 }
 
+/** 雇主床位随本地职位走；辞职或换到别的职位时当场退床位。 */
+export function releaseEmployerHome(state: PlayerState): string {
+	if (!state.home || !getHome(state.home.type)?.employerCareer || !homeUnavailable(state)) return '';
+	const back: MoveOut = { bond: 0 };
+	const sold = vacate(state, 0, back);
+	return ` 公司床位已退回${sold ? `，家具折现 $${sold}` : ''}。`;
+}
+
 export function applyJob(prev: PlayerState, region: Region, careerId: string): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	const offer = careersAt(prev, region).find((o) => o.career.id === careerId);
@@ -1122,11 +1130,12 @@ export function applyJob(prev: PlayerState, region: Region, careerId: string): A
 	const remembered = state.careerLevels[careerId] ?? 0;
 	// 今天已经上过班的话，换了工作当天也不能再上一班
 	state.job = { career: careerId, loc: state.loc, level: remembered, shifts: 0, good: 0, lastDay: state.workDay };
+	const camp = releaseEmployerHome(state);
 	voidCareerCard(state); // 不管之前有没有工作：存档里可能留着对不上工作的职业卡
 	if (advance(state, 30, region)) return collapsedResult(state);
 	const title = offer.career.levels[remembered].title;
 	const place = getLocation(region, state.loc)!.name;
-	const msg = `${old ? `辞去了${old.name}的工作，` : ''}被${place}的${offer.career.name}录用为${title}。`;
+	const msg = `${old ? `辞去了${old.name}的工作，` : ''}被${place}的${offer.career.name}录用为${title}。${camp}`;
 	log(state, msg);
 	return { ok: true, state, msg };
 }
@@ -1146,9 +1155,10 @@ export function quitJob(prev: PlayerState): ActionResult {
 	const c = getCareer(state.job!.career)!;
 	rememberCareer(state);
 	state.job = null;
+	const camp = releaseEmployerHome(state);
 	const voided = voidCareerCard(state);
-	log(state, `辞去了${c.name}的工作。`);
-	return { ok: true, state, msg: `已辞职。${voided}` };
+	log(state, `辞去了${c.name}的工作。${camp}`);
+	return { ok: true, state, msg: `已辞职。${voided}${camp}` };
 }
 
 /**
@@ -1251,9 +1261,10 @@ function weeklyTick(state: PlayerState, region: Region) {
 		if (state.home && !state.home.owned && !homeUsable(state)) {
 			const def = getHome(state.home.type)!;
 			const place = getLocation(region, state.home.loc)?.name ?? '';
+			const why = homeUnavailable(state) ?? '住处已经不能使用';
 			const back: MoveOut = { bond: 0 };
 			const got = vacate(state, 0, back);
-			log(state, `周结算：没有能睡人的车，退掉了${place}的${def.name}${got ? `，家具折现 $${got}` : ''}${bondNote(back)}。`);
+			log(state, `周结算：${why}，退掉了${place}的${def.name}${got ? `，家具折现 $${got}` : ''}${bondNote(back)}。`);
 		}
 		if (state.home && !state.home.owned) {
 			const def = getHome(state.home.type)!;
@@ -1314,10 +1325,16 @@ function weeklyTick(state: PlayerState, region: Region) {
 /** 车能不能睡人 */
 const canSleepIn = (vehicleId: string) => !!getVehicle(vehicleId)?.sleep;
 
-/** 住处还能不能住：房车营地要有能睡人的车 */
-function homeUsable(state: PlayerState): boolean {
-	return !state.home || !getHome(state.home.type)?.vehicleSleep || canSleepIn(state.vehicle);
+/** 住处不能使用的原因；公司营地随本地矿工职位走，房车营地要有能睡人的车。 */
+function homeUnavailable(state: PlayerState): string | undefined {
+	if (!state.home) return undefined;
+	const home = getHome(state.home.type);
+	if (home?.employerCareer && !(state.job?.career === home.employerCareer && state.job.loc === state.home.loc)) return `公司营地只给在本地上班的${getCareer(home.employerCareer)?.name ?? '对应'}员工住`;
+	if (home?.vehicleSleep && !canSleepIn(state.vehicle)) return '没有能睡人的车，营地住不了';
+	return undefined;
 }
+
+const homeUsable = (state: PlayerState) => !homeUnavailable(state);
 
 /** 住在房车营地时，换成或卖成不能睡人的车会没地方睡：先退营地。返回原因，没问题返回 undefined */
 export function campBlocks(state: PlayerState, nextVehicle: string): string | undefined {
@@ -1378,7 +1395,8 @@ export function homesAt(state: PlayerState, region: Region): HomeOffer[] {
 	if (!loc) return [];
 	return HOMES.filter((h) => matches(h.where, loc)).map((home) => ({
 		home,
-		blocked: state.home?.type === home.id && state.home.loc === loc.id && !state.home.owned ? '你正住在这里'
+		blocked: home.employerCareer && !(state.job?.career === home.employerCareer && state.job.loc === loc.id) ? `只给在这里上班的${getCareer(home.employerCareer)?.name ?? '对应'}员工`
+			: state.home?.type === home.id && state.home.loc === loc.id && !state.home.owned ? '你正住在这里'
 			: home.vehicleSleep && !canSleepIn(state.vehicle) ? '要有能睡人的车（比如露营车）才能住营地'
 			: state.pet && !homeAllowsPet(home.id, state.pet.kind) ? `这里不许养${getPetKind(state.pet.kind)?.name ?? '宠物'}`
 			: state.cash < moveInCost(state, home) ? moveInNote(state, home)
@@ -1577,7 +1595,8 @@ export function sleepHome(prev: PlayerState, region: Region): ActionResult {
 	if (!prev.home) return fail(prev, '你没有住处。');
 	if (prev.home.loc !== prev.loc) return fail(prev, '要回到住处才能睡。');
 	const def = getHome(prev.home.type)!;
-	if (!homeUsable(prev)) return fail(prev, '没有能睡人的车，营地住不了。');
+	const unusable = homeUnavailable(prev);
+	if (unusable) return fail(prev, `${unusable}。`);
 	if (prev.flatshare.sublet) return fail(prev, '房间转租出去了，先收回来才能住。');
 	const state = clone(prev);
 	// 睡这一觉用的是入睡时的住处：睡到一半跨过结算日，住处可能因为欠租或断供被收走（state.home 变成 null）
@@ -1621,7 +1640,8 @@ export function napHome(prev: PlayerState, region: Region): ActionResult {
 	if (prev.pending) return fail(prev, '先处理眼前的事件。');
 	if (!prev.home) return fail(prev, '你没有住处。');
 	if (prev.home.loc !== prev.loc) return fail(prev, '要回到住处才能补觉。');
-	if (!homeUsable(prev)) return fail(prev, '没有能睡人的车，营地住不了。');
+	const unusable = homeUnavailable(prev);
+	if (unusable) return fail(prev, `${unusable}。`);
 	if (prev.flatshare.sublet) return fail(prev, '房间转租出去了，先收回来才能住。'); // 室友与合租：转租期间不能回去睡
 	const state = clone(prev);
 	const slept = sleepFor(state, region, { minutes: SLEEP.napMinutes, needs: { energy: SLEEP.napEnergy } }, homeSpot(prev), true);

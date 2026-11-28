@@ -245,7 +245,7 @@ test('打分类：要技术移民清单职业的经验、45 岁以下、雅思 6
 	const g = graduate({}, { ielts: 6, exp: Y, occ: 'barista' });
 	assert.match(routeUnmet(g, WA, 'skilled')!, /技术移民清单/);
 	assert.equal(routeUnmet(g, WA, 'regional'), undefined, '咖啡馆经理能走 491');
-	for (const career of ['bartender', 'lifeguard', 'trucker']) {
+	for (const career of ['bartender', 'lifeguard', 'trucker', 'carer']) {
 		const blocked = graduate({ job: { career, loc: 'perth', level: 2, shifts: 0, good: 0, lastDay: -1 }, visaExp: { [career]: Y } }, { ielts: 6, exp: Y, occ: career });
 		assert.match(routeUnmet(blocked, WA, 'regional')!, /州担保偏远地区清单/);
 		assert.equal(routeUnmet(blocked, WA, 'sponsored'), undefined, `${career} 仍可走 482`);

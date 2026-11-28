@@ -188,6 +188,7 @@ export interface HomeDef {
 	where: Where;
 	desc: string;
 	vehicleSleep?: boolean; // 人睡在自己车里（房车营地）：要有能睡人的车才能租、才能回去睡
+	employerCareer?: string; // 雇主提供的免租床位：只给在本地做该职业的人，不签住宅租约
 	bondWeeks?: number; // 押金是几周房租；不写用 data/housing.ts 的 BOND_WEEKS
 	rentWas?: number; // 降过租的房型写以前最高的周租：存档清洗给押金封顶时按它，旧存档按原价交的押金不会被砍（第十一轮合租 160 → 120）
 }
