@@ -1,5 +1,6 @@
 // 游戏规则引擎：纯函数、确定性（随机数来自存档里的 seed），前后端与测试共用。
 // 所有动作返回新的 PlayerState，不修改入参。
+import { keyOf, prf32, PRF_ROLL, secretSeed } from './prf.ts';
 import { activityClosed, outageBlocksCook, routeClosed, workStopped } from './disasters.ts';
 import { unit, weatherAt, weatherOn } from './weather.ts';
 import { ANIMALS, DEX_GROUPS, type AnimalDef } from '../data/wildlife.ts';
@@ -75,8 +76,12 @@ export const ARRIVAL_EVENT_CHANCE = 0.55;
 export const HEAT_CHECK_AT = 60;
 
 // ---------- 随机数（mulberry32，状态存于 state.seed） ----------
+// v106：有密钥的存档（state.rngKey，服务端生成，见 prf.ts）改用带密钥的函数：seed 仍然每次加同一个数当计数器，
+// 但输出要过 128 位密钥，从看到的检定结果穷举不出后面的结果。没有密钥（模拟、测试、客户端）走旧算法，基线不变。
 export function roll(state: PlayerState): number {
 	let t = (state.seed = (state.seed + 0x6d2b79f5) >>> 0);
+	const key = keyOf(state);
+	if (key) return prf32(key, t, PRF_ROLL, 0, 0) / 4294967296;
 	t = Math.imul(t ^ (t >>> 15), t | 1);
 	t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
 	return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
@@ -481,7 +486,7 @@ export function seasonAnimals(clock: number): AnimalDef[] {
 
 /** 抵达时看见哪只新动物（最多一只）。只读种子做哈希、不推进它，所以不影响其他随机结果 */
 function spotAnimal(state: PlayerState, loc: GameLocation): AnimalDef | undefined {
-	return animalsAt(state, loc).find((a) => unit(`${state.seed}|${state.clock}|${loc.id}|${a.id}`) < a.chance);
+	return animalsAt(state, loc).find((a) => unit(`${secretSeed(state, 0)}|${state.clock}|${loc.id}|${a.id}`) < a.chance);
 }
 
 /** 记进野生动物图鉴（原地修改）；集齐一组发声望。观鸟看见图鉴里的鸟也调它 */
@@ -1421,7 +1426,7 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string, term
 	const sold = vacate(state, 0, back);
 	state.cash -= due + ahead + bond;
 	state.home = { type: homeId, loc: state.loc, furniture: {}, ...(bond ? { bond } : {}) };
-	const lease = needsLease(offer.home) ? startLease(state.seed, offer.home, state.loc, dayOf(state.clock), term) : null;
+	const lease = needsLease(offer.home) ? startLease(secretSeed(state, 0), offer.home, state.loc, dayOf(state.clock), term) : null;
 	if (lease && ahead) lease.paidAhead = ahead;
 	state.rental.lease = lease;
 	state.rental.viewed = null;
@@ -1474,7 +1479,7 @@ export function inspectHome(prev: PlayerState, region: Region, homeId: string): 
 	const state = clone(prev);
 	const day = dayOf(state.clock);
 	// 按存档里不会变的行情种子（marketSeed，只在服务端）定：同一天同一套房反复看，来的人数一样，不能靠做别的事推进随机种子重抽（合并 main 后复核）
-	const n = applicantsFor(state.marketSeed, areaOf(state.loc)?.id ?? 'wa', state.loc, homeId, day);
+	const n = applicantsFor(secretSeed(state, 1), areaOf(state.loc)?.id ?? 'wa', state.loc, homeId, day);
 	state.rental.viewed = { loc: state.loc, home: homeId, day, n };
 	if (advance(state, RENTAL.inspectMin, region)) return collapsedResult(state);
 	const msg = `看了${offer.home.name}：这次来了 ${n} 组人。你的申请${oddsLabel(applyOdds(oddsInput(state, offer.home)))}。`;

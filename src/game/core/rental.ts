@@ -5,6 +5,7 @@ import type { HomeDef, Lease, PlayerState, RentalState } from './types.ts';
 import { BOND_WEEKS, HOMES } from '../data/housing.ts';
 import { BOND_LAW, FAULTS, MARKET, ODDS, RENTAL, SCAM_KINDS } from '../data/rental.ts';
 import { unit } from './weather.ts';
+import { secretSeed } from './prf.ts';
 import { rentOn } from './world.ts';
 
 export const emptyRental = (): RentalState => ({ lease: null, refs: 0, marks: 0, viewed: null, rejected: null, claim: null, scam: -1 });
@@ -164,7 +165,7 @@ export function rentalWeek(state: PlayerState, day: number): string[] {
 	const l = state.rental.lease;
 	const out: string[] = [];
 	if (!l) return out;
-	const key = `${state.seed}|${l.loc}|${l.home}|${day}`;
+	const key = `${secretSeed(state, 0)}|${l.loc}|${l.home}|${day}`;
 	l.wear = Math.min(100, l.wear + RENTAL.wearWeek + (l.fault && l.fault.asked < 0 ? RENTAL.wearUnreported : 0));
 	if (!l.fault && unit(`fault|${key}`) < RENTAL.faultChance) {
 		const urgent = unit(`urgent|${key}`) < RENTAL.urgentShare;

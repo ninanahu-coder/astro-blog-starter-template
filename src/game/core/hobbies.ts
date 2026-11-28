@@ -5,6 +5,7 @@ import { addMoodlet, applyEffect, clone, collapsedResult, fail, fishingAt, getLo
 import { checkScore } from './attributes.ts';
 import { dateOf, dayOf, period } from './time.ts';
 import { unit, weatherAt } from './weather.ts';
+import { secretSeed } from './prf.ts';
 import { activityClosed } from './disasters.ts';
 import { NEED_KEYS } from './types.ts';
 import type { ActionResult, GameLocation, HobbyState, Needs, PlayerState, Region } from './types.ts';
@@ -135,9 +136,9 @@ export function fishRuleAt(fishId: string, locId: string): FishRule | undefined 
 /** 这条鱼的体长（cm，一位小数）。只读种子做哈希、不推进它，所以加了尺寸也不改变别的随机结果 */
 export function fishCm(state: PlayerState, fishId: string): number {
 	const [lo, hi] = FISH_CM[fishId] ?? [10, 40];
-	const u = unit(`${state.seed}|${state.clock}|${fishId}|cm`);
+	const u = unit(`${secretSeed(state, 0)}|${state.clock}|${fishId}|cm`);
 	// 两个均匀数取平均，中间的尺寸多、两头少
-	const u2 = unit(`${state.seed}|${state.clock}|${fishId}|cm2`);
+	const u2 = unit(`${secretSeed(state, 0)}|${state.clock}|${fishId}|cm2`);
 	return Math.round((lo + (hi - lo) * (u + u2) / 2) * 10) / 10;
 }
 
@@ -322,7 +323,7 @@ function tendGarden(prev: PlayerState, region: Region): ActionResult {
 export function nextCraft(state: PlayerState): CraftDef {
 	const level = hobbyLevel(state.hobby.xp.craft ?? 0);
 	const can = CRAFTS.filter((c) => c.level <= level);
-	return can.find((c) => !state.hobby.made.includes(c.id)) ?? can[Math.floor(unit(`${state.seed}|${state.clock}|craft`) * can.length)];
+	return can.find((c) => !state.hobby.made.includes(c.id)) ?? can[Math.floor(unit(`${secretSeed(state, 0)}|${state.clock}|craft`) * can.length)];
 }
 
 export function craftBlocked(state: PlayerState): string | undefined {
