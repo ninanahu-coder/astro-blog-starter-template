@@ -383,6 +383,8 @@ export const EVENTS: GameEvent[] = [
 		choices: [
 			{ label: '进去品一轮（$15）', cost: 15, ok: { text: '酿酒师讲了这片土和海风的关系，你挑出了自己最喜欢的一款。', fx: { minutes: 45, needs: { fun: 20, social: 10 } } } },
 			{ label: '要开车，只买瓶果汁', cost: 4, ok: { text: '老板夸你懂规矩，送了一小袋葡萄。', fx: { minutes: 10, needs: { hunger: 8 } } } },
+			// 一定要留一个不花钱的选项：两个都收费时，现金不到 $4 的玩家会被这张事件卡住（v106）
+			{ label: '在葡萄园边上看一会儿就走', ok: { text: '一排排葡萄藤在风里晃，你站着看了一会儿，继续赶路。', fx: { minutes: 10, needs: { fun: 3 } } } },
 		],
 	},
 	{

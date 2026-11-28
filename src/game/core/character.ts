@@ -17,8 +17,10 @@ import { BOND_WEEKS, HOMES } from '../data/housing.ts';
 import { CAR_KM_MAX, VEHICLES } from '../data/vehicles.ts';
 import { FURNITURE } from '../data/furniture.ts';
 import { PROPERTIES } from '../data/properties.ts';
-import { ASSETS, QUOTE_DAYS } from '../data/assets.ts';
+import { ASSETS, MARKET_DAYS_MAX, QUOTE_DAYS } from '../data/assets.ts';
 import { deriveMarketSeed } from './market.ts';
+import { RNG_KEY_RE } from './prf.ts';
+import { stash, unstash } from './held.ts';
 import { WISHES } from '../data/wishes.ts';
 import { MOODLET_MAX, MOODLETS } from '../data/moodlets.ts';
 import { MIND } from '../data/mind.ts';
@@ -138,6 +140,7 @@ export function createCharacter(opts: {
 	region: string;
 	spawn: string;
 	seed: number; // 随机种子由服务端生成后传入，引擎内不自己生成随机数
+	rngKey?: string; // 随机数密钥（服务端生成的 32 位十六进制）；不传 = 旧算法（模拟和测试用，结果可重现）
 	traits?: string[];
 }): PlayerState {
 	const origin = getOrigin(opts.origin);
@@ -185,6 +188,9 @@ export function createCharacter(opts: {
 		bank: emptyBank(),
 		holdings: {},
 		marketSeed: deriveMarketSeed(opts.seed >>> 0),
+		rngKey: cleanRngKey(opts.rngKey),
+		rngDay: 0,
+		held: {},
 		nextWeek: 7,
 		cover: {}, // 保单（第 43 批）：开局没有；看病的保障跟签证走（core/health.ts coverOf）
 		moodlets: [],
@@ -288,11 +294,12 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 	const r0 = migrateSave(raw) as Record<string, any> | null;
 	if (!r0 || typeof r0.id !== 'string' || typeof r0.loc !== 'string') return null;
 	if (!/^[a-zA-Z0-9_-]{6,40}$/.test(r0.id)) return null;
-	let r = r0;
+	// 寄存的未知 id 先接回原处，让这版的数据表重新认一遍（core/held.ts）
+	let r = unstash(r0);
 	if (knownLocs && !knownLocs.has(r.loc)) {
 		if (!opts.fallbackLoc || !knownLocs.has(opts.fallbackLoc)) return null;
 		// 不修改入参：换一个浅拷贝，把人挪到安全落点并记为到访过
-		r = { ...r0, loc: opts.fallbackLoc, visited: { ...(r0.visited && typeof r0.visited === 'object' ? r0.visited : {}), [opts.fallbackLoc]: 1 } };
+		r = { ...r, loc: opts.fallbackLoc, visited: { ...(r0.visited && typeof r0.visited === 'object' ? r0.visited : {}), [opts.fallbackLoc]: 1 } };
 	}
 	const needs = {} as Needs;
 	for (const k of NEED_KEYS) needs[k] = num(r.needs?.[k], 0, 100, 50);
@@ -381,6 +388,9 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 		})(),
 		// 旧存档没有行情种子：用服务端的随机种子派生（同样不发给客户端）
 		marketSeed: typeof r.marketSeed === 'number' && Number.isInteger(r.marketSeed) && r.marketSeed >= 0 && r.marketSeed < 2 ** 32 ? r.marketSeed : deriveMarketSeed(num(r.seed, 0, 2 ** 32 - 1, 1) >>> 0),
+		rngKey: cleanRngKey(r.rngKey),
+		rngDay: cleanRngKey(r.rngKey) ? Math.floor(num(r.rngDay, 0, MARKET_DAYS_MAX, 0)) : 0,
+		held: {}, // 清洗完再算（见函数末尾）
 		nextWeek: cleanNextWeek(r),
 		moodlets: (() => {
 			// 只保留已知状态；失效时间不能早于现在、也不能超过该状态的最长时长
@@ -548,6 +558,8 @@ export function sanitizeState(raw: unknown, knownLocs?: Set<string>, opts: Sanit
 				places: Math.floor(num(own(y, 'places'), 0, places, 0)),
 			};
 	}
+	// 被数据表筛掉的成就、打卡、物品、工作等 id 寄存起来，不丢（core/held.ts）
+	out.held = stash(r, out, (id) => knownCareers.has(id));
 	return out;
 }
 
@@ -817,6 +829,9 @@ function cleanRelations(raw: unknown): Record<string, Relation> {
 	}
 	return out;
 }
+
+/** 随机数密钥：32 位十六进制，否则空串（= 旧算法） */
+const cleanRngKey = (v: unknown): string => (typeof v === 'string' && RNG_KEY_RE.test(v) ? v : '');
 
 /** 背包只保留已知物品，数量钳制在 1..max，其余丢弃 */
 function cleanInventory(raw: unknown): Record<string, number> {

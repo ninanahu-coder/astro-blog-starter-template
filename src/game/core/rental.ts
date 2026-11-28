@@ -5,6 +5,7 @@ import type { HomeDef, Lease, PlayerState, RentalState } from './types.ts';
 import { BOND_WEEKS, HOMES } from '../data/housing.ts';
 import { BOND_LAW, FAULTS, MARKET, ODDS, RENTAL, SCAM_KINDS } from '../data/rental.ts';
 import { unit } from './weather.ts';
+import { prf32, PRF_CROWD, secretSeed } from './prf.ts';
 import { rentOn } from './world.ts';
 
 export const emptyRental = (): RentalState => ({ lease: null, refs: 0, marks: 0, viewed: null, rejected: null, claim: null, scam: -1 });
@@ -22,9 +23,11 @@ export function bondCapWeeks(rentWeek: number, area: string): number {
 // ---------- 找房 ----------
 
 /** 看房时来了几组人（含竞争者）：按区域市场表、地点、房型、日子从种子取 */
-export function applicantsFor(seed: number, area: string, loc: string, home: string, day: number): number {
+/** key：存档的随机数密钥（v106）。有密钥时直接过密钥取数，不经过可被穷举的 32 位中间值；没有时按旧算法 */
+export function applicantsFor(seed: number, area: string, loc: string, home: string, day: number, key = ''): number {
 	const [lo, hi] = (MARKET[area] ?? MARKET.wa).applicants;
-	return lo + Math.floor(unit(`crowd|${seed}|${loc}|${home}|${day}`) * (hi - lo + 1));
+	const u = key ? prf32(key, seed, Math.floor(unit(`${loc}|${home}`) * 4294967296), day, PRF_CROWD) / 4294967296 : unit(`crowd|${seed}|${loc}|${home}|${day}`);
+	return lo + Math.floor(u * (hi - lo + 1));
 }
 
 export interface OddsInput {
@@ -164,7 +167,7 @@ export function rentalWeek(state: PlayerState, day: number): string[] {
 	const l = state.rental.lease;
 	const out: string[] = [];
 	if (!l) return out;
-	const key = `${state.seed}|${l.loc}|${l.home}|${day}`;
+	const key = `${secretSeed(state)}|${l.loc}|${l.home}|${day}`;
 	l.wear = Math.min(100, l.wear + RENTAL.wearWeek + (l.fault && l.fault.asked < 0 ? RENTAL.wearUnreported : 0));
 	if (!l.fault && unit(`fault|${key}`) < RENTAL.faultChance) {
 		const urgent = unit(`urgent|${key}`) < RENTAL.urgentShare;

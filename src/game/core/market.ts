@@ -7,7 +7,10 @@
 // 价格 = 起始价 × exp(Σ 每天的 (μ − σ²/2) + σ·z)，μ、σ 是把年化 drift / vol 折到一天（÷365、÷√365），z 是标准正态随机数。
 // z 来自 (行情种子, 资产, 天) 的哈希，不消耗 state.seed：同一个玩家同一天看到的价格永远一样，别的随机结果也不受影响。
 // 行情种子不发给客户端，所以玩家没法从前端代码推算明天的价格。
+// v106：行情种子只有 32 位，能从发给客户端的行情价穷举出来。有密钥的存档（state.rngKey，见 prf.ts）从 rngDay 的后一天起改用带密钥的 z，
+// rngDay 及以前仍按旧算法：老玩家已经看过的历史价格不变，走势在换算法那天不断档。
 import { ASSETS, MARKET_DAYS_MAX, QUOTE_DAYS } from '../data/assets.ts';
+import { keyOf, prf32, PRF_MARKET } from './prf.ts';
 import { dayOf } from './time.ts';
 import type { AssetDef, PlayerState } from './types.ts';
 
@@ -32,11 +35,23 @@ function strHash(s: string): number {
 /** (0, 1) 之间的均匀随机数 */
 const uniform = (seed: number, asset: number, day: number, k: number) => (mix(mix(mix(seed ^ asset) + day) ^ (k * 0x9e3779b9)) + 0.5) / 4294967296;
 
-/** 标准正态随机数（Box–Muller） */
-export function shock(seed: number, assetId: string, day: number): number {
+/** 行情密钥：key = 存档的 rngKey，from = 从哪一天之后才用它（那天及以前按旧算法） */
+export interface MarketKey {
+	key: string;
+	from: number;
+}
+
+/** 这份存档的行情密钥；没有密钥（旧存档、模拟、客户端）返回 undefined */
+export function marketKeyOf(state: Pick<PlayerState, 'rngKey' | 'rngDay'>): MarketKey | undefined {
+	const key = keyOf(state);
+	return key ? { key, from: Math.max(0, Math.floor(Number(state.rngDay) || 0)) } : undefined;
+}
+
+/** 标准正态随机数（Box–Muller）。带 key 时两个均匀数来自带密钥的函数 */
+export function shock(seed: number, assetId: string, day: number, key = ''): number {
 	const a = strHash(assetId);
-	const u1 = uniform(seed, a, day, 1);
-	const u2 = uniform(seed, a, day, 2);
+	const u1 = key ? (prf32(key, seed, a, day, PRF_MARKET ^ 1) + 0.5) / 4294967296 : uniform(seed, a, day, 1);
+	const u2 = key ? (prf32(key, seed, a, day, PRF_MARKET ^ 2) + 0.5) / 4294967296 : uniform(seed, a, day, 2);
 	return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 }
 
@@ -47,8 +62,8 @@ export const deriveMarketSeed = (seed: number) => mix((seed ^ 0x5bd1e995) >>> 0)
 const cache = new Map<string, number[]>();
 const CACHE_MAX = 512;
 
-function logLevels(seed: number, def: AssetDef, upTo: number): number[] {
-	const key = `${seed}:${def.id}`;
+function logLevels(seed: number, def: AssetDef, upTo: number, mk?: MarketKey): number[] {
+	const key = mk ? `${seed}:${def.id}:${mk.key}:${mk.from}` : `${seed}:${def.id}`;
 	let arr = cache.get(key);
 	if (!arr) {
 		if (cache.size >= CACHE_MAX) cache.clear();
@@ -59,16 +74,16 @@ function logLevels(seed: number, def: AssetDef, upTo: number): number[] {
 	const sigma = def.vol / Math.sqrt(365);
 	while (arr.length <= upTo) {
 		const d = arr.length;
-		arr.push(arr[d - 1] + mu - (sigma * sigma) / 2 + (sigma ? sigma * shock(seed, def.id, d) : 0));
+		arr.push(arr[d - 1] + mu - (sigma * sigma) / 2 + (sigma ? sigma * shock(seed, def.id, d, mk && d > mk.from ? mk.key : '') : 0));
 	}
 	return arr;
 }
 
-/** 某个行情种子下，某资产第 day 天的单价（不四舍五入，展示时自己取整） */
-export function priceOn(def: AssetDef, seed: number, day: number): number {
+/** 某个行情种子下，某资产第 day 天的单价（不四舍五入，展示时自己取整）。mk：这份存档的行情密钥（marketKeyOf） */
+export function priceOn(def: AssetDef, seed: number, day: number, mk?: MarketKey): number {
 	const d = Math.max(0, Math.min(MARKET_DAYS_MAX, Math.floor(day)));
 	if (d === 0) return def.start; // exp(log(x)) 有浮点误差，第 0 天直接给起始价
-	return Math.exp(logLevels(seed >>> 0, def, d)[d]);
+	return Math.exp(logLevels(seed >>> 0, def, d, mk)[d]);
 }
 
 /**
@@ -78,7 +93,7 @@ export function priceOn(def: AssetDef, seed: number, day: number): number {
  */
 export function assetPrice(state: PlayerState, def: AssetDef): number {
 	const q = state.quotes?.[def.id];
-	return q?.length ? q[q.length - 1] : priceOn(def, state.marketSeed, dayOf(state.clock));
+	return q?.length ? q[q.length - 1] : priceOn(def, state.marketSeed, dayOf(state.clock), marketKeyOf(state));
 }
 
 /** 发给客户端的行情：每种资产最近 QUOTE_DAYS 天的价格（含今天，从早到晚），保留 6 位有效数字 */
@@ -93,7 +108,8 @@ export function priceHistory(state: PlayerState, def: AssetDef, n: number): numb
 	if (q?.length) return q.slice(-n);
 	const today = dayOf(state.clock);
 	const out: number[] = [];
-	for (let d = Math.max(0, today - n + 1); d <= today; d++) out.push(priceOn(def, state.marketSeed, d));
+	const mk = marketKeyOf(state);
+	for (let d = Math.max(0, today - n + 1); d <= today; d++) out.push(priceOn(def, state.marketSeed, d, mk));
 	return out;
 }
 

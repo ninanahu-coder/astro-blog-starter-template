@@ -18,6 +18,7 @@ import { claimDaily, DAILY, realDayOf } from '../core/daily.ts';
 import { noteReturn } from '../core/onboard.ts';
 import { refreshWishes } from '../core/wishes.ts';
 import { cleanName, createCharacter, sanitizeState } from '../core/character.ts';
+import { RNG_KEY_RE } from '../core/prf.ts';
 import { carryUnknown, SAVE_VERSION } from '../core/save.ts';
 import {
 	addTitles, cleanLbEntry, cleanPref, LB_PREF_DEFAULT, cleanSeason, cleanTitles, contestPoints, lbAwards, lbEntry, lbSeasonRec, lbSort, lbView, parseQuery, patchPref,
@@ -139,6 +140,16 @@ interface Note {
 	day: number;
 }
 
+/** 内部路径：这个 id 有没有存档（只在 Durable Object 之间调用） */
+const KNOWN_PATH = '/api/earth/known';
+const KNOWN_PER_IP = 120; // 每个来源每分钟最多查这么多次（正常是每次连接一次；宿舍、运营商共享出口下很多人共用一个来源，所以放宽）
+const KICKED_MS = 60 * 1000; // 删号后这么久之内，同一个哈希的新连接只能旁观（挡住「查存档时还在、转到区域时刚删」的时间差）
+const KNOWN_WINDOW_MS = 60 * 1000;
+/** 内部路径：这个哈希的玩家删号了，把他的在线连接断开（存档实例 → 各区域实例） */
+const KICK_PATH = '/api/earth/kick';
+/** 随机数密钥的存储键前缀：rk:<id> = { key, day } */
+const RK_PREFIX = 'rk:';
+
 interface Presence {
 	id: string;
 	name: string;
@@ -152,6 +163,11 @@ const json = (data: unknown, status = 200) =>
 		// 响应里有存档：不进任何缓存；不让浏览器按内容猜类型
 		headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
 	});
+
+/** 随机数密钥：128 位，32 位十六进制（core/prf.ts）。只存在服务端的 rk:<id> 里，不进存档（见 EarthWorld.keyed） */
+function newRngKey(): string {
+	return [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 async function sha256Hex(s: string): Promise<string> {
 	const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
@@ -173,6 +189,10 @@ export class EarthWorld {
 	private saveRate = new RateLimiter(SAVE_LIMIT, SAVE_WINDOW_MS);
 	private createRate = new RateLimiter(CREATE_PER_IP, CREATE_WINDOW_MS);
 	private chatRate = new RateLimiter(CHAT_PER_IP, CHAT_WINDOW_MS);
+	private knownRate = new RateLimiter(KNOWN_PER_IP, KNOWN_WINDOW_MS); // 在线频道握手前的存档查询（v106），和存档请求的名额分开
+	private rooms: { idFromName(n: string): unknown; get(id: unknown): { fetch(r: Request): Promise<Response> } } | null; // 其他实例（删号时通知各区域断开连接）
+	private kicked = new Map<string, number>(); // 刚删号的哈希 -> 到什么时候为止只能旁观（v106）
+	private guests = new Set<WebSocket>(); // 没有存档的连接（v106）：只能旁观，不能聊天、发表情
 	private sockIp = new Map<WebSocket, string>(); // 连接 -> 来源限流键（只在内存，不广播、不落盘）
 	private sweeper: ReturnType<typeof setInterval> | null = null;
 	private locks = new Map<string, Promise<unknown>>(); // 同一存档的请求排队执行，避免并发读改写
@@ -212,6 +232,8 @@ export class EarthWorld {
 		this.stats = new StatsBuffer(ctx.storage as never);
 		const t = (env as { EARTH_SPONSOR_TOKEN?: unknown } | null)?.EARTH_SPONSOR_TOKEN;
 		this.sponsorToken = typeof t === 'string' && t.length >= 32 ? t : '';
+		const ns = (env as { EARTH_WORLD?: unknown } | null)?.EARTH_WORLD as EarthWorld['rooms'];
+		this.rooms = ns && typeof ns.idFromName === 'function' && typeof ns.get === 'function' ? ns : null;
 	}
 
 	async fetch(request: Request): Promise<Response> {
@@ -222,6 +244,33 @@ export class EarthWorld {
 		if (url.pathname === '/api/earth/stats') return this.handleStats(request);
 		// 只有 routeEarth 核对过查询令牌后才会转到这里（外部请求到不了这个路径）
 		if (url.pathname === '/api/earth/stats/read') return this.handleStatsRead(url);
+		// 这个 id 有没有存档（v106，只有 routeEarth 在转发在线频道连接前会问 '@SAVES' 实例；外部请求到不了这个路径）
+		if (url.pathname === KNOWN_PATH) {
+			const kid = url.searchParams.get('id') || '';
+			// 按来源限流（来源由 routeEarth 放在请求头里）：超了回 429，routeEarth 让客户端过一会儿重连
+			if (!this.knownRate.hit(ipKey(request.headers.get('CF-Connecting-IP')), Date.now())) return json({ ok: false }, 429);
+			if (!ID_RE.test(kid)) return json({ ok: true, known: false });
+			const kh = (await sha256Hex(kid)).slice(0, 12);
+			let known = (await this.ctx.storage.get('h:' + kh)) === kid;
+			// 很早的存档可能还没有 h: 记录（落盘时才写）：以存档本身为准，顺手补上
+			if (!known && (await this.ctx.storage.get('save:' + kid))) {
+				known = true;
+				await this.ctx.storage.put('h:' + kh, kid);
+			}
+			return json({ ok: true, known });
+		}
+		// 删号后断开这名玩家的在线连接（v106，存档实例发给各区域实例；外部请求到不了这个路径）：握手时核对过存档，删号后不能留着连接继续说话
+		if (url.pathname === KICK_PATH) {
+			const kh = url.searchParams.get('h') || '';
+			let n = 0;
+			if (HASH_RE.test(kh)) {
+				const t = Date.now();
+				for (const [k, until] of this.kicked) if (until <= t) this.kicked.delete(k);
+				this.kicked.set(kh, t + KICKED_MS);
+				for (const [sock, p] of [...this.sockets]) if (p.id === kh) { this.onClose(sock); n++; }
+			}
+			return json({ ok: true, n });
+		}
 		if ((request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
 			return new Response('expected websocket', { status: 426 });
 		}
@@ -236,11 +285,16 @@ export class EarthWorld {
 		if (this.connsFrom(ip) >= CONNS_PER_IP) return new Response('too many connections', { status: 429 });
 		const locs = new Set(region.locations.map((l) => l.id));
 		const loc = url.searchParams.get('loc') || '';
+		// 没有存档的连接（v106）：known 由 routeEarth 向存档实例查实后写上，客户端自己带的会被覆盖。
+		// 这种连接屏蔽不了也举报不了（屏蔽、举报都要按哈希找到存档），所以只让旁观：不能自己起名字，不能聊天、发表情
+		// 对外只暴露 id 的哈希前缀：真实 id 是存档凭证的一部分，不能广播
+		const hid = (await sha256Hex(id)).slice(0, 12);
+		// 判断放在上面这个 await 之后、登记连接之前（中间没有别的 await）：插在中间的删号通知也拦得住
+		const guest = url.searchParams.get('known') !== '1' || (this.kicked.get(hid) ?? 0) > Date.now();
 		const me: Presence = {
-			// 对外只暴露 id 的哈希前缀：真实 id 是存档凭证的一部分，不能广播
-			id: (await sha256Hex(id)).slice(0, 12),
-			name: cleanName(url.searchParams.get('name')) || '旅人',
-			avatar: (url.searchParams.get('avatar') || '🧑').replace(/[<>&"']/g, '').slice(0, 8),
+			id: hid,
+			name: guest ? '旅人' : cleanName(url.searchParams.get('name')) || '旅人',
+			avatar: guest ? '🧑' : (url.searchParams.get('avatar') || '🧑').replace(/[<>&"']/g, '').slice(0, 8),
 			loc: locs.has(loc) ? loc : region.spawn,
 		};
 
@@ -248,6 +302,7 @@ export class EarthWorld {
 		const server = pair[1];
 		server.accept();
 		this.sockets.set(server, me);
+		if (guest) this.guests.add(server);
 		this.sockIp.set(server, ip);
 		this.lastSeen.set(server, Date.now());
 		this.send(server, { t: 'hello', you: me.id, players: this.roster(), emotes: EMOTES });
@@ -300,6 +355,10 @@ export class EarthWorld {
 				}
 				break;
 			case 'chat': {
+				if (this.guests.has(ws)) {
+					this.send(ws, { t: 'notice', msg: '没发出去：先创建角色才能聊天' });
+					break;
+				}
 				const text = String(m.text ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, CHAT_MAX);
 				if (!text) break;
 				// 在线频道不能发网址、联系方式和坐标（第 24 批）：不转发，只告诉发的人
@@ -317,6 +376,7 @@ export class EarthWorld {
 				break;
 			case 'coop':
 			case 'trade': {
+				if (this.guests.has(ws)) break;
 				// 共同事件大厅或交易挂单有变化：只提醒同一地点的其他人去拉一次列表，不带任何内容（内容以服务端为准）
 				const last = this.hintAt.get(ws) ?? {};
 				if (now - (last[m.t] ?? 0) < COOP_HINT_MS) break;
@@ -325,7 +385,7 @@ export class EarthWorld {
 				break;
 			}
 			case 'emote':
-				if (EMOTES.includes(m.kind) && typeof m.to === 'string') {
+				if (!this.guests.has(ws) && EMOTES.includes(m.kind) && typeof m.to === 'string') {
 					// 只能对同一地点的玩家互动
 					for (const [sock, p] of this.sockets) {
 						if (p.id === m.to && p.loc === me.loc && !this.mutes.get(sock)?.has(me.id)) this.send(sock, { t: 'emote', from: me.id, name: me.name, kind: m.kind });
@@ -339,6 +399,7 @@ export class EarthWorld {
 		const me = this.sockets.get(ws);
 		if (!me) return;
 		this.sockets.delete(ws);
+		this.guests.delete(ws);
 		this.sockIp.delete(ws);
 		this.lastSeen.delete(ws);
 		this.msgCount.delete(ws);
@@ -578,8 +639,25 @@ export class EarthWorld {
 		return this.notes.get(loc)!;
 	}
 
+	/**
+	 * 给读出来的存档拼上随机数密钥（v106，core/prf.ts）。密钥放在 rk:<id> = { key, day }，不在存档里：
+	 * 存档里的顶层字段会被不认识它的旧分支当成「别的分支的字段」原样带进导出，密钥就泄露了。
+	 * 没有密钥的旧存档在这里生成并立刻写下（不等存档落盘：同一个存档前后两次请求必须是同一把）；day = 今天，行情从明天起才换算法。
+	 * 旧分支的代码不读 rk:，运行期间退回旧算法，但密钥本身不会外泄。
+	 */
+	private async keyed(id: string, s: PlayerState): Promise<PlayerState> {
+		const rk = await this.ctx.storage.get<{ key?: unknown; day?: unknown }>(RK_PREFIX + id);
+		const today = Math.floor(s.clock / 1440);
+		// day 比存档现在的游戏日还大 = 别人的旧记录（旧分支的代码删号、重建同一个 id 时不会清 rk:）：作废重发
+		if (rk && typeof rk.key === 'string' && RNG_KEY_RE.test(rk.key) && typeof rk.day === 'number' && Number.isInteger(rk.day) && rk.day >= 0 && rk.day <= today) return { ...s, rngKey: rk.key, rngDay: rk.day };
+		const fresh = { key: newRngKey(), day: today };
+		await this.ctx.storage.put(RK_PREFIX + id, fresh);
+		return { ...s, rngKey: fresh.key, rngDay: fresh.day };
+	}
+
 	/** 存档落盘，同时更新这名玩家的榜单记录。榜单用 id 的哈希前缀做键（和在线状态一样），真实 id 是凭证的一部分，不能外露 */
-	private async persist(id: string, keyHash: string, state: PlayerState, now: number, raw?: unknown): Promise<void> {
+	// raw 必填：落盘前的原存档。漏传会丢掉别的分支加的字段和较新的格式版本号（新建角色没有原存档，直接走 persistMany）
+	private async persist(id: string, keyHash: string, state: PlayerState, now: number, raw: unknown): Promise<void> {
 		await this.persistMany([{ id, keyHash, state, at: now, raw }]);
 	}
 
@@ -599,7 +677,9 @@ export class EarthWorld {
 			const seaKey = `lbs:${sid}:${h}`;
 			const [prev, prevSea] = await Promise.all([this.ctx.storage.get(rankKey), this.ctx.storage.get(seaKey)]);
 			// raw：落盘前的原存档。这版代码不认识的字段（别的分支加的）原样带上，不在来回部署时丢掉（见 core/save.ts）
-			entries['save:' + x.id] = { keyHash: x.keyHash, state: x.raw === undefined ? x.state : carryUnknown(x.raw, x.state), at: x.at };
+			// 随机数密钥不落进存档（v106）：存档会被不认识这个字段的旧分支原样导出给玩家，密钥单独放在 rk:<id>
+			const disk: PlayerState = x.state.rngKey || x.state.rngDay ? { ...x.state, rngKey: '', rngDay: 0 } : x.state;
+			entries['save:' + x.id] = { keyHash: x.keyHash, state: x.raw === undefined ? disk : carryUnknown(x.raw, disk), at: x.at };
 			// 在线状态里的 id 哈希 -> 真实 id：送礼时按哈希找到收件人。只存在服务端存储里，从不发给客户端
 			entries['h:' + h] = x.id;
 			// 榜单数值由服务端从刚结算完的存档算；涨得不正常就挂起复核（lbEntry 里的 lbAnomaly）
@@ -779,8 +859,10 @@ export class EarthWorld {
 		if (rec && !timingSafeEqual(rec.keyHash, keyHash)) {
 			// 换码的回复在路上丢了：客户端拿旧码重交，而存档已经认新码了。新码对得上就当成功，不然这台设备就被锁在外面
 			if (body.action === 'rekey' && typeof body.newKey === 'string' && KEY_RE.test(body.newKey) && timingSafeEqual(rec.keyHash, await sha256Hex(id + ':' + body.newKey))) {
-				const st = sanitizeState(rec.state, new Set(WORLD.locations.map((l) => l.id)), { fallbackLoc: WORLD.spawn, now: wall });
-				return json({ ok: true, dup: true, msg: '同步码已更换', state: st && st.id === id ? publicState(st) : undefined, at: wall });
+				const st0 = sanitizeState(rec.state, new Set(WORLD.locations.map((l) => l.id)), { fallbackLoc: WORLD.spawn, now: wall });
+				// 拼上随机数密钥再算行情：不然这一次回复里的行情是旧算法的价，和实际结算价对不上
+				const st = st0 && st0.id === id ? await this.keyed(id, st0) : null;
+				return json({ ok: true, dup: true, msg: '同步码已更换', state: st ? publicState(st) : undefined, at: wall });
 			}
 			return json({ ok: false, badKey: true, msg: '同步码无效（可能已在另一台设备更换）' }, 403);
 		}
@@ -829,7 +911,8 @@ export class EarthWorld {
 			const pref = { ...LB_PREF_DEFAULT, at: now };
 			// 建号的现实日另记一份 'since:' + id：交易所的新号限制按它算，是玩法规则，和统计开不开无关（和存档一次写入）。
 			// 不能用 'born:'：那是统计的注册日（按 id 哈希、玩家关了统计就不记），合并 main 时两边撞了前缀
-			await this.persistMany([{ id, keyHash, state: created, at: now }], undefined, { ['since:' + id]: day, ['lbp:' + ch]: pref, ...(track ? { [BORN_PREFIX + ch]: day } : {}) });
+			// 随机数密钥（v106）和存档一次写入：新角色从第 0 天起行情就过密钥
+			await this.persistMany([{ id, keyHash, state: created, at: now }], undefined, { ['since:' + id]: day, ['lbp:' + ch]: pref, [RK_PREFIX + id]: { key: newRngKey(), day: 0 }, ...(track ? { [BORN_PREFIX + ch]: day } : {}) });
 			this.lbApply(ch, { pref });
 			if (track) this.stats.add(day, { new: 1, active: 1, ...(first ? { 'eco.in.daily': first.cash } : {}) });
 			return json({ ok: true, state: publicState(created), at: now, daily: first?.msg });
@@ -840,7 +923,8 @@ export class EarthWorld {
 		const region = WORLD;
 		const sane = sanitizeState(rec.state, new Set(region.locations.map((l) => l.id)), { fallbackLoc: region.spawn, now });
 		// 存档里写的 id 必须就是这个存档的 id：不然动作会记在别人的名下（榜单哈希、送礼收件人都按 id 算）
-		const current = sane && sane.id === id ? sane : null;
+		// 随机数密钥（v106）不在存档里，读出来只在内存里拼上（见 keyed）。sane 是落盘形式，下面比较「修没修过」用它
+		const current = sane && sane.id === id ? await this.keyed(id, sane) : null;
 		// 损坏的存档原样留着不覆盖（能人工救回），也不让客户端新建同 id 的角色盖掉它
 		if (!current) return json({ ok: false, corrupt: true, msg: '云端存档已损坏' }, 500);
 		const raw = rec.state;
@@ -855,7 +939,7 @@ export class EarthWorld {
 		// 校验时修过存档（挪了地点、清了未来的时间戳等）也要写回：不然只上线不操作的话，每次都重新修一遍，
 		// 被改成「今天已领」的每日奖励永远领不到
 		// 比较的是带上未知字段后的落盘形式：别的分支加的字段不算「修过」，不会每次读取都写一遍
-		const migrated = JSON.stringify(carryUnknown(raw, current)) !== JSON.stringify(rec.state);
+		const migrated = JSON.stringify(carryUnknown(raw, sane!)) !== JSON.stringify(rec.state);
 		if ((claim || migrated) && action === 'get') await this.persist(id, keyHash, live, now, raw);
 		if (claim && action === 'get' && body.nt !== true) await this.track(id, realDayOf(now), {}, claim);
 
@@ -962,7 +1046,7 @@ export class EarthWorld {
 			}
 			return json({ ok: false, msg: '请求无效' }, 400);
 		}
-		if (action === 'safety') return this.handleSafety(body, id, keyHash, current, live, now, canon);
+		if (action === 'safety') return this.handleSafety(body, id, keyHash, current, live, now, canon, raw);
 		if (action === 'weekly') {
 			// weekly { op: 'status' }：这周的目标、全服进度、我出了几份力；{ op: 'claim', rev }：达成后领奖
 			const day = realDayOf(now);
@@ -1040,7 +1124,16 @@ export class EarthWorld {
 				else lots.set(k.slice(4), v as Lot);
 			}
 		});
-		await this.ctx.storage.delete(['save:' + id, 'ops:' + id, 'rank:' + h, 'h:' + h, 'notecd:' + h, 'mail:' + id, 'mops:' + id, 'since:' + id, 'xq:' + h, 'lbp:' + h, 'lbt:' + h, `lbs:${sid}:${h}`, `lbs:${sid - 1}:${h}`, `lbs:${sid + 1}:${h}`]);
+		await this.ctx.storage.delete(['save:' + id, RK_PREFIX + id, 'ops:' + id, 'rank:' + h, 'h:' + h, 'notecd:' + h, 'mail:' + id, 'mops:' + id, 'since:' + id, 'xq:' + h, 'lbp:' + h, 'lbt:' + h, `lbs:${sid}:${h}`, `lbs:${sid - 1}:${h}`, `lbs:${sid + 1}:${h}`]);
+		// 断开这名玩家在各区域的在线连接：失败不影响删号（连接最多再活到下一次心跳清理或重连）
+		if (this.rooms) {
+			const rooms = this.rooms;
+			await Promise.all(FULL_AREAS.map(async (a) => {
+				try {
+					await rooms.get(rooms.idFromName(a.id)).fetch(new Request('https://internal' + KICK_PATH + '?h=' + h));
+				} catch {}
+			}));
+		}
 		for (const [k, o] of this.offers) if (o.from === id || o.toId === id) this.offers.delete(k);
 		for (const [k, l] of this.lobbies) {
 			if (l.done) { l.done.ids = l.done.ids.filter((x) => x !== id); continue; }
@@ -1267,7 +1360,8 @@ export class EarthWorld {
 				const rec = await this.ctx.storage.get<{ keyHash: string; state: any; at: number }>('save:' + m.id);
 				// 每个队友用自己存档的时间校验和落盘，不用发起人的（时钟回拨时两边沿用的时间不一样）
 				const mNow = EarthWorld.saveNow(rec, wall);
-				const st = rec ? sanitizeState(rec.state, locs, { fallbackLoc: region.spawn, now: mNow }) : null;
+				const st0 = rec ? sanitizeState(rec.state, locs, { fallbackLoc: region.spawn, now: mNow }) : null;
+				const st = st0 ? await this.keyed(m.id, st0) : null;
 				if (rec && st && st.id === m.id) members.push({ id: m.id, keyHash: rec.keyHash, state: st, name: m.name, role: m.role, now: mNow, raw: rec.state });
 			}
 			const ready = members.filter((m) => m.state.loc === l.loc && !coopBlocked(m.state, region, def));
@@ -1324,7 +1418,7 @@ export class EarthWorld {
 	// safety { op: 'unblock', hash, rev }               解除屏蔽
 	// safety { op: 'report', peer | note, reason, quote?, rev }  举报并顺手屏蔽；留言的原话由服务端从留言板取，聊天的原话由举报人提交（只作参考）
 	// 目标一律由服务端查实：peer 必须是有存档的玩家，note 必须是我所在地点留言板上的留言。别人的真实 id 不出服务端
-	private async handleSafety(body: any, id: string, keyHash: string, current: PlayerState, live: PlayerState, now: number, canon: (s: PlayerState) => PlayerState): Promise<Response> {
+	private async handleSafety(body: any, id: string, keyHash: string, current: PlayerState, live: PlayerState, now: number, canon: (s: PlayerState) => PlayerState, raw: unknown): Promise<Response> {
 		const hash = (await sha256Hex(id)).slice(0, 12);
 		const day = realDayOf(now);
 		const op = body.op;
@@ -1336,7 +1430,7 @@ export class EarthWorld {
 			const r = applyBlock(live, 'unblock', { hash: body.hash, name: who?.name ?? '对方', avatar: who?.avatar ?? '' }, day);
 			if (!r.ok) return json({ ok: false, msg: r.msg, state: publicState(current), at: now });
 			const next = canon(r.state);
-			await this.persist(id, keyHash, next, now);
+			await this.persist(id, keyHash, next, now, raw);
 			return json({ ok: true, msg: r.msg, state: publicState(next), at: now });
 		}
 		// 找到对方：在线状态里的哈希，或我所在地点的一条留言
@@ -1379,7 +1473,7 @@ export class EarthWorld {
 		const r = applyBlock(live, 'block', target, day, hash);
 		if (!r.ok) return json({ ok: !!msg, msg: msg ? `${msg}${r.msg}` : r.msg, state: publicState(current), at: now });
 		const next = canon(r.state);
-		await this.persist(id, keyHash, next, now);
+		await this.persist(id, keyHash, next, now, raw);
 		return json({ ok: true, msg: msg ? `${msg}${r.msg}` : r.msg, state: publicState(next), at: now });
 	}
 
@@ -1501,7 +1595,8 @@ export class EarthWorld {
 			const locs = new Set(region.locations.map((x) => x.id));
 			const rec = await this.ctx.storage.get<{ keyHash: string; state: any; at: number }>('save:' + o.from);
 			const fNow = EarthWorld.saveNow(rec, wall);
-			const fromState = rec ? sanitizeState(rec.state, locs, { fallbackLoc: region.spawn, now: fNow }) : null;
+			const from0 = rec ? sanitizeState(rec.state, locs, { fallbackLoc: region.spawn, now: fNow }) : null;
+			const fromState = from0 ? await this.keyed(o.from, from0) : null;
 			if (!rec || !fromState || fromState.id !== o.from) {
 				this.offers.delete(o.id);
 				return no('对方的存档不在了');
@@ -1789,7 +1884,24 @@ export function routeEarth(request: Request, env: any): Promise<Response> | null
 	}
 	if (url.pathname === '/api/earth/ws') {
 		const region = (url.searchParams.get('region') || 'wa').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16) || 'wa';
-		return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(region)).fetch(request);
+		// 便宜的检查先做（和区域实例里的一致）：不合格的请求不去打存档实例，也不为乱写的区域名拉起实例
+		if ((request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') return Promise.resolve(new Response('expected websocket', { status: 426 }));
+		if (!FULL_AREAS.some((a) => a.id === region)) return Promise.resolve(new Response('unknown region', { status: 404 }));
+		const id = url.searchParams.get('id') || '';
+		if (!ID_RE.test(id)) return Promise.resolve(new Response('bad id', { status: 400 }));
+		// 再向存档实例查这个 id 有没有存档，结果写进 known 转给区域实例（客户端自己带的 known 被覆盖）。
+		// 明确没有存档：只能旁观（见 EarthWorld.fetch）。查询出错或被限流：503，页面过几秒自己重连——不能把真玩家当成旁观者留在线上
+		return (async () => {
+			let known: unknown;
+			try {
+				const ip = request.headers.get('CF-Connecting-IP');
+				const res = await env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(SAVES_ROOM)).fetch(new Request('https://internal' + KNOWN_PATH + '?id=' + encodeURIComponent(id), ip ? { headers: { 'CF-Connecting-IP': ip } } : undefined));
+				if (res.ok) known = ((await res.json()) as any)?.known;
+			} catch {}
+			if (typeof known !== 'boolean') return new Response('saves unavailable', { status: 503 });
+			url.searchParams.set('known', known ? '1' : '0');
+			return env.EARTH_WORLD.get(env.EARTH_WORLD.idFromName(region)).fetch(new Request(url.toString(), request));
+		})();
 	}
 	return null;
 }

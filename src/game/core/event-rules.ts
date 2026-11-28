@@ -292,6 +292,8 @@ export function validateEvents(list: readonly GameEvent[]): string[] {
 			}
 		});
 		if (ev.choices.every((c) => isObj(c) && c.exposed === 'sea')) e('所有选项都要下海：风暴天会卡住，至少留一个不下海的');
+		// 事件弹出后别的动作都被挡住，钱不够又选不了收费选项：没钱的玩家会卡死（v106，酒庄品酒出过这个问题）
+		if (ev.choices.every((c) => isObj(c) && c.cost !== undefined)) e('所有选项都要花钱：现金不够的玩家会卡住，至少留一个不花钱的');
 	}
 	for (const ev of list) if (ev?.locked && !unlockedBy.has(ev.id)) errs.push(`${ev.id}：locked 事件没有任何结果解锁它，永远不会出现`);
 	// then 不能绕成圈：玩家会被一串弹窗困住

@@ -492,5 +492,6 @@ export function applyBlock(state: PlayerState, op: 'block' | 'unblock', p: { has
 /** 发给客户端的存档：隐去随机数种子，客户端无法预知检定结果 */
 export function publicState(state: PlayerState): PlayerState {
 	// 两个种子都不能给客户端：知道种子就能推算以后的随机结果和行情。行情改由服务端算好放进 quotes（只到今天）
-	return { ...state, seed: 0, marketSeed: 0, quotes: marketView(state) };
+	// rngKey（v106）是检定和行情的密钥，同样不能给；held 是服务端寄存的未知 id，界面用不到
+	return { ...state, seed: 0, marketSeed: 0, rngKey: '', rngDay: 0, held: {}, quotes: marketView(state) };
 }
