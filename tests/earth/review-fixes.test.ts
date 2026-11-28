@@ -219,9 +219,26 @@ test('服务端：密钥放在 rk:<id>，不进存档；没有密钥的旧存档
 		assert.deepEqual(keyed[def.id].slice(0, -1), legacy[def.id].slice(0, -1), def.id);
 		assert.notEqual(priceOn(def, next.marketSeed, 51, marketKeyOf(next)), priceOn(def, next.marketSeed, 51), def.id);
 	}
+	// 换码回复丢了、拿旧码重交：这次回复里的行情也要按密钥算，和紧接着读档看到的一样
+	const far = { ...w.data.get('save:' + A.id) };
+	w.data.set('save:' + A.id, { ...far, state: { ...far.state, clock: 80 * 1440 + 600 } });
+	const newKey = 'n'.repeat(24);
+	const rk1 = await w.call({ action: 'rekey', ...A, newKey });
+	assert.ok(rk1.data.ok, rk1.data.msg);
+	const dup = await w.call({ action: 'rekey', ...A, newKey });
+	assert.equal(dup.data.dup, true);
+	const again = await w.call({ action: 'get', id: A.id, key: newKey });
+	assert.deepEqual(dup.data.state.quotes, again.data.state.quotes);
+	assert.notDeepEqual(dup.data.state.quotes, marketView(clean(w.data.get('save:' + A.id).state)), '不是旧算法的价');
+	// rk: 的 day 比存档的游戏日还大（旧分支删号重建同一个 id 留下的）：作废重发，从今天起算
+	w.data.set('rk:' + A.id, { key: KEY_A, day: 9999 });
+	await w.call({ action: 'get', id: A.id, key: newKey });
+	assert.notEqual(w.data.get('rk:' + A.id).key, KEY_A);
+	assert.equal(w.data.get('rk:' + A.id).day, 80);
+	const A2 = { id: A.id, key: newKey };
 	// 坏掉的 rk: 记录：重新生成，从今天起算
 	w.data.set('rk:' + A.id, { key: 'nope', day: -3 });
-	await w.call({ action: 'get', ...A });
+	await w.call({ action: 'get', ...A2 });
 	assert.match(w.data.get('rk:' + A.id).key, RNG_KEY_RE);
 });
 
@@ -465,8 +482,8 @@ test('routeEarth：转发在线频道连接前先向存档实例查有没有存�
 	assert.notEqual(seen.at(-1), 'forwarded');
 	// 同一来源查得太频繁：限流后也是 503
 	let limited = 0;
-	for (let i = 0; i < 40; i++) if ((await ws(A.id, '', { Upgrade: 'websocket', 'CF-Connecting-IP': '198.51.100.77' })).status === 503) limited++;
-	assert.equal(limited, 10, '每分钟 30 次，第 31 次起被限');
+	for (let i = 0; i < 130; i++) if ((await ws(A.id, '', { Upgrade: 'websocket', 'CF-Connecting-IP': '198.51.100.77' })).status === 503) limited++;
+	assert.equal(limited, 10, '每分钟 120 次，第 121 次起被限');
 	// 内部路径外部到不了
 	assert.equal(routeEarth(new Request(`https://example.test/api/earth/known?id=${A.id}`), env), null);
 	assert.equal(routeEarth(new Request('https://example.test/api/earth/kick?h=000000000000'), env), null);
@@ -497,5 +514,10 @@ test('删号后断开这名玩家在各区域的在线连接', async (t) => {
 	assert.ok(del.ok, del.msg);
 	assert.ok(kicked.includes('wa') && kicked.includes('sa'), '每个区域都通知到');
 	assert.equal(rw.sockets.size, 1, '删号的人被断开，别人不受影响');
+	// 查存档时还在、转到区域实例时刚删掉的连接：带着 known=1 进来也只能旁观
+	await open(A.id);
+	const late = [...rw.sockets.entries()].at(-1)!;
+	assert.equal(rw.guests.has(late[0]), true);
+	assert.equal(late[1].name, '旅人');
 	for (const [sock] of [...rw.sockets]) rw.onClose(sock);
 });

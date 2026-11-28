@@ -142,7 +142,8 @@ interface Note {
 
 /** 内部路径：这个 id 有没有存档（只在 Durable Object 之间调用） */
 const KNOWN_PATH = '/api/earth/known';
-const KNOWN_PER_IP = 30; // 每个来源每分钟最多查这么多次（正常是每次连接一次，断线 5 秒重连一次）
+const KNOWN_PER_IP = 120; // 每个来源每分钟最多查这么多次（正常是每次连接一次；宿舍、运营商共享出口下很多人共用一个来源，所以放宽）
+const KICKED_MS = 60 * 1000; // 删号后这么久之内，同一个哈希的新连接只能旁观（挡住「查存档时还在、转到区域时刚删」的时间差）
 const KNOWN_WINDOW_MS = 60 * 1000;
 /** 内部路径：这个哈希的玩家删号了，把他的在线连接断开（存档实例 → 各区域实例） */
 const KICK_PATH = '/api/earth/kick';
@@ -190,6 +191,7 @@ export class EarthWorld {
 	private chatRate = new RateLimiter(CHAT_PER_IP, CHAT_WINDOW_MS);
 	private knownRate = new RateLimiter(KNOWN_PER_IP, KNOWN_WINDOW_MS); // 在线频道握手前的存档查询（v106），和存档请求的名额分开
 	private rooms: { idFromName(n: string): unknown; get(id: unknown): { fetch(r: Request): Promise<Response> } } | null; // 其他实例（删号时通知各区域断开连接）
+	private kicked = new Map<string, number>(); // 刚删号的哈希 -> 到什么时候为止只能旁观（v106）
 	private guests = new Set<WebSocket>(); // 没有存档的连接（v106）：只能旁观，不能聊天、发表情
 	private sockIp = new Map<WebSocket, string>(); // 连接 -> 来源限流键（只在内存，不广播、不落盘）
 	private sweeper: ReturnType<typeof setInterval> | null = null;
@@ -261,7 +263,12 @@ export class EarthWorld {
 		if (url.pathname === KICK_PATH) {
 			const kh = url.searchParams.get('h') || '';
 			let n = 0;
-			if (HASH_RE.test(kh)) for (const [sock, p] of [...this.sockets]) if (p.id === kh) { this.onClose(sock); n++; }
+			if (HASH_RE.test(kh)) {
+				const t = Date.now();
+				for (const [k, until] of this.kicked) if (until <= t) this.kicked.delete(k);
+				this.kicked.set(kh, t + KICKED_MS);
+				for (const [sock, p] of [...this.sockets]) if (p.id === kh) { this.onClose(sock); n++; }
+			}
 			return json({ ok: true, n });
 		}
 		if ((request.headers.get('Upgrade') || '').toLowerCase() !== 'websocket') {
@@ -280,10 +287,12 @@ export class EarthWorld {
 		const loc = url.searchParams.get('loc') || '';
 		// 没有存档的连接（v106）：known 由 routeEarth 向存档实例查实后写上，客户端自己带的会被覆盖。
 		// 这种连接屏蔽不了也举报不了（屏蔽、举报都要按哈希找到存档），所以只让旁观：不能自己起名字，不能聊天、发表情
-		const guest = url.searchParams.get('known') !== '1';
+		// 对外只暴露 id 的哈希前缀：真实 id 是存档凭证的一部分，不能广播
+		const hid = (await sha256Hex(id)).slice(0, 12);
+		// 判断放在上面这个 await 之后、登记连接之前（中间没有别的 await）：插在中间的删号通知也拦得住
+		const guest = url.searchParams.get('known') !== '1' || (this.kicked.get(hid) ?? 0) > Date.now();
 		const me: Presence = {
-			// 对外只暴露 id 的哈希前缀：真实 id 是存档凭证的一部分，不能广播
-			id: (await sha256Hex(id)).slice(0, 12),
+			id: hid,
 			name: guest ? '旅人' : cleanName(url.searchParams.get('name')) || '旅人',
 			avatar: guest ? '🧑' : (url.searchParams.get('avatar') || '🧑').replace(/[<>&"']/g, '').slice(0, 8),
 			loc: locs.has(loc) ? loc : region.spawn,
@@ -638,8 +647,10 @@ export class EarthWorld {
 	 */
 	private async keyed(id: string, s: PlayerState): Promise<PlayerState> {
 		const rk = await this.ctx.storage.get<{ key?: unknown; day?: unknown }>(RK_PREFIX + id);
-		if (rk && typeof rk.key === 'string' && RNG_KEY_RE.test(rk.key) && typeof rk.day === 'number' && Number.isInteger(rk.day) && rk.day >= 0) return { ...s, rngKey: rk.key, rngDay: rk.day };
-		const fresh = { key: newRngKey(), day: Math.floor(s.clock / 1440) };
+		const today = Math.floor(s.clock / 1440);
+		// day 比存档现在的游戏日还大 = 别人的旧记录（旧分支的代码删号、重建同一个 id 时不会清 rk:）：作废重发
+		if (rk && typeof rk.key === 'string' && RNG_KEY_RE.test(rk.key) && typeof rk.day === 'number' && Number.isInteger(rk.day) && rk.day >= 0 && rk.day <= today) return { ...s, rngKey: rk.key, rngDay: rk.day };
+		const fresh = { key: newRngKey(), day: today };
 		await this.ctx.storage.put(RK_PREFIX + id, fresh);
 		return { ...s, rngKey: fresh.key, rngDay: fresh.day };
 	}
@@ -848,8 +859,10 @@ export class EarthWorld {
 		if (rec && !timingSafeEqual(rec.keyHash, keyHash)) {
 			// 换码的回复在路上丢了：客户端拿旧码重交，而存档已经认新码了。新码对得上就当成功，不然这台设备就被锁在外面
 			if (body.action === 'rekey' && typeof body.newKey === 'string' && KEY_RE.test(body.newKey) && timingSafeEqual(rec.keyHash, await sha256Hex(id + ':' + body.newKey))) {
-				const st = sanitizeState(rec.state, new Set(WORLD.locations.map((l) => l.id)), { fallbackLoc: WORLD.spawn, now: wall });
-				return json({ ok: true, dup: true, msg: '同步码已更换', state: st && st.id === id ? publicState(st) : undefined, at: wall });
+				const st0 = sanitizeState(rec.state, new Set(WORLD.locations.map((l) => l.id)), { fallbackLoc: WORLD.spawn, now: wall });
+				// 拼上随机数密钥再算行情：不然这一次回复里的行情是旧算法的价，和实际结算价对不上
+				const st = st0 && st0.id === id ? await this.keyed(id, st0) : null;
+				return json({ ok: true, dup: true, msg: '同步码已更换', state: st ? publicState(st) : undefined, at: wall });
 			}
 			return json({ ok: false, badKey: true, msg: '同步码无效（可能已在另一台设备更换）' }, 403);
 		}

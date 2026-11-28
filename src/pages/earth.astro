@@ -1064,6 +1064,10 @@ const cardLines = guilloche(400, 260, 14, 9);
 			let media: MediaManifest = EMPTY_MEDIA;
 			let voicePlayer: HTMLAudioElement | null = null;
 			let ws: WebSocket | null = null;
+			// 在线频道断线重连（v106）：只留一个定时器，间隔从 5 秒起每次翻倍、最长 60 秒，连上后复位。
+			// 以前每次切回前台都会多出一条并行的重试链，被拒的连接会把同一网络的握手名额耗光
+			let wsRetry: ReturnType<typeof setTimeout> | null = null;
+			let wsDelay = 5000;
 			/** 在线频道连的是哪个区域 */
 			let wsArea = '';
 			let myPeerId = '';
@@ -1733,6 +1737,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 			}
 			function connect() {
 				if (!state || !cred || syncing || (ws && ws.readyState <= WebSocket.OPEN)) return;
+				if (wsRetry) { clearTimeout(wsRetry); wsRetry = null; }
 				// 在线频道按区域分：连的是所在地点的区域，记下来，跨区域后重连
 				wsArea = curArea().id;
 				const q = new URLSearchParams({ region: wsArea, id: cred.id, name: state.name, avatar: state.avatar, loc: state.loc });
@@ -1744,6 +1749,7 @@ const cardLines = guilloche(400, 260, 14, 9);
 					let m: any;
 					try { m = JSON.parse(e.data); } catch { return; }
 					if (m.t === 'hello') {
+						wsDelay = 5000;
 						myPeerId = m.you;
 						emotes = m.emotes || [];
 						peers = new Map((m.players as Peer[]).map((p) => [p.id, p]));
@@ -1769,7 +1775,9 @@ const cardLines = guilloche(400, 260, 14, 9);
 					renderTabs();
 					renderMap();
 					if (tab === 'social') renderPanel();
-					setTimeout(connect, 5000);
+					if (wsRetry) clearTimeout(wsRetry);
+					wsRetry = setTimeout(() => { wsRetry = null; connect(); }, wsDelay);
+					wsDelay = Math.min(wsDelay * 2, 60000);
 				};
 			}
 			setInterval(() => { if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'ping' })); }, 20000);
