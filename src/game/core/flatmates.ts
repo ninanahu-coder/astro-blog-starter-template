@@ -20,7 +20,7 @@ const clampVibe = (n: number) => Math.max(-100, Math.min(100, Math.round(n)));
 const clamp100 = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
 
 /** 私密随机数：seed + 时钟 + 用途 */
-export const flatRand = (state: PlayerState, salt: string) => unit(`${secretSeed(state, 0)}|${state.clock}|${salt}`);
+export const flatRand = (state: PlayerState, salt: string) => unit(`${secretSeed(state)}|${state.clock}|${salt}`);
 
 /** 住处最多住几个人（含自己）。没有住处、住自有房（第一版不做）、营地这类房型为 1 */
 export function flatBeds(state: PlayerState): number {

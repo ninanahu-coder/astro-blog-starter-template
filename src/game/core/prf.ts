@@ -2,7 +2,7 @@
 //
 // 为什么要有：state.seed 和 marketSeed 都只有 32 位，行情又只由 (行情种子, 资产, 天) 的无密钥哈希决定。
 // 客户端拿到 30 天行情价后，离线穷举 2^32 个种子就能对上，之后每天的价格和所有检定都能预知。
-// 现在每个存档另有一把 128 位密钥 rngKey（服务端生成，publicState 清掉，不发给客户端），
+// 现在每个存档另有一把 128 位密钥 rngKey（服务端生成，存在 rk:<id> 而不是存档里，读档时只在内存里拼上；publicState 清掉，不发给客户端），
 // 检定、行情、看房人数都先过这把密钥。穷举的空间从 2^32 变成 2^128。
 //
 // 结构：Even–Mansour（输入异或密钥 → 公开置换 → 输出异或密钥），置换用 Chaskey 的 12 轮 ARX。
@@ -50,17 +50,17 @@ export function prf32(key: string, a: number, b: number, c: number, d: number): 
 export const PRF_ROLL = 0x726f6c6c;
 export const PRF_MARKET = 0x6d6b7431;
 export const PRF_SEED = 0x73656564;
+export const PRF_CROWD = 0x63727764;
 
 /** 有密钥的存档返回密钥，没有（旧存档、模拟、客户端）返回空串 */
 export const keyOf = (state: Pick<PlayerState, 'rngKey'>): string => (typeof state.rngKey === 'string' && RNG_KEY_RE.test(state.rngKey) ? state.rngKey : '');
 
 /**
- * 给「只读种子的哈希」（unit(`${seed}|…`) 那一类）用的种子：有密钥时换成由密钥派生的 32 位数。
- * 这类随机结果有些会被玩家看到（看房人数、租约原有损坏），就算从结果反推出这个数，也推不回 seed 和密钥。
- * which：0 = 跟着 state.seed 走（每次检定后变），1 = 跟着 marketSeed 走（一个存档永远不变）。
+ * 给「只读种子的哈希」（unit(`${seed}|…`) 那一类）用的种子：有密钥时换成由密钥和 state.seed 派生的 32 位数。
+ * state.seed 每次检定后都变，所以这个数也跟着变：就算从某次结果反推出它，也只管那一刻，推不回 seed 和密钥。
+ * 一个存档里永远不变的随机量（看房人数）不能用这个办法——32 位的常数能从十几次结果穷举出来，要直接过 prf32（见 rental.ts applicantsFor）。
  */
-export function secretSeed(state: Pick<PlayerState, 'rngKey' | 'seed' | 'marketSeed'>, which: 0 | 1): number {
-	const base = which ? state.marketSeed : state.seed;
+export function secretSeed(state: Pick<PlayerState, 'rngKey' | 'seed'>): number {
 	const key = keyOf(state);
-	return key ? prf32(key, base, PRF_SEED, which, 0) : base;
+	return key ? prf32(key, state.seed, PRF_SEED, 0, 0) : state.seed;
 }

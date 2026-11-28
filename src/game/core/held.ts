@@ -14,18 +14,25 @@ import type { HeldIds } from './types.ts';
 export const HELD_LISTS = ['checkins', 'seen', 'photos', 'collected', 'certs', 'dex', 'dexSets', 'duos', 'achClaimed'] as const;
 /** 每个清单、背包最多寄存这么多个：被删掉的旧内容也会留在这里，要有上限 */
 export const HELD_MAX = 60;
-const HELD_ID = /^[A-Za-z0-9][A-Za-z0-9:_.-]{0,63}$/;
+// 照片 id 是「地点|天气」，所以允许「|」
+const HELD_ID = /^[A-Za-z0-9][A-Za-z0-9:_.|-]{0,63}$/;
 const JOB_NUMS = ['level', 'shifts', 'good', 'lastDay'] as const;
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 'object' && !Array.isArray(v);
 const okId = (v: unknown): v is string => typeof v === 'string' && HELD_ID.test(v);
 
-function heldJob(raw: unknown): Record<string, string | number> | null {
+function heldJob(raw: unknown): NonNullable<HeldIds['job']> | null {
 	if (!isObj(raw) || !okId(raw.career) || !okId(raw.loc)) return null;
-	const out: Record<string, string | number> = { career: raw.career, loc: raw.loc };
+	const out: NonNullable<HeldIds['job']> = { career: raw.career, loc: raw.loc };
 	for (const k of JOB_NUMS) {
 		const n = raw[k];
 		out[k] = typeof n === 'number' && Number.isFinite(n) ? Math.max(-1, Math.min(1e7, Math.floor(n))) : k === 'lastDay' ? -1 : 0;
+	}
+	// 当年已请的假（和 character.ts cleanJob 的校验一致）：丢了的话往返一次假期额度就重置了
+	const lv = raw.leave;
+	if (isObj(lv) && Number.isInteger(lv.y) && (lv.y as number) >= 0 && (lv.y as number) < 1e5) {
+		const d = typeof lv.d === 'number' && Number.isFinite(lv.d) ? Math.max(0, Math.min(365, Math.floor(lv.d))) : 0;
+		out.leave = { y: lv.y as number, d };
 	}
 	return out;
 }

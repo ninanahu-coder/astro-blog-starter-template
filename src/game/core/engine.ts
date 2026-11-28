@@ -486,7 +486,7 @@ export function seasonAnimals(clock: number): AnimalDef[] {
 
 /** 抵达时看见哪只新动物（最多一只）。只读种子做哈希、不推进它，所以不影响其他随机结果 */
 function spotAnimal(state: PlayerState, loc: GameLocation): AnimalDef | undefined {
-	return animalsAt(state, loc).find((a) => unit(`${secretSeed(state, 0)}|${state.clock}|${loc.id}|${a.id}`) < a.chance);
+	return animalsAt(state, loc).find((a) => unit(`${secretSeed(state)}|${state.clock}|${loc.id}|${a.id}`) < a.chance);
 }
 
 /** 记进野生动物图鉴（原地修改）；集齐一组发声望。观鸟看见图鉴里的鸟也调它 */
@@ -1426,7 +1426,7 @@ export function rentHome(prev: PlayerState, region: Region, homeId: string, term
 	const sold = vacate(state, 0, back);
 	state.cash -= due + ahead + bond;
 	state.home = { type: homeId, loc: state.loc, furniture: {}, ...(bond ? { bond } : {}) };
-	const lease = needsLease(offer.home) ? startLease(secretSeed(state, 0), offer.home, state.loc, dayOf(state.clock), term) : null;
+	const lease = needsLease(offer.home) ? startLease(secretSeed(state), offer.home, state.loc, dayOf(state.clock), term) : null;
 	if (lease && ahead) lease.paidAhead = ahead;
 	state.rental.lease = lease;
 	state.rental.viewed = null;
@@ -1479,7 +1479,7 @@ export function inspectHome(prev: PlayerState, region: Region, homeId: string): 
 	const state = clone(prev);
 	const day = dayOf(state.clock);
 	// 按存档里不会变的行情种子（marketSeed，只在服务端）定：同一天同一套房反复看，来的人数一样，不能靠做别的事推进随机种子重抽（合并 main 后复核）
-	const n = applicantsFor(secretSeed(state, 1), areaOf(state.loc)?.id ?? 'wa', state.loc, homeId, day);
+	const n = applicantsFor(state.marketSeed, areaOf(state.loc)?.id ?? 'wa', state.loc, homeId, day, keyOf(state));
 	state.rental.viewed = { loc: state.loc, home: homeId, day, n };
 	if (advance(state, RENTAL.inspectMin, region)) return collapsedResult(state);
 	const msg = `看了${offer.home.name}：这次来了 ${n} 组人。你的申请${oddsLabel(applyOdds(oddsInput(state, offer.home)))}。`;

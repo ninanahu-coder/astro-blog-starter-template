@@ -13,6 +13,8 @@ import { resolveEvent, roll } from '../../src/game/core/engine.ts';
 import { validateEvents } from '../../src/game/core/event-rules.ts';
 import { marketKeyOf, marketView, priceOn, shock } from '../../src/game/core/market.ts';
 import { keyOf, prf32, RNG_KEY_RE, secretSeed } from '../../src/game/core/prf.ts';
+import { applicantsFor } from '../../src/game/core/rental.ts';
+import { carryUnknown } from '../../src/game/core/save.ts';
 import { HELD_MAX, stash, unstash } from '../../src/game/core/held.ts';
 import { ASSETS } from '../../src/game/data/assets.ts';
 import { ACHIEVEMENTS } from '../../src/game/data/achievements.ts';
@@ -135,13 +137,26 @@ test('从发给客户端的行情价对不上行情种子：用真种子按旧�
 
 test('secretSeed：有密钥时换成派生数，推不回原种子；没有密钥原样返回', () => {
 	const legacy = fresh();
-	assert.equal(secretSeed(legacy, 0), legacy.seed);
-	assert.equal(secretSeed(legacy, 1), legacy.marketSeed);
+	assert.equal(secretSeed(legacy), legacy.seed);
 	const keyed = fresh({ rngKey: KEY_A });
-	assert.notEqual(secretSeed(keyed, 0), keyed.seed);
-	assert.notEqual(secretSeed(keyed, 1), keyed.marketSeed);
-	assert.notEqual(secretSeed(keyed, 0), secretSeed({ ...keyed, rngKey: KEY_B }, 0));
+	assert.notEqual(secretSeed(keyed), keyed.seed);
+	assert.notEqual(secretSeed(keyed), secretSeed({ ...keyed, rngKey: KEY_B }));
+	assert.notEqual(secretSeed(keyed), secretSeed({ ...keyed, seed: keyed.seed + 1 }), '种子一变，派生数跟着变');
 	assert.equal(keyOf({ rngKey: 'xyz' }), '', '格式不对的密钥当作没有');
+});
+
+test('看房人数：没有密钥和以前一样；有密钥时直接过密钥，同一天同一套房不变，换密钥就变', () => {
+	const days = Array.from({ length: 200 }, (_, i) => i);
+	const legacy = days.map((d) => applicantsFor(777, 'wa', 'perth', 'studio', d));
+	assert.deepEqual(days.map((d) => applicantsFor(777, 'wa', 'perth', 'studio', d, '')), legacy);
+	const a = days.map((d) => applicantsFor(777, 'wa', 'perth', 'studio', d, KEY_A));
+	assert.deepEqual(days.map((d) => applicantsFor(777, 'wa', 'perth', 'studio', d, KEY_A)), a);
+	assert.notDeepEqual(a, legacy);
+	assert.notDeepEqual(a, days.map((d) => applicantsFor(777, 'wa', 'perth', 'studio', d, KEY_B)));
+	assert.notDeepEqual(a, days.map((d) => applicantsFor(777, 'wa', 'perth', 'share', d, KEY_A)));
+	const lo = Math.min(...a);
+	const hi = Math.max(...a);
+	assert.deepEqual([lo, hi], [Math.min(...legacy), Math.max(...legacy)], '人数范围不变');
 });
 
 test('清洗：密钥只认 32 位十六进制，坏值变空串；没有密钥时 rngDay 归零；新建角色过一遍清洗不变', () => {
@@ -162,37 +177,72 @@ test('清洗：密钥只认 32 位十六进制，坏值变空串；没有密钥�
 	assert.deepEqual(c.held, {});
 });
 
-test('服务端：新角色带密钥；没有密钥的旧存档读一次就补上并落盘，今天及以前的行情不变', async () => {
+test('服务端：密钥放在 rk:<id>，不进存档；没有密钥的旧存档读一次就补上，今天及以前的行情不变', async () => {
 	const w = makeWorld();
 	const created = await w.call({ action: 'create', ...A, profile });
 	assert.equal(created.data.state.rngKey, '');
-	const saved = w.data.get('save:' + A.id).state;
-	assert.match(saved.rngKey, RNG_KEY_RE);
-	assert.equal(saved.rngDay, 0);
-	// 改成旧存档：没有密钥，时钟在第 50 天
+	const rk0 = w.data.get('rk:' + A.id);
+	assert.match(rk0.key, RNG_KEY_RE);
+	assert.equal(rk0.day, 0);
+	assert.equal(w.data.get('save:' + A.id).state.rngKey, '', '存档里没有密钥');
+	// 做一个动作：落盘的存档里仍然没有密钥
+	const acted = await w.call({ action: 'act', ...A, rev: created.data.state.rev, act: { t: 'activity', id: 'rest' } });
+	assert.ok(acted.data.ok, acted.data.msg);
+	assert.equal(w.data.get('save:' + A.id).state.rngKey, '');
+	assert.equal(w.data.get('save:' + A.id).state.rngDay, 0);
+	assert.deepEqual(w.data.get('rk:' + A.id), rk0, '密钥不换');
+	// 改成 v106 之前的旧存档：没有这三个字段，也没有 rk:，时钟在第 50 天
 	const rec = w.data.get('save:' + A.id);
 	const { rngKey: _k, rngDay: _d, held: _h, ...old } = rec.state;
 	const oldState = { ...old, clock: 50 * 1440 + 600 };
 	w.data.set('save:' + A.id, { ...rec, state: oldState });
+	w.data.delete('rk:' + A.id);
 	const before = marketView(clean(oldState));
+	// 第一次请求是不落盘存档的动作（看全服周目标）：密钥也要立刻写下，不能下次请求又换一把
+	await w.call({ action: 'weekly', op: 'status', ...A });
+	assert.equal(w.data.get('save:' + A.id).state.clock, oldState.clock, '这次请求没有落盘存档');
+	assert.equal(Object.hasOwn(w.data.get('save:' + A.id).state, 'held'), false);
+	const rk = w.data.get('rk:' + A.id);
+	assert.match(rk.key, RNG_KEY_RE);
+	assert.notEqual(rk.key, rk0.key);
+	assert.equal(rk.day, 50);
 	const got = await w.call({ action: 'get', ...A });
 	assert.equal(got.status, 200);
-	const after = w.data.get('save:' + A.id).state;
-	assert.match(after.rngKey, RNG_KEY_RE);
-	assert.notEqual(after.rngKey, saved.rngKey);
-	assert.equal(after.rngDay, 50);
+	assert.deepEqual(w.data.get('rk:' + A.id), rk);
 	assert.deepEqual(got.data.state.quotes, before, '补密钥当天，玩家看到的 30 天行情和之前一样');
-	// 再读一次：密钥不换
-	await w.call({ action: 'get', ...A });
-	assert.equal(w.data.get('save:' + A.id).state.rngKey, after.rngKey);
-	// 往后一天：新的一天按密钥算，和旧算法不同；前 29 天仍和旧算法一样
-	const next = { ...after, clock: 51 * 1440 + 600 };
+	assert.equal(w.data.get('save:' + A.id).state.rngKey, '');
+	// 往后一天：新的一天按密钥算，和旧算法不同；前 29 天仍和旧算法一样（比没取整的价格，免得碰巧取整后相等）
+	const next = { ...clean(w.data.get('save:' + A.id).state), clock: 51 * 1440 + 600, rngKey: rk.key, rngDay: rk.day };
 	const keyed = marketView(next);
 	const legacy = marketView({ ...next, rngKey: '', rngDay: 0 });
 	for (const def of ASSETS.filter((a) => a.vol > 0)) {
 		assert.deepEqual(keyed[def.id].slice(0, -1), legacy[def.id].slice(0, -1), def.id);
-		assert.notEqual(keyed[def.id].at(-1), legacy[def.id].at(-1), def.id);
+		assert.notEqual(priceOn(def, next.marketSeed, 51, marketKeyOf(next)), priceOn(def, next.marketSeed, 51), def.id);
 	}
+	// 坏掉的 rk: 记录：重新生成，从今天起算
+	w.data.set('rk:' + A.id, { key: 'nope', day: -3 });
+	await w.call({ action: 'get', ...A });
+	assert.match(w.data.get('rk:' + A.id).key, RNG_KEY_RE);
+});
+
+test('不认识密钥字段的旧代码导出存档时带不出密钥：落盘形式里没有有效的 rngKey', async () => {
+	const w = makeWorld();
+	const created = await w.call({ action: 'create', ...A, profile });
+	await w.call({ action: 'act', ...A, rev: created.data.state.rev, act: { t: 'activity', id: 'rest' } });
+	const raw = w.data.get('save:' + A.id).state;
+	// 旧代码的 publicState 没有 rngKey / rngDay / held 这三个键，导出 = carryUnknown(落盘存档, 它的 publicState)
+	const { rngKey: _k, rngDay: _d, held: _h, ...oldPublic } = publicState(clean(raw));
+	const exported = carryUnknown(raw, oldPublic) as Record<string, unknown>;
+	assert.equal(keyOf(exported as { rngKey: string }), '', '被当成未知字段带出去的 rngKey 是空串');
+	assert.ok(!JSON.stringify(exported).includes(w.data.get('rk:' + A.id).key));
+	// 这版代码自己的导出也没有
+	const exp = await w.call({ action: 'export', ...A });
+	assert.ok(exp.data.ok);
+	assert.ok(!JSON.stringify(exp.data).includes(w.data.get('rk:' + A.id).key));
+	// 删号：密钥一起删
+	const del = await w.call({ action: 'delete', ...A, confirm: 'delete' });
+	assert.ok(del.data.ok, del.data.msg);
+	assert.equal(w.data.has('rk:' + A.id), false);
 });
 
 // ---------- 2. 事件至少一个不花钱的选项 ----------
@@ -284,6 +334,24 @@ test('寄存：认识这些 id 的代码回来后，成就回到已领清单（�
 	assert.deepEqual(working.held, {});
 });
 
+test('寄存：照片 id（地点|天气）和工作的已请假天数都能往返', () => {
+	const known = `${WORLD.spawn}|sunny`;
+	const c = clean({ ...fresh(), photos: [known, 'newloc|sunny'], job: { career: 'future-career', loc: WORLD.spawn, level: 1, shifts: 2, good: 1, lastDay: 5, leave: { y: 1, d: 12 } } });
+	assert.deepEqual(c.photos, [known]);
+	assert.deepEqual(c.held.lists, { photos: ['newloc|sunny'] });
+	assert.deepEqual(c.held.job?.leave, { y: 1, d: 12 });
+	assert.deepEqual(clean(c), c);
+	// 认识的照片从寄存里回到相册，不留在寄存里
+	const back = clean({ ...fresh(), held: { lists: { photos: [known] } } });
+	assert.deepEqual(back.photos, [known]);
+	assert.deepEqual(back.held, {});
+	// 职业认识了：工作连同请假记录一起回来
+	const job = clean({ ...fresh(), held: { job: { career: 'barista', loc: WORLD.spawn, level: 0, shifts: 2, good: 1, lastDay: 5, leave: { y: 1, d: 12 } } } }).job;
+	assert.deepEqual(job?.leave, { y: 1, d: 12 });
+	// 坏的请假记录不带
+	assert.equal(clean({ ...fresh(), job: { career: 'future-career', loc: WORLD.spawn, leave: { y: -1, d: 5 } } }).held.job?.leave, undefined);
+});
+
 test('寄存：坏值不抛异常；有上限；奇怪的 id 不收', () => {
 	for (const bad of [null, 5, 'x', [], { lists: 5 }, { lists: { achClaimed: 'x' } }, { inv: [] }, { job: 'x' }, { lists: { achClaimed: [1, null, {}] } }, { lists: { __proto__: ['x'] } }]) {
 		const c = clean({ ...fresh(), held: bad });
@@ -356,31 +424,78 @@ test('在线频道：没有存档的连接不能自己起名字，不能聊天�
 	assert.equal(world.sockets.size, 0);
 });
 
-test('routeEarth：转发在线频道连接前先向存档实例查有没有存档；客户端自己带的 known 被覆盖', async () => {
+test('routeEarth：转发在线频道连接前先向存档实例查有没有存档；客户端自己带的 known 被覆盖；查询出错回 503', async () => {
 	const w = makeWorld();
 	await w.call({ action: 'create', ...A, profile });
 	const seen: string[] = [];
+	let asked = 0;
 	const env = {
 		EARTH_WORLD: {
 			idFromName: (name: string) => name,
 			get: (name: string) => ({
 				fetch: async (req: Request) => {
-					if (name === '@SAVES') return w.world.fetch(req);
-					seen.push(`${name} ${new URL(req.url).searchParams.get('known')} ${req.headers.get('Upgrade')}`);
+					if (name === '@SAVES') { asked++; return w.world.fetch(req); }
+					seen.push(`${name} ${new URL(req.url).searchParams.getAll('known').join(',')} ${req.headers.get('Upgrade')} ${req.headers.get('CF-Connecting-IP')}`);
 					return new Response('ok');
 				},
 			}),
 		},
 	};
-	const ws = (id: string, extra = '') => routeEarth(new Request(`https://example.test/api/earth/ws?region=wa&id=${id}${extra}`, { headers: { Upgrade: 'websocket' } }), env)!;
+	const ws = (id: string, extra = '', headers: Record<string, string> = { Upgrade: 'websocket', 'CF-Connecting-IP': '203.0.113.7' }) => routeEarth(new Request(`https://example.test/api/earth/ws?region=wa&id=${id}${extra}`, { headers }), env)!;
 	await ws(A.id);
-	await ws('never-created-0001', '&known=1');
-	await ws('bad', '&known=1');
-	assert.deepEqual(seen, ['wa 1 websocket', 'wa 0 websocket', 'wa 0 websocket']);
-	// 存档实例查询出错：按没有存档算
-	const broken = { EARTH_WORLD: { idFromName: (n: string) => n, get: (n: string) => ({ fetch: async (req: Request) => { if (n === '@SAVES') throw new Error('down'); seen.push(new URL(req.url).searchParams.get('known')!); return new Response('ok'); } }) } };
-	await routeEarth(new Request(`https://example.test/api/earth/ws?region=wa&id=${A.id}`, { headers: { Upgrade: 'websocket' } }), broken)!;
-	assert.equal(seen.at(-1), '0');
-	// 内部查询路径外部到不了
+	await ws('never-created-0001', '&known=1&known=1');
+	assert.deepEqual(seen, ['wa 1 websocket 203.0.113.7', 'wa 0 websocket 203.0.113.7'], '来源和 Upgrade 头原样转给区域实例');
+	// 不合格的请求在查存档之前就挡掉
+	const n = asked;
+	assert.equal((await ws('bad', '&known=1')).status, 400);
+	assert.equal((await ws(A.id, '', { 'CF-Connecting-IP': '203.0.113.7' })).status, 426);
+	assert.equal((await routeEarth(new Request(`https://example.test/api/earth/ws?region=nowhere&id=${A.id}`, { headers: { Upgrade: 'websocket' } }), env)!).status, 404);
+	assert.equal(asked, n, '这三个请求都没有打到存档实例');
+	assert.equal(seen.length, 2);
+	// 只有存档、没有 h: 记录的旧存档：照样算有存档，并补上 h:
+	const hKey = [...w.data.keys()].find((k) => k.startsWith('h:') && w.data.get(k) === A.id)!;
+	w.data.delete(hKey);
+	await ws(A.id);
+	assert.equal(seen.at(-1), 'wa 1 websocket 203.0.113.7');
+	assert.equal(w.data.get(hKey), A.id);
+	// 存档实例查询出错：503，不转给区域实例（页面会自己重连），不把真玩家当旁观者
+	const broken = { EARTH_WORLD: { idFromName: (x: string) => x, get: (x: string) => ({ fetch: async () => { if (x === '@SAVES') throw new Error('down'); seen.push('forwarded'); return new Response('ok'); } }) } };
+	const res = await routeEarth(new Request(`https://example.test/api/earth/ws?region=wa&id=${A.id}`, { headers: { Upgrade: 'websocket' } }), broken)!;
+	assert.equal(res.status, 503);
+	assert.notEqual(seen.at(-1), 'forwarded');
+	// 同一来源查得太频繁：限流后也是 503
+	let limited = 0;
+	for (let i = 0; i < 40; i++) if ((await ws(A.id, '', { Upgrade: 'websocket', 'CF-Connecting-IP': '198.51.100.77' })).status === 503) limited++;
+	assert.equal(limited, 10, '每分钟 30 次，第 31 次起被限');
+	// 内部路径外部到不了
 	assert.equal(routeEarth(new Request(`https://example.test/api/earth/known?id=${A.id}`), env), null);
+	assert.equal(routeEarth(new Request('https://example.test/api/earth/kick?h=000000000000'), env), null);
+});
+
+test('删号后断开这名玩家在各区域的在线连接', async (t) => {
+	fakePair(t);
+	const region = makeWorld();
+	const rw = region.world as any;
+	const kicked: string[] = [];
+	const data = new Map<string, any>();
+	const storage = {
+		get: async (k: string) => (data.has(k) ? structuredClone(data.get(k)) : undefined),
+		put: async (k: string | Record<string, unknown>, v?: unknown) => { if (typeof k === 'string') data.set(k, structuredClone(v)); else for (const [kk, vv] of Object.entries(k)) data.set(kk, structuredClone(vv)); },
+		delete: async (k: string | string[]) => { for (const x of Array.isArray(k) ? k : [k]) data.delete(x); },
+		list: async ({ prefix = '' }: { prefix?: string } = {}) => new Map([...data].filter(([k]) => k.startsWith(prefix))),
+	};
+	const env = { EARTH_WORLD: { idFromName: (x: string) => x, get: (x: string) => ({ fetch: async (req: Request) => { kicked.push(x); return x === 'wa' ? rw.fetch(req) : new Response('{}'); } }) } };
+	const saves = new EarthWorld({ storage } as never, env);
+	const call = async (body: Record<string, unknown>) => (await (await saves.fetch(new Request('https://example.test/api/earth/save', { method: 'POST', body: JSON.stringify(body) }))).json()) as any;
+	await call({ action: 'create', ...A, profile });
+	await call({ action: 'create', ...B, profile });
+	const open = (id: string) => rw.fetch(new Request(`https://example.test/api/earth/ws?region=wa&id=${id}&loc=perth&known=1`, { headers: { Upgrade: 'websocket' } })).catch(() => null);
+	await open(A.id);
+	await open(B.id);
+	assert.equal(rw.sockets.size, 2);
+	const del = await call({ action: 'delete', ...A, confirm: 'delete' });
+	assert.ok(del.ok, del.msg);
+	assert.ok(kicked.includes('wa') && kicked.includes('sa'), '每个区域都通知到');
+	assert.equal(rw.sockets.size, 1, '删号的人被断开，别人不受影响');
+	for (const [sock] of [...rw.sockets]) rw.onClose(sock);
 });

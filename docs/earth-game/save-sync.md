@@ -231,6 +231,8 @@ sequenceDiagram
 | 11 | **屏蔽 / 取消屏蔽 / 举报落盘不带原存档**：`handleSafety` 调 `persist` 时漏传 `raw`，不走 `carryUnknown` | 存档里有别的分支加的顶层字段 → 玩家屏蔽或取消屏蔽任意一人 → 这些字段被删掉，格式版本号也可能倒退 | `handleSafety` 收 `raw` 并传给 `persist`；`persist` 的 `raw` 改成必填，漏传在类型检查时报错 | `review-fixes.test.ts`「屏蔽、取消屏蔽落盘时保留别的分支加的字段」 |
 | 12 | **已知字段里的 id 清单被旧代码永久裁掉**：`carryUnknown` 只保住顶层未知字段，`achClaimed`、`checkins`、`inventory`、`job` 等仍按当前数据表过滤 | 分支 A 新增成就 / 物品 / 职业，玩家领奖、买了、入职 → 线上切到没有这些 id 的分支 B，玩家打开一次页面 → id 被清掉并落盘 → 切回 A 后奖励可再领一次，物品和工作找不回 | 被数据表筛掉的 id 放进 `held`（`core/held.ts`），下次清洗前先接回原处重新认：认识了回到原清单，不认识继续寄存。覆盖 `checkins`、`seen`、`photos`、`collected`、`certs`、`dex`、`dexSets`、`duos`、`achClaimed`、背包、工作 | 「寄存」三条 |
 
+另：v106 的随机数密钥（`core/prf.ts`）**不放在存档里**，单独存在 `rk:<id> = { key, day }`，读档时拼到内存里的 `state.rngKey` / `rngDay`，落盘前清空（`persistMany`）。这是 §5.1 第 6 条「不放秘密」的加强版：存档顶层字段会被不认识它的分支当成未知字段带进 `export`，`publicState` 清不掉别的分支的字段。删号时 `rk:<id>` 一起删。
+
 第 12 条的边界：只对 v106 及以后的代码有效。切到 v105 或更早的代码时，那版代码照旧裁掉不认识的 id，不会放进 `held`（但会把 `held` 当未知顶层字段原样带着）。
 没有覆盖的字段：车辆、住处、宠物、心愿、职业履历（`careerLevels`）里的未知 id 仍会被清掉。每个清单最多寄存 60 个 id；被正式删除的旧内容也会留在 `held` 里，占这个名额。
 

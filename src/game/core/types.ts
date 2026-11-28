@@ -841,7 +841,7 @@ export interface Pet {
 export interface HeldIds {
 	lists?: Record<string, string[]>;
 	inv?: Record<string, number>;
-	job?: Record<string, string | number>;
+	job?: Record<string, string | number | { y: number; d: number }>;
 }
 
 export interface PlayerState {
@@ -886,8 +886,8 @@ export interface PlayerState {
 	holdings: Record<string, Holding>; // 资产 id -> 持仓（第 25 批）
 	quotes?: Record<string, number[]>; // 只在发给客户端的副本里有（publicState 填）：每种资产最近几天的价格，客户端没有行情种子，靠它显示行情
 	marketSeed: number; // 行情种子：创建时由服务端随机种子派生，不发给客户端（publicState 清零），否则能推算未来价格
-	rngKey: string; // 随机数密钥（v106）：32 位十六进制 = 128 位，服务端生成，不发给客户端（publicState 清空）。空串 = 旧算法（模拟、测试、还没补密钥的旧存档）。见 core/prf.ts
-	rngDay: number; // 行情从哪个游戏日之后改用密钥（那天及以前按旧算法，历史价格不变）。没有密钥时为 0
+	rngKey: string; // 随机数密钥（v106）：32 位十六进制 = 128 位。只在服务端内存里有：存在 rk:<id>，读档时拼上，落盘和发给客户端前都清成空串。空串 = 旧算法（模拟、测试、客户端）。见 core/prf.ts
+	rngDay: number; // 行情从哪个游戏日之后改用密钥（那天及以前按旧算法，历史价格不变）。和 rngKey 一起只在服务端内存里有，其余时候为 0
 	held: HeldIds; // 寄存（v106）：这版代码不认识的成就、打卡、物品、工作等 id，原样留着，等认识它们的代码回来再放回去。见 core/held.ts
 	bank: BankState; // 银行、信用卡、贷款、先买后付和信用记录（banking.md）
 	flatshare: Flatshare; // 室友与合租（见 docs/earth-game/flatmates.md）；没有住处或住自有房时 mates 为空
